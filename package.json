@@ -1,0 +1,21 @@
+{
+  "name": "inkwell",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A federated social journaling platform — your journal, your friends, your space.",
+  "workspaces": [
+    "apps/web",
+    "services/federation",
+    "packages/types"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:federation": "npm run dev --workspace=services/federation",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:federation": "npm run build --workspace=services/federation",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d"
+  }
+}

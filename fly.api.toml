@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────────────
+# Fly.io config for Inkwell Phoenix API
+# Deploy with: fly deploy --config fly.api.toml
+# ──────────────────────────────────────────────────────────────
+
+app = "inkwell-api"
+primary_region = "ord"
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+  [build.args]
+    ELIXIR_VERSION = "1.18.4"
+    OTP_VERSION = "27.3.4"
+
+[env]
+  PORT = "4000"
+  PHX_HOST = "inkwell-api.fly.dev"
+  POOL_SIZE = "5"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

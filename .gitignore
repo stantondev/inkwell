@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+deps/
+_build/
+
+# Build output
+.next/
+out/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Elixir
+*.ez
+erl_crash.dump
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database
+*.db
+pgdata/
+
+# Uploads
+uploads/
+
+# Coverage
+cover/
+coverage/
+
+# Dev supervisor
+.inkwell/
+supervisord.conf
+setup-supervisor.sh
+
+# Logs
+*.log

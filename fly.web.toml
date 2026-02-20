@@ -1,0 +1,41 @@
+# ──────────────────────────────────────────────────────────────
+# Fly.io config for Inkwell Next.js Frontend
+# Deploy with: fly deploy --config fly.web.toml
+# ──────────────────────────────────────────────────────────────
+
+app = "inkwell-web"
+primary_region = "ord"
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://inkwell-api.fly.dev"
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  API_URL = "https://inkwell-api.fly.dev"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "15s"
+  method = "GET"
+  path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

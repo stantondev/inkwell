@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --surface: #ffffff;
+  --surface-hover: #f5f5f4;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --muted: #78716c;
+  --accent: #7c3aed;
+  --accent-light: #ede9fe;
+  --accent-dark: #5b21b6;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --ink: #292524;
+  --serif: "Lora", "Georgia", serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-ink: var(--ink);
+  --font-sans: var(--font-inter);
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0a09;
+    --foreground: #e7e5e4;
+    --surface: #1c1917;
+    --surface-hover: #292524;
+    --border: #292524;
+    --border-strong: #44403c;
+    --muted: #a8a29e;
+    --accent: #a78bfa;
+    --accent-light: #1e1b4b;
+    --accent-dark: #c4b5fd;
+    --ink: #fafaf9;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Prose styles for journal entries */
+.prose-entry {
+  font-family: var(--serif);
+  line-height: 1.8;
+  font-size: 1.125rem;
+}
+
+.prose-entry h1,
+.prose-entry h2,
+.prose-entry h3 {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose-entry p {
+  margin-bottom: 1em;
+}
+
+.prose-entry blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.prose-entry code {
+  font-family: var(--font-mono), monospace;
+  background: var(--surface-hover);
+  padding: 0.15em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.prose-entry pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+}
+
+.prose-entry a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-entry img {
+  border-radius: 8px;
+  max-width: 100%;
+}

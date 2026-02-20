@@ -1,0 +1,23 @@
+# Common ignores for both API and Web Docker builds
+.git/
+.github/
+node_modules/
+apps/api/_build/
+apps/api/deps/
+apps/api/.elixir_ls/
+apps/web/.next/
+apps/web/node_modules/
+services/
+pgdata/
+.inkwell/
+*.log
+.env
+.env.*
+*.md
+README.md
+docker-compose.yml
+dev.sh
+deploy.sh
+supervisord.conf
+setup-supervisor.sh
+fly.*.toml
