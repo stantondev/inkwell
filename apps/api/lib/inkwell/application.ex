@@ -6,9 +6,23 @@ defmodule Inkwell.Application do
   @impl true
   def start(_type, _args) do
     redis_url = Application.get_env(:inkwell, :redis_url, "redis://localhost:6379")
+
+    # Upstash Redis requires TLS — detect by URL scheme or hostname
+    use_tls =
+      String.starts_with?(redis_url, "rediss://") or
+        String.contains?(redis_url, "upstash")
+
+    # Normalize rediss:// → redis:// so Redix parses the URL correctly;
+    # we enable TLS via the socket option instead.
+    normalized_url = String.replace(redis_url, "rediss://", "redis://")
+
     redix_children =
       for i <- 0..4 do
-        Supervisor.child_spec({Redix, {redis_url, [name: :"redix_#{i}"]}}, id: {Redix, i})
+        opts =
+          [name: :"redix_#{i}"] ++
+            if(use_tls, do: [tls: true], else: [])
+
+        Supervisor.child_spec({Redix, {normalized_url, opts}}, id: {Redix, i})
       end
 
     children =
