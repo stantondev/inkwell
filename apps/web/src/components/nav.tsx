@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SessionUser } from "@/lib/session";
+import { SignOutButton } from "./sign-out-button";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -81,6 +82,8 @@ export function Nav({ user }: { user: SessionUser | null }) {
                 aria-label="Your profile">
                 <Avatar url={user.avatar_url} name={user.display_name} size={32} />
               </Link>
+
+              <SignOutButton />
             </>
           ) : (
             <>
