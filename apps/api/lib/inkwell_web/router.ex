@@ -87,6 +87,12 @@ defmodule InkwellWeb.Router do
     post "/notifications/read", NotificationController, :mark_read
   end
 
+  # Health check — used by Fly.io to confirm the machine is alive
+  scope "/", InkwellWeb do
+    pipe_through :api
+    get "/health", HealthController, :check
+  end
+
   # ActivityPub / Federation endpoints (handled by Phoenix, data from Fedify)
   scope "/", InkwellWeb do
     get "/.well-known/webfinger", FederationController, :webfinger
