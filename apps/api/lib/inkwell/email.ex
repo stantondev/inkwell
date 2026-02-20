@@ -44,8 +44,8 @@ defmodule Inkwell.Email do
 
         {:ok, {{_, status, _}, _headers, resp_body}} ->
           require Logger
-          Logger.error("Resend API error #{status}: #{resp_body}")
-          {:error, :send_failed}
+          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
+          {:error, {:resend_error, status, to_string(resp_body)}}
 
         {:error, reason} ->
           require Logger
