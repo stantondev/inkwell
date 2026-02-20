@@ -2,9 +2,7 @@ defmodule InkwellWeb.AuthController do
   use InkwellWeb, :controller
 
   alias Inkwell.Accounts
-
-  @magic_link_ttl 900         # 15 minutes
-  @api_token_ttl  2_592_000   # 30 days
+  alias Inkwell.Auth
 
   # POST /api/auth/magic-link
   def send_magic_link(conn, %{"email" => email}) do
@@ -24,16 +22,25 @@ defmodule InkwellWeb.AuthController do
         existing -> existing
       end
 
-    token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-    Inkwell.Redis.command!(["SETEX", "magic_link:#{token}", @magic_link_ttl, user.id])
+    # Create token in Postgres
+    token = Auth.create_magic_link_token(user.id)
 
     # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
     magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
 
-    if Application.get_env(:inkwell, :env) == :prod do
-      json(conn, %{ok: true})
-    else
-      json(conn, %{ok: true, dev_magic_link: magic_link})
+    # Send the email (or fall back to dev mode if no API key)
+    case Inkwell.Email.send_magic_link(email, magic_link) do
+      {:ok, :sent} ->
+        json(conn, %{ok: true})
+
+      {:ok, :no_email_configured, _link} ->
+        # No email service configured — return the link directly for dev/testing
+        json(conn, %{ok: true, dev_magic_link: magic_link})
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Failed to send email. Please try again."})
     end
   end
 
@@ -45,15 +52,15 @@ defmodule InkwellWeb.AuthController do
   # Called server-side by Next.js /auth/verify route handler.
   # Returns a long-lived API token instead of a session cookie redirect.
   def verify_magic_link(conn, %{"token" => token}) do
-    case Inkwell.Redis.command!(["GETDEL", "magic_link:#{token}"]) do
-      nil ->
+    case Auth.verify_magic_link_token(token) do
+      :error ->
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid or expired magic link"})
 
-      user_id ->
+      {:ok, user_id} ->
         user = Accounts.get_user!(user_id)
 
-        api_token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-        Inkwell.Redis.command!(["SETEX", "api_token:#{api_token}", @api_token_ttl, user.id])
+        # Create a long-lived API session token in Postgres
+        api_token = Auth.create_api_session_token(user.id)
 
         json(conn, %{
           ok: true,
@@ -74,10 +81,9 @@ defmodule InkwellWeb.AuthController do
 
   # DELETE /api/auth/session
   def sign_out(conn, _params) do
-    # If a Bearer token was used, revoke it in Redis
     case get_req_header(conn, "authorization") do
       ["Bearer " <> token | _] ->
-        Inkwell.Redis.command!(["DEL", "api_token:#{String.trim(token)}"])
+        Auth.revoke_api_session_token(String.trim(token))
       _ -> :ok
     end
 

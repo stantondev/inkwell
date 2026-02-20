@@ -19,7 +19,7 @@ defmodule InkwellWeb.Plugs.RequireAuth do
   end
 
   defp authenticate_with_token(conn, token) do
-    case Inkwell.Redis.command!(["GET", "api_token:#{token}"]) do
+    case Inkwell.Auth.verify_api_session_token(token) do
       nil ->
         conn
         |> put_status(:unauthorized)

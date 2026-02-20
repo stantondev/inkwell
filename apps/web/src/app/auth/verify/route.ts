@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
   // Use the Host header to build redirects so the browser gets the real IP,
   // not 0.0.0.0 (which is what Next.js sees as its own address).
   const host = request.headers.get("host") ?? request.nextUrl.host;
-  const origin = `http://${host}`;
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const origin = `${proto}://${host}`;
 
   const token = request.nextUrl.searchParams.get("token");
 

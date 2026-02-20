@@ -46,6 +46,10 @@ if config_env() == :prod do
   config :inkwell, :frontend_url, frontend_url
   config :inkwell, :cors_origins, [frontend_url]
 
+  # Email via Resend
+  config :inkwell, :resend_api_key, System.get_env("RESEND_API_KEY")
+  config :inkwell, :from_email, System.get_env("FROM_EMAIL") || "Inkwell <onboarding@resend.dev>"
+
   # Search (optional — disabled if MEILI_URL not set)
   config :inkwell, Inkwell.Search,
     url: System.get_env("MEILI_URL") || "http://localhost:7700",
