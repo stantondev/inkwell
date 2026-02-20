@@ -8,6 +8,9 @@
 # Note: This project uses npm workspaces with the lock file at
 # the repo root. We copy both the root and web package files so
 # npm can resolve dependencies correctly.
+#
+# With workspaces, Next.js standalone output nests server.js at
+# apps/web/server.js inside the standalone dir, not at the root.
 # ──────────────────────────────────────────────────────────────
 
 FROM node:20-slim AS base
@@ -33,6 +36,10 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 # Build Next.js from the web workspace
 RUN npm run build --workspace=apps/web
 
+# Debug: show standalone output structure so we can verify paths
+RUN ls -la /app/apps/web/.next/standalone/ && \
+    ls -la /app/apps/web/.next/standalone/apps/web/ 2>/dev/null || true
+
 # ── Stage 2: Runtime ─────────────────────────────────────────
 FROM base AS runner
 WORKDIR /app
@@ -44,13 +51,16 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy standalone output (requires output: "standalone" in next.config)
-COPY --from=builder /app/apps/web/public ./public
+# Copy the entire standalone output (preserves workspace structure)
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+
+# Copy static assets into the nested workspace path where server.js expects them
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# server.js is nested under apps/web/ due to workspace structure
+CMD ["node", "apps/web/server.js"]
