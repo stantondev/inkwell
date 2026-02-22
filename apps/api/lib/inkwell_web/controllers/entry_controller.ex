@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals, Social, Stamps}
+  alias Inkwell.{Accounts, Journals, Repo, Social, Stamps}
   alias InkwellWeb.UserController
 
   # GET /api/users/:username/entries — public listing
@@ -14,11 +14,20 @@ defmodule InkwellWeb.EntryController do
       opts = [page: page, per_page: per_page]
 
       entries =
-        if viewer && (viewer.id == user.id || Social.is_friend?(viewer.id, user.id)) do
-          # Friends or owner: include friends_only entries
-          Journals.list_entries(user.id, Keyword.put(opts, :privacy, [:public, :friends_only]))
-        else
-          Journals.list_public_entries(user.id, opts)
+        cond do
+          viewer && viewer.id == user.id ->
+            # Owner: see everything
+            Journals.list_entries(user.id, opts)
+
+          viewer && Social.is_friend?(viewer.id, user.id) ->
+            # Friends: public + friends_only + custom entries where viewer is in the filter
+            all = Journals.list_entries(user.id, Keyword.put(opts, :privacy, [:public, :friends_only, :custom]))
+            Enum.filter(all, fn entry ->
+              entry.privacy != :custom || viewer_in_custom_filter?(entry, viewer.id)
+            end)
+
+          true ->
+            Journals.list_public_entries(user.id, opts)
         end
 
       entry_ids = Enum.map(entries, & &1.id)
@@ -63,8 +72,15 @@ defmodule InkwellWeb.EntryController do
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
           end
 
-        entry.privacy in [:friends_only, :custom] ->
+        entry.privacy == :friends_only ->
           if viewer && (viewer.id == user.id || Social.is_friend?(viewer.id, user.id)) do
+            json(conn, %{data: render_with_stamps.()})
+          else
+            conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+          end
+
+        entry.privacy == :custom ->
+          if viewer && (viewer.id == user.id || viewer_in_custom_filter?(entry, viewer.id)) do
             json(conn, %{data: render_with_stamps.()})
           else
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
@@ -101,21 +117,27 @@ defmodule InkwellWeb.EntryController do
     attrs =
       params
       |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                   "privacy", "user_icon_id", "tags", "published_at"])
+                   "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
       |> Map.put("user_id", user.id)
       |> maybe_generate_slug(params)
       |> maybe_generate_ap_id(user)
+      |> maybe_clear_custom_filter_id()
 
-    case Journals.create_entry(attrs) do
-      {:ok, entry} ->
-        conn
-        |> put_status(:created)
-        |> json(%{data: render_entry_full(entry, user)})
+    with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+      case Journals.create_entry(attrs) do
+        {:ok, entry} ->
+          conn
+          |> put_status(:created)
+          |> json(%{data: render_entry_full(entry, user)})
 
-      {:error, changeset} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{errors: format_errors(changeset)})
+        {:error, changeset} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{errors: format_errors(changeset)})
+      end
+    else
+      {:error, :filter_not_found} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
     end
   end
 
@@ -124,17 +146,25 @@ defmodule InkwellWeb.EntryController do
     user = conn.assigns.current_user
 
     with {:ok, entry} <- get_owned_entry(user.id, id) do
-      attrs = Map.take(params, ["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                                "privacy", "user_icon_id", "tags", "published_at"])
+      attrs =
+        params
+        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+                      "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
+        |> maybe_clear_custom_filter_id()
 
-      case Journals.update_entry(entry, attrs) do
-        {:ok, updated} ->
-          json(conn, %{data: render_entry_full(updated, user)})
+      with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+        case Journals.update_entry(entry, attrs) do
+          {:ok, updated} ->
+            json(conn, %{data: render_entry_full(updated, user)})
 
-        {:error, changeset} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{errors: format_errors(changeset)})
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_errors(changeset)})
+        end
+      else
+        {:error, :filter_not_found} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
       end
     else
       {:error, :forbidden} ->
@@ -171,6 +201,35 @@ defmodule InkwellWeb.EntryController do
   end
 
   # ── Helpers ───────────────────────────────────────────────────────────────
+
+  defp viewer_in_custom_filter?(entry, viewer_id) do
+    entry = Repo.preload(entry, :custom_filter)
+
+    case entry.custom_filter do
+      nil -> false
+      filter -> viewer_id in filter.member_ids
+    end
+  end
+
+  defp validate_custom_filter_ownership(attrs, user_id) do
+    cond do
+      attrs["privacy"] != "custom" -> :ok
+      is_nil(attrs["custom_filter_id"]) -> :ok
+      true ->
+        filters = Social.list_friend_filters(user_id)
+        if Enum.any?(filters, &(&1.id == attrs["custom_filter_id"])) do
+          :ok
+        else
+          {:error, :filter_not_found}
+        end
+    end
+  end
+
+  # Clear custom_filter_id when privacy is not :custom
+  defp maybe_clear_custom_filter_id(%{"privacy" => privacy} = attrs) when privacy != "custom" do
+    Map.put(attrs, "custom_filter_id", nil)
+  end
+  defp maybe_clear_custom_filter_id(attrs), do: attrs
 
   defp get_owned_entry(user_id, entry_id) do
     entry = Journals.get_entry!(entry_id)
@@ -219,6 +278,7 @@ defmodule InkwellWeb.EntryController do
       music: entry.music,
       music_metadata: entry.music_metadata,
       privacy: entry.privacy,
+      custom_filter_id: entry.custom_filter_id,
       user_icon_id: entry.user_icon_id,
       slug: entry.slug,
       tags: entry.tags,

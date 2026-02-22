@@ -55,17 +55,30 @@ defmodule Inkwell.Journals do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
 
+    # Get IDs of custom-privacy filters that include this user
+    custom_filter_ids = get_filters_containing_user(user_id)
+
     Entry
     |> where([e], not is_nil(e.published_at))
     |> where([e],
-        # Own entries (any privacy except drafts) OR friends' public/friends-only entries
+        # Own entries (any privacy except drafts)
         e.user_id == ^user_id or
-        (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only])
+        # Friends' public/friends-only entries
+        (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only]) or
+        # Custom-privacy entries where viewer is in the filter
+        (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids)
       )
     |> order_by(desc: :published_at)
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
     |> preload([:user, :user_icon])
+    |> Repo.all()
+  end
+
+  defp get_filters_containing_user(user_id) do
+    Inkwell.Social.FriendFilter
+    |> where([f], ^user_id in f.member_ids)
+    |> select([f], f.id)
     |> Repo.all()
   end
 

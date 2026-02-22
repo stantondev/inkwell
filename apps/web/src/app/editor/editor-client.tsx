@@ -14,11 +14,18 @@ import { parseMusicUrl } from "@/lib/music";
 
 type Privacy = "public" | "friends_only" | "private" | "custom";
 
+interface FriendFilter {
+  id: string;
+  name: string;
+  member_ids: string[];
+}
+
 interface EditorState {
   title: string;
   mood: string;
   music: string;
   privacy: Privacy;
+  customFilterId: string | null;
   tags: string;
 }
 
@@ -324,7 +331,7 @@ export function EditorClient() {
   const editId = searchParams.get("edit");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", tags: "",
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "",
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
@@ -336,6 +343,8 @@ export function EditorClient() {
   const [entryAuthor, setEntryAuthor] = useState<string | null>(null);
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
+  const [filters, setFilters] = useState<FriendFilter[]>([]);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -355,6 +364,24 @@ export function EditorClient() {
     },
   });
 
+  // Fetch filters when privacy is set to "custom"
+  useEffect(() => {
+    if (state.privacy !== "custom" || filtersLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/filters");
+        if (res.ok) {
+          const { data } = await res.json();
+          setFilters(data ?? []);
+        }
+      } catch {
+        // ignore
+      } finally {
+        setFiltersLoaded(true);
+      }
+    })();
+  }, [state.privacy, filtersLoaded]);
+
   // Load existing entry when editing
   useEffect(() => {
     if (!editId || !editor) return;
@@ -373,6 +400,7 @@ export function EditorClient() {
           mood: entry.mood ?? "",
           music: entry.music ?? "",
           privacy: entry.privacy ?? "public",
+          customFilterId: entry.custom_filter_id ?? null,
           tags: Array.isArray(entry.tags) ? entry.tags.join(", ") : (entry.tags ?? ""),
         });
 
@@ -435,6 +463,7 @@ export function EditorClient() {
     mood: state.mood || null,
     music: state.music || null,
     privacy: state.privacy,
+    custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
     tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
   });
 
@@ -642,7 +671,7 @@ export function EditorClient() {
                   Privacy
                 </label>
                 <select value={state.privacy}
-                  onChange={(e) => update({ privacy: e.target.value as Privacy })}
+                  onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
                   className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
                   {PRIVACY_OPTIONS.map((opt) => (
@@ -650,6 +679,37 @@ export function EditorClient() {
                   ))}
                 </select>
               </div>
+              {state.privacy === "custom" && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                    Filter
+                  </label>
+                  {!filtersLoaded ? (
+                    <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading filters...</span>
+                  ) : filters.length === 0 ? (
+                    <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
+                      No filters yet.{" "}
+                      <NextLink href="/settings/filters" className="underline" style={{ color: "var(--accent)" }}>
+                        Create your first filter
+                      </NextLink>
+                    </div>
+                  ) : (
+                    <select
+                      value={state.customFilterId ?? ""}
+                      onChange={(e) => update({ customFilterId: e.target.value || null })}
+                      className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                      style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                    >
+                      <option value="">Select a filter...</option>
+                      {filters.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name} ({f.member_ids.length} {f.member_ids.length === 1 ? "member" : "members"})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
                   Tags
