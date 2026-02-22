@@ -42,7 +42,7 @@ if config_env() == :prod do
     url: redis_url
 
   # CORS — allow the frontend domain
-  frontend_url = System.get_env("FRONTEND_URL") || "https://inkwell-web.fly.dev"
+  frontend_url = System.get_env("FRONTEND_URL") || "https://inkwell.social"
   config :inkwell, :frontend_url, frontend_url
   config :inkwell, :cors_origins, [frontend_url]
 
@@ -76,5 +76,5 @@ if config_env() == :prod do
   # Federation / ActivityPub
   config :inkwell, :federation,
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
-    frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell-web.fly.dev"
+    frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell.social"
 end

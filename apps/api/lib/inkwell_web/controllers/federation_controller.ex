@@ -582,6 +582,6 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp default_config(:instance_host), do: "inkwell-api.fly.dev"
-  defp default_config(:frontend_host), do: "https://inkwell-web.fly.dev"
+  defp default_config(:frontend_host), do: "https://inkwell.social"
   defp default_config(_), do: nil
 end

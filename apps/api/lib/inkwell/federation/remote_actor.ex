@@ -70,7 +70,7 @@ defmodule Inkwell.Federation.RemoteActor do
 
     headers = [
       {~c"accept", ~c"application/activity+json, application/ld+json"},
-      {~c"user-agent", ~c"Inkwell/0.1 (+https://inkwell-web.fly.dev)"}
+      {~c"user-agent", ~c"Inkwell/0.1 (+https://inkwell.social)"}
     ]
 
     case :httpc.request(:get, {String.to_charlist(actor_uri), headers}, [{:timeout, 10_000}], []) do

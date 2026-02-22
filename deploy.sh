@@ -174,7 +174,7 @@ set_secrets() {
   if echo "$existing_secrets" | grep -q "FRONTEND_URL"; then
     info "FRONTEND_URL already set"
   else
-    fly secrets set FRONTEND_URL="https://inkwell-web.fly.dev" --app inkwell-api
+    fly secrets set FRONTEND_URL="https://inkwell.social" --app inkwell-api
     ok "FRONTEND_URL set"
   fi
 }
@@ -211,7 +211,7 @@ deploy_web() {
   if [ $? -eq 0 ]; then
     ok "Frontend deployed successfully!"
     echo ""
-    echo -e "  Frontend URL: ${CYAN}https://inkwell-web.fly.dev${NC}"
+    echo -e "  Frontend URL: ${CYAN}https://inkwell.social${NC}"
   else
     fail "Frontend deployment failed"
     echo "  Check logs: fly logs --app inkwell-web"
@@ -255,8 +255,8 @@ full_deploy() {
   echo -e "${GREEN}  Inkwell is live!${NC}"
   echo -e "${GREEN}═══════════════════════════════════════════${NC}"
   echo ""
-  echo -e "  Frontend  →  ${CYAN}https://inkwell-web.fly.dev${NC}"
-  echo -e "  API       →  ${CYAN}https://inkwell-api.fly.dev${NC}"
+  echo -e "  Frontend  →  ${CYAN}https://inkwell.social${NC}"
+  echo -e "  API       →  ${CYAN}https://api.inkwell.social${NC}"
   echo ""
   echo -e "  Useful commands:"
   echo -e "    fly logs --app inkwell-api     View API logs"
