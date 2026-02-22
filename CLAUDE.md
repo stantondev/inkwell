@@ -250,7 +250,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Final step saves all fields and redirects to `/feed`
 - Shared utility: `apps/web/src/lib/image-utils.ts` — `resizeImage()` (square crop) and `resizeBackgroundImage()` (aspect-preserving)
 
-### Friend Filters (API Only — No UI Yet)
+### Friend Filters (Full Implementation)
 - Named lists of pen pals used for custom entry privacy (e.g., "Close Friends", "College Crew")
 - **Backend**:
   - `apps/api/lib/inkwell/social/friend_filter.ex` — Ecto schema: `name` (string, max 100), `member_ids` (UUID array), `user_id` (FK)
@@ -260,9 +260,15 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Migration: `20260214000003`
 - **Entry integration**:
   - Entry schema has `privacy` enum (`:public`, `:friends_only`, `:private`, `:custom`) and `custom_filter_id` (FK to `friend_filters`, nilify on delete)
-  - Editor UI shows "Custom filter" privacy option but has NO filter selector dropdown
-  - **Visibility enforcement is incomplete**: `:custom` entries are currently treated the same as `:friends_only` — the `member_ids` list is never checked
-- **No frontend proxy routes or management UI exist**
+  - Entry create/update accepts `custom_filter_id`; validates the filter belongs to the current user; auto-clears `custom_filter_id` when privacy is not `:custom`
+  - **Visibility enforcement**: `:custom` entries are visible only to the entry owner and users whose IDs are in the filter's `member_ids` array
+  - Feed query (`list_feed_entries`) includes custom-privacy entries by querying filters that contain the viewer's user ID
+  - Entry show action preloads the `custom_filter` association and checks `member_ids` membership
+  - Profile entry listing includes custom entries for friends but filters by `member_ids`
+- **Frontend**:
+  - Settings page: `apps/web/src/app/settings/filters/page.tsx` + `filters-manager.tsx` — CRUD for filters with multi-select pen pal picker and avatar chips
+  - Editor integration: when privacy is "Custom filter", a dropdown of the user's filters appears; shows "Create your first filter" link if none exist
+  - Proxy routes: `apps/web/src/app/api/filters/route.ts` (GET/POST), `apps/web/src/app/api/filters/[id]/route.ts` (PATCH/DELETE), `apps/web/src/app/api/pen-pals/route.ts` (GET)
 
 ### Other Features
 - **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility (public/friends_only/private/custom)
@@ -291,7 +297,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
 ### Settings Tabs
-Profile | Top 6 | Billing | Customize
+Profile | Top 6 | Filters | Billing | Customize
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
@@ -321,7 +327,7 @@ Profile | Top 6 | Billing | Customize
 ### Important
 - **Token cleanup** — `Inkwell.Auth.cleanup_expired_tokens/0` exists but is not scheduled (should add an Oban job)
 - **`force_ssl` removed** — was causing health check 301 loops. Fly terminates TLS at the edge, but consider adding HSTS headers
-- **Friend filters visibility not enforced** — Entry privacy `:custom` is treated the same as `:friends_only` in the show action; the `member_ids` list in the custom filter is never checked. Feed/explore queries also don't respect custom privacy.
+- **Friend filter entry count on delete** — Delete confirmation warns about entries using a filter, but the count is hardcoded to 0 (would need a query to count entries with that `custom_filter_id`)
 
 ### Nice to Have
 - **CI/CD** — `.github/workflows/deploy.yml` exists but needs `FLY_API_TOKEN` secret set in GitHub repo settings
