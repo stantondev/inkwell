@@ -54,4 +54,27 @@ if config_env() == :prod do
   config :inkwell, Inkwell.Search,
     url: System.get_env("MEILI_URL") || "http://localhost:7700",
     api_key: System.get_env("MEILI_API_KEY")
+
+  # Admin usernames (comma-separated list)
+  config :inkwell, :admin_usernames,
+    System.get_env("ADMIN_USERNAMES", "")
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+
+  # Stripe billing (optional — disabled if STRIPE_SECRET_KEY not set)
+  config :inkwell, :stripe,
+    secret_key: System.get_env("STRIPE_SECRET_KEY"),
+    webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET"),
+    price_id: System.get_env("STRIPE_PRICE_ID"),
+    success_url: "#{frontend_url}/settings/billing?success=true",
+    cancel_url: "#{frontend_url}/settings/billing?canceled=true"
+
+  # Feedback email recipient
+  config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "stanton@inkwell.social"
+
+  # Federation / ActivityPub
+  config :inkwell, :federation,
+    instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
+    frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell-web.fly.dev"
 end

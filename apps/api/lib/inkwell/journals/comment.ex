@@ -22,7 +22,7 @@ defmodule Inkwell.Journals.Comment do
 
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:body_html, :entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author])
+    |> cast(attrs, [:body_html, :entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id])
     |> validate_required([:body_html, :entry_id])
     |> validate_has_author()
     |> compute_depth()

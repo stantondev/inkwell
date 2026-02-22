@@ -12,6 +12,9 @@ export interface SessionUser {
   pronouns: string | null;
   ap_id: string;
   created_at: string;
+  is_admin?: boolean;
+  subscription_tier?: string;
+  settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 
 /**

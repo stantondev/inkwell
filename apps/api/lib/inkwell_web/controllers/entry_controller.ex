@@ -63,6 +63,22 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
+  # GET /api/entries/:id — fetch own entry for editing
+  def show_own(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case get_owned_entry(user.id, id) do
+      {:ok, entry} ->
+        json(conn, %{data: render_entry_full(entry, user)})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Not your entry"})
+    end
+  end
+
   # POST /api/entries
   def create(conn, params) do
     user = conn.assigns.current_user
@@ -70,7 +86,7 @@ defmodule InkwellWeb.EntryController do
     attrs =
       params
       |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                   "privacy", "user_icon_id", "tags", "published_at", "is_draft"])
+                   "privacy", "user_icon_id", "tags", "published_at"])
       |> Map.put("user_id", user.id)
       |> maybe_generate_slug(params)
       |> maybe_generate_ap_id(user)
@@ -93,7 +109,7 @@ defmodule InkwellWeb.EntryController do
     user = conn.assigns.current_user
 
     with {:ok, entry} <- get_owned_entry(user.id, id) do
-      attrs = Map.take(params, ["title", "body_html", "mood", "music", "music_metadata",
+      attrs = Map.take(params, ["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                                 "privacy", "user_icon_id", "tags", "published_at"])
 
       case Journals.update_entry(entry, attrs) do
@@ -105,6 +121,11 @@ defmodule InkwellWeb.EntryController do
           |> put_status(:unprocessable_entity)
           |> json(%{errors: format_errors(changeset)})
       end
+    else
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Not your entry"})
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
     end
   end
 
@@ -112,9 +133,25 @@ defmodule InkwellWeb.EntryController do
   def delete(conn, %{"id" => id}) do
     user = conn.assigns.current_user
 
-    with {:ok, entry} <- get_owned_entry(user.id, id) do
+    result =
+      if Accounts.is_admin?(user) do
+        try do
+          {:ok, Journals.get_entry!(id)}
+        rescue
+          Ecto.NoResultsError -> {:error, :not_found}
+        end
+      else
+        get_owned_entry(user.id, id)
+      end
+
+    with {:ok, entry} <- result do
       {:ok, _} = Journals.delete_entry(entry)
       send_resp(conn, :no_content, "")
+    else
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Not your entry"})
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
     end
   end
 
@@ -162,6 +199,7 @@ defmodule InkwellWeb.EntryController do
       user_id: entry.user_id,
       title: entry.title,
       body_html: entry.body_html,
+      body_raw: entry.body_raw,
       mood: entry.mood,
       music: entry.music,
       music_metadata: entry.music_metadata,

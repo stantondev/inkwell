@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { getSession } from "@/lib/session";
+import { FollowButton } from "./follow-button";
+import { MusicPlayer } from "@/components/music-player";
+import { EntryContent } from "@/components/entry-content";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -15,6 +19,7 @@ interface ProfileUser {
   pronouns: string | null;
   avatar_url: string | null;
   ap_id: string;
+  subscription_tier?: string;
   created_at: string;
 }
 
@@ -30,10 +35,15 @@ interface ProfileEntry {
   published_at: string;
 }
 
-interface TopFriend {
+interface TopFriendUser {
   username: string;
   display_name: string;
   avatar_url: string | null;
+}
+
+interface TopFriendSlot {
+  position: number;
+  user: TopFriendUser;
 }
 
 function timeAgo(isoString: string): string {
@@ -60,25 +70,39 @@ function Avatar({ url, name, size = 80 }: { url: string | null; name: string; si
   );
 }
 
-function TopFriends({ friends }: { friends: TopFriend[] }) {
-  if (friends.length === 0) return null;
+function TopFriends({ friends, isOwnProfile }: { friends: TopFriendSlot[]; isOwnProfile: boolean }) {
+  if (friends.length === 0 && !isOwnProfile) return null;
   return (
     <div className="rounded-xl border p-4"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-      <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
-        Top friends
-      </h3>
-      <div className="grid grid-cols-4 gap-2">
-        {friends.map((f) => (
-          <Link key={f.username} href={`/${f.username}`}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-medium uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+          Top Pen Pals
+        </h3>
+        {isOwnProfile && (
+          <Link href="/settings/top-friends" className="text-xs hover:underline"
+            style={{ color: "var(--accent)" }}>
+            Manage
+          </Link>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {friends.map((slot) => (
+          <Link key={slot.user.username} href={`/${slot.user.username}`}
             className="flex flex-col items-center gap-1 group">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
-              style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-              {f.display_name[0]}
-            </div>
+            {slot.user.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={slot.user.avatar_url} alt={slot.user.display_name}
+                className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                {slot.user.display_name[0]}
+              </div>
+            )}
             <span className="text-xs text-center leading-tight truncate w-full group-hover:underline"
               style={{ color: "var(--muted)" }}>
-              {f.display_name}
+              {slot.user.display_name}
             </span>
           </Link>
         ))}
@@ -110,9 +134,10 @@ function ProfileEntry({ entry, username }: { entry: ProfileEntry; username: stri
           {timeAgo(entry.published_at)}
         </span>
       </div>
-      <div className="prose-entry text-sm leading-relaxed line-clamp-3 mb-3"
-        dangerouslySetInnerHTML={{ __html: entry.body_html }} />
-      <div className="flex items-center justify-between">
+      <EntryContent html={entry.body_html} entryId={entry.id}
+        className="prose-entry text-sm leading-relaxed line-clamp-3 mb-3" />
+      <MusicPlayer music={entry.music} />
+      <div className="flex items-center justify-between mt-3">
         <div className="flex flex-wrap gap-1.5">
           {entry.tags.map((tag) => (
             <Link key={tag} href={`/tag/${tag}`}
@@ -142,17 +167,19 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
 
 export default async function ProfilePage({ params }: ProfileParams) {
   const { username } = await params;
+  const session = await getSession();
+  const isOwnProfile = session?.user.username === username;
 
   // Fetch user profile
   let profile: ProfileUser;
   let entries: ProfileEntry[] = [];
-  let topFriends: TopFriend[] = [];
+  let topFriends: TopFriendSlot[] = [];
   let entryCount = 0;
 
   try {
     const data = await apiFetch<{
       data: ProfileUser;
-      meta: { entry_count: number; top_friends: TopFriend[] };
+      meta: { entry_count: number; top_friends: TopFriendSlot[] };
     }>(`/api/users/${username}`);
 
     profile = data.data;
@@ -185,16 +212,26 @@ export default async function ProfilePage({ params }: ProfileParams) {
               <div className="rounded-full p-1" style={{ background: "var(--surface)" }}>
                 <Avatar url={profile.avatar_url} name={profile.display_name} size={80} />
               </div>
-              <button type="button"
-                className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                Follow
-              </button>
+              {isOwnProfile ? (
+                <Link href="/settings"
+                  className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                  style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                  Edit profile
+                </Link>
+              ) : (
+                <FollowButton targetUsername={username} />
+              )}
             </div>
 
             <div className="mb-2">
               <h1 className="text-2xl font-semibold leading-tight">
                 {profile.display_name}
+                {profile.subscription_tier === "plus" && (
+                  <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium align-middle"
+                    style={{ background: "var(--accent)", color: "#fff" }}>
+                    Plus
+                  </span>
+                )}
                 {profile.pronouns && (
                   <span className="ml-2 text-base font-normal" style={{ color: "var(--muted)" }}>
                     ({profile.pronouns})
@@ -252,7 +289,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           </section>
 
           <aside className="flex flex-col gap-6">
-            <TopFriends friends={topFriends} />
+            <TopFriends friends={topFriends} isOwnProfile={isOwnProfile} />
             <div className="rounded-xl border p-4"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
               <h3 className="text-xs font-medium uppercase tracking-widest mb-2" style={{ color: "var(--muted)" }}>

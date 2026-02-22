@@ -17,21 +17,27 @@ defmodule Inkwell.Social do
 
   def accept_follow(follower_id, following_id) do
     with {:ok, rel} <- get_relationship(follower_id, following_id) do
-      # Check if there's a reverse relationship (making it mutual)
-      reverse = get_relationship(following_id, follower_id)
-      is_mutual = match?({:ok, %{status: :accepted}}, reverse)
-
+      # Accept the incoming follow
       rel
-      |> Relationship.changeset(%{status: :accepted, is_mutual: is_mutual})
+      |> Relationship.changeset(%{status: :accepted, is_mutual: true})
       |> Repo.update()
       |> tap(fn {:ok, _} ->
-        # Update the reverse relationship's mutual flag too
-        if is_mutual do
-          case reverse do
-            {:ok, rev} ->
-              rev |> Relationship.changeset(%{is_mutual: true}) |> Repo.update()
-            _ -> :ok
-          end
+        # Auto-follow back to create a mutual pen pal connection
+        case get_relationship(following_id, follower_id) do
+          {:ok, rev} ->
+            # Reverse already exists — make sure it's accepted + mutual
+            rev |> Relationship.changeset(%{status: :accepted, is_mutual: true}) |> Repo.update()
+
+          {:error, :not_found} ->
+            # Create a reverse follow (auto-accepted, mutual)
+            %Relationship{}
+            |> Relationship.changeset(%{
+              follower_id: following_id,
+              following_id: follower_id,
+              status: :accepted,
+              is_mutual: true
+            })
+            |> Repo.insert()
         end
       end)
     end
@@ -107,6 +113,41 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  def reject_follow(follower_id, following_id) do
+    case get_relationship(follower_id, following_id) do
+      {:ok, %{status: :pending} = rel} -> Repo.delete(rel)
+      {:ok, _} -> {:error, :not_pending}
+      error -> error
+    end
+  end
+
+  # Pen Pals = mutual follows (is_mutual: true)
+  def list_pen_pals(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted and r.is_mutual == true)
+    |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.following_id == u.id)
+    |> select([r, u], u)
+    |> Repo.all()
+  end
+
+  # Readers = people following you (accepted, but you don't follow them back)
+  def list_readers(user_id) do
+    Relationship
+    |> where([r], r.following_id == ^user_id and r.status == :accepted and r.is_mutual == false)
+    |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.follower_id == u.id)
+    |> select([r, u], u)
+    |> Repo.all()
+  end
+
+  # Reading = people you follow (accepted, but they don't follow you back)
+  def list_reading(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted and r.is_mutual == false)
+    |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.following_id == u.id)
+    |> select([r, u], u)
+    |> Repo.all()
+  end
+
   def is_friend?(user_id, other_id) do
     Relationship
     |> where([r], r.follower_id == ^user_id and r.following_id == ^other_id and r.status == :accepted)
@@ -154,8 +195,11 @@ defmodule Inkwell.Social do
       # Delete existing
       TopFriend |> where(user_id: ^user_id) |> Repo.delete_all()
 
-      # Insert new
-      Enum.each(friends, fn %{friend_id: friend_id, position: position} ->
+      # Insert new (handle both string and atom keys from JSON params)
+      Enum.each(friends, fn entry ->
+        friend_id = entry["friend_id"] || entry[:friend_id]
+        position = entry["position"] || entry[:position]
+
         %TopFriend{}
         |> TopFriend.changeset(%{user_id: user_id, friend_id: friend_id, position: position})
         |> Repo.insert!()

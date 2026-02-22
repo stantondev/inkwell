@@ -3,8 +3,14 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
+import { MusicPlayer } from "@/components/music-player";
+import { EntryContent } from "@/components/entry-content";
 
 export const metadata: Metadata = { title: "Feed" };
+
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,8 +107,8 @@ function EntryCard({ entry }: { entry: FeedEntry }) {
             <Link href={href} className="hover:underline">{entry.title}</Link>
           </h2>
         )}
-        <div className="prose-entry text-sm leading-relaxed line-clamp-6"
-          dangerouslySetInnerHTML={{ __html: entry.body_html }} />
+        <EntryContent html={entry.body_html} entryId={entry.id}
+          className="prose-entry text-sm leading-relaxed line-clamp-6" />
         {entry.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-4">
             {entry.tags.map((tag) => (
@@ -114,6 +120,7 @@ function EntryCard({ entry }: { entry: FeedEntry }) {
             ))}
           </div>
         )}
+        <MusicPlayer music={entry.music} />
       </div>
 
       {/* Footer */}
@@ -147,7 +154,7 @@ function EmptyFeed({ username }: { username: string }) {
         Your feed is quiet
       </p>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        Follow some friends to see their journal entries here, or write your first entry.
+        Follow some pen pals to see their journal entries here, or write your first entry.
       </p>
       <div className="flex gap-3 justify-center flex-wrap">
         <Link href="/editor"
@@ -168,14 +175,17 @@ function EmptyFeed({ username }: { username: string }) {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
-export default async function FeedPage() {
+export default async function FeedPage({ searchParams }: PageProps) {
   const session = await getSession();
   if (!session) notFound();
+
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
   let entries: FeedEntry[] = [];
   try {
     const data = await apiFetch<{ data: FeedEntry[] }>(
-      "/api/feed",
+      `/api/feed?page=${page}`,
       {},
       session.token
     );
@@ -191,11 +201,11 @@ export default async function FeedPage() {
           {/* Feed */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-lg font-semibold">Friends feed</h1>
+              <h1 className="text-lg font-semibold">Pen Pals feed</h1>
               <div className="flex gap-2">
                 <span className="text-xs px-3 py-1 rounded-full border font-medium"
                   style={{ borderColor: "var(--accent)", background: "var(--accent-light)", color: "var(--accent)" }}>
-                  Friends
+                  Pen Pals
                 </span>
                 <Link href="/explore" className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
@@ -207,9 +217,25 @@ export default async function FeedPage() {
             {entries.length === 0 ? (
               <EmptyFeed username={session.user.username} />
             ) : (
-              <div className="flex flex-col gap-5">
-                {entries.map((entry) => <EntryCard key={entry.id} entry={entry} />)}
-              </div>
+              <>
+                <div className="flex flex-col gap-5">
+                  {entries.map((entry) => <EntryCard key={entry.id} entry={entry} />)}
+                </div>
+                <div className="flex justify-between mt-8 text-sm">
+                  {page > 1 ? (
+                    <Link href={`/feed?page=${page - 1}`}
+                      className="font-medium hover:underline" style={{ color: "var(--accent)" }}>
+                      ← Newer
+                    </Link>
+                  ) : <span />}
+                  {entries.length === 20 && (
+                    <Link href={`/feed?page=${page + 1}`}
+                      className="font-medium hover:underline" style={{ color: "var(--accent)" }}>
+                      Older →
+                    </Link>
+                  )}
+                </div>
+              </>
             )}
           </section>
 
@@ -242,6 +268,32 @@ export default async function FeedPage() {
                 </div>
               </Link>
             </div>
+            {session.user.subscription_tier !== "plus" && (
+              <div className="rounded-xl border p-4"
+                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                <h3 className="text-xs font-medium uppercase tracking-widest mb-2"
+                  style={{ color: "var(--muted)" }}>Support Inkwell</h3>
+                <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+                  Upgrade to Plus for $5/mo — unlock extra features and keep Inkwell ad-free.
+                </p>
+                <Link href="/settings/billing"
+                  className="block text-center rounded-full py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                  style={{ background: "var(--accent)", color: "#fff" }}>
+                  Upgrade to Plus
+                </Link>
+              </div>
+            )}
+
+            {/* Roadmap link */}
+            <Link href="/roadmap"
+              className="flex items-center gap-2 text-xs transition-colors hover:underline"
+              style={{ color: "var(--muted)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Roadmap & Feedback
+            </Link>
           </aside>
         </div>
       </div>

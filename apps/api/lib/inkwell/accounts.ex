@@ -25,6 +25,16 @@ defmodule Inkwell.Accounts do
     |> Repo.update()
   end
 
+  def update_username(%User{} = user, attrs) do
+    user
+    |> User.username_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def username_available?(username) do
+    not Repo.exists?(from u in User, where: u.username == ^username)
+  end
+
   # User Icons
 
   def list_user_icons(user_id) do
@@ -55,6 +65,7 @@ defmodule Inkwell.Accounts do
     |> order_by(desc: :inserted_at)
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
+    |> preload(:actor)
     |> Repo.all()
   end
 
@@ -69,4 +80,12 @@ defmodule Inkwell.Accounts do
     |> where([n], n.user_id == ^user_id and n.id in ^notification_ids)
     |> Repo.update_all(set: [read: true])
   end
+
+  # Admin
+
+  def is_admin?(%User{username: username}) do
+    admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
+    username in admin_usernames
+  end
+  def is_admin?(_), do: false
 end

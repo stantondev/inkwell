@@ -4,7 +4,7 @@ defmodule InkwellWeb.RelationshipController do
   alias Inkwell.{Accounts, Social}
   alias InkwellWeb.UserController
 
-  # GET /api/friends
+  # GET /api/friends (returns all accepted follows — used by top friends editor)
   def friends(conn, _params) do
     user = conn.assigns.current_user
     friends = Social.list_friends(user.id)
@@ -23,6 +23,27 @@ defmodule InkwellWeb.RelationshipController do
     user = conn.assigns.current_user
     friends = Social.list_friends(user.id)
     json(conn, %{data: Enum.map(friends, &UserController.render_user_brief/1)})
+  end
+
+  # GET /api/pen-pals — mutual connections
+  def pen_pals(conn, _params) do
+    user = conn.assigns.current_user
+    pals = Social.list_pen_pals(user.id)
+    json(conn, %{data: Enum.map(pals, &UserController.render_user_brief/1)})
+  end
+
+  # GET /api/readers — people following you (one-way)
+  def readers(conn, _params) do
+    user = conn.assigns.current_user
+    readers = Social.list_readers(user.id)
+    json(conn, %{data: Enum.map(readers, &UserController.render_user_brief/1)})
+  end
+
+  # GET /api/reading — people you follow (one-way)
+  def reading(conn, _params) do
+    user = conn.assigns.current_user
+    reading = Social.list_reading(user.id)
+    json(conn, %{data: Enum.map(reading, &UserController.render_user_brief/1)})
   end
 
   # POST /api/relationships/:username/follow
@@ -94,6 +115,29 @@ defmodule InkwellWeb.RelationshipController do
 
         {:error, :not_found} ->
           conn |> put_status(:not_found) |> json(%{error: "Not following this user"})
+      end
+    else
+      nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
+    end
+  end
+
+  # DELETE /api/relationships/:username/reject
+  def reject(conn, %{"username" => username}) do
+    user = conn.assigns.current_user
+
+    with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
+      case Social.reject_follow(target.id, user.id) do
+        {:ok, _} ->
+          json(conn, %{ok: true})
+
+        {:error, :not_found} ->
+          conn |> put_status(:not_found) |> json(%{error: "No pending follow request"})
+
+        {:error, :not_pending} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Follow request is not pending"})
+
+        {:error, _} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not reject"})
       end
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})

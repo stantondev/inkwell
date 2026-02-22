@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { EditorClient } from "./editor-client";
 
 export const metadata: Metadata = {
@@ -6,5 +7,14 @@ export const metadata: Metadata = {
 };
 
 export default function EditorPage() {
-  return <EditorClient />;
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--background)", color: "var(--muted)" }}>
+        <span className="text-sm">Loading editor...</span>
+      </div>
+    }>
+      <EditorClient />
+    </Suspense>
+  );
 }

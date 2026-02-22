@@ -18,7 +18,7 @@ defmodule Inkwell.Social.TopFriend do
     top_friend
     |> cast(attrs, [:user_id, :friend_id, :position])
     |> validate_required([:user_id, :friend_id, :position])
-    |> validate_inclusion(:position, 1..12)
+    |> validate_inclusion(:position, 1..6)
     |> unique_constraint([:user_id, :position])
   end
 end

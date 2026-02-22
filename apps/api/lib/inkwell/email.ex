@@ -55,6 +55,86 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc "Send a feedback email from a user to the Inkwell team."
+  def send_feedback(user, category, message) do
+    api_key = Application.get_env(:inkwell, :resend_api_key)
+    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+    feedback_to = Application.get_env(:inkwell, :feedback_email, "stanton@inkwell.social")
+
+    if is_nil(api_key) or api_key == "" do
+      require Logger
+      Logger.warning("RESEND_API_KEY not set — feedback from #{user.username}: [#{category}] #{message}")
+      {:ok, :no_email_configured}
+    else
+      body = Jason.encode!(%{
+        from: from_email,
+        to: [feedback_to],
+        subject: "[Inkwell Feedback] #{String.capitalize(category)} from @#{user.username}",
+        html: feedback_html(user, category, message)
+      })
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{api_key}"},
+        {~c"content-type", ~c"application/json"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :post,
+             {~c"#{@resend_url}", headers, ~c"application/json", body},
+             [ssl: [verify: :verify_none]],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
+          {:ok, :sent}
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          require Logger
+          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
+          {:error, {:resend_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          require Logger
+          Logger.error("Resend HTTP error: #{inspect(reason)}")
+          {:error, :send_failed}
+      end
+    end
+  end
+
+  defp feedback_html(user, category, message) do
+    category_label = case category do
+      "bug" -> "Bug Report"
+      "feature" -> "Feature Request"
+      _ -> "General Feedback"
+    end
+
+    escaped_message = message
+      |> String.replace("&", "&amp;")
+      |> String.replace("<", "&lt;")
+      |> String.replace(">", "&gt;")
+      |> String.replace("\n", "<br/>")
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px;">
+      <div style="max-width: 560px; margin: 0 auto; background: #25253e; border-radius: 16px; padding: 40px;">
+        <h1 style="font-size: 20px; margin-bottom: 4px; color: #fff;">New Feedback</h1>
+        <p style="color: #a0a0b8; margin-bottom: 24px; font-size: 14px;">#{category_label} from <strong>@#{user.username}</strong> (#{user.email})</p>
+        <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+          <p style="color: #e0e0e0; font-size: 15px; line-height: 1.6; margin: 0;">#{escaped_message}</p>
+        </div>
+        <p style="color: #707088; font-size: 12px; margin-top: 24px;">
+          Sent from Inkwell Feedback &middot; #{DateTime.utc_now() |> Calendar.strftime("%b %d, %Y at %H:%M UTC")}
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
   defp magic_link_html(url) do
     """
     <!DOCTYPE html>

@@ -54,11 +54,39 @@ defmodule InkwellWeb.FeedController do
 
   # GET /api/tags/:tag/feed.xml — RSS feed for a tag
   def tag_feed(conn, %{"tag" => tag}) do
-    xml = build_rss(
-      %{display_name: "##{tag}", username: tag},
-      [],  # TODO: query entries by tag across all public users
-      "#{base_url()}/tags/#{tag}"
-    )
+    entries = Journals.list_public_explore_entries(tag: tag, per_page: 20)
+
+    items =
+      entries
+      |> Enum.map(fn entry ->
+        author = entry.user
+        title = entry.title || "Entry on ##{tag}"
+        pub_date = format_rfc822(entry.published_at)
+        link = "#{base_url()}/#{author.username}/#{entry.slug}"
+
+        """
+        <item>
+          <title><![CDATA[#{title}]]></title>
+          <link>#{link}</link>
+          <guid isPermaLink="true">#{link}</guid>
+          <pubDate>#{pub_date}</pubDate>
+          <description><![CDATA[#{entry.body_html}]]></description>
+        </item>
+        """
+      end)
+      |> Enum.join("\n")
+
+    xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+      <channel>
+        <title>##{tag} — Inkwell</title>
+        <link>#{base_url()}/tag/#{tag}</link>
+        <description>Entries tagged ##{tag} on Inkwell</description>
+        #{items}
+      </channel>
+    </rss>
+    """
 
     conn
     |> put_resp_content_type("application/rss+xml")

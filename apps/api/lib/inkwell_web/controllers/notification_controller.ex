@@ -31,16 +31,47 @@ defmodule InkwellWeb.NotificationController do
   end
 
   defp render_notification(n) do
+    # For federated notifications, remote actor info lives in the `data` field
+    remote_actor =
+      case n.data do
+        %{"remote_actor" => ra} when is_map(ra) ->
+          %{
+            username: ra["username"],
+            domain: ra["domain"],
+            display_name: ra["display_name"],
+            avatar_url: ra["avatar_url"],
+            profile_url: ra["profile_url"],
+            ap_id: ra["ap_id"]
+          }
+        _ -> nil
+      end
+
     %{
       id: n.id,
       type: n.type,
       actor_id: n.actor_id,
+      actor: render_actor(n.actor),
+      remote_actor: remote_actor,
       target_type: n.target_type,
       target_id: n.target_id,
       read: n.read,
-      created_at: n.inserted_at
+      data: render_data(n.data),
+      inserted_at: n.inserted_at
     }
   end
+
+  defp render_actor(nil), do: nil
+  defp render_actor(actor) do
+    %{
+      username: actor.username,
+      display_name: actor.display_name,
+      avatar_url: actor.avatar_url
+    }
+  end
+
+  defp render_data(nil), do: %{}
+  defp render_data(data) when is_map(data), do: data
+  defp render_data(_), do: %{}
 
   defp parse_int(nil, default), do: default
   defp parse_int(val, default) when is_binary(val) do

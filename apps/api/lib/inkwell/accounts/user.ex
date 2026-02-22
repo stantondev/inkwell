@@ -19,6 +19,13 @@ defmodule Inkwell.Accounts.User do
     field :private_key, :string
     field :settings, :map, default: %{}
 
+    # Subscription / billing
+    field :stripe_customer_id, :string
+    field :stripe_subscription_id, :string
+    field :subscription_tier, :string, default: "free"
+    field :subscription_status, :string, default: "none"
+    field :subscription_expires_at, :utc_datetime_usec
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification
@@ -36,6 +43,20 @@ defmodule Inkwell.Accounts.User do
     |> unique_constraint(:email)
     |> generate_ap_id()
     |> generate_keys()
+  end
+
+  def username_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:username])
+    |> validate_required([:username])
+    |> validate_format(:username, ~r/^[a-zA-Z0-9_]{3,30}$/, message: "must be 3-30 alphanumeric characters or underscores")
+    |> unique_constraint(:username)
+    |> generate_ap_id()
+  end
+
+  def subscription_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:stripe_customer_id, :stripe_subscription_id, :subscription_tier, :subscription_status, :subscription_expires_at])
   end
 
   def profile_changeset(user, attrs) do

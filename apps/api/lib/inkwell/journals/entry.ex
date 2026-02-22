@@ -33,7 +33,7 @@ defmodule Inkwell.Journals.Entry do
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
       :user_icon_id
     ])
-    |> validate_required([:body_html, :body_raw, :privacy, :user_id])
+    |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)

@@ -49,6 +49,10 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 - `FRONTEND_URL` — `https://inkwell-web.fly.dev`
 - `REDIS_URL` — Upstash Redis (has TLS issues, not actively used after auth migration)
 - `RESEND_API_KEY` — for sending magic link emails
+- `ADMIN_USERNAMES` — comma-separated list of usernames that get admin access
+- `STRIPE_SECRET_KEY` — Stripe API key for billing
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret
+- `STRIPE_PRICE_ID` — Stripe price ID for Plus subscription ($5/mo)
 
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://inkwell-api.fly.dev`
@@ -73,11 +77,107 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Key files
 - `apps/api/lib/inkwell/auth.ex` — token CRUD (create, verify, revoke)
 - `apps/api/lib/inkwell/auth/auth_token.ex` — Ecto schema for `auth_tokens` table
-- `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc
-- `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout endpoints
+- `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc (also handles feedback emails)
+- `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout endpoints; `render_user/1` returns session data including `subscription_tier`
 - `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug
 - `apps/web/src/app/login/page.tsx` — login UI
 - `apps/web/src/app/auth/verify/route.ts` — server-side token verification + cookie setting
+
+## Implemented Features
+
+### Subscription / Billing (Stripe)
+- Plus tier at $5/mo via Stripe Checkout
+- `POST /api/billing/checkout` → creates Stripe Checkout session, returns URL
+- `POST /api/billing/portal` → creates Stripe Customer Portal session
+- `POST /api/billing/webhook` → handles Stripe webhook events (checkout.session.completed, invoice.payment_succeeded, customer.subscription.deleted)
+- User model has: `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` ("free"/"plus"), `subscription_status`, `subscription_expires_at`
+- `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
+- Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
+- Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
+- Feed sidebar shows "Support Inkwell" upsell card for non-Plus users
+- Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
+
+### Community Feedback & Roadmap Board
+- Full public feedback board at `/roadmap` — replaces old email-only `/feedback`
+- Users submit ideas, bugs, features, questions — stored in database with upvoting and comments
+- Admin can set status (new → under_review → planned → in_progress → done → declined) and admin responses
+- **Roadmap Kanban Panel** — 3-column board at top showing Under Review / Planned / In Progress items
+- **Recently Shipped section** — completed items with admin-written release notes, crediting the original poster ("Suggested by @username")
+- **Release notes** — admin writes a release note when marking status as "done"; auto-sets `completed_at` timestamp
+- Upvoting (one per user per post, toggle), comments with delete
+- Category filtering (bug/feature/idea/question), status filtering, sort (most_voted/newest/recently_updated)
+- `/feedback` redirects to `/roadmap/new`
+- Key backend files:
+  - `apps/api/lib/inkwell/feedback/feedback_post.ex` — post schema with status/category enums, release_note, completed_at
+  - `apps/api/lib/inkwell/feedback/feedback_vote.ex` — vote schema (unique per user+post)
+  - `apps/api/lib/inkwell/feedback/feedback_comment.ex` — comment schema
+  - `apps/api/lib/inkwell/feedback.ex` — context module (list_posts, toggle_vote, list_roadmap_items, list_release_notes, etc.)
+  - `apps/api/lib/inkwell_web/controllers/feedback_controller.ex` — 10 actions (index, show, create, update, vote, unvote, create_comment, delete_comment, roadmap, releases)
+  - `apps/api/lib/inkwell_web/plugs/optional_auth.ex` — assigns current_user if token present, doesn't halt
+- Key frontend files:
+  - `apps/web/src/app/roadmap/page.tsx` — main board with Kanban panel + Recently Shipped + post list
+  - `apps/web/src/app/roadmap/[id]/page.tsx` — detail view with shipped attribution card
+  - `apps/web/src/app/roadmap/new/page.tsx` — submit form
+  - `apps/web/src/app/roadmap/[id]/admin-status-form.tsx` — admin controls with release note textarea
+  - `apps/web/src/app/roadmap/badges.tsx` — StatusBadge, CategoryBadge components
+  - `apps/web/src/app/roadmap/upvote-button.tsx` — optimistic upvote client component
+- API proxy routes: `apps/web/src/app/api/feedback/` (route.ts, [id]/route.ts, [id]/vote/route.ts, [id]/comments/route.ts, comments/[id]/route.ts, roadmap/route.ts, releases/route.ts)
+
+### Top 6 Pen Pals
+- Users can pick up to 6 "top friends" shown on their profile sidebar
+- `PUT /api/me/top-friends` to save, `GET /api/me/top-friends` to list
+- Key files: `apps/api/lib/inkwell/social/top_friend.ex`, `apps/web/src/app/settings/top-friends/page.tsx`
+
+### Mobile Navigation
+- Hamburger menu (☰) on screens < 640px with all nav links
+- Client component at `apps/web/src/components/mobile-menu.tsx`
+- Integrated in `apps/web/src/components/nav.tsx`
+
+### Other Features
+- **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility
+- **Comments**: threaded on entries
+- **Relationships**: follow/accept/reject/block with pending state
+- **Notifications**: follow, comment, entry notifications
+- **Explore**: public discovery feed of recent entries
+- **Search**: text search (requires Meilisearch — not deployed to prod yet)
+- **RSS feeds**: per-user and per-tag RSS XML feeds
+- **Music player**: embedded music links on entries
+- **Profile pages**: avatar, bio, pronouns, Plus badge, Top Pen Pals sidebar, entry list
+- **Admin panel**: entry listing/deletion at `/admin` (requires `ADMIN_USERNAMES` Fly secret)
+- **ActivityPub federation**: WebFinger, actor endpoints, inbox/outbox, HTTP signatures (sidecar not deployed)
+- **Onboarding**: `/welcome` flow for new users (set display name, username, bio)
+- **Landing page**: public homepage with feature showcase and pricing (Plus tier shown as live)
+
+## Navigation Structure
+
+### Desktop (≥640px)
+- **Left**: Inkwell logo → `/`
+- **Center**: Feed, Explore, Pen Pals, Search, Roadmap, ✦ Plus (if free), Admin (if admin)
+- **Right**: Write button, Notifications bell, Profile avatar, Settings gear, Sign out
+
+### Mobile (<640px)
+- **Left**: Inkwell logo
+- **Right**: Hamburger menu (☰), Profile avatar
+- **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications, Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
+
+### Settings Tabs
+Profile | Pen Pals | Top 6 | Billing | Roadmap
+
+## Database Tables
+- `users` — accounts with UUID PKs, Stripe fields, AP keys
+- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, visibility
+- `comments` — on entries, with user_id and body
+- `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
+- `top_friends` — user_id + friend_id + position (1-6)
+- `notifications` — type, actor_id, target_id, entry_id, read flag
+- `user_icons` — custom profile icons
+- `friend_filters` — reading filters
+- `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
+- `remote_actors` — ActivityPub remote user cache
+- `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count
+- `feedback_votes` — user_id + feedback_post_id (unique together)
+- `feedback_comments` — body, user_id, feedback_post_id
+- `oban_jobs` / `oban_peers` — background job queue
 
 ## Known Issues & TODO
 
@@ -114,3 +214,164 @@ npm run dev:web               # In another terminal
 - Users have UUID primary keys (`binary_id`)
 - RSA keypairs auto-generated on user registration (for ActivityPub federation)
 - Oban for background jobs
+- All styling uses CSS custom variables (`var(--accent)`, `var(--surface)`, `var(--border)`, `var(--muted)`, `var(--foreground)`, etc.)
+- Rounded cards with border styling: `rounded-xl border p-4` + `borderColor: var(--border)` + `background: var(--surface)`
+- Fonts: Lora (serif) for headings, system sans-serif for body
+
+## Workflow Preferences
+
+### Git & Deploy
+- **Always commit, push, and deploy for me** — after completing features, commit all changes, push to `main`, and deploy both API and web to Fly.io
+- **GitHub repo**: https://github.com/stantondev/inkwell.git (remote: `origin`, branch: `main`)
+- **Deploy order**: API first (runs migrations automatically via Docker entrypoint), then web. Use `fly deploy --config fly.api.toml --wait-timeout 600` and `fly deploy --config fly.web.toml --wait-timeout 600`
+- **Verify after deploy**: hit `/health` on API, check new endpoints return expected shape, check frontend pages return 200
+- **TypeScript check before deploy**: `npx tsc --noEmit --project apps/web/tsconfig.json`
+- **No local Elixir/Mix**: the dev machine does NOT have Elixir installed — cannot run `mix compile` locally. Do careful code review instead, and rely on the Docker build catching compile errors
+
+### Migration naming
+- Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
+- Latest migration: `20260222000001_add_release_note_to_feedback_posts.exs`
+
+### Code style
+- CSS custom variables for all colors (never hardcode colors except in badge configs)
+- Rounded cards: `rounded-xl border p-4` with `borderColor: var(--border)` and `background: var(--surface)`
+- Serif font for headings: `fontFamily: "var(--font-lora, Georgia, serif)"`
+- System sans-serif for body text
+- UUIDs everywhere (`binary_id` in Ecto, `string` in TypeScript)
+- Ecto.Enum for status/type fields
+- `apiFetch()` for server components, regular `fetch()` for client components via API proxy routes
+- Next.js 16 uses `searchParams` and `params` as Promises in page components
+
+## Next Feature: Stamps (Replacement for Likes)
+
+### Philosophy
+
+Stamps are Inkwell's alternative to likes, emoji reactions, and hearts. They are NOT engagement metrics — they are quiet, meaningful gestures between readers and writers, like pressing a seal onto a letter. The design intentionally avoids count-driven comparison culture.
+
+**Core principles:**
+- One stamp per reader per entry — you choose the one that fits (like choosing a wax seal)
+- No counts are ever displayed — only which stamp types an entry has received
+- Only the entry author can see who left each stamp (it's a private gift)
+- You cannot stamp your own entries — stamps are gifts from readers to writers
+- Stamps show in the top-right of entry cards, like a real stamp on a letter
+- The visual style is **ink stamp / chop seal** — clean, elegant impressions pressed onto paper
+
+### The 6 Launch Stamps
+
+**5 Core Emotional Stamps** (available to all users):
+1. **Felt** — "I felt this" — emotional resonance
+2. **Holding This With You** — "I'm holding this with you" — solidarity, support
+3. **This Stayed With Me** — "This stayed with me" — lasting impact
+4. **Warmth** — "Sending warmth" — comfort, care
+5. **Seen** — "I see you" — acknowledgment, validation
+
+**1 Plus-Exclusive Stamp:**
+6. **From a Supporter** — "From a supporter" — Plus subscribers only, with a subtle foil/shimmer visual effect (distinct from the 5 core stamps)
+
+### Visual Design
+
+- **Style**: Ink stamp / chop seal aesthetic — like a rubber stamp or Asian chop seal pressed onto paper. Clean circular or square impressions with the stamp name/symbol inside.
+- **AI-generated initially** — design the stamps as SVG or high-quality images. Structure the code so stamp images are stored as static assets that can be swapped out for human artist illustrations later (e.g., `/public/stamps/felt.svg` or similar, referenced by slug in the database).
+- **"From a Supporter" Plus stamp** gets a subtle foil/shimmer CSS effect — like a foil trading card. Distinct but not flashy.
+- **Placement**: Stamps appear in the top-right corner of entry cards (feed and detail page), like a postage stamp on a letter. Show only the stamp type icons for stamps that entry has received — no counts, no numbers.
+- **Entry detail page**: Same top-right placement. Author can hover (desktop) or tap (mobile) a stamp icon to see a small popover with avatars of who left that stamp. On mobile, a "Stamps" tab/section below the entry shows the full breakdown.
+
+### Interaction Flow
+
+1. Reader opens an entry (detail page only — no stamping from feed cards)
+2. Reader clicks a "Stamp this entry" button/area
+3. A stamp picker appears — shows all 6 stamps (6th grayed out if not Plus)
+4. Reader picks one → stamp is saved → stamp icon appears in top-right of entry
+5. If reader already stamped, clicking again opens the picker to change or remove their stamp
+6. Author sees stamp icons on their entry; hovering/tapping shows who left each type
+
+### Database Design
+
+**Table: `stamps`**
+- `id` — UUID primary key
+- `entry_id` — UUID FK to entries (required)
+- `user_id` — UUID FK to users (required)
+- `stamp_type` — Ecto.Enum: `:felt`, `:holding`, `:stayed`, `:warmth`, `:seen`, `:supporter`
+- `inserted_at`, `updated_at` — timestamps
+- **Unique constraint**: `[:user_id, :entry_id]` — one stamp per user per entry
+
+No `stamp_types` config table for MVP — stamp types are hardcoded in the Ecto.Enum and frontend config. Design the system so adding new stamp types later only requires: adding to the enum, adding an image asset, adding a frontend config entry.
+
+### API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/entries/:entry_id/stamp` | Required | Create/update stamp on entry. Body: `{"stamp_type": "felt"}`. Validates: not own entry, valid stamp_type, Plus check for "supporter" |
+| DELETE | `/api/entries/:entry_id/stamp` | Required | Remove own stamp from entry |
+| GET | `/api/entries/:entry_id/stamps` | Optional | Get stamp summary. Returns stamp types present (no counts). If viewer is author, also returns who left each stamp |
+
+### Entry JSON Changes
+
+Update `render_entry` and `render_entry_full` in `entry_controller.ex` to include:
+
+```json
+{
+  "stamps": ["felt", "warmth", "seen"],
+  "my_stamp": "felt"
+}
+```
+
+- `stamps` — array of stamp type strings that this entry has received (deduplicated, no counts)
+- `my_stamp` — the current viewer's stamp on this entry (null if none, requires auth)
+
+### Frontend Components
+
+**New files to create:**
+- `apps/web/src/components/stamp-display.tsx` — shows stamp icons in top-right of entry cards (server component). Takes `stamps: string[]` prop, renders small ink-stamp icons.
+- `apps/web/src/components/stamp-picker.tsx` — client component. Modal/popover for choosing a stamp. Shows all 6 stamps with names and descriptions. Grays out "From a Supporter" for non-Plus users.
+- `apps/web/src/components/stamp-popover.tsx` — client component. On hover/tap of a stamp icon (author only), shows avatars of who left that stamp type.
+
+**Files to modify:**
+- `apps/web/src/app/feed/page.tsx` — add `StampDisplay` to EntryCard (top-right corner)
+- `apps/web/src/app/[username]/[slug]/page.tsx` — add `StampDisplay` + `StampPicker` + author popover
+- `apps/web/src/app/[username]/page.tsx` — add `StampDisplay` to entry list cards (if applicable)
+- `apps/api/lib/inkwell_web/controllers/entry_controller.ex` — include `stamps` and `my_stamp` in rendered entry JSON
+- `apps/api/lib/inkwell_web/router.ex` — add stamp routes to authenticated scope
+
+### Asset Structure (Artist-Replaceable)
+
+```
+apps/web/public/stamps/
+  felt.svg
+  holding.svg
+  stayed.svg
+  warmth.svg
+  seen.svg
+  supporter.svg
+```
+
+Frontend stamp config maps slugs to file paths:
+
+```typescript
+const STAMP_CONFIG = {
+  felt: { label: "Felt", description: "I felt this", icon: "/stamps/felt.svg" },
+  holding: { label: "Holding This With You", description: "I'm holding this with you", icon: "/stamps/holding.svg" },
+  stayed: { label: "This Stayed With Me", description: "This stayed with me", icon: "/stamps/stayed.svg" },
+  warmth: { label: "Warmth", description: "Sending warmth", icon: "/stamps/warmth.svg" },
+  seen: { label: "Seen", description: "I see you", icon: "/stamps/seen.svg" },
+  supporter: { label: "From a Supporter", description: "From a supporter", icon: "/stamps/supporter.svg", plusOnly: true },
+};
+```
+
+To replace AI images with artist illustrations later: just swap the SVG files. No code changes needed.
+
+### Notification
+
+When someone stamps your entry, create a notification:
+- Type: `:stamp` (add to existing notification enum in `apps/api/lib/inkwell/accounts/notification.ex`)
+- Target: the entry
+- Actor: the person who stamped
+- No notification for removing/changing a stamp
+
+### Key Constraints
+- Cannot stamp your own entries (backend validates `entry.user_id != current_user.id`)
+- "supporter" stamp requires `subscription_tier == "plus"` (backend validates)
+- One stamp per user per entry (unique DB constraint)
+- Changing stamp = update in place, not delete+create
+- No counts anywhere in the UI — only stamp type presence
+- Stamps are NOT shown in entry previews on external/federated views (internal feature only for now)

@@ -38,6 +38,16 @@ defmodule InkwellWeb.UserController do
     user = conn.assigns.current_user
     allowed = Map.take(params, ["display_name", "bio", "pronouns", "avatar_url", "settings"])
 
+    # Merge settings instead of replacing, so {onboarded: true} doesn't wipe other settings
+    allowed =
+      case Map.get(allowed, "settings") do
+        nil -> allowed
+        new_settings when is_map(new_settings) ->
+          merged = Map.merge(user.settings || %{}, new_settings)
+          Map.put(allowed, "settings", merged)
+        _ -> allowed
+      end
+
     case Accounts.update_user_profile(user, allowed) do
       {:ok, updated} ->
         json(conn, %{data: render_user_full(updated)})
@@ -47,6 +57,63 @@ defmodule InkwellWeb.UserController do
         |> put_status(:unprocessable_entity)
         |> json(%{errors: format_errors(changeset)})
     end
+  end
+
+  # PATCH /api/me/username — change username (for onboarding)
+  def update_username(conn, %{"username" => username}) do
+    user = conn.assigns.current_user
+
+    case Accounts.update_username(user, %{"username" => username}) do
+      {:ok, updated} ->
+        json(conn, %{data: render_user_full(updated)})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: format_errors(changeset)})
+    end
+  end
+
+  # GET /api/username-available?username=foo (public)
+  def username_available(conn, %{"username" => username}) do
+    available = Accounts.username_available?(username)
+    json(conn, %{available: available})
+  end
+
+  # POST /api/me/avatar — upload avatar image (accepts base64 JSON body)
+  # Body: { "image": "data:image/png;base64,..." }
+  def upload_avatar(conn, %{"image" => image_data}) when is_binary(image_data) do
+    user = conn.assigns.current_user
+
+    # Validate it's a data URI with a supported image type
+    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
+      [_, _type, base64] ->
+        # Validate size (max ~2MB of base64 = ~1.5MB image)
+        if byte_size(base64) > 2_800_000 do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "Image too large — max 2MB"})
+        else
+          case Accounts.update_user_profile(user, %{"avatar_url" => image_data}) do
+            {:ok, updated} ->
+              json(conn, %{data: render_user_full(updated)})
+
+            {:error, _changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: "Could not save avatar"})
+          end
+        end
+
+      _ ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+    end
+  end
+
+  def upload_avatar(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
   end
 
   # PATCH /api/me/profile — update profile_html and profile_css (Plus only)
@@ -76,6 +143,7 @@ defmodule InkwellWeb.UserController do
       pronouns: user.pronouns,
       avatar_url: user.avatar_url,
       ap_id: user.ap_id,
+      subscription_tier: user.subscription_tier || "free",
       created_at: user.inserted_at
     }
   end
@@ -96,7 +164,9 @@ defmodule InkwellWeb.UserController do
       email: user.email,
       profile_html: user.profile_html,
       profile_css: user.profile_css,
-      settings: user.settings
+      settings: user.settings,
+      subscription_status: user.subscription_status || "none",
+      subscription_expires_at: user.subscription_expires_at
     })
   end
 

@@ -28,6 +28,11 @@ config :inkwell, Inkwell.Search,
   url: "http://localhost:7700",
   api_key: "inkwell_dev_key"
 
+# Federation / ActivityPub (dev defaults)
+config :inkwell, :federation,
+  instance_host: "localhost:4000",
+  frontend_host: "http://localhost:3000"
+
 config :logger, :console, format: "[$level] $message\n"
 
 config :phoenix, :stacktrace_depth, 20

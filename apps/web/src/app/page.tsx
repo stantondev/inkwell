@@ -20,7 +20,7 @@ const FEATURES = [
       </svg>
     ),
     title: "Chronological feed",
-    body: "No algorithm. No ranking. Just your friends' entries in the order they were written — with an actual end to scroll to.",
+    body: "No algorithm. No ranking. Just your pen pals' entries in the order they were written — with an actual end to scroll to.",
   },
   {
     icon: (
@@ -38,7 +38,7 @@ const FEATURES = [
       </svg>
     ),
     title: "Real comments",
-    body: "Threaded comments with full formatting. Talk to your friends like it's 2004, in the best possible way.",
+    body: "Threaded comments with full formatting. Talk to your pen pals like it's 2004, in the best possible way.",
   },
   {
     icon: (
@@ -146,7 +146,7 @@ export default function LandingPage() {
         >
           Your journal.
           <br />
-          <span style={{ color: "var(--accent)" }}>Your friends.</span>
+          <span style={{ color: "var(--accent)" }}>Your pen pals.</span>
           <br />
           Your space.
         </h1>
@@ -286,12 +286,13 @@ export default function LandingPage() {
             className="text-3xl font-semibold mb-4"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            Free to start. Plus for the power users.
+            Free during beta. Support us early.
           </h2>
           <p className="text-base leading-relaxed mb-10" style={{ color: "var(--muted)" }}>
-            Inkwell is free for everyone with a generous feature set. Inkwell Plus ($5/mo) unlocks
-            extended storage, custom domains, advanced profile theming, and the ability to
-            accept tips from readers.
+            Inkwell is completely free while we&apos;re in beta. We&apos;re building something
+            different — no ads, no algorithms, no big tech. That means we need our community
+            to help sustain this. Inkwell Plus ($5/mo) is available now for those who want to
+            support the platform and unlock extra features.
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-stretch sm:items-start">
             {/* Free tier */}
@@ -302,19 +303,30 @@ export default function LandingPage() {
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
               <p className="text-3xl font-bold mb-4">$0</p>
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-                {["Unlimited public entries", "Per-entry privacy controls", "Friend filters", "Top 8 friends", "RSS feed", "ActivityPub federation"].map((item) => (
+                {["Unlimited public entries", "Per-entry privacy controls", "Pen Pal filters", "Top 6 pen pals", "RSS feed", "ActivityPub federation"].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
                     <span style={{ color: "var(--success)" }} aria-hidden="true">✓</span>
                     {item}
                   </li>
                 ))}
               </ul>
+              <Link
+                href="/login"
+                className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                Join the beta
+              </Link>
             </div>
             {/* Plus tier */}
             <div
-              className="flex-1 max-w-xs rounded-2xl border-2 p-6 text-left"
+              className="flex-1 max-w-xs rounded-2xl border-2 p-6 text-left relative overflow-hidden"
               style={{ borderColor: "var(--accent)", background: "var(--surface)" }}
             >
+              <div className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                Best value
+              </div>
               <p className="text-sm font-medium mb-1" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
               <p className="text-3xl font-bold mb-4">
                 $5
@@ -340,8 +352,11 @@ export default function LandingPage() {
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
-                Get started free
+                Get started
               </Link>
+              <p className="text-xs text-center mt-3" style={{ color: "var(--muted)" }}>
+                Upgrade to Plus anytime from your settings
+              </p>
             </div>
           </div>
         </div>

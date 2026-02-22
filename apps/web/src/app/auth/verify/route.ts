@@ -36,9 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data: { ok: boolean; token: string } = await res.json();
+    const data: { ok: boolean; token: string; user?: { settings?: { onboarded?: boolean } } } = await res.json();
 
-    const response = NextResponse.redirect(new URL("/feed", origin));
+    // Redirect new users to onboarding, returning users to feed
+    const destination = data.user?.settings?.onboarded ? "/feed" : "/welcome";
+    const response = NextResponse.redirect(new URL(destination, origin));
     response.cookies.set(TOKEN_COOKIE, data.token, {
       httpOnly: true,
       sameSite: "lax",

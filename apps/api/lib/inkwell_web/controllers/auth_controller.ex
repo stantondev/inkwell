@@ -101,7 +101,10 @@ defmodule InkwellWeb.AuthController do
       bio: user.bio,
       pronouns: user.pronouns,
       ap_id: user.ap_id,
-      created_at: user.inserted_at
+      created_at: user.inserted_at,
+      is_admin: Accounts.is_admin?(user),
+      settings: user.settings || %{},
+      subscription_tier: user.subscription_tier || "free"
     }
   end
 

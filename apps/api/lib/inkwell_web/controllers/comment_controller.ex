@@ -2,6 +2,8 @@ defmodule InkwellWeb.CommentController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals, Social}
+  alias Inkwell.Repo
+  alias Inkwell.Journals.Comment
 
   # GET /api/users/:username/entries/:slug/comments
   def index(conn, %{"username" => username, "slug" => slug}) do
@@ -81,22 +83,19 @@ defmodule InkwellWeb.CommentController do
   def delete(conn, %{"id" => id}) do
     user = conn.assigns.current_user
 
-    case Journals.list_comments(id) do
-      [] ->
+    try do
+      comment = Repo.get!(Comment, id)
+      can_delete = comment.user_id == user.id || Accounts.is_admin?(user)
+
+      if can_delete do
+        {:ok, _} = Journals.delete_comment(comment)
+        send_resp(conn, :no_content, "")
+      else
+        conn |> put_status(:forbidden) |> json(%{error: "Not your comment"})
+      end
+    rescue
+      Ecto.NoResultsError ->
         conn |> put_status(:not_found) |> json(%{error: "Comment not found"})
-
-      _ ->
-        # We get the specific comment via entry listing; for simplicity fetch by id directly
-        # This is a small workaround since we don't have a get_comment! yet
-        import Ecto.Query
-        comment = Inkwell.Repo.get!(Inkwell.Journals.Comment, id)
-
-        if comment.user_id == user.id do
-          {:ok, _} = Journals.delete_comment(comment)
-          send_resp(conn, :no_content, "")
-        else
-          conn |> put_status(:forbidden) |> json(%{error: "Not your comment"})
-        end
     end
   end
 
@@ -111,6 +110,21 @@ defmodule InkwellWeb.CommentController do
         }
       end
 
+    # Include remote_author for federated comments (from Mastodon/Pleroma/etc)
+    remote_author =
+      case comment.remote_author do
+        %{} = ra when map_size(ra) > 0 ->
+          %{
+            username: ra["username"] || ra[:username],
+            domain: ra["domain"] || ra[:domain],
+            display_name: ra["display_name"] || ra[:display_name],
+            avatar_url: ra["avatar_url"] || ra[:avatar_url],
+            profile_url: ra["profile_url"] || ra[:profile_url],
+            ap_id: ra["ap_id"] || ra[:ap_id]
+          }
+        _ -> nil
+      end
+
     %{
       id: comment.id,
       entry_id: comment.entry_id,
@@ -121,6 +135,7 @@ defmodule InkwellWeb.CommentController do
       ap_id: comment.ap_id,
       depth: comment.depth,
       author: author,
+      remote_author: remote_author,
       created_at: comment.inserted_at
     }
   end

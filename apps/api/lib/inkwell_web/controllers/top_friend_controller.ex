@@ -16,10 +16,10 @@ defmodule InkwellWeb.TopFriendController do
 
   # PUT /api/me/top-friends
   # Body: { "friends": [{ "friend_id": "uuid", "position": 1 }, ...] }
-  # Max 12 entries; front-end typically sends 4, 8, or 12.
+  # Max 6 entries; front-end sends up to 6.
   def update(conn, %{"friends" => friends}) when is_list(friends) do
     user = conn.assigns.current_user
-    clamped = Enum.take(friends, 12)
+    clamped = Enum.take(friends, 6)
 
     case Social.update_top_friends(user.id, clamped) do
       {:ok, _} ->
