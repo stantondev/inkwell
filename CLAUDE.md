@@ -78,12 +78,60 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `apps/api/lib/inkwell/auth.ex` — token CRUD (create, verify, revoke)
 - `apps/api/lib/inkwell/auth/auth_token.ex` — Ecto schema for `auth_tokens` table
 - `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc (also handles feedback emails)
-- `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout endpoints; `render_user/1` returns session data including `subscription_tier`
+- `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout/me endpoints; `render_user/1` returns session data including `subscription_tier` and `unread_notification_count`
 - `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug
 - `apps/web/src/app/login/page.tsx` — login UI
 - `apps/web/src/app/auth/verify/route.ts` — server-side token verification + cookie setting
 
 ## Implemented Features
+
+### Journal Page-Turning UI
+- CSS scroll-snap horizontal feed replaces vertical card list on feed/explore pages
+- **Desktop**: 2-entry book spread (left + right pages with spine divider)
+- **Mobile/Tablet**: single entry per snap page with swipe navigation
+- Page counter ("3 — 12"), arrow navigation buttons, dot indicators
+- Keyboard `ArrowLeft`/`ArrowRight` navigation
+- Entrance animations via `motion` (Framer Motion v12+); respects `prefers-reduced-motion`
+- Key frontend components:
+  - `apps/web/src/components/journal-feed.tsx` — `"use client"` scroll-snap container; accepts `session` prop to enable interactive actions
+  - `apps/web/src/components/journal-entry-card.tsx` — server component card; accepts `actions` prop (renders `FeedCardActions` when session is provided, static footer otherwise)
+  - `apps/web/src/components/journal-page.tsx` — paper-textured page wrapper (`overflow-hidden`, so popups must use FloatingPopup portal)
+  - `apps/web/src/components/page-navigation.tsx` — arrow buttons + dot indicators + keyboard handler
+  - `apps/web/src/hooks/use-prefers-reduced-motion.ts` — detects OS reduced-motion preference
+- Feed shows user's **own entries** + entries from **accepted follows** (not pending)
+- Explore shows all public entries; uses `optional_auth` pipeline so authenticated users get `my_stamp`
+
+### Stamps (Replacement for Likes)
+- One stamp per reader per entry — no counts shown, only which types are present
+- Cannot stamp own entries; "supporter" stamp requires Plus subscription
+- 7 stamp types: `felt`, `holding_space`, `beautifully_said`, `rooting`, `throwback`, `i_cannot`, `supporter`
+- Stamps display in top-right corner of entry cards (like a postage stamp on paper)
+- Stamping another user's entry creates a `:stamp` notification for the author
+- **Backend**:
+  - `apps/api/lib/inkwell/stamps.ex` — context (create/update/delete stamp, get stamp types for entries, get user stamps for entries)
+  - `apps/api/lib/inkwell/stamps/stamp.ex` — Ecto schema with unique constraint `[:user_id, :entry_id]`
+  - Stamp routes: `POST /api/entries/:id/stamp`, `DELETE /api/entries/:id/stamp`, `GET /api/entries/:id/stamps`
+  - Feed and explore controllers both query and return `stamps` (array of types present) and `my_stamp` (viewer's stamp)
+- **Frontend**:
+  - `apps/web/src/components/stamp-config.tsx` — `STAMP_CONFIG` map and `STAMP_TYPES` array (single source of truth)
+  - `apps/web/src/components/stamp-display.tsx` — read-only stamp icons in card top-right
+  - `apps/web/src/components/stamp-picker.tsx` — interactive stamp chooser; compact mode for feed cards, full mode for entry detail page; uses `FloatingPopup`
+  - `apps/web/src/components/feed-card-actions.tsx` — `"use client"` footer for feed/explore cards: Read link + comment popup + stamp picker
+  - Stamp SVG assets at `apps/web/public/stamps/*.svg` — swappable for artist illustrations
+
+### Floating Popup (Portal-Based)
+- `apps/web/src/components/floating-popup.tsx` — reusable React Portal popup component
+- Uses `createPortal` to render at `document.body`, escaping `overflow-hidden` on `JournalPage` and `overflow-x: auto` on `.journal-scroll` (which forces `overflow-y: auto` per CSS spec)
+- Uses `position: fixed` with coordinates from `getBoundingClientRect()` of anchor element
+- Handles: outside click to close, scroll/resize repositioning, flip placement if near viewport edge, initial `visibility: hidden` to avoid flash
+- Used by `FeedCardActions` (comment popup) and `StampPicker` (stamp dropdown) in both compact and full modes
+
+### Unread Notification Badge
+- `count_unread_notifications/1` in `Inkwell.Accounts` — counts unread notifications for a user
+- Embedded in `GET /api/auth/me` response as `unread_notification_count`
+- `SessionUser` type in `apps/web/src/lib/session.ts` includes `unread_notification_count?: number`
+- **Desktop nav**: red badge with count (caps at "9+") on the bell icon in `apps/web/src/components/nav.tsx`
+- **Mobile**: red dot on hamburger button + count badge next to "Notifications" in dropdown (`apps/web/src/components/mobile-menu.tsx`)
 
 ### Subscription / Billing (Stripe)
 - Plus tier at $5/mo via Stripe Checkout
@@ -94,7 +142,6 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
 - Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
 - Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
-- Feed sidebar shows "Support Inkwell" upsell card for non-Plus users
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
 
 ### Community Feedback & Roadmap Board
@@ -135,10 +182,11 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 
 ### Other Features
 - **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility
-- **Comments**: threaded on entries
+- **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
 - **Relationships**: follow/accept/reject/block with pending state
-- **Notifications**: follow, comment, entry notifications
-- **Explore**: public discovery feed of recent entries
+- **Notifications**: follow, comment, entry, stamp notifications; unread badge in nav
+- **Tag pages**: `/tag/[tag]` — public entries filtered by tag
+- **Explore**: public discovery feed; optional auth for personalized `my_stamp` data
 - **Search**: text search (requires Meilisearch — not deployed to prod yet)
 - **RSS feeds**: per-user and per-tag RSS XML feeds
 - **Music player**: embedded music links on entries
@@ -153,12 +201,12 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Desktop (≥640px)
 - **Left**: Inkwell logo → `/`
 - **Center**: Feed, Explore, Pen Pals, Search, Roadmap, ✦ Plus (if free), Admin (if admin)
-- **Right**: Write button, Notifications bell, Profile avatar, Settings gear, Sign out
+- **Right**: Write button, Notifications bell (with unread badge), Profile avatar, Settings gear, Sign out
 
 ### Mobile (<640px)
 - **Left**: Inkwell logo
-- **Right**: Hamburger menu (☰), Profile avatar
-- **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications, Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
+- **Right**: Hamburger menu (☰, with red dot when unread notifications), Profile avatar
+- **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
 ### Settings Tabs
 Profile | Pen Pals | Top 6 | Billing | Roadmap
@@ -169,7 +217,8 @@ Profile | Pen Pals | Top 6 | Billing | Roadmap
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
 - `top_friends` — user_id + friend_id + position (1-6)
-- `notifications` — type, actor_id, target_id, entry_id, read flag
+- `notifications` — type (follow/comment/entry/stamp), actor_id, target_id, entry_id, read flag
+- `stamps` — entry_id + user_id + stamp_type; unique on [user_id, entry_id]
 - `user_icons` — custom profile icons
 - `friend_filters` — reading filters
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
@@ -217,6 +266,7 @@ npm run dev:web               # In another terminal
 - All styling uses CSS custom variables (`var(--accent)`, `var(--surface)`, `var(--border)`, `var(--muted)`, `var(--foreground)`, etc.)
 - Rounded cards with border styling: `rounded-xl border p-4` + `borderColor: var(--border)` + `background: var(--surface)`
 - Fonts: Lora (serif) for headings, system sans-serif for body
+- **Popups must use `FloatingPopup`** — `JournalPage` has `overflow-hidden` and `.journal-scroll` has `overflow-x: auto` (forces `overflow-y: auto`). Any absolutely-positioned dropdown/popup inside the feed must use the `FloatingPopup` portal component or it will be clipped.
 
 ## Workflow Preferences
 
@@ -230,7 +280,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000001_add_release_note_to_feedback_posts.exs`
+- Latest migration: `20260222000002_create_stamps.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -241,140 +291,3 @@ npm run dev:web               # In another terminal
 - Ecto.Enum for status/type fields
 - `apiFetch()` for server components, regular `fetch()` for client components via API proxy routes
 - Next.js 16 uses `searchParams` and `params` as Promises in page components
-
-## Next Feature: Stamps (Replacement for Likes)
-
-### Philosophy
-
-Stamps are Inkwell's alternative to likes, emoji reactions, and hearts. They are NOT engagement metrics — they are quiet, meaningful gestures between readers and writers, like pressing a seal onto a letter. The design intentionally avoids count-driven comparison culture.
-
-**Core principles:**
-- One stamp per reader per entry — you choose the one that fits (like choosing a wax seal)
-- No counts are ever displayed — only which stamp types an entry has received
-- Only the entry author can see who left each stamp (it's a private gift)
-- You cannot stamp your own entries — stamps are gifts from readers to writers
-- Stamps show in the top-right of entry cards, like a real stamp on a letter
-- The visual style is **ink stamp / chop seal** — clean, elegant impressions pressed onto paper
-
-### The 7 Launch Stamps
-
-**6 Core Emotional Stamps** (available to all users):
-1. **Felt** — "I felt this" — emotional resonance, deep connection to the writing
-2. **Holding Space** — "Holding space for you" — solidarity, being present with someone
-3. **Beautifully Said** — "Beautifully said" — admiration for the craft, the way something was expressed
-4. **Rooting For You** — "Rooting for you" — encouragement, cheerleading, support
-5. **Throwback** — "What a throwback" — nostalgia, shared memory, "I remember this too"
-6. **I Cannot** — "I cannot" — overwhelmed (in a good way), speechless, "this broke me"
-
-**1 Plus-Exclusive Stamp:**
-7. **From a Supporter** — "From a supporter" — Plus subscribers only, with a subtle foil/shimmer visual effect (distinct from the 6 core stamps)
-
-### Visual Design
-
-- **Style**: Ink stamp / chop seal aesthetic — like a rubber stamp or Asian chop seal pressed onto paper. Clean circular or square impressions with the stamp name/symbol inside.
-- **AI-generated initially** — design the stamps as SVG or high-quality images. Structure the code so stamp images are stored as static assets that can be swapped out for human artist illustrations later (e.g., `/public/stamps/felt.svg` or similar, referenced by slug in the database).
-- **"From a Supporter" Plus stamp** gets a subtle foil/shimmer CSS effect — like a foil trading card. Distinct but not flashy.
-- **Placement**: Stamps appear in the top-right corner of entry cards (feed and detail page), like a postage stamp on a letter. Show only the stamp type icons for stamps that entry has received — no counts, no numbers.
-- **Entry detail page**: Same top-right placement. Author can hover (desktop) or tap (mobile) a stamp icon to see a small popover with avatars of who left that stamp. On mobile, a "Stamps" tab/section below the entry shows the full breakdown.
-
-### Interaction Flow
-
-1. Reader opens an entry (detail page only — no stamping from feed cards)
-2. Reader clicks a "Stamp this entry" button/area
-3. A stamp picker appears — shows all 7 stamps (7th grayed out if not Plus)
-4. Reader picks one → stamp is saved → stamp icon appears in top-right of entry
-5. If reader already stamped, clicking again opens the picker to change or remove their stamp
-6. Author sees stamp icons on their entry; hovering/tapping shows who left each type
-
-### Database Design
-
-**Table: `stamps`**
-- `id` — UUID primary key
-- `entry_id` — UUID FK to entries (required)
-- `user_id` — UUID FK to users (required)
-- `stamp_type` — Ecto.Enum: `:felt`, `:holding_space`, `:beautifully_said`, `:rooting`, `:throwback`, `:i_cannot`, `:supporter`
-- `inserted_at`, `updated_at` — timestamps
-- **Unique constraint**: `[:user_id, :entry_id]` — one stamp per user per entry
-
-No `stamp_types` config table for MVP — stamp types are hardcoded in the Ecto.Enum and frontend config. Design the system so adding new stamp types later only requires: adding to the enum, adding an image asset, adding a frontend config entry.
-
-### API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/entries/:entry_id/stamp` | Required | Create/update stamp on entry. Body: `{"stamp_type": "felt"}`. Validates: not own entry, valid stamp_type, Plus check for "supporter" |
-| DELETE | `/api/entries/:entry_id/stamp` | Required | Remove own stamp from entry |
-| GET | `/api/entries/:entry_id/stamps` | Optional | Get stamp summary. Returns stamp types present (no counts). If viewer is author, also returns who left each stamp |
-
-### Entry JSON Changes
-
-Update `render_entry` and `render_entry_full` in `entry_controller.ex` to include:
-
-```json
-{
-  "stamps": ["felt", "holding_space", "i_cannot"],
-  "my_stamp": "felt"
-}
-```
-
-- `stamps` — array of stamp type strings that this entry has received (deduplicated, no counts)
-- `my_stamp` — the current viewer's stamp on this entry (null if none, requires auth)
-
-### Frontend Components
-
-**New files to create:**
-- `apps/web/src/components/stamp-display.tsx` — shows stamp icons in top-right of entry cards (server component). Takes `stamps: string[]` prop, renders small ink-stamp icons.
-- `apps/web/src/components/stamp-picker.tsx` — client component. Modal/popover for choosing a stamp. Shows all 7 stamps with names and descriptions. Grays out "From a Supporter" for non-Plus users.
-- `apps/web/src/components/stamp-popover.tsx` — client component. On hover/tap of a stamp icon (author only), shows avatars of who left that stamp type.
-
-**Files to modify:**
-- `apps/web/src/app/feed/page.tsx` — add `StampDisplay` to EntryCard (top-right corner)
-- `apps/web/src/app/[username]/[slug]/page.tsx` — add `StampDisplay` + `StampPicker` + author popover
-- `apps/web/src/app/[username]/page.tsx` — add `StampDisplay` to entry list cards (if applicable)
-- `apps/api/lib/inkwell_web/controllers/entry_controller.ex` — include `stamps` and `my_stamp` in rendered entry JSON
-- `apps/api/lib/inkwell_web/router.ex` — add stamp routes to authenticated scope
-
-### Asset Structure (Artist-Replaceable)
-
-```
-apps/web/public/stamps/
-  felt.svg
-  holding-space.svg
-  beautifully-said.svg
-  rooting.svg
-  throwback.svg
-  i-cannot.svg
-  supporter.svg
-```
-
-Frontend stamp config maps slugs to file paths:
-
-```typescript
-const STAMP_CONFIG = {
-  felt: { label: "Felt", description: "I felt this", icon: "/stamps/felt.svg" },
-  holding_space: { label: "Holding Space", description: "Holding space for you", icon: "/stamps/holding-space.svg" },
-  beautifully_said: { label: "Beautifully Said", description: "Beautifully said", icon: "/stamps/beautifully-said.svg" },
-  rooting: { label: "Rooting For You", description: "Rooting for you", icon: "/stamps/rooting.svg" },
-  throwback: { label: "Throwback", description: "What a throwback", icon: "/stamps/throwback.svg" },
-  i_cannot: { label: "I Cannot", description: "I cannot", icon: "/stamps/i-cannot.svg" },
-  supporter: { label: "From a Supporter", description: "From a supporter", icon: "/stamps/supporter.svg", plusOnly: true },
-};
-```
-
-To replace AI images with artist illustrations later: just swap the SVG files. No code changes needed.
-
-### Notification
-
-When someone stamps your entry, create a notification:
-- Type: `:stamp` (add to existing notification enum in `apps/api/lib/inkwell/accounts/notification.ex`)
-- Target: the entry
-- Actor: the person who stamped
-- No notification for removing/changing a stamp
-
-### Key Constraints
-- Cannot stamp your own entries (backend validates `entry.user_id != current_user.id`)
-- "supporter" stamp requires `subscription_tier == "plus"` (backend validates)
-- One stamp per user per entry (unique DB constraint)
-- Changing stamp = update in place, not delete+create
-- No counts anywhere in the UI — only stamp type presence
-- Stamps are NOT shown in entry previews on external/federated views (internal feature only for now)
