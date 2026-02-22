@@ -83,6 +83,7 @@ defmodule InkwellWeb.RelationshipController do
     with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
       case Social.accept_follow(target.id, user.id) do
         {:ok, _rel} ->
+          # Notify the requester that their request was accepted
           Accounts.create_notification(%{
             user_id: target.id,
             type: :follow_accepted,
@@ -90,6 +91,9 @@ defmodule InkwellWeb.RelationshipController do
             target_type: "user",
             target_id: user.id
           })
+
+          # Mark the follow_request notification as read for the accepting user
+          Accounts.mark_follow_request_notifications_read(user.id, target.id)
 
           json(conn, %{ok: true, status: "accepted"})
 
@@ -128,6 +132,9 @@ defmodule InkwellWeb.RelationshipController do
     with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
       case Social.reject_follow(target.id, user.id) do
         {:ok, _} ->
+          # Mark the follow_request notification as read so it doesn't reappear
+          Accounts.mark_follow_request_notifications_read(user.id, target.id)
+
           json(conn, %{ok: true})
 
         {:error, :not_found} ->

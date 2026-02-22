@@ -81,6 +81,17 @@ defmodule Inkwell.Accounts do
     |> Repo.update_all(set: [read: true])
   end
 
+  @doc """
+  Mark all follow_request notifications from a given actor as read.
+  Called when accepting or rejecting a follow request so the notification
+  doesn't reappear with action buttons after page refresh.
+  """
+  def mark_follow_request_notifications_read(user_id, actor_id) do
+    Notification
+    |> where([n], n.user_id == ^user_id and n.actor_id == ^actor_id and n.type == :follow_request)
+    |> Repo.update_all(set: [read: true])
+  end
+
   def count_unread_notifications(user_id) do
     Notification
     |> where(user_id: ^user_id, read: false)
