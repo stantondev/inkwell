@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StampPicker } from "@/components/stamp-picker";
+import { FloatingPopup } from "@/components/floating-popup";
 
 interface FeedComment {
   id: string;
@@ -56,21 +57,7 @@ export function FeedCardActions({
   const [submitting, setSubmitting] = useState(false);
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [stamps, setStamps] = useState(initialStamps);
-  const popupRef = useRef<HTMLDivElement>(null);
-  const [popupAlign, setPopupAlign] = useState<"left" | "right">("right");
   const commentBtnRef = useRef<HTMLButtonElement>(null);
-
-  // Close popup on outside click
-  useEffect(() => {
-    if (!commentPopupOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-        setCommentPopupOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [commentPopupOpen]);
 
   const loadComments = useCallback(async () => {
     try {
@@ -87,11 +74,6 @@ export function FeedCardActions({
 
   function handleCommentToggle() {
     if (!commentPopupOpen) {
-      // Determine alignment
-      if (commentBtnRef.current) {
-        const rect = commentBtnRef.current.getBoundingClientRect();
-        setPopupAlign(rect.left < window.innerWidth / 2 ? "left" : "right");
-      }
       if (!commentsLoaded) loadComments();
     }
     setCommentPopupOpen(!commentPopupOpen);
@@ -146,7 +128,7 @@ export function FeedCardActions({
       {/* Right: Comment + Stamp actions */}
       <div className="flex items-center gap-4">
         {/* Comment button + popup */}
-        <div ref={popupRef} className="relative">
+        <div>
           <button
             ref={commentBtnRef}
             onClick={handleCommentToggle}
@@ -170,132 +152,133 @@ export function FeedCardActions({
             <span>{commentCount}</span>
           </button>
 
-          {/* Comment popup */}
-          {commentPopupOpen && (
+          {/* Comment popup — rendered via portal to escape overflow containers */}
+          <FloatingPopup
+            anchorRef={commentBtnRef}
+            open={commentPopupOpen}
+            onClose={() => setCommentPopupOpen(false)}
+            placement="top"
+            className="rounded-xl border shadow-lg overflow-hidden"
+            style={{
+              background: "var(--surface)",
+              borderColor: "var(--border)",
+              width: 320,
+              maxHeight: 400,
+            }}
+          >
+            {/* Header */}
             <div
-              className="absolute bottom-full mb-2 z-50 rounded-xl border shadow-lg overflow-hidden"
-              style={{
-                background: "var(--surface)",
-                borderColor: "var(--border)",
-                width: 320,
-                maxHeight: 400,
-                ...(popupAlign === "right" ? { right: 0 } : { left: 0 }),
-              }}
+              className="flex items-center justify-between px-4 py-2.5 border-b"
+              style={{ borderColor: "var(--border)" }}
             >
-              {/* Header */}
-              <div
-                className="flex items-center justify-between px-4 py-2.5 border-b"
-                style={{ borderColor: "var(--border)" }}
+              <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
+                Comments
+              </span>
+              <Link
+                href={`${entryHref}#comments`}
+                className="text-xs hover:underline"
+                style={{ color: "var(--accent)" }}
               >
-                <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
-                  Comments
-                </span>
-                <Link
-                  href={`${entryHref}#comments`}
-                  className="text-xs hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  View all →
-                </Link>
-              </div>
+                View all →
+              </Link>
+            </div>
 
-              {/* Comments list */}
-              <div
-                className="overflow-y-auto px-4 py-2"
-                style={{ maxHeight: 240 }}
-              >
-                {!commentsLoaded ? (
-                  <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
-                    Loading...
-                  </p>
-                ) : recentComments.length === 0 ? (
-                  <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
-                    No comments yet. Be the first!
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {recentComments.map((c) => (
-                      <div key={c.id} className="flex gap-2">
-                        {c.author && (
-                          <Link href={`/${c.author.username}`} className="flex-shrink-0">
-                            <Avatar
-                              url={c.author.avatar_url}
-                              name={c.author.display_name}
-                              size={24}
-                            />
-                          </Link>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-1.5">
-                            {c.author && (
-                              <Link
-                                href={`/${c.author.username}`}
-                                className="text-xs font-medium hover:underline"
-                              >
-                                {c.author.display_name}
-                              </Link>
-                            )}
-                            <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                              {timeAgo(c.created_at)}
-                            </span>
-                          </div>
-                          <div
-                            className="text-xs leading-relaxed mt-0.5 prose-entry"
-                            style={{ color: "var(--foreground)" }}
-                            dangerouslySetInnerHTML={{ __html: c.body_html }}
+            {/* Comments list */}
+            <div
+              className="overflow-y-auto px-4 py-2"
+              style={{ maxHeight: 240 }}
+            >
+              {!commentsLoaded ? (
+                <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
+                  Loading...
+                </p>
+              ) : recentComments.length === 0 ? (
+                <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
+                  No comments yet. Be the first!
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {recentComments.map((c) => (
+                    <div key={c.id} className="flex gap-2">
+                      {c.author && (
+                        <Link href={`/${c.author.username}`} className="flex-shrink-0">
+                          <Avatar
+                            url={c.author.avatar_url}
+                            name={c.author.display_name}
+                            size={24}
                           />
+                        </Link>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-1.5">
+                          {c.author && (
+                            <Link
+                              href={`/${c.author.username}`}
+                              className="text-xs font-medium hover:underline"
+                            >
+                              {c.author.display_name}
+                            </Link>
+                          )}
+                          <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                            {timeAgo(c.created_at)}
+                          </span>
                         </div>
+                        <div
+                          className="text-xs leading-relaxed mt-0.5 prose-entry"
+                          style={{ color: "var(--foreground)" }}
+                          dangerouslySetInnerHTML={{ __html: c.body_html }}
+                        />
                       </div>
-                    ))}
-                    {comments.length > 3 && (
-                      <Link
-                        href={`${entryHref}#comments`}
-                        className="text-xs text-center py-1 hover:underline"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        +{comments.length - 3} more
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Quick comment input */}
-              {isLoggedIn && (
-                <form
-                  onSubmit={handleSubmitComment}
-                  className="flex gap-2 px-4 py-2.5 border-t"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <input
-                    type="text"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="flex-1 text-xs rounded-full border px-3 py-1.5 outline-none"
-                    style={{
-                      borderColor: "var(--border)",
-                      background: "var(--background)",
-                      color: "var(--foreground)",
-                    }}
-                    disabled={submitting}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || submitting}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full transition-opacity"
-                    style={{
-                      background: "var(--accent)",
-                      color: "#fff",
-                      opacity: !commentText.trim() || submitting ? 0.5 : 1,
-                    }}
-                  >
-                    Post
-                  </button>
-                </form>
+                    </div>
+                  ))}
+                  {comments.length > 3 && (
+                    <Link
+                      href={`${entryHref}#comments`}
+                      className="text-xs text-center py-1 hover:underline"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      +{comments.length - 3} more
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
-          )}
+
+            {/* Quick comment input */}
+            {isLoggedIn && (
+              <form
+                onSubmit={handleSubmitComment}
+                className="flex gap-2 px-4 py-2.5 border-t"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="flex-1 text-xs rounded-full border px-3 py-1.5 outline-none"
+                  style={{
+                    borderColor: "var(--border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                  disabled={submitting}
+                />
+                <button
+                  type="submit"
+                  disabled={!commentText.trim() || submitting}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full transition-opacity"
+                  style={{
+                    background: "var(--accent)",
+                    color: "#fff",
+                    opacity: !commentText.trim() || submitting ? 0.5 : 1,
+                  }}
+                >
+                  Post
+                </button>
+              </form>
+            )}
+          </FloatingPopup>
         </div>
 
         {/* Stamp button */}

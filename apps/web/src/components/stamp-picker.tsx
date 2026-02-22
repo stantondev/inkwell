@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { STAMP_CONFIG, STAMP_TYPES } from "./stamp-config";
+import { FloatingPopup } from "./floating-popup";
 
 interface StampPickerProps {
   entryId: string;
@@ -26,39 +27,12 @@ export function StampPicker({
   const [open, setOpen] = useState(false);
   const [myStamp, setMyStamp] = useState<string | null>(currentStamp);
   const [loading, setLoading] = useState(false);
-  const [dropdownAlign, setDropdownAlign] = useState<"left" | "right">("right");
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMyStamp(currentStamp);
   }, [currentStamp]);
-
-  // Determine dropdown alignment based on button position
-  const updateAlignment = useCallback(() => {
-    if (!buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    // If the button is in the left half of the screen, align dropdown to the left
-    // If in the right half, align to the right — prevents clipping off screen
-    if (rect.left < viewportWidth / 2) {
-      setDropdownAlign("left");
-    } else {
-      setDropdownAlign("right");
-    }
-  }, []);
-
-  // Close picker on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
 
   if (isOwnEntry) return null;
 
@@ -67,7 +41,6 @@ export function StampPicker({
       window.location.href = "/login";
       return;
     }
-    updateAlignment();
     setOpen(!open);
   }
 
@@ -121,13 +94,6 @@ export function StampPicker({
       setOpen(false);
     }
   }
-
-  const dropdownStyle = {
-    background: "var(--surface)",
-    borderColor: "var(--border)",
-    minWidth: 240,
-    ...(dropdownAlign === "right" ? { right: 0 } : { left: 0 }),
-  };
 
   const stampList = (
     <>
@@ -188,7 +154,7 @@ export function StampPicker({
   // Compact mode — icon-only button for feed cards
   if (compact) {
     return (
-      <div ref={pickerRef} className="relative">
+      <div ref={pickerRef}>
         <button
           ref={buttonRef}
           onClick={handleToggle}
@@ -219,18 +185,27 @@ export function StampPicker({
           )}
         </button>
 
-        {open && (
-          <div className="absolute bottom-full mb-2 z-50 rounded-xl border p-3 shadow-lg" style={dropdownStyle}>
-            {stampList}
-          </div>
-        )}
+        <FloatingPopup
+          anchorRef={buttonRef}
+          open={open}
+          onClose={() => setOpen(false)}
+          placement="top"
+          className="rounded-xl border p-3 shadow-lg"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--border)",
+            minWidth: 240,
+          }}
+        >
+          {stampList}
+        </FloatingPopup>
       </div>
     );
   }
 
   // Full mode — pill button with label (used on entry detail page)
   return (
-    <div ref={pickerRef} className="relative">
+    <div ref={pickerRef}>
       <button
         ref={buttonRef}
         onClick={handleToggle}
@@ -267,11 +242,20 @@ export function StampPicker({
         )}
       </button>
 
-      {open && (
-        <div className="absolute top-full mt-2 z-50 rounded-xl border p-3 shadow-lg" style={dropdownStyle}>
-          {stampList}
-        </div>
-      )}
+      <FloatingPopup
+        anchorRef={buttonRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="bottom"
+        className="rounded-xl border p-3 shadow-lg"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border)",
+          minWidth: 240,
+        }}
+      >
+        {stampList}
+      </FloatingPopup>
     </div>
   );
 }
