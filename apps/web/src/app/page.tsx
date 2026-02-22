@@ -338,7 +338,6 @@ export default function LandingPage() {
                   "Custom domain",
                   "Extended media storage",
                   "Advanced profile CSS/HTML",
-                  "Accept reader tips",
                   "Priority support",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">

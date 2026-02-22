@@ -162,7 +162,6 @@ export default function BillingPage() {
                 "Custom domain for your journal",
                 "Extended media storage",
                 "Advanced profile CSS/HTML theming",
-                "Accept reader tips",
                 "Priority support",
                 "Plus badge on your profile",
               ].map((item) => (

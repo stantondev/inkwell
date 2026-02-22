@@ -160,6 +160,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
 - Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
 - Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
+- **Reader tips feature shelved** — removed from Plus tier feature lists (landing page + billing page) due to legal complexity around payment processing for tips; may revisit after ToS is finalized
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
 
 ### Community Feedback & Roadmap Board
