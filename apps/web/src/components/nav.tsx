@@ -103,17 +103,17 @@ export function Nav({ user }: { user: SessionUser | null }) {
                 Write
               </Link>
 
-              {(user.draft_count ?? 0) > 0 && (
-                <Link href="/drafts"
-                  className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
-                  style={{ color: "var(--muted)" }}>
-                  Drafts
+              <Link href="/drafts"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                style={{ color: "var(--muted)" }}>
+                Drafts
+                {(user.draft_count ?? 0) > 0 && (
                   <span className="rounded-full text-xs px-1.5 py-0.5"
                     style={{ background: "var(--surface-hover)", color: "var(--foreground)" }}>
                     {user.draft_count}
                   </span>
-                </Link>
-              )}
+                )}
+              </Link>
 
               <Link href="/notifications"
                 className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-[var(--surface-hover)] relative"

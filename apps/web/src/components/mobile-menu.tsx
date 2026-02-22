@@ -63,9 +63,9 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
             <MobileLink href="/editor" onClick={() => setOpen(false)}>
               <WriteIcon /> Write
             </MobileLink>
-            {draftCount > 0 && (
-              <MobileLink href="/drafts" onClick={() => setOpen(false)}>
-                <DraftsIcon /> Drafts
+            <MobileLink href="/drafts" onClick={() => setOpen(false)}>
+              <DraftsIcon /> Drafts
+              {draftCount > 0 && (
                 <span
                   className="ml-auto rounded-full text-xs font-medium flex items-center justify-center"
                   style={{
@@ -79,8 +79,8 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
                 >
                   {draftCount}
                 </span>
-              </MobileLink>
-            )}
+              )}
+            </MobileLink>
             <MobileLink href="/notifications" onClick={() => setOpen(false)}>
               <NotificationsIcon /> Notifications
               {unreadNotificationCount > 0 && (
