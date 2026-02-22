@@ -394,6 +394,44 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 - **Feedback/guestbook**: preserved anonymously after account deletion (no PII)
 - **Account deletion**: immediate, all PII removed; anonymized community content retained
 
+## Legal Pages & Terms Acceptance (PLANNED — NOT YET IMPLEMENTED)
+
+This work is the next item in the queue. All three policy documents are drafted and ready to paste in.
+
+### Pages to Create
+| Route | File | Notes |
+|---|---|---|
+| `/terms` | `apps/web/src/app/terms/page.tsx` | Terms of Service — requires user acceptance |
+| `/privacy` | `apps/web/src/app/privacy/page.tsx` | Privacy Policy — requires user acceptance |
+| `/brand` | `apps/web/src/app/brand/page.tsx` | Brand/Press Policy — informational only, no acceptance needed |
+
+All three pages: simple, static Next.js server components. Use the same prose styling as the landing page (`prose`, Lora headings, `var(--foreground)` body text). Add to site footer.
+
+### Terms Acceptance Flow
+
+**Decision**: Show a required checkbox inline on the login form for everyone. Backend records `terms_accepted_at` on first acceptance only (no-op for returning users). This avoids email enumeration while maintaining GDPR-quality explicit consent.
+
+**Backend changes:**
+- Migration: add `terms_accepted_at :utc_datetime_usec, null: true` to `users` table (migration number `20260222000009`)
+- `POST /api/auth/magic-link`: accept `terms_accepted` boolean in request body. If `true` and `user.terms_accepted_at` is nil, set it to `now()`. If `false` and this is a new user, return 422 with `{"error": "You must accept the Terms of Service and Privacy Policy to create an account"}`.
+- `render_user/1` in auth controller: expose `terms_accepted_at` in session response
+- `User` schema: add `terms_accepted_at` field
+
+**Frontend changes:**
+- `apps/web/src/app/login/page.tsx`: add checkbox below email field — "I agree to the [Terms of Service] and [Privacy Policy]" (links open in new tab). Checkbox is required to submit.
+- When submitting, pass `terms_accepted: boolean` in the POST body to `/api/auth/magic-link` proxy route.
+- Proxy route `apps/web/src/app/api/auth/magic-link/route.ts`: forward `terms_accepted` to Phoenix API.
+- If API returns 422 terms error, show it inline below the checkbox.
+
+**Footer:**
+- `apps/web/src/components/nav.tsx` (or a dedicated `footer.tsx`): add footer with links to `/terms`, `/privacy`, `/brand`. Appears on all pages.
+
+### Key Decisions Already Made
+- Brand Policy: informational only, no user acceptance required
+- Returning users: checkbox shown to everyone; `terms_accepted_at` only set once (first time)
+- Storage: `terms_accepted_at` timestamp on user record (proves when they accepted)
+- No separate `terms_version` field for now — can add later if ToS gets a major revision
+
 ## Known Issues & TODO
 
 ### Critical
