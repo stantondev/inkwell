@@ -175,6 +175,17 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `PUT /api/me/top-friends` to save, `GET /api/me/top-friends` to list
 - Key files: `apps/api/lib/inkwell/social/top_friend.ex`, `apps/web/src/app/settings/top-friends/page.tsx`
 
+### Account Deletion
+- Self-serve account deletion from Settings → Profile page (Danger Zone section)
+- Confirmation modal requires typing username to confirm
+- Cancels Stripe subscription if active before deleting
+- DB cascading foreign keys delete all associated data (entries, stamps, relationships, notifications, auth tokens, top friends, votes)
+- Comments and feedback posts are preserved anonymously (`user_id` set to NULL via `nilify_all`)
+- Clears session cookie and redirects to home page after deletion
+- **Backend**: `Inkwell.Accounts.delete_account/1`, `Inkwell.Billing.cancel_subscription/1`, `DELETE /api/me` in UserController
+- **Frontend**: `apps/web/src/app/settings/danger-zone.tsx` (client component), proxy route in `apps/web/src/app/api/me/route.ts`
+- **Migration**: `20260222000003` — allows NULL `user_id` on `feedback_posts` and `feedback_comments` for nilify cascade
+
 ### Mobile Navigation
 - Hamburger menu (☰) on screens < 640px with all nav links
 - Client component at `apps/web/src/components/mobile-menu.tsx`
@@ -280,7 +291,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000002_create_stamps.exs`
+- Latest migration: `20260222000003_allow_null_user_on_feedback.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
