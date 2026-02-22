@@ -191,6 +191,55 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Client component at `apps/web/src/components/mobile-menu.tsx`
 - Integrated in `apps/web/src/components/nav.tsx`
 
+### Profile Customization (MySpace-style)
+- Users can fully customize their profile page with themes, colors, backgrounds, fonts, layouts, music, status messages, widget ordering, and custom HTML/CSS
+- 8 theme presets: default, cottagecore, vaporwave, dark-academia, retro-web, midnight, pastel, ocean — each with CSS variable overrides
+- 8 font options: default, lora, courier, georgia, comic-sans, times, palatino, verdana
+- 4 layout options: classic (2-column), wide (full-width stacked), minimal (single column), magazine
+- Background image upload (resized to max 1920px, stored as base64 data URI)
+- AIM-style status message (max 280 chars, displayed italic below username)
+- Profile music player — Spotify/YouTube/SoundCloud embed URL, renders as "Now Playing" sidebar widget
+- Widget ordering — drag-to-reorder sidebar sections (About, Entries, Top Pals, Guestbook, Music, Custom HTML)
+- Custom CSS and Custom HTML — Plus-only ($5/mo), server-side HTML sanitization, CSS scoped via `scope-styles.ts`
+- Settings editor at `/settings/customize` with 10 collapsible sections and live preview
+- **Backend**:
+  - 9 new user fields: `profile_music`, `profile_background_url`, `profile_background_color`, `profile_accent_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`
+  - `PATCH /api/me` — accepts all customization fields (except HTML/CSS/background which have dedicated endpoints)
+  - `PATCH /api/me/profile` — custom HTML/CSS (Plus-only, server-side sanitization)
+  - `POST /api/me/background` — background image upload (5MB limit)
+  - Migration: `20260222000004`
+- **Frontend**:
+  - `apps/web/src/lib/profile-themes.ts` — theme, font, and layout definitions
+  - `apps/web/src/lib/profile-styles.ts` — `buildProfileStyles()` resolves theme + custom overrides into CSS values
+  - `apps/web/src/app/settings/customize/profile-customize-editor.tsx` — client component editor
+  - `apps/web/src/app/[username]/page.tsx` — renders customizations (backgrounds, themes, fonts, layouts, widgets, music, status, custom HTML/CSS)
+  - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`
+
+### Guestbook
+- Users can sign each other's profile guestbooks with short messages (max 500 chars)
+- Entries show author avatar, display name, message, and timestamp
+- Authors can delete their own entries; profile owners can delete any entry on their guestbook
+- Rendered as a sidebar widget on profile pages
+- **Backend**:
+  - `apps/api/lib/inkwell/guestbook/guestbook_entry.ex` — Ecto schema
+  - `apps/api/lib/inkwell/guestbook.ex` — context (list_entries, create_entry, delete_entry)
+  - `apps/api/lib/inkwell_web/controllers/guestbook_controller.ex` — index (public), create (auth), delete (author or profile owner)
+  - Routes: `GET/POST /api/users/:username/guestbook`, `DELETE /api/guestbook/:id`
+  - Migration: `20260222000005`
+- **Frontend**:
+  - `apps/web/src/app/[username]/guestbook.tsx` — client component
+  - Proxy routes: `apps/web/src/app/api/users/[username]/guestbook/route.ts`, `apps/web/src/app/api/guestbook/[id]/route.ts`
+
+### Multi-Step Onboarding Wizard
+- `/welcome` — 4-step wizard for new users with progress dots
+- Step 1: Username + Display Name (with availability check)
+- Step 2: Photo Upload + Pronouns (file upload with canvas resize, not URL input)
+- Step 3: Bio + Status Message ("What are you up to?")
+- Step 4: Theme Picker (grid of 8 theme swatches from `profile-themes.ts`)
+- Back/Next navigation, "Skip for now" on every step
+- Final step saves all fields and redirects to `/feed`
+- Shared utility: `apps/web/src/lib/image-utils.ts` — `resizeImage()` (square crop) and `resizeBackgroundImage()` (aspect-preserving)
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility
 - **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
@@ -201,10 +250,9 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Search**: text search (requires Meilisearch — not deployed to prod yet)
 - **RSS feeds**: per-user and per-tag RSS XML feeds
 - **Music player**: embedded music links on entries
-- **Profile pages**: avatar, bio, pronouns, Plus badge, Top Pen Pals sidebar, entry list
+- **Profile pages**: avatar, bio, pronouns, Plus badge, Top Pen Pals sidebar, entry list, full customization (themes, backgrounds, music, guestbook, etc.)
 - **Admin panel**: entry listing/deletion at `/admin` (requires `ADMIN_USERNAMES` Fly secret)
 - **ActivityPub federation**: WebFinger, actor endpoints, inbox/outbox, HTTP signatures (sidecar not deployed)
-- **Onboarding**: `/welcome` flow for new users (set display name, username, bio)
 - **Landing page**: public homepage with feature showcase and pricing (Plus tier shown as live)
 
 ## Navigation Structure
@@ -220,10 +268,10 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
 ### Settings Tabs
-Profile | Pen Pals | Top 6 | Billing | Roadmap
+Profile | Top 6 | Billing | Customize
 
 ## Database Tables
-- `users` — accounts with UUID PKs, Stripe fields, AP keys
+- `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
 - `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, visibility
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
@@ -237,6 +285,7 @@ Profile | Pen Pals | Top 6 | Billing | Roadmap
 - `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count
 - `feedback_votes` — user_id + feedback_post_id (unique together)
 - `feedback_comments` — body, user_id, feedback_post_id
+- `guestbook_entries` — profile guestbook with body, profile_user_id, author_id
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Known Issues & TODO
@@ -291,7 +340,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000003_allow_null_user_on_feedback.exs`
+- Latest migration: `20260222000005_create_guestbook_entries.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
