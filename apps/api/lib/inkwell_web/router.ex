@@ -80,6 +80,7 @@ defmodule InkwellWeb.Router do
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
     post "/me/avatar", UserController, :upload_avatar
+    delete "/me", UserController, :delete_account
 
     # User icons
     get "/me/icons", UserIconController, :index

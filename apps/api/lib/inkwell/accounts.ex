@@ -87,6 +87,18 @@ defmodule Inkwell.Accounts do
     |> Repo.aggregate(:count, :id)
   end
 
+  # Account deletion
+
+  def delete_account(%User{} = user) do
+    # Cancel Stripe subscription if active
+    if user.stripe_subscription_id do
+      Inkwell.Billing.cancel_subscription(user.stripe_subscription_id)
+    end
+
+    # DB cascading foreign keys handle all associated data
+    Repo.delete(user)
+  end
+
   # Admin
 
   def is_admin?(%User{username: username}) do

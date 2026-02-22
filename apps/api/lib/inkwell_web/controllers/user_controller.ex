@@ -132,6 +132,33 @@ defmodule InkwellWeb.UserController do
     end
   end
 
+  # DELETE /api/me — permanently delete the current user's account
+  def delete_account(conn, %{"username" => confirmation_username}) do
+    user = conn.assigns.current_user
+
+    if confirmation_username == user.username do
+      case Accounts.delete_account(user) do
+        {:ok, _} ->
+          json(conn, %{ok: true})
+
+        {:error, _reason} ->
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Failed to delete account. Please try again."})
+      end
+    else
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{error: "Username confirmation does not match."})
+    end
+  end
+
+  def delete_account(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "Username confirmation is required."})
+  end
+
   # ── Renderers ────────────────────────────────────────────────────────────
 
   def render_user(user) do

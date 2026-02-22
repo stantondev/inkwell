@@ -80,6 +80,19 @@ defmodule Inkwell.Billing do
     end
   end
 
+  @doc "Cancel a Stripe subscription immediately (used during account deletion)."
+  def cancel_subscription(subscription_id) do
+    case stripe_delete("/subscriptions/#{subscription_id}") do
+      {:ok, _} ->
+        Logger.info("Canceled Stripe subscription #{subscription_id}")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to cancel Stripe subscription #{subscription_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
   # ── Webhook Processing ─────────────────────────────────────────────────
 
   @doc "Process a Stripe webhook event."
@@ -169,6 +182,45 @@ defmodule Inkwell.Billing do
 
         {:error, reason} ->
           Logger.error("Stripe HTTP error on #{path}: #{inspect(reason)}")
+          {:error, :http_error}
+      end
+    end
+  end
+
+  defp stripe_delete(path) do
+    secret_key = stripe_config()[:secret_key]
+
+    if is_nil(secret_key) or secret_key == "" do
+      Logger.warning("STRIPE_SECRET_KEY not set — cannot make Stripe API call to #{path}")
+      {:error, :stripe_not_configured}
+    else
+      url = ~c"#{@stripe_api}#{path}"
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{secret_key}"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :delete,
+             {url, headers},
+             [ssl: [verify: :verify_none]],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
+          case Jason.decode(to_string(resp_body)) do
+            {:ok, data} -> {:ok, data}
+            error -> {:error, {:parse_error, error}}
+          end
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          Logger.error("Stripe API error #{status} on DELETE #{path}: #{to_string(resp_body)}")
+          {:error, {:stripe_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          Logger.error("Stripe HTTP error on DELETE #{path}: #{inspect(reason)}")
           {:error, :http_error}
       end
     end
