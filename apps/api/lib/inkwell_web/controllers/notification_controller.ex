@@ -1,7 +1,7 @@
 defmodule InkwellWeb.NotificationController do
   use InkwellWeb, :controller
 
-  alias Inkwell.Accounts
+  alias Inkwell.{Accounts, Journals}
 
   # GET /api/notifications
   def index(conn, params) do
@@ -9,7 +9,20 @@ defmodule InkwellWeb.NotificationController do
     page = parse_int(params["page"], 1)
 
     notifications = Accounts.list_notifications(user.id, page: page, per_page: 20)
-    json(conn, %{data: Enum.map(notifications, &render_notification/1)})
+
+    # Batch load entries referenced by notifications (for stamp, comment, like)
+    entry_ids =
+      notifications
+      |> Enum.filter(fn n -> n.target_type == "entry" && n.target_id != nil end)
+      |> Enum.map(& &1.target_id)
+      |> Enum.uniq()
+
+    entries_map =
+      entry_ids
+      |> Journals.get_entries_by_ids()
+      |> Map.new(fn entry -> {entry.id, entry} end)
+
+    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map) end)})
   end
 
   # POST /api/notifications/read
@@ -30,7 +43,7 @@ defmodule InkwellWeb.NotificationController do
     json(conn, %{ok: true})
   end
 
-  defp render_notification(n) do
+  defp render_notification(n, entries_map) do
     # For federated notifications, remote actor info lives in the `data` field
     remote_actor =
       case n.data do
@@ -46,6 +59,22 @@ defmodule InkwellWeb.NotificationController do
         _ -> nil
       end
 
+    # Include entry info when the notification targets an entry
+    entry =
+      if n.target_type == "entry" && n.target_id do
+        case Map.get(entries_map, n.target_id) do
+          nil -> nil
+          e ->
+            %{
+              slug: e.slug,
+              title: e.title,
+              user: %{username: e.user.username}
+            }
+        end
+      else
+        nil
+      end
+
     %{
       id: n.id,
       type: n.type,
@@ -56,6 +85,7 @@ defmodule InkwellWeb.NotificationController do
       target_id: n.target_id,
       read: n.read,
       data: render_data(n.data),
+      entry: entry,
       inserted_at: n.inserted_at
     }
   end

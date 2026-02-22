@@ -7,6 +7,18 @@ defmodule Inkwell.Journals do
 
   def get_entry!(id), do: Repo.get!(Entry, id)
 
+  @doc "Load multiple entries by IDs with their users preloaded."
+  def get_entries_by_ids(ids) when is_list(ids) do
+    if ids == [] do
+      []
+    else
+      Entry
+      |> where([e], e.id in ^ids)
+      |> preload(:user)
+      |> Repo.all()
+    end
+  end
+
   def get_entry_by_slug(user_id, slug) do
     Entry
     |> where(user_id: ^user_id, slug: ^slug)

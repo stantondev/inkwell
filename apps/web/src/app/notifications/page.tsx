@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
+import { STAMP_CONFIG } from "@/components/stamp-config";
 import { MarkAllReadButton } from "./mark-all-read-button";
 import { AcceptRejectButtons } from "./accept-reject-buttons";
 
@@ -55,12 +56,46 @@ function notificationText(n: Notification): string {
     case "comment_added":
     case "comment": return "commented on your entry";
     case "like": return "liked your entry";
+    case "stamp": {
+      const stampType = n.data?.stamp_type as string | undefined;
+      const stampInfo = stampType ? STAMP_CONFIG[stampType] : null;
+      if (stampInfo) {
+        return `stamped your entry — "${stampInfo.description}"`;
+      }
+      return "stamped your entry";
+    }
     default: return "did something";
   }
 }
 
 /** Icon for the notification type */
-function NotificationIcon({ type }: { type: string }) {
+function NotificationIcon({ type, data }: { type: string; data?: Record<string, unknown> }) {
+  if (type === "stamp") {
+    const stampType = data?.stamp_type as string | undefined;
+    const stampInfo = stampType ? STAMP_CONFIG[stampType] : null;
+    if (stampInfo) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={stampInfo.icon}
+          alt={stampInfo.label}
+          width={16}
+          height={16}
+          style={{ opacity: 0.85 }}
+        />
+      );
+    }
+    // Fallback stamp icon (seal)
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ color: "var(--accent)" }} aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </svg>
+    );
+  }
   if (type === "like") {
     return (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"
@@ -77,6 +112,26 @@ function NotificationIcon({ type }: { type: string }) {
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
     );
+  }
+  if (type === "follow_request" || type === "follow_accepted") {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ color: "var(--accent)" }} aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="8.5" cy="7" r="4"/>
+        <line x1="20" y1="8" x2="20" y2="14"/>
+        <line x1="23" y1="11" x2="17" y2="11"/>
+      </svg>
+    );
+  }
+  return null;
+}
+
+/** Build link to the entry if the notification references one */
+function getEntryHref(n: Notification): string | null {
+  if (n.entry) {
+    return `/${n.entry.user.username}/${n.entry.slug}`;
   }
   return null;
 }
@@ -150,6 +205,7 @@ export default async function NotificationsPage() {
             style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
             {notifications.map((n, i) => {
               const actor = getActorInfo(n);
+              const entryHref = getEntryHref(n);
 
               return (
                 <div key={n.id}
@@ -174,7 +230,7 @@ export default async function NotificationsPage() {
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm flex items-center gap-1.5 flex-wrap">
-                      <NotificationIcon type={n.type} />
+                      <NotificationIcon type={n.type} data={n.data} />
                       {actor.href ? (
                         <a
                           href={actor.href}
@@ -194,6 +250,16 @@ export default async function NotificationsPage() {
                       )}
                       <span style={{ color: "var(--muted)" }}>{notificationText(n)}</span>
                     </p>
+
+                    {/* Entry link */}
+                    {entryHref && n.entry && (
+                      <Link href={entryHref}
+                        className="text-xs mt-1 inline-block hover:underline truncate max-w-[300px]"
+                        style={{ color: "var(--accent)" }}>
+                        {n.entry.title || "Untitled entry"} →
+                      </Link>
+                    )}
+
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
                       {timeAgo(n.inserted_at)}
                     </p>
