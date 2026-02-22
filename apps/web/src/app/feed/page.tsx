@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
 
 interface PageProps {
