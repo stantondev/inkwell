@@ -39,8 +39,8 @@ defmodule InkwellWeb.UserController do
     allowed = Map.take(params, [
       "display_name", "bio", "pronouns", "avatar_url", "settings",
       "profile_music", "profile_background_color", "profile_accent_color",
-      "profile_font", "profile_layout", "profile_widgets",
-      "profile_status", "profile_theme"
+      "profile_foreground_color", "profile_font", "profile_layout",
+      "profile_widgets", "profile_status", "profile_theme"
     ])
 
     # Merge settings instead of replacing, so {onboarded: true} doesn't wipe other settings
@@ -235,6 +235,7 @@ defmodule InkwellWeb.UserController do
       profile_background_url: user.profile_background_url,
       profile_background_color: user.profile_background_color,
       profile_accent_color: user.profile_accent_color,
+      profile_foreground_color: user.profile_foreground_color,
       profile_font: user.profile_font,
       profile_layout: user.profile_layout,
       profile_widgets: user.profile_widgets,

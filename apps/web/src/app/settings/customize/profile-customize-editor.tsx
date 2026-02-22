@@ -19,6 +19,7 @@ interface ProfileUser {
   profile_background_url?: string | null;
   profile_background_color?: string | null;
   profile_accent_color?: string | null;
+  profile_foreground_color?: string | null;
   profile_font?: string | null;
   profile_layout?: string | null;
   profile_widgets?: Record<string, unknown> | null;
@@ -59,6 +60,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     profile_theme: user.profile_theme ?? "default",
     profile_background_color: user.profile_background_color ?? "",
     profile_accent_color: user.profile_accent_color ?? "",
+    profile_foreground_color: user.profile_foreground_color ?? "",
     profile_background_url: user.profile_background_url ?? "",
     profile_font: user.profile_font ?? "default",
     profile_layout: user.profile_layout ?? "classic",
@@ -88,6 +90,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       profile_theme: themeId,
       profile_background_color: theme?.vars["--profile-bg"] ?? "",
       profile_accent_color: theme?.vars["--profile-accent"] ?? "",
+      profile_foreground_color: theme?.vars["--profile-foreground"] ?? "",
       profile_font: theme?.defaultFont ?? "default",
     }));
     setStatus("idle");
@@ -158,6 +161,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
           profile_theme: form.profile_theme || null,
           profile_background_color: form.profile_background_color || null,
           profile_accent_color: form.profile_accent_color || null,
+          profile_foreground_color: form.profile_foreground_color || null,
           profile_font: form.profile_font || null,
           profile_layout: form.profile_layout || null,
           profile_music: form.profile_music || null,
@@ -261,7 +265,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
       {/* Colors */}
       <Section title="Colors" defaultOpen={false}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>Background</label>
             <div className="flex items-center gap-2">
@@ -277,6 +281,27 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                 value={form.profile_background_color}
                 onChange={(e) => updateForm("profile_background_color", e.target.value)}
                 placeholder="#ffffff"
+                maxLength={7}
+                className={`${inputClass} flex-1`}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>Text</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={form.profile_foreground_color || "#1c1917"}
+                onChange={(e) => updateForm("profile_foreground_color", e.target.value)}
+                className="w-8 h-8 rounded border cursor-pointer"
+                style={{ borderColor: "var(--border)" }}
+              />
+              <input
+                type="text"
+                value={form.profile_foreground_color}
+                onChange={(e) => updateForm("profile_foreground_color", e.target.value)}
+                placeholder="#1c1917"
                 maxLength={7}
                 className={`${inputClass} flex-1`}
                 style={inputStyle}
@@ -305,9 +330,25 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
             </div>
           </div>
         </div>
+        {/* Color preview */}
+        <div className="mt-3 rounded-lg border p-3" style={{
+          background: form.profile_background_color || "var(--background)",
+          borderColor: "var(--border)",
+        }}>
+          <p className="text-sm font-medium" style={{ color: form.profile_foreground_color || "var(--foreground)" }}>
+            Preview text on your background
+          </p>
+          <p className="text-xs mt-1" style={{ color: form.profile_accent_color || "var(--accent)" }}>
+            Accent color for links and buttons
+          </p>
+        </div>
         <button
           type="button"
-          onClick={() => { updateForm("profile_background_color", ""); updateForm("profile_accent_color", ""); }}
+          onClick={() => {
+            updateForm("profile_background_color", "");
+            updateForm("profile_accent_color", "");
+            updateForm("profile_foreground_color", "");
+          }}
           className="text-xs mt-2"
           style={{ color: "var(--muted)" }}>
           Reset to theme defaults

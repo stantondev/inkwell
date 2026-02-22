@@ -32,6 +32,7 @@ interface ProfileUser {
   profile_background_url?: string | null;
   profile_background_color?: string | null;
   profile_accent_color?: string | null;
+  profile_foreground_color?: string | null;
   profile_font?: string | null;
   profile_layout?: string | null;
   profile_widgets?: { order?: string[]; hidden?: string[] } | null;

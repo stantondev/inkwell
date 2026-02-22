@@ -18,6 +18,7 @@ defmodule Inkwell.Accounts.User do
     field :profile_background_url, :string
     field :profile_background_color, :string
     field :profile_accent_color, :string
+    field :profile_foreground_color, :string
     field :profile_font, :string
     field :profile_layout, :string
     field :profile_widgets, :map, default: %{}
@@ -78,7 +79,7 @@ defmodule Inkwell.Accounts.User do
       :display_name, :bio, :pronouns, :avatar_url,
       :profile_html, :profile_css, :settings,
       :profile_music, :profile_background_url, :profile_background_color,
-      :profile_accent_color, :profile_font, :profile_layout,
+      :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
       :profile_widgets, :profile_status, :profile_theme
     ])
     |> validate_length(:bio, max: 2000)
@@ -89,6 +90,7 @@ defmodule Inkwell.Accounts.User do
     |> validate_length(:profile_css, max: 50_000)
     |> maybe_validate_format(:profile_background_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_format(:profile_accent_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
+    |> maybe_validate_format(:profile_foreground_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_inclusion(:profile_font, @allowed_fonts)
     |> maybe_validate_inclusion(:profile_layout, @allowed_layouts)
     |> maybe_validate_inclusion(:profile_theme, @allowed_themes)
