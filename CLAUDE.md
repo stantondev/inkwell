@@ -75,15 +75,23 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 4. User clicks magic link → `GET /auth/verify?token=...` (Next.js route handler) → calls `GET /api/auth/verify?token=...` on Phoenix → verifies token, creates API session token → sets httpOnly cookie → redirects to `/feed`
 5. Authenticated requests use Bearer token in Authorization header, verified against `auth_tokens` table
 
+### Session Duration & Sliding Window
+- **API session tokens**: 90-day TTL with sliding window refresh
+- **Sliding window**: when a token is more than 7 days old and is used, the backend automatically extends `expires_at` by another 90 days — active users stay signed in indefinitely
+- **Cookie refresh**: Next.js middleware resets the browser cookie `maxAge` to 90 days on every page visit, keeping it in sync with DB token extension
+- **Re-auth required only when**: inactive for 90+ days, new device/browser, or explicit sign out
+- Middleware runs on all page routes (excludes `_next/static`, `_next/image`, `favicon.ico`, `stamps/`, `api/`)
+
 ### Key files
-- `apps/api/lib/inkwell/auth.ex` — token CRUD (create, verify, revoke)
+- `apps/api/lib/inkwell/auth.ex` — token CRUD (create, verify, revoke, sliding window refresh via `maybe_refresh_token/2`)
 - `apps/api/lib/inkwell/auth/auth_token.ex` — Ecto schema for `auth_tokens` table
 - `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc (also handles feedback emails); reads `FROM_EMAIL` env var, falls back to `Inkwell <onboarding@resend.dev>` if not set
 - `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout/me endpoints; `render_user/1` returns session data including `subscription_tier` and `unread_notification_count`
 - `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug
 - `apps/api/lib/inkwell_web/plugs/rate_limit.ex` — ETS-based sliding window rate limiter (5 req / 5 min per IP, x-forwarded-for aware)
+- `apps/web/src/middleware.ts` — protects `/feed` and `/editor`, refreshes session cookie on all page visits
 - `apps/web/src/app/login/page.tsx` — login UI
-- `apps/web/src/app/auth/verify/route.ts` — server-side token verification + cookie setting
+- `apps/web/src/app/auth/verify/route.ts` — server-side token verification + cookie setting (90-day maxAge)
 
 ## Implemented Features
 
@@ -203,25 +211,27 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 
 ### Profile Customization (MySpace-style)
 - Users can fully customize their profile page with themes, colors, backgrounds, fonts, layouts, music, status messages, widget ordering, and custom HTML/CSS
-- 8 theme presets: default, cottagecore, vaporwave, dark-academia, retro-web, midnight, pastel, ocean — each with CSS variable overrides
+- 8 theme presets: default, cottagecore, vaporwave, dark-academia, retro-web, midnight, pastel, ocean — each with full CSS variable overrides (`--profile-bg`, `--profile-surface`, `--profile-surface-hover`, `--profile-accent`, `--profile-accent-light`, `--profile-foreground`, `--profile-muted`, `--profile-border`)
 - 8 font options: default, lora, courier, georgia, comic-sans, times, palatino, verdana
 - 4 layout options: classic (2-column), wide (full-width stacked), minimal (single column), magazine
+- 3 color pickers: Background, Text, and Accent — each overridable per-user independent of theme, with live preview
 - Background image upload (resized to max 1920px, stored as base64 data URI)
 - AIM-style status message (max 280 chars, displayed italic below username)
 - Profile music player — Spotify/YouTube/SoundCloud embed URL, renders as "Now Playing" sidebar widget
 - Widget ordering — drag-to-reorder sidebar sections (About, Entries, Top Pals, Guestbook, Music, Custom HTML)
 - Custom CSS and Custom HTML — Plus-only ($5/mo), server-side HTML sanitization, CSS scoped via `scope-styles.ts`
 - Settings editor at `/settings/customize` with 10 collapsible sections and live preview
+- **CSS variable scoping**: `buildProfileStyles()` sets CSS custom properties (`--foreground`, `--ink`, `--muted`, `--accent`, `--surface`, `--border`, `--background`, `--surface-hover`, `--accent-light`, `--serif`) on the profile wrapper div so ALL descendant elements (including `.prose-entry` content) inherit theme-appropriate colors and fonts. This is critical — without it, `.prose-entry`'s `color: var(--ink)` would use the site default, making text invisible on dark themes.
 - **Backend**:
-  - 9 new user fields: `profile_music`, `profile_background_url`, `profile_background_color`, `profile_accent_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`
+  - 10 user fields: `profile_music`, `profile_background_url`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`
   - `PATCH /api/me` — accepts all customization fields (except HTML/CSS/background which have dedicated endpoints)
   - `PATCH /api/me/profile` — custom HTML/CSS (Plus-only, server-side sanitization)
   - `POST /api/me/background` — background image upload (5MB limit)
-  - Migration: `20260222000004`
+  - Migrations: `20260222000004` (initial fields), `20260222000006` (add `profile_foreground_color`)
 - **Frontend**:
   - `apps/web/src/lib/profile-themes.ts` — theme, font, and layout definitions
-  - `apps/web/src/lib/profile-styles.ts` — `buildProfileStyles()` resolves theme + custom overrides into CSS values
-  - `apps/web/src/app/settings/customize/profile-customize-editor.tsx` — client component editor
+  - `apps/web/src/lib/profile-styles.ts` — `buildProfileStyles()` resolves theme + custom overrides into CSS values AND CSS custom property overrides
+  - `apps/web/src/app/settings/customize/profile-customize-editor.tsx` — client component editor with color pickers (Background, Text, Accent) and live preview
   - `apps/web/src/app/[username]/page.tsx` — renders customizations (backgrounds, themes, fonts, layouts, widgets, music, status, custom HTML/CSS)
   - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`
 
@@ -300,7 +310,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 Profile | Top 6 | Filters | Billing | Customize
 
 ## Database Tables
-- `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
+- `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
 - `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
@@ -373,7 +383,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000005_create_guestbook_entries.exs`
+- Latest migration: `20260222000006_add_profile_foreground_color.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
