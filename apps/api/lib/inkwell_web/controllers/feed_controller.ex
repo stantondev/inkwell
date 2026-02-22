@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals, Social}
+  alias Inkwell.{Accounts, Journals, Social, Stamps}
   alias InkwellWeb.EntryController
 
   # GET /api/feed — authenticated reading feed (friends' entries, chronological)
@@ -13,6 +13,10 @@ defmodule InkwellWeb.FeedController do
     friend_ids = Social.list_friend_ids(user.id)
 
     entries = Journals.list_feed_entries(user.id, friend_ids, page: page, per_page: per_page)
+
+    entry_ids = Enum.map(entries, & &1.id)
+    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+    my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, entry_ids)
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
@@ -29,7 +33,9 @@ defmodule InkwellWeb.FeedController do
             avatar_url: author.avatar_url
           },
           user_icon: entry.user_icon,
-          comment_count: comment_count
+          comment_count: comment_count,
+          stamps: Map.get(stamp_types_map, entry.id, []),
+          my_stamp: Map.get(my_stamps_map, entry.id)
         })
       end),
       pagination: %{page: page, per_page: per_page}

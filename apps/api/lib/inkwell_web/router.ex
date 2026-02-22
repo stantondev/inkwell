@@ -60,6 +60,9 @@ defmodule InkwellWeb.Router do
     get "/feedback/roadmap", FeedbackController, :roadmap
     get "/feedback/releases", FeedbackController, :releases
     get "/feedback/:id", FeedbackController, :show
+
+    # Stamps (optional auth: author sees who stamped)
+    get "/entries/:entry_id/stamps", StampController, :index
   end
 
   # Authenticated API
@@ -89,6 +92,10 @@ defmodule InkwellWeb.Router do
     # Comments
     post "/entries/:entry_id/comments", CommentController, :create
     delete "/comments/:id", CommentController, :delete
+
+    # Stamps
+    post "/entries/:entry_id/stamp", StampController, :create
+    delete "/entries/:entry_id/stamp", StampController, :delete
 
     # Reading feed
     get "/feed", FeedController, :reading_feed

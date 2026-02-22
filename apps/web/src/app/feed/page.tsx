@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { MusicPlayer } from "@/components/music-player";
 import { EntryContent } from "@/components/entry-content";
+import { StampDisplay } from "@/components/stamp-display";
 
 export const metadata: Metadata = { title: "Feed" };
 
@@ -24,6 +25,7 @@ interface FeedEntry {
   tags: string[];
   privacy: string;
   comment_count?: number;
+  stamps?: string[];
   published_at: string;
   slug: string;
   author: {
@@ -100,9 +102,15 @@ function EntryCard({ entry }: { entry: FeedEntry }) {
       </div>
 
       {/* Body */}
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 relative">
+        {/* Stamps — top-right corner like a postage stamp */}
+        {entry.stamps && entry.stamps.length > 0 && (
+          <div className="absolute top-3 right-4">
+            <StampDisplay stamps={entry.stamps} size={20} />
+          </div>
+        )}
         {entry.title && (
-          <h2 className="text-xl font-semibold mb-3 leading-snug"
+          <h2 className="text-xl font-semibold mb-3 leading-snug pr-16"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
             <Link href={href} className="hover:underline">{entry.title}</Link>
           </h2>

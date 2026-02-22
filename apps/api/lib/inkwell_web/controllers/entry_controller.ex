@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals, Social}
+  alias Inkwell.{Accounts, Journals, Social, Stamps}
   alias InkwellWeb.UserController
 
   # GET /api/users/:username/entries — public listing
@@ -21,8 +21,14 @@ defmodule InkwellWeb.EntryController do
           Journals.list_public_entries(user.id, opts)
         end
 
+      entry_ids = Enum.map(entries, & &1.id)
+      stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+
       json(conn, %{
-        data: Enum.map(entries, &render_entry/1),
+        data: Enum.map(entries, fn entry ->
+          render_entry(entry)
+          |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
+        end),
         pagination: %{page: page, per_page: per_page}
       })
     else
@@ -37,20 +43,29 @@ defmodule InkwellWeb.EntryController do
 
       viewer = conn.assigns[:current_user]
 
+      render_with_stamps = fn ->
+        stamp_types = Stamps.get_entry_stamp_types(entry.id)
+        my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
+
+        render_entry_full(entry, user)
+        |> Map.put(:stamps, stamp_types)
+        |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
+      end
+
       cond do
         entry.privacy == :public ->
-          json(conn, %{data: render_entry_full(entry, user)})
+          json(conn, %{data: render_with_stamps.()})
 
         entry.privacy == :private ->
           if viewer && viewer.id == user.id do
-            json(conn, %{data: render_entry_full(entry, user)})
+            json(conn, %{data: render_with_stamps.()})
           else
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
           end
 
         entry.privacy in [:friends_only, :custom] ->
           if viewer && (viewer.id == user.id || Social.is_friend?(viewer.id, user.id)) do
-            json(conn, %{data: render_entry_full(entry, user)})
+            json(conn, %{data: render_with_stamps.()})
           else
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
           end

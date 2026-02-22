@@ -10,6 +10,7 @@ import { CommentForm } from "./comment-form";
 import { DeleteCommentButton } from "./delete-comment-button";
 import { EntryActions } from "./entry-actions";
 import { ReadingProgress } from "./reading-progress";
+import { EntryStamps } from "./entry-stamps";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -35,6 +36,8 @@ interface EntryData {
   slug: string;
   published_at: string;
   created_at: string;
+  stamps?: string[];
+  my_stamp?: string | null;
   author: EntryAuthor;
 }
 
@@ -301,8 +304,20 @@ export default async function EntryPage({ params }: EntryParams) {
           </div>
         )}
 
+        {/* Stamps */}
+        <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+          <EntryStamps
+            entryId={entry.id}
+            initialStamps={entry.stamps ?? []}
+            initialMyStamp={entry.my_stamp ?? null}
+            isOwnEntry={isOwnEntry ?? false}
+            isLoggedIn={!!session}
+            isPlus={session?.user.subscription_tier === "plus"}
+          />
+        </div>
+
         {/* Author card */}
-        <div className="mt-12 pt-8 border-t flex items-center gap-4" style={{ borderColor: "var(--border)" }}>
+        <div className="mt-8 pt-8 border-t flex items-center gap-4" style={{ borderColor: "var(--border)" }}>
           <Link href={`/${username}`} className="flex-shrink-0">
             <Avatar url={author.avatar_url} name={author.display_name} size={48} />
           </Link>

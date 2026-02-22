@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals}
+  alias Inkwell.{Accounts, Journals, Stamps}
   alias InkwellWeb.EntryController
 
   # GET /api/explore — public discovery feed
@@ -12,6 +12,9 @@ defmodule InkwellWeb.ExploreController do
     tag = params["tag"]
 
     entries = Journals.list_public_explore_entries(page: page, per_page: per_page, tag: tag)
+
+    entry_ids = Enum.map(entries, & &1.id)
+    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
@@ -28,7 +31,8 @@ defmodule InkwellWeb.ExploreController do
             avatar_url: author.avatar_url
           },
           user_icon: entry.user_icon,
-          comment_count: comment_count
+          comment_count: comment_count,
+          stamps: Map.get(stamp_types_map, entry.id, [])
         })
       end),
       pagination: %{page: page, per_page: per_page, tag: tag}

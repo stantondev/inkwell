@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import { FollowButton } from "./follow-button";
 import { MusicPlayer } from "@/components/music-player";
 import { EntryContent } from "@/components/entry-content";
+import { StampDisplay } from "@/components/stamp-display";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -31,6 +32,7 @@ interface ProfileEntry {
   mood: string | null;
   music: string | null;
   tags: string[];
+  stamps?: string[];
   comment_count?: number;
   published_at: string;
 }
@@ -130,9 +132,14 @@ function ProfileEntry({ entry, username }: { entry: ProfileEntry; username: stri
             </div>
           )}
         </div>
-        <span className="text-xs flex-shrink-0 mt-1" style={{ color: "var(--muted)" }}>
-          {timeAgo(entry.published_at)}
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+          {entry.stamps && entry.stamps.length > 0 && (
+            <StampDisplay stamps={entry.stamps} size={18} />
+          )}
+          <span className="text-xs" style={{ color: "var(--muted)" }}>
+            {timeAgo(entry.published_at)}
+          </span>
+        </div>
       </div>
       <EntryContent html={entry.body_html} entryId={entry.id}
         className="prose-entry text-sm leading-relaxed line-clamp-3 mb-3" />

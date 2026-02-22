@@ -260,6 +260,48 @@ body {
   border-radius: 12px;
 }
 
+/* ─── Stamp styles ───────────────────────────────────────────────────── */
+
+/* Foil / shimmer effect for the Plus-exclusive "From a Supporter" stamp */
+.stamp-supporter-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.stamp-supporter-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.15) 45%,
+    rgba(255, 215, 0, 0.25) 50%,
+    rgba(255, 215, 0, 0.15) 55%,
+    transparent 70%
+  );
+  animation: stamp-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+@keyframes stamp-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Stamp images inherit color from their container via CSS filter.
+   In dark mode we invert so SVGs using currentColor remain visible. */
+:root {
+  --stamp-filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --stamp-filter: invert(0.85);
+  }
+}
+
 /* ─── Tiptap editor placeholder ──────────────────────────────────────── */
 
 .tiptap p.is-editor-empty:first-child::before {
