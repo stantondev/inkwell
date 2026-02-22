@@ -19,12 +19,22 @@ defmodule InkwellWeb.Router do
     plug InkwellWeb.Plugs.OptionalAuth
   end
 
+  pipeline :rate_limited do
+    plug InkwellWeb.Plugs.RateLimit, max_requests: 5, window_seconds: 300
+  end
+
+  # Rate-limited auth endpoints
+  scope "/api", InkwellWeb do
+    pipe_through [:api, :rate_limited]
+
+    post "/auth/magic-link", AuthController, :send_magic_link
+  end
+
   # Public API — no auth required
   scope "/api", InkwellWeb do
     pipe_through :api
 
     # Auth
-    post "/auth/magic-link", AuthController, :send_magic_link
     get "/auth/verify", AuthController, :verify_magic_link
     delete "/auth/session", AuthController, :sign_out
 
