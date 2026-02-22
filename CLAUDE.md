@@ -57,7 +57,7 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
-- `NEXT_PUBLIC_API_URL` — set as build arg in fly.web.toml as `https://api.inkwell.social`
+- `NEXT_PUBLIC_API_URL` — set as build arg in fly.web.toml as `https://api.inkwell.social` (no longer used by client components; kept for backward compat)
 
 ### Docker builds
 - API Dockerfile at `apps/api/Dockerfile` — build context is **project root**, paths use `apps/api/` prefix
@@ -128,18 +128,26 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Handles: outside click to close, scroll/resize repositioning, flip placement if near viewport edge, initial `visibility: hidden` to avoid flash
 - Used by `FeedCardActions` (comment popup) and `StampPicker` (stamp dropdown) in both compact and full modes
 
-### Unread Notification Badge
-- `count_unread_notifications/1` in `Inkwell.Accounts` — counts unread notifications for a user
-- Embedded in `GET /api/auth/me` response as `unread_notification_count`
-- `SessionUser` type in `apps/web/src/lib/session.ts` includes `unread_notification_count?: number`
-- **Desktop nav**: red badge with count (caps at "9+") on the bell icon in `apps/web/src/components/nav.tsx`
-- **Mobile**: red dot on hamburger button + count badge next to "Notifications" in dropdown (`apps/web/src/components/mobile-menu.tsx`)
+### Notifications (Interactive)
+- **Backend**:
+  - `Inkwell.Accounts` — `list_notifications/2`, `create_notification/1`, `mark_notifications_read/2`, `mark_follow_request_notifications_read/2`, `count_unread_notifications/1`
+  - `POST /api/notifications/read` — marks notifications as read (accepts `{ "ids": [...] }` or `{}` for all)
+  - Follow request accept/reject auto-marks the `follow_request` notification as read server-side
+- **Frontend**:
+  - `apps/web/src/app/notifications/page.tsx` — server component that fetches notifications and passes to client component
+  - `apps/web/src/app/notifications/notification-list.tsx` — `"use client"` interactive list; manages read state locally with optimistic updates
+  - Clicking a notification row marks it as read + navigates to the target (entry or profile)
+  - Accept/reject pen pal buttons mark the notification as read immediately; follow request rows don't navigate on click
+  - Unread dot on each notification is clickable to mark as read individually
+  - "Mark all read" button updates state optimistically without full page refresh
+  - Proxy route: `apps/web/src/app/api/notifications/route.ts` (GET list, POST mark-read)
+- **Unread badge**: `count_unread_notifications/1` embedded in `GET /api/auth/me` as `unread_notification_count`; red badge in desktop nav bell icon (caps at "9+"), red dot on mobile hamburger
 
 ### Subscription / Billing (Stripe)
 - Plus tier at $5/mo via Stripe Checkout
 - `POST /api/billing/checkout` → creates Stripe Checkout session, returns URL
 - `POST /api/billing/portal` → creates Stripe Customer Portal session
-- `POST /api/billing/webhook` → handles Stripe webhook events (checkout.session.completed, invoice.payment_succeeded, customer.subscription.deleted)
+- `POST /api/billing/webhook` → handles Stripe webhook events (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed)
 - User model has: `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` ("free"/"plus"), `subscription_status`, `subscription_expires_at`
 - `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
 - Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
@@ -242,11 +250,24 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Final step saves all fields and redirects to `/feed`
 - Shared utility: `apps/web/src/lib/image-utils.ts` — `resizeImage()` (square crop) and `resizeBackgroundImage()` (aspect-preserving)
 
+### Friend Filters (API Only — No UI Yet)
+- Named lists of pen pals used for custom entry privacy (e.g., "Close Friends", "College Crew")
+- **Backend**:
+  - `apps/api/lib/inkwell/social/friend_filter.ex` — Ecto schema: `name` (string, max 100), `member_ids` (UUID array), `user_id` (FK)
+  - `apps/api/lib/inkwell/social.ex` — context: `list_friend_filters/1`, `create_friend_filter/1`, `update_friend_filter/2`, `delete_friend_filter/1`
+  - `apps/api/lib/inkwell_web/controllers/friend_filter_controller.ex` — CRUD controller
+  - Routes (authenticated): `GET /api/filters`, `POST /api/filters`, `PATCH /api/filters/:id`, `DELETE /api/filters/:id`
+  - Migration: `20260214000003`
+- **Entry integration**:
+  - Entry schema has `privacy` enum (`:public`, `:friends_only`, `:private`, `:custom`) and `custom_filter_id` (FK to `friend_filters`, nilify on delete)
+  - Editor UI shows "Custom filter" privacy option but has NO filter selector dropdown
+  - **Visibility enforcement is incomplete**: `:custom` entries are currently treated the same as `:friends_only` — the `member_ids` list is never checked
+- **No frontend proxy routes or management UI exist**
+
 ### Other Features
-- **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility
+- **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
 - **Relationships**: follow/accept/reject/block with pending state
-- **Notifications**: follow, comment, entry, stamp notifications; unread badge in nav
 - **Tag pages**: `/tag/[tag]` — public entries filtered by tag
 - **Explore**: public discovery feed; optional auth for personalized `my_stamp` data
 - **Search**: text search (requires Meilisearch — not deployed to prod yet)
@@ -274,14 +295,14 @@ Profile | Top 6 | Billing | Customize
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
-- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, visibility
+- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
 - `top_friends` — user_id + friend_id + position (1-6)
 - `notifications` — type (follow/comment/entry/stamp), actor_id, target_id, entry_id, read flag
 - `stamps` — entry_id + user_id + stamp_type; unique on [user_id, entry_id]
 - `user_icons` — custom profile icons
-- `friend_filters` — reading filters
+- `friend_filters` — named lists of friends (user_id, name, member_ids UUID array) for custom entry privacy; entries reference via `custom_filter_id`
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
 - `remote_actors` — ActivityPub remote user cache
 - `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count
@@ -296,12 +317,11 @@ Profile | Top 6 | Billing | Customize
 - **Redis TLS connection still broken** — Upstash requires TLS, Redix connection fails with `ConnectionError{reason: :closed}`. Auth was migrated to Postgres to work around this. Other features that use Redis (if any) may still be affected. The Redix pool still starts in `application.ex` and may log errors.
 - **Federation service not deployed** — `services/federation/` (Fedify/Node.js) has no Fly.io config yet
 - **Meilisearch not deployed** — search functionality won't work in production
-- **Custom domain SSL pending** — `inkwell.social` and `api.inkwell.social` DNS set to grey cloud (DNS only) in Cloudflare pointing at Fly IPs. Fly certs not yet showing `Ready`. Run `fly certs check inkwell.social --app inkwell-web` and `fly certs check api.inkwell.social --app inkwell-api` to check. Once both are `Ready`, deploy web: `fly deploy --config fly.web.toml --wait-timeout 600`
 
 ### Important
 - **Token cleanup** — `Inkwell.Auth.cleanup_expired_tokens/0` exists but is not scheduled (should add an Oban job)
-- **CORS** — `FRONTEND_URL` secret updated to `https://inkwell.social`; verify CORS works correctly once custom domain SSL is confirmed
 - **`force_ssl` removed** — was causing health check 301 loops. Fly terminates TLS at the edge, but consider adding HSTS headers
+- **Friend filters visibility not enforced** — Entry privacy `:custom` is treated the same as `:friends_only` in the show action; the `member_ids` list in the custom filter is never checked. Feed/explore queries also don't respect custom privacy.
 
 ### Nice to Have
 - **CI/CD** — `.github/workflows/deploy.yml` exists but needs `FLY_API_TOKEN` secret set in GitHub repo settings
@@ -327,6 +347,8 @@ npm run dev:web               # In another terminal
 - Rounded cards with border styling: `rounded-xl border p-4` + `borderColor: var(--border)` + `background: var(--surface)`
 - Fonts: Lora (serif) for headings, system sans-serif for body
 - **Popups must use `FloatingPopup`** — `JournalPage` has `overflow-hidden` and `.journal-scroll` has `overflow-x: auto` (forces `overflow-y: auto`). Any absolutely-positioned dropdown/popup inside the feed must use the `FloatingPopup` portal component or it will be clipped.
+- **All client-side API calls must use same-origin proxy routes** — never call the Phoenix API directly from `"use client"` components. Create a Next.js route handler at `apps/web/src/app/api/...` that proxies to `SERVER_API`. This avoids CORS issues since `inkwell.social` and `api.inkwell.social` are different origins. Every existing feature follows this pattern.
+- **Stripe is in LIVE mode** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID` are all production (live) keys. Test-mode Stripe customer/subscription IDs from development won't work and must be cleared from the database if found.
 
 ## Workflow Preferences
 
@@ -337,6 +359,11 @@ npm run dev:web               # In another terminal
 - **Verify after deploy**: hit `/health` on API, check new endpoints return expected shape, check frontend pages return 200
 - **TypeScript check before deploy**: `npx tsc --noEmit --project apps/web/tsconfig.json`
 - **No local Elixir/Mix**: the dev machine does NOT have Elixir installed — cannot run `mix compile` locally. Do careful code review instead, and rely on the Docker build catching compile errors
+
+### Database access on Fly
+- No local Elixir or psql — use `fly ssh console --app inkwell-db -C "sh -c 'PGPASSWORD=<pw> psql -h localhost -U inkwell_api -d inkwell_api -c \"<SQL>\"'"` to run queries
+- `fly postgres connect` opens an interactive prompt which doesn't work well for scripting
+- `fly eval` can't be used while the app is running (port conflict)
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
