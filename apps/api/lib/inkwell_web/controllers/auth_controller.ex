@@ -76,7 +76,10 @@ defmodule InkwellWeb.AuthController do
 
   # GET /api/auth/me  (requires Bearer token via RequireAuth plug)
   def me(conn, _params) do
-    json(conn, %{data: render_user(conn.assigns.current_user)})
+    user = conn.assigns.current_user
+    unread_count = Accounts.count_unread_notifications(user.id)
+
+    json(conn, %{data: render_user(user) |> Map.put(:unread_notification_count, unread_count)})
   end
 
   # DELETE /api/auth/session

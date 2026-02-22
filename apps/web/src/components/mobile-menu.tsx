@@ -7,9 +7,10 @@ interface MobileMenuProps {
   username: string;
   subscriptionTier?: string;
   isAdmin?: boolean;
+  unreadNotificationCount?: number;
 }
 
-export function MobileMenu({ username, subscriptionTier, isAdmin }: MobileMenuProps) {
+export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotificationCount = 0 }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -17,11 +18,18 @@ export function MobileMenu({ username, subscriptionTier, isAdmin }: MobileMenuPr
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-center w-8 h-8 rounded-full transition-colors"
+        className="flex items-center justify-center w-8 h-8 rounded-full transition-colors relative"
         style={{ color: "var(--muted)" }}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
       >
+        {/* Unread notification dot on hamburger */}
+        {!open && unreadNotificationCount > 0 && (
+          <span
+            className="absolute top-0 right-0 rounded-full"
+            style={{ background: "#ef4444", width: 8, height: 8 }}
+          />
+        )}
         {open ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -56,6 +64,21 @@ export function MobileMenu({ username, subscriptionTier, isAdmin }: MobileMenuPr
             </MobileLink>
             <MobileLink href="/notifications" onClick={() => setOpen(false)}>
               <NotificationsIcon /> Notifications
+              {unreadNotificationCount > 0 && (
+                <span
+                  className="ml-auto rounded-full text-white font-bold flex items-center justify-center"
+                  style={{
+                    background: "#ef4444",
+                    fontSize: "10px",
+                    minWidth: "18px",
+                    height: "18px",
+                    padding: "0 5px",
+                    lineHeight: 1,
+                  }}
+                >
+                  {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                </span>
+              )}
             </MobileLink>
             <MobileLink href="/search" onClick={() => setOpen(false)}>
               <SearchIcon /> Search

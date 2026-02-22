@@ -81,6 +81,12 @@ defmodule Inkwell.Accounts do
     |> Repo.update_all(set: [read: true])
   end
 
+  def count_unread_notifications(user_id) do
+    Notification
+    |> where(user_id: ^user_id, read: false)
+    |> Repo.aggregate(:count, :id)
+  end
+
   # Admin
 
   def is_admin?(%User{username: username}) do

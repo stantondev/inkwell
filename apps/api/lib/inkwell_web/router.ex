@@ -45,16 +45,16 @@ defmodule InkwellWeb.Router do
     # Username availability check (public)
     get "/username-available", UserController, :username_available
 
-    # Public discovery feed
-    get "/explore", ExploreController, :index
-
     # Stripe webhook (public, verified by signature)
     post "/billing/webhook", BillingController, :webhook
   end
 
-  # Public feedback with optional auth (for vote status)
+  # Public endpoints with optional auth (for personalized data)
   scope "/api", InkwellWeb do
     pipe_through [:api, :optional_auth]
+
+    # Public discovery feed (optional auth for my_stamp)
+    get "/explore", ExploreController, :index
 
     get "/feedback", FeedbackController, :index
     get "/feedback/roadmap", FeedbackController, :roadmap

@@ -81,38 +81,12 @@ export default async function FeedPage({ searchParams }: PageProps) {
       {/* Header bar */}
       <div className="mx-auto max-w-7xl px-4 pt-6 pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Profile quick-link */}
-            <Link
-              href={`/${session.user.username}`}
-              className="flex items-center gap-2 text-sm hover:underline"
-            >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-                style={{
-                  background: "var(--accent-light)",
-                  color: "var(--accent)",
-                }}
-              >
-                {session.user.display_name[0]?.toUpperCase()}
-              </div>
-              <span className="hidden sm:inline font-medium">
-                {session.user.display_name}
-              </span>
-            </Link>
-            <span
-              className="text-xs hidden sm:inline"
-              style={{ color: "var(--muted)" }}
-            >
-              &middot;
-            </span>
-            <h1
-              className="text-lg font-semibold"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-            >
-              Journal
-            </h1>
-          </div>
+          <h1
+            className="text-lg font-semibold"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            Feed
+          </h1>
 
           <div className="flex items-center gap-2">
             <span
@@ -123,7 +97,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 color: "var(--accent)",
               }}
             >
-              Pen Pals
+              Feed
             </span>
             <Link
               href="/explore"
@@ -134,6 +108,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </Link>
           </div>
         </div>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          Journal entries from your pen pals
+        </p>
       </div>
 
       {/* Journal area */}

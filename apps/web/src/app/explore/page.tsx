@@ -19,7 +19,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   let entries: JournalEntry[] = [];
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?page=${page}`
+      `/api/explore?page=${page}`,
+      {},
+      session?.token
     );
     entries = data.data ?? [];
   } catch {
@@ -75,7 +77,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
               className="text-xs px-3 py-1 rounded-full border transition-colors"
               style={{ borderColor: "var(--border)", color: "var(--muted)" }}
             >
-              Pen Pals
+              Feed
             </Link>
             <span
               className="text-xs px-3 py-1 rounded-full border font-medium"
@@ -89,6 +91,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             </span>
           </div>
         </div>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          Discover entries from the community
+        </p>
       </div>
 
       {/* Journal area */}
