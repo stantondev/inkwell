@@ -6,6 +6,7 @@ import { getSession, getToken } from "@/lib/session";
 import { parseMusicUrl } from "@/lib/music";
 import { Avatar } from "@/components/avatar";
 import { EntryContent } from "@/components/entry-content";
+import { JournalPage } from "@/components/journal-page";
 import { CommentForm } from "./comment-form";
 import { DeleteCommentButton } from "./delete-comment-button";
 import { EntryActions } from "./entry-actions";
@@ -169,7 +170,7 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
-        <div className="mx-auto max-w-2xl px-4 pt-10 pb-12">
+        <div className="entry-wide px-4 lg:px-12 pt-10 pb-12">
 
           {/* Nav row */}
           <div className="flex items-center justify-between mb-10">
@@ -281,12 +282,14 @@ export default async function EntryPage({ params }: EntryParams) {
       </div>
 
       {/* ── Entry body ──────────────────────────────────────────────── */}
-      <article className="mx-auto max-w-2xl px-4 pb-16">
-        <EntryContent
-          html={entry.body_html}
-          entryId={entry.id}
-          className={`prose-entry${entry.title ? " drop-cap" : ""}`}
-        />
+      <article className="entry-wide px-4 lg:px-12 pb-16">
+        <JournalPage corner className="p-6 lg:p-10">
+          <EntryContent
+            html={entry.body_html}
+            entryId={entry.id}
+            className={`prose-entry${entry.title ? " drop-cap" : ""}`}
+          />
+        </JournalPage>
 
         {/* Tags */}
         {entry.tags.length > 0 && (
@@ -339,7 +342,7 @@ export default async function EntryPage({ params }: EntryParams) {
       {/* ── Comments ────────────────────────────────────────────────── */}
       <section
         id="comments"
-        className="mx-auto max-w-2xl px-4 pb-20 border-t"
+        className="entry-wide px-4 lg:px-12 pb-20 border-t"
         style={{ borderColor: "var(--border)" }}
       >
         <h2 className="text-xs font-semibold uppercase tracking-widest mt-10 mb-8" style={{ color: "var(--muted)" }}>

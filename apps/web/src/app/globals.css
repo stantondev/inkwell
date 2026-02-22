@@ -302,6 +302,238 @@ body {
   }
 }
 
+/* ─── Journal Page System ────────────────────────────────────────────── */
+
+/* Paper texture via subtle CSS noise pattern */
+.journal-page {
+  background: var(--surface);
+  position: relative;
+}
+
+.journal-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.018;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  .journal-page::before {
+    opacity: 0.035;
+    mix-blend-mode: soft-light;
+  }
+}
+
+/* Page edge shadow — gives depth like stacked pages */
+.journal-page-edge {
+  box-shadow:
+    3px 0 0 -1px var(--surface),
+    4px 0 0 0 var(--border),
+    7px 0 0 -1px var(--surface),
+    8px 0 0 0 var(--border);
+}
+
+/* Horizontal scroll-snap container */
+.journal-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.journal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.journal-snap-page {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Page indicator dots */
+.journal-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0;
+}
+
+.journal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.journal-dot[data-active="true"] {
+  background: var(--accent);
+  width: 20px;
+  border-radius: 3px;
+}
+
+/* Body fade gradient for entry previews */
+.journal-body-fade {
+  position: relative;
+  max-height: 320px;
+  overflow: hidden;
+}
+
+.journal-body-fade::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(transparent, var(--surface));
+  pointer-events: none;
+}
+
+/* Book spine divider for desktop spread */
+.journal-spine {
+  width: 1px;
+  background: var(--border);
+  box-shadow: -3px 0 8px -3px rgba(0, 0, 0, 0.04), 3px 0 8px -3px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+@media (prefers-color-scheme: dark) {
+  .journal-spine {
+    box-shadow: -3px 0 8px -3px rgba(0, 0, 0, 0.2), 3px 0 8px -3px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Decorative corner marks */
+.journal-corner {
+  position: relative;
+}
+
+.journal-corner::after {
+  content: "";
+  position: absolute;
+  bottom: 20px;
+  right: 24px;
+  width: 24px;
+  height: 24px;
+  border-right: 1.5px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* Wider entry detail layout */
+.entry-wide {
+  max-width: 56rem; /* 896px */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 1280px) {
+  .entry-wide {
+    max-width: 64rem; /* 1024px */
+  }
+}
+
+/* Page navigation arrows */
+.journal-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.journal-nav-arrow:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.journal-nav-arrow.left {
+  left: 12px;
+}
+
+.journal-nav-arrow.right {
+  right: 12px;
+}
+
+.journal-feed-container:hover .journal-nav-arrow {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .journal-nav-arrow {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .journal-nav-arrow:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* On mobile, always show arrows */
+@media (max-width: 1023px) {
+  .journal-nav-arrow {
+    opacity: 1;
+    width: 40px;
+    height: 40px;
+  }
+
+  .journal-nav-arrow.left {
+    left: 8px;
+  }
+
+  .journal-nav-arrow.right {
+    right: 8px;
+  }
+}
+
+/* Page counter — book-style page number */
+.journal-page-counter {
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 0.8rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  padding: 4px 0 8px;
+}
+
+/* Reduced motion: disable all journal animations */
+@media (prefers-reduced-motion: reduce) {
+  .journal-scroll {
+    scroll-behavior: auto;
+  }
+
+  .journal-dot {
+    transition: none;
+  }
+
+  .journal-nav-arrow {
+    transition: none;
+    opacity: 1;
+  }
+}
+
 /* ─── Tiptap editor placeholder ──────────────────────────────────────── */
 
 .tiptap p.is-editor-empty:first-child::before {
