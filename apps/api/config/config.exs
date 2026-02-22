@@ -27,6 +27,12 @@ config :inkwell, Oban,
     federation: 20,
     search_indexing: 5,
     email: 10
+  ],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 3 * * *", Inkwell.Workers.CleanupExpiredTokensWorker}
+     ]}
   ]
 
 import_config "#{config_env()}.exs"

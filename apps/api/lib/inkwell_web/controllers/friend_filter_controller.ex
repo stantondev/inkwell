@@ -2,10 +2,11 @@ defmodule InkwellWeb.FriendFilterController do
   use InkwellWeb, :controller
 
   alias Inkwell.Social
+  alias Inkwell.Journals
 
   def index(conn, _params) do
     filters = Social.list_friend_filters(conn.assigns.current_user.id)
-    json(conn, %{data: Enum.map(filters, &render_filter/1)})
+    json(conn, %{data: Enum.map(filters, &render_filter_with_count/1)})
   end
 
   def create(conn, params) do
@@ -59,6 +60,12 @@ defmodule InkwellWeb.FriendFilterController do
       member_ids: filter.member_ids,
       created_at: filter.inserted_at
     }
+  end
+
+  defp render_filter_with_count(filter) do
+    filter
+    |> render_filter()
+    |> Map.put(:entry_count, Journals.count_entries_using_filter(filter.id))
   end
 
   defp format_errors(changeset) do

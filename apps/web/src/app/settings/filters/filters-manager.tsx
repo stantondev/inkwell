@@ -13,6 +13,7 @@ interface FriendFilter {
   id: string;
   name: string;
   member_ids: string[];
+  entry_count: number;
   created_at: string;
 }
 
@@ -445,7 +446,7 @@ export function FiltersManager() {
               ) : deletingId === filter.id ? (
                 <DeleteConfirm
                   filterName={filter.name}
-                  entryCount={0}
+                  entryCount={filter.entry_count}
                   onConfirm={() => handleDelete(filter.id)}
                   onCancel={() => setDeletingId(null)}
                 />

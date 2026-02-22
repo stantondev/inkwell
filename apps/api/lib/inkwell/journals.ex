@@ -198,6 +198,12 @@ defmodule Inkwell.Journals do
     |> Repo.aggregate(:count)
   end
 
+  def count_entries_using_filter(filter_id) do
+    Entry
+    |> where(custom_filter_id: ^filter_id)
+    |> Repo.aggregate(:count)
+  end
+
   # ── Public queries ─────────────────────────────────────────────────────────
 
   def list_public_explore_entries(opts \\ []) do

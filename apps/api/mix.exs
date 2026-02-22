@@ -37,7 +37,6 @@ defmodule Inkwell.MixProject do
       {:plug_cowboy, "~> 2.7"},
       {:cors_plug, "~> 3.0"},
       {:oban, "~> 2.18"},
-      {:redix, "~> 1.5"},
       {:atomex, "~> 0.5"},
       {:slugify, "~> 1.3"},
       {:bcrypt_elixir, "~> 3.0"}

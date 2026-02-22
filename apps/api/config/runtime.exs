@@ -34,13 +34,6 @@ if config_env() == :prod do
     secret_key_base: secret_key_base,
     server: true
 
-  # Redis
-  redis_url = System.get_env("REDIS_URL") || "redis://localhost:6379"
-  config :inkwell, :redis_url, redis_url
-
-  config :inkwell, Inkwell.Redis,
-    url: redis_url
-
   # CORS — allow the frontend domain
   frontend_url = System.get_env("FRONTEND_URL") || "https://inkwell.social"
   config :inkwell, :frontend_url, frontend_url
