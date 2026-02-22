@@ -8,8 +8,9 @@ defmodule Inkwell.Auth do
   alias Inkwell.Repo
   alias Inkwell.Auth.AuthToken
 
-  @magic_link_ttl_seconds 900       # 15 minutes
-  @api_session_ttl_seconds 2_592_000 # 30 days
+  @magic_link_ttl_seconds 900           # 15 minutes
+  @api_session_ttl_seconds 7_776_000    # 90 days
+  @refresh_after_seconds 604_800        # 7 days — refresh token if 7+ days old
 
   @doc "Create a magic link token for a user. Returns the raw token string."
   def create_magic_link_token(user_id) do
@@ -63,17 +64,26 @@ defmodule Inkwell.Auth do
     token
   end
 
-  @doc "Look up a valid API session token. Returns user_id or nil."
+  @doc """
+  Look up a valid API session token. Returns user_id or nil.
+
+  Implements sliding window expiration: if the token is more than 7 days old,
+  its expires_at is extended by another 90 days. This means active users
+  stay signed in indefinitely — they only need to re-authenticate after
+  90 days of inactivity.
+  """
   def verify_api_session_token(token) do
     now = DateTime.utc_now()
 
     case Repo.one(
            from t in AuthToken,
-             where: t.token == ^token and t.type == "api_session" and t.expires_at > ^now,
-             select: t.user_id
+             where: t.token == ^token and t.type == "api_session" and t.expires_at > ^now
          ) do
       nil -> nil
-      user_id -> user_id
+
+      auth_token ->
+        maybe_refresh_token(auth_token, now)
+        auth_token.user_id
     end
   end
 
@@ -94,6 +104,20 @@ defmodule Inkwell.Auth do
       |> Repo.delete_all()
 
     {:ok, count}
+  end
+
+  # Extend the token's expires_at if more than @refresh_after_seconds have
+  # elapsed since it was created/last refreshed. This avoids a DB write on
+  # every single request while still keeping active sessions alive.
+  defp maybe_refresh_token(auth_token, now) do
+    remaining = DateTime.diff(auth_token.expires_at, now, :second)
+
+    if remaining < @api_session_ttl_seconds - @refresh_after_seconds do
+      new_expires = DateTime.add(now, @api_session_ttl_seconds, :second)
+
+      from(t in AuthToken, where: t.id == ^auth_token.id)
+      |> Repo.update_all(set: [expires_at: new_expires])
+    end
   end
 
   defp generate_token do

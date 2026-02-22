@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
-const TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 /**
  * GET /auth/verify?token=<magic-link-token>
