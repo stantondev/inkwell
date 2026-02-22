@@ -15,6 +15,7 @@ export interface SessionUser {
   is_admin?: boolean;
   subscription_tier?: string;
   unread_notification_count?: number;
+  draft_count?: number;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 

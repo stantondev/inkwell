@@ -280,6 +280,27 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Editor integration: when privacy is "Custom filter", a dropdown of the user's filters appears; shows "Create your first filter" link if none exist
   - Proxy routes: `apps/web/src/app/api/filters/route.ts` (GET/POST), `apps/web/src/app/api/filters/[id]/route.ts` (PATCH/DELETE), `apps/web/src/app/api/pen-pals/route.ts` (GET)
 
+### Entry Drafts
+- Users can save work-in-progress entries as drafts before publishing
+- Drafts are excluded from all public views (feeds, explore, profiles, RSS)
+- Entry schema has `status` field: `:draft` or `:published` (default)
+- Drafts have relaxed validation: no `body_html` required, no slug/ap_id generated
+- Publishing a draft generates slug + ap_id + published_at and transitions status to `:published`
+- Published entries cannot be converted back to drafts
+- **Backend**:
+  - `apps/api/lib/inkwell/journals/entry.ex` — `status` Ecto.Enum, `draft_changeset/2`, `publish_changeset/2`
+  - `apps/api/lib/inkwell/journals.ex` — `create_draft/1`, `update_draft/2`, `publish_draft/2`, `list_drafts/2`, `count_drafts/1`; all public queries filter by `status: :published`
+  - `apps/api/lib/inkwell_web/controllers/entry_controller.ex` — `create` checks `params["status"] == "draft"`, `update` uses relaxed changeset for drafts, `publish` action, `list_drafts` action
+  - Routes: `GET /api/drafts`, `POST /api/entries/:id/publish`
+  - `draft_count` included in `GET /api/auth/me` session response
+  - Migration: `20260222000007`
+- **Frontend**:
+  - `apps/web/src/app/drafts/page.tsx` — dedicated drafts listing page
+  - `apps/web/src/app/editor/editor-client.tsx` — tracks `isDraft`/`savedEntryId` state; "Save draft" creates/updates draft, "Publish" publishes draft or saves published entry
+  - Nav shows "Drafts" link with count badge when `draft_count > 0` (desktop + mobile)
+  - Proxy routes: `apps/web/src/app/api/drafts/route.ts` (GET), `apps/web/src/app/api/entries/[id]/publish/route.ts` (POST)
+  - `/drafts` route protected by middleware
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
@@ -311,7 +332,7 @@ Profile | Top 6 | Filters | Billing | Customize
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
-- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters)
+- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
 - `top_friends` — user_id + friend_id + position (1-6)
@@ -383,7 +404,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000006_add_profile_foreground_color.exs`
+- Latest migration: `20260222000007_add_status_to_entries.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)

@@ -90,6 +90,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
                 subscriptionTier={user.subscription_tier}
                 isAdmin={user.is_admin}
                 unreadNotificationCount={user.unread_notification_count ?? 0}
+                draftCount={user.draft_count ?? 0}
               />
 
               <Link href="/editor"
@@ -101,6 +102,18 @@ export function Nav({ user }: { user: SessionUser | null }) {
                 </svg>
                 Write
               </Link>
+
+              {(user.draft_count ?? 0) > 0 && (
+                <Link href="/drafts"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                  style={{ color: "var(--muted)" }}>
+                  Drafts
+                  <span className="rounded-full text-xs px-1.5 py-0.5"
+                    style={{ background: "var(--surface-hover)", color: "var(--foreground)" }}>
+                    {user.draft_count}
+                  </span>
+                </Link>
+              )}
 
               <Link href="/notifications"
                 className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-[var(--surface-hover)] relative"

@@ -34,9 +34,16 @@ defmodule Inkwell.Journals do
     query =
       Entry
       |> where(user_id: ^user_id)
+      |> where([e], e.status == :published)
       |> order_by(desc: :published_at)
 
-    query = if privacy, do: where(query, privacy: ^privacy), else: query
+    query =
+      case privacy do
+        list when is_list(list) -> where(query, [e], e.privacy in ^list)
+        nil -> query
+        p -> where(query, privacy: ^p)
+      end
+
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
 
     query
@@ -59,6 +66,7 @@ defmodule Inkwell.Journals do
     custom_filter_ids = get_filters_containing_user(user_id)
 
     Entry
+    |> where([e], e.status == :published)
     |> where([e], not is_nil(e.published_at))
     |> where([e],
         # Own entries (any privacy except drafts)
@@ -142,6 +150,56 @@ defmodule Inkwell.Journals do
     |> Oban.insert()
   end
 
+  # ── Drafts ─────────────────────────────────────────────────────────────────
+
+  def create_draft(attrs) do
+    %Entry{}
+    |> Entry.draft_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_draft(%Entry{status: :draft} = entry, attrs) do
+    entry
+    |> Entry.draft_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def publish_draft(%Entry{status: :draft} = entry, attrs) do
+    result =
+      entry
+      |> Entry.publish_changeset(attrs)
+      |> Repo.update()
+
+    case result do
+      {:ok, published} when published.privacy == :public ->
+        enqueue_fan_out(published, "create")
+        result
+
+      _ ->
+        result
+    end
+  end
+
+  def list_drafts(user_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 20)
+
+    Entry
+    |> where(user_id: ^user_id, status: :draft)
+    |> order_by(desc: :updated_at)
+    |> limit(^per_page)
+    |> offset(^((page - 1) * per_page))
+    |> Repo.all()
+  end
+
+  def count_drafts(user_id) do
+    Entry
+    |> where(user_id: ^user_id, status: :draft)
+    |> Repo.aggregate(:count)
+  end
+
+  # ── Public queries ─────────────────────────────────────────────────────────
+
   def list_public_explore_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
@@ -150,6 +208,7 @@ defmodule Inkwell.Journals do
     query =
       Entry
       |> where([e], e.privacy == :public)
+      |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
       |> order_by(desc: :published_at)
 
@@ -167,6 +226,7 @@ defmodule Inkwell.Journals do
     per_page = Keyword.get(opts, :per_page, 50)
 
     Entry
+    |> where([e], e.status == :published)
     |> order_by(desc: :inserted_at)
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
@@ -177,6 +237,7 @@ defmodule Inkwell.Journals do
   def count_entries(user_id) do
     Entry
     |> where(user_id: ^user_id)
+    |> where([e], e.status == :published)
     |> Repo.aggregate(:count)
   end
 

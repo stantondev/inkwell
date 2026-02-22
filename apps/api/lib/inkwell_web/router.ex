@@ -102,10 +102,12 @@ defmodule InkwellWeb.Router do
     delete "/me/icons/:id", UserIconController, :delete
 
     # Entries (CRUD)
+    get "/drafts", EntryController, :list_drafts
     get "/entries/:id", EntryController, :show_own
     post "/entries", EntryController, :create
     patch "/entries/:id", EntryController, :update
     delete "/entries/:id", EntryController, :delete
+    post "/entries/:id/publish", EntryController, :publish
 
     # Comments
     post "/entries/:entry_id/comments", CommentController, :create

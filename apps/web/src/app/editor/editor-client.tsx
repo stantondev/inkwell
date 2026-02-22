@@ -346,6 +346,10 @@ export function EditorClient() {
   const [filters, setFilters] = useState<FriendFilter[]>([]);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
 
+  // Draft tracking
+  const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
+  const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -408,6 +412,10 @@ export function EditorClient() {
         setEntrySlug(entry.slug ?? null);
         setEntryAuthor(entry.author?.username ?? null);
 
+        // Track draft status
+        setIsDraft(entry.status === "draft");
+        setSavedEntryId(entry.id);
+
         // Populate editor: prefer body_raw (Tiptap JSON) over body_html
         // If body_raw is null, this was saved in HTML mode — start in HTML mode
         if (entry.body_raw && typeof entry.body_raw === "object" && entry.body_raw.type) {
@@ -456,7 +464,7 @@ export function EditorClient() {
     }
   }, [editor, htmlMode, htmlSource]);
 
-  const buildPayload = () => ({
+  const buildPayload = useCallback(() => ({
     title: state.title || null,
     body_html: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
     body_raw: htmlMode ? null : (editor?.getJSON() ?? {}),
@@ -465,53 +473,100 @@ export function EditorClient() {
     privacy: state.privacy,
     custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
     tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-  });
+  }), [state, htmlMode, htmlSource, editor]);
 
-  const apiSave = async (payload: object) => {
-    // Use PATCH when editing, POST when creating
-    const url = editId ? `/api/entries/${editId}` : "/api/entries";
-    const method = editId ? "PATCH" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as { error?: string }).error ?? "Request failed");
-    }
-    return res.json();
-  };
-
+  // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
     if (!editor) return;
     setSaveStatus("saving");
     try {
-      await apiSave(buildPayload());
+      const payload = { ...buildPayload(), status: "draft" };
+
+      if (savedEntryId) {
+        // Update existing draft
+        const res = await fetch(`/api/entries/${savedEntryId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Save failed");
+      } else {
+        // Create new draft
+        const res = await fetch("/api/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Save failed");
+        const data = await res.json();
+        if (data.data?.id) {
+          setSavedEntryId(data.data.id);
+          setEntryAuthor(data.data.author?.username ?? null);
+          // Update URL so subsequent saves are PATCHes
+          window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
+        }
+      }
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
     } catch {
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, state, editId, htmlMode, htmlSource]);
+  }, [editor, buildPayload, savedEntryId]);
 
+  // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
     if (!editor || isPublishing) return;
     setIsPublishing(true);
     try {
-      const data = await apiSave(buildPayload());
+      let data;
+
+      if (savedEntryId && isDraft) {
+        // Publishing a draft: POST /api/entries/:id/publish
+        const res = await fetch(`/api/entries/${savedEntryId}/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload()),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error ?? "Publish failed");
+        }
+        data = await res.json();
+      } else if (savedEntryId) {
+        // Updating a published entry: PATCH /api/entries/:id
+        const res = await fetch(`/api/entries/${savedEntryId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload()),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error ?? "Save failed");
+        }
+        data = await res.json();
+      } else {
+        // New entry, publish directly: POST /api/entries (no status = defaults to published)
+        const res = await fetch("/api/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload()),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error ?? "Publish failed");
+        }
+        data = await res.json();
+      }
+
       const entry = data.data;
       router.push(`/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`);
     } catch (err) {
-      alert(`Could not ${editId ? "save" : "publish"}: ${err instanceof Error ? err.message : "Unknown error"}`);
+      alert(`Could not ${isDraft ? "publish" : "save"}: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setIsPublishing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, isPublishing, state, router, editId, entryAuthor, entrySlug, htmlMode, htmlSource]);
+  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug]);
 
   if (loading) {
     return (
@@ -533,12 +588,20 @@ export function EditorClient() {
               style={{ color: "var(--muted)" }}>← Feed</NextLink>
             <span style={{ color: "var(--border)" }} aria-hidden="true">│</span>
             <span className="text-sm truncate" style={{ color: "var(--muted)" }}>
-              {editId ? (state.title || "Edit entry") : (state.title || "New entry")}
+              {isDraft
+                ? (state.title || "New draft")
+                : (state.title || (savedEntryId ? "Edit entry" : "New entry"))}
             </span>
+            {isDraft && savedEntryId && (
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                draft
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2.5">
             <SaveStatus status={saveStatus} />
-            {!editId && (
+            {isDraft && (
               <button type="button" onClick={handleSaveDraft}
                 className="text-sm px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--border-strong)]"
                 style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
@@ -549,7 +612,9 @@ export function EditorClient() {
               disabled={isPublishing || !hasContent}
               className="text-sm px-4 py-1.5 rounded-full font-medium transition-opacity disabled:opacity-40"
               style={{ background: "var(--accent)", color: "#fff" }}>
-              {isPublishing ? (editId ? "Saving…" : "Publishing…") : (editId ? "Save changes" : "Publish")}
+              {isPublishing
+                ? (isDraft ? "Publishing…" : "Saving…")
+                : (isDraft ? "Publish" : "Save changes")}
             </button>
           </div>
         </div>

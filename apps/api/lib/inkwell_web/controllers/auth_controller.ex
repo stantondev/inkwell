@@ -78,8 +78,14 @@ defmodule InkwellWeb.AuthController do
   def me(conn, _params) do
     user = conn.assigns.current_user
     unread_count = Accounts.count_unread_notifications(user.id)
+    draft_count = Inkwell.Journals.count_drafts(user.id)
 
-    json(conn, %{data: render_user(user) |> Map.put(:unread_notification_count, unread_count)})
+    json(conn, %{
+      data:
+        render_user(user)
+        |> Map.put(:unread_notification_count, unread_count)
+        |> Map.put(:draft_count, draft_count)
+    })
   end
 
   # DELETE /api/auth/session

@@ -16,7 +16,7 @@ defmodule InkwellWeb.EntryController do
       entries =
         cond do
           viewer && viewer.id == user.id ->
-            # Owner: see everything
+            # Owner: see everything (published only — drafts are separate)
             Journals.list_entries(user.id, opts)
 
           viewer && Social.is_friend?(viewer.id, user.id) ->
@@ -48,7 +48,8 @@ defmodule InkwellWeb.EntryController do
   # GET /api/users/:username/entries/:slug — single entry
   def show(conn, %{"username" => username, "slug" => slug}) do
     with user when not is_nil(user) <- Accounts.get_user_by_username(username),
-         entry when not is_nil(entry) <- Journals.get_entry_by_slug(user.id, slug) do
+         entry when not is_nil(entry) <- Journals.get_entry_by_slug(user.id, slug),
+         :published <- entry.status do
 
       viewer = conn.assigns[:current_user]
 
@@ -90,11 +91,12 @@ defmodule InkwellWeb.EntryController do
           conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
       end
     else
+      :draft -> conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
       nil -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
     end
   end
 
-  # GET /api/entries/:id — fetch own entry for editing
+  # GET /api/entries/:id — fetch own entry for editing (works for both drafts and published)
   def show_own(conn, %{"id" => id}) do
     user = conn.assigns.current_user
 
@@ -113,18 +115,17 @@ defmodule InkwellWeb.EntryController do
   # POST /api/entries
   def create(conn, params) do
     user = conn.assigns.current_user
+    is_draft = params["status"] == "draft"
 
-    attrs =
-      params
-      |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                   "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
-      |> Map.put("user_id", user.id)
-      |> maybe_generate_slug(params)
-      |> maybe_generate_ap_id(user)
-      |> maybe_clear_custom_filter_id()
+    if is_draft do
+      attrs =
+        params
+        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+                      "privacy", "user_icon_id", "tags", "custom_filter_id"])
+        |> Map.put("user_id", user.id)
+        |> maybe_clear_custom_filter_id()
 
-    with :ok <- validate_custom_filter_ownership(attrs, user.id) do
-      case Journals.create_entry(attrs) do
+      case Journals.create_draft(attrs) do
         {:ok, entry} ->
           conn
           |> put_status(:created)
@@ -136,8 +137,31 @@ defmodule InkwellWeb.EntryController do
           |> json(%{errors: format_errors(changeset)})
       end
     else
-      {:error, :filter_not_found} ->
-        conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+      attrs =
+        params
+        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+                      "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
+        |> Map.put("user_id", user.id)
+        |> maybe_generate_slug(params)
+        |> maybe_generate_ap_id(user)
+        |> maybe_clear_custom_filter_id()
+
+      with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+        case Journals.create_entry(attrs) do
+          {:ok, entry} ->
+            conn
+            |> put_status(:created)
+            |> json(%{data: render_entry_full(entry, user)})
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_errors(changeset)})
+        end
+      else
+        {:error, :filter_not_found} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+      end
     end
   end
 
@@ -149,11 +173,18 @@ defmodule InkwellWeb.EntryController do
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                      "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
+                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
         |> maybe_clear_custom_filter_id()
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
-        case Journals.update_entry(entry, attrs) do
+        result =
+          if entry.status == :draft do
+            Journals.update_draft(entry, attrs)
+          else
+            Journals.update_entry(entry, attrs)
+          end
+
+        case result do
           {:ok, updated} ->
             json(conn, %{data: render_entry_full(updated, user)})
 
@@ -172,6 +203,59 @@ defmodule InkwellWeb.EntryController do
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
     end
+  end
+
+  # POST /api/entries/:id/publish — transition draft → published
+  def publish(conn, %{"id" => id} = params) do
+    user = conn.assigns.current_user
+
+    with {:ok, entry} <- get_owned_entry(user.id, id) do
+      if entry.status != :draft do
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Entry is already published"})
+      else
+        attrs =
+          params
+          |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+                        "privacy", "user_icon_id", "tags", "custom_filter_id"])
+          |> maybe_generate_slug(params)
+          |> maybe_generate_ap_id(user)
+          |> maybe_clear_custom_filter_id()
+
+        with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+          case Journals.publish_draft(entry, attrs) do
+            {:ok, published} ->
+              json(conn, %{data: render_entry_full(published, user)})
+
+            {:error, changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{errors: format_errors(changeset)})
+          end
+        else
+          {:error, :filter_not_found} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+        end
+      end
+    else
+      {:error, :forbidden} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Not your entry"})
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+    end
+  end
+
+  # GET /api/drafts — list current user's drafts
+  def list_drafts(conn, params) do
+    user = conn.assigns.current_user
+    page = parse_int(params["page"], 1)
+    per_page = parse_int(params["per_page"], 20)
+
+    drafts = Journals.list_drafts(user.id, page: page, per_page: per_page)
+
+    json(conn, %{
+      data: Enum.map(drafts, &render_entry/1),
+      pagination: %{page: page, per_page: per_page}
+    })
   end
 
   # DELETE /api/entries/:id
@@ -284,6 +368,7 @@ defmodule InkwellWeb.EntryController do
       tags: entry.tags,
       published_at: entry.published_at,
       ap_id: entry.ap_id,
+      status: entry.status,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
