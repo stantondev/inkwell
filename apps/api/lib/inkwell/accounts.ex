@@ -98,6 +98,18 @@ defmodule Inkwell.Accounts do
     |> Repo.aggregate(:count, :id)
   end
 
+  @doc "Delete read notifications older than `days` days."
+  def cleanup_read_notifications(days \\ 90) do
+    cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
+
+    {count, _} =
+      Notification
+      |> where([n], n.read == true and n.inserted_at < ^cutoff)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
   # Account deletion
 
   def delete_account(%User{} = user) do

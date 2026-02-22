@@ -367,6 +367,33 @@ Profile | Top 6 | Filters | Billing | Customize
 - `entry_images` — uploaded images for entries (id, user_id, data as base64 data URI, content_type, filename, byte_size)
 - `oban_jobs` / `oban_peers` — background job queue
 
+## Data Retention & Cleanup
+
+All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/workers/`.
+
+### Scheduled Cleanup Jobs
+| Worker | Schedule | What it does |
+|---|---|---|
+| `CleanupExpiredTokensWorker` | Daily 3am UTC | Deletes expired auth tokens (magic link 15min TTL, API session 90-day TTL with sliding window) |
+| `CleanupOrphanedImagesWorker` | Daily 4am UTC | Deletes `entry_images` older than 24h not referenced in any entry `body_html` |
+| `CleanupReadNotificationsWorker` | Daily 4:30am UTC | Deletes read notifications older than 90 days |
+| `CleanupAbandonedDraftsWorker` | Daily 5am UTC | Deletes draft entries not updated in 365 days |
+
+### Account Deletion (self-serve from Settings)
+- **Immediately deleted** (FK cascade `delete_all`): entries, comments (on owned entries), auth tokens, relationships, top friends, notifications (as recipient), stamps, friend filters, entry images, profile icons, feedback votes, guestbook entries (where user is profile owner)
+- **Anonymized** (FK `nilify_all`, content preserved): feedback posts, feedback comments, comments (user_id nulled), guestbook entries (author_id nulled), notifications (actor_id nulled)
+- Stripe subscription cancelled before deletion
+
+### Retention Periods for Privacy Policy
+- **Auth sessions**: 90 days of inactivity → expire (active users auto-extend via sliding window)
+- **Magic link tokens**: 15 minutes, one-time use
+- **Read notifications**: 90 days after read → deleted
+- **Orphaned images**: 24 hours if unreferenced → deleted
+- **Abandoned drafts**: 365 days with no edits → deleted
+- **Published content**: retained until manually deleted by user or account deletion
+- **Feedback/guestbook**: preserved anonymously after account deletion (no PII)
+- **Account deletion**: immediate, all PII removed; anonymized community content retained
+
 ## Known Issues & TODO
 
 ### Critical

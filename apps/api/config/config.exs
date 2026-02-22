@@ -31,7 +31,10 @@ config :inkwell, Oban,
   plugins: [
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 3 * * *", Inkwell.Workers.CleanupExpiredTokensWorker}
+       {"0 3 * * *", Inkwell.Workers.CleanupExpiredTokensWorker},
+       {"0 4 * * *", Inkwell.Workers.CleanupOrphanedImagesWorker},
+       {"30 4 * * *", Inkwell.Workers.CleanupReadNotificationsWorker},
+       {"0 5 * * *", Inkwell.Workers.CleanupAbandonedDraftsWorker}
      ]}
   ]
 

@@ -259,6 +259,62 @@ defmodule Inkwell.Journals do
     Repo.get(EntryImage, id)
   end
 
+  @doc """
+  Delete entry_images older than `age_hours` that are not referenced in any
+  entry's body_html. Images are referenced via `/api/images/:id` URLs.
+  """
+  def cleanup_orphaned_images(age_hours \\ 24) do
+    cutoff = DateTime.add(DateTime.utc_now(), -age_hours, :hour)
+
+    # Get all image IDs referenced in any entry body_html
+    referenced_ids =
+      Entry
+      |> where([e], not is_nil(e.body_html))
+      |> select([e], e.body_html)
+      |> Repo.all()
+      |> Enum.flat_map(&extract_image_ids/1)
+      |> MapSet.new()
+
+    # Get candidate orphan images (older than cutoff)
+    candidates =
+      EntryImage
+      |> where([i], i.inserted_at < ^cutoff)
+      |> select([i], i.id)
+      |> Repo.all()
+
+    orphan_ids = Enum.reject(candidates, &MapSet.member?(referenced_ids, &1))
+
+    if orphan_ids == [] do
+      {:ok, 0}
+    else
+      {count, _} =
+        EntryImage
+        |> where([i], i.id in ^orphan_ids)
+        |> Repo.delete_all()
+
+      {:ok, count}
+    end
+  end
+
+  defp extract_image_ids(html) when is_binary(html) do
+    Regex.scan(~r"/api/images/([0-9a-f-]{36})", html)
+    |> Enum.map(fn [_, id] -> id end)
+  end
+
+  defp extract_image_ids(_), do: []
+
+  @doc "Delete draft entries not updated in `days` days."
+  def cleanup_abandoned_drafts(days \\ 365) do
+    cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
+
+    {count, _} =
+      Entry
+      |> where([e], e.status == :draft and e.updated_at < ^cutoff)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
   # Comments
 
   def list_comments(entry_id) do
