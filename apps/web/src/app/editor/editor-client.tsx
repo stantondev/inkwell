@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -11,6 +11,7 @@ import type { Editor } from "@tiptap/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseMusicUrl } from "@/lib/music";
+import { resizeEntryImage } from "@/lib/image-utils";
 
 type Privacy = "public" | "friends_only" | "private" | "custom";
 
@@ -72,18 +73,32 @@ function Sep() {
   return <div className="w-px h-5 mx-0.5 self-center" style={{ background: "var(--border)" }} aria-hidden="true" />;
 }
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml }: { editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void }) {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading }: {
+  editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
+  onUploadImage: (file: File) => void; isUploading: boolean;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+
   const addLink = useCallback(() => {
     if (!editor) return;
     const url = window.prompt("URL:");
     if (url) editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
-  const addImage = useCallback(() => {
+  const addImageUrl = useCallback(() => {
     if (!editor) return;
     const url = window.prompt("Image URL:");
     if (url) editor.chain().focus().setImage({ src: url }).run();
+    setShowImageMenu(false);
   }, [editor]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUploadImage(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setShowImageMenu(false);
+  }, [onUploadImage]);
 
   if (!editor) return null;
 
@@ -159,12 +174,52 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml }: { editor: Editor | nu
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
           </Btn>
-          <Btn onClick={addImage} title="Add image">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-            </svg>
-          </Btn>
+          <div className="relative">
+            <Btn onClick={() => setShowImageMenu((v) => !v)} disabled={isUploading}
+              title={isUploading ? "Uploading..." : "Add image"}>
+              {isUploading ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                  className="animate-spin">
+                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+              )}
+            </Btn>
+            {showImageMenu && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setShowImageMenu(false)} />
+                <div className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[160px]"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                  <button type="button"
+                    onClick={() => { fileInputRef.current?.click(); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
+                    style={{ color: "var(--foreground)" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Upload from computer
+                  </button>
+                  <button type="button"
+                    onClick={addImageUrl}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
+                    style={{ color: "var(--foreground)" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    Paste image URL
+                  </button>
+                </div>
+              </>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden" onChange={handleFileSelect} />
+          </div>
           <Sep />
           <Btn onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()} title="Undo (⌘Z)">
@@ -349,6 +404,33 @@ export function EditorClient() {
   // Draft tracking
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Upload an image file: resize, upload to API, insert into editor
+  const uploadImage = useCallback(async (file: File, ed: Editor | null) => {
+    if (!ed) return;
+    setIsUploadingImage(true);
+    try {
+      const dataUri = await resizeEntryImage(file);
+      const res = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Upload failed");
+      }
+      const { data } = await res.json();
+      // Insert using the API URL (served from Phoenix backend)
+      const imageUrl = `${window.location.origin}${data.url}`;
+      ed.chain().focus().setImage({ src: imageUrl }).run();
+    } catch (err) {
+      alert(`Image upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -356,17 +438,54 @@ export function EditorClient() {
       StarterKit.configure({ link: false }),
       Placeholder.configure({ placeholder: "What's on your mind today?" }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
-      Image.configure({ inline: false, allowBase64: false }),
+      Image.configure({ inline: false, allowBase64: true }),
       CharacterCount.configure({ limit: 100_000 }),
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[55vh] py-6" },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved || !event.dataTransfer?.files?.length) return false;
+        const file = event.dataTransfer.files[0];
+        if (!file.type.startsWith("image/")) return false;
+        event.preventDefault();
+        // uploadImage uses editor from closure, but we need the current editor ref
+        // We use a custom event to trigger the upload from the component
+        const customEvent = new CustomEvent("inkwell-image-drop", { detail: { file } });
+        document.dispatchEvent(customEvent);
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of items) {
+          if (item.type.startsWith("image/")) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              const customEvent = new CustomEvent("inkwell-image-drop", { detail: { file } });
+              document.dispatchEvent(customEvent);
+            }
+            return true;
+          }
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       setHasContent(!!editor.getText().trim());
       setWordCount(editor.storage.characterCount.words());
     },
   });
+
+  // Listen for custom image drop/paste events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const file = (e as CustomEvent).detail?.file;
+      if (file && editor) uploadImage(file, editor);
+    };
+    document.addEventListener("inkwell-image-drop", handler);
+    return () => document.removeEventListener("inkwell-image-drop", handler);
+  }, [editor, uploadImage]);
 
   // Fetch filters when privacy is set to "custom"
   useEffect(() => {
@@ -672,7 +791,8 @@ export function EditorClient() {
         {/* ── Sticky formatting toolbar ─────────────────── */}
         <div className="sticky z-30 border-b -mx-4 px-2"
           style={{ top: 57, background: "var(--background)", borderColor: "var(--border)" }}>
-          <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode} />
+          <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
+            onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage} />
         </div>
 
         {/* ── Writing area ──────────────────────────────── */}

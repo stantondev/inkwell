@@ -302,6 +302,23 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Proxy routes: `apps/web/src/app/api/drafts/route.ts` (GET), `apps/web/src/app/api/entries/[id]/publish/route.ts` (POST)
   - `/drafts` route protected by middleware
 
+### Image Uploads in Entries
+- Users can upload images directly in the editor instead of pasting external URLs
+- Three upload methods: toolbar button (file picker), drag-and-drop, paste from clipboard
+- Client-side resize to max 1200px (aspect-preserving, 0.8 quality JPEG) before upload
+- Images stored in dedicated `entry_images` table as base64 data URIs
+- Served via `GET /api/images/:id` with immutable cache headers (1-year cache)
+- Editor inserts `<img src="/api/images/:id">` — standard URLs, not inline base64
+- URL paste still available as fallback option in the image dropdown menu
+- **Backend**:
+  - `apps/api/lib/inkwell/journals/entry_image.ex` — Ecto schema (id, user_id, data, content_type, filename, byte_size)
+  - `apps/api/lib/inkwell_web/controllers/entry_image_controller.ex` — `POST /api/images` (upload, auth required, max ~4MB), `GET /api/images/:id` (serve, public)
+  - Migration: `20260222000008`
+- **Frontend**:
+  - `apps/web/src/lib/image-utils.ts` — `resizeEntryImage()` (delegates to `resizeBackgroundImage` with 1200px/0.8 defaults)
+  - `apps/web/src/app/editor/editor-client.tsx` — upload button with dropdown (Upload from computer / Paste image URL), drag-drop via `handleDrop`, paste via `handlePaste`, custom event bridge for TipTap editor prop handlers
+  - Proxy routes: `apps/web/src/app/api/images/route.ts` (POST upload), `apps/web/src/app/api/images/[id]/route.ts` (GET serve with force-cache)
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (Markdown→HTML), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
@@ -347,6 +364,7 @@ Profile | Top 6 | Filters | Billing | Customize
 - `feedback_votes` — user_id + feedback_post_id (unique together)
 - `feedback_comments` — body, user_id, feedback_post_id
 - `guestbook_entries` — profile guestbook with body, profile_user_id, author_id
+- `entry_images` — uploaded images for entries (id, user_id, data as base64 data URI, content_type, filename, byte_size)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Known Issues & TODO
@@ -405,7 +423,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000007_add_status_to_entries.exs`
+- Latest migration: `20260222000008_create_entry_images.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)

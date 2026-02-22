@@ -46,6 +46,17 @@ export function resizeImage(
 }
 
 /**
+ * Resize an image for entry content — keeps aspect ratio, max 1200px, 0.8 quality.
+ */
+export function resizeEntryImage(
+  file: File,
+  maxDimension = 1200,
+  quality = 0.8
+): Promise<string> {
+  return resizeBackgroundImage(file, maxDimension, quality);
+}
+
+/**
  * Resize a background image — keeps aspect ratio (no crop), max dimension limited.
  */
 export function resizeBackgroundImage(

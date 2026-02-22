@@ -1,7 +1,7 @@
 defmodule Inkwell.Journals do
   import Ecto.Query
   alias Inkwell.Repo
-  alias Inkwell.Journals.{Entry, Comment}
+  alias Inkwell.Journals.{Entry, EntryImage, Comment}
 
   # Entries
 
@@ -239,6 +239,18 @@ defmodule Inkwell.Journals do
     |> where(user_id: ^user_id)
     |> where([e], e.status == :published)
     |> Repo.aggregate(:count)
+  end
+
+  # ── Entry Images ─────────────────────────────────────────────────────────
+
+  def create_entry_image(attrs) do
+    %EntryImage{}
+    |> EntryImage.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def get_entry_image(id) do
+    Repo.get(EntryImage, id)
   end
 
   # Comments

@@ -51,6 +51,9 @@ defmodule InkwellWeb.Router do
     get "/users/:username/feed.xml", FeedController, :user_feed
     get "/tags/:tag/feed.xml", FeedController, :tag_feed
 
+    # Images (public serving)
+    get "/images/:id", EntryImageController, :show
+
     # Search
     get "/search", SearchController, :search
     get "/search/fediverse", SearchController, :fediverse
@@ -100,6 +103,9 @@ defmodule InkwellWeb.Router do
     get "/me/icons", UserIconController, :index
     post "/me/icons", UserIconController, :create
     delete "/me/icons/:id", UserIconController, :delete
+
+    # Image uploads
+    post "/images", EntryImageController, :create
 
     # Entries (CRUD)
     get "/drafts", EntryController, :list_drafts
