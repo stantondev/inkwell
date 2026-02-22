@@ -142,6 +142,11 @@ export default async function FeedPage({ searchParams }: PageProps) {
         page={page}
         basePath="/feed"
         emptyState={<EmptyFeed username={session.user.username} />}
+        session={{
+          userId: session.user.id,
+          isLoggedIn: true,
+          isPlus: session.user.subscription_tier === "plus",
+        }}
       />
 
       {/* Bottom upsell for non-Plus users */}

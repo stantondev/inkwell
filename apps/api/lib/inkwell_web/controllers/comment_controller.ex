@@ -27,6 +27,33 @@ defmodule InkwellWeb.CommentController do
     end
   end
 
+  # GET /api/entries/:entry_id/comments — fetch comments by entry ID
+  def index_by_entry(conn, %{"entry_id" => entry_id} = params) do
+    limit = parse_int(params["limit"], 50)
+
+    try do
+      entry = Journals.get_entry!(entry_id)
+
+      viewer = conn.assigns[:current_user]
+      accessible? =
+        entry.privacy == :public ||
+        (viewer && viewer.id == entry.user_id) ||
+        (viewer && Social.is_friend?(viewer.id, entry.user_id))
+
+      if accessible? do
+        comments = Journals.list_comments(entry.id)
+        # Apply limit (most recent N)
+        limited = Enum.take(comments, -limit) |> Enum.reverse() |> Enum.reverse()
+        json(conn, %{data: Enum.map(limited, &render_comment/1)})
+      else
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+      end
+    rescue
+      Ecto.NoResultsError ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+    end
+  end
+
   # POST /api/entries/:entry_id/comments
   def create(conn, %{"entry_id" => entry_id} = params) do
     user = conn.assigns.current_user
@@ -147,4 +174,13 @@ defmodule InkwellWeb.CommentController do
       end)
     end)
   end
+
+  defp parse_int(nil, default), do: default
+  defp parse_int(val, default) when is_binary(val) do
+    case Integer.parse(val) do
+      {n, _} -> max(n, 1)
+      :error -> default
+    end
+  end
+  defp parse_int(val, _) when is_integer(val), do: val
 end

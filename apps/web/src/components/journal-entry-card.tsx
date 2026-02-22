@@ -15,9 +15,11 @@ export interface JournalEntry {
   privacy: string;
   comment_count?: number;
   stamps?: string[];
+  my_stamp?: string | null;
   published_at: string;
   slug: string;
   author: {
+    id?: string;
     username: string;
     display_name: string;
     avatar_url: string | null;
@@ -42,7 +44,13 @@ function timeAgo(isoString: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function JournalEntryCard({ entry }: { entry: JournalEntry }) {
+interface JournalEntryCardProps {
+  entry: JournalEntry;
+  /** Optional custom footer actions (replaces default static footer) */
+  actions?: React.ReactNode;
+}
+
+export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
   const href = `/${entry.author.username}/${entry.slug ?? entry.id}`;
   const ago = timeAgo(entry.published_at);
 
@@ -50,10 +58,10 @@ export function JournalEntryCard({ entry }: { entry: JournalEntry }) {
     <JournalPage corner edge className="flex flex-col h-full">
       {/* Top section */}
       <div className="p-6 lg:p-8 flex-1 flex flex-col relative">
-        {/* Stamps — top-right corner like a postage stamp */}
+        {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
-          <div className="absolute top-5 right-5 lg:top-7 lg:right-7">
-            <StampDisplay stamps={entry.stamps} size={22} />
+          <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
+            <StampDisplay stamps={entry.stamps} size={32} />
           </div>
         )}
 
@@ -73,7 +81,7 @@ export function JournalEntryCard({ entry }: { entry: JournalEntry }) {
         {/* Title */}
         {entry.title && (
           <h2
-            className="text-2xl font-bold mb-4 leading-snug pr-16"
+            className="text-2xl font-bold mb-4 leading-snug pr-20"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
             <Link href={href} className="hover:underline">
@@ -161,39 +169,41 @@ export function JournalEntryCard({ entry }: { entry: JournalEntry }) {
         )}
       </div>
 
-      {/* Footer — ornamental divider + links */}
-      <div
-        className="flex items-center justify-between px-6 lg:px-8 py-4 border-t"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <Link
-          href={href}
-          className="text-sm font-medium transition-colors hover:underline"
-          style={{ color: "var(--accent)" }}
+      {/* Footer — either custom actions or static default */}
+      {actions ?? (
+        <div
+          className="flex items-center justify-between px-6 lg:px-8 py-4 border-t"
+          style={{ borderColor: "var(--border)" }}
         >
-          Read full entry &rarr;
-        </Link>
-        <Link
-          href={`${href}#comments`}
-          className="flex items-center gap-1.5 text-sm"
-          style={{ color: "var(--muted)" }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+          <Link
+            href={href}
+            className="text-sm font-medium transition-colors hover:underline"
+            style={{ color: "var(--accent)" }}
           >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          {entry.comment_count ?? 0}
-        </Link>
-      </div>
+            Read full entry &rarr;
+          </Link>
+          <Link
+            href={`${href}#comments`}
+            className="flex items-center gap-1.5 text-sm"
+            style={{ color: "var(--muted)" }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            {entry.comment_count ?? 0}
+          </Link>
+        </div>
+      )}
     </JournalPage>
   );
 }

@@ -1,20 +1,22 @@
 /**
- * StampDisplay — shows stamp icons in the top-right corner of entry cards.
- * Like postage stamps on a letter. No counts, just presence.
+ * StampDisplay — shows stamp icons on entry cards.
+ * Like ink stamps pressed onto paper. No counts, just presence.
+ * Larger size gives the "real stamp impression" aesthetic.
  */
 
 import { STAMP_CONFIG } from "./stamp-config";
 
 interface StampDisplayProps {
   stamps: string[];
+  /** Default 32px — bigger ink stamp aesthetic */
   size?: number;
 }
 
-export function StampDisplay({ stamps, size = 22 }: StampDisplayProps) {
+export function StampDisplay({ stamps, size = 32 }: StampDisplayProps) {
   if (!stamps || stamps.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1" aria-label="Stamps on this entry">
+    <div className="flex items-center gap-1.5" aria-label="Stamps on this entry">
       {stamps.map((stampType) => {
         const config = STAMP_CONFIG[stampType];
         if (!config) return null;
@@ -25,12 +27,10 @@ export function StampDisplay({ stamps, size = 22 }: StampDisplayProps) {
           <div
             key={stampType}
             title={config.description}
-            className={`flex-shrink-0${isSupporter ? " stamp-supporter-shimmer" : ""}`}
+            className={`flex-shrink-0 stamp-impression${isSupporter ? " stamp-supporter-shimmer" : ""}`}
             style={{
               width: size,
               height: size,
-              color: "var(--muted)",
-              opacity: 0.7,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -42,7 +42,6 @@ export function StampDisplay({ stamps, size = 22 }: StampDisplayProps) {
               style={{
                 width: size,
                 height: size,
-                filter: "var(--stamp-filter, none)",
               }}
             />
           </div>

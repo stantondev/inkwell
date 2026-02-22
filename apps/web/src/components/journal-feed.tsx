@@ -5,13 +5,23 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
+import { FeedCardActions } from "./feed-card-actions";
 import { PageNavigation } from "./page-navigation";
+
+/** Session info passed from server to enable interactive features */
+export interface FeedSession {
+  userId: string;
+  isLoggedIn: boolean;
+  isPlus: boolean;
+}
 
 interface JournalFeedProps {
   entries: JournalEntry[];
   page: number;
   basePath: string;
   emptyState?: React.ReactNode;
+  /** If provided, enables interactive stamp + comment on feed cards */
+  session?: FeedSession | null;
 }
 
 export function JournalFeed({
@@ -19,6 +29,7 @@ export function JournalFeed({
   page,
   basePath,
   emptyState,
+  session,
 }: JournalFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -81,6 +92,25 @@ export function JournalFeed({
     return <>{emptyState}</>;
   }
 
+  // Build actions footer for an entry (if session is available)
+  function renderActions(entry: JournalEntry) {
+    const entryHref = `/${entry.author.username}/${entry.slug ?? entry.id}`;
+    const isOwnEntry = session ? entry.author.id === session.userId : false;
+
+    return (
+      <FeedCardActions
+        entryId={entry.id}
+        entryHref={entryHref}
+        commentCount={entry.comment_count ?? 0}
+        stamps={entry.stamps ?? []}
+        myStamp={entry.my_stamp ?? null}
+        isOwnEntry={isOwnEntry}
+        isLoggedIn={session?.isLoggedIn ?? false}
+        isPlus={session?.isPlus ?? false}
+      />
+    );
+  }
+
   // Build pages: group entries based on desktop/mobile
   const pages: JournalEntry[][] = [];
   for (let i = 0; i < entries.length; i += entriesPerPage) {
@@ -129,7 +159,10 @@ export function JournalFeed({
                     }}
                   >
                     <div className="flex-1">
-                      <JournalEntryCard entry={pageEntries[0]} />
+                      <JournalEntryCard
+                        entry={pageEntries[0]}
+                        actions={session ? renderActions(pageEntries[0]) : undefined}
+                      />
                     </div>
                   </motion.div>
                 </div>
@@ -155,7 +188,10 @@ export function JournalFeed({
                       }}
                     >
                       <div className="flex-1">
-                        <JournalEntryCard entry={pageEntries[1]} />
+                        <JournalEntryCard
+                          entry={pageEntries[1]}
+                          actions={session ? renderActions(pageEntries[1]) : undefined}
+                        />
                       </div>
                     </motion.div>
                   ) : (
@@ -188,7 +224,10 @@ export function JournalFeed({
                     ease: "easeOut",
                   }}
                 >
-                  <JournalEntryCard entry={pageEntries[0]} />
+                  <JournalEntryCard
+                    entry={pageEntries[0]}
+                    actions={session ? renderActions(pageEntries[0]) : undefined}
+                  />
                 </motion.div>
               </div>
             )}

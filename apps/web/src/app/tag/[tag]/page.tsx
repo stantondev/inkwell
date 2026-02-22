@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
@@ -15,6 +16,7 @@ export async function generateMetadata({ params }: TagPageProps): Promise<Metada
 }
 
 export default async function TagPage({ params, searchParams }: TagPageProps) {
+  const session = await getSession();
   const { tag } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
@@ -112,6 +114,11 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
         page={page}
         basePath={`/tag/${encodeURIComponent(tag)}`}
         emptyState={emptyState}
+        session={session ? {
+          userId: session.user.id,
+          isLoggedIn: true,
+          isPlus: session.user.subscription_tier === "plus",
+        } : null}
       />
 
       {/* RSS link */}

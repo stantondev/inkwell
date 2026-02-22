@@ -67,11 +67,11 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
           <button
             key={stampType}
             onClick={() => isAuthor && setActiveStamp(activeStamp === stampType ? null : stampType)}
-            className={`flex-shrink-0 transition-transform hover:scale-110${isSupporter ? " stamp-supporter-shimmer" : ""}`}
+            className={`flex-shrink-0 stamp-impression transition-transform hover:scale-110${isSupporter ? " stamp-supporter-shimmer" : ""}`}
             style={{
               cursor: isAuthor ? "pointer" : "default",
-              width: 26,
-              height: 26,
+              width: 36,
+              height: 36,
             }}
             title={isAuthor ? `${config.label} — click to see who` : config.description}
           >
@@ -79,9 +79,9 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
             <img
               src={config.icon}
               alt={config.label}
-              width={26}
-              height={26}
-              style={{ width: 26, height: 26 }}
+              width={36}
+              height={36}
+              style={{ width: 36, height: 36 }}
             />
           </button>
         );

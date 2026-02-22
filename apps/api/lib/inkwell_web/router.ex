@@ -61,6 +61,9 @@ defmodule InkwellWeb.Router do
     get "/feedback/releases", FeedbackController, :releases
     get "/feedback/:id", FeedbackController, :show
 
+    # Comments by entry ID (optional auth for visibility check)
+    get "/entries/:entry_id/comments", CommentController, :index_by_entry
+
     # Stamps (optional auth: author sees who stamped)
     get "/entries/:entry_id/stamps", StampController, :index
   end
