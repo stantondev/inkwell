@@ -9,12 +9,12 @@ primary_region = "ord"
 [build]
   dockerfile = "apps/web/Dockerfile"
   [build.args]
-    NEXT_PUBLIC_API_URL = "https://inkwell-api.fly.dev"
+    NEXT_PUBLIC_API_URL = "https://api.inkwell.social"
 
 [env]
   PORT = "3000"
   NODE_ENV = "production"
-  API_URL = "https://inkwell-api.fly.dev"
+  API_URL = "https://api.inkwell.social"
 
 [http_service]
   internal_port = 3000
