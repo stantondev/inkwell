@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { resizeImage } from "@/lib/image-utils";
 
 interface FullUser {
   id: string;
@@ -11,45 +12,6 @@ interface FullUser {
   bio: string | null;
   pronouns: string | null;
   avatar_url: string | null;
-}
-
-/** Resize an image file to a max dimension and return a JPEG data URI */
-function resizeImage(file: File, maxSize = 400, quality = 0.85): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-
-      // Calculate new dimensions (square crop from center, then resize)
-      const { naturalWidth: w, naturalHeight: h } = img;
-      const cropSize = Math.min(w, h);
-      const sx = (w - cropSize) / 2;
-      const sy = (h - cropSize) / 2;
-      const outSize = Math.min(cropSize, maxSize);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = outSize;
-      canvas.height = outSize;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("Canvas not supported")); return; }
-
-      // Draw the center-cropped square, resized to outSize
-      ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, outSize, outSize);
-
-      // Export as JPEG data URI
-      const dataUri = canvas.toDataURL("image/jpeg", quality);
-      resolve(dataUri);
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Failed to load image"));
-    };
-
-    img.src = url;
-  });
 }
 
 function AvatarPreview({ url, name, size = 80 }: { url: string | null; name: string; size?: number }) {

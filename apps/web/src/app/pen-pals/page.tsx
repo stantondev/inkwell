@@ -139,9 +139,9 @@ export default async function PenPalsPage() {
         {/* Management links */}
         <div className="rounded-xl border p-4 flex items-center justify-between"
           style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <span className="text-sm" style={{ color: "var(--muted)" }}>Manage your Top 8 Pen Pals</span>
+          <span className="text-sm" style={{ color: "var(--muted)" }}>Manage your Top 6 Pen Pals</span>
           <Link href="/settings/top-friends" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-            Edit Top 8 →
+            Edit Top 6 →
           </Link>
         </div>
       </div>

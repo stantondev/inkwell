@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   { href: "/settings", label: "Profile" },
-  { href: "/pen-pals", label: "Pen Pals" },
   { href: "/settings/top-friends", label: "Top 6" },
   { href: "/settings/billing", label: "Billing" },
-  { href: "/roadmap", label: "Roadmap" },
+  { href: "/settings/customize", label: "Customize" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

@@ -34,6 +34,9 @@ defmodule InkwellWeb.Router do
     get "/users/:username/entries/:slug", EntryController, :show
     get "/users/:username/entries/:slug/comments", CommentController, :index
 
+    # Guestbook (public read)
+    get "/users/:username/guestbook", GuestbookController, :index
+
     # RSS feeds
     get "/users/:username/feed.xml", FeedController, :user_feed
     get "/tags/:tag/feed.xml", FeedController, :tag_feed
@@ -80,6 +83,7 @@ defmodule InkwellWeb.Router do
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
     post "/me/avatar", UserController, :upload_avatar
+    post "/me/background", UserController, :upload_background
     delete "/me", UserController, :delete_account
 
     # User icons
@@ -149,6 +153,10 @@ defmodule InkwellWeb.Router do
 
     # Fediverse follow (requires auth)
     post "/search/fediverse/follow", SearchController, :fediverse_follow
+
+    # Guestbook (authenticated actions)
+    post "/users/:username/guestbook", GuestbookController, :create
+    delete "/guestbook/:id", GuestbookController, :delete
   end
 
   # Admin API (requires auth + admin role)
