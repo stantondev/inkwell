@@ -256,17 +256,18 @@ Stamps are Inkwell's alternative to likes, emoji reactions, and hearts. They are
 - Stamps show in the top-right of entry cards, like a real stamp on a letter
 - The visual style is **ink stamp / chop seal** — clean, elegant impressions pressed onto paper
 
-### The 6 Launch Stamps
+### The 7 Launch Stamps
 
-**5 Core Emotional Stamps** (available to all users):
-1. **Felt** — "I felt this" — emotional resonance
-2. **Holding This With You** — "I'm holding this with you" — solidarity, support
-3. **This Stayed With Me** — "This stayed with me" — lasting impact
-4. **Warmth** — "Sending warmth" — comfort, care
-5. **Seen** — "I see you" — acknowledgment, validation
+**6 Core Emotional Stamps** (available to all users):
+1. **Felt** — "I felt this" — emotional resonance, deep connection to the writing
+2. **Holding Space** — "Holding space for you" — solidarity, being present with someone
+3. **Beautifully Said** — "Beautifully said" — admiration for the craft, the way something was expressed
+4. **Rooting For You** — "Rooting for you" — encouragement, cheerleading, support
+5. **Throwback** — "What a throwback" — nostalgia, shared memory, "I remember this too"
+6. **I Cannot** — "I cannot" — overwhelmed (in a good way), speechless, "this broke me"
 
 **1 Plus-Exclusive Stamp:**
-6. **From a Supporter** — "From a supporter" — Plus subscribers only, with a subtle foil/shimmer visual effect (distinct from the 5 core stamps)
+7. **From a Supporter** — "From a supporter" — Plus subscribers only, with a subtle foil/shimmer visual effect (distinct from the 6 core stamps)
 
 ### Visual Design
 
@@ -280,7 +281,7 @@ Stamps are Inkwell's alternative to likes, emoji reactions, and hearts. They are
 
 1. Reader opens an entry (detail page only — no stamping from feed cards)
 2. Reader clicks a "Stamp this entry" button/area
-3. A stamp picker appears — shows all 6 stamps (6th grayed out if not Plus)
+3. A stamp picker appears — shows all 7 stamps (7th grayed out if not Plus)
 4. Reader picks one → stamp is saved → stamp icon appears in top-right of entry
 5. If reader already stamped, clicking again opens the picker to change or remove their stamp
 6. Author sees stamp icons on their entry; hovering/tapping shows who left each type
@@ -291,7 +292,7 @@ Stamps are Inkwell's alternative to likes, emoji reactions, and hearts. They are
 - `id` — UUID primary key
 - `entry_id` — UUID FK to entries (required)
 - `user_id` — UUID FK to users (required)
-- `stamp_type` — Ecto.Enum: `:felt`, `:holding`, `:stayed`, `:warmth`, `:seen`, `:supporter`
+- `stamp_type` — Ecto.Enum: `:felt`, `:holding_space`, `:beautifully_said`, `:rooting`, `:throwback`, `:i_cannot`, `:supporter`
 - `inserted_at`, `updated_at` — timestamps
 - **Unique constraint**: `[:user_id, :entry_id]` — one stamp per user per entry
 
@@ -311,7 +312,7 @@ Update `render_entry` and `render_entry_full` in `entry_controller.ex` to includ
 
 ```json
 {
-  "stamps": ["felt", "warmth", "seen"],
+  "stamps": ["felt", "holding_space", "i_cannot"],
   "my_stamp": "felt"
 }
 ```
@@ -323,7 +324,7 @@ Update `render_entry` and `render_entry_full` in `entry_controller.ex` to includ
 
 **New files to create:**
 - `apps/web/src/components/stamp-display.tsx` — shows stamp icons in top-right of entry cards (server component). Takes `stamps: string[]` prop, renders small ink-stamp icons.
-- `apps/web/src/components/stamp-picker.tsx` — client component. Modal/popover for choosing a stamp. Shows all 6 stamps with names and descriptions. Grays out "From a Supporter" for non-Plus users.
+- `apps/web/src/components/stamp-picker.tsx` — client component. Modal/popover for choosing a stamp. Shows all 7 stamps with names and descriptions. Grays out "From a Supporter" for non-Plus users.
 - `apps/web/src/components/stamp-popover.tsx` — client component. On hover/tap of a stamp icon (author only), shows avatars of who left that stamp type.
 
 **Files to modify:**
@@ -338,10 +339,11 @@ Update `render_entry` and `render_entry_full` in `entry_controller.ex` to includ
 ```
 apps/web/public/stamps/
   felt.svg
-  holding.svg
-  stayed.svg
-  warmth.svg
-  seen.svg
+  holding-space.svg
+  beautifully-said.svg
+  rooting.svg
+  throwback.svg
+  i-cannot.svg
   supporter.svg
 ```
 
@@ -350,10 +352,11 @@ Frontend stamp config maps slugs to file paths:
 ```typescript
 const STAMP_CONFIG = {
   felt: { label: "Felt", description: "I felt this", icon: "/stamps/felt.svg" },
-  holding: { label: "Holding This With You", description: "I'm holding this with you", icon: "/stamps/holding.svg" },
-  stayed: { label: "This Stayed With Me", description: "This stayed with me", icon: "/stamps/stayed.svg" },
-  warmth: { label: "Warmth", description: "Sending warmth", icon: "/stamps/warmth.svg" },
-  seen: { label: "Seen", description: "I see you", icon: "/stamps/seen.svg" },
+  holding_space: { label: "Holding Space", description: "Holding space for you", icon: "/stamps/holding-space.svg" },
+  beautifully_said: { label: "Beautifully Said", description: "Beautifully said", icon: "/stamps/beautifully-said.svg" },
+  rooting: { label: "Rooting For You", description: "Rooting for you", icon: "/stamps/rooting.svg" },
+  throwback: { label: "Throwback", description: "What a throwback", icon: "/stamps/throwback.svg" },
+  i_cannot: { label: "I Cannot", description: "I cannot", icon: "/stamps/i-cannot.svg" },
   supporter: { label: "From a Supporter", description: "From a supporter", icon: "/stamps/supporter.svg", plusOnly: true },
 };
 ```
