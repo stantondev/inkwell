@@ -133,7 +133,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Subscribe to #{tag} entries via{" "}
             <a
-              href={`${process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://inkwell-api.fly.dev"}/tags/${encodeURIComponent(tag)}/feed.xml`}
+              href={`${process.env.API_URL || "https://api.inkwell.social"}/tags/${encodeURIComponent(tag)}/feed.xml`}
               className="underline"
               style={{ color: "var(--accent)" }}
               target="_blank"

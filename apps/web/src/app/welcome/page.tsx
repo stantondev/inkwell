@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const TOTAL_STEPS = 4;
 
 function StepDots({ current, total }: { current: number; total: number }) {
@@ -92,7 +90,7 @@ export default function WelcomePage() {
     setCheckingUsername(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/username-available?username=${encodeURIComponent(username)}`);
+        const res = await fetch(`/api/username-available?username=${encodeURIComponent(username)}`);
         if (res.ok) {
           const data = await res.json();
           setUsernameAvailable(data.available);

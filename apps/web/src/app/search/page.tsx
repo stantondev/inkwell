@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
 interface SearchUser {
   id: string;
   username: string;
@@ -91,10 +89,9 @@ function FediverseFollowButton({ remoteActorId }: { remoteActorId: string }) {
   async function handleFollow() {
     setState("loading");
     try {
-      const res = await fetch(`${API_URL}/api/search/fediverse/follow`, {
+      const res = await fetch(`/api/search/fediverse/follow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ remote_actor_id: remoteActorId }),
       });
       if (res.ok) {
@@ -162,7 +159,7 @@ export default function SearchPage() {
       setFediverseError(null);
       try {
         if (tab === "fediverse") {
-          const res = await fetch(`${API_URL}/api/search/fediverse?q=${encodeURIComponent(query.trim())}`);
+          const res = await fetch(`/api/search/fediverse?q=${encodeURIComponent(query.trim())}`);
           if (res.ok) {
             const data = await res.json();
             setFediverseResult(data.data ?? null);
@@ -172,7 +169,7 @@ export default function SearchPage() {
             setFediverseError(data.error || "Not found");
           }
         } else {
-          const res = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(query.trim())}&type=${tab}`);
+          const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}&type=${tab}`);
           if (res.ok) {
             const data = await res.json();
             if (tab === "users") setUsers(data.data ?? []);

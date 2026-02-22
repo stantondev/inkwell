@@ -3,8 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.64.2:4000";
-
 type LoginStep = "enter_email" | "check_email";
 
 function InkwellLogo() {
@@ -41,7 +39,7 @@ function EnterEmailStep({
     setError(null);
 
     try {
-      const res = await fetch(`${API}/api/auth/magic-link`, {
+      const res = await fetch(`/api/auth/magic-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
@@ -123,7 +121,7 @@ function CheckEmailStep({
   const handleResend = async () => {
     setResending(true);
     try {
-      await fetch(`${API}/api/auth/magic-link`, {
+      await fetch(`/api/auth/magic-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
