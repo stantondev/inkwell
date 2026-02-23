@@ -430,24 +430,44 @@ All three are static Next.js server components with Lora headings, prose body te
 - **Logo files**: `stantondev/inkwellsocial-brand-assets/logo/`
   - `inkwell-logo-full.svg` — primary logo (fountain pen nib + "Inkwell" in Sacramento cursive)
   - `inkwell-logo-full.png` — raster version
-- **Current nav logo**: still the old inline SVG pencil mark in `apps/web/src/components/nav.tsx` — **pending replacement**
-- **Current favicon**: none — **pending**
-- **Pending — site-wide color update**: Replace purple accent (`#7c3aed`) with ink blue (`#2d4a8a`) per brand guide. Affects `--accent`, `--accent-light`, `--accent-dark` in `apps/web/src/app/globals.css` plus dark mode variants
+- **Current nav logo**: still the old inline SVG pencil mark in `apps/web/src/components/nav.tsx` — **pending replacement (Session 2)**
+- **Current favicon**: none — **pending (Session 2)**
 
-### Next Brand Session Prompt
-Use this prompt to pick up the logo implementation in a new session:
+### Pending Work — ordered
 
-> We just finished creating the Inkwell brand. The new logo (Sacramento cursive font + fountain pen nib) has been created in Figma and the files are at:
-> `~/Documents/Claude/inkwellsocial-brand-assets/logo/inkwell-logo-full.svg`
-> `~/Documents/Claude/inkwellsocial-brand-assets/logo/inkwell-logo-full.png`
+**Session 1 — Website overhaul to match brand guide (DO THIS FIRST)**
+Site-wide visual update per `brand-style-guide.md`. Key changes:
+- Replace purple accent (`#7c3aed`) → ink blue (`#2d4a8a`) throughout `apps/web/src/app/globals.css` (affects `--accent`, `--accent-light`, `--accent-dark`, dark mode variants)
+- Audit all hardcoded colors; replace with correct CSS variables
+- Verify typography hierarchy matches brand guide (Lora for headings, system sans for UI)
+- Verify button styles, card styles, spacing, focus rings match brand guide spec
+- Update profile theme `default` preset in `apps/web/src/lib/profile-themes.ts` to use ink blue accent
+- Commit, deploy, and verify visually on https://inkwell.social
+
+**Session 2 — Logo swap + favicon (AFTER overhaul)**
+- Replace `InkwellLogo()` in `apps/web/src/components/nav.tsx` with new SVG logo
+- Copy `inkwell-logo-full.svg` → `apps/web/public/inkwell-logo.svg`
+- Add `apps/web/public/favicon.svg` + icon metadata in `apps/web/src/app/layout.tsx`
+- Commit, deploy, verify
+
+### Next Brand Session Prompt (Session 1 — Website Overhaul)
+Use this prompt to kick off the website overhaul in a new session:
+
+> We have a new brand and style guide for Inkwell. Before swapping in the new logo, I want to do a full website overhaul to match the brand guide. The brand guide lives at `~/Documents/Claude/inkwellsocial-brand-assets/brand-style-guide.md` — read it first.
 >
-> I want to update the website with the new logo. Specifically:
-> 1. Read the SVG file first to understand its structure (dimensions, viewBox, whether the nib and wordmark are combined or separate).
-> 2. Replace the nav logo in `apps/web/src/components/nav.tsx` — the current `InkwellLogo()` function uses an old inline SVG pencil icon + Lora text. Replace it with the new logo. If the SVG is self-contained (nib + "Inkwell" wordmark in one file), use an `<img>` tag pointing to `/inkwell-logo.svg`. If it needs to be colored/animated, inline the SVG paths.
-> 3. Copy the logo SVG to `apps/web/public/inkwell-logo.svg`.
-> 4. Add a SVG favicon: copy the SVG to `apps/web/public/favicon.svg` and add icon metadata to `apps/web/src/app/layout.tsx`.
-> 5. Do NOT do the site-wide color update (purple → ink blue) in this session — that comes later.
-> 6. TypeScript check, commit, push, deploy web only, and verify the logo appears on https://inkwell.social.
+> The key visual change is replacing the purple accent color (`#7c3aed`) with deep ink blue (`#2d4a8a`) across the entire site. The full color mapping is:
+> - `--accent: #7c3aed` → `#2d4a8a`
+> - `--accent-light: #ede9fe` → `#e8eef7`
+> - `--accent-dark: #5b21b6` → `#1a2744`
+> - Dark mode `--accent: #a78bfa` → `#93b4f0`
+> - Dark mode `--accent-light: #1e1b4b` → `#1a2744`
+> - Dark mode `--accent-dark: #c4b5fd` → `#c4d8f8`
+>
+> Beyond the color swap, audit the site against the brand guide and fix anything that doesn't match: button shapes, card styles, typography usage, focus rings, spacing. Also update the `default` theme preset in `apps/web/src/lib/profile-themes.ts` to use the ink blue accent.
+>
+> Do NOT swap the logo or favicon in this session — that comes after.
+>
+> TypeScript check, commit, push, deploy both API (if any backend changes) and web, then verify visually on https://inkwell.social.
 
 ---
 
