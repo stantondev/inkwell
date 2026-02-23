@@ -329,7 +329,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **RSS feeds**: per-user and per-tag RSS XML feeds
 - **Music player**: embedded music links on entries
 - **Profile pages**: avatar, bio, pronouns, Plus badge, Top Pen Pals sidebar, entry list, full customization (themes, backgrounds, music, guestbook, etc.)
-- **Admin panel**: entry listing/deletion at `/admin` (requires `ADMIN_USERNAMES` Fly secret)
+- **Admin dashboard**: full admin panel at `/admin` with tabbed navigation (Dashboard / Users / Entries). Dashboard shows platform stats (total users, Plus subscribers, signups this week, entries, comments, blocked users) plus recent Plus subscribers and signups. User management at `/admin/users` with search, filtering (All/Admins/Plus/Blocked), admin promotion/demotion, user blocking (revokes all tokens), and account deletion. Entry management at `/admin/entries`. Admin access via `ADMIN_USERNAMES` env var (bootstrap) or database `role` field (promotable via UI). User schema has `role` (default "user") and `blocked_at` fields. Blocked users are rejected at the auth plug level with `account_blocked` error.
 - **ActivityPub federation**: WebFinger, actor endpoints, inbox/outbox, HTTP signatures (sidecar not deployed)
 - **Landing page**: public homepage with feature showcase and pricing (Plus tier shown as live)
 
@@ -349,7 +349,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 Profile | Top 6 | Filters | Billing | Customize
 
 ## Database Tables
-- `users` — accounts with UUID PKs, Stripe fields, AP keys, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
+- `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
 - `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
@@ -473,7 +473,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000008_create_entry_images.exs`
+- Latest migration: `20260222000010_add_admin_fields_to_users.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
