@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
 
-const PROTECTED = ["/feed", "/editor", "/drafts"];
+const PROTECTED = ["/feed", "/editor", "/drafts", "/admin"];
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 export function middleware(request: NextRequest) {

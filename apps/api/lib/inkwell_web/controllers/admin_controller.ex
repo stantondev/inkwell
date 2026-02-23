@@ -1,8 +1,136 @@
 defmodule InkwellWeb.AdminController do
   use InkwellWeb, :controller
 
+  alias Inkwell.Accounts
   alias Inkwell.Journals
   alias InkwellWeb.EntryController
+
+  # GET /api/admin/stats
+  def stats(conn, _params) do
+    stats = Accounts.platform_stats()
+    recent_plus = Accounts.recent_plus_subscribers(10)
+    recent_signups = Accounts.recent_signups(10)
+
+    json(conn, %{
+      stats: stats,
+      recent_plus: Enum.map(recent_plus, &render_user_brief/1),
+      recent_signups: Enum.map(recent_signups, &render_user_brief/1)
+    })
+  end
+
+  # GET /api/admin/users
+  def list_users(conn, params) do
+    page = parse_int(params["page"], 1)
+    per_page = parse_int(params["per_page"], 50)
+    search = params["search"]
+    filter = params["filter"]
+
+    {users, total} = Accounts.list_users(
+      page: page,
+      per_page: per_page,
+      search: search,
+      filter: filter
+    )
+
+    json(conn, %{
+      data: Enum.map(users, &render_user_admin/1),
+      pagination: %{page: page, per_page: per_page, total: total}
+    })
+  end
+
+  # GET /api/admin/users/:id
+  def show_user(conn, %{"id" => id}) do
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      user ->
+        json(conn, %{data: render_user_admin(user)})
+    end
+  end
+
+  # PATCH /api/admin/users/:id/role
+  def set_role(conn, %{"id" => id, "role" => role}) when role in ["admin", "user"] do
+    current_user = conn.assigns.current_user
+
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      target ->
+        cond do
+          current_user.id == target.id ->
+            conn |> put_status(:forbidden) |> json(%{error: "You cannot change your own role"})
+
+          role == "user" && Accounts.is_env_admin?(target) ->
+            conn |> put_status(:forbidden) |> json(%{error: "This user is a system admin and cannot be demoted"})
+
+          true ->
+            case Accounts.set_role(target, role) do
+              {:ok, user} -> json(conn, %{data: render_user_admin(user)})
+              {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to update role"})
+            end
+        end
+    end
+  end
+
+  def set_role(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "Invalid role. Must be 'admin' or 'user'."})
+  end
+
+  # POST /api/admin/users/:id/block
+  def block_user(conn, %{"id" => id}) do
+    current_user = conn.assigns.current_user
+
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      target ->
+        if current_user.id == target.id do
+          conn |> put_status(:forbidden) |> json(%{error: "You cannot block yourself"})
+        else
+          case Accounts.block_user(target) do
+            {:ok, user} -> json(conn, %{data: render_user_admin(user)})
+            {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to block user"})
+          end
+        end
+    end
+  end
+
+  # POST /api/admin/users/:id/unblock
+  def unblock_user(conn, %{"id" => id}) do
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      user ->
+        case Accounts.unblock_user(user) do
+          {:ok, user} -> json(conn, %{data: render_user_admin(user)})
+          {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to unblock user"})
+        end
+    end
+  end
+
+  # DELETE /api/admin/users/:id
+  def delete_user(conn, %{"id" => id}) do
+    current_user = conn.assigns.current_user
+
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      target ->
+        if current_user.id == target.id do
+          conn |> put_status(:forbidden) |> json(%{error: "You cannot delete your own account from admin"})
+        else
+          case Accounts.delete_account(target) do
+            {:ok, _} -> send_resp(conn, :no_content, "")
+            {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to delete user"})
+          end
+        end
+    end
+  end
 
   # GET /api/admin/entries
   def list_entries(conn, params) do
@@ -34,6 +162,40 @@ defmodule InkwellWeb.AdminController do
       Ecto.NoResultsError ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
     end
+  end
+
+  # ── Helpers ──────────────────────────────────────────────────────────────
+
+  defp render_user_brief(user) do
+    %{
+      id: user.id,
+      username: user.username,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      subscription_tier: user.subscription_tier || "free",
+      created_at: user.inserted_at
+    }
+  end
+
+  defp render_user_admin(user) do
+    %{
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      bio: user.bio,
+      pronouns: user.pronouns,
+      role: user.role || "user",
+      is_env_admin: Map.get(user, :is_env_admin, Accounts.is_env_admin?(user)),
+      is_admin: Accounts.is_admin?(user),
+      subscription_tier: user.subscription_tier || "free",
+      subscription_status: user.subscription_status,
+      stripe_customer_id: user.stripe_customer_id,
+      blocked_at: user.blocked_at,
+      created_at: user.inserted_at,
+      updated_at: user.updated_at
+    }
   end
 
   defp parse_int(nil, default), do: default

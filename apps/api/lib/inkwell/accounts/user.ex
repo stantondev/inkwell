@@ -29,6 +29,10 @@ defmodule Inkwell.Accounts.User do
     field :private_key, :string
     field :settings, :map, default: %{}
 
+    # Admin
+    field :role, :string, default: "user"
+    field :blocked_at, :utc_datetime_usec
+
     # Subscription / billing
     field :stripe_customer_id, :string
     field :stripe_subscription_id, :string

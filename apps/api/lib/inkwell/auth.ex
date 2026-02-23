@@ -95,6 +95,14 @@ defmodule Inkwell.Auth do
     :ok
   end
 
+  @doc "Revoke all tokens for a user (used when blocking)."
+  def revoke_all_user_tokens(user_id) do
+    from(t in AuthToken, where: t.user_id == ^user_id)
+    |> Repo.delete_all()
+
+    :ok
+  end
+
   @doc "Clean up expired tokens (can be called periodically via Oban)."
   def cleanup_expired_tokens do
     now = DateTime.utc_now()

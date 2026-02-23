@@ -28,7 +28,7 @@ defmodule InkwellWeb.Plugs.RequireAuth do
 
       user_id ->
         user = Inkwell.Accounts.get_user!(user_id)
-        assign(conn, :current_user, user)
+        check_blocked(conn, user)
     end
   end
 
@@ -42,7 +42,18 @@ defmodule InkwellWeb.Plugs.RequireAuth do
 
       user_id ->
         user = Inkwell.Accounts.get_user!(user_id)
-        assign(conn, :current_user, user)
+        check_blocked(conn, user)
+    end
+  end
+
+  defp check_blocked(conn, user) do
+    if user.blocked_at do
+      conn
+      |> put_status(:forbidden)
+      |> json(%{error: "account_blocked"})
+      |> halt()
+    else
+      assign(conn, :current_user, user)
     end
   end
 end

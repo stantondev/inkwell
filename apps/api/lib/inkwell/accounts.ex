@@ -130,9 +130,134 @@ defmodule Inkwell.Accounts do
 
   # Admin
 
-  def is_admin?(%User{username: username}) do
+  def is_admin?(%User{username: username, role: role}) do
+    admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
+    role == "admin" || username in admin_usernames
+  end
+  def is_admin?(_), do: false
+
+  @doc "Check if user is an env-var admin (cannot be demoted via UI)."
+  def is_env_admin?(%User{username: username}) do
     admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
     username in admin_usernames
   end
-  def is_admin?(_), do: false
+  def is_env_admin?(_), do: false
+
+  @doc "List all users with pagination, search, and filters."
+  def list_users(opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 50)
+    search = Keyword.get(opts, :search)
+    filter = Keyword.get(opts, :filter)
+
+    query =
+      User
+      |> order_by(desc: :inserted_at)
+
+    query = if search && search != "" do
+      term = "%#{search}%"
+      where(query, [u], ilike(u.username, ^term) or ilike(u.email, ^term) or ilike(u.display_name, ^term))
+    else
+      query
+    end
+
+    query = case filter do
+      "admin" -> where(query, [u], u.role == "admin")
+      "plus" -> where(query, [u], u.subscription_tier == "plus")
+      "blocked" -> where(query, [u], not is_nil(u.blocked_at))
+      _ -> query
+    end
+
+    total = Repo.aggregate(query, :count, :id)
+
+    users =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> Repo.all()
+
+    # Tag env-var admins so the controller can mark them
+    env_admins = Application.get_env(:inkwell, :admin_usernames, [])
+    users = Enum.map(users, fn u ->
+      Map.put(u, :is_env_admin, u.username in env_admins)
+    end)
+
+    {users, total}
+  end
+
+  @doc "Get a single user by ID for admin view."
+  def get_user_admin(id) do
+    Repo.get(User, id)
+  end
+
+  @doc "Set user role (admin/user)."
+  def set_role(%User{} = user, role) when role in ["admin", "user"] do
+    user
+    |> Ecto.Changeset.change(%{role: role})
+    |> Repo.update()
+  end
+
+  @doc "Block a user and revoke all their auth tokens."
+  def block_user(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{blocked_at: DateTime.utc_now()})
+    |> Repo.update()
+    |> case do
+      {:ok, user} ->
+        # Revoke all auth tokens to force sign out
+        Inkwell.Auth.revoke_all_user_tokens(user.id)
+        {:ok, user}
+      error -> error
+    end
+  end
+
+  @doc "Unblock a user."
+  def unblock_user(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{blocked_at: nil})
+    |> Repo.update()
+  end
+
+  @doc "Platform stats for admin dashboard."
+  def platform_stats do
+    week_ago = DateTime.add(DateTime.utc_now(), -7, :day)
+
+    %{
+      total_users: Repo.aggregate(User, :count, :id),
+      plus_subscribers: Repo.aggregate(
+        from(u in User, where: u.subscription_tier == "plus"),
+        :count, :id
+      ),
+      signups_this_week: Repo.aggregate(
+        from(u in User, where: u.inserted_at >= ^week_ago),
+        :count, :id
+      ),
+      total_entries: Repo.aggregate(
+        from(e in Inkwell.Journals.Entry, where: e.status == :published),
+        :count, :id
+      ),
+      total_comments: Repo.aggregate(Inkwell.Journals.Comment, :count, :id),
+      blocked_users: Repo.aggregate(
+        from(u in User, where: not is_nil(u.blocked_at)),
+        :count, :id
+      )
+    }
+  end
+
+  @doc "Recent Plus subscribers (latest N users who have Plus)."
+  def recent_plus_subscribers(limit \\ 10) do
+    User
+    |> where([u], u.subscription_tier == "plus")
+    |> order_by(desc: :updated_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc "Recent signups (latest N users)."
+  def recent_signups(limit \\ 10) do
+    User
+    |> order_by(desc: :inserted_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
 end

@@ -181,6 +181,18 @@ defmodule InkwellWeb.Router do
   scope "/api/admin", InkwellWeb do
     pipe_through [:api, :authenticated, :admin]
 
+    # Dashboard stats
+    get "/stats", AdminController, :stats
+
+    # User management
+    get "/users", AdminController, :list_users
+    get "/users/:id", AdminController, :show_user
+    patch "/users/:id/role", AdminController, :set_role
+    post "/users/:id/block", AdminController, :block_user
+    post "/users/:id/unblock", AdminController, :unblock_user
+    delete "/users/:id", AdminController, :delete_user
+
+    # Entry management
     get "/entries", AdminController, :list_entries
     delete "/entries/:id", AdminController, :delete_entry
   end
