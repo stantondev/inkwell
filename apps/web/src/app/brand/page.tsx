@@ -271,13 +271,13 @@ export default function BrandPage() {
           <p>
             Official Inkwell brand assets (logo files, color palette, and usage guidelines) are available at:{" "}
             <a
-              href="https://github.com/inkwellsocial/brand-assets"
+              href="https://github.com/stantondev/inkwellsocial-brand-assets"
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2"
               style={{ color: "var(--accent)" }}
             >
-              github.com/inkwellsocial/brand-assets
+              github.com/stantondev/inkwellsocial-brand-assets
             </a>
           </p>
           <p className="mt-3">
