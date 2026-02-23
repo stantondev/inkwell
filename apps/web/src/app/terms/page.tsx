@@ -79,19 +79,18 @@ export default function TermsPage() {
           </p>
         </section>
 
-        {/* 3. The Service and Beta Status */}
+        {/* 3. The Service */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            3. The Service and Beta Status
+            3. The Service
           </h2>
           <p>
-            Inkwell is currently in open beta. During the beta period, the Service is provided on an &ldquo;as is&rdquo;
-            and &ldquo;as available&rdquo; basis. Features may change, be added, or be removed without advance notice. We
-            do not guarantee uninterrupted availability, and data loss may occur during the beta period, though we will
-            make reasonable efforts to prevent it.
+            The Service is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. Inkwell is an
+            evolving platform — features may change, be added, or be removed without advance notice. We do not guarantee
+            uninterrupted availability, though we will make reasonable efforts to maintain reliability and prevent data loss.
           </p>
           <p className="mt-3">
             We will make reasonable efforts to notify you of material changes to the Service, but we are not obligated to

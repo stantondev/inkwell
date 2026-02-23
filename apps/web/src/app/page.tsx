@@ -28,7 +28,7 @@ export default function LandingPage() {
           }}
         >
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} aria-hidden="true" />
-          Open beta · federated · no ads, ever
+          Free forever · federated · no ads, ever
         </div>
 
         <h1
@@ -82,13 +82,12 @@ export default function LandingPage() {
             className="text-3xl font-semibold mb-4"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            Free during beta. Support us early.
+            Free, always. Plus for those who want more.
           </h2>
           <p className="text-base leading-relaxed mb-10" style={{ color: "var(--muted)" }}>
-            Inkwell is completely free while we&apos;re in beta. We&apos;re building something
-            different — no ads, no algorithms, no big tech. That means we need our community
-            to help sustain this. Inkwell Plus ($5/mo) is available now for those who want to
-            support the platform and unlock extra features.
+            Inkwell is free to use — no trial, no expiry, no bait-and-switch. We&apos;re building
+            something different: no ads, no algorithms, no big tech. Inkwell Plus ($5/mo) unlocks
+            power-user features for those who want more, and helps sustain the platform for everyone.
           </p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-stretch sm:items-start">
             {/* Free tier */}
@@ -111,7 +110,7 @@ export default function LandingPage() {
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
-                Join the beta
+                Start for free
               </Link>
             </div>
             {/* Plus tier */}
