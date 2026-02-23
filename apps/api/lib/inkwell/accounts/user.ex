@@ -36,6 +36,9 @@ defmodule Inkwell.Accounts.User do
     field :subscription_status, :string, default: "none"
     field :subscription_expires_at, :utc_datetime_usec
 
+    # Terms acceptance
+    field :terms_accepted_at, :utc_datetime_usec
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification

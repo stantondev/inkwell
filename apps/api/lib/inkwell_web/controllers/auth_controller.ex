@@ -5,42 +5,59 @@ defmodule InkwellWeb.AuthController do
   alias Inkwell.Auth
 
   # POST /api/auth/magic-link
-  def send_magic_link(conn, %{"email" => email}) do
+  def send_magic_link(conn, %{"email" => email} = params) do
     email = String.downcase(String.trim(email))
+    terms_accepted = params["terms_accepted"] == true
+    existing_user = Accounts.get_user_by_email(email)
 
-    user =
-      case Accounts.get_user_by_email(email) do
-        nil ->
-          username = derive_username(email)
-          {:ok, new_user} = Accounts.create_user(%{
-            email: email,
-            username: unique_username(username),
-            display_name: username
-          })
-          new_user
+    # New user must accept terms
+    if is_nil(existing_user) && !terms_accepted do
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+    else
+      user =
+        case existing_user do
+          nil ->
+            username = derive_username(email)
+            {:ok, new_user} = Accounts.create_user(%{
+              email: email,
+              username: unique_username(username),
+              display_name: username
+            })
+            {:ok, new_user} = Accounts.set_terms_accepted(new_user)
+            new_user
 
-        existing -> existing
+          existing ->
+            # Record terms acceptance for existing user if not already set
+            if terms_accepted && is_nil(existing.terms_accepted_at) do
+              {:ok, updated} = Accounts.set_terms_accepted(existing)
+              updated
+            else
+              existing
+            end
+        end
+
+      # Create token in Postgres
+      token = Auth.create_magic_link_token(user.id)
+
+      # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
+      magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
+
+      # Send the email (or fall back to dev mode if no API key)
+      case Inkwell.Email.send_magic_link(email, magic_link) do
+        {:ok, :sent} ->
+          json(conn, %{ok: true})
+
+        {:ok, :no_email_configured, _link} ->
+          # No email service configured — return the link directly for dev/testing
+          json(conn, %{ok: true, dev_magic_link: magic_link})
+
+        {:error, _reason} ->
+          # Email sending failed — fall back to showing the magic link directly
+          # so the user isn't locked out. They can click it to sign in.
+          json(conn, %{ok: true, dev_magic_link: magic_link})
       end
-
-    # Create token in Postgres
-    token = Auth.create_magic_link_token(user.id)
-
-    # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
-    magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
-
-    # Send the email (or fall back to dev mode if no API key)
-    case Inkwell.Email.send_magic_link(email, magic_link) do
-      {:ok, :sent} ->
-        json(conn, %{ok: true})
-
-      {:ok, :no_email_configured, _link} ->
-        # No email service configured — return the link directly for dev/testing
-        json(conn, %{ok: true, dev_magic_link: magic_link})
-
-      {:error, _reason} ->
-        # Email sending failed — fall back to showing the magic link directly
-        # so the user isn't locked out. They can click it to sign in.
-        json(conn, %{ok: true, dev_magic_link: magic_link})
     end
   end
 
@@ -113,7 +130,8 @@ defmodule InkwellWeb.AuthController do
       created_at: user.inserted_at,
       is_admin: Accounts.is_admin?(user),
       settings: user.settings || %{},
-      subscription_tier: user.subscription_tier || "free"
+      subscription_tier: user.subscription_tier || "free",
+      terms_accepted_at: user.terms_accepted_at
     }
   end
 

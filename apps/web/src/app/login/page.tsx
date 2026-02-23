@@ -29,12 +29,17 @@ function EnterEmailStep({
   onSubmit: (email: string, devLink?: string) => void;
 }) {
   const [email, setEmail] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
+    if (!termsAccepted) {
+      setError("You must accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -42,7 +47,7 @@ function EnterEmailStep({
       const res = await fetch(`/api/auth/magic-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), terms_accepted: termsAccepted }),
       });
 
       const data = await res.json();
@@ -81,6 +86,29 @@ function EnterEmailStep({
           style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
         />
       </div>
+
+      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => {
+            setTermsAccepted(e.target.checked);
+            if (e.target.checked && error?.includes("Terms")) setError(null);
+          }}
+          className="mt-0.5 rounded"
+          style={{ accentColor: "var(--accent)" }}
+        />
+        <span className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+            Privacy Policy
+          </Link>
+        </span>
+      </label>
 
       {error && (
         <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
@@ -241,11 +269,7 @@ export default function LoginPage() {
       </div>
 
       <p className="mt-8 text-xs text-center" style={{ color: "var(--muted)" }}>
-        By signing in you agree to our{" "}
-        <Link href="/terms" className="underline underline-offset-2">Terms of Service</Link>{" "}
-        and{" "}
-        <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link>.
-        <br />Inkwell will never sell your data or show you ads.
+        Inkwell will never sell your data or show you ads.
       </p>
     </div>
   );

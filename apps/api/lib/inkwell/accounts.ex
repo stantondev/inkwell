@@ -19,6 +19,12 @@ defmodule Inkwell.Accounts do
     |> Repo.insert()
   end
 
+  def set_terms_accepted(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{terms_accepted_at: DateTime.utc_now()})
+    |> Repo.update()
+  end
+
   def update_user_profile(%User{} = user, attrs) do
     user
     |> User.profile_changeset(attrs)

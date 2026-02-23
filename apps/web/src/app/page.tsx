@@ -361,29 +361,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer
-        className="border-t py-8"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div
-          className="mx-auto max-w-5xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm"
-          style={{ color: "var(--muted)" }}
-        >
-          <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600 }}>
-            inkwell
-          </span>
-          <div className="flex gap-5">
-            <Link href="/about" className="hover:underline">About</Link>
-            <Link href="/privacy" className="hover:underline">Privacy</Link>
-            <Link href="/terms" className="hover:underline">Terms</Link>
-            <a href="https://github.com/inkwellsocial/inkwell" className="hover:underline" target="_blank" rel="noopener noreferrer">
-              GitHub
-            </a>
-          </div>
-          <span>© 2026 Inkwell · no ads, ever</span>
-        </div>
-      </footer>
+      {/* Footer is rendered by the root layout */}
     </div>
   );
 }
