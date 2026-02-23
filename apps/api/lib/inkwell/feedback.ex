@@ -19,7 +19,7 @@ defmodule Inkwell.Feedback do
     query = FeedbackPost |> preload(:user)
 
     query = if category, do: where(query, category: ^category), else: query
-    query = if status, do: where(query, status: ^status), else: query
+    query = if status, do: where(query, status: ^status), else: where(query, [p], p.status != :done)
 
     query =
       case sort do
