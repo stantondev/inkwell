@@ -394,39 +394,31 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 - **Feedback/guestbook**: preserved anonymously after account deletion (no PII)
 - **Account deletion**: immediate, all PII removed; anonymized community content retained
 
-## Legal Pages & Terms Acceptance (PLANNED — NOT YET IMPLEMENTED)
+## Legal Pages & Terms Acceptance
 
-This work is the next item in the queue. All three policy documents are drafted and ready to paste in.
-
-### Pages to Create
-| Route | File | Notes |
+### Live Pages
+| Route | File | Content |
 |---|---|---|
-| `/terms` | `apps/web/src/app/terms/page.tsx` | Terms of Service — requires user acceptance |
-| `/privacy` | `apps/web/src/app/privacy/page.tsx` | Privacy Policy — requires user acceptance |
-| `/brand` | `apps/web/src/app/brand/page.tsx` | Brand/Press Policy — informational only, no acceptance needed |
+| `/terms` | `apps/web/src/app/terms/page.tsx` | Terms of Service (18 sections) |
+| `/privacy` | `apps/web/src/app/privacy/page.tsx` | Privacy Policy (12 sections) |
+| `/brand` | `apps/web/src/app/brand/page.tsx` | Trademark & Brand Usage Policy (11 sections) |
 
-All three pages: simple, static Next.js server components. Use the same prose styling as the landing page (`prose`, Lora headings, `var(--foreground)` body text). Add to site footer.
+All three are static Next.js server components with Lora headings, prose body text, and cross-links.
 
 ### Terms Acceptance Flow
+- Login form has a required checkbox: "I agree to the Terms of Service and Privacy Policy" (links open in new tab)
+- `POST /api/auth/magic-link` accepts `terms_accepted` boolean — rejects new accounts without it (422), records `terms_accepted_at` timestamp on first acceptance (no-op for returning users who already accepted)
+- `render_user/1` exposes `terms_accepted_at` in session response
+- `SessionUser` type includes `terms_accepted_at?: string | null`
+- Migration `20260222000009`: `terms_accepted_at :utc_datetime_usec` on `users` table
+- `Accounts.set_terms_accepted/1` sets timestamp to `DateTime.utc_now()`
 
-**Decision**: Show a required checkbox inline on the login form for everyone. Backend records `terms_accepted_at` on first acceptance only (no-op for returning users). This avoids email enumeration while maintaining GDPR-quality explicit consent.
+### Site Footer
+- `apps/web/src/components/footer.tsx` — shared footer component rendered in root layout
+- Links: Terms, Privacy, Brand, Roadmap
+- Replaces the landing page's inline footer
 
-**Backend changes:**
-- Migration: add `terms_accepted_at :utc_datetime_usec, null: true` to `users` table (migration number `20260222000009`)
-- `POST /api/auth/magic-link`: accept `terms_accepted` boolean in request body. If `true` and `user.terms_accepted_at` is nil, set it to `now()`. If `false` and this is a new user, return 422 with `{"error": "You must accept the Terms of Service and Privacy Policy to create an account"}`.
-- `render_user/1` in auth controller: expose `terms_accepted_at` in session response
-- `User` schema: add `terms_accepted_at` field
-
-**Frontend changes:**
-- `apps/web/src/app/login/page.tsx`: add checkbox below email field — "I agree to the [Terms of Service] and [Privacy Policy]" (links open in new tab). Checkbox is required to submit.
-- When submitting, pass `terms_accepted: boolean` in the POST body to `/api/auth/magic-link` proxy route.
-- Proxy route `apps/web/src/app/api/auth/magic-link/route.ts`: forward `terms_accepted` to Phoenix API.
-- If API returns 422 terms error, show it inline below the checkbox.
-
-**Footer:**
-- `apps/web/src/components/nav.tsx` (or a dedicated `footer.tsx`): add footer with links to `/terms`, `/privacy`, `/brand`. Appears on all pages.
-
-### Key Decisions Already Made
+### Key Decisions
 - Brand Policy: informational only, no user acceptance required
 - Returning users: checkbox shown to everyone; `terms_accepted_at` only set once (first time)
 - Storage: `terms_accepted_at` timestamp on user record (proves when they accepted)
