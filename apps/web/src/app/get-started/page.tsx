@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 type Step = "enter_email" | "check_email";
 
@@ -45,6 +48,8 @@ export default function GetStartedPage() {
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
@@ -67,13 +72,20 @@ export default function GetStartedPage() {
       const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), terms_accepted: true }),
+        body: JSON.stringify({
+          email: email.trim(),
+          terms_accepted: true,
+          ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
+        // Reset the Turnstile widget so the user can try again
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
         return;
       }
 
@@ -188,6 +200,18 @@ export default function GetStartedPage() {
                 </span>
               </label>
 
+              {TURNSTILE_SITE_KEY && (
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                  options={{ theme: "auto", size: "flexible" }}
+                  style={{ width: "100%" }}
+                />
+              )}
+
               {error && (
                 <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
                   {error}
@@ -196,7 +220,7 @@ export default function GetStartedPage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted}
+                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
                 className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

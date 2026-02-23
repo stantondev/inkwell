@@ -10,54 +10,62 @@ defmodule InkwellWeb.AuthController do
     terms_accepted = params["terms_accepted"] == true
     existing_user = Accounts.get_user_by_email(email)
 
-    # New user must accept terms
-    if is_nil(existing_user) && !terms_accepted do
-      conn
-      |> put_status(:unprocessable_entity)
-      |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
-    else
-      user =
-        case existing_user do
-          nil ->
-            username = derive_username(email)
-            {:ok, new_user} = Accounts.create_user(%{
-              email: email,
-              username: unique_username(username),
-              display_name: username
-            })
-            {:ok, new_user} = Accounts.set_terms_accepted(new_user)
-            new_user
+    # Turnstile is only checked for new accounts.
+    # The login page has no widget, so existing users are never asked.
+    case verify_turnstile_for_new_user(params["turnstile_token"], existing_user, conn) do
+      {:error, reason} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: reason})
 
-          existing ->
-            # Record terms acceptance for existing user if not already set
-            if terms_accepted && is_nil(existing.terms_accepted_at) do
-              {:ok, updated} = Accounts.set_terms_accepted(existing)
-              updated
-            else
-              existing
+      :ok ->
+        # New user must accept terms
+        if is_nil(existing_user) && !terms_accepted do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+        else
+          user =
+            case existing_user do
+              nil ->
+                username = derive_username(email)
+                {:ok, new_user} = Accounts.create_user(%{
+                  email: email,
+                  username: unique_username(username),
+                  display_name: username
+                })
+                {:ok, new_user} = Accounts.set_terms_accepted(new_user)
+                new_user
+
+              existing ->
+                # Record terms acceptance for existing user if not already set
+                if terms_accepted && is_nil(existing.terms_accepted_at) do
+                  {:ok, updated} = Accounts.set_terms_accepted(existing)
+                  updated
+                else
+                  existing
+                end
             end
+
+          # Create token in Postgres
+          token = Auth.create_magic_link_token(user.id)
+
+          # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
+          magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
+
+          # Send the email (or fall back to dev mode if no API key)
+          case Inkwell.Email.send_magic_link(email, magic_link) do
+            {:ok, :sent} ->
+              json(conn, %{ok: true})
+
+            {:ok, :no_email_configured, _link} ->
+              # No email service configured — return the link directly for dev/testing
+              json(conn, %{ok: true, dev_magic_link: magic_link})
+
+            {:error, _reason} ->
+              # Email sending failed — fall back to showing the magic link directly
+              # so the user isn't locked out. They can click it to sign in.
+              json(conn, %{ok: true, dev_magic_link: magic_link})
+          end
         end
-
-      # Create token in Postgres
-      token = Auth.create_magic_link_token(user.id)
-
-      # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
-      magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
-
-      # Send the email (or fall back to dev mode if no API key)
-      case Inkwell.Email.send_magic_link(email, magic_link) do
-        {:ok, :sent} ->
-          json(conn, %{ok: true})
-
-        {:ok, :no_email_configured, _link} ->
-          # No email service configured — return the link directly for dev/testing
-          json(conn, %{ok: true, dev_magic_link: magic_link})
-
-        {:error, _reason} ->
-          # Email sending failed — fall back to showing the magic link directly
-          # so the user isn't locked out. They can click it to sign in.
-          json(conn, %{ok: true, dev_magic_link: magic_link})
-      end
     end
   end
 
@@ -148,6 +156,57 @@ defmodule InkwellWeb.AuthController do
       "#{base}_#{:rand.uniform(9999)}"
     else
       base
+    end
+  end
+
+  # Skip Turnstile for existing users — they sign in via the login page, which has no widget.
+  defp verify_turnstile_for_new_user(_token, existing_user, _conn) when not is_nil(existing_user), do: :ok
+
+  defp verify_turnstile_for_new_user(token, nil, conn) do
+    secret_key = Application.get_env(:inkwell, :turnstile_secret_key)
+
+    cond do
+      # Not configured — skip verification (dev/CI)
+      is_nil(secret_key) or secret_key == "" ->
+        :ok
+
+      # Turnstile is active but no token provided
+      is_nil(token) or token == "" ->
+        {:error, "Human verification required"}
+
+      true ->
+        remote_ip =
+          case get_req_header(conn, "x-forwarded-for") do
+            [forwarded | _] -> forwarded |> String.split(",") |> List.first() |> String.trim()
+            _ -> conn.remote_ip |> Tuple.to_list() |> Enum.join(".")
+          end
+
+        body =
+          URI.encode_query(%{
+            "secret" => secret_key,
+            "response" => token,
+            "remoteip" => remote_ip
+          })
+
+        :ssl.start()
+        :inets.start()
+
+        case :httpc.request(
+               :post,
+               {~c"https://challenges.cloudflare.com/turnstile/v1/siteverify",
+                [], ~c"application/x-www-form-urlencoded", body},
+               [ssl: [verify: :verify_none]],
+               []
+             ) do
+          {:ok, {{_, 200, _}, _, resp_body}} ->
+            case Jason.decode(to_string(resp_body)) do
+              {:ok, %{"success" => true}} -> :ok
+              _ -> {:error, "Human verification failed. Please try again."}
+            end
+
+          _ ->
+            {:error, "Human verification failed. Please try again."}
+        end
     end
   end
 
