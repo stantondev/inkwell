@@ -430,8 +430,8 @@ All three are static Next.js server components with Lora headings, prose body te
 - **Logo files**: `stantondev/inkwellsocial-brand-assets/logo/`
   - `inkwell-logo-full.svg` — primary logo (fountain pen nib + "Inkwell" in Sacramento cursive)
   - `inkwell-logo-full.png` — raster version
-- **Current nav logo**: still the old inline SVG pencil mark in `apps/web/src/components/nav.tsx` — **pending replacement (Session 2)**
-- **Current favicon**: none — **pending (Session 2)**
+- **Nav logo**: `apps/web/public/inkwell-logo.svg` rendered via `<img>` in `apps/web/src/components/nav.tsx`; `dark:brightness-0 dark:invert` for white knockout in dark mode
+- **Favicon**: `apps/web/public/favicon.svg` (pen nib mark only); configured via `icons` metadata in `apps/web/src/app/layout.tsx`
 
 ### Completed Work
 
@@ -447,13 +447,13 @@ Completed 2026-02-23. Replaced purple accent (#7c3aed) with ink blue (#2d4a8a) s
 - Typography and button shapes already matched brand guide (Lora headings, pill buttons)
 - Profile themes left unchanged (product features, not brand colors per brand guide)
 
-### Pending Work
-
-**Session 2 — Logo swap + favicon (NEXT)**
-- Replace `InkwellLogo()` in `apps/web/src/components/nav.tsx` with new SVG logo
-- Copy `inkwell-logo-full.svg` → `apps/web/public/inkwell-logo.svg`
-- Add `apps/web/public/favicon.svg` + icon metadata in `apps/web/src/app/layout.tsx`
-- Commit, deploy, verify
+**Session 2 — Logo swap + favicon (DONE)**
+Completed 2026-02-23. Replaced old pencil mark + text logo with brand logo from assets repo:
+- Added `apps/web/public/inkwell-logo.svg` — full brand logo (nib + cursive wordmark), viewBox trimmed, background removed
+- Added `apps/web/public/favicon.svg` — pen nib mark only for browser tab
+- Replaced `InkwellLogo()` in nav.tsx: `<img>` tag with `dark:brightness-0 dark:invert` for white knockout
+- Added `icons` metadata to layout.tsx for favicon.svg
+- Removed old `apps/web/src/app/favicon.ico` placeholder
 
 ---
 

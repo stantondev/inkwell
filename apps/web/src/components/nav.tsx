@@ -8,19 +8,13 @@ import { MobileMenu } from "./mobile-menu";
 // ---------------------------------------------------------------------------
 function InkwellLogo() {
   return (
-    <Link href="/" className="flex items-center gap-2 group" aria-label="Inkwell home">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-        className="text-accent transition-transform group-hover:-rotate-6" aria-hidden="true">
-        <path d="M17.5 2.5L21.5 6.5L10 18H6V14L17.5 2.5Z" stroke="currentColor"
-          strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M14 6L18 10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-        <path d="M6 18L2.5 21.5" stroke="currentColor" strokeWidth="1.75"
-          strokeLinecap="round" strokeOpacity="0.5"/>
-      </svg>
-      <span className="font-semibold text-lg tracking-tight"
-        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-        inkwell
-      </span>
+    <Link href="/" className="flex items-center group" aria-label="Inkwell home">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/inkwell-logo.svg"
+        alt="Inkwell"
+        className="h-8 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert"
+      />
     </Link>
   );
 }
