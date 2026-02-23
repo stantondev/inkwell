@@ -15,10 +15,22 @@ defmodule InkwellWeb.UserController do
         entry_count = Journals.count_entries(user.id)
         top_friends = Social.list_top_friends(user.id)
 
+        relationship_status =
+          case conn.assigns[:current_user] do
+            nil -> nil
+            %{id: id} when id == user.id -> nil
+            current_user ->
+              case Social.get_relationship(current_user.id, user.id) do
+                {:ok, rel} -> to_string(rel.status)
+                {:error, :not_found} -> nil
+              end
+          end
+
         conn |> json(%{
           data: render_user(user),
           meta: %{
             entry_count: entry_count,
+            relationship_status: relationship_status,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
             end)

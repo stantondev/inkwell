@@ -39,7 +39,6 @@ defmodule InkwellWeb.Router do
     delete "/auth/session", AuthController, :sign_out
 
     # Public profiles and entries
-    get "/users/:username", UserController, :show
     get "/users/:username/entries", EntryController, :index
     get "/users/:username/entries/:slug", EntryController, :show
     get "/users/:username/entries/:slug/comments", CommentController, :index
@@ -82,6 +81,9 @@ defmodule InkwellWeb.Router do
 
     # Stamps (optional auth: author sees who stamped)
     get "/entries/:entry_id/stamps", StampController, :index
+
+    # User profile (optional auth for relationship status)
+    get "/users/:username", UserController, :show
   end
 
   # Authenticated API

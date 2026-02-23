@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ export function CommentForm({ entryId, isLoggedIn }: { entryId: string; isLogged
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   if (!isLoggedIn) {
     return (
@@ -25,7 +26,8 @@ export function CommentForm({ entryId, isLoggedIn }: { entryId: string; isLogged
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
 
@@ -45,6 +47,7 @@ export function CommentForm({ entryId, isLoggedIn }: { entryId: string; isLogged
     } catch {
       setError("Network error — please try again");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }

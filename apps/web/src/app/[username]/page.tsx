@@ -198,16 +198,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let entries: ProfileEntry[] = [];
   let topFriends: TopFriendSlot[] = [];
   let entryCount = 0;
+  let relationshipStatus: string | null = null;
 
   try {
     const data = await apiFetch<{
       data: ProfileUser;
-      meta: { entry_count: number; top_friends: TopFriendSlot[] };
-    }>(`/api/users/${username}`);
+      meta: { entry_count: number; top_friends: TopFriendSlot[]; relationship_status?: string | null };
+    }>(`/api/users/${username}`, {}, session?.token);
 
     profile = data.data;
     entryCount = data.meta.entry_count;
     topFriends = data.meta.top_friends ?? [];
+    relationshipStatus = data.meta.relationship_status ?? null;
   } catch {
     notFound();
   }
@@ -337,7 +339,14 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   Edit profile
                 </Link>
               ) : (
-                <FollowButton targetUsername={username} />
+                <FollowButton
+                  targetUsername={username}
+                  initialState={
+                    relationshipStatus === "accepted" ? "following" :
+                    relationshipStatus === "pending" ? "pending" :
+                    "idle"
+                  }
+                />
               )}
             </div>
 

@@ -65,9 +65,11 @@ export function FeedCardActions({
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState("");
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [stamps, setStamps] = useState(initialStamps);
   const commentBtnRef = useRef<HTMLButtonElement>(null);
+  const submittingRef = useRef(false);
 
   const commentsPath = commentApiPath ?? `/api/entries/${entryId}/comments`;
 
@@ -93,9 +95,11 @@ export function FeedCardActions({
 
   async function handleSubmitComment(e: React.FormEvent) {
     e.preventDefault();
-    if (!commentText.trim() || submitting || !isLoggedIn) return;
+    if (!commentText.trim() || submittingRef.current || !isLoggedIn) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
+    setCommentError("");
     try {
       const res = await fetch(commentsPath, {
         method: "POST",
@@ -107,10 +111,13 @@ export function FeedCardActions({
         setCommentCount((c) => c + 1);
         // Reload comments to show the new one
         await loadComments();
+      } else {
+        setCommentError("Failed to post comment");
       }
     } catch {
-      // silent fail
+      setCommentError("Network error — please try again");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -270,37 +277,41 @@ export function FeedCardActions({
 
             {/* Quick comment input */}
             {isLoggedIn && (
-              <form
-                onSubmit={handleSubmitComment}
-                className="flex gap-2 px-4 py-2.5 border-t"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 text-xs rounded-full border px-3 py-1.5 outline-none"
-                  style={{
-                    borderColor: "var(--border)",
-                    background: "var(--background)",
-                    color: "var(--foreground)",
-                  }}
-                  disabled={submitting}
-                />
-                <button
-                  type="submit"
-                  disabled={!commentText.trim() || submitting}
-                  className="text-xs font-medium px-3 py-1.5 rounded-full transition-opacity"
-                  style={{
-                    background: "var(--accent)",
-                    color: "#fff",
-                    opacity: !commentText.trim() || submitting ? 0.5 : 1,
-                  }}
+              <div className="border-t" style={{ borderColor: "var(--border)" }}>
+                {commentError && (
+                  <p className="text-xs px-4 pt-2" style={{ color: "var(--danger)" }}>{commentError}</p>
+                )}
+                <form
+                  onSubmit={handleSubmitComment}
+                  className="flex gap-2 px-4 py-2.5"
                 >
-                  Post
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="flex-1 text-xs rounded-full border px-3 py-1.5 outline-none"
+                    style={{
+                      borderColor: "var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                    }}
+                    disabled={submitting}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || submitting}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full transition-opacity"
+                    style={{
+                      background: "var(--accent)",
+                      color: "#fff",
+                      opacity: !commentText.trim() || submitting ? 0.5 : 1,
+                    }}
+                  >
+                    Post
+                  </button>
+                </form>
+              </div>
             )}
           </FloatingPopup>
         </div>

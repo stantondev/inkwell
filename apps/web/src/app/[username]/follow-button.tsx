@@ -4,8 +4,8 @@ import { useState } from "react";
 
 type FollowState = "idle" | "following" | "pending" | "loading";
 
-export function FollowButton({ targetUsername }: { targetUsername: string }) {
-  const [state, setState] = useState<FollowState>("idle");
+export function FollowButton({ targetUsername, initialState = "idle" }: { targetUsername: string; initialState?: FollowState }) {
+  const [state, setState] = useState<FollowState>(initialState);
 
   async function handleFollow() {
     setState("loading");

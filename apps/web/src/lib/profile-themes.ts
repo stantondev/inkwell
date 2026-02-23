@@ -141,7 +141,7 @@ export const PROFILE_FONTS: { id: string; name: string; family: string }[] = [
   { id: "lora", name: "Lora (Serif)", family: "var(--font-lora, Georgia, serif)" },
   { id: "courier", name: "Courier (Mono)", family: "'Courier New', Courier, monospace" },
   { id: "georgia", name: "Georgia (Serif)", family: "Georgia, 'Times New Roman', serif" },
-  { id: "comic-sans", name: "Comic Sans", family: "'Comic Sans MS', cursive" },
+  { id: "comic-sans", name: "Cursive", family: "cursive, 'Comic Sans MS'" },
   { id: "times", name: "Times New Roman", family: "'Times New Roman', Times, serif" },
   { id: "palatino", name: "Palatino", family: "'Palatino Linotype', 'Book Antiqua', Palatino, serif" },
   { id: "verdana", name: "Verdana (Sans)", family: "Verdana, Geneva, sans-serif" },
