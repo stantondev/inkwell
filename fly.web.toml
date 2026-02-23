@@ -10,8 +10,7 @@ primary_region = "ord"
   dockerfile = "apps/web/Dockerfile"
   [build.args]
     NEXT_PUBLIC_API_URL = "https://api.inkwell.social"
-    # Replace empty string with your Cloudflare Turnstile site key to activate
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY = ""
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAACg4yaBJP4WTijXx"
 
 [env]
   PORT = "3000"
