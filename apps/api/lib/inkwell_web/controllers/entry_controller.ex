@@ -2,6 +2,7 @@ defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals, Repo, Social, Stamps}
+  alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
   # GET /api/users/:username/entries — public listing
@@ -143,12 +144,18 @@ defmodule InkwellWeb.EntryController do
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
-        |> maybe_generate_ap_id(user)
         |> maybe_clear_custom_filter_id()
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         case Journals.create_entry(attrs) do
           {:ok, entry} ->
+            # Fan out to federated followers for public entries
+            if entry.privacy == :public do
+              %{entry_id: entry.id, action: "create", user_id: user.id}
+              |> FanOutWorker.new()
+              |> Oban.insert()
+            end
+
             conn
             |> put_status(:created)
             |> json(%{data: render_entry_full(entry, user)})
@@ -186,6 +193,13 @@ defmodule InkwellWeb.EntryController do
 
         case result do
           {:ok, updated} ->
+            # Fan out updates for published public entries
+            if updated.status == :published && updated.privacy == :public do
+              %{entry_id: updated.id, action: "update", user_id: user.id}
+              |> FanOutWorker.new()
+              |> Oban.insert()
+            end
+
             json(conn, %{data: render_entry_full(updated, user)})
 
           {:error, changeset} ->
@@ -218,12 +232,18 @@ defmodule InkwellWeb.EntryController do
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id"])
           |> maybe_generate_slug(params)
-          |> maybe_generate_ap_id(user)
           |> maybe_clear_custom_filter_id()
 
         with :ok <- validate_custom_filter_ownership(attrs, user.id) do
           case Journals.publish_draft(entry, attrs) do
             {:ok, published} ->
+              # Fan out to federated followers for public entries
+              if published.privacy == :public do
+                %{entry_id: published.id, action: "create", user_id: user.id}
+                |> FanOutWorker.new()
+                |> Oban.insert()
+              end
+
               json(conn, %{data: render_entry_full(published, user)})
 
             {:error, changeset} ->
@@ -274,7 +294,20 @@ defmodule InkwellWeb.EntryController do
       end
 
     with {:ok, entry} <- result do
+      # Capture AP ID before deletion for federated delete notification
+      entry_ap_id = entry.ap_id
+      entry_user_id = entry.user_id
+      was_public = entry.privacy == :public && entry.status == :published
+
       {:ok, _} = Journals.delete_entry(entry)
+
+      # Fan out delete to federated followers
+      if was_public && entry_ap_id do
+        %{entry_ap_id: entry_ap_id, action: "delete", user_id: entry_user_id}
+        |> FanOutWorker.new()
+        |> Oban.insert()
+      end
+
       send_resp(conn, :no_content, "")
     else
       {:error, :forbidden} ->
@@ -343,12 +376,6 @@ defmodule InkwellWeb.EntryController do
       ts = DateTime.utc_now() |> DateTime.to_unix()
       Map.put(attrs, "slug", "entry-#{ts}")
     end
-  end
-
-  defp maybe_generate_ap_id(attrs, user) do
-    slug = Map.get(attrs, "slug", "")
-    ap_id = "https://inkwell.social/users/#{user.username}/entries/#{slug}"
-    Map.put(attrs, "ap_id", ap_id)
   end
 
   def render_entry(entry) do

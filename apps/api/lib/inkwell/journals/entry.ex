@@ -121,8 +121,16 @@ defmodule Inkwell.Journals.Entry do
 
   defp generate_ap_id(changeset) do
     if get_field(changeset, :ap_id) == nil do
-      id = Ecto.UUID.generate()
-      put_change(changeset, :ap_id, "https://inkwell.social/entries/#{id}")
+      # Pre-generate the entry ID if not set, so the AP ID uses the real entry ID
+      changeset =
+        if get_field(changeset, :id) == nil do
+          put_change(changeset, :id, Ecto.UUID.generate())
+        else
+          changeset
+        end
+
+      entry_id = get_field(changeset, :id)
+      put_change(changeset, :ap_id, "https://inkwell.social/entries/#{entry_id}")
     else
       changeset
     end

@@ -32,6 +32,9 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all page routes, skip Next.js internals, API proxy routes, and static files
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|stamps/|api/).*)"],
+  // Run on all page routes, skip Next.js internals, API proxy routes, static files,
+  // and ActivityPub federation endpoints (.well-known, /users, /inbox, /nodeinfo)
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|stamps/|api/|\\.well-known/|users/|inbox$|nodeinfo/).*)",
+  ],
 };

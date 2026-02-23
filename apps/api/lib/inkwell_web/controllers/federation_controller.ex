@@ -18,8 +18,7 @@ defmodule InkwellWeb.FederationController do
 
     is_ap_request =
       String.contains?(accept, "application/activity+json") ||
-        String.contains?(accept, "application/ld+json") ||
-        String.contains?(accept, "application/json")
+        String.contains?(accept, "application/ld+json")
 
     case Accounts.get_user_by_username(username) do
       nil ->
@@ -46,9 +45,13 @@ defmodule InkwellWeb.FederationController do
   def webfinger(conn, %{"resource" => resource}) do
     instance_host = federation_config(:instance_host)
 
+    # Accept requests for both the canonical domain and the API domain
+    # so WebFinger works whether queried directly or via the frontend proxy.
+    accepted_hosts = [instance_host, "inkwell.social", "api.inkwell.social", "inkwell-api.fly.dev"]
+
     with "acct:" <> rest <- resource,
          [username, host] <- String.split(rest, "@"),
-         true <- host == instance_host,
+         true <- host in accepted_hosts,
          user when not is_nil(user) <- Accounts.get_user_by_username(username) do
 
       conn
