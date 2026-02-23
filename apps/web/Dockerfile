@@ -29,9 +29,12 @@ RUN npm ci --workspace=apps/web
 # Copy web source
 COPY apps/web/ ./apps/web/
 
-# API URL is baked into the client bundle at build time
+# Public env vars are baked into the client bundle at build time
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 
 # Build Next.js from the web workspace
 RUN npm run build --workspace=apps/web
