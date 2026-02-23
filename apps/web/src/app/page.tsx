@@ -1,66 +1,6 @@
 import Link from "next/link";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 
-// ---------------------------------------------------------------------------
-// Feature list
-// ---------------------------------------------------------------------------
-const FEATURES = [
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
-    ),
-    title: "Rich journaling",
-    body: "A beautiful Tiptap-powered editor with headings, blockquotes, embeds, and mood / music metadata on every entry.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-      </svg>
-    ),
-    title: "Chronological feed",
-    body: "No algorithm. No ranking. Just your pen pals' entries in the order they were written — with an actual end to scroll to.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-    ),
-    title: "Granular privacy",
-    body: "Public, friends-only, private, or custom friend filters — per entry. You decide who reads every word.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-    ),
-    title: "Real comments",
-    body: "Threaded comments with full formatting. Talk to your pen pals like it's 2004, in the best possible way.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-      </svg>
-    ),
-    title: "ActivityPub federation",
-    body: "Inkwell speaks the open social web. Follow people on Mastodon, Ghost, and beyond. Your data is always yours.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-      </svg>
-    ),
-    title: "Profile customization",
-    body: "CSS and HTML profile theming in a sandboxed Shadow DOM — the creative freedom of MySpace without the XSS.",
-  },
-];
-
 // Stamp icons to show in the showcase
 const SHOWCASE_STAMPS = [
   { key: "felt", src: "/stamps/felt.svg", label: "Felt" },
@@ -132,175 +72,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Product Showcase ─────────────────────────────────────────── */}
+      {/* ── Pricing ───────────────────────────────────────────────────── */}
       <section
-        className="border-y py-12"
+        className="border-y py-16"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-      >
-        <div className="mx-auto max-w-5xl px-4">
-          <p
-            className="text-xs font-medium uppercase tracking-widest mb-8 text-center"
-            style={{ color: "var(--muted)" }}
-          >
-            What writing on Inkwell looks like
-          </p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {/* Card 1: Journal page-turning UI */}
-            <div
-              className="rounded-xl border p-5 flex flex-col gap-4"
-              style={{ borderColor: "var(--border)", background: "var(--background)" }}
-            >
-              {/* Book spread illustration */}
-              <div
-                className="rounded-lg p-4 flex items-center justify-center"
-                style={{ background: "var(--accent-light)", minHeight: 140 }}
-              >
-                <div className="flex gap-0.5 w-full max-w-[200px]">
-                  {/* Left page */}
-                  <div
-                    className="flex-1 rounded-l-md p-3 flex flex-col gap-2"
-                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-                  >
-                    <div className="h-2 rounded-full w-3/4" style={{ background: "var(--accent)", opacity: 0.6 }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-5/6" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-2/3" style={{ background: "var(--border)" }} />
-                  </div>
-                  {/* Spine */}
-                  <div className="w-px" style={{ background: "var(--border)" }} />
-                  {/* Right page */}
-                  <div
-                    className="flex-1 rounded-r-md p-3 flex flex-col gap-2"
-                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-                  >
-                    <div className="h-2 rounded-full w-2/3" style={{ background: "var(--accent)", opacity: 0.6 }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-4/5" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
-                    <div className="h-1.5 rounded-full w-3/4" style={{ background: "var(--border)" }} />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  Read like a journal
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Entries open in a book spread with page-turning navigation. No infinite scroll — just your pen pals&apos; words, one page at a time.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 2: Profile themes */}
-            <div
-              className="rounded-xl border p-5 flex flex-col gap-4"
-              style={{ borderColor: "var(--border)", background: "var(--background)" }}
-            >
-              {/* Theme swatches */}
-              <div
-                className="rounded-lg p-4 flex items-center justify-center"
-                style={{ background: "var(--accent-light)", minHeight: 140 }}
-              >
-                <div className="grid grid-cols-4 gap-2.5">
-                  {PROFILE_THEMES.map((theme, i) => (
-                    <div
-                      key={theme.id}
-                      className="w-9 h-9 rounded-full shadow-sm transition-transform hover:scale-110"
-                      style={{
-                        background: theme.preview,
-                        boxShadow: i === 2
-                          ? "0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.1)"
-                          : "0 1px 3px rgba(0,0,0,0.1)",
-                      }}
-                      title={theme.name}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  Make it yours
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Eight themes, custom colors, fonts, background images, music players, and full CSS/HTML for Plus members. Your profile, your rules.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 3: Stamps */}
-            <div
-              className="rounded-xl border p-5 flex flex-col gap-4"
-              style={{ borderColor: "var(--border)", background: "var(--background)" }}
-            >
-              {/* Stamp icons */}
-              <div
-                className="rounded-lg p-4 flex items-center justify-center"
-                style={{ background: "var(--accent-light)", minHeight: 140 }}
-              >
-                <div className="flex items-center gap-3">
-                  {SHOWCASE_STAMPS.map((stamp) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={stamp.key}
-                      src={stamp.src}
-                      alt={stamp.label}
-                      width={36}
-                      height={36}
-                      className="stamp-impression transition-transform hover:scale-110 hover:-rotate-3"
-                      style={{ opacity: 0.85 }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  Stamps, not likes
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  No counts, no dopamine metrics. Press a meaningful reaction onto someone&apos;s entry like an ink stamp on paper.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Features ──────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-4 py-20">
-        <h2
-          className="text-3xl font-semibold text-center mb-12"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Everything a journal should be
-        </h2>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="flex flex-col gap-3">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{
-                  background: "var(--accent-light)",
-                  color: "var(--accent)",
-                }}
-              >
-                {f.icon}
-              </div>
-              <h3 className="font-semibold">{f.title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                {f.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Pricing callout ───────────────────────────────────────────── */}
-      <section
-        className="border-t py-16"
-        style={{ borderColor: "var(--border)" }}
       >
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2
@@ -319,7 +94,7 @@ export default function LandingPage() {
             {/* Free tier */}
             <div
               className="flex-1 max-w-xs rounded-2xl border p-6 text-left"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+              style={{ borderColor: "var(--border)", background: "var(--background)" }}
             >
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
               <p className="text-3xl font-bold mb-4">$0</p>
@@ -342,7 +117,7 @@ export default function LandingPage() {
             {/* Plus tier */}
             <div
               className="flex-1 max-w-xs rounded-2xl border-2 p-6 text-left relative overflow-hidden"
-              style={{ borderColor: "var(--accent)", background: "var(--surface)" }}
+              style={{ borderColor: "var(--accent)", background: "var(--background)" }}
             >
               <div className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-xs font-medium"
                 style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
@@ -376,6 +151,225 @@ export default function LandingPage() {
               </Link>
               <p className="text-xs text-center mt-3" style={{ color: "var(--muted)" }}>
                 Upgrade to Plus anytime from your settings
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Product Showcase ─────────────────────────────────────────── */}
+      <section className="mx-auto max-w-5xl px-4 py-20">
+        <p
+          className="text-xs font-medium uppercase tracking-widest mb-8 text-center"
+          style={{ color: "var(--muted)" }}
+        >
+          What writing on Inkwell looks like
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Card 1: Journal page-turning UI */}
+          <div
+            className="rounded-xl border p-5 flex flex-col gap-4"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            {/* Book spread illustration */}
+            <div
+              className="rounded-lg p-4 flex items-center justify-center"
+              style={{ background: "var(--accent-light)", minHeight: 140 }}
+            >
+              <div className="flex gap-0.5 w-full max-w-[200px]">
+                {/* Left page */}
+                <div
+                  className="flex-1 rounded-l-md p-3 flex flex-col gap-2"
+                  style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                >
+                  <div className="h-2 rounded-full w-3/4" style={{ background: "var(--accent)", opacity: 0.6 }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-5/6" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-2/3" style={{ background: "var(--border)" }} />
+                </div>
+                {/* Spine */}
+                <div className="w-px" style={{ background: "var(--border)" }} />
+                {/* Right page */}
+                <div
+                  className="flex-1 rounded-r-md p-3 flex flex-col gap-2"
+                  style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                >
+                  <div className="h-2 rounded-full w-2/3" style={{ background: "var(--accent)", opacity: 0.6 }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-4/5" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                  <div className="h-1.5 rounded-full w-3/4" style={{ background: "var(--border)" }} />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Read like a journal
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Entries open in a book spread with page-turning navigation. No infinite scroll — just your pen pals&apos; words, one page at a time.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 2: Profile themes */}
+          <div
+            className="rounded-xl border p-5 flex flex-col gap-4"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            {/* Theme swatches */}
+            <div
+              className="rounded-lg p-4 flex items-center justify-center"
+              style={{ background: "var(--accent-light)", minHeight: 140 }}
+            >
+              <div className="grid grid-cols-4 gap-2.5">
+                {PROFILE_THEMES.map((theme, i) => (
+                  <div
+                    key={theme.id}
+                    className="w-9 h-9 rounded-full shadow-sm transition-transform hover:scale-110"
+                    style={{
+                      background: theme.preview,
+                      boxShadow: i === 2
+                        ? "0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.1)"
+                        : "0 1px 3px rgba(0,0,0,0.1)",
+                    }}
+                    title={theme.name}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Make it yours
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Eight themes, custom colors, fonts, background images, music players, and full CSS/HTML for Plus members. Your profile, your rules.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3: Stamps */}
+          <div
+            className="rounded-xl border p-5 flex flex-col gap-4"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            {/* Stamp icons */}
+            <div
+              className="rounded-lg p-4 flex items-center justify-center"
+              style={{ background: "var(--accent-light)", minHeight: 140 }}
+            >
+              <div className="flex items-center gap-3">
+                {SHOWCASE_STAMPS.map((stamp) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={stamp.key}
+                    src={stamp.src}
+                    alt={stamp.label}
+                    width={36}
+                    height={36}
+                    className="stamp-impression transition-transform hover:scale-110 hover:-rotate-3"
+                    style={{ opacity: 0.85 }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Stamps, not likes
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                No counts, no dopamine metrics. Press a meaningful reaction onto someone&apos;s entry like an ink stamp on paper.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Built in the Open ────────────────────────────────────────── */}
+      <section
+        className="border-t py-16"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <div className="mx-auto max-w-4xl px-4">
+          <h2
+            className="text-3xl font-semibold text-center mb-3"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            Built in the open
+          </h2>
+          <p
+            className="text-base leading-relaxed text-center mb-12 max-w-2xl mx-auto"
+            style={{ color: "var(--muted)" }}
+          >
+            Inkwell isn&apos;t a black box. We build with our community, federate with the open web, and put every decision where you can see it.
+          </p>
+
+          <div className="grid gap-6 sm:grid-cols-3">
+            {/* ActivityPub */}
+            <div className="flex flex-col items-center text-center gap-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Federated by default
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Inkwell speaks ActivityPub. Follow writers on Mastodon, Ghost, and any platform on the open social web. Your journal isn&apos;t trapped here.
+              </p>
+            </div>
+
+            {/* Community roadmap */}
+            <div className="flex flex-col items-center text-center gap-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Community roadmap
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Every feature is proposed, discussed, and prioritized by the people who use Inkwell.{" "}
+                <Link href="/roadmap" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                  See what&apos;s next
+                </Link>
+                .
+              </p>
+            </div>
+
+            {/* No ads, no algorithm */}
+            <div className="flex flex-col items-center text-center gap-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Your data stays yours
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                No ads. No tracking. No algorithm deciding what you see. Inkwell is sustained by its community, not by selling your attention.{" "}
+                <Link href="/privacy" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                  Read our privacy policy
+                </Link>
+                .
               </p>
             </div>
           </div>
