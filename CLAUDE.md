@@ -424,6 +424,33 @@ All three are static Next.js server components with Lora headings, prose body te
 - Storage: `terms_accepted_at` timestamp on user record (proves when they accepted)
 - No separate `terms_version` field for now — can add later if ToS gets a major revision
 
+## Brand Assets
+
+- **Brand style guide**: [`stantondev/inkwellsocial-brand-assets/brand-style-guide.md`](https://github.com/stantondev/inkwellsocial-brand-assets/blob/main/brand-style-guide.md) — canonical reference for colors, typography, voice, UI patterns
+- **Logo files**: `stantondev/inkwellsocial-brand-assets/logo/`
+  - `inkwell-logo-full.svg` — primary logo (fountain pen nib + "Inkwell" in Sacramento cursive)
+  - `inkwell-logo-full.png` — raster version
+- **Current nav logo**: still the old inline SVG pencil mark in `apps/web/src/components/nav.tsx` — **pending replacement**
+- **Current favicon**: none — **pending**
+- **Pending — site-wide color update**: Replace purple accent (`#7c3aed`) with ink blue (`#2d4a8a`) per brand guide. Affects `--accent`, `--accent-light`, `--accent-dark` in `apps/web/src/app/globals.css` plus dark mode variants
+
+### Next Brand Session Prompt
+Use this prompt to pick up the logo implementation in a new session:
+
+> We just finished creating the Inkwell brand. The new logo (Sacramento cursive font + fountain pen nib) has been created in Figma and the files are at:
+> `~/Documents/Claude/inkwellsocial-brand-assets/logo/inkwell-logo-full.svg`
+> `~/Documents/Claude/inkwellsocial-brand-assets/logo/inkwell-logo-full.png`
+>
+> I want to update the website with the new logo. Specifically:
+> 1. Read the SVG file first to understand its structure (dimensions, viewBox, whether the nib and wordmark are combined or separate).
+> 2. Replace the nav logo in `apps/web/src/components/nav.tsx` — the current `InkwellLogo()` function uses an old inline SVG pencil icon + Lora text. Replace it with the new logo. If the SVG is self-contained (nib + "Inkwell" wordmark in one file), use an `<img>` tag pointing to `/inkwell-logo.svg`. If it needs to be colored/animated, inline the SVG paths.
+> 3. Copy the logo SVG to `apps/web/public/inkwell-logo.svg`.
+> 4. Add a SVG favicon: copy the SVG to `apps/web/public/favicon.svg` and add icon metadata to `apps/web/src/app/layout.tsx`.
+> 5. Do NOT do the site-wide color update (purple → ink blue) in this session — that comes later.
+> 6. TypeScript check, commit, push, deploy web only, and verify the logo appears on https://inkwell.social.
+
+---
+
 ## Known Issues & TODO
 
 ### Critical
