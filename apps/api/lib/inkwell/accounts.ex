@@ -48,17 +48,19 @@ defmodule Inkwell.Accounts do
         where: r.follower_id == ^current_user_id and r.status in [:pending, :accepted],
         select: r.following_id
 
-    from u in User,
-      join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
-      where: e.status == :published and e.privacy == :public,
-      where: u.id != ^current_user_id,
-      where: u.id not in subquery(already_following),
-      where: is_nil(u.blocked_at),
-      group_by: u.id,
-      order_by: [desc: max(e.inserted_at)],
-      limit: ^limit,
-      select: u
-    |> Repo.all()
+    query =
+      from u in User,
+        join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
+        where: e.status == :published and e.privacy == :public,
+        where: u.id != ^current_user_id,
+        where: u.id not in subquery(already_following),
+        where: is_nil(u.blocked_at),
+        group_by: u.id,
+        order_by: [desc: max(e.inserted_at)],
+        limit: ^limit,
+        select: u
+
+    Repo.all(query)
   end
 
   # User Icons
