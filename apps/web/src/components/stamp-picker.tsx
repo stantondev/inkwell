@@ -125,7 +125,7 @@ export function StampPicker({
                 style={{ width: 28, height: 28 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={config.icon} alt="" width={28} height={28} style={{ width: 28, height: 28 }} />
+                <img src={config.icon} alt="" width={28} height={28} style={{ width: 28, height: 28, filter: 'var(--stamp-filter)' }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm leading-tight">
@@ -173,7 +173,7 @@ export function StampPicker({
               alt=""
               width={18}
               height={18}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 18, height: 18, filter: 'var(--stamp-filter)' }}
             />
           ) : (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -226,7 +226,7 @@ export function StampPicker({
               alt=""
               width={16}
               height={16}
-              style={{ width: 16, height: 16 }}
+              style={{ width: 16, height: 16, filter: 'var(--stamp-filter)' }}
             />
             <span>{STAMP_CONFIG[myStamp]?.label}</span>
           </>

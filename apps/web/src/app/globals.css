@@ -271,8 +271,9 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .stamp-impression {
-    mix-blend-mode: screen;
-    opacity: 0.65;
+    mix-blend-mode: normal;
+    opacity: 0.85;
+    filter: var(--stamp-filter);
   }
 }
 
