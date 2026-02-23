@@ -79,6 +79,25 @@ defmodule InkwellWeb.UserController do
     end
   end
 
+  # GET /api/discover/writers — recently active public writers (authenticated)
+  def suggested(conn, _params) do
+    user = conn.assigns.current_user
+    users = Accounts.list_suggested_users(user.id)
+
+    data =
+      Enum.map(users, fn u ->
+        %{
+          id: u.id,
+          username: u.username,
+          display_name: u.display_name,
+          avatar_url: u.avatar_url,
+          bio: u.bio
+        }
+      end)
+
+    json(conn, %{data: data})
+  end
+
   # GET /api/username-available?username=foo (public)
   def username_available(conn, %{"username" => username}) do
     available = Accounts.username_available?(username)

@@ -91,6 +91,9 @@ defmodule InkwellWeb.Router do
     # Auth session
     get "/auth/me", AuthController, :me
 
+    # Discovery
+    get "/discover/writers", UserController, :suggested
+
     # Current user
     get "/me", UserController, :me
     patch "/me", UserController, :update

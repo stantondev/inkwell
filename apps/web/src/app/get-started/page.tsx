@@ -44,6 +44,7 @@ export default function GetStartedPage() {
   const [step, setStep] = useState<Step>("enter_email");
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
@@ -51,6 +52,10 @@ export default function GetStartedPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
+    if (!ageConfirmed) {
+      setError("You must confirm you are 16 years of age or older to continue.");
+      return;
+    }
     if (!termsAccepted) {
       setError("You must accept the Terms of Service and Privacy Policy to continue.");
       return;
@@ -147,6 +152,22 @@ export default function GetStartedPage() {
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(e) => {
+                    setAgeConfirmed(e.target.checked);
+                    if (e.target.checked && error?.includes("16")) setError(null);
+                  }}
+                  className="mt-0.5 rounded"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                  I am 16 years of age or older
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
                   checked={termsAccepted}
                   onChange={(e) => {
                     setTermsAccepted(e.target.checked);
@@ -175,7 +196,7 @@ export default function GetStartedPage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim()}
+                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted}
                 className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

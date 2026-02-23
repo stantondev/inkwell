@@ -4,7 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
+
+type SuggestedUser = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+};
 
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
@@ -72,9 +80,26 @@ export default function WelcomePage() {
   // Step 4: Theme
   const [theme, setTheme] = useState("default");
 
+  // Step 5: Discover writers
+  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+  const [loadingSuggested, setLoadingSuggested] = useState(false);
+  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+
   // General
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Fetch suggested writers when entering step 4
+  useEffect(() => {
+    if (step !== 4) return;
+    setLoadingSuggested(true);
+    fetch("/api/discover/writers")
+      .then((r) => r.json())
+      .then((data) => setSuggestedUsers(data.data ?? []))
+      .catch(() => setSuggestedUsers([]))
+      .finally(() => setLoadingSuggested(false));
+  }, [step]);
 
   // Username availability check
   useEffect(() => {
@@ -117,6 +142,25 @@ export default function WelcomePage() {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleFollowToggle(user: SuggestedUser) {
+    if (followingIds.has(user.id)) return; // in-flight
+    if (followedIds.has(user.id)) return; // already followed
+
+    setFollowingIds((prev) => new Set(prev).add(user.id));
+    try {
+      await fetch(`/api/follow/${user.username}`, { method: "POST" });
+      setFollowedIds((prev) => new Set(prev).add(user.id));
+    } catch {
+      // non-fatal, user can follow later
+    } finally {
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(user.id);
+        return next;
+      });
     }
   }
 
@@ -174,7 +218,7 @@ export default function WelcomePage() {
         return;
       }
 
-      router.push("/feed");
+      router.push("/editor");
     } catch {
       setError("Network error — please try again");
       setSaving(false);
@@ -186,7 +230,7 @@ export default function WelcomePage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: { onboarded: true } }),
-    }).then(() => router.push("/feed")).catch(() => router.push("/feed"));
+    }).then(() => router.push("/editor")).catch(() => router.push("/editor"));
   }
 
   function nextStep() {
@@ -230,6 +274,7 @@ export default function WelcomePage() {
             {step === 1 && "Add a photo and pronouns"}
             {step === 2 && "Tell people about yourself"}
             {step === 3 && "Pick your vibe"}
+            {step === 4 && "Find some writers to follow"}
           </p>
         </div>
 
@@ -424,6 +469,89 @@ export default function WelcomePage() {
             </div>
           )}
 
+          {/* Step 5: Discover writers */}
+          {step === 4 && (
+            <div className="flex flex-col gap-3">
+              {loadingSuggested ? (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm" style={{ color: "var(--muted)" }}>Finding writers…</p>
+                </div>
+              ) : suggestedUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+                  <p className="text-sm" style={{ color: "var(--muted)" }}>
+                    No writers to suggest yet — you can discover people from the Explore page.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    Follow writers to see their entries in your feed. You can always find more on Explore.
+                  </p>
+                  <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+                    {suggestedUsers.map((u) => {
+                      const followed = followedIds.has(u.id);
+                      const inFlight = followingIds.has(u.id);
+                      return (
+                        <div
+                          key={u.id}
+                          className="flex items-center gap-3 rounded-xl border p-3"
+                          style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                        >
+                          {u.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={u.avatar_url}
+                              alt={u.display_name ?? u.username}
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover flex-shrink-0"
+                              style={{ width: 40, height: 40 }}
+                            />
+                          ) : (
+                            <div
+                              className="rounded-full flex items-center justify-center font-semibold flex-shrink-0 select-none"
+                              style={{
+                                width: 40, height: 40,
+                                background: "var(--accent-light)", color: "var(--accent)",
+                                fontSize: 14,
+                              }}
+                              aria-hidden="true"
+                            >
+                              {(u.display_name ?? u.username ?? "?")[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {u.display_name ?? u.username}
+                            </p>
+                            {u.bio && (
+                              <p className="text-xs truncate" style={{ color: "var(--muted)" }}>
+                                {u.bio}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleFollowToggle(u)}
+                            disabled={followed || inFlight}
+                            className="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-all disabled:opacity-60"
+                            style={
+                              followed
+                                ? { borderColor: "var(--border)", color: "var(--muted)", background: "var(--background)" }
+                                : { borderColor: "var(--accent)", color: "var(--accent)", background: "transparent" }
+                            }
+                          >
+                            {inFlight ? "…" : followed ? "Requested" : "Follow"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {error && (
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
@@ -470,7 +598,7 @@ export default function WelcomePage() {
                   disabled={saving}
                   className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
                   style={{ background: "var(--accent)", color: "#fff" }}>
-                  {saving ? "Saving..." : "Get started"}
+                  {saving ? "Saving..." : "Start writing →"}
                 </button>
               )}
             </div>
