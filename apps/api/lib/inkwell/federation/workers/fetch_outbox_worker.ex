@@ -9,7 +9,7 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
     max_attempts: 3,
     priority: 3
 
-  alias Inkwell.Federation.{RemoteActor, RemoteEntries}
+  alias Inkwell.Federation.{Http, RemoteActor, RemoteEntries}
 
   require Logger
 
@@ -147,16 +147,13 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
   end
 
   defp fetch_json(url) do
-    headers = [
-      {~c"accept", ~c"application/activity+json, application/ld+json"},
-      {~c"user-agent", ~c"Inkwell/0.1 (+https://inkwell.social)"}
-    ]
+    headers = [{~c"accept", ~c"application/activity+json, application/ld+json"}]
 
-    case :httpc.request(:get, {String.to_charlist(url), headers}, [{:timeout, 15_000}], []) do
-      {:ok, {{_, status, _}, _, body}} when status in 200..299 ->
-        Jason.decode(to_string(body))
+    case Http.get(url, headers) do
+      {:ok, {status, body}} when status in 200..299 ->
+        Jason.decode(body)
 
-      {:ok, {{_, status, _}, _, _}} ->
+      {:ok, {status, _}} ->
         {:error, {:http_error, status}}
 
       {:error, reason} ->

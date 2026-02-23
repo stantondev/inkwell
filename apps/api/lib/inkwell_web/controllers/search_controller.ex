@@ -1,7 +1,7 @@
 defmodule InkwellWeb.SearchController do
   use InkwellWeb, :controller
 
-  alias Inkwell.Federation.RemoteActor
+  alias Inkwell.Federation.{Http, RemoteActor}
 
   require Logger
 
@@ -51,6 +51,9 @@ defmodule InkwellWeb.SearchController do
               {:error, _reason} ->
                 conn |> put_status(:not_found) |> json(%{error: "Could not fetch actor profile"})
             end
+
+          {:error, :connection_failed} ->
+            conn |> put_status(:service_unavailable) |> json(%{error: "Could not reach #{domain} — the server may be down or unreachable"})
 
           {:error, _reason} ->
             conn |> put_status(:not_found) |> json(%{error: "User not found on #{domain}"})
@@ -118,38 +121,44 @@ defmodule InkwellWeb.SearchController do
   defp webfinger_lookup(username, domain) do
     resource = "acct:#{username}@#{domain}"
     url = "https://#{domain}/.well-known/webfinger?resource=#{URI.encode_www_form(resource)}"
+    headers = [{~c"accept", ~c"application/jrd+json, application/json"}]
 
-    headers = [
-      {~c"accept", ~c"application/jrd+json, application/json"},
-      {~c"user-agent", ~c"Inkwell/0.1 (+https://inkwell.social)"}
-    ]
-
-    case :httpc.request(:get, {String.to_charlist(url), headers}, [{:timeout, 10_000}], []) do
-      {:ok, {{_, 200, _}, _, body}} ->
-        case Jason.decode(to_string(body)) do
+    case Http.get(url, headers) do
+      {:ok, {200, body}} ->
+        case Jason.decode(body) do
           {:ok, %{"links" => links}} ->
-            # Find the ActivityPub actor link
+            # Find the ActivityPub actor link (self rel with AP content type)
             actor_link =
               Enum.find(links, fn link ->
                 link["rel"] == "self" &&
-                  link["type"] in ["application/activity+json", "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""]
+                  link["type"] in [
+                    "application/activity+json",
+                    "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+                  ]
               end)
 
             case actor_link do
               %{"href" => href} -> {:ok, href}
-              _ -> {:error, :no_actor_link}
+              _ ->
+                Logger.warning("WebFinger for #{username}@#{domain} returned no AP actor link")
+                {:error, :no_actor_link}
             end
 
-          _ -> {:error, :invalid_webfinger}
+          _ ->
+            Logger.warning("WebFinger for #{username}@#{domain} returned invalid JSON")
+            {:error, :invalid_webfinger}
         end
 
-      {:ok, {{_, status, _}, _, _}} ->
-        Logger.info("WebFinger lookup failed for #{username}@#{domain}: HTTP #{status}")
+      {:ok, {404, _}} ->
+        {:error, {:http_error, 404}}
+
+      {:ok, {status, _}} ->
+        Logger.warning("WebFinger lookup for #{username}@#{domain}: HTTP #{status}")
         {:error, {:http_error, status}}
 
       {:error, reason} ->
-        Logger.info("WebFinger lookup failed for #{username}@#{domain}: #{inspect(reason)}")
-        {:error, reason}
+        Logger.warning("WebFinger lookup for #{username}@#{domain} connection failed: #{inspect(reason)}")
+        {:error, :connection_failed}
     end
   end
 

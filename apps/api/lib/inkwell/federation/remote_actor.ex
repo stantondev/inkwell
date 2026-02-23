@@ -6,7 +6,7 @@ defmodule Inkwell.Federation.RemoteActor do
 
   import Ecto.Query
   alias Inkwell.Repo
-  alias Inkwell.Federation.RemoteActorSchema
+  alias Inkwell.Federation.{Http, RemoteActorSchema}
 
   require Logger
 
@@ -67,20 +67,18 @@ defmodule Inkwell.Federation.RemoteActor do
 
   defp fetch_remote(actor_uri) do
     Logger.info("Fetching remote actor: #{actor_uri}")
+    headers = [{~c"accept", ~c"application/activity+json, application/ld+json"}]
 
-    headers = [
-      {~c"accept", ~c"application/activity+json, application/ld+json"},
-      {~c"user-agent", ~c"Inkwell/0.1 (+https://inkwell.social)"}
-    ]
-
-    case :httpc.request(:get, {String.to_charlist(actor_uri), headers}, [{:timeout, 10_000}], []) do
-      {:ok, {{_, status, _}, _headers, body}} when status in 200..299 ->
-        case Jason.decode(to_string(body)) do
+    case Http.get(actor_uri, headers) do
+      {:ok, {status, body}} when status in 200..299 ->
+        case Jason.decode(body) do
           {:ok, data} when is_map(data) -> {:ok, data}
-          _ -> {:error, :invalid_json}
+          _ ->
+            Logger.warning("Failed to parse actor JSON from #{actor_uri}")
+            {:error, :invalid_json}
         end
 
-      {:ok, {{_, status, _}, _, _}} ->
+      {:ok, {status, _}} ->
         Logger.warning("Failed to fetch actor #{actor_uri}: HTTP #{status}")
         {:error, {:http_error, status}}
 
