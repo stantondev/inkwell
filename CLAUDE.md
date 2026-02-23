@@ -533,11 +533,10 @@ _(empty — all bugs shipped!)_
 ### Ideas / Future (not yet scheduled)
 - Beta Participation program (under review, 10 votes)
 - Admin feedback triage — value & priority scoring for roadmap posts
-- Notify user when their feedback post receives comments or upvotes
-- Notify user when their feedback post status changes
 - Attach supporting details / screenshots to feedback posts
 
 ### Recently Completed
+- **2026-02-23** — Feedback notifications: users now get notified when their feedback post status changes, receives comments, or gets upvoted. Three new notification types (`feedback_status_change`, `feedback_comment`, `feedback_vote`) with star icon, post title link to `/roadmap/:id`, and self-notification suppression.
 - **2026-02-23** — Follow button now shows correct state (following/pending/idle) for already-followed users. Moved `GET /api/users/:username` to `optional_auth` scope; returns `relationship_status` in meta when authenticated.
 - **2026-02-23** — Fixed comment duplicate submission. Added `useRef` synchronous guard to both feed card popup and entry detail comment forms. Added error feedback to feed card comment popup.
 - **2026-02-23** — Fixed whitespace around video embeds. Added `margin: 0; border: none` to `.music-embed-container iframe` CSS.
