@@ -107,6 +107,22 @@ function notificationText(n: Notification): string {
       }
       return "stamped your entry";
     }
+    case "feedback_status_change": {
+      const status = n.data?.new_status as string | undefined;
+      const labels: Record<string, string> = {
+        under_review: "under review",
+        planned: "planned",
+        in_progress: "in progress",
+        done: "shipped",
+        declined: "declined",
+      };
+      const label = status ? labels[status] || status : "updated";
+      return `marked your feedback as ${label}`;
+    }
+    case "feedback_comment":
+      return "commented on your feedback post";
+    case "feedback_vote":
+      return "upvoted your feedback post";
     default:
       return "interacted with your content";
   }
@@ -227,6 +243,28 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (
+    type === "feedback_status_change" ||
+    type === "feedback_comment" ||
+    type === "feedback_vote"
+  ) {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -265,6 +303,15 @@ function getActorInfo(n: Notification) {
 }
 
 function getNotificationHref(n: Notification): string | null {
+  // Feedback notifications link to the roadmap post
+  if (
+    (n.type === "feedback_status_change" ||
+      n.type === "feedback_comment" ||
+      n.type === "feedback_vote") &&
+    n.data?.post_id
+  ) {
+    return `/roadmap/${n.data.post_id}`;
+  }
   const entryHref = getEntryHref(n);
   if (entryHref) return entryHref;
   if (
@@ -648,6 +695,20 @@ export function NotificationList({
                             {n.entry.title || "Untitled entry"} {"\u2192"}
                           </a>
                         )}
+                        {/* Feedback post link */}
+                        {!!n.data?.post_title &&
+                          (n.type === "feedback_status_change" ||
+                            n.type === "feedback_comment" ||
+                            n.type === "feedback_vote") && (
+                            <a
+                              href={`/roadmap/${n.data.post_id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs mt-1 inline-block hover:underline truncate max-w-[200px] sm:max-w-[300px]"
+                              style={{ color: "var(--accent)" }}
+                            >
+                              {String(n.data.post_title)} {"\u2192"}
+                            </a>
+                          )}
 
                         <p
                           className="text-xs mt-0.5"

@@ -168,9 +168,27 @@ defmodule InkwellWeb.FeedbackController do
         post ->
           attrs = Map.take(params, ["status", "admin_response", "release_note"])
 
+          old_status = to_string(post.status)
+
           case Feedback.update_post_admin(post, attrs) do
             {:ok, updated} ->
               updated = Inkwell.Repo.preload(updated, :user)
+              new_status = to_string(updated.status)
+
+              # Notify the post author when status changes (unless admin is the author)
+              if new_status != old_status && updated.user_id && updated.user_id != user.id do
+                Task.start(fn ->
+                  Accounts.create_notification(%{
+                    type: :feedback_status_change,
+                    user_id: updated.user_id,
+                    actor_id: user.id,
+                    target_type: "feedback_post",
+                    target_id: updated.id,
+                    data: %{post_id: updated.id, post_title: updated.title, new_status: new_status}
+                  })
+                end)
+              end
+
               json(conn, %{data: render_post(updated, false)})
 
             {:error, changeset} ->
@@ -190,10 +208,25 @@ defmodule InkwellWeb.FeedbackController do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Post not found"})
 
-      _post ->
+      post ->
         case Feedback.toggle_vote(user.id, id) do
           {:ok, %Inkwell.Feedback.FeedbackVote{}} ->
             post = Feedback.get_post!(id)
+
+            # Notify the post author when someone else upvotes
+            if post.user_id && post.user_id != user.id do
+              Task.start(fn ->
+                Accounts.create_notification(%{
+                  type: :feedback_vote,
+                  user_id: post.user_id,
+                  actor_id: user.id,
+                  target_type: "feedback_post",
+                  target_id: post.id,
+                  data: %{post_id: post.id, post_title: post.title}
+                })
+              end)
+            end
+
             json(conn, %{data: %{voted: true, vote_count: post.vote_count}})
 
           {:ok, :removed} ->
@@ -230,7 +263,7 @@ defmodule InkwellWeb.FeedbackController do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Post not found"})
 
-      _post ->
+      post ->
         attrs = %{
           "body" => params["body"],
           "user_id" => user.id,
@@ -240,6 +273,21 @@ defmodule InkwellWeb.FeedbackController do
         case Feedback.create_comment(attrs) do
           {:ok, comment} ->
             comment = Inkwell.Repo.preload(comment, :user)
+
+            # Notify the post author when someone else comments
+            if post.user_id && post.user_id != user.id do
+              Task.start(fn ->
+                Accounts.create_notification(%{
+                  type: :feedback_comment,
+                  user_id: post.user_id,
+                  actor_id: user.id,
+                  target_type: "feedback_post",
+                  target_id: post.id,
+                  data: %{post_id: post.id, post_title: post.title}
+                })
+              end)
+            end
+
             conn |> put_status(:created) |> json(%{data: render_feedback_comment(comment)})
 
           {:error, changeset} ->
