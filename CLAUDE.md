@@ -433,41 +433,27 @@ All three are static Next.js server components with Lora headings, prose body te
 - **Current nav logo**: still the old inline SVG pencil mark in `apps/web/src/components/nav.tsx` — **pending replacement (Session 2)**
 - **Current favicon**: none — **pending (Session 2)**
 
-### Pending Work — ordered
+### Completed Work
 
-**Session 1 — Website overhaul to match brand guide (DO THIS FIRST)**
-Site-wide visual update per `brand-style-guide.md`. Key changes:
-- Replace purple accent (`#7c3aed`) → ink blue (`#2d4a8a`) throughout `apps/web/src/app/globals.css` (affects `--accent`, `--accent-light`, `--accent-dark`, dark mode variants)
-- Audit all hardcoded colors; replace with correct CSS variables
-- Verify typography hierarchy matches brand guide (Lora for headings, system sans for UI)
-- Verify button styles, card styles, spacing, focus rings match brand guide spec
-- Update profile theme `default` preset in `apps/web/src/lib/profile-themes.ts` to use ink blue accent
-- Commit, deploy, and verify visually on https://inkwell.social
+**Session 1 — Website overhaul to match brand guide (DONE)**
+Completed 2026-02-23. Replaced purple accent (#7c3aed) with ink blue (#2d4a8a) site-wide:
+- All 6 accent CSS variables updated (light + dark mode) in `globals.css`
+- Added ink brand color constants: `--ink-midnight`, `--ink-deep`, `--ink-bright`, `--ink-light`
+- Fixed hardcoded purples in admin Plus badge, roadmap "planned" badges/kanban headers
+- Replaced hardcoded `#ef4444` notification reds with `var(--danger)` in nav, mobile menu, drafts
+- Updated default mood hue from 265 (violet) to 220 (blue)
+- Updated profile customize editor default accent placeholder to `#2d4a8a`
+- Updated default theme preview gradient to hint at ink blue
+- Typography and button shapes already matched brand guide (Lora headings, pill buttons)
+- Profile themes left unchanged (product features, not brand colors per brand guide)
 
-**Session 2 — Logo swap + favicon (AFTER overhaul)**
+### Pending Work
+
+**Session 2 — Logo swap + favicon (NEXT)**
 - Replace `InkwellLogo()` in `apps/web/src/components/nav.tsx` with new SVG logo
 - Copy `inkwell-logo-full.svg` → `apps/web/public/inkwell-logo.svg`
 - Add `apps/web/public/favicon.svg` + icon metadata in `apps/web/src/app/layout.tsx`
 - Commit, deploy, verify
-
-### Next Brand Session Prompt (Session 1 — Website Overhaul)
-Use this prompt to kick off the website overhaul in a new session:
-
-> We have a new brand and style guide for Inkwell. Before swapping in the new logo, I want to do a full website overhaul to match the brand guide. The brand guide lives at `~/Documents/Claude/inkwellsocial-brand-assets/brand-style-guide.md` — read it first.
->
-> The key visual change is replacing the purple accent color (`#7c3aed`) with deep ink blue (`#2d4a8a`) across the entire site. The full color mapping is:
-> - `--accent: #7c3aed` → `#2d4a8a`
-> - `--accent-light: #ede9fe` → `#e8eef7`
-> - `--accent-dark: #5b21b6` → `#1a2744`
-> - Dark mode `--accent: #a78bfa` → `#93b4f0`
-> - Dark mode `--accent-light: #1e1b4b` → `#1a2744`
-> - Dark mode `--accent-dark: #c4b5fd` → `#c4d8f8`
->
-> Beyond the color swap, audit the site against the brand guide and fix anything that doesn't match: button shapes, card styles, typography usage, focus rings, spacing. Also update the `default` theme preset in `apps/web/src/lib/profile-themes.ts` to use the ink blue accent.
->
-> Do NOT swap the logo or favicon in this session — that comes after.
->
-> TypeScript check, commit, push, deploy both API (if any backend changes) and web, then verify visually on https://inkwell.social.
 
 ---
 
