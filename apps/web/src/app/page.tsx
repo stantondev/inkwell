@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PROFILE_THEMES } from "@/lib/profile-themes";
 
 // ---------------------------------------------------------------------------
 // Feature list
@@ -60,64 +61,14 @@ const FEATURES = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Sample entry previews (shown on landing to give the vibe)
-// ---------------------------------------------------------------------------
-const SAMPLE_ENTRIES = [
-  {
-    author: "margot_writes",
-    displayName: "Margot Chen",
-    mood: "reflective 🌧",
-    music: "Sufjan Stevens — Death With Dignity",
-    title: "Three years in Portland",
-    excerpt:
-      "I keep coming back to the way the light looks in November here. Not the grey that people warn you about — a specific silver that settles on the Willamette around 4pm when you've run out of reasons to stay inside…",
-    time: "2h ago",
-  },
-  {
-    author: "raf_diaries",
-    displayName: "Rafael Osei",
-    mood: "caffeinated ☕",
-    music: null,
-    title: null,
-    excerpt:
-      "finished the book. wept. made coffee. started the book again. this is fine.",
-    time: "5h ago",
-  },
-  {
-    author: "velvet_underscore",
-    displayName: "Vera L.",
-    mood: "nostalgic 📼",
-    music: "The Mountain Goats — No Children",
-    title: "On keeping an online journal in 2026",
-    excerpt:
-      "I had a LiveJournal from 2003 to 2009. I deleted it in a moment of embarrassment and have regretted it ever since. Inkwell feels like finally getting the chance to say sorry to my teenage self…",
-    time: "yesterday",
-  },
+// Stamp icons to show in the showcase
+const SHOWCASE_STAMPS = [
+  { key: "felt", src: "/stamps/felt.svg", label: "Felt" },
+  { key: "holding_space", src: "/stamps/holding-space.svg", label: "Holding Space" },
+  { key: "beautifully_said", src: "/stamps/beautifully-said.svg", label: "Beautifully Said" },
+  { key: "rooting", src: "/stamps/rooting.svg", label: "Rooting For You" },
+  { key: "i_cannot", src: "/stamps/i-cannot.svg", label: "I Cannot" },
 ];
-
-// ---------------------------------------------------------------------------
-// Mood/music line component used in sample entries
-// ---------------------------------------------------------------------------
-function EntryMeta({ mood, music }: { mood: string | null; music: string | null }) {
-  if (!mood && !music) return null;
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-3" style={{ color: "var(--muted)" }}>
-      {mood && (
-        <span>
-          <span className="font-medium" style={{ color: "var(--foreground)" }}>mood:</span>{" "}
-          {mood}
-        </span>
-      )}
-      {music && (
-        <span>
-          <span className="font-medium" style={{ color: "var(--foreground)" }}>listening to:</span>{" "}
-          {music}
-        </span>
-      )}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -162,7 +113,7 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/login"
+            href="/get-started"
             className="inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-medium transition-all"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
@@ -181,7 +132,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Sample entries ────────────────────────────────────────────── */}
+      {/* ── Product Showcase ─────────────────────────────────────────── */}
       <section
         className="border-y py-12"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -191,58 +142,128 @@ export default function LandingPage() {
             className="text-xs font-medium uppercase tracking-widest mb-8 text-center"
             style={{ color: "var(--muted)" }}
           >
-            Recent public entries
+            What writing on Inkwell looks like
           </p>
           <div className="grid gap-4 sm:grid-cols-3">
-            {SAMPLE_ENTRIES.map((entry) => (
-              <article
-                key={entry.author}
-                className="rounded-xl border p-5 flex flex-col gap-3 transition-shadow hover:shadow-md"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--background)",
-                }}
+            {/* Card 1: Journal page-turning UI */}
+            <div
+              className="rounded-xl border p-5 flex flex-col gap-4"
+              style={{ borderColor: "var(--border)", background: "var(--background)" }}
+            >
+              {/* Book spread illustration */}
+              <div
+                className="rounded-lg p-4 flex items-center justify-center"
+                style={{ background: "var(--accent-light)", minHeight: 140 }}
               >
-                {/* Author row */}
-                <div className="flex items-center gap-2">
+                <div className="flex gap-0.5 w-full max-w-[200px]">
+                  {/* Left page */}
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold"
-                    style={{
-                      background: "var(--accent-light)",
-                      color: "var(--accent)",
-                    }}
-                    aria-hidden="true"
+                    className="flex-1 rounded-l-md p-3 flex flex-col gap-2"
+                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
                   >
-                    {entry.displayName[0]}
+                    <div className="h-2 rounded-full w-3/4" style={{ background: "var(--accent)", opacity: 0.6 }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-5/6" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-2/3" style={{ background: "var(--border)" }} />
                   </div>
-                  <div className="flex flex-col leading-none">
-                    <span className="text-sm font-medium">{entry.displayName}</span>
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      @{entry.author} · {entry.time}
-                    </span>
+                  {/* Spine */}
+                  <div className="w-px" style={{ background: "var(--border)" }} />
+                  {/* Right page */}
+                  <div
+                    className="flex-1 rounded-r-md p-3 flex flex-col gap-2"
+                    style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="h-2 rounded-full w-2/3" style={{ background: "var(--accent)", opacity: 0.6 }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-4/5" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-full" style={{ background: "var(--border)" }} />
+                    <div className="h-1.5 rounded-full w-3/4" style={{ background: "var(--border)" }} />
                   </div>
                 </div>
-
-                {/* Meta */}
-                <EntryMeta mood={entry.mood} music={entry.music} />
-
-                {/* Content */}
-                {entry.title && (
-                  <h3 className="font-semibold leading-snug" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                    {entry.title}
-                  </h3>
-                )}
-                <p
-                  className="text-sm leading-relaxed line-clamp-4"
-                  style={{
-                    fontFamily: "var(--font-lora, Georgia, serif)",
-                    color: "var(--muted)",
-                  }}
-                >
-                  {entry.excerpt}
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  Read like a journal
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  Entries open in a book spread with page-turning navigation. No infinite scroll — just your pen pals&apos; words, one page at a time.
                 </p>
-              </article>
-            ))}
+              </div>
+            </div>
+
+            {/* Card 2: Profile themes */}
+            <div
+              className="rounded-xl border p-5 flex flex-col gap-4"
+              style={{ borderColor: "var(--border)", background: "var(--background)" }}
+            >
+              {/* Theme swatches */}
+              <div
+                className="rounded-lg p-4 flex items-center justify-center"
+                style={{ background: "var(--accent-light)", minHeight: 140 }}
+              >
+                <div className="grid grid-cols-4 gap-2.5">
+                  {PROFILE_THEMES.map((theme, i) => (
+                    <div
+                      key={theme.id}
+                      className="w-9 h-9 rounded-full shadow-sm transition-transform hover:scale-110"
+                      style={{
+                        background: theme.preview,
+                        boxShadow: i === 2
+                          ? "0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.1)"
+                          : "0 1px 3px rgba(0,0,0,0.1)",
+                      }}
+                      title={theme.name}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  Make it yours
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  Eight themes, custom colors, fonts, background images, music players, and full CSS/HTML for Plus members. Your profile, your rules.
+                </p>
+              </div>
+            </div>
+
+            {/* Card 3: Stamps */}
+            <div
+              className="rounded-xl border p-5 flex flex-col gap-4"
+              style={{ borderColor: "var(--border)", background: "var(--background)" }}
+            >
+              {/* Stamp icons */}
+              <div
+                className="rounded-lg p-4 flex items-center justify-center"
+                style={{ background: "var(--accent-light)", minHeight: 140 }}
+              >
+                <div className="flex items-center gap-3">
+                  {SHOWCASE_STAMPS.map((stamp) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={stamp.key}
+                      src={stamp.src}
+                      alt={stamp.label}
+                      width={36}
+                      height={36}
+                      className="stamp-impression transition-transform hover:scale-110 hover:-rotate-3"
+                      style={{ opacity: 0.85 }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  Stamps, not likes
+                </h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  No counts, no dopamine metrics. Press a meaningful reaction onto someone&apos;s entry like an ink stamp on paper.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -305,13 +326,13 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 {["Unlimited public entries", "Per-entry privacy controls", "Pen Pal filters", "Top 6 pen pals", "RSS feed", "ActivityPub federation"].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
-                    <span style={{ color: "var(--success)" }} aria-hidden="true">✓</span>
+                    <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
                     {item}
                   </li>
                 ))}
               </ul>
               <Link
-                href="/login"
+                href="/get-started"
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
@@ -341,13 +362,13 @@ export default function LandingPage() {
                   "Priority support",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
-                    <span style={{ color: "var(--accent)" }} aria-hidden="true">✓</span>
+                    <span style={{ color: "var(--accent)" }} aria-hidden="true">&#10003;</span>
                     {item}
                   </li>
                 ))}
               </ul>
               <Link
-                href="/login"
+                href="/get-started"
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

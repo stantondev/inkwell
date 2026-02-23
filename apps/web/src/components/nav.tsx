@@ -164,7 +164,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
             <>
               <Link href="/login" className="text-sm font-medium transition-colors"
                 style={{ color: "var(--muted)" }}>Sign in</Link>
-              <Link href="/login"
+              <Link href="/get-started"
                 className="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors"
                 style={{ background: "var(--accent)", color: "#fff" }}>
                 Get started

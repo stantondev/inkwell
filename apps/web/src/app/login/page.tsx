@@ -29,35 +29,36 @@ function EnterEmailStep({
   onSubmit: (email: string, devLink?: string) => void;
 }) {
   const [email, setEmail] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noAccount, setNoAccount] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    if (!termsAccepted) {
-      setError("You must accept the Terms of Service and Privacy Policy to continue.");
-      return;
-    }
     setLoading(true);
     setError(null);
+    setNoAccount(false);
 
     try {
-      const res = await fetch(`/api/auth/magic-link`, {
+      const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), terms_accepted: termsAccepted }),
+        body: JSON.stringify({ email: email.trim() }),
       });
 
       const data = await res.json();
+
+      if (res.status === 422) {
+        setNoAccount(true);
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
 
-      // In dev mode, Phoenix returns the clickable magic link directly
       onSubmit(email.trim(), data.dev_magic_link);
     } catch {
       setError("Could not reach the server. Is the API running?");
@@ -77,7 +78,10 @@ function EnterEmailStep({
           id="email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (noAccount) setNoAccount(false);
+          }}
           placeholder="you@example.com"
           required
           autoFocus
@@ -87,28 +91,18 @@ function EnterEmailStep({
         />
       </div>
 
-      <label className="flex items-start gap-2.5 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={termsAccepted}
-          onChange={(e) => {
-            setTermsAccepted(e.target.checked);
-            if (e.target.checked && error?.includes("Terms")) setError(null);
-          }}
-          className="mt-0.5 rounded"
-          style={{ accentColor: "var(--accent)" }}
-        />
-        <span className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-          I agree to the{" "}
-          <Link href="/terms" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
-            Privacy Policy
-          </Link>
-        </span>
-      </label>
+      {noAccount && (
+        <div className="rounded-xl border p-4 text-sm"
+          style={{ borderColor: "var(--accent)", background: "var(--accent-light)" }}>
+          <p style={{ color: "var(--foreground)" }}>
+            No account found for that email.{" "}
+            <Link href="/get-started" className="font-medium underline underline-offset-2"
+              style={{ color: "var(--accent)" }}>
+              Create one here
+            </Link>
+          </p>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
@@ -122,13 +116,11 @@ function EnterEmailStep({
         className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        {loading ? "Sending…" : "Send magic link"}
+        {loading ? "Sending..." : "Send magic link"}
       </button>
 
       <p className="text-xs text-center leading-relaxed" style={{ color: "var(--muted)" }}>
         We&apos;ll send a one-click sign-in link to your email — no password needed.
-        <br />
-        New to Inkwell? Your account will be created automatically.
       </p>
     </form>
   );
@@ -149,7 +141,7 @@ function CheckEmailStep({
   const handleResend = async () => {
     setResending(true);
     try {
-      await fetch(`/api/auth/magic-link`, {
+      await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -185,12 +177,11 @@ function CheckEmailStep({
         </p>
       </div>
 
-      {/* Dev mode: show clickable magic link directly */}
       {devLink && (
         <div className="rounded-xl border p-4 text-left"
           style={{ borderColor: "var(--accent)", background: "var(--accent-light)" }}>
           <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>
-            🛠 Dev mode — click to sign in instantly:
+            Dev mode — click to sign in instantly:
           </p>
           <a
             href={devLink}
@@ -211,14 +202,14 @@ function CheckEmailStep({
           className="underline underline-offset-2 transition-colors"
           style={{ color: resent ? "var(--success)" : "var(--accent)" }}
         >
-          {resending ? "Sending…" : resent ? "Sent ✓" : "resend the link"}
+          {resending ? "Sending..." : resent ? "Sent!" : "resend the link"}
         </button>
         .
       </p>
 
       <button type="button" onClick={onReset} className="text-sm transition-colors"
         style={{ color: "var(--muted)" }}>
-        ← Use a different email
+        &larr; Use a different email
       </button>
     </div>
   );
@@ -252,7 +243,7 @@ export default function LoginPage() {
                 Welcome back
               </h1>
               <p className="text-sm" style={{ color: "var(--muted)" }}>
-                Sign in or create your Inkwell account.
+                Sign in to your Inkwell account.
               </p>
             </div>
             <EnterEmailStep onSubmit={handleEmailSubmit} />
@@ -268,8 +259,11 @@ export default function LoginPage() {
         )}
       </div>
 
-      <p className="mt-8 text-xs text-center" style={{ color: "var(--muted)" }}>
-        Inkwell will never sell your data or show you ads.
+      <p className="mt-6 text-sm" style={{ color: "var(--muted)" }}>
+        New to Inkwell?{" "}
+        <Link href="/get-started" className="font-medium underline underline-offset-2" style={{ color: "var(--accent)" }}>
+          Get started
+        </Link>
       </p>
     </div>
   );

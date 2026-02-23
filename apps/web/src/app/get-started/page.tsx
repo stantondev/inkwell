@@ -1,0 +1,297 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+
+type Step = "enter_email" | "check_email";
+
+function InkwellLogo() {
+  return (
+    <Link href="/" className="flex items-center gap-2 group" aria-label="Inkwell home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+        className="transition-transform group-hover:-rotate-6"
+        style={{ color: "var(--accent)" }} aria-hidden="true">
+        <path d="M17.5 2.5L21.5 6.5L10 18H6V14L17.5 2.5Z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14 6L18 10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+        <path d="M6 18L2.5 21.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeOpacity="0.5"/>
+      </svg>
+      <span className="text-xl font-semibold tracking-tight"
+        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+        inkwell
+      </span>
+    </Link>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ color: "var(--accent)", flexShrink: 0 }} aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+const VALUE_PROPS = [
+  "No algorithms, no ads — ever",
+  "Your data is always yours",
+  "Customize your page like it's 2004",
+  "Connected to the open social web",
+];
+
+export default function GetStartedPage() {
+  const [step, setStep] = useState<Step>("enter_email");
+  const [email, setEmail] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [devLink, setDevLink] = useState<string | undefined>();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    if (!termsAccepted) {
+      setError("You must accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), terms_accepted: true }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+
+      setDevLink(data.dev_magic_link);
+      setStep("check_email");
+    } catch {
+      setError("Could not reach the server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), terms_accepted: true }),
+      });
+    } catch {
+      // silently fail on resend
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16"
+      style={{ background: "var(--background)", color: "var(--foreground)" }}>
+      <div className="w-full max-w-lg rounded-2xl border shadow-sm p-8"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="flex justify-center mb-8">
+          <InkwellLogo />
+        </div>
+
+        {step === "enter_email" && (
+          <>
+            <div className="mb-6 text-center">
+              <h1 className="text-2xl font-semibold mb-1"
+                style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Start your journal
+              </h1>
+              <p className="text-sm" style={{ color: "var(--muted)" }}>
+                Join a community of writers who own their space.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 mb-6 rounded-xl p-4"
+              style={{ background: "var(--background)" }}>
+              {VALUE_PROPS.map((prop) => (
+                <div key={prop} className="flex items-center gap-2.5">
+                  <CheckIcon />
+                  <span className="text-sm" style={{ color: "var(--muted)" }}>{prop}</span>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="email" className="text-sm font-medium"
+                  style={{ color: "var(--foreground)" }}>
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoFocus
+                  autoComplete="email"
+                  className="rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-2 transition-colors"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                />
+              </div>
+
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => {
+                    setTermsAccepted(e.target.checked);
+                    if (e.target.checked && error?.includes("Terms")) setError(null);
+                  }}
+                  className="mt-0.5 rounded"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                  I agree to the{" "}
+                  <Link href="/terms" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                    Privacy Policy
+                  </Link>
+                </span>
+              </label>
+
+              {error && (
+                <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                {loading ? "Sending..." : "Create your account"}
+              </button>
+
+              <p className="text-xs text-center leading-relaxed" style={{ color: "var(--muted)" }}>
+                We&apos;ll send a magic link to your email — no password needed.
+              </p>
+            </form>
+          </>
+        )}
+
+        {step === "check_email" && (
+          <CheckEmailStep
+            email={email}
+            devLink={devLink}
+            onResend={handleResend}
+            onReset={() => setStep("enter_email")}
+          />
+        )}
+      </div>
+
+      <p className="mt-6 text-sm" style={{ color: "var(--muted)" }}>
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium underline underline-offset-2" style={{ color: "var(--accent)" }}>
+          Sign in
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function CheckEmailStep({
+  email,
+  devLink,
+  onResend,
+  onReset,
+}: {
+  email: string;
+  devLink?: string;
+  onResend: () => void;
+  onReset: () => void;
+}) {
+  const [resent, setResent] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      onResend();
+      setResent(true);
+      setTimeout(() => setResent(false), 4000);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5 text-center">
+      <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
+        style={{ background: "var(--accent-light)" }} aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ color: "var(--accent)" }}>
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="M2 7l10 7 10-7"/>
+        </svg>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-1"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+          Check your inbox
+        </h2>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+          We sent a magic link to{" "}
+          <strong style={{ color: "var(--foreground)" }}>{email}</strong>.
+          <br />Click the link in the email to sign in.
+        </p>
+      </div>
+
+      {devLink && (
+        <div className="rounded-xl border p-4 text-left"
+          style={{ borderColor: "var(--accent)", background: "var(--accent-light)" }}>
+          <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>
+            Dev mode — click to sign in instantly:
+          </p>
+          <a
+            href={devLink}
+            className="text-xs break-all underline"
+            style={{ color: "var(--accent)" }}
+          >
+            {devLink}
+          </a>
+        </div>
+      )}
+
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Didn&apos;t get it? Check your spam folder, or{" "}
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="underline underline-offset-2 transition-colors"
+          style={{ color: resent ? "var(--success)" : "var(--accent)" }}
+        >
+          {resending ? "Sending..." : resent ? "Sent!" : "resend the link"}
+        </button>
+        .
+      </p>
+
+      <button type="button" onClick={onReset} className="text-sm transition-colors"
+        style={{ color: "var(--muted)" }}>
+        &larr; Use a different email
+      </button>
+    </div>
+  );
+}
