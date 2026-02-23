@@ -18,11 +18,19 @@ export interface JournalEntry {
   my_stamp?: string | null;
   published_at: string;
   slug: string;
+  /** "local" (default) or "remote" for federated entries */
+  source?: "local" | "remote";
+  /** Original URL for remote entries */
+  url?: string;
   author: {
     id?: string;
     username: string;
     display_name: string;
     avatar_url: string | null;
+    /** Domain of the remote instance (e.g. "mastodon.social") */
+    domain?: string;
+    /** URL to the remote user's profile */
+    profile_url?: string;
   };
 }
 
@@ -51,7 +59,13 @@ interface JournalEntryCardProps {
 }
 
 export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
-  const href = `/${entry.author.username}/${entry.slug ?? entry.id}`;
+  const isRemote = entry.source === "remote";
+  const href = isRemote
+    ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
+    : `/${entry.author.username}/${entry.slug ?? entry.id}`;
+  const authorHref = isRemote
+    ? (entry.author.profile_url ?? "#")
+    : `/${entry.author.username}`;
   const ago = timeAgo(entry.published_at);
 
   return (
@@ -84,32 +98,61 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
             className="text-2xl font-bold mb-4 leading-snug pr-12 sm:pr-20"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            <Link href={href} className="hover:underline">
-              {entry.title}
-            </Link>
+            {isRemote ? (
+              <a href={href} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                {entry.title}
+              </a>
+            ) : (
+              <Link href={href} className="hover:underline">
+                {entry.title}
+              </Link>
+            )}
           </h2>
         )}
 
         {/* Author row + meta */}
         <div className="flex items-center gap-3 mb-5">
-          <Link
-            href={`/${entry.author.username}`}
-            className="flex items-center gap-2 group"
-          >
-            <Avatar
-              url={entry.author.avatar_url}
-              name={entry.author.display_name}
-              size={28}
-            />
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-medium group-hover:underline">
-                {entry.author.display_name}
-              </span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                @{entry.author.username} &middot; {ago}
-              </span>
-            </div>
-          </Link>
+          {isRemote ? (
+            <a
+              href={authorHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 group"
+            >
+              <Avatar
+                url={entry.author.avatar_url}
+                name={entry.author.display_name}
+                size={28}
+              />
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-medium group-hover:underline">
+                  {entry.author.display_name}
+                </span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  @{entry.author.username}@{entry.author.domain} &middot; {ago}
+                </span>
+              </div>
+            </a>
+          ) : (
+            <Link
+              href={authorHref}
+              className="flex items-center gap-2 group"
+            >
+              <Avatar
+                url={entry.author.avatar_url}
+                name={entry.author.display_name}
+                size={28}
+              />
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-medium group-hover:underline">
+                  {entry.author.display_name}
+                </span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  @{entry.author.username} &middot; {ago}
+                </span>
+              </div>
+            </Link>
+          )}
 
           {/* Mood + music meta (desktop only) */}
           {(entry.mood || entry.music) && (
@@ -175,15 +218,27 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 px-4 sm:px-6 lg:px-8 py-4 border-t"
           style={{ borderColor: "var(--border)" }}
         >
+          {isRemote ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium transition-colors hover:underline"
+              style={{ color: "var(--accent)" }}
+            >
+              {entry.author.domain ? `View on ${entry.author.domain}` : "View original"} &rarr;
+            </a>
+          ) : (
+            <Link
+              href={href}
+              className="text-sm font-medium transition-colors hover:underline"
+              style={{ color: "var(--accent)" }}
+            >
+              Read full entry &rarr;
+            </Link>
+          )}
           <Link
-            href={href}
-            className="text-sm font-medium transition-colors hover:underline"
-            style={{ color: "var(--accent)" }}
-          >
-            Read full entry &rarr;
-          </Link>
-          <Link
-            href={`${href}#comments`}
+            href={isRemote ? "#" : `${href}#comments`}
             className="flex items-center gap-1.5 text-sm"
             style={{ color: "var(--muted)" }}
           >

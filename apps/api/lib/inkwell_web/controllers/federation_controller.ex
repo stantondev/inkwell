@@ -2,8 +2,8 @@ defmodule InkwellWeb.FederationController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteActor}
-  alias Inkwell.Federation.Workers.DeliverActivityWorker
+  alias Inkwell.Federation.{ActivityBuilder, RemoteActor, RemoteEntries}
+  alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchOutboxWorker}
   alias Inkwell.Repo
 
   import Ecto.Query
@@ -258,6 +258,9 @@ defmodule InkwellWeb.FederationController do
       "Like" ->
         handle_like(conn, activity, target_user)
 
+      "Update" ->
+        handle_update(conn, activity, target_user)
+
       "Delete" ->
         handle_delete(conn, activity, target_user)
 
@@ -375,6 +378,11 @@ defmodule InkwellWeb.FederationController do
                 |> where([r], r.follower_id == ^user_id and r.remote_actor_id == ^remote_actor_id)
                 |> Repo.update_all(set: [status: :accepted, updated_at: DateTime.utc_now()])
 
+                # Backfill the remote actor's recent posts
+                %{remote_actor_id: remote_actor_id}
+                |> FetchOutboxWorker.new()
+                |> Oban.insert()
+
                 Logger.info("Follow accepted by #{remote_actor_uri} for #{username}")
 
               _ ->
@@ -392,12 +400,32 @@ defmodule InkwellWeb.FederationController do
     conn |> put_status(:accepted) |> json(%{ok: true})
   end
 
-  # ── Create handling (inbound comments) ──────────────────────────────────
+  # ── Create handling (inbound Notes) ─────────────────────────────────────
 
   defp handle_create(conn, activity, _target_user) do
     case activity["object"] do
       %{"type" => "Note", "inReplyTo" => in_reply_to} when is_binary(in_reply_to) ->
+        # Reply to a local entry
         handle_incoming_reply(activity["object"], activity["actor"])
+
+      %{"type" => "Note"} = note ->
+        # Standalone public post — store as remote entry
+        handle_incoming_note(note, activity["actor"])
+
+      _ ->
+        :ok
+    end
+
+    conn |> put_status(:accepted) |> json(%{ok: true})
+  end
+
+  # ── Update handling (inbound edits) ────────────────────────────────────
+
+  defp handle_update(conn, activity, _target_user) do
+    case activity["object"] do
+      %{"type" => "Note"} = note ->
+        # Re-use ingestion path; upsert will update existing
+        handle_incoming_note(note, activity["actor"])
 
       _ ->
         :ok
@@ -451,6 +479,72 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # ── Standalone Note ingestion ───────────────────────────────────────────
+
+  defp handle_incoming_note(note, actor_uri) do
+    to = note["to"] || []
+    cc = note["cc"] || []
+    public_uri = "https://www.w3.org/ns/activitystreams#Public"
+
+    is_public = public_uri in to || public_uri in cc
+
+    if is_public do
+      case RemoteActor.fetch(actor_uri) do
+        {:ok, remote_actor} ->
+          tags = extract_hashtags(note["tag"])
+
+          url =
+            case note["url"] do
+              u when is_binary(u) -> u
+              _ -> note["id"]
+            end
+
+          attrs = %{
+            ap_id: note["id"],
+            url: url,
+            title: note["name"],
+            body_html: note["content"] || "",
+            tags: tags,
+            published_at: parse_ap_datetime(note["published"]),
+            remote_actor_id: remote_actor.id
+          }
+
+          case RemoteEntries.upsert_remote_entry(attrs) do
+            {:ok, _} ->
+              Logger.info("Stored remote entry #{note["id"]} from #{actor_uri}")
+
+            {:error, reason} ->
+              Logger.warning("Failed to store remote entry: #{inspect(reason)}")
+          end
+
+        {:error, reason} ->
+          Logger.warning("Failed to fetch actor for note: #{inspect(reason)}")
+      end
+    end
+  end
+
+  defp extract_hashtags(nil), do: []
+
+  defp extract_hashtags(tags) when is_list(tags) do
+    tags
+    |> Enum.filter(fn t -> is_map(t) && t["type"] == "Hashtag" end)
+    |> Enum.map(fn t ->
+      (t["name"] || "") |> String.trim_leading("#")
+    end)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp extract_hashtags(_), do: []
+
+  defp parse_ap_datetime(nil), do: nil
+
+  defp parse_ap_datetime(str) when is_binary(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _offset} -> dt
+      _ -> nil
+    end
+  end
+
   # ── Like handling ───────────────────────────────────────────────────────
 
   defp handle_like(conn, activity, _target_user) do
@@ -488,11 +582,19 @@ defmodule InkwellWeb.FederationController do
       end
 
     if object_id do
+      # Try deleting a federated comment
       case Repo.get_by(Inkwell.Journals.Comment, ap_id: object_id) do
         nil -> :ok
         comment ->
           Repo.delete(comment)
           Logger.info("Deleted federated comment #{object_id}")
+      end
+
+      # Also try deleting a remote entry
+      case RemoteEntries.delete_by_ap_id(object_id) do
+        {:ok, nil} -> :ok
+        {:ok, _} -> Logger.info("Deleted remote entry #{object_id}")
+        {:error, _} -> :ok
       end
     end
 

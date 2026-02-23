@@ -12,6 +12,8 @@ interface StampPickerProps {
   isPlus: boolean;
   /** Compact mode for feed cards — shows just an icon button */
   compact?: boolean;
+  /** Override the API path for stamping (e.g., for remote entries) */
+  stampApiPath?: string;
   onStampChange?: (stamps: string[], myStamp: string | null) => void;
 }
 
@@ -22,6 +24,7 @@ export function StampPicker({
   isLoggedIn,
   isPlus,
   compact = false,
+  stampApiPath,
   onStampChange,
 }: StampPickerProps) {
   const [open, setOpen] = useState(false);
@@ -29,6 +32,7 @@ export function StampPicker({
   const [loading, setLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const apiPath = stampApiPath ?? `/api/entries/${entryId}/stamp`;
 
   useEffect(() => {
     setMyStamp(currentStamp);
@@ -54,7 +58,7 @@ export function StampPicker({
       setMyStamp(null);
 
       try {
-        const res = await fetch(`/api/entries/${entryId}/stamp`, { method: "DELETE" });
+        const res = await fetch(apiPath, { method: "DELETE" });
         if (res.ok) {
           const { data } = await res.json();
           onStampChange?.(data.stamps, null);
@@ -76,7 +80,7 @@ export function StampPicker({
     setMyStamp(stampType);
 
     try {
-      const res = await fetch(`/api/entries/${entryId}/stamp`, {
+      const res = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stamp_type: stampType }),

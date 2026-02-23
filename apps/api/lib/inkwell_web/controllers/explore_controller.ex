@@ -2,9 +2,10 @@ defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals, Stamps}
+  alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
-  # GET /api/explore — public discovery feed
+  # GET /api/explore — public discovery feed with local + federated entries
   # Optional params: page, per_page, tag
   # Optional auth: populates my_stamp when logged in
   def index(conn, params) do
@@ -13,26 +14,67 @@ defmodule InkwellWeb.ExploreController do
     tag = params["tag"]
     viewer = conn.assigns[:current_user]
 
-    entries = Journals.list_public_explore_entries(page: page, per_page: per_page, tag: tag)
+    # Fetch extra from each source to ensure good interleaving after merge
+    fetch_count = per_page * 2
 
-    entry_ids = Enum.map(entries, & &1.id)
-    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag)
+    remote_entries = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
+
+    # Normalize into a common shape
+    local_items = Enum.map(local_entries, fn entry ->
+      %{type: :local, entry: entry, published_at: entry.published_at}
+    end)
+
+    remote_items = Enum.map(remote_entries, fn re ->
+      %{type: :remote, entry: re, published_at: re.published_at}
+    end)
+
+    # Merge, sort by published_at DESC, paginate
+    all_items =
+      (local_items ++ remote_items)
+      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+      |> Enum.drop((page - 1) * per_page)
+      |> Enum.take(per_page)
+
+    # Build stamp maps for local entries
+    local_entry_ids =
+      all_items
+      |> Enum.filter(& &1.type == :local)
+      |> Enum.map(& &1.entry.id)
+
+    stamp_types_map = Stamps.get_stamp_types_for_entries(local_entry_ids)
 
     my_stamps_map =
       if viewer do
-        Stamps.get_user_stamps_for_entries(viewer.id, entry_ids)
+        Stamps.get_user_stamps_for_entries(viewer.id, local_entry_ids)
       else
         %{}
       end
 
-    json(conn, %{
-      data: Enum.map(entries, fn entry ->
+    # Build stamp maps for remote entries
+    remote_entry_ids =
+      all_items
+      |> Enum.filter(& &1.type == :remote)
+      |> Enum.map(& &1.entry.id)
+
+    remote_stamp_types_map = Stamps.get_stamp_types_for_remote_entries(remote_entry_ids)
+
+    remote_my_stamps_map =
+      if viewer do
+        Stamps.get_user_stamps_for_remote_entries(viewer.id, remote_entry_ids)
+      else
+        %{}
+      end
+
+    data = Enum.map(all_items, fn
+      %{type: :local, entry: entry} ->
         author = entry.user || Accounts.get_user!(entry.user_id)
         comment_count = Journals.count_comments(entry.id)
 
         entry
         |> EntryController.render_entry()
         |> Map.merge(%{
+          source: "local",
           author: %{
             id: author.id,
             username: author.username,
@@ -44,9 +86,49 @@ defmodule InkwellWeb.ExploreController do
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id)
         })
-      end),
+
+      %{type: :remote, entry: re} ->
+        actor = re.remote_actor
+
+        %{
+          id: re.id,
+          source: "remote",
+          ap_id: re.ap_id,
+          url: re.url,
+          title: re.title,
+          body_html: re.body_html,
+          tags: re.tags || [],
+          published_at: re.published_at,
+          author: %{
+            username: actor.username,
+            display_name: actor.display_name || actor.username,
+            avatar_url: actor.avatar_url,
+            domain: actor.domain,
+            ap_id: actor.ap_id,
+            profile_url: get_profile_url(actor)
+          },
+          stamps: Map.get(remote_stamp_types_map, re.id, []),
+          my_stamp: Map.get(remote_my_stamps_map, re.id),
+          comment_count: 0,
+          mood: nil,
+          music: nil,
+          slug: nil,
+          privacy: "public",
+          status: "published"
+        }
+    end)
+
+    json(conn, %{
+      data: data,
       pagination: %{page: page, per_page: per_page, tag: tag}
     })
+  end
+
+  defp get_profile_url(actor) do
+    case actor.raw_data do
+      %{"url" => url} when is_binary(url) -> url
+      _ -> actor.ap_id
+    end
   end
 
   defp parse_int(nil, default), do: default

@@ -27,6 +27,12 @@ interface FeedCardActionsProps {
   isOwnEntry: boolean;
   isLoggedIn: boolean;
   isPlus: boolean;
+  /** Override API paths for remote entries */
+  stampApiPath?: string;
+  commentApiPath?: string;
+  /** External URL for "View on {domain}" link */
+  externalUrl?: string;
+  externalDomain?: string;
   onStampsChange?: (stamps: string[]) => void;
 }
 
@@ -48,6 +54,10 @@ export function FeedCardActions({
   isOwnEntry,
   isLoggedIn,
   isPlus,
+  stampApiPath,
+  commentApiPath,
+  externalUrl,
+  externalDomain,
   onStampsChange,
 }: FeedCardActionsProps) {
   const [commentPopupOpen, setCommentPopupOpen] = useState(false);
@@ -59,9 +69,11 @@ export function FeedCardActions({
   const [stamps, setStamps] = useState(initialStamps);
   const commentBtnRef = useRef<HTMLButtonElement>(null);
 
+  const commentsPath = commentApiPath ?? `/api/entries/${entryId}/comments`;
+
   const loadComments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/entries/${entryId}/comments`);
+      const res = await fetch(commentsPath);
       if (res.ok) {
         const { data } = await res.json();
         setComments(data ?? []);
@@ -70,7 +82,7 @@ export function FeedCardActions({
     } catch {
       // silent fail
     }
-  }, [entryId]);
+  }, [commentsPath]);
 
   function handleCommentToggle() {
     if (!commentPopupOpen) {
@@ -85,7 +97,7 @@ export function FeedCardActions({
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/entries/${entryId}/comments`, {
+      const res = await fetch(commentsPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body_html: `<p>${commentText}</p>` }),
@@ -116,14 +128,26 @@ export function FeedCardActions({
       className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-t relative"
       style={{ borderColor: "var(--border)" }}
     >
-      {/* Left: Read full entry */}
-      <Link
-        href={entryHref}
-        className="text-sm font-medium transition-colors hover:underline"
-        style={{ color: "var(--accent)" }}
-      >
-        Read &rarr;
-      </Link>
+      {/* Left: Read full entry or view on original instance */}
+      {externalUrl ? (
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium transition-colors hover:underline"
+          style={{ color: "var(--accent)" }}
+        >
+          {externalDomain ? `View on ${externalDomain}` : "View original"} &rarr;
+        </a>
+      ) : (
+        <Link
+          href={entryHref}
+          className="text-sm font-medium transition-colors hover:underline"
+          style={{ color: "var(--accent)" }}
+        >
+          Read &rarr;
+        </Link>
+      )}
 
       {/* Right: Comment + Stamp actions */}
       <div className="flex items-center gap-4">
@@ -289,6 +313,7 @@ export function FeedCardActions({
           isLoggedIn={isLoggedIn}
           isPlus={isPlus}
           compact
+          stampApiPath={stampApiPath}
           onStampChange={handleStampChange}
         />
       </div>

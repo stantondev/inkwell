@@ -102,4 +102,72 @@ defmodule Inkwell.Stamps do
       |> Map.new(fn {entry_id, stamp_type} -> {entry_id, Atom.to_string(stamp_type)} end)
     end
   end
+
+  # ── Remote entry stamps ──────────────────────────────────────────────────
+
+  @doc """
+  Create or update a stamp on a remote entry.
+  """
+  def stamp_remote_entry(user_id, remote_entry_id, stamp_type) do
+    case Repo.get_by(Stamp, user_id: user_id, remote_entry_id: remote_entry_id) do
+      nil ->
+        case %Stamp{}
+             |> Stamp.changeset(%{user_id: user_id, remote_entry_id: remote_entry_id, stamp_type: stamp_type})
+             |> Repo.insert() do
+          {:ok, stamp} -> {:ok, stamp, :created}
+          {:error, changeset} -> {:error, changeset}
+        end
+
+      existing ->
+        case existing
+             |> Stamp.changeset(%{stamp_type: stamp_type})
+             |> Repo.update() do
+          {:ok, stamp} -> {:ok, stamp, :updated}
+          {:error, changeset} -> {:error, changeset}
+        end
+    end
+  end
+
+  @doc """
+  Remove a user's stamp from a remote entry.
+  """
+  def remove_remote_stamp(user_id, remote_entry_id) do
+    case Repo.get_by(Stamp, user_id: user_id, remote_entry_id: remote_entry_id) do
+      nil -> {:error, :not_found}
+      stamp -> Repo.delete(stamp)
+    end
+  end
+
+  @doc """
+  Get stamp types for a list of remote entry IDs (batch query for explore feed).
+  Returns a map of remote_entry_id => [stamp_type_strings].
+  """
+  def get_stamp_types_for_remote_entries(remote_entry_ids) when is_list(remote_entry_ids) do
+    if remote_entry_ids == [] do
+      %{}
+    else
+      Stamp
+      |> where([s], s.remote_entry_id in ^remote_entry_ids)
+      |> select([s], {s.remote_entry_id, s.stamp_type})
+      |> distinct(true)
+      |> Repo.all()
+      |> Enum.group_by(fn {id, _} -> id end, fn {_, stamp_type} -> Atom.to_string(stamp_type) end)
+    end
+  end
+
+  @doc """
+  Get the current user's stamps across multiple remote entries (batch query for feed).
+  Returns a map of remote_entry_id => stamp_type_string.
+  """
+  def get_user_stamps_for_remote_entries(user_id, remote_entry_ids) when is_list(remote_entry_ids) do
+    if remote_entry_ids == [] do
+      %{}
+    else
+      Stamp
+      |> where([s], s.user_id == ^user_id and s.remote_entry_id in ^remote_entry_ids)
+      |> select([s], {s.remote_entry_id, s.stamp_type})
+      |> Repo.all()
+      |> Map.new(fn {id, stamp_type} -> {id, Atom.to_string(stamp_type)} end)
+    end
+  end
 end

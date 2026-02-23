@@ -173,6 +173,72 @@ defmodule Inkwell.Federation.ActivityBuilder do
     person
   end
 
+  # ── Federated interactions (stamps/comments on remote entries) ──────────
+
+  @doc """
+  Builds a Like activity for stamping a remote entry.
+  """
+  def build_like(remote_entry_ap_id, user) do
+    actor_url = actor_url(user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Like",
+      "id" => "#{actor_url}#like-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "object" => remote_entry_ap_id
+    }
+  end
+
+  @doc """
+  Builds an Undo { Like } activity for removing a stamp from a remote entry.
+  """
+  def build_undo_like(remote_entry_ap_id, user) do
+    actor_url = actor_url(user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Undo",
+      "id" => "#{actor_url}#undo-like-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "object" => %{
+        "type" => "Like",
+        "id" => "#{actor_url}#like-#{remote_entry_ap_id}",
+        "actor" => actor_url,
+        "object" => remote_entry_ap_id
+      }
+    }
+  end
+
+  @doc """
+  Builds a Create { Note } activity as a reply to a remote entry.
+  """
+  def build_reply_note(body_html, in_reply_to_ap_id, user, comment_id) do
+    actor_url = actor_url(user)
+    instance_host = federation_config(:instance_host)
+    comment_url = "https://#{instance_host}/comments/#{comment_id}"
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Create",
+      "id" => "#{comment_url}/activity",
+      "actor" => actor_url,
+      "published" => format_datetime(DateTime.utc_now()),
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"],
+      "object" => %{
+        "type" => "Note",
+        "id" => comment_url,
+        "attributedTo" => actor_url,
+        "content" => body_html,
+        "inReplyTo" => in_reply_to_ap_id,
+        "published" => format_datetime(DateTime.utc_now()),
+        "to" => [@public],
+        "cc" => ["#{actor_url}/followers"]
+      }
+    }
+  end
+
   # ── URL Helpers ──────────────────────────────────────────────────────────
 
   @doc """

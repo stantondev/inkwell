@@ -94,7 +94,10 @@ export function JournalFeed({
 
   // Build actions footer for an entry (if session is available)
   function renderActions(entry: JournalEntry) {
-    const entryHref = `/${entry.author.username}/${entry.slug ?? entry.id}`;
+    const isRemote = entry.source === "remote";
+    const entryHref = isRemote
+      ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
+      : `/${entry.author.username}/${entry.slug ?? entry.id}`;
     const isOwnEntry = session ? entry.author.id === session.userId : false;
 
     return (
@@ -107,6 +110,12 @@ export function JournalFeed({
         isOwnEntry={isOwnEntry}
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}
+        {...(isRemote ? {
+          stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
+          commentApiPath: `/api/remote-entries/${entry.id}/comments`,
+          externalUrl: entry.url,
+          externalDomain: entry.author.domain,
+        } : {})}
       />
     );
   }

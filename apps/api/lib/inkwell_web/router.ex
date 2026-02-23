@@ -169,6 +169,12 @@ defmodule InkwellWeb.Router do
     post "/billing/portal", BillingController, :portal
     get "/billing/status", BillingController, :status
 
+    # Remote entry interactions (federated)
+    post "/remote-entries/:id/stamp", RemoteEntryController, :stamp
+    delete "/remote-entries/:id/stamp", RemoteEntryController, :unstamp
+    get "/remote-entries/:id/comments", RemoteEntryController, :list_comments
+    post "/remote-entries/:id/comments", RemoteEntryController, :create_comment
+
     # Fediverse follow (requires auth)
     post "/search/fediverse/follow", SearchController, :fediverse_follow
 

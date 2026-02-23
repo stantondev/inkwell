@@ -12,6 +12,7 @@ defmodule Inkwell.Journals.Comment do
     field :depth, :integer, default: 0
 
     belongs_to :entry, Inkwell.Journals.Entry
+    belongs_to :remote_entry, Inkwell.Federation.RemoteEntry
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :parent_comment, Inkwell.Journals.Comment
     belongs_to :user_icon, Inkwell.Accounts.UserIcon
@@ -22,10 +23,22 @@ defmodule Inkwell.Journals.Comment do
 
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:body_html, :entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id])
-    |> validate_required([:body_html, :entry_id])
+    |> cast(attrs, [:body_html, :entry_id, :remote_entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id])
+    |> validate_required([:body_html])
+    |> validate_entry_target()
     |> validate_has_author()
     |> compute_depth()
+  end
+
+  defp validate_entry_target(changeset) do
+    entry_id = get_field(changeset, :entry_id)
+    remote_entry_id = get_field(changeset, :remote_entry_id)
+
+    if is_nil(entry_id) and is_nil(remote_entry_id) do
+      add_error(changeset, :entry_id, "either entry_id or remote_entry_id must be present")
+    else
+      changeset
+    end
   end
 
   defp validate_has_author(changeset) do
