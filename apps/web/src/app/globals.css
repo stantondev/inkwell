@@ -426,6 +426,18 @@ img, video, iframe, embed, object {
   overflow: hidden;
 }
 
+@media (min-height: 900px) {
+  .journal-body-fade {
+    max-height: 480px;
+  }
+}
+
+@media (min-height: 1100px) {
+  .journal-body-fade {
+    max-height: 640px;
+  }
+}
+
 .journal-body-fade::after {
   content: "";
   position: absolute;
@@ -480,6 +492,12 @@ img, video, iframe, embed, object {
 @media (min-width: 1280px) {
   .entry-wide {
     max-width: 64rem; /* 1024px */
+  }
+}
+
+@media (min-width: 1536px) {
+  .entry-wide {
+    max-width: 72rem; /* 1152px */
   }
 }
 

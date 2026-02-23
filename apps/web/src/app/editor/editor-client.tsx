@@ -446,7 +446,7 @@ export function EditorClient() {
       CharacterCount.configure({ limit: 100_000 }),
     ],
     editorProps: {
-      attributes: { class: "prose-entry focus:outline-none min-h-[55vh] py-6" },
+      attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
       handleDrop: (view, event, _slice, moved) => {
         if (moved || !event.dataTransfer?.files?.length) return false;
         const file = event.dataTransfer.files[0];
@@ -714,7 +714,7 @@ export function EditorClient() {
       {/* ── Top bar ──────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <NextLink href="/feed" className="text-sm flex-shrink-0 hover:underline transition-colors"
               style={{ color: "var(--muted)" }}>← Feed</NextLink>
@@ -752,7 +752,7 @@ export function EditorClient() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pb-24">
+      <main className="mx-auto max-w-4xl px-4 pb-24">
 
         {/* ── Title ────────────────────────────────────────── */}
         <div className="pt-10 pb-2">
@@ -826,7 +826,7 @@ export function EditorClient() {
                 setHtmlSource(e.target.value);
                 setHasContent(!!e.target.value.trim());
               }}
-              className="w-full min-h-[55vh] py-4 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              className="w-full min-h-[65vh] py-4 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
               style={{
                 fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
                 fontSize: "13px",

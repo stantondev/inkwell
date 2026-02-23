@@ -138,7 +138,7 @@ export function JournalFeed({
         role="region"
         aria-roledescription="journal"
         aria-label="Journal entries"
-        style={{ minHeight: "calc(100vh - 220px)" }}
+        style={{ minHeight: "calc(100vh - 160px)" }}
       >
         {pages.map((pageEntries, pageIndex) => (
           <div
