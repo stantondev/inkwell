@@ -4,15 +4,32 @@ defmodule InkwellWeb.FriendFilterController do
   alias Inkwell.Social
   alias Inkwell.Journals
 
+  @free_filter_limit 5
+
   def index(conn, _params) do
     filters = Social.list_friend_filters(conn.assigns.current_user.id)
     json(conn, %{data: Enum.map(filters, &render_filter_with_count/1)})
   end
 
   def create(conn, params) do
+    user = conn.assigns.current_user
+
+    if (user.subscription_tier || "free") != "plus" do
+      current_count = length(Social.list_friend_filters(user.id))
+      if current_count >= @free_filter_limit do
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "filter_limit_reached"})
+      else
+        do_create(conn, user, params)
+      end
+    else
+      do_create(conn, user, params)
+    end
+  end
+
+  defp do_create(conn, user, params) do
     attrs = Map.merge(
       Map.take(params, ["name", "member_ids"]),
-      %{"user_id" => conn.assigns.current_user.id}
+      %{"user_id" => user.id}
     )
 
     case Social.create_friend_filter(attrs) do

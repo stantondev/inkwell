@@ -3,6 +3,10 @@ defmodule InkwellWeb.EntryImageController do
 
   alias Inkwell.Journals
 
+  # Storage quota: free = 100 MB of base64, plus = 1 GB
+  @free_storage_limit 104_857_600
+  @plus_storage_limit 1_073_741_824
+
   # POST /api/images — upload an image (authenticated)
   def create(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
@@ -15,25 +19,34 @@ defmodule InkwellWeb.EntryImageController do
           |> put_status(:unprocessable_entity)
           |> json(%{error: "Image too large — max 4MB"})
         else
-          content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
+          limit = if (user.subscription_tier || "free") == "plus", do: @plus_storage_limit, else: @free_storage_limit
+          current_usage = Journals.get_total_image_storage(user.id)
 
-          attrs = %{
-            "data" => image_data,
-            "content_type" => content_type,
-            "byte_size" => byte_size(base64),
-            "user_id" => user.id
-          }
+          if current_usage + byte_size(base64) > limit do
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "storage_limit_exceeded"})
+          else
+            content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
 
-          case Journals.create_entry_image(attrs) do
-            {:ok, image} ->
-              conn
-              |> put_status(:created)
-              |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
+            attrs = %{
+              "data" => image_data,
+              "content_type" => content_type,
+              "byte_size" => byte_size(base64),
+              "user_id" => user.id
+            }
 
-            {:error, _changeset} ->
-              conn
-              |> put_status(:unprocessable_entity)
-              |> json(%{error: "Could not save image"})
+            case Journals.create_entry_image(attrs) do
+              {:ok, image} ->
+                conn
+                |> put_status(:created)
+                |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
+
+              {:error, _changeset} ->
+                conn
+                |> put_status(:unprocessable_entity)
+                |> json(%{error: "Could not save image"})
+            end
           end
         end
 

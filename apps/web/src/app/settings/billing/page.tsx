@@ -159,11 +159,12 @@ export default function BillingPage() {
             </p>
             <ul className="text-sm space-y-1.5" style={{ color: "var(--muted)" }}>
               {[
-                "Custom domain for your journal",
-                "Extended media storage",
-                "Advanced profile CSS/HTML theming",
-                "Priority support",
+                "1 GB image storage (Free: 100 MB)",
+                "Unlimited drafts (Free: 10 max)",
+                "Unlimited pen pal filters (Free: 5 max)",
+                "Advanced profile CSS & HTML theming",
                 "Plus badge on your profile",
+                "Priority support",
               ].map((item) => (
                 <li key={item} className="flex gap-2 items-start">
                   <span style={{ color: "var(--accent)" }} aria-hidden="true">✓</span>

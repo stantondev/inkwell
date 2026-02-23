@@ -98,7 +98,7 @@ export default function LandingPage() {
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
               <p className="text-3xl font-bold mb-4">$0</p>
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-                {["Unlimited public entries", "Per-entry privacy controls", "Pen Pal filters", "Top 6 pen pals", "RSS feed", "ActivityPub federation"].map((item) => (
+                {["Unlimited public entries", "Per-entry privacy controls", "Pen Pal filters (up to 5)", "Top 6 pen pals", "100 MB image storage", "Up to 10 drafts", "RSS feed", "ActivityPub federation"].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
                     <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
                     {item}
@@ -130,9 +130,11 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   "Everything in Free",
-                  "Custom domain",
-                  "Extended media storage",
-                  "Advanced profile CSS/HTML",
+                  "1 GB image storage",
+                  "Unlimited drafts",
+                  "Unlimited pen pal filters",
+                  "Advanced profile CSS & HTML",
+                  "Plus badge on your profile",
                   "Priority support",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">

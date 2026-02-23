@@ -419,7 +419,11 @@ export function EditorClient() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Upload failed");
+        const code = (err as { error?: string }).error;
+        if (code === "storage_limit_exceeded") {
+          throw new Error("You've reached the 100 MB image storage limit on the free plan. Upgrade to Inkwell Plus for 1 GB of storage.");
+        }
+        throw new Error(code ?? "Upload failed");
       }
       const { data } = await res.json();
       // Insert using the API URL (served from Phoenix backend)
@@ -616,7 +620,14 @@ export function EditorClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error("Save failed");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const code = (err as { error?: string }).error;
+          if (code === "draft_limit_reached") {
+            throw new Error("You've reached the 10 draft limit on the free plan. Upgrade to Inkwell Plus for unlimited drafts.");
+          }
+          throw new Error("Save failed");
+        }
         const data = await res.json();
         if (data.data?.id) {
           setSavedEntryId(data.data.id);
@@ -627,7 +638,9 @@ export function EditorClient() {
       }
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg && msg !== "Save failed") alert(msg);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }

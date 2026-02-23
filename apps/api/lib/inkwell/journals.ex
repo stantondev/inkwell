@@ -249,6 +249,14 @@ defmodule Inkwell.Journals do
 
   # ── Entry Images ─────────────────────────────────────────────────────────
 
+  @doc "Return the total stored byte_size for all entry images belonging to a user."
+  def get_total_image_storage(user_id) do
+    EntryImage
+    |> where(user_id: ^user_id)
+    |> Repo.aggregate(:sum, :byte_size)
+    |> Kernel.||(0)
+  end
+
   def create_entry_image(attrs) do
     %EntryImage{}
     |> EntryImage.changeset(attrs)

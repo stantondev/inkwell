@@ -331,7 +331,13 @@ export function FiltersManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, member_ids: memberIds }),
       });
-      if (!res.ok) throw new Error("Failed to create filter");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if ((body as { error?: string }).error === "filter_limit_reached") {
+          throw new Error("You've reached the 5 filter limit on the free plan. Upgrade to Inkwell Plus for unlimited friend filters.");
+        }
+        throw new Error("Failed to create filter");
+      }
       const { data } = await res.json();
       setFilters((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
       setCreating(false);

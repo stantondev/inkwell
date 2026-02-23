@@ -5,6 +5,8 @@ defmodule InkwellWeb.EntryController do
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
+  @free_draft_limit 10
+
   # GET /api/users/:username/entries — public listing
   def index(conn, %{"username" => username} = params) do
     with user when not is_nil(user) <- Accounts.get_user_by_username(username) do
@@ -119,6 +121,9 @@ defmodule InkwellWeb.EntryController do
     is_draft = params["status"] == "draft"
 
     if is_draft do
+      if (user.subscription_tier || "free") != "plus" && Journals.count_drafts(user.id) >= @free_draft_limit do
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "draft_limit_reached"})
+      else
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
@@ -136,6 +141,7 @@ defmodule InkwellWeb.EntryController do
           conn
           |> put_status(:unprocessable_entity)
           |> json(%{errors: format_errors(changeset)})
+      end
       end
     else
       attrs =
