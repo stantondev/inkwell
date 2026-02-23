@@ -8,6 +8,7 @@ import { PROFILE_FONTS } from "@/lib/profile-themes";
 import { scopeEntryHtml } from "@/lib/scope-styles";
 import { FollowButton } from "./follow-button";
 import { MusicPlayer } from "@/components/music-player";
+import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { EntryContent } from "@/components/entry-content";
 import { StampDisplay } from "@/components/stamp-display";
 import { Guestbook } from "./guestbook";
@@ -251,12 +252,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
       case "music":
         if (!profile.profile_music) return null;
         return (
-          <div key="music" className="rounded-xl border p-4" style={styles.surface}>
-            <h3 className="text-xs font-medium uppercase tracking-widest mb-2" style={{ color: styles.muted }}>
-              Now Playing
-            </h3>
-            <MusicPlayer music={profile.profile_music} />
-          </div>
+          <ProfileMusicWidget
+            key="music"
+            music={profile.profile_music}
+            surfaceStyle={styles.surface}
+            mutedColor={styles.muted}
+            borderColor={styles.border}
+          />
         );
       case "guestbook":
         return (

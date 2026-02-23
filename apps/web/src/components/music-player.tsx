@@ -12,7 +12,7 @@ export function MusicPlayer({ music }: { music: string | null }) {
 
   // Use compact heights for inline card context
   const compactHeight =
-    embed.service === "spotify" ? 80 :
+    embed.service === "spotify" ? 152 :
     embed.service === "youtube" ? 200 :
     152; // apple-music
 
