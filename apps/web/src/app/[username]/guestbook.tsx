@@ -107,7 +107,7 @@ export function Guestbook({
   }
 
   return (
-    <div className="rounded-xl border p-4" style={styles.surface}>
+    <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
       <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: styles.muted }}>
         Guestbook {total > 0 && <span className="normal-case font-normal">({total})</span>}
       </h3>

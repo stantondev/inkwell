@@ -61,6 +61,11 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Prevent media from overflowing containers */
+img, video, iframe, embed, object {
+  max-width: 100%;
+}
+
 /* ─── Prose styles for journal entries ─────────────────────────────────── */
 
 .prose-entry {
@@ -68,6 +73,8 @@ body {
   line-height: 1.85;
   font-size: 1.125rem;
   color: var(--ink);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .prose-entry h1,
@@ -263,6 +270,7 @@ body {
 .music-embed-container iframe {
   display: block;
   border-radius: 12px;
+  max-width: 100%;
 }
 
 /* ─── Stamp styles ───────────────────────────────────────────────────── */

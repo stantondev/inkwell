@@ -85,7 +85,7 @@ export function ProfileMusicWidget({
   }
 
   return (
-    <div className="rounded-xl border p-4" style={surfaceStyle}>
+    <div className="rounded-xl border p-3 sm:p-4" style={surfaceStyle}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
           <ServiceIcon service={embed.service} />

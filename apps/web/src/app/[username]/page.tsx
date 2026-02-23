@@ -92,7 +92,7 @@ function Avatar({ url, name, size = 80 }: { url: string | null; name: string; si
 function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[]; isOwnProfile: boolean; styles: ReturnType<typeof buildProfileStyles> }) {
   if (friends.length === 0 && !isOwnProfile) return null;
   return (
-    <div className="rounded-xl border p-4" style={styles.surface}>
+    <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-medium uppercase tracking-widest" style={{ color: styles.muted }}>
           Top Pen Pals
@@ -132,8 +132,8 @@ function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[
 function ProfileEntryCard({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ReturnType<typeof buildProfileStyles> }) {
   const href = `/${username}/${entry.slug ?? entry.id}`;
   return (
-    <article className="py-5 border-b last:border-0" style={{ borderColor: styles.border }}>
-      <div className="flex items-start justify-between gap-4 mb-2">
+    <article className="py-5 border-b last:border-0 overflow-hidden" style={{ borderColor: styles.border }}>
+      <div className="flex items-start justify-between gap-2 sm:gap-4 mb-2">
         <div className="flex-1 min-w-0">
           {entry.title && (
             <h2 className="text-lg font-semibold leading-snug mb-1"
@@ -273,7 +273,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
       case "custom_html":
         if (!customContent?.bodyHtml) return null;
         return (
-          <div key="custom_html" id={profileScopeId} className="rounded-xl border p-4 overflow-hidden" style={styles.surface}>
+          <div key="custom_html" id={profileScopeId} className="rounded-xl border p-3 sm:p-4 overflow-hidden" style={styles.surface}>
             {customContent.scopedStyles && (
               <style dangerouslySetInnerHTML={{ __html: customContent.scopedStyles }} />
             )}
@@ -311,7 +311,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         <style dangerouslySetInnerHTML={{ __html: customCss.scopedStyles }} />
       )}
 
-      <div id={profileScopeId} className={`mx-auto px-4 py-8 ${layout === "minimal" ? "max-w-2xl" : "max-w-6xl"}`}
+      <div id={profileScopeId} className={`mx-auto px-3 sm:px-4 py-8 overflow-hidden ${layout === "minimal" ? "max-w-2xl" : "max-w-6xl"}`}
         style={{ fontFamily: font?.family }}>
 
         {/* Profile header */}
@@ -392,13 +392,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 </div>
               ) : (
                 <div className="rounded-2xl border overflow-hidden" style={styles.surface}>
-                  <div className="px-5 divide-y" style={{ borderColor: styles.border }}>
+                  <div className="px-3 sm:px-5 divide-y" style={{ borderColor: styles.border }}>
                     {entries.map((entry) => (
                       <ProfileEntryCard key={entry.id} entry={entry} username={username} styles={styles} />
                     ))}
                   </div>
                   {entryCount > entries.length && (
-                    <div className="px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: styles.border }}>
+                    <div className="px-3 sm:px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: styles.border }}>
                       <span className="text-sm" style={{ color: styles.muted }}>
                         Showing {entries.length} of {entryCount}
                       </span>
@@ -415,7 +415,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {sidebarWidgetIds.map((id) => renderWidget(id))}
               {/* RSS */}
-              <div className="rounded-xl border p-4" style={styles.surface}>
+              <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
                 <h3 className="text-xs font-medium uppercase tracking-widest mb-2" style={{ color: styles.muted }}>Subscribe</h3>
                 <a href={`/api/users/${username}/feed.xml`}
                   className="flex items-center gap-2 text-sm hover:underline" style={{ color: styles.accent }}
@@ -443,13 +443,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 </div>
               ) : (
                 <div className="rounded-2xl border overflow-hidden" style={styles.surface}>
-                  <div className="px-5 divide-y" style={{ borderColor: styles.border }}>
+                  <div className="px-3 sm:px-5 divide-y" style={{ borderColor: styles.border }}>
                     {entries.map((entry) => (
                       <ProfileEntryCard key={entry.id} entry={entry} username={username} styles={styles} />
                     ))}
                   </div>
                   {entryCount > entries.length && (
-                    <div className="px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: styles.border }}>
+                    <div className="px-3 sm:px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: styles.border }}>
                       <span className="text-sm" style={{ color: styles.muted }}>
                         Showing {entries.length} of {entryCount}
                       </span>
@@ -466,7 +466,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         ) : (
           /* Classic (default) + Magazine: two-column */
           <div className="grid gap-8 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-            <section>
+            <section className="min-w-0">
               <h2 className="text-sm font-medium uppercase tracking-widest mb-4" style={{ color: styles.muted }}>
                 Journal entries
               </h2>
@@ -477,13 +477,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 </div>
               ) : (
                 <div className="rounded-2xl border overflow-hidden" style={styles.surface}>
-                  <div className="px-5 divide-y" style={{ borderColor: styles.border }}>
+                  <div className="px-3 sm:px-5 divide-y" style={{ borderColor: styles.border }}>
                     {entries.map((entry) => (
                       <ProfileEntryCard key={entry.id} entry={entry} username={username} styles={styles} />
                     ))}
                   </div>
                   {entryCount > entries.length && (
-                    <div className="px-5 py-4 border-t flex items-center justify-between"
+                    <div className="px-3 sm:px-5 py-4 border-t flex items-center justify-between"
                       style={{ borderColor: styles.border }}>
                       <span className="text-sm" style={{ color: styles.muted }}>
                         Showing {entries.length} of {entryCount}
@@ -498,9 +498,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
               )}
             </section>
 
-            <aside className="flex flex-col gap-6">
+            <aside className="flex flex-col gap-6 min-w-0">
               {sidebarWidgetIds.map((id) => renderWidget(id))}
-              <div className="rounded-xl border p-4" style={styles.surface}>
+              <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
                 <h3 className="text-xs font-medium uppercase tracking-widest mb-2" style={{ color: styles.muted }}>
                   Subscribe
                 </h3>
