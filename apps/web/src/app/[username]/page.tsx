@@ -311,7 +311,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         <style dangerouslySetInnerHTML={{ __html: customCss.scopedStyles }} />
       )}
 
-      <div id={profileScopeId} className={`mx-auto px-4 py-8 ${layout === "wide" ? "max-w-6xl" : layout === "minimal" ? "max-w-2xl" : "max-w-5xl"}`}
+      <div id={profileScopeId} className={`mx-auto px-4 py-8 ${layout === "minimal" ? "max-w-2xl" : "max-w-6xl"}`}
         style={{ fontFamily: font?.family }}>
 
         {/* Profile header */}
@@ -465,7 +465,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           </div>
         ) : (
           /* Classic (default) + Magazine: two-column */
-          <div className="grid gap-8 lg:grid-cols-[1fr_260px]">
+          <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
             <section>
               <h2 className="text-sm font-medium uppercase tracking-widest mb-4" style={{ color: styles.muted }}>
                 Journal entries
