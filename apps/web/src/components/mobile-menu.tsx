@@ -28,7 +28,7 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
         {!open && unreadNotificationCount > 0 && (
           <span
             className="absolute top-0 right-0 rounded-full"
-            style={{ background: "#ef4444", width: 8, height: 8 }}
+            style={{ background: "var(--danger)", width: 8, height: 8 }}
           />
         )}
         {open ? (
@@ -87,7 +87,7 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
                 <span
                   className="ml-auto rounded-full text-white font-bold flex items-center justify-center"
                   style={{
-                    background: "#ef4444",
+                    background: "var(--danger)",
                     fontSize: "10px",
                     minWidth: "18px",
                     height: "18px",

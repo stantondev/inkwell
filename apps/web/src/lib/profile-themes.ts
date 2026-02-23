@@ -14,7 +14,7 @@ export const PROFILE_THEMES: ProfileTheme[] = [
     id: "default",
     name: "Default",
     description: "Classic Inkwell look",
-    preview: "linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)",
+    preview: "linear-gradient(135deg, #f5f5f5 0%, #e8eef7 100%)",
     vars: {},
   },
   {

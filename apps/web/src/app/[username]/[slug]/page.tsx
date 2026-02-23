@@ -100,7 +100,7 @@ function getMoodHue(mood: string | null): number | null {
   if (/tired|exhaust|sleep|weary/.test(m)) return 210;
   if (/curios|wonder|intrigu/.test(m)) return 195;
   if (/love|affe|tender|warm/.test(m)) return 340;
-  return 265; // default violet
+  return 220; // default blue
 }
 
 export async function generateMetadata({ params }: EntryParams): Promise<Metadata> {

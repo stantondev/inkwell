@@ -8,14 +8,18 @@
   --border: #e7e5e4;
   --border-strong: #d6d3d1;
   --muted: #78716c;
-  --accent: #7c3aed;
-  --accent-light: #ede9fe;
-  --accent-dark: #5b21b6;
+  --accent: #2d4a8a;
+  --accent-light: #e8eef7;
+  --accent-dark: #1a2744;
   --success: #16a34a;
   --warning: #d97706;
   --danger: #dc2626;
   --ink: #292524;
   --serif: "Lora", "Georgia", serif;
+  --ink-midnight: #1a2744;
+  --ink-deep: #2d4a8a;
+  --ink-bright: #3b5ea6;
+  --ink-light: #e8eef7;
 }
 
 @theme inline {
@@ -43,9 +47,9 @@
     --border: #292524;
     --border-strong: #44403c;
     --muted: #a8a29e;
-    --accent: #a78bfa;
-    --accent-light: #1e1b4b;
-    --accent-dark: #c4b5fd;
+    --accent: #93b4f0;
+    --accent-light: #1a2744;
+    --accent-dark: #c4d8f8;
     --ink: #fafaf9;
   }
 }
@@ -210,17 +214,17 @@ img, video, iframe, embed, object {
   font-size: 0.8rem;
   font-weight: 500;
   font-family: var(--font-sans), system-ui, sans-serif;
-  background: hsl(var(--mood-hue, 265) 70% 94%);
-  color: hsl(var(--mood-hue, 265) 55% 38%);
-  border: 1px solid hsl(var(--mood-hue, 265) 55% 84%);
+  background: hsl(var(--mood-hue, 220) 70% 94%);
+  color: hsl(var(--mood-hue, 220) 55% 38%);
+  border: 1px solid hsl(var(--mood-hue, 220) 55% 84%);
   white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {
   .mood-pill {
-    background: hsl(var(--mood-hue, 265) 40% 18%);
-    color: hsl(var(--mood-hue, 265) 60% 72%);
-    border-color: hsl(var(--mood-hue, 265) 40% 28%);
+    background: hsl(var(--mood-hue, 220) 40% 18%);
+    color: hsl(var(--mood-hue, 220) 60% 72%);
+    border-color: hsl(var(--mood-hue, 220) 40% 28%);
   }
 }
 
@@ -244,7 +248,7 @@ img, video, iframe, embed, object {
   background:
     radial-gradient(
       ellipse 140% 55% at 50% -10%,
-      hsl(var(--mood-hue, 265) 60% 96%) 0%,
+      hsl(var(--mood-hue, 220) 60% 96%) 0%,
       transparent 65%
     );
 }
@@ -254,7 +258,7 @@ img, video, iframe, embed, object {
     background:
       radial-gradient(
         ellipse 140% 55% at 50% -10%,
-        hsl(var(--mood-hue, 265) 35% 9%) 0%,
+        hsl(var(--mood-hue, 220) 35% 9%) 0%,
         transparent 65%
       );
   }

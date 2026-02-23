@@ -90,9 +90,9 @@ const columnConfig = [
   {
     key: "planned" as const,
     label: "Planned",
-    headerBg: "#EDE9FE",
-    headerBorder: "#C4B5FD",
-    headerText: "#6D28D9",
+    headerBg: "#e8eef7",
+    headerBorder: "#93b4f0",
+    headerText: "#2d4a8a",
   },
   {
     key: "in_progress" as const,

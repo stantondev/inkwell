@@ -274,7 +274,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     {/* Tier */}
                     <td className="px-4 py-3 hidden sm:table-cell">
                       {user.subscription_tier === "plus" ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#f0e6ff", color: "#7c3aed" }}>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
                           Plus
                         </span>
                       ) : (

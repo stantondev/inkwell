@@ -125,7 +125,7 @@ export function DraftsList({ initialDrafts }: { initialDrafts: DraftEntry[] }) {
                     onClick={() => handleDelete(draft.id)}
                     disabled={isDeleting}
                     className="text-xs font-medium px-2 py-1 rounded transition-colors"
-                    style={{ background: "#ef4444", color: "#fff", opacity: isDeleting ? 0.6 : 1 }}
+                    style={{ background: "var(--danger)", color: "#fff", opacity: isDeleting ? 0.6 : 1 }}
                   >
                     {isDeleting ? "..." : "Delete"}
                   </button>

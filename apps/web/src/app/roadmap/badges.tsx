@@ -1,7 +1,7 @@
 const statusConfig: Record<string, { bg: string; border: string; text: string; label: string }> = {
   new: { bg: "transparent", border: "var(--border)", text: "var(--muted)", label: "New" },
   under_review: { bg: "#DBEAFE", border: "#93C5FD", text: "#1D4ED8", label: "Under Review" },
-  planned: { bg: "#EDE9FE", border: "#C4B5FD", text: "#6D28D9", label: "Planned" },
+  planned: { bg: "#e8eef7", border: "#93b4f0", text: "#2d4a8a", label: "Planned" },
   in_progress: { bg: "#FEF3C7", border: "#FCD34D", text: "#B45309", label: "In Progress" },
   done: { bg: "#D1FAE5", border: "#6EE7B7", text: "#047857", label: "Done" },
   declined: { bg: "#FEE2E2", border: "#FCA5A5", text: "#B91C1C", label: "Declined" },

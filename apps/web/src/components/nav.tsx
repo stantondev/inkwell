@@ -127,7 +127,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
                   <span
                     className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white font-bold"
                     style={{
-                      background: "#ef4444",
+                      background: "var(--danger)",
                       fontSize: "9px",
                       minWidth: "16px",
                       height: "16px",

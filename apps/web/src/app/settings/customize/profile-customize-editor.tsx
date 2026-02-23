@@ -313,7 +313,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={form.profile_accent_color || "#6366f1"}
+                value={form.profile_accent_color || "#2d4a8a"}
                 onChange={(e) => updateForm("profile_accent_color", e.target.value)}
                 className="w-8 h-8 rounded border cursor-pointer"
                 style={{ borderColor: "var(--border)" }}
@@ -322,7 +322,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                 type="text"
                 value={form.profile_accent_color}
                 onChange={(e) => updateForm("profile_accent_color", e.target.value)}
-                placeholder="#6366f1"
+                placeholder="#2d4a8a"
                 maxLength={7}
                 className={`${inputClass} flex-1`}
                 style={inputStyle}
