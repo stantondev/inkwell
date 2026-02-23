@@ -36,7 +36,7 @@ export default async function DraftsPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-3xl px-4 py-10">
+      <div className="mx-auto max-w-4xl px-4 py-10">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1

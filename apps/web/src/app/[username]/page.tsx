@@ -311,7 +311,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         <style dangerouslySetInnerHTML={{ __html: customCss.scopedStyles }} />
       )}
 
-      <div id={profileScopeId} className={`mx-auto px-3 sm:px-4 py-8 overflow-hidden ${layout === "minimal" ? "max-w-2xl" : "max-w-6xl"}`}
+      <div id={profileScopeId} className={`mx-auto px-3 sm:px-4 py-8 overflow-hidden ${layout === "minimal" ? "max-w-2xl" : "max-w-7xl"}`}
         style={{ fontFamily: font?.family }}>
 
         {/* Profile header */}

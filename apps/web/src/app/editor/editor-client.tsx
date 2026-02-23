@@ -714,7 +714,7 @@ export function EditorClient() {
       {/* ── Top bar ──────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <NextLink href="/feed" className="text-sm flex-shrink-0 hover:underline transition-colors"
               style={{ color: "var(--muted)" }}>← Feed</NextLink>
@@ -752,7 +752,7 @@ export function EditorClient() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 pb-24">
+      <main className="mx-auto max-w-3xl px-4 pb-24">
 
         {/* ── Title ────────────────────────────────────────── */}
         <div className="pt-10 pb-2">

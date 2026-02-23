@@ -195,7 +195,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="text-lg font-semibold mb-6">Search</h1>
 
         {/* Search input */}

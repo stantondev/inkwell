@@ -44,7 +44,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
   return (
     <header className="sticky top-0 z-40 border-b relative"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* Left: logo */}
         <InkwellLogo />
 

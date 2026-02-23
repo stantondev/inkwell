@@ -149,7 +149,7 @@ export function JournalFeed({
               /* Desktop: book spread with 2 entries + spine */
               <div
                 className="flex gap-0 h-full mx-auto"
-                style={{ maxWidth: "1400px" }}
+                style={{ maxWidth: "1600px" }}
               >
                 {/* Left page */}
                 <div className="flex-1 px-4 py-4 flex">

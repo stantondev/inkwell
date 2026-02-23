@@ -18,7 +18,7 @@ export default function LandingPage() {
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-4 pt-20 pb-16 text-center">
+      <section className="mx-auto max-w-6xl px-4 pt-20 pb-16 text-center">
         <div
           className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium mb-8 border"
           style={{
@@ -77,7 +77,7 @@ export default function LandingPage() {
         className="border-y py-16"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
-        <div className="mx-auto max-w-3xl px-4 text-center">
+        <div className="mx-auto max-w-4xl px-4 text-center">
           <h2
             className="text-3xl font-semibold mb-4"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
@@ -159,7 +159,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Product Showcase ─────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-4 py-20">
+      <section className="mx-auto max-w-6xl px-4 py-20">
         <p
           className="text-xs font-medium uppercase tracking-widest mb-8 text-center"
           style={{ color: "var(--muted)" }}
@@ -294,7 +294,7 @@ export default function LandingPage() {
         className="border-t py-16"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
-        <div className="mx-auto max-w-4xl px-4">
+        <div className="mx-auto max-w-5xl px-4">
           <h2
             className="text-3xl font-semibold text-center mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}

@@ -7,7 +7,7 @@ export function Footer() {
       style={{ borderColor: "var(--border)" }}
     >
       <div
-        className="mx-auto max-w-5xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm"
+        className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm"
         style={{ color: "var(--muted)" }}
       >
         <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600 }}>

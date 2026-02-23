@@ -159,7 +159,7 @@ export default async function RoadmapPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1

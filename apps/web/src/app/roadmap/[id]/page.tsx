@@ -101,7 +101,7 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8">
         {/* Back link */}
         <Link
           href="/roadmap"
