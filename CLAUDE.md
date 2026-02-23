@@ -517,3 +517,28 @@ npm run dev:web               # In another terminal
 - Ecto.Enum for status/type fields
 - `apiFetch()` for server components, regular `fetch()` for client components via API proxy routes
 - Next.js 16 uses `searchParams` and `params` as Promises in page components
+
+## Backlog & Workflow
+
+### Process
+- Bugs and features are submitted by users or @stanton at [/roadmap](https://inkwell.social/roadmap)
+- At the start of each work session, Claude fetches the roadmap and reconciles new items into this list
+- Priority order: data integrity bugs → broken UX flows → regressions → polish → features → ideas
+- After shipping each fix: update roadmap status to `done`, move item to Completed below, commit + deploy
+
+### Active Queue (prioritized)
+
+_(empty — all bugs shipped!)_
+
+### Ideas / Future (not yet scheduled)
+- Beta Participation program (under review, 10 votes)
+- Admin feedback triage — value & priority scoring for roadmap posts
+- Notify user when their feedback post receives comments or upvotes
+- Notify user when their feedback post status changes
+- Attach supporting details / screenshots to feedback posts
+
+### Recently Completed
+- **2026-02-23** — Follow button now shows correct state (following/pending/idle) for already-followed users. Moved `GET /api/users/:username` to `optional_auth` scope; returns `relationship_status` in meta when authenticated.
+- **2026-02-23** — Fixed comment duplicate submission. Added `useRef` synchronous guard to both feed card popup and entry detail comment forms. Added error feedback to feed card comment popup.
+- **2026-02-23** — Fixed whitespace around video embeds. Added `margin: 0; border: none` to `.music-embed-container iframe` CSS.
+- **2026-02-23** — Fixed Comic Sans rendering instead of cursive. Reordered font stack to `cursive, 'Comic Sans MS'` and renamed option to "Cursive".
