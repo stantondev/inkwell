@@ -206,34 +206,36 @@ export default function BrandPage() {
           </h2>
 
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: "var(--surface)" }}>
-                  <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)" }}>Use Case</th>
-                  <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)", width: "110px" }}>Permitted?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {([
-                  ["Blog post saying \u201cI moved from Mastodon to Inkwell\u201d", true, "Yes"],
-                  ["Conference talk about the Inkwell architecture", true, "Yes"],
-                  ["Linking to inkwell.social with the Inkwell logo", true, "Yes"],
-                  ["\u201cCompatible with Inkwell\u201d on your ActivityPub app", true, "Yes"],
-                  ["Running a fork and calling it \u201cInkwell\u201d", false, "No"],
-                  ["Running a fork called \u201cMyJournal, based on Inkwell\u201d", true, "Yes, with attribution"],
-                  ["Selling \u201cInkwell\u201d branded stickers", false, "Requires permission"],
-                  ["Registering inkwell-hosting.com", false, "Requires permission"],
-                  ["Using the Inkwell logo in your own app\u2019s logo", false, "Never"],
-                ] as [string, boolean, string][]).map(([useCase, ok, label]) => (
-                  <tr key={useCase} className="border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
-                    <td className="px-4 py-2.5">{useCase}</td>
-                    <td className="px-4 py-2.5 font-medium" style={{ color: ok ? "var(--success, #16a34a)" : "var(--danger, #dc2626)" }}>
-                      {label}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
+                <thead>
+                  <tr style={{ background: "var(--surface)" }}>
+                    <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)" }}>Use Case</th>
+                    <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)", width: "110px" }}>Permitted?</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {([
+                    ["Blog post saying \u201cI moved from Mastodon to Inkwell\u201d", true, "Yes"],
+                    ["Conference talk about the Inkwell architecture", true, "Yes"],
+                    ["Linking to inkwell.social with the Inkwell logo", true, "Yes"],
+                    ["\u201cCompatible with Inkwell\u201d on your ActivityPub app", true, "Yes"],
+                    ["Running a fork and calling it \u201cInkwell\u201d", false, "No"],
+                    ["Running a fork called \u201cMyJournal, based on Inkwell\u201d", true, "Yes, with attribution"],
+                    ["Selling \u201cInkwell\u201d branded stickers", false, "Requires permission"],
+                    ["Registering inkwell-hosting.com", false, "Requires permission"],
+                    ["Using the Inkwell logo in your own app\u2019s logo", false, "Never"],
+                  ] as [string, boolean, string][]).map(([useCase, ok, label]) => (
+                    <tr key={useCase} className="border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                      <td className="px-4 py-2.5">{useCase}</td>
+                      <td className="px-4 py-2.5 font-medium" style={{ color: ok ? "var(--success, #16a34a)" : "var(--danger, #dc2626)" }}>
+                        {label}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 

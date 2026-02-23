@@ -112,8 +112,8 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
         </Link>
 
         {/* Post header */}
-        <div className="rounded-xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <div className="flex items-start gap-4">
+        <div className="rounded-xl border p-4 sm:p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <div className="flex items-start gap-3 sm:gap-4">
             {/* Upvote */}
             <UpvoteButton
               postId={post.id}

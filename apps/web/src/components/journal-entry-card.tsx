@@ -57,7 +57,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
   return (
     <JournalPage corner edge className="flex flex-col h-full">
       {/* Top section */}
-      <div className="p-6 lg:p-8 flex-1 flex flex-col relative">
+      <div className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col relative">
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
@@ -81,7 +81,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
         {/* Title */}
         {entry.title && (
           <h2
-            className="text-2xl font-bold mb-4 leading-snug pr-20"
+            className="text-2xl font-bold mb-4 leading-snug pr-12 sm:pr-20"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
             <Link href={href} className="hover:underline">
@@ -127,7 +127,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               )}
               {entry.music && (
                 <span
-                  className="text-xs truncate max-w-[160px]"
+                  className="text-xs truncate max-w-[100px] sm:max-w-[160px]"
                   style={{ color: "var(--muted)" }}
                 >
                   ♪ {entry.music}
@@ -172,7 +172,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
       {/* Footer — either custom actions or static default */}
       {actions ?? (
         <div
-          className="flex items-center justify-between px-6 lg:px-8 py-4 border-t"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 px-4 sm:px-6 lg:px-8 py-4 border-t"
           style={{ borderColor: "var(--border)" }}
         >
           <Link

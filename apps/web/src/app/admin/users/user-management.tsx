@@ -187,12 +187,12 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
             Search
           </button>
         </form>
-        <div className="flex gap-1 rounded-lg border p-1" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="flex flex-wrap gap-1 rounded-lg border p-1" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
           {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+              className="px-2 sm:px-3 py-1 rounded-md text-xs font-medium transition-colors"
               style={{
                 background: filter === f.key ? "var(--accent)" : "transparent",
                 color: filter === f.key ? "white" : "var(--muted)",
@@ -228,10 +228,10 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                 <tr className="border-b" style={{ borderColor: "var(--border)" }}>
                   <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>User</th>
                   <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Email</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Role</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Tier</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Role</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Tier</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: "var(--muted)" }}>Joined</th>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Status</th>
+                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: "var(--muted)" }}>Status</th>
                   <th className="px-4 py-3 font-medium text-right" style={{ color: "var(--muted)" }}>Actions</th>
                 </tr>
               </thead>
@@ -261,7 +261,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     </td>
 
                     {/* Role */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       {user.is_admin ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--accent)", color: "white" }}>
                           Admin{user.is_env_admin ? " *" : ""}
@@ -272,7 +272,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     </td>
 
                     {/* Tier */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       {user.subscription_tier === "plus" ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#f0e6ff", color: "#7c3aed" }}>
                           Plus
@@ -288,7 +288,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     </td>
 
                     {/* Status */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       {user.blocked_at ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#fef2f2", color: "#dc2626" }}>
                           Blocked
@@ -301,7 +301,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     {/* Actions */}
                     <td className="px-4 py-3">
                       {user.id !== currentUserId && (
-                        <div className="flex items-center gap-1 justify-end">
+                        <div className="flex flex-wrap items-center gap-1 justify-end">
                           {/* Admin toggle */}
                           {user.is_admin && !user.is_env_admin ? (
                             <ActionButton

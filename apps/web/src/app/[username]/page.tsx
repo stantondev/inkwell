@@ -142,7 +142,7 @@ function ProfileEntryCard({ entry, username, styles }: { entry: ProfileEntry; us
             </h2>
           )}
           {(entry.mood || entry.music) && (
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2 text-xs" style={{ color: styles.muted }}>
+            <div className="flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-0.5 mb-2 text-xs" style={{ color: styles.muted }}>
               {entry.mood && <span><span className="font-medium" style={{ color: styles.foreground }}>mood:</span> {entry.mood}</span>}
               {entry.music && <span><span className="font-medium" style={{ color: styles.foreground }}>♪</span> {entry.music}</span>}
             </div>
@@ -325,7 +325,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   ? `linear-gradient(135deg, ${profile.profile_accent_color}33 0%, ${styles.surface.background} 100%)`
                   : `linear-gradient(135deg, var(--accent-light) 0%, var(--surface-hover) 100%)`,
             }} />
-          <div className="px-6 pb-6">
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="-mt-10 mb-4 flex items-end justify-between">
               <div className="rounded-full p-1" style={{ background: styles.surface.background }}>
                 <Avatar url={profile.avatar_url} name={profile.display_name} size={80} />
@@ -367,7 +367,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             )}
 
             {profile.bio && (
-              <p className="text-sm leading-relaxed mb-4" style={{ maxWidth: 520 }}>{profile.bio}</p>
+              <p className="text-sm leading-relaxed mb-4 max-w-prose">{profile.bio}</p>
             )}
 
             <div className="flex gap-5 text-sm" style={{ color: styles.muted }}>
@@ -465,7 +465,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           </div>
         ) : (
           /* Classic (default) + Magazine: two-column */
-          <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+          <div className="grid gap-8 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
             <section>
               <h2 className="text-sm font-medium uppercase tracking-widest mb-4" style={{ color: styles.muted }}>
                 Journal entries

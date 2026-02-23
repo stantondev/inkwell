@@ -32,7 +32,7 @@ export default function LandingPage() {
         </div>
 
         <h1
-          className="text-5xl sm:text-6xl font-semibold leading-tight tracking-tight mb-6"
+          className="text-3xl sm:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight mb-6"
           style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
         >
           Your journal.
@@ -43,7 +43,7 @@ export default function LandingPage() {
         </h1>
 
         <p
-          className="max-w-xl mx-auto text-lg leading-relaxed mb-10"
+          className="max-w-xl mx-auto text-base sm:text-lg leading-relaxed mb-10"
           style={{ color: "var(--muted)" }}
         >
           Inkwell is a federated social journaling platform — the richness of
@@ -93,7 +93,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-stretch sm:items-start">
             {/* Free tier */}
             <div
-              className="flex-1 max-w-xs rounded-2xl border p-6 text-left"
+              className="w-full sm:flex-1 sm:max-w-xs rounded-2xl border p-5 sm:p-6 text-left"
               style={{ borderColor: "var(--border)", background: "var(--background)" }}
             >
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
@@ -116,7 +116,7 @@ export default function LandingPage() {
             </div>
             {/* Plus tier */}
             <div
-              className="flex-1 max-w-xs rounded-2xl border-2 p-6 text-left relative overflow-hidden"
+              className="w-full sm:flex-1 sm:max-w-xs rounded-2xl border-2 p-5 sm:p-6 text-left relative overflow-hidden"
               style={{ borderColor: "var(--accent)", background: "var(--background)" }}
             >
               <div className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-xs font-medium"

@@ -567,7 +567,7 @@ export function NotificationList({
                           handleRowClick(n);
                         }
                       }}
-                      className={`flex items-start gap-3 px-5 py-4 transition-colors ${
+                      className={`flex items-start gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors ${
                         i < group.items.length - 1 ? "border-b" : ""
                       } ${isClickable && !isPendingFollowRequest ? "cursor-pointer hover:brightness-95" : ""}`}
                       style={{
@@ -642,7 +642,7 @@ export function NotificationList({
                           <a
                             href={entryHref}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-xs mt-1 inline-block hover:underline truncate max-w-[300px]"
+                            className="text-xs mt-1 inline-block hover:underline truncate max-w-[200px] sm:max-w-[300px]"
                             style={{ color: "var(--accent)" }}
                           >
                             {n.entry.title || "Untitled entry"} {"\u2192"}

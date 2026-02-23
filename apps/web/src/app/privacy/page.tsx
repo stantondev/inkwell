@@ -106,29 +106,31 @@ export default function PrivacyPage() {
           <p>We use the information we collect for the following purposes:</p>
 
           <div className="mt-4 rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: "var(--surface)" }}>
-                  <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)", width: "30%" }}>Purpose</th>
-                  <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)" }}>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ["Provide the Service", "To operate, maintain, and deliver Inkwell\u2019s features, including hosting and displaying your journal entries, managing your account, and facilitating federation."],
-                  ["Process payments", "To process your Inkwell Plus subscription through our payment processor."],
-                  ["Communicate with you", "To send service-related notifications (e.g., account verification, security alerts, billing confirmations) and respond to support inquiries."],
-                  ["Improve the Service", "To analyze usage patterns, troubleshoot issues, and improve the performance and reliability of the platform."],
-                  ["Enforce our Terms", "To detect and prevent abuse, spam, fraud, and violations of our Terms of Service and Acceptable Use Policy."],
-                  ["Legal compliance", "To comply with applicable legal obligations, legal processes, or enforceable governmental requests."],
-                ].map(([purpose, desc]) => (
-                  <tr key={purpose} className="border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
-                    <td className="px-4 py-2.5 font-medium align-top">{purpose}</td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--muted)" }}>{desc}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
+                <thead>
+                  <tr style={{ background: "var(--surface)" }}>
+                    <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)", width: "30%" }}>Purpose</th>
+                    <th className="text-left px-4 py-2.5 font-semibold border-b" style={{ borderColor: "var(--border)" }}>Description</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[
+                    ["Provide the Service", "To operate, maintain, and deliver Inkwell\u2019s features, including hosting and displaying your journal entries, managing your account, and facilitating federation."],
+                    ["Process payments", "To process your Inkwell Plus subscription through our payment processor."],
+                    ["Communicate with you", "To send service-related notifications (e.g., account verification, security alerts, billing confirmations) and respond to support inquiries."],
+                    ["Improve the Service", "To analyze usage patterns, troubleshoot issues, and improve the performance and reliability of the platform."],
+                    ["Enforce our Terms", "To detect and prevent abuse, spam, fraud, and violations of our Terms of Service and Acceptable Use Policy."],
+                    ["Legal compliance", "To comply with applicable legal obligations, legal processes, or enforceable governmental requests."],
+                  ].map(([purpose, desc]) => (
+                    <tr key={purpose} className="border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                      <td className="px-4 py-2.5 font-medium align-top">{purpose}</td>
+                      <td className="px-4 py-2.5" style={{ color: "var(--muted)" }}>{desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="mt-4 rounded-xl border p-4" style={{ borderColor: "var(--accent)", background: "var(--accent-light)" }}>

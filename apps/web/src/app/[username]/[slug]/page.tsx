@@ -170,7 +170,7 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
-        <div className="entry-wide px-4 lg:px-12 pt-10 pb-12">
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12">
 
           {/* Nav row */}
           <div className="flex items-center justify-between mb-10">
@@ -202,7 +202,7 @@ export default async function EntryPage({ params }: EntryParams) {
           {/* Title */}
           {entry.title && (
             <h1
-              className="text-4xl font-bold leading-tight mb-7"
+              className="text-2xl sm:text-4xl font-bold leading-tight mb-7"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
             >
               {entry.title}

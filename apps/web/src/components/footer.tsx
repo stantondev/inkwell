@@ -13,7 +13,7 @@ export function Footer() {
         <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600 }}>
           inkwell
         </span>
-        <div className="flex gap-5">
+        <div className="flex flex-wrap gap-3 sm:gap-5">
           <Link href="/terms" className="hover:underline">Terms</Link>
           <Link href="/privacy" className="hover:underline">Privacy</Link>
           <Link href="/brand" className="hover:underline">Brand</Link>

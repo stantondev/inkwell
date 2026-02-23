@@ -748,14 +748,14 @@ export function EditorClient() {
             value={state.title}
             onChange={(e) => update({ title: e.target.value })}
             placeholder="Title (optional)"
-            className="w-full bg-transparent text-4xl font-bold focus:outline-none placeholder:opacity-25"
+            className="w-full bg-transparent text-2xl sm:text-4xl font-bold focus:outline-none placeholder:opacity-25"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
             aria-label="Entry title"
           />
         </div>
 
         {/* ── Mood + music strip ────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-4 py-3 mb-1 border-b"
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 py-3 mb-1 border-b"
           style={{ borderColor: "var(--border)" }}>
           <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
           <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>

@@ -113,7 +113,7 @@ export function FeedCardActions({
 
   return (
     <div
-      className="flex items-center justify-between px-6 lg:px-8 py-3 border-t relative"
+      className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-t relative"
       style={{ borderColor: "var(--border)" }}
     >
       {/* Left: Read full entry */}

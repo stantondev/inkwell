@@ -33,11 +33,10 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
 
   const emptyState = (
     <div
-      className="rounded-2xl border p-12 text-center mx-auto"
+      className="rounded-2xl border p-8 sm:p-12 text-center mx-auto max-w-sm sm:max-w-md"
       style={{
         borderColor: "var(--border)",
         background: "var(--surface)",
-        maxWidth: "480px",
       }}
     >
       <p

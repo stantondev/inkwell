@@ -265,7 +265,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
       {/* Colors */}
       <Section title="Colors" defaultOpen={false}>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>Background</label>
             <div className="flex items-center gap-2">
@@ -565,7 +565,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Save Button */}
-      <div className="flex items-center gap-4 pt-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 pt-2">
         <button
           type="button"
           onClick={handleSave}
