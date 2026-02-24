@@ -166,7 +166,7 @@ defmodule InkwellWeb.FeedbackController do
           conn |> put_status(:not_found) |> json(%{error: "Post not found"})
 
         post ->
-          attrs = Map.take(params, ["status", "admin_response", "release_note"])
+          attrs = Map.take(params, ["status", "admin_response", "release_note", "priority", "value_score"])
 
           old_status = to_string(post.status)
 
@@ -344,6 +344,8 @@ defmodule InkwellWeb.FeedbackController do
       completed_at: post.completed_at,
       vote_count: post.vote_count,
       comment_count: post.comment_count,
+      priority: post.priority,
+      value_score: post.value_score,
       voted: voted,
       author: author,
       created_at: post.inserted_at,

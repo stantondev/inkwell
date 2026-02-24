@@ -21,6 +21,8 @@ interface FeedbackPost {
   completed_at: string | null;
   vote_count: number;
   comment_count: number;
+  priority: string | null;
+  value_score: number | null;
   voted: boolean;
   author: {
     id: string | null;
@@ -236,6 +238,8 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
               currentStatus={post.status}
               currentResponse={post.admin_response}
               currentReleaseNote={post.release_note}
+              currentPriority={post.priority}
+              currentValueScore={post.value_score}
             />
           </div>
         )}

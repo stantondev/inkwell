@@ -13,6 +13,8 @@ defmodule Inkwell.Feedback.FeedbackPost do
     field :admin_response, :string
     field :release_note, :string
     field :completed_at, :utc_datetime_usec
+    field :priority, Ecto.Enum, values: [:low, :medium, :high, :critical]
+    field :value_score, :integer
     field :vote_count, :integer, default: 0
     field :comment_count, :integer, default: 0
 
@@ -34,10 +36,12 @@ defmodule Inkwell.Feedback.FeedbackPost do
 
   def admin_changeset(post, attrs) do
     post
-    |> cast(attrs, [:status, :admin_response, :release_note])
+    |> cast(attrs, [:status, :admin_response, :release_note, :priority, :value_score])
     |> validate_inclusion(:status, [:new, :under_review, :planned, :in_progress, :done, :declined])
     |> validate_length(:admin_response, max: 5000)
     |> validate_length(:release_note, max: 5000)
+    |> validate_inclusion(:priority, [:low, :medium, :high, :critical], allow_nil: true)
+    |> validate_number(:value_score, greater_than_or_equal_to: 1, less_than_or_equal_to: 5, allow_nil: true)
     |> maybe_set_completed_at()
   end
 

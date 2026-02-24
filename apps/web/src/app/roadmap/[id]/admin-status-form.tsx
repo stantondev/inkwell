@@ -8,7 +8,17 @@ interface AdminStatusFormProps {
   currentStatus: string;
   currentResponse: string | null;
   currentReleaseNote: string | null;
+  currentPriority: string | null;
+  currentValueScore: number | null;
 }
+
+const priorities = [
+  { value: "", label: "— None —" },
+  { value: "low", label: "Low", color: "#6B7280" },
+  { value: "medium", label: "Medium", color: "#D97706" },
+  { value: "high", label: "High", color: "#EA580C" },
+  { value: "critical", label: "Critical", color: "#DC2626" },
+];
 
 const statuses = [
   { value: "new", label: "New" },
@@ -19,11 +29,13 @@ const statuses = [
   { value: "declined", label: "Declined" },
 ];
 
-export function AdminStatusForm({ postId, currentStatus, currentResponse, currentReleaseNote }: AdminStatusFormProps) {
+export function AdminStatusForm({ postId, currentStatus, currentResponse, currentReleaseNote, currentPriority, currentValueScore }: AdminStatusFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState(currentStatus);
   const [adminResponse, setAdminResponse] = useState(currentResponse ?? "");
   const [releaseNote, setReleaseNote] = useState(currentReleaseNote ?? "");
+  const [priority, setPriority] = useState(currentPriority ?? "");
+  const [valueScore, setValueScore] = useState<string>(currentValueScore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -40,6 +52,8 @@ export function AdminStatusForm({ postId, currentStatus, currentResponse, curren
           status,
           admin_response: adminResponse.trim() || null,
           release_note: releaseNote.trim() || null,
+          priority: priority || null,
+          value_score: valueScore ? parseInt(valueScore, 10) : null,
         }),
       });
 
@@ -87,6 +101,51 @@ export function AdminStatusForm({ postId, currentStatus, currentResponse, curren
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Triage row: Priority + Value Score */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>
+            Priority
+          </label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--background)",
+              color: priority ? (priorities.find(p => p.value === priority)?.color ?? "var(--foreground)") : "var(--muted)",
+            }}
+          >
+            {priorities.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="w-32">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>
+            Value (1–5)
+          </label>
+          <select
+            value={valueScore}
+            onChange={(e) => setValueScore(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+            }}
+          >
+            <option value="">—</option>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div>
