@@ -9,6 +9,18 @@ defmodule Inkwell.Release do
 
   @app :inkwell
 
+  def check_db do
+    load_app()
+
+    for repo <- repos() do
+      {:ok, _, _} = Ecto.Migrator.with_repo(repo, fn repo ->
+        Ecto.Adapters.SQL.query!(repo, "SELECT 1")
+      end)
+    end
+
+    :ok
+  end
+
   def migrate do
     load_app()
 
