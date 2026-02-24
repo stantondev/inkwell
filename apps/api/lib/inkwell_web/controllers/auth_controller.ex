@@ -10,62 +10,58 @@ defmodule InkwellWeb.AuthController do
     terms_accepted = params["terms_accepted"] == true
     existing_user = Accounts.get_user_by_email(email)
 
-    # Turnstile is only checked for new accounts.
-    # The login page has no widget, so existing users are never asked.
-    case verify_turnstile_for_new_user(params["turnstile_token"], existing_user, conn) do
-      {:error, reason} ->
-        conn |> put_status(:unprocessable_entity) |> json(%{error: reason})
+    # Turnstile is only checked for new accounts — logs warnings but always
+    # fails open so users aren't blocked by verification issues.
+    verify_turnstile_for_new_user(params["turnstile_token"], existing_user, conn)
 
-      :ok ->
-        # New user must accept terms
-        if is_nil(existing_user) && !terms_accepted do
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
-        else
-          user =
-            case existing_user do
-              nil ->
-                username = derive_username(email)
-                {:ok, new_user} = Accounts.create_user(%{
-                  email: email,
-                  username: unique_username(username),
-                  display_name: username
-                })
-                {:ok, new_user} = Accounts.set_terms_accepted(new_user)
-                new_user
+    # New user must accept terms
+    if is_nil(existing_user) && !terms_accepted do
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+    else
+      user =
+        case existing_user do
+          nil ->
+            username = derive_username(email)
+            {:ok, new_user} = Accounts.create_user(%{
+              email: email,
+              username: unique_username(username),
+              display_name: username
+            })
+            {:ok, new_user} = Accounts.set_terms_accepted(new_user)
+            new_user
 
-              existing ->
-                # Record terms acceptance for existing user if not already set
-                if terms_accepted && is_nil(existing.terms_accepted_at) do
-                  {:ok, updated} = Accounts.set_terms_accepted(existing)
-                  updated
-                else
-                  existing
-                end
+          existing ->
+            # Record terms acceptance for existing user if not already set
+            if terms_accepted && is_nil(existing.terms_accepted_at) do
+              {:ok, updated} = Accounts.set_terms_accepted(existing)
+              updated
+            else
+              existing
             end
-
-          # Create token in Postgres
-          token = Auth.create_magic_link_token(user.id)
-
-          # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
-          magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
-
-          # Send the email (or fall back to dev mode if no API key)
-          case Inkwell.Email.send_magic_link(email, magic_link) do
-            {:ok, :sent} ->
-              json(conn, %{ok: true})
-
-            {:ok, :no_email_configured, _link} ->
-              # No email service configured — return the link directly for dev/testing
-              json(conn, %{ok: true, dev_magic_link: magic_link})
-
-            {:error, _reason} ->
-              # Email sending failed — fall back to showing the magic link directly
-              # so the user isn't locked out. They can click it to sign in.
-              json(conn, %{ok: true, dev_magic_link: magic_link})
-          end
         end
+
+      # Create token in Postgres
+      token = Auth.create_magic_link_token(user.id)
+
+      # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
+      magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
+
+      # Send the email (or fall back to dev mode if no API key)
+      case Inkwell.Email.send_magic_link(email, magic_link) do
+        {:ok, :sent} ->
+          json(conn, %{ok: true})
+
+        {:ok, :no_email_configured, _link} ->
+          # No email service configured — return the link directly for dev/testing
+          json(conn, %{ok: true, dev_magic_link: magic_link})
+
+        {:error, _reason} ->
+          # Email sending failed — fall back to showing the magic link directly
+          # so the user isn't locked out. They can click it to sign in.
+          json(conn, %{ok: true, dev_magic_link: magic_link})
+      end
     end
   end
 
@@ -202,12 +198,27 @@ defmodule InkwellWeb.AuthController do
              ) do
           {:ok, {{_, 200, _}, _, resp_body}} ->
             case Jason.decode(to_string(resp_body)) do
-              {:ok, %{"success" => true}} -> :ok
-              _ -> {:error, "Human verification failed. Please try again."}
+              {:ok, %{"success" => true}} ->
+                :ok
+
+              {:ok, %{"success" => false, "error-codes" => error_codes}} ->
+                require Logger
+                Logger.warning("Turnstile verification failed: #{inspect(error_codes)} ip=#{remote_ip}")
+                # Fail open — token may have expired or browser fingerprint mismatch
+                # (common in Firefox private windows). Rate limiter provides baseline protection.
+                :ok
+
+              {:ok, other} ->
+                require Logger
+                Logger.warning("Turnstile unexpected response: #{inspect(other)} ip=#{remote_ip}")
+                :ok
             end
 
-          _ ->
-            {:error, "Human verification failed. Please try again."}
+          {:error, reason} ->
+            require Logger
+            Logger.error("Turnstile HTTP request failed: #{inspect(reason)}")
+            # Fail open on network errors — don't block users because we can't reach Cloudflare
+            :ok
         end
     end
   end
