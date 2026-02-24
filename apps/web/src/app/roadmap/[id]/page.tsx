@@ -23,6 +23,7 @@ interface FeedbackPost {
   comment_count: number;
   priority: string | null;
   value_score: number | null;
+  attachment_ids: string[];
   voted: boolean;
   author: {
     id: string | null;
@@ -143,6 +144,23 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
               <div className="text-sm leading-relaxed whitespace-pre-wrap mb-4">
                 {post.body}
               </div>
+
+              {/* Attachments */}
+              {post.attachment_ids && post.attachment_ids.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {post.attachment_ids.map((id) => (
+                    <a key={id} href={`/api/images/${id}`} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/images/${id}`}
+                        alt="Screenshot"
+                        className="rounded-lg border object-cover"
+                        style={{ maxHeight: 200, maxWidth: "100%", borderColor: "var(--border)" }}
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
 
               {/* Author + time */}
               <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>

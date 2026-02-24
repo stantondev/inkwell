@@ -15,6 +15,7 @@ defmodule Inkwell.Feedback.FeedbackPost do
     field :completed_at, :utc_datetime_usec
     field :priority, Ecto.Enum, values: [:low, :medium, :high, :critical]
     field :value_score, :integer
+    field :attachment_ids, {:array, :string}, default: []
     field :vote_count, :integer, default: 0
     field :comment_count, :integer, default: 0
 
@@ -27,7 +28,7 @@ defmodule Inkwell.Feedback.FeedbackPost do
 
   def changeset(post, attrs) do
     post
-    |> cast(attrs, [:title, :body, :category, :user_id])
+    |> cast(attrs, [:title, :body, :category, :user_id, :attachment_ids])
     |> validate_required([:title, :body, :category, :user_id])
     |> validate_length(:title, min: 3, max: 200)
     |> validate_length(:body, min: 10, max: 5000)

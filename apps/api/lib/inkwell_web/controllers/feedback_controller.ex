@@ -128,11 +128,27 @@ defmodule InkwellWeb.FeedbackController do
   def create(conn, params) do
     user = conn.assigns.current_user
 
+    # Validate any submitted image_ids belong to the current user (max 3)
+    raw_ids = (params["image_ids"] || []) |> Enum.take(3)
+
+    attachment_ids =
+      if raw_ids != [] do
+        import Ecto.Query
+
+        Inkwell.Journals.EntryImage
+        |> Ecto.Query.where([i], i.id in ^raw_ids and i.user_id == ^user.id)
+        |> Ecto.Query.select([i], i.id)
+        |> Inkwell.Repo.all()
+      else
+        []
+      end
+
     attrs = %{
       "title" => params["title"],
       "body" => params["body"],
       "category" => params["category"],
-      "user_id" => user.id
+      "user_id" => user.id,
+      "attachment_ids" => attachment_ids
     }
 
     case Feedback.create_post(attrs) do
@@ -346,6 +362,7 @@ defmodule InkwellWeb.FeedbackController do
       comment_count: post.comment_count,
       priority: post.priority,
       value_score: post.value_score,
+      attachment_ids: post.attachment_ids || [],
       voted: voted,
       author: author,
       created_at: post.inserted_at,

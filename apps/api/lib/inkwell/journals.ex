@@ -275,13 +275,24 @@ defmodule Inkwell.Journals do
     cutoff = DateTime.add(DateTime.utc_now(), -age_hours, :hour)
 
     # Get all image IDs referenced in any entry body_html
-    referenced_ids =
+    entry_referenced =
       Entry
       |> where([e], not is_nil(e.body_html))
       |> select([e], e.body_html)
       |> Repo.all()
       |> Enum.flat_map(&extract_image_ids/1)
       |> MapSet.new()
+
+    # Also protect images attached to feedback posts
+    feedback_referenced =
+      Inkwell.Feedback.FeedbackPost
+      |> where([p], not is_nil(p.attachment_ids))
+      |> select([p], p.attachment_ids)
+      |> Repo.all()
+      |> Enum.flat_map(fn ids -> ids || [] end)
+      |> MapSet.new()
+
+    referenced_ids = MapSet.union(entry_referenced, feedback_referenced)
 
     # Get candidate orphan images (older than cutoff)
     candidates =

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { resizeEntryImage } from "@/lib/image-utils";
 
 const categories = [
   { value: "idea", label: "Idea", placeholder: "Describe your idea for Inkwell..." },
@@ -11,15 +12,58 @@ const categories = [
   { value: "question", label: "Question", placeholder: "What would you like to know?" },
 ];
 
+interface Attachment {
+  file: File;
+  preview: string; // object URL for display
+}
+
 export default function NewFeedbackPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("idea");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState("");
 
   const placeholder = categories.find((c) => c.value === category)?.placeholder ?? "";
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const remaining = 3 - attachments.length;
+    const accepted = files.slice(0, remaining);
+    const newAttachments = accepted.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    // Reset input so the same file can be re-selected if removed
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  async function uploadAttachment(att: Attachment): Promise<string | null> {
+    try {
+      const dataUri = await resizeEntryImage(att.file);
+      const res = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.data?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,6 +72,11 @@ export default function NewFeedbackPage() {
     setError("");
 
     try {
+      // Upload screenshots first (in parallel)
+      const imageIds = attachments.length > 0
+        ? (await Promise.all(attachments.map(uploadAttachment))).filter(Boolean) as string[]
+        : [];
+
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,6 +84,7 @@ export default function NewFeedbackPage() {
           title: title.trim(),
           body: body.trim(),
           category,
+          image_ids: imageIds,
         }),
       });
 
@@ -148,6 +198,67 @@ export default function NewFeedbackPage() {
             <p className="text-xs mt-1 text-right" style={{ color: "var(--muted)" }}>
               {body.length}/5000
             </p>
+          </div>
+
+          {/* Screenshots */}
+          <div>
+            <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
+              Screenshots{" "}
+              <span style={{ fontWeight: 400 }}>(optional, up to 3)</span>
+            </label>
+
+            {/* Previews */}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {attachments.map((att, i) => (
+                  <div key={i} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={att.preview}
+                      alt={`Screenshot ${i + 1}`}
+                      className="rounded-lg border object-cover"
+                      style={{ height: 80, maxWidth: 140, borderColor: "var(--border)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full text-white"
+                      style={{ background: "#B91C1C", width: 18, height: 18, fontSize: 11 }}
+                      aria-label="Remove screenshot"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {attachments.length < 3 && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors"
+                  style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  Add screenshot
+                </button>
+              </>
+            )}
           </div>
 
           {/* Error */}
