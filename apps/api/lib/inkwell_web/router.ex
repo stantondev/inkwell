@@ -104,6 +104,11 @@ defmodule InkwellWeb.Router do
     post "/me/background", UserController, :upload_background
     delete "/me", UserController, :delete_account
 
+    # Data export
+    post "/me/export", ExportController, :create
+    get "/me/export", ExportController, :status
+    get "/me/export/download", ExportController, :download
+
     # User icons
     get "/me/icons", UserIconController, :index
     post "/me/icons", UserIconController, :create
