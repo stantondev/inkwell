@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLiveNavCounts } from "./live-nav-counts";
 
 interface MobileMenuProps {
   username: string;
@@ -12,8 +13,14 @@ interface MobileMenuProps {
   draftCount?: number;
 }
 
-export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotificationCount = 0, unreadLetterCount = 0, draftCount = 0 }: MobileMenuProps) {
+export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotificationCount: initialNotificationCount = 0, unreadLetterCount: initialLetterCount = 0, draftCount: initialDraftCount = 0 }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
+
+  const { draftCount, unreadNotificationCount, unreadLetterCount } = useLiveNavCounts({
+    draftCount: initialDraftCount,
+    unreadNotificationCount: initialNotificationCount,
+    unreadLetterCount: initialLetterCount,
+  });
 
   return (
     <div className="sm:hidden">
