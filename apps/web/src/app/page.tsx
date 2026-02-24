@@ -293,6 +293,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Mission Teaser ──────────────────────────────────────────── */}
+      <section
+        className="border-y py-14"
+        style={{ borderColor: "var(--border)", background: "var(--accent-light)" }}
+      >
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <p
+            className="text-lg sm:text-xl leading-relaxed italic mb-6"
+            style={{
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              color: "var(--foreground)",
+            }}
+          >
+            &ldquo;We believe the internet was at its best when it felt like a
+            place people genuinely lived. Long-form writing. Personal pages. The
+            sense that you were getting to know someone.&rdquo;
+          </p>
+          <Link
+            href="/about"
+            className="inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium border transition-colors hover:opacity-80"
+            style={{
+              borderColor: "var(--accent)",
+              color: "var(--accent)",
+            }}
+          >
+            Read our mission &rarr;
+          </Link>
+        </div>
+      </section>
+
       {/* ── Built in the Open ────────────────────────────────────────── */}
       <section
         className="border-t py-16"
