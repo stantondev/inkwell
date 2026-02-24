@@ -17,11 +17,11 @@ defmodule InkwellWeb.FeedController do
     entry_ids = Enum.map(entries, & &1.id)
     stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
     my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, entry_ids)
+    comment_counts = Journals.count_comments_for_entries(entry_ids)
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
         author = entry.user || Accounts.get_user!(entry.user_id)
-        comment_count = Journals.count_comments(entry.id)
 
         entry
         |> EntryController.render_entry()
@@ -33,7 +33,7 @@ defmodule InkwellWeb.FeedController do
             avatar_url: author.avatar_url
           },
           user_icon: entry.user_icon,
-          comment_count: comment_count,
+          comment_count: Map.get(comment_counts, entry.id, 0),
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id)
         })

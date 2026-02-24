@@ -45,3 +45,7 @@ setup-supervisor.sh
 
 # Logs
 *.log
+
+# Claude Code
+CLAUDE.md
+.claude/
