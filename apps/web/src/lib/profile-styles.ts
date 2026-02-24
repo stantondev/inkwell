@@ -7,6 +7,7 @@ export interface ProfileCustomization {
   profile_accent_color?: string | null;
   profile_foreground_color?: string | null;
   profile_background_url?: string | null;
+  subscription_tier?: string | null;
 }
 
 export interface ProfileStyles {
@@ -27,22 +28,29 @@ export interface ProfileStyles {
  * get theme-appropriate values — including .prose-entry content.
  */
 export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles {
+  const isPlus = (profile.subscription_tier ?? "free") === "plus";
   const theme = PROFILE_THEMES.find((t) => t.id === profile.profile_theme);
-  const font = PROFILE_FONTS.find((f) => f.id === profile.profile_font);
+
+  // For non-Plus users, ignore custom overrides — use theme defaults only
+  const font = isPlus
+    ? PROFILE_FONTS.find((f) => f.id === profile.profile_font)
+    : theme?.defaultFont
+      ? PROFILE_FONTS.find((f) => f.id === theme.defaultFont)
+      : undefined;
 
   const bg =
-    profile.profile_background_color ||
+    (isPlus && profile.profile_background_color) ||
     theme?.vars["--profile-bg"] ||
     "var(--background)";
   const surface = theme?.vars["--profile-surface"] || "var(--surface)";
   const surfaceHover = theme?.vars["--profile-surface-hover"] || "var(--surface-hover)";
   const accent =
-    profile.profile_accent_color ||
+    (isPlus && profile.profile_accent_color) ||
     theme?.vars["--profile-accent"] ||
     "var(--accent)";
   const accentLight = theme?.vars["--profile-accent-light"] || "var(--accent-light)";
   const foreground =
-    profile.profile_foreground_color ||
+    (isPlus && profile.profile_foreground_color) ||
     theme?.vars["--profile-foreground"] ||
     "var(--foreground)";
   const muted = theme?.vars["--profile-muted"] || "var(--muted)";
@@ -64,15 +72,15 @@ export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles
     cssVarOverrides["--border"] = border;
   }
 
-  // If user overrode specific colors manually, always set those vars
-  if (profile.profile_foreground_color) {
+  // If Plus user overrode specific colors manually, set those vars
+  if (isPlus && profile.profile_foreground_color) {
     cssVarOverrides["--foreground"] = profile.profile_foreground_color;
     cssVarOverrides["--ink"] = profile.profile_foreground_color;
   }
-  if (profile.profile_accent_color) {
+  if (isPlus && profile.profile_accent_color) {
     cssVarOverrides["--accent"] = profile.profile_accent_color;
   }
-  if (profile.profile_background_color) {
+  if (isPlus && profile.profile_background_color) {
     cssVarOverrides["--background"] = profile.profile_background_color;
   }
 
@@ -84,7 +92,7 @@ export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles
 
   return {
     page: {
-      background: profile.profile_background_url ? undefined : bg,
+      background: (isPlus && profile.profile_background_url) ? undefined : bg,
       color: foreground,
       fontFamily: font?.family || undefined,
       ...cssVarOverrides,

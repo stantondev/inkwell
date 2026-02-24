@@ -48,12 +48,24 @@ defmodule InkwellWeb.UserController do
   # PATCH /api/me — update display_name, bio, pronouns, avatar_url, settings
   def update(conn, params) do
     user = conn.assigns.current_user
-    allowed = Map.take(params, [
+    is_plus = (user.subscription_tier || "free") == "plus"
+
+    # Free-tier fields (always allowed)
+    free_fields = [
       "display_name", "bio", "pronouns", "avatar_url", "settings",
+      "profile_status", "profile_theme",
+      "profile_background_url"
+    ]
+
+    # Plus-only profile customization fields (silently stripped for free users)
+    plus_fields = [
       "profile_music", "profile_background_color", "profile_accent_color",
       "profile_foreground_color", "profile_font", "profile_layout",
-      "profile_widgets", "profile_status", "profile_theme"
-    ])
+      "profile_widgets"
+    ]
+
+    allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
+    allowed = Map.take(params, allowed_keys)
 
     # Merge settings instead of replacing, so {onboarded: true} doesn't wipe other settings
     allowed =
@@ -186,10 +198,21 @@ defmodule InkwellWeb.UserController do
     end
   end
 
-  # POST /api/me/background — upload profile background image (accepts base64 JSON body)
+  # POST /api/me/background — upload profile background image (Plus only)
   def upload_background(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
 
+    # Background image upload is Plus-only
+    if (user.subscription_tier || "free") != "plus" do
+      conn
+      |> put_status(:forbidden)
+      |> json(%{error: "Background image upload requires an Inkwell Plus subscription"})
+    else
+      upload_background_impl(conn, user, image_data)
+    end
+  end
+
+  defp upload_background_impl(conn, user, image_data) do
     case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
       [_, _type, base64] ->
         # Max ~5MB of base64 = ~3.75MB image

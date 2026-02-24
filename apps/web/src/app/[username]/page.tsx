@@ -224,25 +224,28 @@ export default async function ProfilePage({ params }: ProfileParams) {
     // silently ignore — show no entries
   }
 
-  // Build profile customization styles
+  // Build profile customization styles (tier-aware)
+  const isPlus = (profile.subscription_tier ?? "free") === "plus";
   const styles = buildProfileStyles(profile);
-  const font = PROFILE_FONTS.find((f) => f.id === profile.profile_font);
-  const hasCustomBackground = !!profile.profile_background_url;
-  const layout = profile.profile_layout ?? "classic";
+  const font = isPlus
+    ? PROFILE_FONTS.find((f) => f.id === profile.profile_font)
+    : undefined;
+  const hasCustomBackground = isPlus && !!profile.profile_background_url;
+  const layout = isPlus ? (profile.profile_layout ?? "classic") : "classic";
 
-  // Process custom profile HTML/CSS
+  // Process custom profile HTML/CSS (Plus only)
   const profileScopeId = `profile-${profile.id}`;
-  const customContent = profile.profile_html
+  const customContent = isPlus && profile.profile_html
     ? scopeEntryHtml(profile.profile_html, profileScopeId)
     : null;
-  const customCss = profile.profile_css
+  const customCss = isPlus && profile.profile_css
     ? scopeEntryHtml(`<style>${profile.profile_css}</style>`, profileScopeId)
     : null;
 
-  // Widget ordering
+  // Widget ordering (Plus only — free users get default order)
   const defaultOrder = ["about", "entries", "top_pals", "guestbook", "music", "custom_html"];
-  const widgetOrder = profile.profile_widgets?.order ?? defaultOrder;
-  const hiddenWidgets = new Set(profile.profile_widgets?.hidden ?? []);
+  const widgetOrder = isPlus ? (profile.profile_widgets?.order ?? defaultOrder) : defaultOrder;
+  const hiddenWidgets = new Set(isPlus ? (profile.profile_widgets?.hidden ?? []) : []);
 
   // Build sidebar widgets based on ordering
   function renderWidget(widgetId: string) {
@@ -252,7 +255,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
       case "top_pals":
         return <TopFriends key="top_pals" friends={topFriends} isOwnProfile={isOwnProfile} styles={styles} />;
       case "music":
-        if (!profile.profile_music) return null;
+        if (!isPlus || !profile.profile_music) return null;
         return (
           <ProfileMusicWidget
             key="music"
@@ -323,7 +326,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             style={{
               background: hasCustomBackground
                 ? "rgba(0,0,0,0.2)"
-                : profile.profile_accent_color
+                : isPlus && profile.profile_accent_color
                   ? `linear-gradient(135deg, ${profile.profile_accent_color}33 0%, ${styles.surface.background} 100%)`
                   : `linear-gradient(135deg, var(--accent-light) 0%, var(--surface-hover) 100%)`,
             }} />

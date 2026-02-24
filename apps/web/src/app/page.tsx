@@ -98,7 +98,7 @@ export default function LandingPage() {
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
               <p className="text-3xl font-bold mb-4">$0</p>
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-                {["Unlimited public entries", "Per-entry privacy controls", "Pen Pal filters (up to 5)", "Top 6 pen pals", "100 MB image storage", "Up to 10 drafts", "RSS feed", "ActivityPub federation"].map((item) => (
+                {["Unlimited public entries", "8 profile themes", "Per-entry privacy controls", "Pen Pal filters (up to 5)", "Top 6 pen pals", "100 MB image storage", "Up to 10 drafts", "Status message", "RSS feed"].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
                     <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
                     {item}
@@ -133,7 +133,11 @@ export default function LandingPage() {
                   "1 GB image storage",
                   "Unlimited drafts",
                   "Unlimited pen pal filters",
-                  "Advanced profile CSS & HTML",
+                  "Custom colors, fonts & layouts",
+                  "Background images & profile music",
+                  "Widget reordering",
+                  "Custom HTML & CSS",
+                  "Supporter stamp",
                   "Plus badge on your profile",
                   "Priority support",
                 ].map((item) => (
@@ -247,7 +251,7 @@ export default function LandingPage() {
                 Make it yours
               </h3>
               <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                Eight themes, custom colors, fonts, background images, music players, and full CSS/HTML for Plus members. Your profile, your rules.
+                Eight themes for everyone. Custom colors, fonts, background images, music players, and full CSS/HTML with Plus. Your profile, your rules.
               </p>
             </div>
           </div>
