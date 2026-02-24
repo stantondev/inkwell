@@ -62,7 +62,7 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
               <PenPalsIcon /> Pen Pals
             </MobileLink>
             <MobileLink href="/saved" onClick={() => setOpen(false)}>
-              <SavedIcon /> Saved
+              <SavedIcon /> Bookmarks
             </MobileLink>
             <MobileLink href="/editor" onClick={() => setOpen(false)}>
               <WriteIcon /> Write

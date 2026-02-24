@@ -58,7 +58,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
             <Link href="/pen-pals" className="text-sm font-medium transition-colors"
               style={{ color: "var(--muted)" }}>Pen Pals</Link>
             <Link href="/saved" className="text-sm font-medium transition-colors"
-              style={{ color: "var(--muted)" }}>Saved</Link>
+              style={{ color: "var(--muted)" }}>Bookmarks</Link>
             <Link href="/search" className="text-sm font-medium transition-colors"
               style={{ color: "var(--muted)" }}>Search</Link>
             <Link href="/roadmap" className="text-sm font-medium transition-colors"
