@@ -63,6 +63,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
   let entries: JournalEntry[] = [];
+  let feedError = false;
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
       `/api/feed?page=${page}`,
@@ -71,7 +72,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
     );
     entries = data.data ?? [];
   } catch {
-    // If the feed fails (e.g. no friends yet), show empty state
+    feedError = true;
   }
 
   return (
@@ -119,7 +120,19 @@ export default async function FeedPage({ searchParams }: PageProps) {
         entries={entries}
         page={page}
         basePath="/feed"
-        emptyState={<EmptyFeed username={session.user.username} />}
+        emptyState={feedError ? (
+          <div
+            className="rounded-2xl border p-12 text-center"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            <p className="text-lg font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+              Couldn&apos;t load your feed
+            </p>
+            <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+              Something went wrong. Please try refreshing the page.
+            </p>
+          </div>
+        ) : <EmptyFeed username={session.user.username} />}
         session={{
           userId: session.user.id,
           isLoggedIn: true,
