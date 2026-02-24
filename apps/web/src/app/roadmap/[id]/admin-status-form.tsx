@@ -44,31 +44,52 @@ export function AdminStatusForm({ postId, currentStatus, currentResponse, curren
     setSaving(true);
     setMessage("");
 
-    try {
-      const res = await fetch(`/api/feedback/${postId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          admin_response: adminResponse.trim() || null,
-          release_note: releaseNote.trim() || null,
-          priority: priority || null,
-          value_score: valueScore ? parseInt(valueScore, 10) : null,
-        }),
-      });
+    const payload = JSON.stringify({
+      status,
+      admin_response: adminResponse.trim() || null,
+      release_note: releaseNote.trim() || null,
+      priority: priority || null,
+      value_score: valueScore ? parseInt(valueScore, 10) : null,
+    });
 
-      if (res.ok) {
-        setMessage("Updated");
-        router.refresh();
-      } else {
+    // Retry once after a delay to handle Fly.io DB cold starts
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/feedback/${postId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        });
+
+        if (res.ok) {
+          setMessage("Updated");
+          router.refresh();
+          setSaving(false);
+          return;
+        }
+
+        // On 500, retry once (likely DB cold start)
+        if (res.status >= 500 && attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+
         const data = await res.json();
         setMessage(data.error || "Failed to update");
+        setSaving(false);
+        return;
+      } catch {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        setMessage("Failed to update");
+        setSaving(false);
+        return;
       }
-    } catch {
-      setMessage("Failed to update");
-    } finally {
-      setSaving(false);
     }
+
+    setSaving(false);
   }
 
   return (

@@ -13,7 +13,11 @@ if config_env() == :prod do
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
     ssl: false,
-    socket_options: if(System.get_env("FLY_APP_NAME"), do: [:inet6], else: [])
+    socket_options: if(System.get_env("FLY_APP_NAME"), do: [:inet6], else: []),
+    # Tolerate slow checkouts during Fly Postgres cold starts (auto-suspend wake-up).
+    # Default queue_target=50ms drops requests after ~3s; we allow up to 10s.
+    queue_target: 5_000,
+    queue_interval: 30_000
 
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||

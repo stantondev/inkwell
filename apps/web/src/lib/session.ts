@@ -32,8 +32,7 @@ export async function getToken(): Promise<string | null> {
  * Validate the token against Phoenix and return the current user.
  * Returns null if the token is missing, invalid, or the API is unreachable.
  *
- * Retries once after a short delay to handle Fly.io cold starts where the
- * API machine needs a moment to unsuspend.
+ * apiFetch handles retry on 5xx for Fly.io cold starts automatically.
  */
 export async function getSession(): Promise<{
   user: SessionUser;
@@ -42,20 +41,14 @@ export async function getSession(): Promise<{
   const token = await getToken();
   if (!token) return null;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const data = await apiFetch<{ data: SessionUser }>(
-        "/api/auth/me",
-        {},
-        token
-      );
-      return { user: data.data, token };
-    } catch {
-      if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 500));
-      }
-    }
+  try {
+    const data = await apiFetch<{ data: SessionUser }>(
+      "/api/auth/me",
+      {},
+      token
+    );
+    return { user: data.data, token };
+  } catch {
+    return null;
   }
-
-  return null;
 }

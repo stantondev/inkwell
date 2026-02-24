@@ -23,6 +23,9 @@ export class ApiError extends Error {
 /**
  * Server-side fetch — always uses the internal API URL.
  * Pass a Bearer token for authenticated endpoints.
+ *
+ * Retries once on 5xx errors to handle Fly.io Postgres cold starts
+ * where the DB machine needs a moment to unsuspend.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -35,20 +38,31 @@ export async function apiFetch<T = unknown>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${SERVER_API}${path}`, {
-    ...options,
-    headers,
-    cache: "no-store", // always fresh for auth-sensitive data
-  });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(`${SERVER_API}${path}`, {
+      ...options,
+      headers,
+      cache: "no-store", // always fresh for auth-sensitive data
+    });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(
-      (body as { error?: string }).error ?? `Request failed (${res.status})`,
-      res.status,
-      body
-    );
+    // Retry once on server errors (likely DB cold start)
+    if (res.status >= 500 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 1500));
+      continue;
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(
+        (body as { error?: string }).error ?? `Request failed (${res.status})`,
+        res.status,
+        body
+      );
+    }
+
+    return res.json() as Promise<T>;
   }
 
-  return res.json() as Promise<T>;
+  // Shouldn't reach here, but satisfy TypeScript
+  throw new ApiError("Request failed after retries", 500);
 }
