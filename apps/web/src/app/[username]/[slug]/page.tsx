@@ -12,6 +12,7 @@ import { DeleteCommentButton } from "./delete-comment-button";
 import { EntryActions } from "./entry-actions";
 import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
+import { BookmarkButton } from "@/components/bookmark-button";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -39,6 +40,7 @@ interface EntryData {
   created_at: string;
   stamps?: string[];
   my_stamp?: string | null;
+  bookmarked?: boolean;
   author: EntryAuthor;
 }
 
@@ -185,9 +187,19 @@ export default async function EntryPage({ params }: EntryParams) {
               </svg>
               @{username}
             </Link>
-            {(isOwnEntry || isAdmin) && (
-              <EntryActions entryId={entry.id} username={username} showEdit={isOwnEntry} />
-            )}
+            <div className="flex items-center gap-3">
+              {session && (
+                <BookmarkButton
+                  entryId={entry.id}
+                  initialBookmarked={entry.bookmarked ?? false}
+                  isLoggedIn={true}
+                  size={18}
+                />
+              )}
+              {(isOwnEntry || isAdmin) && (
+                <EntryActions entryId={entry.id} username={username} showEdit={isOwnEntry} />
+              )}
+            </div>
           </div>
 
           {/* Date */}

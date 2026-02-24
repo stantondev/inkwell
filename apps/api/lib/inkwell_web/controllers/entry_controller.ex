@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals, Repo, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Journals, Repo, Social, Stamps}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -59,10 +59,12 @@ defmodule InkwellWeb.EntryController do
       render_with_stamps = fn ->
         stamp_types = Stamps.get_entry_stamp_types(entry.id)
         my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
+        bookmarked = if viewer, do: Bookmarks.get_user_bookmark(viewer.id, entry.id) != nil, else: false
 
         render_entry_full(entry, user)
         |> Map.put(:stamps, stamp_types)
         |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
+        |> Map.put(:bookmarked, bookmarked)
       end
 
       cond do

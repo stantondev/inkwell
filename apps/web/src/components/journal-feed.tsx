@@ -107,6 +107,7 @@ export function JournalFeed({
         commentCount={entry.comment_count ?? 0}
         stamps={entry.stamps ?? []}
         myStamp={entry.my_stamp ?? null}
+        bookmarked={entry.bookmarked ?? false}
         isOwnEntry={isOwnEntry}
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}

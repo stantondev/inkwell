@@ -61,6 +61,9 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
             <MobileLink href="/pen-pals" onClick={() => setOpen(false)}>
               <PenPalsIcon /> Pen Pals
             </MobileLink>
+            <MobileLink href="/saved" onClick={() => setOpen(false)}>
+              <SavedIcon /> Saved
+            </MobileLink>
             <MobileLink href="/editor" onClick={() => setOpen(false)}>
               <WriteIcon /> Write
             </MobileLink>
@@ -188,3 +191,4 @@ function FeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2
 function SubmitFeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M10 10h4" /></svg>; }
 function AdminIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
 function LettersIcon() { return <svg {...iconProps}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>; }
+function SavedIcon() { return <svg {...iconProps} fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>; }

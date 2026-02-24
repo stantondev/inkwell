@@ -133,6 +133,11 @@ defmodule InkwellWeb.Router do
     post "/entries/:entry_id/stamp", StampController, :create
     delete "/entries/:entry_id/stamp", StampController, :delete
 
+    # Bookmarks (reading list)
+    post "/entries/:entry_id/bookmark", BookmarkController, :create
+    delete "/entries/:entry_id/bookmark", BookmarkController, :delete
+    get "/bookmarks", BookmarkController, :index
+
     # Reading feed
     get "/feed", FeedController, :reading_feed
 

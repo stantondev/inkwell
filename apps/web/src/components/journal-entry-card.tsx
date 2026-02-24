@@ -16,6 +16,7 @@ export interface JournalEntry {
   comment_count?: number;
   stamps?: string[];
   my_stamp?: string | null;
+  bookmarked?: boolean;
   published_at: string;
   slug: string;
   /** "local" (default) or "remote" for federated entries */

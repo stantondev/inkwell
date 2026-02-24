@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StampPicker } from "@/components/stamp-picker";
+import { BookmarkButton } from "@/components/bookmark-button";
 import { FloatingPopup } from "@/components/floating-popup";
 
 interface FeedComment {
@@ -24,16 +25,19 @@ interface FeedCardActionsProps {
   commentCount: number;
   stamps: string[];
   myStamp: string | null;
+  bookmarked: boolean;
   isOwnEntry: boolean;
   isLoggedIn: boolean;
   isPlus: boolean;
   /** Override API paths for remote entries */
   stampApiPath?: string;
   commentApiPath?: string;
+  bookmarkApiPath?: string;
   /** External URL for "View on {domain}" link */
   externalUrl?: string;
   externalDomain?: string;
   onStampsChange?: (stamps: string[]) => void;
+  onBookmarkChange?: (bookmarked: boolean) => void;
 }
 
 function timeAgo(isoString: string): string {
@@ -51,14 +55,17 @@ export function FeedCardActions({
   commentCount: initialCommentCount,
   stamps: initialStamps,
   myStamp: initialMyStamp,
+  bookmarked,
   isOwnEntry,
   isLoggedIn,
   isPlus,
   stampApiPath,
   commentApiPath,
+  bookmarkApiPath,
   externalUrl,
   externalDomain,
   onStampsChange,
+  onBookmarkChange,
 }: FeedCardActionsProps) {
   const [commentPopupOpen, setCommentPopupOpen] = useState(false);
   const [comments, setComments] = useState<FeedComment[]>([]);
@@ -326,6 +333,15 @@ export function FeedCardActions({
           compact
           stampApiPath={stampApiPath}
           onStampChange={handleStampChange}
+        />
+
+        {/* Bookmark button */}
+        <BookmarkButton
+          entryId={entryId}
+          initialBookmarked={bookmarked}
+          isLoggedIn={isLoggedIn}
+          bookmarkApiPath={bookmarkApiPath}
+          onBookmarkChange={onBookmarkChange}
         />
       </div>
     </div>
