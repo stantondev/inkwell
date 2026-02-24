@@ -50,9 +50,20 @@ export default function GetStartedPage() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const turnstileFailCount = useRef(0);
+  const [turnstileFailed, setTurnstileFailed] = useState(false);
+  const [turnstileBypassed, setTurnstileBypassed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
+
+  const handleTurnstileError = () => {
+    setTurnstileToken(null);
+    turnstileFailCount.current += 1;
+    if (turnstileFailCount.current >= 2) {
+      setTurnstileFailed(true);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,16 +211,37 @@ export default function GetStartedPage() {
                 </span>
               </label>
 
-              {TURNSTILE_SITE_KEY && (
+              {TURNSTILE_SITE_KEY && !turnstileBypassed && (
                 <Turnstile
                   ref={turnstileRef}
                   siteKey={TURNSTILE_SITE_KEY}
                   onSuccess={(token) => setTurnstileToken(token)}
-                  onError={() => setTurnstileToken(null)}
-                  onExpire={() => setTurnstileToken(null)}
+                  onError={handleTurnstileError}
+                  onExpire={handleTurnstileError}
                   options={{ theme: "auto", size: "flexible" }}
                   style={{ width: "100%" }}
                 />
+              )}
+
+              {turnstileFailed && !turnstileBypassed && (
+                <div className="rounded-xl border p-4 text-sm"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                  <p className="font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
+                    Verification not loading?
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+                    Ad blockers, privacy extensions, or VPNs can prevent the verification widget from working.
+                    Try disabling them for this page, or:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTurnstileBypassed(true)}
+                    className="text-xs font-medium underline underline-offset-2"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    Skip verification and continue
+                  </button>
+                </div>
               )}
 
               {error && (
@@ -220,7 +252,7 @@ export default function GetStartedPage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
+                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted || (!!TURNSTILE_SITE_KEY && !turnstileToken && !turnstileBypassed)}
                 className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

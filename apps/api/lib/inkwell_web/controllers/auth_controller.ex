@@ -170,9 +170,11 @@ defmodule InkwellWeb.AuthController do
       is_nil(secret_key) or secret_key == "" ->
         :ok
 
-      # Turnstile is active but no token provided
+      # No token provided — allow through (widget may have failed due to
+      # ad blockers, privacy extensions, or VPNs). Rate limiter on the
+      # magic-link endpoint provides baseline spam protection.
       is_nil(token) or token == "" ->
-        {:error, "Human verification required"}
+        :ok
 
       true ->
         remote_ip =
