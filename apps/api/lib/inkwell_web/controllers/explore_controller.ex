@@ -66,6 +66,8 @@ defmodule InkwellWeb.ExploreController do
         %{}
       end
 
+    remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
+
     data = Enum.map(all_items, fn
       %{type: :local, entry: entry} ->
         author = entry.user || Accounts.get_user!(entry.user_id)
@@ -109,7 +111,7 @@ defmodule InkwellWeb.ExploreController do
           },
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
-          comment_count: 0,
+          comment_count: Map.get(remote_comment_counts, re.id, 0),
           mood: nil,
           music: nil,
           slug: nil,

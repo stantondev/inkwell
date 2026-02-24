@@ -348,4 +348,18 @@ defmodule Inkwell.Journals do
     |> where(entry_id: ^entry_id)
     |> Repo.aggregate(:count)
   end
+
+  @doc "Batch-count comments for a list of remote entry IDs. Returns %{remote_entry_id => count}."
+  def count_comments_for_remote_entries(remote_entry_ids) when is_list(remote_entry_ids) do
+    if remote_entry_ids == [] do
+      %{}
+    else
+      Comment
+      |> where([c], c.remote_entry_id in ^remote_entry_ids)
+      |> group_by([c], c.remote_entry_id)
+      |> select([c], {c.remote_entry_id, count(c.id)})
+      |> Repo.all()
+      |> Map.new()
+    end
+  end
 end

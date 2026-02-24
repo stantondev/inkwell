@@ -11,7 +11,7 @@ export function Footer() {
         style={{ color: "var(--muted)" }}
       >
         <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600 }}>
-          inkwell
+          Inkwell
         </span>
         <div className="flex flex-wrap gap-3 sm:gap-5">
           <Link href="/terms" className="hover:underline">Terms</Link>

@@ -539,11 +539,15 @@ _(empty — all bugs shipped!)_
 
 ### Ideas / Future (not yet scheduled)
 - Add categories to journal posts (feature request — needs schema + UI design)
+- Make "Submit Feedback" more discoverable (button placement / onboarding prompt)
 - Beta Participation program (under review, 10 votes)
 - Admin feedback triage — value & priority scoring for roadmap posts
 - Attach supporting details / screenshots to feedback posts
 
 ### Recently Completed
+- **2026-02-24** — Fixed remote entry comment count: explore controller now queries actual comment count from DB instead of hardcoding 0. Added `count_comments_for_remote_entries/1` batch query to Journals context.
+- **2026-02-24** — Fixed intermittent signed-out bug: `getSession()` now retries once after 500ms delay to handle Fly.io cold starts where the API machine needs a moment to unsuspend.
+- **2026-02-24** — Fixed footer capitalization: "inkwell" → "Inkwell" in site footer.
 - **2026-02-24** — Fixed mobile UI: FloatingPopup now clamps to viewport bounds with scroll overflow, stamp picker and comment popup use responsive CSS `min()` sizing, entry detail page has stepped responsive padding, admin entry table hides secondary columns on mobile (matching user table pattern), admin nav tabs have tighter mobile padding.
 - **2026-02-23** — Enforced free vs Plus tier feature gating. Profile customization features (custom colors, fonts, layouts, background images, music, widget ordering) now properly gated behind Plus on both backend and frontend. Free tier keeps all 8 themes, status messages, and core features. Marketing pages updated to accurately reflect tier split.
 - **2026-02-23** — Feedback notifications: users now get notified when their feedback post status changes, receives comments, or gets upvoted. Three new notification types (`feedback_status_change`, `feedback_comment`, `feedback_vote`) with star icon, post title link to `/roadmap/:id`, and self-notification suppression.
