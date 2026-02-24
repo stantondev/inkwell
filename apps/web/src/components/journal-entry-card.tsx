@@ -19,6 +19,9 @@ export interface JournalEntry {
   bookmarked?: boolean;
   published_at: string;
   slug: string;
+  word_count?: number;
+  excerpt?: string | null;
+  cover_image_id?: string | null;
   /** "local" (default) or "remote" for federated entries */
   source?: "local" | "remote";
   /** Original URL for remote entries */
@@ -69,8 +72,26 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
     : `/${entry.author.username}`;
   const ago = timeAgo(entry.published_at);
 
+  const readingMins = entry.word_count && entry.word_count > 0
+    ? Math.max(1, Math.round(entry.word_count / 200))
+    : null;
+
   return (
     <JournalPage corner edge className="flex flex-col h-full">
+      {/* Cover image */}
+      {entry.cover_image_id && (
+        <div className="w-full overflow-hidden" style={{ maxHeight: 200 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/images/${entry.cover_image_id}`}
+            alt={entry.title ?? "Entry cover"}
+            className="w-full object-cover"
+            style={{ maxHeight: 200 }}
+            loading="lazy"
+          />
+        </div>
+      )}
+
       {/* Top section */}
       <div className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col relative">
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
@@ -155,40 +176,52 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
             </Link>
           )}
 
-          {/* Mood + music meta (desktop only) */}
-          {(entry.mood || entry.music) && (
-            <div className="hidden sm:flex items-center gap-2 ml-auto text-right">
-              {entry.mood && (
-                <span
-                  className="text-xs px-2.5 py-1 rounded-full border"
-                  style={{
-                    borderColor: "var(--border)",
-                    color: "var(--muted)",
-                  }}
-                >
-                  {entry.mood}
-                </span>
-              )}
-              {entry.music && (
-                <span
-                  className="text-xs truncate max-w-[100px] sm:max-w-[160px]"
-                  style={{ color: "var(--muted)" }}
-                >
-                  ♪ {entry.music}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Reading time + mood + music meta (desktop only) */}
+          <div className="hidden sm:flex items-center gap-2 ml-auto text-right">
+            {readingMins && (
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
+                {readingMins} min read
+              </span>
+            )}
+            {entry.mood && (
+              <span
+                className="text-xs px-2.5 py-1 rounded-full border"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                {entry.mood}
+              </span>
+            )}
+            {entry.music && (
+              <span
+                className="text-xs truncate max-w-[100px] sm:max-w-[160px]"
+                style={{ color: "var(--muted)" }}
+              >
+                ♪ {entry.music}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Body with fade */}
-        <div className="journal-body-fade flex-1">
-          <EntryContent
-            html={entry.body_html}
-            entryId={entry.id}
-            className="prose-entry text-sm leading-relaxed"
-          />
-        </div>
+        {/* Body preview — excerpt (plain text) or HTML fade */}
+        {entry.excerpt ? (
+          <p
+            className="flex-1 text-sm leading-relaxed line-clamp-4"
+            style={{ color: "var(--foreground)", opacity: 0.85 }}
+          >
+            {entry.excerpt}
+          </p>
+        ) : (
+          <div className="journal-body-fade flex-1">
+            <EntryContent
+              html={entry.body_html}
+              entryId={entry.id}
+              className="prose-entry text-sm leading-relaxed"
+            />
+          </div>
+        )}
 
         {/* Music embed */}
         <MusicPlayer music={entry.music} />

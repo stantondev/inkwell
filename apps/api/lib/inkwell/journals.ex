@@ -293,6 +293,14 @@ defmodule Inkwell.Journals do
       |> Enum.flat_map(&extract_image_ids/1)
       |> MapSet.new()
 
+    # Also protect cover images referenced by entries
+    cover_image_referenced =
+      Entry
+      |> where([e], not is_nil(e.cover_image_id))
+      |> select([e], e.cover_image_id)
+      |> Repo.all()
+      |> MapSet.new()
+
     # Also protect images attached to feedback posts
     feedback_referenced =
       Inkwell.Feedback.FeedbackPost
@@ -302,7 +310,10 @@ defmodule Inkwell.Journals do
       |> Enum.flat_map(fn ids -> ids || [] end)
       |> MapSet.new()
 
-    referenced_ids = MapSet.union(entry_referenced, feedback_referenced)
+    referenced_ids =
+      entry_referenced
+      |> MapSet.union(cover_image_referenced)
+      |> MapSet.union(feedback_referenced)
 
     # Get candidate orphan images (older than cutoff)
     candidates =

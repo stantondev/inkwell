@@ -71,6 +71,7 @@ defmodule InkwellWeb.FeedController do
         title = entry.title || "Entry on ##{tag}"
         pub_date = format_rfc822(entry.published_at)
         link = "#{base_url()}/#{author.username}/#{entry.slug}"
+        description = entry.excerpt || entry.body_html || ""
 
         """
         <item>
@@ -78,7 +79,7 @@ defmodule InkwellWeb.FeedController do
           <link>#{link}</link>
           <guid isPermaLink="true">#{link}</guid>
           <pubDate>#{pub_date}</pubDate>
-          <description><![CDATA[#{entry.body_html}]]></description>
+          <description><![CDATA[#{description}]]></description>
         </item>
         """
       end)
@@ -110,6 +111,7 @@ defmodule InkwellWeb.FeedController do
         title = entry.title || "Entry by #{user.display_name}"
         pub_date = entry.published_at |> format_rfc822()
         link = "#{base_url()}/#{user.username}/#{entry.slug}"
+        description = entry.excerpt || entry.body_html || ""
 
         """
         <item>
@@ -117,7 +119,7 @@ defmodule InkwellWeb.FeedController do
           <link>#{link}</link>
           <guid isPermaLink="true">#{link}</guid>
           <pubDate>#{pub_date}</pubDate>
-          <description><![CDATA[#{entry.body_html}]]></description>
+          <description><![CDATA[#{description}]]></description>
         </item>
         """
       end)

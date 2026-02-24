@@ -28,6 +28,7 @@ interface EditorState {
   privacy: Privacy;
   customFilterId: string | null;
   tags: string;
+  excerpt: string;
 }
 
 const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
@@ -73,9 +74,10 @@ function Sep() {
   return <div className="w-px h-5 mx-0.5 self-center" style={{ background: "var(--border)" }} aria-hidden="true" />;
 }
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
+  focusMode: boolean; onToggleFocus: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
@@ -239,6 +241,18 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
       <Btn onClick={onToggleHtml} active={htmlMode} title={htmlMode ? "Switch to Visual editor" : "Switch to HTML source"}>
         <span style={{ fontWeight: 600, fontSize: 10, letterSpacing: "-0.02em" }}>&lt;/&gt;</span>
       </Btn>
+      <Sep />
+      <Btn onClick={onToggleFocus} active={focusMode} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"}>
+        {focusMode ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        )}
+      </Btn>
     </div>
   );
 }
@@ -386,7 +400,7 @@ export function EditorClient() {
   const editId = searchParams.get("edit");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "",
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "",
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
@@ -400,6 +414,9 @@ export function EditorClient() {
   const [htmlSource, setHtmlSource] = useState("");
   const [filters, setFilters] = useState<FriendFilter[]>([]);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [coverImageId, setCoverImageId] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
 
   // Draft tracking
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
@@ -481,6 +498,33 @@ export function EditorClient() {
     },
   });
 
+  // Upload a cover image: resize, upload to API, store ID
+  const uploadCoverImage = useCallback(async (file: File) => {
+    setIsUploadingCover(true);
+    try {
+      const dataUri = await resizeEntryImage(file);
+      const res = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const code = (err as { error?: string }).error;
+        if (code === "storage_limit_exceeded") {
+          throw new Error("You've reached the image storage limit. Upgrade to Inkwell Plus for more storage.");
+        }
+        throw new Error(code ?? "Upload failed");
+      }
+      const { data } = await res.json();
+      setCoverImageId(data.id);
+    } catch (err) {
+      alert(`Cover upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  }, []);
+
   // Listen for custom image drop/paste events
   useEffect(() => {
     const handler = (e: Event) => {
@@ -490,6 +534,25 @@ export function EditorClient() {
     document.addEventListener("inkwell-image-drop", handler);
     return () => document.removeEventListener("inkwell-image-drop", handler);
   }, [editor, uploadImage]);
+
+  // Focus mode: add body class for CSS Nav hiding + Esc to exit
+  useEffect(() => {
+    if (focusMode) {
+      document.body.setAttribute("data-focus-mode", "true");
+    } else {
+      document.body.removeAttribute("data-focus-mode");
+    }
+    return () => { document.body.removeAttribute("data-focus-mode"); };
+  }, [focusMode]);
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [focusMode]);
 
   // Fetch filters when privacy is set to "custom"
   useEffect(() => {
@@ -529,7 +592,9 @@ export function EditorClient() {
           privacy: entry.privacy ?? "public",
           customFilterId: entry.custom_filter_id ?? null,
           tags: Array.isArray(entry.tags) ? entry.tags.join(", ") : (entry.tags ?? ""),
+          excerpt: entry.excerpt ?? "",
         });
+        setCoverImageId(entry.cover_image_id ?? null);
 
         // Store slug + author for redirect after save
         setEntrySlug(entry.slug ?? null);
@@ -596,7 +661,9 @@ export function EditorClient() {
     privacy: state.privacy,
     custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
     tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-  }), [state, htmlMode, htmlSource, editor]);
+    excerpt: state.excerpt || null,
+    cover_image_id: coverImageId || null,
+  }), [state, htmlMode, htmlSource, editor, coverImageId]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -708,6 +775,8 @@ export function EditorClient() {
     );
   }
 
+  const coverFileRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
 
@@ -754,8 +823,62 @@ export function EditorClient() {
 
       <main className="mx-auto max-w-4xl px-4 pb-24">
 
+        {/* ── Cover image ──────────────────────────────────── */}
+        <div className={`pt-6 pb-2${focusMode ? " hidden" : ""}`}>
+          {coverImageId ? (
+            <div className="relative group rounded-xl overflow-hidden border mb-2"
+              style={{ borderColor: "var(--border)", maxHeight: 280 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/images/${coverImageId}`}
+                alt="Cover"
+                className="w-full object-cover"
+                style={{ maxHeight: 280 }}
+              />
+              <button
+                type="button"
+                onClick={() => setCoverImageId(null)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+                aria-label="Remove cover image"
+              >×</button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => coverFileRef.current?.click()}
+              disabled={isUploadingCover}
+              className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--border-strong)] flex items-center gap-1.5"
+              style={{ borderColor: "var(--border)", color: "var(--muted)", borderStyle: "dashed" }}
+            >
+              {isUploadingCover ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                </svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+              )}
+              Add cover image
+            </button>
+          )}
+          <input
+            ref={coverFileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadCoverImage(file);
+              if (e.target) e.target.value = "";
+            }}
+          />
+        </div>
+
         {/* ── Title ────────────────────────────────────────── */}
-        <div className="pt-10 pb-2">
+        <div className="pt-2 pb-2">
           <input
             type="text"
             value={state.title}
@@ -768,7 +891,7 @@ export function EditorClient() {
         </div>
 
         {/* ── Mood + music strip ────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 py-3 mb-1 border-b"
+        <div className={`flex flex-wrap items-center gap-2 sm:gap-4 py-3 mb-1 border-b${focusMode ? " hidden" : ""}`}
           style={{ borderColor: "var(--border)" }}>
           <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
           <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
@@ -805,8 +928,18 @@ export function EditorClient() {
         <div className="sticky z-30 border-b -mx-4 px-2"
           style={{ top: 57, background: "var(--background)", borderColor: "var(--border)" }}>
           <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
-            onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage} />
+            onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
+            focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)} />
         </div>
+
+        {/* ── Focus mode hint ───────────────────────────── */}
+        {focusMode && (
+          <div className="flex items-center justify-center py-1.5">
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              Focus mode · Press <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>Esc</kbd> to exit
+            </span>
+          </div>
+        )}
 
         {/* ── Writing area ──────────────────────────────── */}
         {htmlMode ? (
@@ -850,7 +983,7 @@ export function EditorClient() {
         </div>
 
         {/* ── Settings (collapsible) ────────────────────── */}
-        <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+        <div className={`mt-4 border-t pt-4${focusMode ? " hidden" : ""}`} style={{ borderColor: "var(--border)" }}>
           <button type="button" onClick={() => setShowSettings((v) => !v)}
             className="flex items-center gap-2 text-sm transition-colors mb-4"
             style={{ color: "var(--muted)" }}>
@@ -917,6 +1050,23 @@ export function EditorClient() {
                   placeholder="coffee, 2026, writing (comma-separated)"
                   className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                  Excerpt <span className="normal-case font-normal" style={{ color: "var(--muted)" }}>(shown in feeds &amp; RSS · auto-filled if blank)</span>
+                </label>
+                <textarea
+                  value={state.excerpt}
+                  onChange={(e) => update({ excerpt: e.target.value })}
+                  placeholder="A short summary of this entry…"
+                  maxLength={300}
+                  rows={2}
+                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                />
+                <span className="text-xs text-right" style={{ color: "var(--muted)" }}>
+                  {state.excerpt.length}/300
+                </span>
               </div>
             </div>
           )}

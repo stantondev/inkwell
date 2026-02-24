@@ -603,3 +603,13 @@ img, video, iframe, embed, object {
   height: 0;
   pointer-events: none;
 }
+
+/* ─── Distraction-free / focus mode ─────────────────────────────────── */
+
+body[data-focus-mode] nav {
+  display: none !important;
+}
+
+body[data-focus-mode] footer {
+  display: none !important;
+}

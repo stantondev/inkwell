@@ -18,6 +18,9 @@ defmodule Inkwell.Journals.Entry do
     field :published_at, :utc_datetime_usec
     field :ap_id, :string
     field :status, Ecto.Enum, values: [:draft, :published], default: :published
+    field :word_count, :integer, default: 0
+    field :excerpt, :string
+    field :cover_image_id, :binary_id
 
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :custom_filter, Inkwell.Social.FriendFilter
@@ -33,12 +36,13 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
-      :user_icon_id, :status
+      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id
     ])
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
+    |> validate_length(:excerpt, max: 300)
     |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom])
     |> generate_slug()
     |> generate_ap_id()
@@ -50,12 +54,14 @@ defmodule Inkwell.Journals.Entry do
     entry
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
-      :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id
+      :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
+      :word_count, :excerpt, :cover_image_id
     ])
     |> validate_required([:user_id])
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
+    |> validate_length(:excerpt, max: 300)
     |> put_change(:status, :draft)
   end
 
@@ -64,12 +70,14 @@ defmodule Inkwell.Journals.Entry do
     entry
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
-      :privacy, :tags, :custom_filter_id, :user_icon_id
+      :privacy, :tags, :custom_filter_id, :user_icon_id,
+      :word_count, :excerpt, :cover_image_id
     ])
     |> validate_required([:body_html, :privacy])
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
+    |> validate_length(:excerpt, max: 300)
     |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom])
     |> put_change(:status, :published)
     |> force_generate_slug()

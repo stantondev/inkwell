@@ -129,9 +129,12 @@ defmodule InkwellWeb.EntryController do
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                      "privacy", "user_icon_id", "tags", "custom_filter_id"])
+                      "privacy", "user_icon_id", "tags", "custom_filter_id",
+                      "excerpt", "cover_image_id"])
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
+        |> put_word_count()
+        |> maybe_auto_excerpt()
 
       case Journals.create_draft(attrs) do
         {:ok, entry} ->
@@ -149,10 +152,13 @@ defmodule InkwellWeb.EntryController do
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                      "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
+                      "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
+                      "excerpt", "cover_image_id"])
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
+        |> put_word_count()
+        |> maybe_auto_excerpt()
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         case Journals.create_entry(attrs) do
@@ -188,8 +194,11 @@ defmodule InkwellWeb.EntryController do
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id"])
+                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
+                       "excerpt", "cover_image_id"])
         |> maybe_clear_custom_filter_id()
+        |> put_word_count()
+        |> maybe_auto_excerpt()
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         result =
@@ -238,9 +247,12 @@ defmodule InkwellWeb.EntryController do
         attrs =
           params
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
-                        "privacy", "user_icon_id", "tags", "custom_filter_id"])
+                        "privacy", "user_icon_id", "tags", "custom_filter_id",
+                        "excerpt", "cover_image_id"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
+          |> put_word_count()
+          |> maybe_auto_excerpt()
 
         with :ok <- validate_custom_filter_ownership(attrs, user.id) do
           case Journals.publish_draft(entry, attrs) do
@@ -404,6 +416,9 @@ defmodule InkwellWeb.EntryController do
       published_at: entry.published_at,
       ap_id: entry.ap_id,
       status: entry.status,
+      word_count: entry.word_count || 0,
+      excerpt: entry.excerpt,
+      cover_image_id: entry.cover_image_id,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
@@ -423,6 +438,34 @@ defmodule InkwellWeb.EntryController do
     end
   end
   defp parse_int(val, _) when is_integer(val), do: val
+
+  # Compute word_count from body_html and put it into attrs
+  defp put_word_count(%{"body_html" => html} = attrs) when is_binary(html) do
+    count =
+      html
+      |> String.replace(~r/<[^>]+>/, " ")
+      |> String.split(~r/\s+/)
+      |> Enum.reject(&(&1 == ""))
+      |> length()
+
+    Map.put(attrs, "word_count", count)
+  end
+  defp put_word_count(attrs), do: attrs
+
+  # Auto-populate excerpt from body_html if not provided
+  defp maybe_auto_excerpt(%{"excerpt" => excerpt} = attrs)
+       when is_binary(excerpt) and byte_size(excerpt) > 0, do: attrs
+  defp maybe_auto_excerpt(%{"body_html" => html} = attrs) when is_binary(html) do
+    auto =
+      html
+      |> String.replace(~r/<[^>]+>/, " ")
+      |> String.replace(~r/\s+/, " ")
+      |> String.trim()
+      |> String.slice(0, 280)
+
+    if auto != "", do: Map.put(attrs, "excerpt", auto), else: attrs
+  end
+  defp maybe_auto_excerpt(attrs), do: attrs
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->

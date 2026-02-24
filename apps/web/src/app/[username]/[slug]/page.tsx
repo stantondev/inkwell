@@ -41,6 +41,9 @@ interface EntryData {
   stamps?: string[];
   my_stamp?: string | null;
   bookmarked?: boolean;
+  word_count?: number;
+  excerpt?: string | null;
+  cover_image_id?: string | null;
   author: EntryAuthor;
 }
 
@@ -113,9 +116,14 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       `/api/users/${username}/entries/${slug}`, {}, token
     );
     const entry = data.data;
+    const description = entry.excerpt
+      ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     return {
       title: entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`,
-      description: entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160),
+      description,
+      openGraph: entry.cover_image_id
+        ? { images: [`/api/images/${entry.cover_image_id}`] }
+        : undefined,
     };
   } catch {
     return { title: `Entry · @${username}` };
@@ -152,7 +160,10 @@ export default async function EntryPage({ params }: EntryParams) {
   const isAdmin = session?.user.is_admin ?? false;
 
   const moodHue = getMoodHue(entry.mood);
-  const mins = readingTime(entry.body_html);
+  // Prefer stored word_count (set at save time); fall back to live HTML computation
+  const mins = entry.word_count && entry.word_count > 0
+    ? Math.max(1, Math.round(entry.word_count / 200))
+    : readingTime(entry.body_html);
   const progressColor = moodHue !== null
     ? `hsl(${moodHue} 65% 55%)`
     : "var(--accent)";
@@ -172,6 +183,20 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
+        {/* Cover image */}
+        {entry.cover_image_id && (
+          <div className="w-full overflow-hidden" style={{ maxHeight: 420 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/images/${entry.cover_image_id}`}
+              alt={entry.title ?? "Entry cover"}
+              className="w-full object-cover"
+              style={{ maxHeight: 420 }}
+              loading="eager"
+            />
+          </div>
+        )}
+
         <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12">
 
           {/* Nav row */}
