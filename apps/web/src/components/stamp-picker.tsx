@@ -198,7 +198,8 @@ export function StampPicker({
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
-            minWidth: 240,
+            minWidth: "min(240px, calc(100vw - 32px))",
+            maxWidth: "min(320px, calc(100vw - 32px))",
           }}
         >
           {stampList}
@@ -255,7 +256,8 @@ export function StampPicker({
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
-          minWidth: 240,
+          minWidth: "min(240px, calc(100vw - 32px))",
+          maxWidth: "min(320px, calc(100vw - 32px))",
         }}
       >
         {stampList}

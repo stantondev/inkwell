@@ -25,7 +25,7 @@ export function FloatingPopup({
   style,
 }: FloatingPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: -9999, left: -9999 });
+  const [pos, setPos] = useState({ top: -9999, left: -9999, maxHeight: 9999 });
   const [visible, setVisible] = useState(false);
 
   const updatePosition = useCallback(() => {
@@ -53,7 +53,13 @@ export function FloatingPopup({
       if (top + pr.height > vh - 8) top = ar.top - pr.height - 8; // flip to top
     }
 
-    setPos({ top, left });
+    // Clamp to viewport bounds so popup never extends off-screen
+    top = Math.max(8, Math.min(top, vh - pr.height - 8));
+
+    // Compute max height so content scrolls if it can't fit
+    const computedMaxHeight = vh - top - 8;
+
+    setPos({ top, left, maxHeight: computedMaxHeight });
     setVisible(true);
   }, [anchorRef, placement]);
 
@@ -100,6 +106,14 @@ export function FloatingPopup({
 
   if (!open) return null;
 
+  // Compute viewport-clamped maxHeight, respecting consumer's maxHeight if smaller
+  const clampedMaxHeight = style?.maxHeight
+    ? Math.min(Number(style.maxHeight) || pos.maxHeight, pos.maxHeight)
+    : pos.maxHeight;
+
+  // Destructure maxHeight out of style so it doesn't override our clamped value
+  const { maxHeight: _consumerMaxHeight, ...restStyle } = style ?? {};
+
   return createPortal(
     <div
       ref={popupRef}
@@ -110,7 +124,9 @@ export function FloatingPopup({
         left: pos.left,
         zIndex: 9999,
         visibility: visible ? "visible" : "hidden",
-        ...style,
+        overflowY: "auto",
+        ...restStyle,
+        maxHeight: clampedMaxHeight,
       }}
     >
       {children}

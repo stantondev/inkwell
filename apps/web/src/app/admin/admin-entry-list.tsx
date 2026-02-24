@@ -57,58 +57,60 @@ export function AdminEntryList({ entries: initial }: { entries: AdminEntry[] }) 
   return (
     <div className="rounded-2xl border overflow-hidden"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b" style={{ borderColor: "var(--border)" }}>
-            <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Entry</th>
-            <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Author</th>
-            <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Privacy</th>
-            <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Date</th>
-            <th className="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <tr key={entry.id} className="border-b last:border-0"
-              style={{ borderColor: "var(--border)" }}>
-              <td className="px-4 py-3 max-w-xs">
-                <Link href={`/${entry.author.username}/${entry.slug}`}
-                  className="font-medium hover:underline truncate block"
-                  style={{ color: "var(--foreground)" }}>
-                  {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <Link href={`/${entry.author.username}`} className="hover:underline"
-                  style={{ color: "var(--muted)" }}>
-                  @{entry.author.username}
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{
-                    background: entry.privacy === "public" ? "var(--success-light, #dcfce7)" : "var(--surface-hover)",
-                    color: entry.privacy === "public" ? "var(--success, #16a34a)" : "var(--muted)",
-                  }}>
-                  {entry.privacy}
-                </span>
-              </td>
-              <td className="px-4 py-3" style={{ color: "var(--muted)" }}>
-                {timeAgo(entry.published_at ?? entry.created_at)}
-              </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  onClick={() => handleDelete(entry.id, entry.title)}
-                  disabled={deleting === entry.id}
-                  className="text-xs px-3 py-1 rounded-lg border font-medium transition-colors disabled:opacity-40"
-                  style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-                  {deleting === entry.id ? "…" : "Delete"}
-                </button>
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b" style={{ borderColor: "var(--border)" }}>
+              <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>Entry</th>
+              <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Author</th>
+              <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Privacy</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: "var(--muted)" }}>Date</th>
+              <th className="px-4 py-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr key={entry.id} className="border-b last:border-0"
+                style={{ borderColor: "var(--border)" }}>
+                <td className="px-4 py-3 max-w-xs">
+                  <Link href={`/${entry.author.username}/${entry.slug}`}
+                    className="font-medium hover:underline truncate block"
+                    style={{ color: "var(--foreground)" }}>
+                    {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <Link href={`/${entry.author.username}`} className="hover:underline"
+                    style={{ color: "var(--muted)" }}>
+                    @{entry.author.username}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <span className="text-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      background: entry.privacy === "public" ? "var(--success-light, #dcfce7)" : "var(--surface-hover)",
+                      color: entry.privacy === "public" ? "var(--success, #16a34a)" : "var(--muted)",
+                    }}>
+                    {entry.privacy}
+                  </span>
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell" style={{ color: "var(--muted)" }}>
+                  {timeAgo(entry.published_at ?? entry.created_at)}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => handleDelete(entry.id, entry.title)}
+                    disabled={deleting === entry.id}
+                    className="text-xs px-3 py-1 rounded-lg border font-medium transition-colors disabled:opacity-40"
+                    style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                    {deleting === entry.id ? "…" : "Delete"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

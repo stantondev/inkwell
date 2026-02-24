@@ -193,7 +193,7 @@ export function FeedCardActions({
             style={{
               background: "var(--surface)",
               borderColor: "var(--border)",
-              width: 320,
+              width: "min(320px, calc(100vw - 32px))",
               maxHeight: 400,
             }}
           >

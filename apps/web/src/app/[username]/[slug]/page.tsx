@@ -282,7 +282,7 @@ export default async function EntryPage({ params }: EntryParams) {
       </div>
 
       {/* ── Entry body ──────────────────────────────────────────────── */}
-      <article className="entry-wide px-4 lg:px-12 pb-16">
+      <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
         <JournalPage corner className="p-6 lg:p-10">
           <EntryContent
             html={entry.body_html}
@@ -342,7 +342,7 @@ export default async function EntryPage({ params }: EntryParams) {
       {/* ── Comments ────────────────────────────────────────────────── */}
       <section
         id="comments"
-        className="entry-wide px-4 lg:px-12 pb-20 border-t"
+        className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-20 border-t"
         style={{ borderColor: "var(--border)" }}
       >
         <h2 className="text-xs font-semibold uppercase tracking-widest mt-10 mb-8" style={{ color: "var(--muted)" }}>

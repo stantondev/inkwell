@@ -507,7 +507,7 @@ npm run dev:web               # In another terminal
 - **No local Elixir/Mix**: the dev machine does NOT have Elixir installed — cannot run `mix compile` locally. Do careful code review instead, and rely on the Docker build catching compile errors
 
 ### Database access on Fly
-- No local Elixir or psql — use `fly ssh console --app inkwell-db -C "sh -c 'PGPASSWORD=<pw> psql -h localhost -U inkwell_api -d inkwell_api -c \"<SQL>\"'"` to run queries
+- No local Elixir or psql — use `fly ssh console --app inkwell-db -C "sh -c 'PGPASSWORD=<pw> psql -h 127.0.0.1 -p 5433 -U inkwell_api -d inkwell_api -c \"<SQL>\"'"` to run queries (port 5433, not 5432)
 - `fly postgres connect` opens an interactive prompt which doesn't work well for scripting
 - `fly eval` can't be used while the app is running (port conflict)
 
@@ -538,11 +538,13 @@ npm run dev:web               # In another terminal
 _(empty — all bugs shipped!)_
 
 ### Ideas / Future (not yet scheduled)
+- Add categories to journal posts (feature request — needs schema + UI design)
 - Beta Participation program (under review, 10 votes)
 - Admin feedback triage — value & priority scoring for roadmap posts
 - Attach supporting details / screenshots to feedback posts
 
 ### Recently Completed
+- **2026-02-24** — Fixed mobile UI: FloatingPopup now clamps to viewport bounds with scroll overflow, stamp picker and comment popup use responsive CSS `min()` sizing, entry detail page has stepped responsive padding, admin entry table hides secondary columns on mobile (matching user table pattern), admin nav tabs have tighter mobile padding.
 - **2026-02-23** — Enforced free vs Plus tier feature gating. Profile customization features (custom colors, fonts, layouts, background images, music, widget ordering) now properly gated behind Plus on both backend and frontend. Free tier keeps all 8 themes, status messages, and core features. Marketing pages updated to accurately reflect tier split.
 - **2026-02-23** — Feedback notifications: users now get notified when their feedback post status changes, receives comments, or gets upvoted. Three new notification types (`feedback_status_change`, `feedback_comment`, `feedback_vote`) with star icon, post title link to `/roadmap/:id`, and self-notification suppression.
 - **2026-02-23** — Follow button now shows correct state (following/pending/idle) for already-followed users. Moved `GET /api/users/:username` to `optional_auth` scope; returns `relationship_status` in meta when authenticated.

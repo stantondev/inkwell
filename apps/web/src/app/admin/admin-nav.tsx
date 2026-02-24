@@ -20,7 +20,7 @@ export function AdminNav() {
           <Link
             key={tab.href}
             href={tab.href}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
               background: active ? "var(--accent)" : "transparent",
               color: active ? "white" : "var(--muted)",
