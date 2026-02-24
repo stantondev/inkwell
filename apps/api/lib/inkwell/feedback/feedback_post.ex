@@ -42,7 +42,7 @@ defmodule Inkwell.Feedback.FeedbackPost do
     |> validate_length(:admin_response, max: 5000)
     |> validate_length(:release_note, max: 5000)
     |> validate_inclusion(:priority, [:low, :medium, :high, :critical], allow_nil: true)
-    |> validate_number(:value_score, greater_than_or_equal_to: 1, less_than_or_equal_to: 5, allow_nil: true)
+    |> validate_number(:value_score, greater_than_or_equal_to: 1, less_than_or_equal_to: 5)
     |> maybe_set_completed_at()
   end
 
