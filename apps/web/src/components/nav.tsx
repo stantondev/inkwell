@@ -84,6 +84,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
                 subscriptionTier={user.subscription_tier}
                 isAdmin={user.is_admin}
                 unreadNotificationCount={user.unread_notification_count ?? 0}
+                unreadLetterCount={user.unread_letter_count ?? 0}
                 draftCount={user.draft_count ?? 0}
               />
 
@@ -105,6 +106,32 @@ export function Nav({ user }: { user: SessionUser | null }) {
                   <span className="rounded-full text-xs px-1.5 py-0.5"
                     style={{ background: "var(--surface-hover)", color: "var(--foreground)" }}>
                     {user.draft_count}
+                  </span>
+                )}
+              </Link>
+
+              {/* Letters (envelope icon) */}
+              <Link href="/letters"
+                className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-[var(--surface-hover)] relative"
+                aria-label={`Letterbox${(user.unread_letter_count ?? 0) > 0 ? ` (${user.unread_letter_count} unread)` : ""}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                {(user.unread_letter_count ?? 0) > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full text-white font-bold"
+                    style={{
+                      background: "var(--danger)",
+                      fontSize: "9px",
+                      minWidth: "16px",
+                      height: "16px",
+                      padding: "0 4px",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {(user.unread_letter_count ?? 0) > 9 ? "9+" : user.unread_letter_count}
                   </span>
                 )}
               </Link>

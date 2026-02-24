@@ -8,10 +8,11 @@ interface MobileMenuProps {
   subscriptionTier?: string;
   isAdmin?: boolean;
   unreadNotificationCount?: number;
+  unreadLetterCount?: number;
   draftCount?: number;
 }
 
-export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotificationCount = 0, draftCount = 0 }: MobileMenuProps) {
+export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotificationCount = 0, unreadLetterCount = 0, draftCount = 0 }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -24,8 +25,8 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
       >
-        {/* Unread notification dot on hamburger */}
-        {!open && unreadNotificationCount > 0 && (
+        {/* Unread dot on hamburger (notifications or letters) */}
+        {!open && (unreadNotificationCount > 0 || unreadLetterCount > 0) && (
           <span
             className="absolute top-0 right-0 rounded-full"
             style={{ background: "var(--danger)", width: 8, height: 8 }}
@@ -99,6 +100,24 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
                 </span>
               )}
             </MobileLink>
+            <MobileLink href="/letters" onClick={() => setOpen(false)}>
+              <LettersIcon /> Letterbox
+              {unreadLetterCount > 0 && (
+                <span
+                  className="ml-auto rounded-full text-white font-bold flex items-center justify-center"
+                  style={{
+                    background: "var(--danger)",
+                    fontSize: "10px",
+                    minWidth: "18px",
+                    height: "18px",
+                    padding: "0 5px",
+                    lineHeight: 1,
+                  }}
+                >
+                  {unreadLetterCount > 9 ? "9+" : unreadLetterCount}
+                </span>
+              )}
+            </MobileLink>
             <MobileLink href="/search" onClick={() => setOpen(false)}>
               <SearchIcon /> Search
             </MobileLink>
@@ -168,3 +187,4 @@ function SettingsIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="
 function FeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>; }
 function SubmitFeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M10 10h4" /></svg>; }
 function AdminIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
+function LettersIcon() { return <svg {...iconProps}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>; }

@@ -191,6 +191,14 @@ defmodule InkwellWeb.Router do
     # Guestbook (authenticated actions)
     post "/users/:username/guestbook", GuestbookController, :create
     delete "/guestbook/:id", GuestbookController, :delete
+
+    # Letters (private messaging between pen pals)
+    get  "/conversations",                              ConversationController, :index
+    post "/conversations",                              ConversationController, :create
+    get  "/conversations/:id",                          ConversationController, :show
+    post "/conversations/:id/read",                     ConversationController, :mark_read
+    post "/conversations/:id/letters",                  LetterController, :create
+    delete "/conversations/:id/letters/:letter_id",     LetterController, :delete
   end
 
   # Admin API (requires auth + admin role)

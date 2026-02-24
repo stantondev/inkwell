@@ -7,6 +7,7 @@ import { buildProfileStyles } from "@/lib/profile-styles";
 import { PROFILE_FONTS } from "@/lib/profile-themes";
 import { scopeEntryHtml } from "@/lib/scope-styles";
 import { FollowButton } from "./follow-button";
+import { WriteLetterButton } from "./write-letter-button";
 import { MusicPlayer } from "@/components/music-player";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { EntryContent } from "@/components/entry-content";
@@ -342,14 +343,20 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   Edit profile
                 </Link>
               ) : (
-                <FollowButton
-                  targetUsername={username}
-                  initialState={
-                    relationshipStatus === "accepted" ? "following" :
-                    relationshipStatus === "pending" ? "pending" :
-                    "idle"
-                  }
-                />
+                <div className="flex items-center gap-2">
+                  <FollowButton
+                    targetUsername={username}
+                    initialState={
+                      relationshipStatus === "accepted" ? "following" :
+                      relationshipStatus === "pending" ? "pending" :
+                      "idle"
+                    }
+                  />
+                  {/* Write a Letter button — only for accepted pen pals */}
+                  {relationshipStatus === "accepted" && session && (
+                    <WriteLetterButton username={username} />
+                  )}
+                </div>
               )}
             </div>
 

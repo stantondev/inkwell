@@ -123,6 +123,8 @@ function notificationText(n: Notification): string {
       return "commented on your feedback post";
     case "feedback_vote":
       return "upvoted your feedback post";
+    case "letter":
+      return "sent you a letter";
     default:
       return "interacted with your content";
   }
@@ -243,6 +245,25 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "letter") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>
+    );
+  }
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
@@ -303,6 +324,10 @@ function getActorInfo(n: Notification) {
 }
 
 function getNotificationHref(n: Notification): string | null {
+  // Letter notifications link to the conversation thread
+  if (n.type === "letter" && n.data?.conversation_id) {
+    return `/letters/${n.data.conversation_id}`;
+  }
   // Feedback notifications link to the roadmap post
   if (
     (n.type === "feedback_status_change" ||
