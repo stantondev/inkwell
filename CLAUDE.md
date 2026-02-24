@@ -367,7 +367,7 @@ Profile | Top 6 | Filters | Billing | Customize
 - `friend_filters` — named lists of friends (user_id, name, member_ids UUID array) for custom entry privacy; entries reference via `custom_filter_id`
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
 - `remote_actors` — ActivityPub remote user cache
-- `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count
+- `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count, priority (low/medium/high/critical), value_score (1–5), attachment_ids (text[] of entry_image IDs)
 - `feedback_votes` — user_id + feedback_post_id (unique together)
 - `feedback_comments` — body, user_id, feedback_post_id
 - `guestbook_entries` — profile guestbook with body, profile_user_id, author_id
@@ -513,7 +513,7 @@ npm run dev:web               # In another terminal
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000010_add_admin_fields_to_users.exs`
+- Latest migration: `20260222000014_add_attachment_ids_to_feedback_posts.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -539,12 +539,13 @@ _(empty — all bugs shipped!)_
 
 ### Ideas / Future (not yet scheduled)
 - Add categories to journal posts (feature request — needs schema + UI design)
-- Make "Submit Feedback" more discoverable (button placement / onboarding prompt)
 - Beta Participation program (under review, 10 votes)
-- Admin feedback triage — value & priority scoring for roadmap posts
-- Attach supporting details / screenshots to feedback posts
+- Direct Messaging (1:1) — architecture design doc written at `docs/dm-architecture.md`; estimated ~5.5 days to build
 
 ### Recently Completed
+- **2026-02-24** — Sprint: Submit Feedback discoverability. Added "Submit Feedback" link to site footer and mobile hamburger menu. Direct links to `/roadmap/new`.
+- **2026-02-24** — Sprint: Admin Feedback Triage. Added `priority` (Ecto.Enum: low/medium/high/critical) and `value_score` (integer 1–5) fields to `feedback_posts`. Admin status panel now shows priority dropdown and value score selector. Migrations: `20260222000013_add_triage_fields_to_feedback_posts.exs`.
+- **2026-02-24** — Sprint: Feedback Attachments. Users can now attach up to 3 screenshots when submitting feedback. Images reuse `entry_images` table/upload endpoint. `attachment_ids text[]` column on `feedback_posts` stores image IDs. Orphaned image cleanup extended to protect feedback-attached images. Migration: `20260222000014_add_attachment_ids_to_feedback_posts.exs`.
 - **2026-02-24** — Fixed remote entry comment count: explore controller now queries actual comment count from DB instead of hardcoding 0. Added `count_comments_for_remote_entries/1` batch query to Journals context.
 - **2026-02-24** — Fixed intermittent signed-out bug: `getSession()` now retries once after 500ms delay to handle Fly.io cold starts where the API machine needs a moment to unsuspend.
 - **2026-02-24** — Fixed footer capitalization: "inkwell" → "Inkwell" in site footer.
