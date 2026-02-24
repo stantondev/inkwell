@@ -162,6 +162,13 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
 - **Reader tips feature shelved** — removed from Plus tier feature lists (landing page + billing page) due to legal complexity around payment processing for tips; may revisit after ToS is finalized
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
+- **Free vs Plus tier feature gating**:
+  - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font
+  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, supporter stamp, unlimited drafts/filters, 1GB images, Plus badge
+  - **Backend enforcement**: `PATCH /api/me` silently strips Plus-only fields (`profile_music`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`) for free users. `POST /api/me/background` returns 403 for non-Plus. Draft limit (10), filter limit (5), image storage (100MB), custom HTML/CSS, and supporter stamp also enforced.
+  - **Frontend enforcement**: Settings customize editor shows `PlusGate` upgrade prompts for 8 sections (colors, background, font, layout, music, widgets, CSS, HTML). `handleSave()` only sends Plus fields when `isPlus`.
+  - **Profile rendering**: `buildProfileStyles()` in `profile-styles.ts` accepts `subscription_tier` — ignores custom color/font overrides for non-Plus users, using theme defaults only. Profile page gates background image, music widget, non-classic layouts, custom HTML/CSS behind Plus.
+  - **Downgrade behavior**: saved Plus customizations stay in DB; profile renders at theme-default level; re-subscribing restores everything
 
 ### Community Feedback & Roadmap Board
 - Full public feedback board at `/roadmap` — replaces old email-only `/feedback`
@@ -536,6 +543,7 @@ _(empty — all bugs shipped!)_
 - Attach supporting details / screenshots to feedback posts
 
 ### Recently Completed
+- **2026-02-23** — Enforced free vs Plus tier feature gating. Profile customization features (custom colors, fonts, layouts, background images, music, widget ordering) now properly gated behind Plus on both backend and frontend. Free tier keeps all 8 themes, status messages, and core features. Marketing pages updated to accurately reflect tier split.
 - **2026-02-23** — Feedback notifications: users now get notified when their feedback post status changes, receives comments, or gets upvoted. Three new notification types (`feedback_status_change`, `feedback_comment`, `feedback_vote`) with star icon, post title link to `/roadmap/:id`, and self-notification suppression.
 - **2026-02-23** — Follow button now shows correct state (following/pending/idle) for already-followed users. Moved `GET /api/users/:username` to `optional_auth` scope; returns `relationship_status` in meta when authenticated.
 - **2026-02-23** — Fixed comment duplicate submission. Added `useRef` synchronous guard to both feed card popup and entry detail comment forms. Added error feedback to feed card comment popup.
