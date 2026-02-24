@@ -72,7 +72,7 @@ defmodule InkwellWeb.FeedbackController do
         do: params["status"]
 
     sort =
-      if params["sort"] in ~w(newest most_voted recently_updated),
+      if params["sort"] in ~w(newest most_voted recently_updated priority_score),
         do: params["sort"],
         else: "newest"
 
@@ -184,7 +184,7 @@ defmodule InkwellWeb.FeedbackController do
 
         cond do
           # Admin updating status/response/triage fields
-          is_admin && Map.has_key?(params, "status") ->
+          is_admin && Enum.any?(~w(status priority value_score admin_response release_note), &Map.has_key?(params, &1)) ->
             attrs = Map.take(params, ["status", "admin_response", "release_note", "priority", "value_score"])
             old_status = to_string(post.status)
 
@@ -382,12 +382,37 @@ defmodule InkwellWeb.FeedbackController do
       comment_count: post.comment_count,
       priority: post.priority,
       value_score: post.value_score,
+      weighted_score: compute_weighted_score(post.priority, post.value_score, post.vote_count),
       attachment_ids: post.attachment_ids || [],
       voted: voted,
       author: author,
       created_at: post.inserted_at,
       updated_at: post.updated_at
     }
+  end
+
+  # Weighted score = (priority / 4) × 40 + (value / 5) × 40 + (votes / max(10, votes)) × 20
+  # Returns nil if neither priority nor value_score is set
+  defp compute_weighted_score(priority, value_score, vote_count) do
+    priority_num =
+      case priority do
+        :critical -> 4
+        :high -> 3
+        :medium -> 2
+        :low -> 1
+        _ -> nil
+      end
+
+    cond do
+      is_nil(priority_num) and is_nil(value_score) ->
+        nil
+
+      true ->
+        p = (priority_num || 0) / 4.0 * 40
+        v = (value_score || 0) / 5.0 * 40
+        votes = min(vote_count || 0, 10) / 10.0 * 20
+        round(p + v + votes)
+    end
   end
 
   defp render_feedback_comment(comment) do

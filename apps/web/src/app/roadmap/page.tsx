@@ -3,7 +3,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { Avatar } from "@/components/avatar";
-import { StatusBadge, CategoryBadge } from "./badges";
+import { StatusBadge, CategoryBadge, ScoreBadge } from "./badges";
 import { UpvoteButton } from "./upvote-button";
 
 export const metadata: Metadata = { title: "Roadmap · Inkwell" };
@@ -19,6 +19,9 @@ interface FeedbackPost {
   completed_at: string | null;
   vote_count: number;
   comment_count: number;
+  priority: string | null;
+  value_score: number | null;
+  weighted_score: number | null;
   voted: boolean;
   author: {
     id: string | null;
@@ -66,6 +69,7 @@ const categories = [
 
 const sortOptions = [
   { value: "most_voted", label: "Most Voted" },
+  { value: "priority_score", label: "Priority Score" },
   { value: "newest", label: "Newest" },
   { value: "recently_updated", label: "Recently Updated" },
 ];
@@ -460,6 +464,7 @@ export default async function RoadmapPage({ searchParams }: PageProps) {
                     <div className="flex flex-wrap items-center gap-2">
                       <CategoryBadge category={post.category} />
                       <StatusBadge status={post.status} />
+                      <ScoreBadge score={post.weighted_score} priority={post.priority} />
 
                       <span className="text-xs" style={{ color: "var(--muted)" }}>
                         by{" "}

@@ -98,9 +98,12 @@ export function AdminStatusForm({ postId, currentStatus, currentResponse, curren
       className="rounded-xl border p-4 space-y-3"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}
     >
-      <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-        Admin Controls
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          Admin Controls
+        </h3>
+        <WeightedScoreDisplay priority={priority} valueScore={valueScore} />
+      </div>
 
       <div>
         <label className="block text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>
@@ -229,5 +232,42 @@ export function AdminStatusForm({ postId, currentStatus, currentResponse, curren
         )}
       </div>
     </form>
+  );
+}
+
+function WeightedScoreDisplay({ priority, valueScore }: { priority: string; valueScore: string }) {
+  const priorityNum =
+    priority === "critical" ? 4
+    : priority === "high" ? 3
+    : priority === "medium" ? 2
+    : priority === "low" ? 1
+    : 0;
+
+  const value = valueScore ? parseInt(valueScore, 10) : 0;
+
+  if (priorityNum === 0 && value === 0) {
+    return (
+      <span className="text-xs tabular-nums" style={{ color: "var(--muted)" }}>
+        Score: —
+      </span>
+    );
+  }
+
+  const score = Math.round((priorityNum / 4) * 40 + (value / 5) * 40);
+  const color = score >= 56 ? "#047857" : score >= 40 ? "#B45309" : "#6B7280";
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs font-semibold tabular-nums"
+      style={{ color }}
+      title={`Priority: ${priorityNum}/4, Value: ${value}/5 (+ up to 20 from votes)`}
+    >
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+      Score: {score}
+      <span style={{ color: "var(--muted)", fontWeight: 400 }}>/80 +votes</span>
+    </span>
   );
 }

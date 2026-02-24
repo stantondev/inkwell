@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { Avatar } from "@/components/avatar";
-import { StatusBadge, CategoryBadge } from "../badges";
+import { StatusBadge, CategoryBadge, ScoreBadge } from "../badges";
 import { UpvoteButton } from "../upvote-button";
 import { AdminStatusForm } from "./admin-status-form";
 import { FeedbackCommentForm } from "./feedback-comment-form";
@@ -24,6 +24,7 @@ interface FeedbackPost {
   comment_count: number;
   priority: string | null;
   value_score: number | null;
+  weighted_score: number | null;
   attachment_ids: string[];
   voted: boolean;
   author: {
@@ -141,6 +142,7 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <CategoryBadge category={post.category} />
                 <StatusBadge status={post.status} />
+                <ScoreBadge score={post.weighted_score} priority={post.priority} />
               </div>
 
               {/* Body */}

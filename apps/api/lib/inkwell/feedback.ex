@@ -23,9 +23,28 @@ defmodule Inkwell.Feedback do
 
     query =
       case sort do
-        "most_voted" -> order_by(query, [p], [desc: p.vote_count, desc: p.inserted_at])
-        "recently_updated" -> order_by(query, desc: :updated_at)
-        _ -> order_by(query, desc: :inserted_at)
+        "most_voted" ->
+          order_by(query, [p], [desc: p.vote_count, desc: p.inserted_at])
+
+        "priority_score" ->
+          order_by(query, [p], [
+            desc:
+              fragment(
+                "CASE WHEN ? IS NOT NULL OR ? IS NOT NULL THEN (CASE ? WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END::float / 4.0 * 40 + COALESCE(?, 0)::float / 5.0 * 40 + LEAST(COALESCE(?, 0), 10)::float / 10.0 * 20) ELSE 0 END",
+                p.priority,
+                p.value_score,
+                p.priority,
+                p.value_score,
+                p.vote_count
+              ),
+            desc: p.inserted_at
+          ])
+
+        "recently_updated" ->
+          order_by(query, desc: :updated_at)
+
+        _ ->
+          order_by(query, desc: :inserted_at)
       end
 
     query
