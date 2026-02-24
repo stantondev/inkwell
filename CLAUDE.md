@@ -606,7 +606,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000014_add_attachment_ids_to_feedback_posts.exs`
+- Latest migration: `20260222000020_create_data_imports.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -641,7 +641,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 70 | **Direct Messaging** | High | 5 | 5.5 days | Planned — arch doc at `docs/dm-architecture.md` |
 | 62 | **Bookmarks** | High | 4 | 1–2 days | Done |
 | 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | New |
-| 52 | **Data Import Options** | Medium | 4 | 4–5 days | New |
+| 52 | **Data Import Options** | Medium | 4 | 4–5 days | Done |
 | 52 | **Version History for Entries** | Medium | 4 | ~3 days | New |
 | 52 | **Series and Collections** | Medium | 4 | 3–4 days | New |
 | 42 | **Word Count and Reading Time** | Medium | 3 | ~0.5 day | New |
@@ -659,6 +659,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 4. Direct Messaging (5.5 days, highest score)
 
 ### Recently Completed
+- **2026-02-24** — Data Import Options. Users can import journal entries from 6 sources via Settings → Import: Inkwell JSON (own export round-trip, supports .json.gz), WordPress WXR (XML via Saxy SAX parser), Medium HTML (ZIP), Substack CSV, Generic CSV, Generic JSON. User chooses import mode (drafts or published with original dates), default privacy (private/friends/public). Background Oban worker processes in batches of 50 with progress polling (3s), duplicate detection (title+date), cancellation, error reporting (capped at 100). `create_entry_quiet/1` skips federation fan-out. Cleanup worker at 6:30am UTC. New deps: nimble_csv, saxy. Migration `20260222000020`. Settings tabs now scroll horizontally.
 - **2026-02-24** — Bookmarks / Reading List. Users can save entries to a private reading list. Ribbon bookmark icon (outline → filled accent) in feed card footers, explore, and entry detail pages. `/saved` Reading List page with ink-blue left-edge ribbon stripe on cards, fade-out remove animation, and empty state. Batch `get_bookmarks_for_entries/2` MapSet query in feed/explore controllers. Migration `20260222000019`. Bookmarks auto-deleted via FK cascade on user/entry deletion. Nav + mobile menu "Saved" link. `/saved` middleware-protected.
 - **2026-02-24** — Weighted Priority Score system for roadmap. Auto-calculated score (0–100) from priority (40%), value (40%), and votes (20%). Added `weighted_score` to API response, `priority_score` sort option, `ScoreBadge` component with color-coded badges, live score preview in admin panel. Relaxed admin update condition to allow setting priority/value without changing status. Set priority/value on all 13 open roadmap items.
 - **2026-02-24** — Sprint: Submit Feedback discoverability. Added "Submit Feedback" link to site footer and mobile hamburger menu. Direct links to `/roadmap/new`.
