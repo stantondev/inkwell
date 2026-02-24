@@ -9,6 +9,7 @@ import { UpvoteButton } from "../upvote-button";
 import { AdminStatusForm } from "./admin-status-form";
 import { FeedbackCommentForm } from "./feedback-comment-form";
 import { DeleteCommentButtonClient } from "./delete-comment-button";
+import { EditPostForm } from "./edit-post-form";
 
 interface FeedbackPost {
   id: string;
@@ -102,6 +103,8 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const isAuthor = !!session && post.author.id === session.user.id;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -162,7 +165,7 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Author + time */}
+              {/* Author + time + edit */}
               <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
                 {post.author.avatar_url || post.author.display_name ? (
                   <Avatar
@@ -180,6 +183,17 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
                 )}
                 <span>·</span>
                 <span>{formatDate(post.created_at)}</span>
+                {isAuthor && (
+                  <>
+                    <span>·</span>
+                    <EditPostForm
+                      postId={post.id}
+                      initialTitle={post.title}
+                      initialBody={post.body}
+                      initialCategory={post.category}
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>

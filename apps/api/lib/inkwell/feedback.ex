@@ -40,6 +40,12 @@ defmodule Inkwell.Feedback do
     |> Repo.insert()
   end
 
+  def update_post_user(%FeedbackPost{} = post, attrs) do
+    post
+    |> FeedbackPost.user_changeset(attrs)
+    |> Repo.update()
+  end
+
   def update_post_admin(%FeedbackPost{} = post, attrs) do
     post
     |> FeedbackPost.admin_changeset(attrs)

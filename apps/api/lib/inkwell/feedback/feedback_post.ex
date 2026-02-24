@@ -35,6 +35,15 @@ defmodule Inkwell.Feedback.FeedbackPost do
     |> validate_inclusion(:category, [:bug, :feature, :idea, :question])
   end
 
+  def user_changeset(post, attrs) do
+    post
+    |> cast(attrs, [:title, :body, :category])
+    |> validate_required([:title, :body, :category])
+    |> validate_length(:title, min: 3, max: 200)
+    |> validate_length(:body, min: 10, max: 5000)
+    |> validate_inclusion(:category, [:bug, :feature, :idea, :question])
+  end
+
   def admin_changeset(post, attrs) do
     post
     |> cast(attrs, [:status, :admin_response, :release_note, :priority, :value_score])

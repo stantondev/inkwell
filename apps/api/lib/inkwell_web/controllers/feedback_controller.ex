@@ -170,49 +170,69 @@ defmodule InkwellWeb.FeedbackController do
     end
   end
 
-  # PATCH /api/feedback/:id — admin-only: update status, admin_response
+  # PATCH /api/feedback/:id — author can edit title/body/category, admin can update status etc.
   def update(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
 
-    if not Accounts.is_admin?(user) do
-      conn |> put_status(:forbidden) |> json(%{error: "Admin only"})
-    else
-      case Feedback.get_post(id) do
-        nil ->
-          conn |> put_status(:not_found) |> json(%{error: "Post not found"})
+    case Feedback.get_post(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Post not found"})
 
-        post ->
-          attrs = Map.take(params, ["status", "admin_response", "release_note", "priority", "value_score"])
+      post ->
+        is_admin = Accounts.is_admin?(user)
+        is_author = post.user_id == user.id
 
-          old_status = to_string(post.status)
+        cond do
+          # Admin updating status/response/triage fields
+          is_admin && Map.has_key?(params, "status") ->
+            attrs = Map.take(params, ["status", "admin_response", "release_note", "priority", "value_score"])
+            old_status = to_string(post.status)
 
-          case Feedback.update_post_admin(post, attrs) do
-            {:ok, updated} ->
-              updated = Inkwell.Repo.preload(updated, :user)
-              new_status = to_string(updated.status)
+            case Feedback.update_post_admin(post, attrs) do
+              {:ok, updated} ->
+                updated = Inkwell.Repo.preload(updated, :user)
+                new_status = to_string(updated.status)
 
-              # Notify the post author when status changes (unless admin is the author)
-              if new_status != old_status && updated.user_id && updated.user_id != user.id do
-                Task.start(fn ->
-                  Accounts.create_notification(%{
-                    type: :feedback_status_change,
-                    user_id: updated.user_id,
-                    actor_id: user.id,
-                    target_type: "feedback_post",
-                    target_id: updated.id,
-                    data: %{post_id: updated.id, post_title: updated.title, new_status: new_status}
-                  })
-                end)
-              end
+                # Notify the post author when status changes (unless admin is the author)
+                if new_status != old_status && updated.user_id && updated.user_id != user.id do
+                  Task.start(fn ->
+                    Accounts.create_notification(%{
+                      type: :feedback_status_change,
+                      user_id: updated.user_id,
+                      actor_id: user.id,
+                      target_type: "feedback_post",
+                      target_id: updated.id,
+                      data: %{post_id: updated.id, post_title: updated.title, new_status: new_status}
+                    })
+                  end)
+                end
 
-              json(conn, %{data: render_post(updated, false)})
+                json(conn, %{data: render_post(updated, false)})
 
-            {:error, changeset} ->
-              conn
-              |> put_status(:unprocessable_entity)
-              |> json(%{errors: format_errors(changeset)})
-          end
-      end
+              {:error, changeset} ->
+                conn
+                |> put_status(:unprocessable_entity)
+                |> json(%{errors: format_errors(changeset)})
+            end
+
+          # Author editing their own post (title, body, category)
+          is_author ->
+            attrs = Map.take(params, ["title", "body", "category"])
+
+            case Feedback.update_post_user(post, attrs) do
+              {:ok, updated} ->
+                updated = Inkwell.Repo.preload(updated, :user)
+                json(conn, %{data: render_post(updated, false)})
+
+              {:error, changeset} ->
+                conn
+                |> put_status(:unprocessable_entity)
+                |> json(%{errors: format_errors(changeset)})
+            end
+
+          true ->
+            conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
+        end
     end
   end
 
