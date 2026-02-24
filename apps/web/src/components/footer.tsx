@@ -18,6 +18,7 @@ export function Footer() {
           <Link href="/privacy" className="hover:underline">Privacy</Link>
           <Link href="/brand" className="hover:underline">Brand</Link>
           <Link href="/roadmap" className="hover:underline">Roadmap</Link>
+          <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
         </div>
         <span>&copy; 2026 Inkwell</span>
       </div>
