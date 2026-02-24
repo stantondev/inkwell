@@ -64,12 +64,12 @@ jobs:
       # Web deploys second so it's never ahead of the API schema.
 
       - name: Deploy API
-        run: fly deploy --config fly.api.toml --wait-timeout 600
+        run: flyctl deploy --config fly.api.toml --wait-timeout 600
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy Web
-        run: fly deploy --config fly.web.toml --wait-timeout 600
+        run: flyctl deploy --config fly.web.toml --wait-timeout 600
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
