@@ -1,0 +1,79 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    concurrency: deploy-production  # prevent overlapping deploys
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # ── Frontend checks ───────────────────────────────────────────────────
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit --project apps/web/tsconfig.json
+
+      # ── Backend checks ────────────────────────────────────────────────────
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.18.4"
+          otp-version: "27.x"
+
+      - name: Cache Elixir deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/api/deps
+            apps/api/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('apps/api/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install Elixir deps
+        working-directory: apps/api
+        run: mix deps.get --only prod
+        env:
+          MIX_ENV: prod
+
+      - name: Compile check
+        working-directory: apps/api
+        run: mix compile --warnings-as-errors
+        env:
+          MIX_ENV: prod
+
+      # ── Deploy ────────────────────────────────────────────────────────────
+      # API deploys first — Docker entrypoint runs Ecto migrations automatically.
+      # Web deploys second so it's never ahead of the API schema.
+
+      - name: Deploy API
+        run: fly deploy --config fly.api.toml --wait-timeout 600
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy Web
+        run: fly deploy --config fly.web.toml --wait-timeout 600
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # ── Smoke test ────────────────────────────────────────────────────────
+
+      - name: Health check
+        run: curl --fail --silent --max-time 30 https://inkwell-api.fly.dev/health

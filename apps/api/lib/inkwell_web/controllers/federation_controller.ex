@@ -2,7 +2,7 @@ defmodule InkwellWeb.FederationController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteActor, RemoteEntries}
+  alias Inkwell.Federation.{ActivityBuilder, HttpSignature, RemoteActor, RemoteEntries}
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchOutboxWorker}
   alias Inkwell.Repo
 
@@ -222,6 +222,8 @@ defmodule InkwellWeb.FederationController do
 
   # POST /users/:username/inbox
   def inbox(conn, %{"username" => username} = params) do
+    verify_inbox_signature(conn)
+
     case Accounts.get_user_by_username(username) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Not found"})
@@ -233,6 +235,7 @@ defmodule InkwellWeb.FederationController do
 
   # POST /inbox  (shared inbox)
   def shared_inbox(conn, params) do
+    verify_inbox_signature(conn)
     process_activity(conn, params, nil)
   end
 
@@ -271,6 +274,48 @@ defmodule InkwellWeb.FederationController do
       _ ->
         Logger.info("Ignoring unsupported activity type: #{activity_type}")
         conn |> put_status(:accepted) |> json(%{ok: true})
+    end
+  end
+
+  # ── Signature verification ──────────────────────────────────────────────
+
+  # Verifies the HTTP Signature on inbound ActivityPub requests (log-only mode).
+  # All activity processing continues regardless of outcome — this lets us
+  # confirm verification works in production logs before switching to hard reject.
+  defp verify_inbox_signature(conn) do
+    case HttpSignature.parse_signature(conn) do
+      {:error, :no_signature} ->
+        Logger.warning("Inbox: no HTTP Signature header from #{actor_from_conn(conn)}")
+
+      {:error, reason} ->
+        Logger.warning("Inbox: malformed Signature header — #{inspect(reason)}")
+
+      {:ok, sig_parts} ->
+        key_id = sig_parts["keyId"] || ""
+        # Derive actor URI by stripping the key fragment (e.g. #main-key)
+        actor_uri = Regex.replace(~r/#.*$/, key_id, "")
+
+        case RemoteActor.fetch(actor_uri) do
+          {:ok, actor} ->
+            case HttpSignature.verify_signature(conn, sig_parts, actor.public_key_pem) do
+              :ok ->
+                Logger.debug("Inbox: signature verified for #{actor_uri}")
+
+              {:error, reason} ->
+                Logger.warning("Inbox: signature FAILED for #{actor_uri} — #{inspect(reason)}")
+            end
+
+          {:error, reason} ->
+            Logger.warning("Inbox: could not fetch actor #{actor_uri} — #{inspect(reason)}")
+        end
+    end
+  end
+
+  defp actor_from_conn(conn) do
+    # Best-effort: peek at the already-parsed body params for the actor field.
+    case conn.body_params do
+      %{"actor" => actor} when is_binary(actor) -> actor
+      _ -> "(unknown)"
     end
   end
 

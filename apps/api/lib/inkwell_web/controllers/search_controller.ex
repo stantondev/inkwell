@@ -216,8 +216,9 @@ defmodule InkwellWeb.SearchController do
 
   defp search_meilisearch(q, type, page) do
     index = if type == "users", do: "users", else: "entries"
-    url = Application.get_env(:inkwell, :meilisearch_url, "http://localhost:7700")
-    api_key = Application.get_env(:inkwell, :meilisearch_key, "")
+    search_cfg = Application.get_env(:inkwell, Inkwell.Search, [])
+    url = Keyword.get(search_cfg, :url, "http://localhost:7700")
+    api_key = Keyword.get(search_cfg, :api_key, "") || ""
 
     body = Jason.encode!(%{
       q: q,

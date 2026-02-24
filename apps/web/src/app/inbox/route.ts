@@ -16,6 +16,11 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "content-type": "application/activity+json",
+        // Forward the original Host so Phoenix can reconstruct the correct
+        // signing string for HTTP Signature verification.
+        ...(request.headers.get("host")
+          ? { host: request.headers.get("host")! }
+          : {}),
         ...(request.headers.get("signature")
           ? { signature: request.headers.get("signature")! }
           : {}),
