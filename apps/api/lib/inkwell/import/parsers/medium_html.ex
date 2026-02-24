@@ -1,6 +1,9 @@
 defmodule Inkwell.Import.Parsers.MediumHtml do
   @moduledoc """
-  Parser for Medium HTML export (ZIP file containing HTML files in posts/ directory).
+  Parser for Medium HTML export files.
+  Accepts either:
+  - A ZIP file containing HTML files in posts/ directory (Medium's download format)
+  - A single HTML file (already extracted from the ZIP)
   Medium export: Settings → Account → Download your information → ZIP file.
   """
 
@@ -10,13 +13,25 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
 
   @impl true
   def parse(data) when is_binary(data) do
+    if zip_file?(data) do
+      parse_zip(data)
+    else
+      parse_single_html(data)
+    end
+  end
+
+  # ZIP files start with PK magic bytes (0x50 0x4B)
+  defp zip_file?(<<0x50, 0x4B, _::binary>>), do: true
+  defp zip_file?(_), do: false
+
+  defp parse_zip(data) do
     case :zip.unzip(data, [:memory]) do
       {:ok, files} ->
         entries =
           files
           |> Enum.filter(fn {name, _content} ->
             name_str = to_string(name)
-            String.contains?(name_str, "posts/") && String.ends_with?(name_str, ".html")
+            String.ends_with?(name_str, ".html")
           end)
           |> Enum.map(fn {name, content} ->
             parse_html_file(to_string(name), to_string(content))
@@ -31,6 +46,18 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
   rescue
     e ->
       {:error, "Failed to process ZIP file: #{Exception.message(e)}"}
+  end
+
+  defp parse_single_html(data) do
+    html = to_string(data)
+
+    case parse_html_file("uploaded.html", html) do
+      nil -> {:ok, []}
+      entry -> {:ok, [entry]}
+    end
+  rescue
+    e ->
+      {:error, "Failed to parse HTML file: #{Exception.message(e)}"}
   end
 
   defp parse_html_file(filename, html) do
@@ -80,15 +107,14 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
   end
 
   defp extract_body(html) do
-    # Try to extract content between article tags or section tags
+    # Prefer e-content section (Medium's main body), then article, then body
     body =
-      case Regex.run(~r/<article[^>]*>(.*?)<\/article>/s, html) do
+      case Regex.run(~r/<section[^>]*class="[^"]*e-content[^"]*"[^>]*>(.*?)<\/section>/s, html) do
         [_, content] -> content
         nil ->
-          case Regex.run(~r/<section[^>]*class="[^"]*e-content[^"]*"[^>]*>(.*?)<\/section>/s, html) do
+          case Regex.run(~r/<article[^>]*>(.*?)<\/article>/s, html) do
             [_, content] -> content
             nil ->
-              # Fallback: get body content
               case Regex.run(~r/<body[^>]*>(.*?)<\/body>/s, html) do
                 [_, content] -> content
                 nil -> html
@@ -100,10 +126,14 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
     body =
       body
       |> String.replace(~r/<h1[^>]*>.*?<\/h1>/s, "")
-      |> String.replace(~r/<h3[^>]*class="[^"]*p-name[^"]*"[^>]*>.*?<\/h3>/s, "")
+      |> String.replace(~r/<h3[^>]*class="[^"]*graf--title[^"]*"[^>]*>.*?<\/h3>/s, "")
 
-    # Remove footer (contains tags and metadata)
-    body = String.replace(body, ~r/<footer[^>]*>.*?<\/footer>/s, "")
+    # Remove header, subtitle section, footer (contains tags and metadata)
+    body =
+      body
+      |> String.replace(~r/<header[^>]*>.*?<\/header>/s, "")
+      |> String.replace(~r/<section[^>]*data-field="subtitle"[^>]*>.*?<\/section>/s, "")
+      |> String.replace(~r/<footer[^>]*>.*?<\/footer>/s, "")
 
     # Remove time elements
     body = String.replace(body, ~r/<time[^>]*>.*?<\/time>/s, "")
@@ -116,23 +146,10 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
 
   defp extract_tags(html) do
     # Medium puts tags in the footer as links with class "p-category"
-    case Regex.scan(~r/<a[^>]*class="[^"]*p-category[^"]*"[^>]*>(.*?)<\/a>/s, html) do
-      matches when matches != [] ->
-        Enum.map(matches, fn [_, tag] -> strip_tags(tag) |> String.trim() end)
-        |> Enum.reject(&(&1 == ""))
-
-      _ ->
-        # Fallback: look for tags in footer links
-        case Regex.run(~r/<footer[^>]*>(.*?)<\/footer>/s, html) do
-          [_, footer] ->
-            Regex.scan(~r/<a[^>]*>(.*?)<\/a>/s, footer)
-            |> Enum.map(fn [_, tag] -> strip_tags(tag) |> String.trim() end)
-            |> Enum.reject(&(&1 == ""))
-
-          nil ->
-            []
-        end
-    end
+    # Only use p-category links — other footer links are author, canonical, etc.
+    Regex.scan(~r/<a[^>]*class="[^"]*p-category[^"]*"[^>]*>(.*?)<\/a>/s, html)
+    |> Enum.map(fn [_, tag] -> strip_tags(tag) |> String.trim() end)
+    |> Enum.reject(&(&1 == ""))
   end
 
   defp strip_tags(html) do

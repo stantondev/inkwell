@@ -49,8 +49,8 @@ const FORMAT_OPTIONS: {
   {
     value: "medium_html",
     label: "Medium",
-    help: "Download from Medium: Settings \u2192 Account \u2192 Download your information",
-    accept: ".zip",
+    help: "Upload the ZIP from Medium, or an individual .html file from the posts/ folder",
+    accept: ".zip,.html,.htm",
   },
   {
     value: "substack_csv",
