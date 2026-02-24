@@ -109,6 +109,11 @@ defmodule InkwellWeb.Router do
     get "/me/export", ExportController, :status
     get "/me/export/download", ExportController, :download
 
+    # Data import
+    post "/me/import", ImportController, :create
+    get "/me/import", ImportController, :status
+    post "/me/import/cancel", ImportController, :cancel
+
     # User icons
     get "/me/icons", UserIconController, :index
     post "/me/icons", UserIconController, :create

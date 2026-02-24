@@ -39,7 +39,9 @@ defmodule Inkwell.MixProject do
       {:oban, "~> 2.18"},
       {:atomex, "~> 0.5"},
       {:slugify, "~> 1.3"},
-      {:bcrypt_elixir, "~> 3.0"}
+      {:bcrypt_elixir, "~> 3.0"},
+      {:nimble_csv, "~> 1.2"},
+      {:saxy, "~> 1.5"}
     ]
   end
 

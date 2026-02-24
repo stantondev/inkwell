@@ -107,6 +107,16 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @doc """
+  Create a published entry without federation fan-out.
+  Used by the data import worker to avoid flooding followers with old posts.
+  """
+  def create_entry_quiet(attrs) do
+    %Entry{}
+    |> Entry.changeset(attrs)
+    |> Repo.insert()
+  end
+
   def update_entry(%Entry{} = entry, attrs) do
     result =
       entry

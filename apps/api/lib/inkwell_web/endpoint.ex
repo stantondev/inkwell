@@ -20,7 +20,7 @@ defmodule InkwellWeb.Endpoint do
     pass: ["*/*"],
     json_decoder: Phoenix.json_library(),
     body_reader: {__MODULE__, :cache_body_reader, []},
-    length: 5_000_000
+    length: 52_428_800
 
   plug Plug.MethodOverride
   plug Plug.Head

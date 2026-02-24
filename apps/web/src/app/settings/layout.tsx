@@ -8,6 +8,7 @@ const tabs = [
   { href: "/settings/top-friends", label: "Top 6" },
   { href: "/settings/filters", label: "Filters" },
   { href: "/settings/billing", label: "Billing" },
+  { href: "/settings/import", label: "Import" },
   { href: "/settings/customize", label: "Customize" },
 ];
 
@@ -19,12 +20,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       <div className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="text-lg font-semibold mb-6">Settings</h1>
 
-        <div className="flex gap-1 mb-8 border-b" style={{ borderColor: "var(--border)" }}>
+        <div className="flex gap-1 mb-8 border-b overflow-x-auto" style={{ borderColor: "var(--border)" }}>
           {tabs.map((tab) => {
             const active = pathname === tab.href;
             return (
               <Link key={tab.href} href={tab.href}
-                className="px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors"
+                className="px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors whitespace-nowrap"
                 style={{
                   borderColor: active ? "var(--accent)" : "transparent",
                   color: active ? "var(--accent)" : "var(--muted)",
