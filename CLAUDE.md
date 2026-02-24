@@ -639,7 +639,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | Score | Item | Priority | Value | Est. Effort | Status |
 |---|---|---|---|---|---|
 | 70 | **Direct Messaging** | High | 5 | 5.5 days | Planned — arch doc at `docs/dm-architecture.md` |
-| 62 | **Bookmarks** | High | 4 | 1–2 days | New |
+| 62 | **Bookmarks** | High | 4 | 1–2 days | Done |
 | 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | New |
 | 52 | **Data Import Options** | Medium | 4 | 4–5 days | New |
 | 52 | **Version History for Entries** | Medium | 4 | ~3 days | New |
@@ -655,11 +655,11 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended sprint order** (quick wins first, then big projects):
 1. Word Count + Reading Time (0.5 day, visible polish)
 2. Distraction-Free Writing Mode (1 day, writer delight)
-3. Bookmarks (1–2 days, high score)
-4. Categories (2–3 days, already under review)
-5. Direct Messaging (5.5 days, highest score)
+3. Categories (2–3 days, already under review)
+4. Direct Messaging (5.5 days, highest score)
 
 ### Recently Completed
+- **2026-02-24** — Bookmarks / Reading List. Users can save entries to a private reading list. Ribbon bookmark icon (outline → filled accent) in feed card footers, explore, and entry detail pages. `/saved` Reading List page with ink-blue left-edge ribbon stripe on cards, fade-out remove animation, and empty state. Batch `get_bookmarks_for_entries/2` MapSet query in feed/explore controllers. Migration `20260222000019`. Bookmarks auto-deleted via FK cascade on user/entry deletion. Nav + mobile menu "Saved" link. `/saved` middleware-protected.
 - **2026-02-24** — Weighted Priority Score system for roadmap. Auto-calculated score (0–100) from priority (40%), value (40%), and votes (20%). Added `weighted_score` to API response, `priority_score` sort option, `ScoreBadge` component with color-coded badges, live score preview in admin panel. Relaxed admin update condition to allow setting priority/value without changing status. Set priority/value on all 13 open roadmap items.
 - **2026-02-24** — Sprint: Submit Feedback discoverability. Added "Submit Feedback" link to site footer and mobile hamburger menu. Direct links to `/roadmap/new`.
 - **2026-02-24** — Sprint: Admin Feedback Triage. Added `priority` (Ecto.Enum: low/medium/high/critical) and `value_score` (integer 1–5) fields to `feedback_posts`. Admin status panel now shows priority dropdown and value score selector. Migrations: `20260222000013_add_triage_fields_to_feedback_posts.exs`.
