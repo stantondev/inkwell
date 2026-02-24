@@ -16,9 +16,9 @@ config :inkwell, InkwellWeb.Endpoint,
   secret_key_base: "dev_secret_key_base_replace_in_production_with_real_secret_that_is_at_least_64_bytes",
   watchers: []
 
-config :inkwell, :frontend_url, "http://192.168.64.2:3000"
+config :inkwell, :frontend_url, "http://localhost:3000"
 
-config :inkwell, :cors_origins, ["http://localhost:3000", "http://192.168.64.2:3000"]
+config :inkwell, :cors_origins, ["http://localhost:3000"]
 
 config :inkwell, :env, :dev
 
