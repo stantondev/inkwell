@@ -38,9 +38,7 @@ defmodule InkwellWeb.Router do
     get "/auth/verify", AuthController, :verify_magic_link
     delete "/auth/session", AuthController, :sign_out
 
-    # Public profiles and entries
-    get "/users/:username/entries", EntryController, :index
-    get "/users/:username/entries/:slug", EntryController, :show
+    # Public profiles and entries (index/show moved to optional_auth for privacy)
     get "/users/:username/entries/:slug/comments", CommentController, :index
 
     # Guestbook (public read)
@@ -70,6 +68,10 @@ defmodule InkwellWeb.Router do
 
     # Public discovery feed (optional auth for my_stamp)
     get "/explore", ExploreController, :index
+
+    # Entry listing and detail (optional auth for privacy — private/friends_only)
+    get "/users/:username/entries", EntryController, :index
+    get "/users/:username/entries/:slug", EntryController, :show
 
     get "/feedback", FeedbackController, :index
     get "/feedback/roadmap", FeedbackController, :roadmap
