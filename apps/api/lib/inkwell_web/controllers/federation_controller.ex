@@ -449,13 +449,14 @@ defmodule InkwellWeb.FederationController do
 
   defp handle_create(conn, activity, _target_user) do
     case activity["object"] do
-      %{"type" => "Note", "inReplyTo" => in_reply_to} when is_binary(in_reply_to) ->
-        # Reply to a local entry
+      %{"type" => type, "inReplyTo" => in_reply_to}
+          when type in ["Note", "Article", "Page"] and is_binary(in_reply_to) ->
+        # Reply to a local entry (Note, Article, or Page)
         handle_incoming_reply(activity["object"], activity["actor"])
 
-      %{"type" => "Note"} = note ->
+      %{"type" => type} = object when type in ["Note", "Article", "Page"] ->
         # Standalone public post — store as remote entry
-        handle_incoming_note(note, activity["actor"])
+        handle_incoming_note(object, activity["actor"])
 
       _ ->
         :ok
@@ -468,9 +469,9 @@ defmodule InkwellWeb.FederationController do
 
   defp handle_update(conn, activity, _target_user) do
     case activity["object"] do
-      %{"type" => "Note"} = note ->
+      %{"type" => type} = object when type in ["Note", "Article", "Page"] ->
         # Re-use ingestion path; upsert will update existing
-        handle_incoming_note(note, activity["actor"])
+        handle_incoming_note(object, activity["actor"])
 
       _ ->
         :ok

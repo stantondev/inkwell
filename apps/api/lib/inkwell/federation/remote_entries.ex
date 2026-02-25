@@ -28,6 +28,35 @@ defmodule Inkwell.Federation.RemoteEntries do
     end
   end
 
+  @doc """
+  Lists remote entries from actors that the given user follows.
+  Used by the Feed to include federated posts alongside local entries.
+  """
+  def list_followed_remote_entries(user_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 20)
+
+    # Find remote_actor_ids that this user follows
+    followed_actor_ids =
+      Inkwell.Social.Relationship
+      |> where([r], r.follower_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
+      |> select([r], r.remote_actor_id)
+      |> Repo.all()
+
+    if followed_actor_ids == [] do
+      []
+    else
+      RemoteEntry
+      |> where([e], e.remote_actor_id in ^followed_actor_ids)
+      |> where([e], not is_nil(e.published_at))
+      |> order_by(desc: :published_at)
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> preload(:remote_actor)
+      |> Repo.all()
+    end
+  end
+
   def list_public_remote_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)

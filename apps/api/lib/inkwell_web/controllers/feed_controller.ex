@@ -2,9 +2,10 @@ defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Journals, Social, Stamps}
+  alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
-  # GET /api/feed — authenticated reading feed (friends' entries, chronological)
+  # GET /api/feed — authenticated reading feed (friends' + followed remote actors' entries)
   def reading_feed(conn, params) do
     user = conn.assigns.current_user
     page = parse_int(params["page"], 1)
@@ -12,22 +13,57 @@ defmodule InkwellWeb.FeedController do
 
     friend_ids = Social.list_friend_ids(user.id)
 
-    entries = Journals.list_feed_entries(user.id, friend_ids, page: page, per_page: per_page)
+    # Fetch extra from each source to ensure good interleaving after merge
+    fetch_count = per_page * 2
 
-    entry_ids = Enum.map(entries, & &1.id)
-    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
-    my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, entry_ids)
-    comment_counts = Journals.count_comments_for_entries(entry_ids)
-    bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, entry_ids)
-    series_map = Journals.get_series_for_entries(entry_ids)
+    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count)
+    remote_entries = RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
 
-    json(conn, %{
-      data: Enum.map(entries, fn entry ->
+    # Normalize into a common shape and merge chronologically
+    local_items = Enum.map(local_entries, fn entry ->
+      %{type: :local, entry: entry, published_at: entry.published_at}
+    end)
+
+    remote_items = Enum.map(remote_entries, fn re ->
+      %{type: :remote, entry: re, published_at: re.published_at}
+    end)
+
+    all_items =
+      (local_items ++ remote_items)
+      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+      |> Enum.drop((page - 1) * per_page)
+      |> Enum.take(per_page)
+
+    # Build stamp/comment maps for local entries
+    local_entry_ids =
+      all_items
+      |> Enum.filter(& &1.type == :local)
+      |> Enum.map(& &1.entry.id)
+
+    stamp_types_map = Stamps.get_stamp_types_for_entries(local_entry_ids)
+    my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, local_entry_ids)
+    comment_counts = Journals.count_comments_for_entries(local_entry_ids)
+    bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, local_entry_ids)
+    series_map = Journals.get_series_for_entries(local_entry_ids)
+
+    # Build stamp/comment maps for remote entries
+    remote_entry_ids =
+      all_items
+      |> Enum.filter(& &1.type == :remote)
+      |> Enum.map(& &1.entry.id)
+
+    remote_stamp_types_map = Stamps.get_stamp_types_for_remote_entries(remote_entry_ids)
+    remote_my_stamps_map = Stamps.get_user_stamps_for_remote_entries(user.id, remote_entry_ids)
+    remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
+
+    data = Enum.map(all_items, fn
+      %{type: :local, entry: entry} ->
         author = entry.user || Accounts.get_user!(entry.user_id)
 
         entry
         |> EntryController.render_entry()
         |> Map.merge(%{
+          source: "local",
           author: %{
             id: author.id,
             username: author.username,
@@ -41,7 +77,46 @@ defmodule InkwellWeb.FeedController do
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
           series: Map.get(series_map, entry.id)
         })
-      end),
+
+      %{type: :remote, entry: re} ->
+        actor = re.remote_actor
+
+        profile_url =
+          case actor.raw_data do
+            %{"url" => url} when is_binary(url) -> url
+            _ -> actor.ap_id
+          end
+
+        %{
+          id: re.id,
+          source: "remote",
+          ap_id: re.ap_id,
+          url: re.url,
+          title: re.title,
+          body_html: re.body_html,
+          tags: re.tags || [],
+          published_at: re.published_at,
+          author: %{
+            username: actor.username,
+            display_name: actor.display_name || actor.username,
+            avatar_url: actor.avatar_url,
+            domain: actor.domain,
+            ap_id: actor.ap_id,
+            profile_url: profile_url
+          },
+          stamps: Map.get(remote_stamp_types_map, re.id, []),
+          my_stamp: Map.get(remote_my_stamps_map, re.id),
+          comment_count: Map.get(remote_comment_counts, re.id, 0),
+          mood: nil,
+          music: nil,
+          slug: nil,
+          privacy: "public",
+          status: "published"
+        }
+    end)
+
+    json(conn, %{
+      data: data,
       pagination: %{page: page, per_page: per_page}
     })
   end

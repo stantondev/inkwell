@@ -1,7 +1,7 @@
 defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
   @moduledoc """
   Fetches a remote actor's recent outbox posts after a follow is accepted.
-  Stores public, non-reply Notes in remote_entries for the Explore feed.
+  Stores public, non-reply Notes/Articles in remote_entries for the Explore feed.
   """
 
   use Oban.Worker,
@@ -69,16 +69,19 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
     end
   end
 
+  @ingestible_types ["Note", "Article", "Page"]
+
   defp process_items(items, remote_actor) do
     stored =
       Enum.reduce(items, 0, fn item, count ->
         case item do
-          %{"type" => "Create", "object" => %{"type" => "Note"} = note} ->
-            if store_if_public(note, remote_actor), do: count + 1, else: count
+          %{"type" => "Create", "object" => %{"type" => type} = object}
+              when type in @ingestible_types ->
+            if store_if_public(object, remote_actor), do: count + 1, else: count
 
-          %{"type" => "Note"} = note ->
-            # Some servers put Notes directly in outbox
-            if store_if_public(note, remote_actor), do: count + 1, else: count
+          %{"type" => type} = object when type in @ingestible_types ->
+            # Some servers put Notes/Articles directly in outbox
+            if store_if_public(object, remote_actor), do: count + 1, else: count
 
           _ ->
             count
