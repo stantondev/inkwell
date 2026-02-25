@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import FediverseLogin from "@/components/fediverse-login";
-
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 type Step = "enter_email" | "check_email";
 
@@ -49,22 +46,10 @@ export default function GetStartedPage() {
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const turnstileRef = useRef<TurnstileInstance | null>(null);
-  const turnstileFailCount = useRef(0);
-  const [turnstileFailed, setTurnstileFailed] = useState(false);
-  const [turnstileBypassed, setTurnstileBypassed] = useState(false);
+  const [website, setWebsite] = useState(""); // honeypot — invisible to real users
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
-
-  const handleTurnstileError = () => {
-    setTurnstileToken(null);
-    turnstileFailCount.current += 1;
-    if (turnstileFailCount.current >= 2) {
-      setTurnstileFailed(true);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,17 +72,19 @@ export default function GetStartedPage() {
         body: JSON.stringify({
           email: email.trim(),
           terms_accepted: true,
-          ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+          ...(website ? { website } : {}),
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong. Please try again.");
-        // Reset the Turnstile widget so the user can try again
-        turnstileRef.current?.reset();
-        setTurnstileToken(null);
+        const errorMessage =
+          data.error ??
+          data.errors?.detail ??
+          "Something went wrong. Please try again.";
+        setError(errorMessage);
+        console.error("Signup error:", res.status, data);
         return;
       }
 
@@ -153,7 +140,7 @@ export default function GetStartedPage() {
               ))}
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 relative" noValidate>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="email" className="text-sm font-medium"
                   style={{ color: "var(--foreground)" }}>
@@ -170,6 +157,20 @@ export default function GetStartedPage() {
                   autoComplete="email"
                   className="rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-2 transition-colors"
                   style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                />
+              </div>
+
+              {/* Honeypot field — hidden from real users, bots fill it out */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", height: 0, overflow: "hidden" }}>
+                <label htmlFor="website">Website</label>
+                <input
+                  id="website"
+                  name="website"
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
                 />
               </div>
 
@@ -212,39 +213,6 @@ export default function GetStartedPage() {
                 </span>
               </label>
 
-              {TURNSTILE_SITE_KEY && !turnstileBypassed && (
-                <Turnstile
-                  ref={turnstileRef}
-                  siteKey={TURNSTILE_SITE_KEY}
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onError={handleTurnstileError}
-                  onExpire={handleTurnstileError}
-                  options={{ theme: "auto", size: "flexible" }}
-                  style={{ width: "100%" }}
-                />
-              )}
-
-              {turnstileFailed && !turnstileBypassed && (
-                <div className="rounded-xl border p-4 text-sm"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}>
-                  <p className="font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
-                    Verification not loading?
-                  </p>
-                  <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-                    Ad blockers, privacy extensions, or VPNs can prevent the verification widget from working.
-                    Try disabling them for this page, or:
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setTurnstileBypassed(true)}
-                    className="text-xs font-medium underline underline-offset-2"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    Skip verification and continue
-                  </button>
-                </div>
-              )}
-
               {error && (
                 <p className="text-sm rounded-lg px-3 py-2" style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
                   {error}
@@ -253,7 +221,7 @@ export default function GetStartedPage() {
 
               <button
                 type="submit"
-                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted || (!!TURNSTILE_SITE_KEY && !turnstileToken && !turnstileBypassed)}
+                disabled={loading || !email.trim() || !ageConfirmed || !termsAccepted}
                 className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

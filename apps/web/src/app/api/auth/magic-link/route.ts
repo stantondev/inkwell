@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     console.error("Proxy /api/auth/magic-link error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not reach the server. Please try again later." },
+      { status: 502 }
+    );
   }
 }

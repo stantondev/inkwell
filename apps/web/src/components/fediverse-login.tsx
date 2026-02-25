@@ -152,7 +152,7 @@ export default function FediverseLogin({
         )}
       </button>
 
-      {disabled && disabledReason && handle.trim() && (
+      {disabled && disabledReason && (
         <p
           className="text-xs text-center leading-relaxed"
           style={{ color: "var(--danger, #dc2626)" }}

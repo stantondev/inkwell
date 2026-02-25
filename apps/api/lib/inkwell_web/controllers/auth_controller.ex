@@ -6,61 +6,79 @@ defmodule InkwellWeb.AuthController do
 
   # POST /api/auth/magic-link
   def send_magic_link(conn, %{"email" => email} = params) do
-    email = String.downcase(String.trim(email))
-    terms_accepted = params["terms_accepted"] == true
-    existing_user = Accounts.get_user_by_email(email)
-
-    # Turnstile is only checked for new accounts — logs warnings but always
-    # fails open so users aren't blocked by verification issues.
-    verify_turnstile_for_new_user(params["turnstile_token"], existing_user, conn)
-
-    # New user must accept terms
-    if is_nil(existing_user) && !terms_accepted do
-      conn
-      |> put_status(:unprocessable_entity)
-      |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+    # Honeypot: if the hidden "website" field is filled, silently reject (bots fill hidden fields)
+    if params["website"] && params["website"] != "" do
+      json(conn, %{ok: true})
     else
-      user =
-        case existing_user do
-          nil ->
-            username = derive_username(email)
-            {:ok, new_user} = Accounts.create_user(%{
-              email: email,
-              username: unique_username(username),
-              display_name: username
-            })
-            {:ok, new_user} = Accounts.set_terms_accepted(new_user)
-            new_user
+      email = String.downcase(String.trim(email))
+      terms_accepted = params["terms_accepted"] == true
+      existing_user = Accounts.get_user_by_email(email)
 
-          existing ->
-            # Record terms acceptance for existing user if not already set
-            if terms_accepted && is_nil(existing.terms_accepted_at) do
-              {:ok, updated} = Accounts.set_terms_accepted(existing)
-              updated
-            else
-              existing
+      # New user must accept terms
+      if is_nil(existing_user) && !terms_accepted do
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+      else
+        result =
+          case existing_user do
+            nil ->
+              username = derive_username(email)
+
+              case Accounts.create_user(%{
+                email: email,
+                username: unique_username(username),
+                display_name: username
+              }) do
+                {:ok, new_user} ->
+                  case Accounts.set_terms_accepted(new_user) do
+                    {:ok, accepted_user} -> {:ok, accepted_user}
+                    {:error, _changeset} -> {:ok, new_user}
+                  end
+
+                {:error, changeset} ->
+                  {:error, changeset}
+              end
+
+            existing ->
+              if terms_accepted && is_nil(existing.terms_accepted_at) do
+                case Accounts.set_terms_accepted(existing) do
+                  {:ok, updated} -> {:ok, updated}
+                  {:error, _} -> {:ok, existing}
+                end
+              else
+                {:ok, existing}
+              end
+          end
+
+        case result do
+          {:ok, user} ->
+            # Create token in Postgres
+            token = Auth.create_magic_link_token(user.id)
+
+            # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
+            magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
+
+            # Send the email (or fall back to dev mode if no API key)
+            case Inkwell.Email.send_magic_link(email, magic_link) do
+              {:ok, :sent} ->
+                json(conn, %{ok: true})
+
+              {:ok, :no_email_configured, _link} ->
+                # No email service configured — return the link directly for dev/testing
+                json(conn, %{ok: true, dev_magic_link: magic_link})
+
+              {:error, _reason} ->
+                # Email sending failed — fall back to showing the magic link directly
+                # so the user isn't locked out. They can click it to sign in.
+                json(conn, %{ok: true, dev_magic_link: magic_link})
             end
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: format_changeset_errors(changeset)})
         end
-
-      # Create token in Postgres
-      token = Auth.create_magic_link_token(user.id)
-
-      # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
-      magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
-
-      # Send the email (or fall back to dev mode if no API key)
-      case Inkwell.Email.send_magic_link(email, magic_link) do
-        {:ok, :sent} ->
-          json(conn, %{ok: true})
-
-        {:ok, :no_email_configured, _link} ->
-          # No email service configured — return the link directly for dev/testing
-          json(conn, %{ok: true, dev_magic_link: magic_link})
-
-        {:error, _reason} ->
-          # Email sending failed — fall back to showing the magic link directly
-          # so the user isn't locked out. They can click it to sign in.
-          json(conn, %{ok: true, dev_magic_link: magic_link})
       end
     end
   end
@@ -149,80 +167,26 @@ defmodule InkwellWeb.AuthController do
     |> String.slice(0, 25)
   end
 
-  defp unique_username(base) do
-    if Accounts.get_user_by_username(base) do
-      "#{base}_#{:rand.uniform(9999)}"
-    else
-      base
-    end
+  defp unique_username(base, attempts \\ 0)
+  defp unique_username(_base, attempts) when attempts >= 5, do: "user_#{:rand.uniform(999_999)}"
+  defp unique_username(base, 0) do
+    if Accounts.get_user_by_username(base), do: unique_username(base, 1), else: base
+  end
+  defp unique_username(base, attempts) do
+    candidate = "#{base}_#{:rand.uniform(9999)}"
+    if Accounts.get_user_by_username(candidate), do: unique_username(base, attempts + 1), else: candidate
   end
 
-  # Skip Turnstile for existing users — they sign in via the login page, which has no widget.
-  defp verify_turnstile_for_new_user(_token, existing_user, _conn) when not is_nil(existing_user), do: :ok
-
-  defp verify_turnstile_for_new_user(token, nil, conn) do
-    secret_key = Application.get_env(:inkwell, :turnstile_secret_key)
-
-    cond do
-      # Not configured — skip verification (dev/CI)
-      is_nil(secret_key) or secret_key == "" ->
-        :ok
-
-      # No token provided — allow through (widget may have failed due to
-      # ad blockers, privacy extensions, or VPNs). Rate limiter on the
-      # magic-link endpoint provides baseline spam protection.
-      is_nil(token) or token == "" ->
-        :ok
-
-      true ->
-        remote_ip =
-          case get_req_header(conn, "x-forwarded-for") do
-            [forwarded | _] -> forwarded |> String.split(",") |> List.first() |> String.trim()
-            _ -> conn.remote_ip |> Tuple.to_list() |> Enum.join(".")
-          end
-
-        body =
-          URI.encode_query(%{
-            "secret" => secret_key,
-            "response" => token,
-            "remoteip" => remote_ip
-          })
-
-        :ssl.start()
-        :inets.start()
-
-        case :httpc.request(
-               :post,
-               {~c"https://challenges.cloudflare.com/turnstile/v1/siteverify",
-                [], ~c"application/x-www-form-urlencoded", body},
-               [ssl: [verify: :verify_none]],
-               []
-             ) do
-          {:ok, {{_, 200, _}, _, resp_body}} ->
-            case Jason.decode(to_string(resp_body)) do
-              {:ok, %{"success" => true}} ->
-                :ok
-
-              {:ok, %{"success" => false, "error-codes" => error_codes}} ->
-                require Logger
-                Logger.warning("Turnstile verification failed: #{inspect(error_codes)} ip=#{remote_ip}")
-                # Fail open — token may have expired or browser fingerprint mismatch
-                # (common in Firefox private windows). Rate limiter provides baseline protection.
-                :ok
-
-              {:ok, other} ->
-                require Logger
-                Logger.warning("Turnstile unexpected response: #{inspect(other)} ip=#{remote_ip}")
-                :ok
-            end
-
-          {:error, reason} ->
-            require Logger
-            Logger.error("Turnstile HTTP request failed: #{inspect(reason)}")
-            # Fail open on network errors — don't block users because we can't reach Cloudflare
-            :ok
-        end
-    end
+  defp format_changeset_errors(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
+      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
+    |> Enum.map_join("; ", fn {field, errors} ->
+      "#{field} #{Enum.join(errors, ", ")}"
+    end)
   end
 
   defp frontend_url do

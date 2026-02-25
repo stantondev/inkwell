@@ -67,9 +67,6 @@ if config_env() == :prod do
     success_url: "#{frontend_url}/settings/billing?success=true",
     cancel_url: "#{frontend_url}/settings/billing?canceled=true"
 
-  # Cloudflare Turnstile (optional — if not set, verification is skipped in dev)
-  config :inkwell, :turnstile_secret_key, System.get_env("TURNSTILE_SECRET_KEY")
-
   # Feedback email recipient
   config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "stanton@inkwell.social"
 
