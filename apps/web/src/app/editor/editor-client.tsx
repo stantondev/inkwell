@@ -422,6 +422,7 @@ export function EditorClient() {
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement>(null);
 
   // Upload an image file: resize, upload to API, insert into editor
   const uploadImage = useCallback(async (file: File, ed: Editor | null) => {
@@ -774,8 +775,6 @@ export function EditorClient() {
       </div>
     );
   }
-
-  const coverFileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>

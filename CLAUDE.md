@@ -357,7 +357,7 @@ Profile | Top 6 | Filters | Billing | Customize
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme)
-- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published)
+- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published), word_count, excerpt, cover_image_id (FK to entry_images)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
 - `top_friends` — user_id + friend_id + position (1-6)
@@ -606,7 +606,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000020_create_data_imports.exs`
+- Latest migration: `20260222000021_add_sprint1_fields_to_entries.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -640,11 +640,11 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 |---|---|---|---|---|---|
 | 70 | **Direct Messaging** | High | 5 | 5.5 days | Planned — arch doc at `docs/dm-architecture.md` |
 | 62 | **Bookmarks** | High | 4 | 1–2 days | Done |
-| 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | New |
+| 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | Done |
 | 52 | **Data Import Options** | Medium | 4 | 4–5 days | Done |
 | 52 | **Version History for Entries** | Medium | 4 | ~3 days | New |
 | 52 | **Series and Collections** | Medium | 4 | 3–4 days | New |
-| 42 | **Word Count and Reading Time** | Medium | 3 | ~0.5 day | New |
+| 42 | **Word Count and Reading Time** | Medium | 3 | ~0.5 day | Done |
 | 42 | **Add Categories to Journal Posts** | Medium | 3 | 2–3 days | Under Review |
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | New |
 | 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
@@ -653,12 +653,12 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 15 | **Facilitate Patreon/tip jars** | Low | 2 | 5+ days | Shelved — legal complexity |
 
 **Recommended sprint order** (quick wins first, then big projects):
-1. Word Count + Reading Time (0.5 day, visible polish)
-2. Distraction-Free Writing Mode (1 day, writer delight)
-3. Categories (2–3 days, already under review)
-4. Direct Messaging (5.5 days, highest score)
+1. Categories (2–3 days, already under review)
+2. Series and Collections (3–4 days)
+3. Direct Messaging (5.5 days, highest score)
 
 ### Recently Completed
+- **2026-02-25** — Sprint 1: Writer Delight. Four features: (1) **Word count + reading time** — `word_count` integer field computed server-side on save, displayed as "N min read" on feed cards and entry detail pages. (2) **Cover images** — `cover_image_id` FK to `entry_images`, upload button in editor, hero display on feed cards (200px max) and entry detail (420px max), OpenGraph image support, orphaned image cleanup protection. (3) **Excerpts** — `excerpt` text field (max 300 chars), editable in Entry Settings, auto-generated from body_html if blank (280 chars), used in feed card preview and RSS feeds. (4) **Distraction-free writing mode** — focus mode toggle in toolbar hides nav, footer, cover section, mood/music strip, settings panel via `data-focus-mode` body attribute + CSS; Esc key to exit. Migration `20260222000021`.
 - **2026-02-24** — Data Import Options. Users can import journal entries from 6 sources via Settings → Import: Inkwell JSON (own export round-trip, supports .json.gz), WordPress WXR (XML via Saxy SAX parser), Medium HTML (ZIP), Substack CSV, Generic CSV, Generic JSON. User chooses import mode (drafts or published with original dates), default privacy (private/friends/public). Background Oban worker processes in batches of 50 with progress polling (3s), duplicate detection (title+date), cancellation, error reporting (capped at 100). `create_entry_quiet/1` skips federation fan-out. Cleanup worker at 6:30am UTC. New deps: nimble_csv, saxy. Migration `20260222000020`. Settings tabs now scroll horizontally.
 - **2026-02-24** — Bookmarks / Reading List. Users can save entries to a private reading list. Ribbon bookmark icon (outline → filled accent) in feed card footers, explore, and entry detail pages. `/saved` Reading List page with ink-blue left-edge ribbon stripe on cards, fade-out remove animation, and empty state. Batch `get_bookmarks_for_entries/2` MapSet query in feed/explore controllers. Migration `20260222000019`. Bookmarks auto-deleted via FK cascade on user/entry deletion. Nav + mobile menu "Saved" link. `/saved` middleware-protected.
 - **2026-02-24** — Weighted Priority Score system for roadmap. Auto-calculated score (0–100) from priority (40%), value (40%), and votes (20%). Added `weighted_score` to API response, `priority_score` sort option, `ScoreBadge` component with color-coded badges, live score preview in admin panel. Relaxed admin update condition to allow setting priority/value without changing status. Set priority/value on all 13 open roadmap items.
