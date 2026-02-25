@@ -61,10 +61,14 @@ defmodule InkwellWeb.EntryController do
         my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
         bookmarked = if viewer, do: Bookmarks.get_user_bookmark(viewer.id, entry.id) != nil, else: false
 
+        entry_with_user = %{entry | user: user}
+        series_nav = Journals.get_series_navigation(entry_with_user)
+
         render_entry_full(entry, user)
         |> Map.put(:stamps, stamp_types)
         |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
         |> Map.put(:bookmarked, bookmarked)
+        |> Map.put(:series, series_nav)
       end
 
       cond do
@@ -130,9 +134,10 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category"])
+                      "excerpt", "cover_image_id", "category", "series_id"])
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
+        |> maybe_auto_series_order()
         |> put_word_count()
         |> maybe_auto_excerpt()
 
@@ -153,10 +158,11 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category"])
+                      "excerpt", "cover_image_id", "category", "series_id"])
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
+        |> maybe_auto_series_order()
         |> put_word_count()
         |> maybe_auto_excerpt()
 
@@ -195,8 +201,9 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                       "excerpt", "cover_image_id", "category"])
+                       "excerpt", "cover_image_id", "category", "series_id"])
         |> maybe_clear_custom_filter_id()
+        |> maybe_auto_series_order()
         |> put_word_count()
         |> maybe_auto_excerpt()
 
@@ -248,9 +255,10 @@ defmodule InkwellWeb.EntryController do
           params
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
-                        "excerpt", "cover_image_id", "category"])
+                        "excerpt", "cover_image_id", "category", "series_id"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
+          |> maybe_auto_series_order()
           |> put_word_count()
           |> maybe_auto_excerpt()
 
@@ -420,6 +428,8 @@ defmodule InkwellWeb.EntryController do
       excerpt: entry.excerpt,
       cover_image_id: entry.cover_image_id,
       category: entry.category,
+      series_id: entry.series_id,
+      series_order: entry.series_order,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
@@ -454,6 +464,16 @@ defmodule InkwellWeb.EntryController do
   defp put_word_count(attrs), do: attrs
 
   # Auto-populate excerpt from body_html if not provided
+  # Auto-assign series_order when adding to a series
+  defp maybe_auto_series_order(%{"series_id" => series_id} = attrs)
+       when is_binary(series_id) and series_id != "" do
+    Map.put_new(attrs, "series_order", Journals.next_series_order(series_id))
+  end
+  defp maybe_auto_series_order(%{"series_id" => nil} = attrs) do
+    attrs |> Map.put("series_order", nil)
+  end
+  defp maybe_auto_series_order(attrs), do: attrs
+
   defp maybe_auto_excerpt(%{"excerpt" => excerpt} = attrs)
        when is_binary(excerpt) and byte_size(excerpt) > 0, do: attrs
   defp maybe_auto_excerpt(%{"body_html" => html} = attrs) when is_binary(html) do

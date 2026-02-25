@@ -22,6 +22,12 @@ interface FriendFilter {
   member_ids: string[];
 }
 
+interface SeriesOption {
+  id: string;
+  title: string;
+  entry_count: number;
+}
+
 interface EditorState {
   title: string;
   mood: string;
@@ -31,6 +37,7 @@ interface EditorState {
   tags: string;
   excerpt: string;
   category: string | null;
+  seriesId: string | null;
 }
 
 const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
@@ -402,7 +409,7 @@ export function EditorClient() {
   const editId = searchParams.get("edit");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null,
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null,
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
@@ -415,6 +422,8 @@ export function EditorClient() {
   const [htmlMode, setHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState("");
   const [filters, setFilters] = useState<FriendFilter[]>([]);
+  const [seriesOptions, setSeriesOptions] = useState<SeriesOption[]>([]);
+  const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [coverImageId, setCoverImageId] = useState<string | null>(null);
@@ -575,6 +584,24 @@ export function EditorClient() {
     })();
   }, [state.privacy, filtersLoaded]);
 
+  // Fetch series options when settings panel opens
+  useEffect(() => {
+    if (!showSettings || seriesLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/series");
+        if (res.ok) {
+          const { data } = await res.json();
+          setSeriesOptions((data ?? []).map((s: SeriesOption) => ({ id: s.id, title: s.title, entry_count: s.entry_count })));
+        }
+      } catch {
+        // ignore
+      } finally {
+        setSeriesLoaded(true);
+      }
+    })();
+  }, [showSettings, seriesLoaded]);
+
   // Load existing entry when editing
   useEffect(() => {
     if (!editId || !editor) return;
@@ -597,6 +624,7 @@ export function EditorClient() {
           tags: Array.isArray(entry.tags) ? entry.tags.join(", ") : (entry.tags ?? ""),
           excerpt: entry.excerpt ?? "",
           category: entry.category ?? null,
+          seriesId: entry.series_id ?? null,
         });
         setCoverImageId(entry.cover_image_id ?? null);
 
@@ -668,6 +696,7 @@ export function EditorClient() {
     excerpt: state.excerpt || null,
     cover_image_id: coverImageId || null,
     category: state.category || null,
+    series_id: state.seriesId || null,
   }), [state, htmlMode, htmlSource, editor, coverImageId]);
 
   // Save as draft (no redirect)
@@ -1059,6 +1088,35 @@ export function EditorClient() {
                     <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
                 </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                  Series
+                </label>
+                {!seriesLoaded ? (
+                  <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading series...</span>
+                ) : seriesOptions.length === 0 ? (
+                  <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
+                    No series yet.{" "}
+                    <NextLink href="/settings/series" className="underline" style={{ color: "var(--accent)" }}>
+                      Create your first series
+                    </NextLink>
+                  </div>
+                ) : (
+                  <select
+                    value={state.seriesId ?? ""}
+                    onChange={(e) => update({ seriesId: e.target.value || null })}
+                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                  >
+                    <option value="">No series</option>
+                    {seriesOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.entry_count} {s.entry_count === 1 ? "entry" : "entries"})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>

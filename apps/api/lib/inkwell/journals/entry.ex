@@ -31,6 +31,8 @@ defmodule Inkwell.Journals.Entry do
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :custom_filter, Inkwell.Social.FriendFilter
     belongs_to :user_icon, Inkwell.Accounts.UserIcon
+    belongs_to :series, Inkwell.Journals.Series
+    field :series_order, :integer
     has_many :comments, Inkwell.Journals.Comment
 
     timestamps(type: :utc_datetime_usec)
@@ -42,7 +44,8 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
-      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category
+      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category,
+      :series_id, :series_order
     ])
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)
@@ -61,7 +64,8 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id, :category
+      :word_count, :excerpt, :cover_image_id, :category,
+      :series_id, :series_order
     ])
     |> validate_required([:user_id])
     |> validate_length(:title, max: 500)
@@ -77,7 +81,8 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id, :category
+      :word_count, :excerpt, :cover_image_id, :category,
+      :series_id, :series_order
     ])
     |> validate_required([:body_html, :privacy])
     |> validate_length(:title, max: 500)

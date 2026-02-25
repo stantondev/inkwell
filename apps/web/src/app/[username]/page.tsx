@@ -55,6 +55,14 @@ interface ProfileEntry {
   published_at: string;
 }
 
+interface ProfileSeriesItem {
+  id: string;
+  title: string;
+  slug: string;
+  status: "ongoing" | "completed";
+  entry_count: number;
+}
+
 interface TopFriendUser {
   username: string;
   display_name: string;
@@ -198,6 +206,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let profile: ProfileUser;
   let entries: ProfileEntry[] = [];
   let topFriends: TopFriendSlot[] = [];
+  let seriesList: ProfileSeriesItem[] = [];
   let entryCount = 0;
   let relationshipStatus: string | null = null;
 
@@ -215,15 +224,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
     notFound();
   }
 
-  // Fetch public entries
-  try {
-    const data = await apiFetch<{ data: ProfileEntry[] }>(
-      `/api/users/${username}/entries?limit=5`
-    );
-    entries = data.data ?? [];
-  } catch {
-    // silently ignore — show no entries
-  }
+  // Fetch public entries + series in parallel
+  const [entriesResult, seriesResult] = await Promise.allSettled([
+    apiFetch<{ data: ProfileEntry[] }>(`/api/users/${username}/entries?limit=5`),
+    apiFetch<{ data: ProfileSeriesItem[] }>(`/api/users/${username}/series`, {}, session?.token),
+  ]);
+  if (entriesResult.status === "fulfilled") entries = entriesResult.value.data ?? [];
+  if (seriesResult.status === "fulfilled") seriesList = seriesResult.value.data ?? [];
 
   // Build profile customization styles (tier-aware)
   const isPlus = (profile.subscription_tier ?? "free") === "plus";
@@ -244,7 +251,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
     : null;
 
   // Widget ordering (Plus only — free users get default order)
-  const defaultOrder = ["about", "entries", "top_pals", "guestbook", "music", "custom_html"];
+  const defaultOrder = ["about", "entries", "top_pals", "series", "guestbook", "music", "custom_html"];
   const widgetOrder = isPlus ? (profile.profile_widgets?.order ?? defaultOrder) : defaultOrder;
   const hiddenWidgets = new Set(isPlus ? (profile.profile_widgets?.hidden ?? []) : []);
 
@@ -255,6 +262,41 @@ export default async function ProfilePage({ params }: ProfileParams) {
     switch (widgetId) {
       case "top_pals":
         return <TopFriends key="top_pals" friends={topFriends} isOwnProfile={isOwnProfile} styles={styles} />;
+      case "series":
+        if (seriesList.length === 0) return null;
+        return (
+          <div key="series" className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
+            <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: styles.muted }}>
+              Series
+            </h3>
+            <div className="flex flex-col gap-2">
+              {seriesList.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/${username}/series/${s.slug}`}
+                  className="flex items-center justify-between gap-2 text-sm group"
+                >
+                  <span className="truncate group-hover:underline" style={{ color: styles.foreground }}>
+                    {s.title}
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    {s.status === "completed" && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: "var(--accent-light)", color: styles.accent }}
+                      >
+                        Done
+                      </span>
+                    )}
+                    <span className="text-xs" style={{ color: styles.muted }}>
+                      {s.entry_count}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
       case "music":
         if (!isPlus || !profile.profile_music) return null;
         return (
@@ -293,7 +335,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Separate sidebar widgets from main content widgets
   const sidebarWidgetIds = widgetOrder.filter((w) =>
-    ["top_pals", "music", "guestbook", "custom_html"].includes(w)
+    ["top_pals", "series", "music", "guestbook", "custom_html"].includes(w)
   );
 
   return (

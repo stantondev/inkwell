@@ -14,6 +14,7 @@ import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { SeriesNav } from "@/components/series-nav";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -46,6 +47,18 @@ interface EntryData {
   excerpt?: string | null;
   cover_image_id?: string | null;
   category?: string | null;
+  series_id?: string | null;
+  series_order?: number | null;
+  series?: {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    entry_count: number;
+    username: string;
+    prev_entry?: { slug: string; title: string | null } | null;
+    next_entry?: { slug: string; title: string | null } | null;
+  } | null;
   author: EntryAuthor;
 }
 
@@ -335,6 +348,13 @@ export default async function EntryPage({ params }: EntryParams) {
           )}
         </div>
       </div>
+
+      {/* ── Series navigation ──────────────────────────────────────── */}
+      {entry.series && entry.series_order && (
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12">
+          <SeriesNav series={entry.series} currentOrder={entry.series_order} />
+        </div>
+      )}
 
       {/* ── Entry body ──────────────────────────────────────────────── */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">

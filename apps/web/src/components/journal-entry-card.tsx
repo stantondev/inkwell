@@ -24,6 +24,13 @@ export interface JournalEntry {
   excerpt?: string | null;
   cover_image_id?: string | null;
   category?: string | null;
+  series?: {
+    id: string;
+    title: string;
+    slug: string;
+    username: string;
+    series_order: number;
+  } | null;
   /** "local" (default) or "remote" for federated entries */
   source?: "local" | "remote";
   /** Original URL for remote entries */
@@ -196,6 +203,18 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
                 }}
               >
                 {getCategoryLabel(entry.category)}
+              </Link>
+            )}
+            {entry.series && (
+              <Link
+                href={`/${entry.series.username}/series/${entry.series.slug}`}
+                className="text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                Part {entry.series.series_order} of {entry.series.title}
               </Link>
             )}
             {entry.mood && (

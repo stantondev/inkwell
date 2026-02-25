@@ -69,6 +69,7 @@ defmodule InkwellWeb.ExploreController do
 
     remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
+    series_map = Journals.get_series_for_entries(local_entry_ids)
 
     bookmarks_set =
       if viewer do
@@ -95,7 +96,8 @@ defmodule InkwellWeb.ExploreController do
           comment_count: Map.get(local_comment_counts, entry.id, 0),
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id),
-          bookmarked: MapSet.member?(bookmarks_set, entry.id)
+          bookmarked: MapSet.member?(bookmarks_set, entry.id),
+          series: Map.get(series_map, entry.id)
         })
 
       %{type: :remote, entry: re} ->

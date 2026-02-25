@@ -88,6 +88,10 @@ defmodule InkwellWeb.Router do
 
     # User profile (optional auth for relationship status)
     get "/users/:username", UserController, :show
+
+    # Series (public)
+    get "/users/:username/series", SeriesController, :index
+    get "/users/:username/series/:slug", SeriesController, :show
   end
 
   # Authenticated API
@@ -170,6 +174,13 @@ defmodule InkwellWeb.Router do
 
     # Username
     patch "/me/username", UserController, :update_username
+
+    # Series (management)
+    get "/series", SeriesController, :list_own
+    post "/series", SeriesController, :create
+    patch "/series/:id", SeriesController, :update
+    delete "/series/:id", SeriesController, :delete
+    put "/series/:id/entries", SeriesController, :reorder
 
     # Friend filters
     get "/filters", FriendFilterController, :index

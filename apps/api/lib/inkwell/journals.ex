@@ -1,7 +1,7 @@
 defmodule Inkwell.Journals do
   import Ecto.Query
   alias Inkwell.Repo
-  alias Inkwell.Journals.{Entry, EntryImage, Comment}
+  alias Inkwell.Journals.{Entry, EntryImage, Comment, Series}
 
   # Entries
 
@@ -214,6 +214,184 @@ defmodule Inkwell.Journals do
     |> Repo.aggregate(:count)
   end
 
+  # ── Series ───────────────────────────────────────────────────────────────────
+
+  def list_series(user_id) do
+    Series
+    |> where(user_id: ^user_id)
+    |> order_by(desc: :updated_at)
+    |> Repo.all()
+    |> Enum.map(fn series ->
+      entry_count =
+        Entry
+        |> where(series_id: ^series.id, status: :published)
+        |> Repo.aggregate(:count)
+
+      Map.put(series, :entry_count, entry_count)
+    end)
+  end
+
+  def get_series!(id), do: Repo.get!(Series, id)
+
+  def get_series(id), do: Repo.get(Series, id)
+
+  def get_series_by_slug(user_id, slug) do
+    Series
+    |> where(user_id: ^user_id, slug: ^slug)
+    |> Repo.one()
+  end
+
+  def create_series(attrs) do
+    %Series{}
+    |> Series.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_series(%Series{} = series, attrs) do
+    series
+    |> Series.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_series(%Series{} = series) do
+    Repo.delete(series)
+  end
+
+  def count_series(user_id) do
+    Series
+    |> where(user_id: ^user_id)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "List published entries in a series, ordered by series_order. Applies privacy filtering for the viewer."
+  def list_series_entries(series_id, viewer_id \\ nil) do
+    query =
+      Entry
+      |> where(series_id: ^series_id, status: :published)
+      |> where([e], not is_nil(e.published_at))
+      |> order_by(:series_order)
+      |> preload([:user, :user_icon])
+
+    entries = Repo.all(query)
+
+    # Apply privacy filtering
+    Enum.filter(entries, fn entry ->
+      cond do
+        entry.privacy == :public -> true
+        viewer_id == nil -> false
+        entry.user_id == viewer_id -> true
+        entry.privacy == :friends_only ->
+          Inkwell.Social.is_friend?(entry.user_id, viewer_id)
+        entry.privacy == :custom && entry.custom_filter_id != nil ->
+          filter = Repo.get(Inkwell.Social.FriendFilter, entry.custom_filter_id)
+          filter != nil && viewer_id in (filter.member_ids || [])
+        entry.privacy == :private -> false
+        true -> false
+      end
+    end)
+  end
+
+  @doc "Reorder entries within a series. entry_ids is the desired order."
+  def reorder_series_entries(series_id, entry_ids) when is_list(entry_ids) do
+    multi =
+      entry_ids
+      |> Enum.with_index(1)
+      |> Enum.reduce(Ecto.Multi.new(), fn {entry_id, position}, multi ->
+        Ecto.Multi.update_all(
+          multi,
+          {:reorder, entry_id},
+          from(e in Entry, where: e.id == ^entry_id and e.series_id == ^series_id),
+          set: [series_order: position]
+        )
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, _} -> :ok
+      {:error, _, reason, _} -> {:error, reason}
+    end
+  end
+
+  @doc "Get series navigation data (prev/next) for an entry in a series."
+  def get_series_navigation(%Entry{series_id: nil}), do: nil
+
+  def get_series_navigation(%Entry{series_id: series_id, series_order: order} = entry) do
+    series = Repo.get(Series, series_id)
+    if series == nil, do: throw(:no_series)
+
+    # Count published entries in this series
+    entry_count =
+      Entry
+      |> where(series_id: ^series_id, status: :published)
+      |> Repo.aggregate(:count)
+
+    # Find previous entry (highest series_order less than current)
+    prev_entry =
+      Entry
+      |> where([e], e.series_id == ^series_id and e.status == :published)
+      |> where([e], e.series_order < ^order)
+      |> order_by(desc: :series_order)
+      |> limit(1)
+      |> preload(:user)
+      |> Repo.one()
+
+    # Find next entry (lowest series_order greater than current)
+    next_entry =
+      Entry
+      |> where([e], e.series_id == ^series_id and e.status == :published)
+      |> where([e], e.series_order > ^order)
+      |> order_by(:series_order)
+      |> limit(1)
+      |> preload(:user)
+      |> Repo.one()
+
+    %{
+      id: series.id,
+      title: series.title,
+      slug: series.slug,
+      status: series.status,
+      entry_count: entry_count,
+      username: entry.user |> Map.get(:username, nil),
+      prev_entry:
+        if(prev_entry,
+          do: %{slug: prev_entry.slug, title: prev_entry.title},
+          else: nil
+        ),
+      next_entry:
+        if(next_entry,
+          do: %{slug: next_entry.slug, title: next_entry.title},
+          else: nil
+        )
+    }
+  catch
+    :no_series -> nil
+  end
+
+  @doc "Batch-load series info for a list of entry IDs. Returns %{entry_id => series_info}."
+  def get_series_for_entries(entry_ids) when is_list(entry_ids) do
+    if entry_ids == [] do
+      %{}
+    else
+      Entry
+      |> where([e], e.id in ^entry_ids and not is_nil(e.series_id))
+      |> join(:inner, [e], s in Series, on: e.series_id == s.id)
+      |> join(:inner, [e, s], u in Inkwell.Accounts.User, on: s.user_id == u.id)
+      |> select([e, s, u], {e.id, %{id: s.id, title: s.title, slug: s.slug, username: u.username, series_order: e.series_order}})
+      |> Repo.all()
+      |> Map.new()
+    end
+  end
+
+  @doc "Auto-assign the next series_order for an entry being added to a series."
+  def next_series_order(series_id) do
+    max_order =
+      Entry
+      |> where(series_id: ^series_id)
+      |> where([e], not is_nil(e.series_order))
+      |> Repo.aggregate(:max, :series_order)
+
+    (max_order || 0) + 1
+  end
+
   # ── Public queries ─────────────────────────────────────────────────────────
 
   def list_public_explore_entries(opts \\ []) do
@@ -303,6 +481,14 @@ defmodule Inkwell.Journals do
       |> Repo.all()
       |> MapSet.new()
 
+    # Also protect cover images referenced by series
+    series_cover_referenced =
+      Series
+      |> where([s], not is_nil(s.cover_image_id))
+      |> select([s], s.cover_image_id)
+      |> Repo.all()
+      |> MapSet.new()
+
     # Also protect images attached to feedback posts
     feedback_referenced =
       Inkwell.Feedback.FeedbackPost
@@ -315,6 +501,7 @@ defmodule Inkwell.Journals do
     referenced_ids =
       entry_referenced
       |> MapSet.union(cover_image_referenced)
+      |> MapSet.union(series_cover_referenced)
       |> MapSet.union(feedback_referenced)
 
     # Get candidate orphan images (older than cutoff)

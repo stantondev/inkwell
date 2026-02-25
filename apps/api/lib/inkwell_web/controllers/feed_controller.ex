@@ -19,6 +19,7 @@ defmodule InkwellWeb.FeedController do
     my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, entry_ids)
     comment_counts = Journals.count_comments_for_entries(entry_ids)
     bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, entry_ids)
+    series_map = Journals.get_series_for_entries(entry_ids)
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
@@ -37,7 +38,8 @@ defmodule InkwellWeb.FeedController do
           comment_count: Map.get(comment_counts, entry.id, 0),
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id),
-          bookmarked: MapSet.member?(bookmarks_set, entry.id)
+          bookmarked: MapSet.member?(bookmarks_set, entry.id),
+          series: Map.get(series_map, entry.id)
         })
       end),
       pagination: %{page: page, per_page: per_page}

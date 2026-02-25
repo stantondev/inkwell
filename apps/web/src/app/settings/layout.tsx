@@ -7,6 +7,7 @@ const tabs = [
   { href: "/settings", label: "Profile" },
   { href: "/settings/top-friends", label: "Top 6" },
   { href: "/settings/filters", label: "Filters" },
+  { href: "/settings/series", label: "Series" },
   { href: "/settings/billing", label: "Billing" },
   { href: "/settings/import", label: "Import" },
   { href: "/settings/customize", label: "Customize" },
