@@ -66,6 +66,7 @@ export default function WelcomePage() {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const currentUsernameRef = useRef<string>("");  // tracks pre-existing username from DB
 
   // Step 2: Photo & Pronouns
   const [avatarDataUri, setAvatarDataUri] = useState<string | null>(null);
@@ -89,6 +90,27 @@ export default function WelcomePage() {
   // General
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  // Pre-fill fields from existing user data (e.g. fediverse-derived username)
+  useEffect(() => {
+    fetch("/api/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const user = data?.data;
+        if (!user) return;
+        if (user.username) {
+          setUsername(user.username);
+          currentUsernameRef.current = user.username;
+        }
+        if (user.display_name && user.display_name !== user.username) setDisplayName(user.display_name);
+        if (user.avatar_url) setAvatarDataUri(user.avatar_url);
+        if (user.pronouns) setPronouns(user.pronouns);
+        if (user.bio) setBio(user.bio);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
 
   // Fetch suggested writers when entering step 4
   useEffect(() => {
@@ -110,6 +132,12 @@ export default function WelcomePage() {
     }
     if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
       setUsernameAvailable(false);
+      return;
+    }
+    // User's current username is always "available" to them
+    if (username === currentUsernameRef.current) {
+      setUsernameAvailable(true);
+      setCheckingUsername(false);
       return;
     }
     setCheckingUsername(true);
@@ -169,8 +197,8 @@ export default function WelcomePage() {
     setError("");
 
     try {
-      // 1. Set username if provided
-      if (username.trim()) {
+      // 1. Set username if changed from the pre-filled value
+      if (username.trim() && username.trim() !== currentUsernameRef.current) {
         const usernameRes = await fetch("/api/me/username", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -184,8 +212,8 @@ export default function WelcomePage() {
         }
       }
 
-      // 2. Upload avatar if selected
-      if (avatarDataUri) {
+      // 2. Upload avatar if newly selected (data URIs start with "data:", existing URLs don't)
+      if (avatarDataUri && avatarDataUri.startsWith("data:")) {
         const avatarRes = await fetch("/api/me/avatar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
