@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ErrorReportButton } from "@/components/error-report-button";
 
 export default function Error({
@@ -67,13 +66,13 @@ export default function Error({
           >
             Try again
           </button>
-          <Link
+          <a
             href="/"
             className="rounded-full border px-6 py-2 text-sm font-medium transition-colors"
             style={{ borderColor: "var(--border)", color: "var(--muted)" }}
           >
             Go home
-          </Link>
+          </a>
         </div>
 
         {/* Bug report */}

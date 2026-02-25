@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 
 interface ErrorReportButtonProps {
   errorMessage: string;
@@ -125,12 +124,12 @@ export function ErrorReportButton({
           Bug report submitted — thank you for helping improve Inkwell!
         </p>
         {postId && (
-          <Link
+          <a
             href={`/roadmap/${postId}`}
             style={{ color: accent, fontSize: 14, textDecoration: "underline", marginTop: 8, display: "inline-block" }}
           >
             View your report on the roadmap
-          </Link>
+          </a>
         )}
       </div>
     );
@@ -147,9 +146,9 @@ export function ErrorReportButton({
         }}
       >
         <p style={{ color: muted, fontSize: 14 }}>
-          <Link href="/login" style={{ color: accent, textDecoration: "underline" }}>
+          <a href="/login" style={{ color: accent, textDecoration: "underline" }}>
             Sign in
-          </Link>{" "}
+          </a>{" "}
           to report this bug and help us fix it.
         </p>
       </div>
