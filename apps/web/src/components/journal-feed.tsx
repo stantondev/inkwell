@@ -111,6 +111,7 @@ export function JournalFeed({
         isOwnEntry={isOwnEntry}
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}
+        isRemote={isRemote}
         {...(isRemote ? {
           stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
           commentApiPath: `/api/remote-entries/${entry.id}/comments`,

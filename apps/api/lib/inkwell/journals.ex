@@ -369,6 +369,10 @@ defmodule Inkwell.Journals do
     %Comment{}
     |> Comment.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, comment} -> {:ok, Repo.preload(comment, [:user])}
+      error -> error
+    end
   end
 
   def delete_comment(%Comment{} = comment) do

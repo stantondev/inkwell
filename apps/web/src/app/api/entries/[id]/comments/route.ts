@@ -11,12 +11,17 @@ export async function GET(_request: NextRequest, { params }: Params) {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${SERVER_API}/api/entries/${id}/comments`, {
-    headers,
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const res = await fetch(`${SERVER_API}/api/entries/${id}/comments`, {
+      headers,
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Proxy GET /api/entries/:id/comments error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -24,13 +29,18 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const { id } = await params;
 
-  const body = await request.json();
-  const res = await fetch(`${SERVER_API}/api/entries/${id}/comments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const body = await request.json();
+    const res = await fetch(`${SERVER_API}/api/entries/${id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Proxy POST /api/entries/:id/comments error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }

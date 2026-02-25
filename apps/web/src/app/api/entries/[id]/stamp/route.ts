@@ -10,15 +10,20 @@ export async function POST(
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  const body = await request.json();
-  const res = await fetch(`${SERVER_API}/api/entries/${id}/stamp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const body = await request.json();
+    const res = await fetch(`${SERVER_API}/api/entries/${id}/stamp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Proxy POST /api/entries/:id/stamp error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
 export async function DELETE(
@@ -29,11 +34,16 @@ export async function DELETE(
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  const res = await fetch(`${SERVER_API}/api/entries/${id}/stamp`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const res = await fetch(`${SERVER_API}/api/entries/${id}/stamp`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    console.error("Proxy DELETE /api/entries/:id/stamp error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }

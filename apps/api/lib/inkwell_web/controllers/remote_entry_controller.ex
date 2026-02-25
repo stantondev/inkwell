@@ -111,7 +111,7 @@ defmodule InkwellWeb.RemoteEntryController do
             remote_entry = Repo.preload(remote_entry, :remote_actor)
             deliver_reply(remote_entry, comment, user)
 
-            json(conn, %{data: render_comment(comment)})
+            conn |> put_status(:created) |> json(%{data: render_comment(comment)})
 
           {:error, changeset} ->
             conn

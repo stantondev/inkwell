@@ -36,6 +36,8 @@ interface FeedCardActionsProps {
   /** External URL for "View on {domain}" link */
   externalUrl?: string;
   externalDomain?: string;
+  /** Whether this is a federated/remote entry */
+  isRemote?: boolean;
   onStampsChange?: (stamps: string[]) => void;
   onBookmarkChange?: (bookmarked: boolean) => void;
 }
@@ -64,6 +66,7 @@ export function FeedCardActions({
   bookmarkApiPath,
   externalUrl,
   externalDomain,
+  isRemote = false,
   onStampsChange,
   onBookmarkChange,
 }: FeedCardActionsProps) {
@@ -119,7 +122,12 @@ export function FeedCardActions({
         // Reload comments to show the new one
         await loadComments();
       } else {
-        setCommentError("Failed to post comment");
+        try {
+          const data = await res.json();
+          setCommentError(data.error ?? "Failed to post comment");
+        } catch {
+          setCommentError("Failed to post comment");
+        }
       }
     } catch {
       setCommentError("Network error — please try again");
@@ -211,14 +219,21 @@ export function FeedCardActions({
             >
               <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
                 Comments
+                {isRemote && (
+                  <span className="ml-1.5 font-normal" style={{ color: "var(--muted)" }}>
+                    (federated)
+                  </span>
+                )}
               </span>
-              <Link
-                href={`${entryHref}#comments`}
-                className="text-xs hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                View all →
-              </Link>
+              {!isRemote && (
+                <Link
+                  href={`${entryHref}#comments`}
+                  className="text-xs hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  View all →
+                </Link>
+              )}
             </div>
 
             {/* Comments list */}
@@ -269,7 +284,7 @@ export function FeedCardActions({
                       </div>
                     </div>
                   ))}
-                  {comments.length > 3 && (
+                  {comments.length > 3 && !isRemote && (
                     <Link
                       href={`${entryHref}#comments`}
                       className="text-xs text-center py-1 hover:underline"
@@ -277,6 +292,14 @@ export function FeedCardActions({
                     >
                       +{comments.length - 3} more
                     </Link>
+                  )}
+                  {comments.length > 3 && isRemote && (
+                    <p
+                      className="text-xs text-center py-1"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      +{comments.length - 3} more
+                    </p>
                   )}
                 </div>
               )}
@@ -335,14 +358,16 @@ export function FeedCardActions({
           onStampChange={handleStampChange}
         />
 
-        {/* Bookmark button */}
-        <BookmarkButton
-          entryId={entryId}
-          initialBookmarked={bookmarked}
-          isLoggedIn={isLoggedIn}
-          bookmarkApiPath={bookmarkApiPath}
-          onBookmarkChange={onBookmarkChange}
-        />
+        {/* Bookmark button — not available for federated entries */}
+        {!isRemote && (
+          <BookmarkButton
+            entryId={entryId}
+            initialBookmarked={bookmarked}
+            isLoggedIn={isLoggedIn}
+            bookmarkApiPath={bookmarkApiPath}
+            onBookmarkChange={onBookmarkChange}
+          />
+        )}
       </div>
     </div>
   );
