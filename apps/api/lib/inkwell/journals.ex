@@ -1,7 +1,9 @@
 defmodule Inkwell.Journals do
   import Ecto.Query
   alias Inkwell.Repo
-  alias Inkwell.Journals.{Entry, EntryImage, Comment, Series}
+  alias Inkwell.Journals.{Entry, EntryImage, EntryVersion, Comment, Series}
+
+  @free_version_limit 25
 
   # Entries
 
@@ -117,7 +119,18 @@ defmodule Inkwell.Journals do
     |> Repo.insert()
   end
 
-  def update_entry(%Entry{} = entry, attrs) do
+  def update_entry(%Entry{} = entry, attrs, opts \\ []) do
+    # Snapshot the pre-edit state before overwriting (published entries only)
+    if entry.status == :published && entry.body_html != nil do
+      create_version(entry)
+
+      # Enforce version limit for free-tier users
+      subscription_tier = Keyword.get(opts, :subscription_tier, "free")
+      if subscription_tier != "plus" do
+        cleanup_excess_versions(entry.id, @free_version_limit)
+      end
+    end
+
     result =
       entry
       |> Entry.changeset(attrs)
@@ -181,8 +194,14 @@ defmodule Inkwell.Journals do
       |> Repo.update()
 
     case result do
-      {:ok, published} when published.privacy == :public ->
-        enqueue_fan_out(published, "create")
+      {:ok, published} ->
+        # Create version 1 — the first published snapshot
+        create_version(published)
+
+        if published.privacy == :public do
+          enqueue_fan_out(published, "create")
+        end
+
         result
 
       _ ->
@@ -390,6 +409,85 @@ defmodule Inkwell.Journals do
       |> Repo.aggregate(:max, :series_order)
 
     (max_order || 0) + 1
+  end
+
+  # ── Entry Versions ────────────────────────────────────────────────────────
+
+  @doc "Snapshot the current state of an entry as a new version."
+  def create_version(%Entry{} = entry) do
+    next_num = next_version_number(entry.id)
+
+    %EntryVersion{}
+    |> EntryVersion.changeset(%{
+      entry_id: entry.id,
+      user_id: entry.user_id,
+      version_number: next_num,
+      title: entry.title,
+      body_html: entry.body_html,
+      body_raw: entry.body_raw,
+      word_count: entry.word_count || 0,
+      excerpt: entry.excerpt,
+      mood: entry.mood,
+      tags: entry.tags || [],
+      category: if(entry.category, do: Atom.to_string(entry.category), else: nil),
+      cover_image_id: entry.cover_image_id
+    })
+    |> Repo.insert()
+  end
+
+  defp next_version_number(entry_id) do
+    max =
+      EntryVersion
+      |> where(entry_id: ^entry_id)
+      |> Repo.aggregate(:max, :version_number)
+
+    (max || 0) + 1
+  end
+
+  def list_versions(entry_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 50)
+
+    EntryVersion
+    |> where(entry_id: ^entry_id)
+    |> order_by(desc: :version_number)
+    |> limit(^per_page)
+    |> offset(^((page - 1) * per_page))
+    |> Repo.all()
+  end
+
+  def get_version!(id), do: Repo.get!(EntryVersion, id)
+
+  def get_version(id), do: Repo.get(EntryVersion, id)
+
+  def count_versions(entry_id) do
+    EntryVersion
+    |> where(entry_id: ^entry_id)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "Delete oldest versions for an entry, keeping only `max` most recent."
+  def cleanup_excess_versions(entry_id, max) do
+    # Get IDs of versions to keep (most recent `max`)
+    keep_ids =
+      EntryVersion
+      |> where(entry_id: ^entry_id)
+      |> order_by(desc: :version_number)
+      |> limit(^max)
+      |> select([v], v.id)
+      |> Repo.all()
+
+    if keep_ids == [] do
+      {:ok, 0}
+    else
+      {count, _} =
+        EntryVersion
+        |> where(entry_id: ^entry_id)
+        |> where([v], v.id not in ^keep_ids)
+        |> Repo.delete_all()
+
+      {:ok, count}
+    end
   end
 
   # ── Public queries ─────────────────────────────────────────────────────────

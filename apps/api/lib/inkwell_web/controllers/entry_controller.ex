@@ -212,7 +212,7 @@ defmodule InkwellWeb.EntryController do
           if entry.status == :draft do
             Journals.update_draft(entry, attrs)
           else
-            Journals.update_entry(entry, attrs)
+            Journals.update_entry(entry, attrs, subscription_tier: user.subscription_tier || "free")
           end
 
         case result do

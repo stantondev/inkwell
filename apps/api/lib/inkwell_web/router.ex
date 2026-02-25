@@ -143,6 +143,11 @@ defmodule InkwellWeb.Router do
     delete "/entries/:id", EntryController, :delete
     post "/entries/:id/publish", EntryController, :publish
 
+    # Entry versions (history)
+    get "/entries/:entry_id/versions", EntryVersionController, :index
+    get "/entries/:entry_id/versions/:id", EntryVersionController, :show
+    post "/entries/:entry_id/versions/:id/restore", EntryVersionController, :restore
+
     # Comments
     post "/entries/:entry_id/comments", CommentController, :create
     delete "/comments/:id", CommentController, :delete

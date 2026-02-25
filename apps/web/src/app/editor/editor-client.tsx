@@ -834,6 +834,21 @@ export function EditorClient() {
           </div>
           <div className="flex items-center gap-2.5">
             <SaveStatus status={saveStatus} />
+            {!isDraft && savedEntryId && (
+              <NextLink
+                href={`/editor/history?entry=${savedEntryId}`}
+                className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 hover:border-[var(--accent)]"
+                style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                title="Version history"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span className="hidden sm:inline">History</span>
+              </NextLink>
+            )}
             {isDraft && (
               <button type="button" onClick={handleSaveDraft}
                 className="text-sm px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--border-strong)]"
