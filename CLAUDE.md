@@ -73,6 +73,10 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 4. User clicks magic link → `GET /auth/verify?token=...` (Next.js route handler) → calls `GET /api/auth/verify?token=...` on Phoenix → verifies token, creates API session token → sets httpOnly cookie → redirects to `/feed`
 5. Authenticated requests use Bearer token in Authorization header, verified against `auth_tokens` table
 
+### Bot Prevention
+- **Honeypot field** (NOT Cloudflare Turnstile — removed): `/get-started` signup form includes a hidden `website` field (styled off-screen, invisible to real users). If `POST /api/auth/magic-link` receives `website` with a non-empty value, the backend silently returns `{ok: true}` without creating an account or sending an email. Bots that auto-fill all form fields are silently rejected.
+- **Rate limiting**: ETS-based sliding window rate limiter (5 req / 5 min per IP) on auth endpoints via `InkwellWeb.Plugs.RateLimit`
+
 ### Session Duration & Sliding Window
 - **API session tokens**: 90-day TTL with sliding window refresh
 - **Sliding window**: when a token is more than 7 days old and is used, the backend automatically extends `expires_at` by another 90 days — active users stay signed in indefinitely
