@@ -341,6 +341,63 @@ img, video, iframe, embed, object {
   }
 }
 
+/* ─── Masonry Grid Layout (Feed / Explore) ──────────────────────────── */
+
+.journal-grid {
+  column-count: 1;
+  column-gap: 1.25rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .journal-grid {
+    column-count: 2;
+    column-gap: 1.5rem;
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .journal-grid {
+    column-count: 3;
+    column-gap: 1.5rem;
+    padding: 0 2rem;
+  }
+}
+
+.journal-grid-item {
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .journal-grid-item {
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* Body clamp for masonry grid cards */
+.journal-body-clamp {
+  position: relative;
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.journal-body-clamp::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(transparent, var(--surface));
+  pointer-events: none;
+}
+
 /* ─── Journal Page System ────────────────────────────────────────────── */
 
 /* Paper texture via subtle CSS noise pattern */
@@ -376,7 +433,7 @@ img, video, iframe, embed, object {
     8px 0 0 0 var(--border);
 }
 
-/* Horizontal scroll-snap container */
+/* DEPRECATED — horizontal scroll-snap paging removed in masonry grid redesign */
 .journal-scroll {
   display: flex;
   overflow-x: auto;
@@ -395,7 +452,7 @@ img, video, iframe, embed, object {
   flex-shrink: 0;
 }
 
-/* Page indicator dots */
+/* DEPRECATED — page indicator dots removed in masonry grid redesign */
 .journal-dots {
   display: flex;
   justify-content: center;
@@ -451,7 +508,7 @@ img, video, iframe, embed, object {
   pointer-events: none;
 }
 
-/* Book spine divider for desktop spread */
+/* DEPRECATED — book spine divider removed in masonry grid redesign */
 .journal-spine {
   width: 1px;
   background: var(--border);
@@ -503,7 +560,7 @@ img, video, iframe, embed, object {
   }
 }
 
-/* Page navigation arrows */
+/* DEPRECATED — page navigation arrows removed in masonry grid redesign */
 .journal-nav-arrow {
   position: absolute;
   top: 50%;
@@ -567,7 +624,7 @@ img, video, iframe, embed, object {
   }
 }
 
-/* Page counter — book-style page number */
+/* DEPRECATED — page counter removed in masonry grid redesign */
 .journal-page-counter {
   text-align: center;
   font-family: var(--serif);

@@ -112,6 +112,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
         entries={entries}
         page={page}
         basePath={`/tag/${encodeURIComponent(tag)}`}
+        loadMorePath={`/api/explore?tag=${encodeURIComponent(tag)}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,

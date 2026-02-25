@@ -120,6 +120,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
         entries={entries}
         page={page}
         basePath="/feed"
+        loadMorePath="/api/feed"
         emptyState={feedError ? (
           <div
             className="rounded-2xl border p-12 text-center"

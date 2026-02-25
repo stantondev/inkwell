@@ -86,23 +86,23 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
     : null;
 
   return (
-    <JournalPage corner edge className="flex flex-col h-full">
+    <JournalPage corner edge className="flex flex-col">
       {/* Cover image */}
       {entry.cover_image_id && (
-        <div className="w-full overflow-hidden" style={{ maxHeight: 200 }}>
+        <div className="w-full overflow-hidden" style={{ maxHeight: 280 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/images/${entry.cover_image_id}`}
             alt={entry.title ?? "Entry cover"}
             className="w-full object-cover"
-            style={{ maxHeight: 200 }}
+            style={{ maxHeight: 280 }}
             loading="lazy"
           />
         </div>
       )}
 
       {/* Top section */}
-      <div className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col relative">
+      <div className="p-4 sm:p-5 lg:p-6 flex flex-col relative">
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
@@ -239,21 +239,63 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           </div>
         </div>
 
-        {/* Body preview — excerpt (plain text) or HTML fade */}
+        {/* Body preview — excerpt (plain text) or HTML clamp */}
         {entry.excerpt ? (
-          <p
-            className="flex-1 text-sm leading-relaxed line-clamp-4"
-            style={{ color: "var(--foreground)", opacity: 0.85 }}
-          >
-            {entry.excerpt}
-          </p>
+          <div>
+            <p
+              className="text-sm leading-relaxed line-clamp-8"
+              style={{ color: "var(--foreground)", opacity: 0.85 }}
+            >
+              {entry.excerpt}
+            </p>
+            {isRemote ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </a>
+            ) : (
+              <Link
+                href={href}
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </Link>
+            )}
+          </div>
         ) : (
-          <div className="journal-body-fade flex-1">
-            <EntryContent
-              html={entry.body_html}
-              entryId={entry.id}
-              className="prose-entry text-sm leading-relaxed"
-            />
+          <div>
+            <div className="journal-body-clamp">
+              <EntryContent
+                html={entry.body_html}
+                entryId={entry.id}
+                className="prose-entry text-sm leading-relaxed"
+              />
+            </div>
+            {isRemote ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </a>
+            ) : (
+              <Link
+                href={href}
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </Link>
+            )}
           </div>
         )}
 
@@ -283,7 +325,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
       {/* Footer — either custom actions or static default */}
       {actions ?? (
         <div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 px-4 sm:px-6 lg:px-8 py-4 border-t"
+          className="flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t"
           style={{ borderColor: "var(--border)" }}
         >
           {isRemote ? (
@@ -297,13 +339,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               {entry.author.domain ? `View on ${entry.author.domain}` : "View original"} &rarr;
             </a>
           ) : (
-            <Link
-              href={href}
-              className="text-sm font-medium transition-colors hover:underline"
-              style={{ color: "var(--accent)" }}
-            >
-              Read full entry &rarr;
-            </Link>
+            <span />
           )}
           <Link
             href={isRemote ? "#" : `${href}#comments`}

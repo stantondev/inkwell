@@ -147,6 +147,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         entries={entries}
         page={page}
         basePath="/explore"
+        loadMorePath={`/api/explore${category ? `?category=${encodeURIComponent(category)}` : ""}`}
         extraParams={category ? `&category=${encodeURIComponent(category)}` : ""}
         emptyState={emptyState}
         session={session ? {

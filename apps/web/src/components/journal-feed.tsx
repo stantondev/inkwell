@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
-import { PageNavigation } from "./page-navigation";
 
 /** Session info passed from server to enable interactive features */
 export interface FeedSession {
@@ -19,6 +18,8 @@ interface JournalFeedProps {
   entries: JournalEntry[];
   page: number;
   basePath: string;
+  /** API proxy path for client-side "Load more" (e.g. "/api/feed") */
+  loadMorePath?: string;
   /** Extra query params to append to pagination links (e.g. "&category=poetry") */
   extraParams?: string;
   emptyState?: React.ReactNode;
@@ -27,69 +28,47 @@ interface JournalFeedProps {
 }
 
 export function JournalFeed({
-  entries,
+  entries: initialEntries,
   page,
   basePath,
+  loadMorePath,
   extraParams = "",
   emptyState,
   session,
 }: JournalFeedProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [entries, setEntries] = useState(initialEntries);
+  const [currentPage, setCurrentPage] = useState(page);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(initialEntries.length === 20);
   const prefersReducedMotion = usePrefersReducedMotion();
 
-  // Detect desktop for 2-page spread
-  useEffect(() => {
-    function check() {
-      setIsDesktop(window.innerWidth >= 1024);
-    }
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  // On desktop, we show 2 entries per spread (like an open book)
-  // On mobile/tablet, we show 1 entry per page
-  const entriesPerPage = isDesktop ? 2 : 1;
-  const totalPages = Math.ceil(entries.length / entriesPerPage);
-  const hasMore = entries.length === 20;
-
-  // Scroll to a specific page
-  const navigateToPage = useCallback(
-    (pageIndex: number) => {
-      const container = scrollRef.current;
-      if (!container) return;
-      const pageWidth = container.clientWidth;
-      container.scrollTo({ left: pageIndex * pageWidth, behavior: "smooth" });
-    },
-    []
-  );
-
-  // Track current page via scroll position
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    let ticking = false;
-    function onScroll() {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          if (container) {
-            const pageWidth = container.clientWidth;
-            const scrollPos = container.scrollLeft;
-            const newPage = Math.round(scrollPos / pageWidth);
-            setCurrentPage(newPage);
-          }
-          ticking = false;
-        });
-        ticking = true;
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore || !loadMorePath) return;
+    setLoading(true);
+    try {
+      const nextPage = currentPage + 1;
+      const separator = loadMorePath.includes("?") ? "&" : "?";
+      const res = await fetch(`${loadMorePath}${separator}page=${nextPage}`);
+      if (res.ok) {
+        const { data } = await res.json();
+        if (!data || data.length < 20) setHasMore(false);
+        if (data && data.length > 0) {
+          setEntries((prev) => {
+            const existingIds = new Set(prev.map((e) => e.id));
+            const newEntries = data.filter(
+              (e: JournalEntry) => !existingIds.has(e.id)
+            );
+            return [...prev, ...newEntries];
+          });
+          setCurrentPage(nextPage);
+        }
       }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
     }
-
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [loading, hasMore, currentPage, loadMorePath]);
 
   if (entries.length === 0) {
     return <>{emptyState}</>;
@@ -115,186 +94,85 @@ export function JournalFeed({
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}
         isRemote={isRemote}
-        {...(isRemote ? {
-          stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
-          commentApiPath: `/api/remote-entries/${entry.id}/comments`,
-          externalUrl: entry.url,
-          externalDomain: entry.author.domain,
-        } : {})}
+        {...(isRemote
+          ? {
+              stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
+              commentApiPath: `/api/remote-entries/${entry.id}/comments`,
+              externalUrl: entry.url,
+              externalDomain: entry.author.domain,
+            }
+          : {})}
       />
     );
   }
 
-  // Build pages: group entries based on desktop/mobile
-  const pages: JournalEntry[][] = [];
-  for (let i = 0; i < entries.length; i += entriesPerPage) {
-    pages.push(entries.slice(i, i + entriesPerPage));
-  }
-
-  // Total navigable pages includes the "load more" sentinel if applicable
-  const totalNavigable = hasMore ? pages.length + 1 : pages.length;
-
   return (
-    <div className="journal-feed-container relative">
-      {/* Scroll-snap container */}
-      <div
-        ref={scrollRef}
-        className="journal-scroll"
-        role="region"
-        aria-roledescription="journal"
-        aria-label="Journal entries"
-        style={{ minHeight: "calc(100vh - 160px)" }}
-      >
-        {pages.map((pageEntries, pageIndex) => (
-          <div
-            key={pageIndex}
-            className="journal-snap-page w-full flex-shrink-0 px-4 lg:px-8"
-          >
-            {isDesktop ? (
-              /* Desktop: book spread with 2 entries + spine */
-              <div
-                className="flex gap-0 h-full mx-auto"
-                style={{ maxWidth: "1600px" }}
-              >
-                {/* Left page */}
-                <div className="flex-1 px-4 py-4 flex">
-                  <motion.div
-                    className="flex-1 flex"
-                    initial={
-                      prefersReducedMotion
-                        ? false
-                        : { opacity: 0, y: 16 }
-                    }
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: 0.05,
-                      duration: 0.4,
-                      ease: "easeOut",
-                    }}
-                  >
-                    <div className="flex-1">
-                      <JournalEntryCard
-                        entry={pageEntries[0]}
-                        actions={session ? renderActions(pageEntries[0]) : undefined}
-                      />
-                    </div>
-                  </motion.div>
-                </div>
-
-                {/* Spine */}
-                <div className="journal-spine hidden lg:block" />
-
-                {/* Right page */}
-                <div className="flex-1 px-4 py-4 flex">
-                  {pageEntries[1] ? (
-                    <motion.div
-                      className="flex-1 flex"
-                      initial={
-                        prefersReducedMotion
-                          ? false
-                          : { opacity: 0, y: 16 }
-                      }
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        delay: 0.15,
-                        duration: 0.4,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <div className="flex-1">
-                        <JournalEntryCard
-                          entry={pageEntries[1]}
-                          actions={session ? renderActions(pageEntries[1]) : undefined}
-                        />
-                      </div>
-                    </motion.div>
-                  ) : (
-                    /* If odd number of entries, empty right page */
-                    <div className="flex-1 flex items-center justify-center">
-                      <p
-                        className="text-sm italic"
-                        style={{ color: "var(--muted)" }}
-                      >
-                        &mdash;
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Mobile/Tablet: single entry per page */
-              <div className="h-full py-4 mx-auto" style={{ maxWidth: "640px" }}>
-                <motion.div
-                  className="h-full"
-                  initial={
-                    prefersReducedMotion
-                      ? false
-                      : { opacity: 0, y: 12 }
-                  }
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    delay: 0.05,
-                    duration: 0.35,
-                    ease: "easeOut",
-                  }}
-                >
-                  <JournalEntryCard
-                    entry={pageEntries[0]}
-                    actions={session ? renderActions(pageEntries[0]) : undefined}
-                  />
-                </motion.div>
-              </div>
-            )}
+    <div>
+      {/* Masonry grid */}
+      <div className="journal-grid" role="feed" aria-label="Journal entries">
+        {entries.map((entry) => (
+          <div key={entry.id} className="journal-grid-item">
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <JournalEntryCard
+                entry={entry}
+                actions={session ? renderActions(entry) : undefined}
+              />
+            </motion.div>
           </div>
         ))}
-
-        {/* Load more sentinel */}
-        {hasMore && (
-          <div className="journal-snap-page w-full flex-shrink-0 flex items-center justify-center">
-            <div className="text-center">
-              <p
-                className="text-lg mb-4"
-                style={{
-                  fontFamily: "var(--font-lora, Georgia, serif)",
-                  color: "var(--muted)",
-                }}
-              >
-                Turn to the next chapter&hellip;
-              </p>
-              <Link
-                href={`${basePath}?page=${page + 1}${extraParams}`}
-                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
-                Older entries
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Navigation overlay */}
-      <PageNavigation
-        currentPage={currentPage}
-        totalPages={totalNavigable}
-        onNavigate={navigateToPage}
-      />
+      {/* Load more */}
+      {hasMore && loadMorePath && (
+        <div className="flex justify-center py-8">
+          <button
+            onClick={loadMore}
+            disabled={loading}
+            className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+            style={{
+              background: "var(--accent)",
+              color: "#fff",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "Loading..." : "Load more entries"}
+          </button>
+        </div>
+      )}
 
-      {/* API page navigation (Newer / Older) */}
+      {/* Fallback: older entries link (server-side pagination for when no loadMorePath) */}
+      {hasMore && !loadMorePath && (
+        <div className="flex justify-center py-8">
+          <Link
+            href={`${basePath}?page=${page + 1}${extraParams}`}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            Older entries
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+        </div>
+      )}
+
+      {/* Newer entries link (for direct URL navigation to page > 1) */}
       {page > 1 && (
-        <div className="flex justify-center mt-2">
+        <div className="flex justify-center mt-2 pb-4">
           <Link
             href={`${basePath}?page=${page - 1}${extraParams}`}
             className="text-sm font-medium hover:underline"

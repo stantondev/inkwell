@@ -147,10 +147,10 @@ export function FeedCardActions({
 
   return (
     <div
-      className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-t relative"
+      className="flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t relative"
       style={{ borderColor: "var(--border)" }}
     >
-      {/* Left: Read full entry or view on original instance */}
+      {/* Left: view on original instance (remote only) or spacer */}
       {externalUrl ? (
         <a
           href={externalUrl}
@@ -162,13 +162,7 @@ export function FeedCardActions({
           {externalDomain ? `View on ${externalDomain}` : "View original"} &rarr;
         </a>
       ) : (
-        <Link
-          href={entryHref}
-          className="text-sm font-medium transition-colors hover:underline"
-          style={{ color: "var(--accent)" }}
-        >
-          Read &rarr;
-        </Link>
+        <span />
       )}
 
       {/* Right: Comment + Stamp actions */}

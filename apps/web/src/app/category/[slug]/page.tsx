@@ -139,6 +139,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         entries={entries}
         page={page}
         basePath={`/category/${slug}`}
+        loadMorePath={`/api/explore?category=${encodeURIComponent(categoryValue)}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,
