@@ -24,7 +24,7 @@ function InkwellLogo() {
 // Avatar
 // ---------------------------------------------------------------------------
 function Avatar({ url, name, size = 32 }: { url: string | null; name: string; size?: number }) {
-  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (name || "?").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={url} alt={name} width={size} height={size}

@@ -215,7 +215,7 @@ defmodule InkwellWeb.FediverseAuthController do
         case Accounts.create_user(%{
                username: username,
                email: email_placeholder,
-               display_name: credentials.display_name || remote_username
+               display_name: non_empty(credentials.display_name) || remote_username
              }) do
           {:ok, user} ->
             # Set bio and avatar if available (profile_changeset handles these)
@@ -370,6 +370,14 @@ defmodule InkwellWeb.FediverseAuthController do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, _key, ""), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp non_empty(nil), do: nil
+  defp non_empty(s) when is_binary(s) do
+    case String.trim(s) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
 
   defp frontend_url do
     Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")

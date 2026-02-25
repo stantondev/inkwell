@@ -128,7 +128,7 @@ defmodule InkwellWeb.AuthController do
     %{
       id: user.id,
       username: user.username,
-      display_name: user.display_name,
+      display_name: user.display_name || user.username,
       avatar_url: user.avatar_url,
       bio: user.bio,
       pronouns: user.pronouns,
