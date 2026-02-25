@@ -646,8 +646,8 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 62 | **Bookmarks** | High | 4 | 1–2 days | Done |
 | 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | Done |
 | 52 | **Data Import Options** | Medium | 4 | 4–5 days | Done |
-| 52 | **Version History for Entries** | Medium | 4 | ~3 days | New |
-| 52 | **Series and Collections** | Medium | 4 | 3–4 days | New |
+| 52 | **Version History for Entries** | Medium | 4 | ~3 days | Done |
+| 52 | **Series and Collections** | Medium | 4 | 3–4 days | Done |
 | 42 | **Word Count and Reading Time** | Medium | 3 | ~0.5 day | Done |
 | 42 | **Add Categories to Journal Posts** | Medium | 3 | 2–3 days | Done |
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | New |
