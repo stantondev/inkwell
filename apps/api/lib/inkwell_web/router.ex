@@ -28,6 +28,7 @@ defmodule InkwellWeb.Router do
     pipe_through [:api, :rate_limited]
 
     post "/auth/magic-link", AuthController, :send_magic_link
+    post "/auth/fediverse/initiate", FediverseAuthController, :initiate
   end
 
   # Public API — no auth required
@@ -37,6 +38,7 @@ defmodule InkwellWeb.Router do
     # Auth
     get "/auth/verify", AuthController, :verify_magic_link
     delete "/auth/session", AuthController, :sign_out
+    post "/auth/fediverse/callback", FediverseAuthController, :callback
 
     # Public profiles and entries (index/show moved to optional_auth for privacy)
     get "/users/:username/entries/:slug/comments", CommentController, :index
@@ -94,6 +96,11 @@ defmodule InkwellWeb.Router do
 
     # Auth session
     get "/auth/me", AuthController, :me
+
+    # Fediverse account linking
+    get "/auth/fediverse/accounts", FediverseAuthController, :list_accounts
+    delete "/auth/fediverse/accounts/:id", FediverseAuthController, :unlink
+    post "/auth/fediverse/link", FediverseAuthController, :initiate_link
 
     # Discovery
     get "/discover/writers", UserController, :suggested

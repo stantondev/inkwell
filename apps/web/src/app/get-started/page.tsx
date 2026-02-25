@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import FediverseLogin from "@/components/fediverse-login";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
@@ -263,6 +264,15 @@ export default function GetStartedPage() {
                 We&apos;ll send a magic link to your email — no password needed.
               </p>
             </form>
+
+            {/* Fediverse sign-in option */}
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+              <span className="text-xs" style={{ color: "var(--muted)" }}>or</span>
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+            </div>
+
+            <FediverseLogin disabled={!ageConfirmed || !termsAccepted} />
           </>
         )}
 

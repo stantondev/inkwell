@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import FediverseLogin from "@/components/fediverse-login";
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  oauth_denied: "Authorization was denied. You can try again or use email sign-in.",
+  oauth_failed: "Fediverse sign in failed. Please try again.",
+  missing_params: "Something went wrong with the redirect. Please try again.",
+  server_error: "Server error. Please try again later.",
+};
 
 type LoginStep = "enter_email" | "check_email";
 
@@ -219,6 +228,11 @@ export default function LoginPage() {
   const [step, setStep] = useState<LoginStep>("enter_email");
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [devLink, setDevLink] = useState<string | undefined>();
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
+  const urlErrorMessage = urlError
+    ? OAUTH_ERROR_MESSAGES[urlError] || decodeURIComponent(urlError)
+    : null;
 
   const handleEmailSubmit = (email: string, link?: string) => {
     setSubmittedEmail(email);
@@ -235,6 +249,13 @@ export default function LoginPage() {
           <InkwellLogo />
         </div>
 
+        {urlErrorMessage && step === "enter_email" && (
+          <div className="mb-4 rounded-lg px-3 py-2 text-sm"
+            style={{ background: "var(--danger-light, #fef2f2)", color: "var(--danger, #dc2626)" }}>
+            {urlErrorMessage}
+          </div>
+        )}
+
         {step === "enter_email" && (
           <>
             <div className="mb-6 text-center">
@@ -247,6 +268,15 @@ export default function LoginPage() {
               </p>
             </div>
             <EnterEmailStep onSubmit={handleEmailSubmit} />
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+              <span className="text-xs" style={{ color: "var(--muted)" }}>or</span>
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+            </div>
+
+            <FediverseLogin />
           </>
         )}
 
