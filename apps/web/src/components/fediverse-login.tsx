@@ -11,9 +11,11 @@ import { useState } from "react";
  */
 export default function FediverseLogin({
   disabled = false,
+  disabledReason,
   onError,
 }: {
   disabled?: boolean;
+  disabledReason?: string;
   onError?: (error: string) => void;
 }) {
   const [handle, setHandle] = useState("");
@@ -149,6 +151,15 @@ export default function FediverseLogin({
           </>
         )}
       </button>
+
+      {disabled && disabledReason && handle.trim() && (
+        <p
+          className="text-xs text-center leading-relaxed"
+          style={{ color: "var(--danger, #dc2626)" }}
+        >
+          {disabledReason}
+        </p>
+      )}
 
       <p
         className="text-xs text-center leading-relaxed"

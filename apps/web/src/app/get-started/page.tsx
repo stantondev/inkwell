@@ -272,7 +272,18 @@ export default function GetStartedPage() {
               <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
             </div>
 
-            <FediverseLogin disabled={!ageConfirmed || !termsAccepted} />
+            <FediverseLogin
+              disabled={!ageConfirmed || !termsAccepted}
+              disabledReason={
+                !ageConfirmed && !termsAccepted
+                  ? "Please confirm your age and accept the terms above to continue."
+                  : !ageConfirmed
+                    ? "Please confirm you are 16 years of age or older."
+                    : !termsAccepted
+                      ? "Please accept the Terms of Service and Privacy Policy."
+                      : undefined
+              }
+            />
           </>
         )}
 
