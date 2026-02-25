@@ -19,6 +19,8 @@ interface JournalFeedProps {
   entries: JournalEntry[];
   page: number;
   basePath: string;
+  /** Extra query params to append to pagination links (e.g. "&category=poetry") */
+  extraParams?: string;
   emptyState?: React.ReactNode;
   /** If provided, enables interactive stamp + comment on feed cards */
   session?: FeedSession | null;
@@ -28,6 +30,7 @@ export function JournalFeed({
   entries,
   page,
   basePath,
+  extraParams = "",
   emptyState,
   session,
 }: JournalFeedProps) {
@@ -259,7 +262,7 @@ export function JournalFeed({
                 Turn to the next chapter&hellip;
               </p>
               <Link
-                href={`${basePath}?page=${page + 1}`}
+                href={`${basePath}?page=${page + 1}${extraParams}`}
                 className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
@@ -293,7 +296,7 @@ export function JournalFeed({
       {page > 1 && (
         <div className="flex justify-center mt-2">
           <Link
-            href={`${basePath}?page=${page - 1}`}
+            href={`${basePath}?page=${page - 1}${extraParams}`}
             className="text-sm font-medium hover:underline"
             style={{ color: "var(--accent)" }}
           >

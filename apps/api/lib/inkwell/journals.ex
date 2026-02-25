@@ -220,6 +220,7 @@ defmodule Inkwell.Journals do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
     tag = Keyword.get(opts, :tag)
+    category = Keyword.get(opts, :category)
 
     query =
       Entry
@@ -229,6 +230,7 @@ defmodule Inkwell.Journals do
       |> order_by(desc: :published_at)
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = if category, do: where(query, [e], e.category == ^category), else: query
 
     query
     |> limit(^per_page)

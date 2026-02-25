@@ -12,6 +12,7 @@ import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseMusicUrl } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
+import { CATEGORIES } from "@/lib/categories";
 
 type Privacy = "public" | "friends_only" | "private" | "custom";
 
@@ -29,6 +30,7 @@ interface EditorState {
   customFilterId: string | null;
   tags: string;
   excerpt: string;
+  category: string | null;
 }
 
 const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
@@ -400,7 +402,7 @@ export function EditorClient() {
   const editId = searchParams.get("edit");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "",
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null,
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
@@ -594,6 +596,7 @@ export function EditorClient() {
           customFilterId: entry.custom_filter_id ?? null,
           tags: Array.isArray(entry.tags) ? entry.tags.join(", ") : (entry.tags ?? ""),
           excerpt: entry.excerpt ?? "",
+          category: entry.category ?? null,
         });
         setCoverImageId(entry.cover_image_id ?? null);
 
@@ -664,6 +667,7 @@ export function EditorClient() {
     tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
     excerpt: state.excerpt || null,
     cover_image_id: coverImageId || null,
+    category: state.category || null,
   }), [state, htmlMode, htmlSource, editor, coverImageId]);
 
   // Save as draft (no redirect)
@@ -1040,6 +1044,22 @@ export function EditorClient() {
                   )}
                 </div>
               )}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                  Category
+                </label>
+                <select
+                  value={state.category ?? ""}
+                  onChange={(e) => update({ category: e.target.value || null })}
+                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                >
+                  <option value="">No category</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
                   Tags

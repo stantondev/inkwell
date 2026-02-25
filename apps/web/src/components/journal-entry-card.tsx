@@ -4,6 +4,7 @@ import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
 import { JournalPage } from "@/components/journal-page";
+import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
 export interface JournalEntry {
   id: string;
@@ -22,6 +23,7 @@ export interface JournalEntry {
   word_count?: number;
   excerpt?: string | null;
   cover_image_id?: string | null;
+  category?: string | null;
   /** "local" (default) or "remote" for federated entries */
   source?: "local" | "remote";
   /** Original URL for remote entries */
@@ -182,6 +184,19 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               <span className="text-xs" style={{ color: "var(--muted)" }}>
                 {readingMins} min read
               </span>
+            )}
+            {entry.category && (
+              <Link
+                href={`/category/${getCategorySlug(entry.category)}`}
+                className="text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80"
+                style={{
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  background: "var(--accent-light)",
+                }}
+              >
+                {getCategoryLabel(entry.category)}
+              </Link>
             )}
             {entry.mood && (
               <span

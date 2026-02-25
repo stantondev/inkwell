@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 interface NavCounts {
@@ -10,9 +10,8 @@ interface NavCounts {
 }
 
 /**
- * Client component that re-fetches nav badge counts on every route change.
- * The root layout is a server component that only renders once — its counts
- * go stale during client-side navigation. This component keeps them fresh.
+ * Client component that re-fetches nav badge counts on every route change
+ * and when any component dispatches the "inkwell-nav-refresh" event.
  */
 export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const [counts, setCounts] = useState(initial);
@@ -23,13 +22,11 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     setCounts(initial);
   }, [initial.draftCount, initial.unreadNotificationCount, initial.unreadLetterCount]);
 
-  useEffect(() => {
-    let cancelled = false;
-
+  const refetch = useCallback(() => {
     fetch("/api/session")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (cancelled || !data?.data) return;
+        if (!data?.data) return;
         setCounts({
           draftCount: data.data.draft_count ?? 0,
           unreadNotificationCount: data.data.unread_notification_count ?? 0,
@@ -37,11 +34,19 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         });
       })
       .catch(() => {});
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+  // Refetch on pathname change
+  useEffect(() => {
+    refetch();
+  }, [pathname, refetch]);
+
+  // Refetch when any component fires the custom event
+  useEffect(() => {
+    const handler = () => refetch();
+    window.addEventListener("inkwell-nav-refresh", handler);
+    return () => window.removeEventListener("inkwell-nav-refresh", handler);
+  }, [refetch]);
 
   return counts;
 }

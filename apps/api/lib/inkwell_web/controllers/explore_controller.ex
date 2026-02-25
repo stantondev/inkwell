@@ -12,12 +12,13 @@ defmodule InkwellWeb.ExploreController do
     page = parse_int(params["page"], 1)
     per_page = min(parse_int(params["per_page"], 20), 50)
     tag = params["tag"]
+    category = params["category"]
     viewer = conn.assigns[:current_user]
 
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag)
+    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag, category: category)
     remote_entries = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
 
     # Normalize into a common shape
@@ -130,7 +131,7 @@ defmodule InkwellWeb.ExploreController do
 
     json(conn, %{
       data: data,
-      pagination: %{page: page, per_page: per_page, tag: tag}
+      pagination: %{page: page, per_page: per_page, tag: tag, category: category}
     })
   end
 

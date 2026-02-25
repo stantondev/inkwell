@@ -250,9 +250,11 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
   const isAtBottomRef = useRef(true);
   const router = useRouter();
 
-  // Mark as read on mount (server already marked, but ensure badge is refreshed)
+  // Mark as read on mount and refresh nav badge
   useEffect(() => {
-    fetch(`/api/letters/${conversationId}/read`, { method: "POST" }).catch(() => {});
+    fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
+      .then(() => window.dispatchEvent(new Event("inkwell-nav-refresh")))
+      .catch(() => {});
   }, [conversationId]);
 
   // Auto-scroll to bottom on initial load
@@ -299,11 +301,10 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
             setMessages((prev) => [...prev, ...newMsgs]);
             lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
 
-            // Mark as read (fire and forget)
-            fetch(`/api/letters/${conversationId}/read`, { method: "POST" }).catch(() => {});
-
-            // Refresh nav badge
-            router.refresh();
+            // Mark as read and refresh nav badge
+            fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
+              .then(() => window.dispatchEvent(new Event("inkwell-nav-refresh")))
+              .catch(() => {});
           }
         } catch {
           // silently ignore poll errors
@@ -638,7 +639,7 @@ function ComposeArea({
             fontSize: "14px",
             lineHeight: "28px",
             fontFamily: "var(--font-lora, Georgia, serif)",
-            color: "#1a100a",
+            color: focused ? "#1a100a" : "var(--foreground)",
             padding: "0",
           }}
         />

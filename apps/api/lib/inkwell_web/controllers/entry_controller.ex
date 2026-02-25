@@ -130,7 +130,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
-                      "excerpt", "cover_image_id"])
+                      "excerpt", "cover_image_id", "category"])
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
@@ -153,7 +153,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                      "excerpt", "cover_image_id"])
+                      "excerpt", "cover_image_id", "category"])
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
@@ -195,7 +195,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                       "excerpt", "cover_image_id"])
+                       "excerpt", "cover_image_id", "category"])
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
         |> maybe_auto_excerpt()
@@ -248,7 +248,7 @@ defmodule InkwellWeb.EntryController do
           params
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
-                        "excerpt", "cover_image_id"])
+                        "excerpt", "cover_image_id", "category"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> put_word_count()
@@ -419,6 +419,7 @@ defmodule InkwellWeb.EntryController do
       word_count: entry.word_count || 0,
       excerpt: entry.excerpt,
       cover_image_id: entry.cover_image_id,
+      category: entry.category,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }

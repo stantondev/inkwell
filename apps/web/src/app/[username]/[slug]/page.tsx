@@ -13,6 +13,7 @@ import { EntryActions } from "./entry-actions";
 import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
 import { BookmarkButton } from "@/components/bookmark-button";
+import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -44,6 +45,7 @@ interface EntryData {
   word_count?: number;
   excerpt?: string | null;
   cover_image_id?: string | null;
+  category?: string | null;
   author: EntryAuthor;
 }
 
@@ -258,6 +260,22 @@ export default async function EntryPage({ params }: EntryParams) {
             <span className="text-sm" style={{ color: "var(--muted)" }}>
               {mins} min read
             </span>
+
+            {entry.category && (
+              <>
+                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
+                <Link
+                  href={`/category/${getCategorySlug(entry.category)}`}
+                  className="text-sm px-2.5 py-1 rounded-full transition-colors hover:opacity-80"
+                  style={{
+                    background: "var(--accent-light)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  {getCategoryLabel(entry.category)}
+                </Link>
+              </>
+            )}
 
             {entry.mood && (
               <span className="mood-pill">feeling {entry.mood}</span>

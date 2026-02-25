@@ -21,6 +21,12 @@ defmodule Inkwell.Journals.Entry do
     field :word_count, :integer, default: 0
     field :excerpt, :string
     field :cover_image_id, :binary_id
+    field :category, Ecto.Enum, values: [
+      :personal, :creative_writing, :poetry, :fiction, :travel, :tech,
+      :music, :film_tv, :food, :health, :career, :education,
+      :relationships, :parenting, :finance, :news_politics,
+      :philosophy, :spirituality, :humor, :other
+    ]
 
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :custom_filter, Inkwell.Social.FriendFilter
@@ -36,7 +42,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
-      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id
+      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category
     ])
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)
@@ -55,7 +61,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id
+      :word_count, :excerpt, :cover_image_id, :category
     ])
     |> validate_required([:user_id])
     |> validate_length(:title, max: 500)
@@ -71,7 +77,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id
+      :word_count, :excerpt, :cover_image_id, :category
     ])
     |> validate_required([:body_html, :privacy])
     |> validate_length(:title, max: 500)

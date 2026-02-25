@@ -4,22 +4,25 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
+import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
 export const metadata: Metadata = { title: "Explore · Inkwell" };
 
 interface PageProps {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; category?: string }>;
 }
 
 export default async function ExplorePage({ searchParams }: PageProps) {
   const session = await getSession();
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, category } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+
+  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
 
   let entries: JournalEntry[] = [];
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?page=${page}`,
+      `/api/explore?page=${page}${categoryParam}`,
       {},
       session?.token
     );
@@ -27,6 +30,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   } catch {
     // show empty state
   }
+
+  const categoryLabel = category ? getCategoryLabel(category) : null;
 
   const emptyState = (
     <div
@@ -44,14 +49,16 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         Nothing here yet
       </p>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        Be the first to write a public journal entry.
+        {category
+          ? `No public entries in ${categoryLabel} yet.`
+          : "Be the first to write a public journal entry."}
       </p>
       <Link
-        href="/editor"
+        href={category ? "/explore" : "/editor"}
         className="rounded-full px-4 py-2 text-sm font-medium"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        Start writing
+        {category ? "View all entries" : "Start writing"}
       </Link>
     </div>
   );
@@ -96,11 +103,51 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         </p>
       </div>
 
+      {/* Category filter bar */}
+      <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-1.5 py-2" style={{ minWidth: "max-content" }}>
+          <Link
+            href="/explore"
+            className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
+            style={!category ? {
+              borderColor: "var(--accent)",
+              background: "var(--accent-light)",
+              color: "var(--accent)",
+              fontWeight: 500,
+            } : {
+              borderColor: "var(--border)",
+              color: "var(--muted)",
+            }}
+          >
+            All
+          </Link>
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.value}
+              href={`/explore?category=${cat.value}`}
+              className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
+              style={category === cat.value ? {
+                borderColor: "var(--accent)",
+                background: "var(--accent-light)",
+                color: "var(--accent)",
+                fontWeight: 500,
+              } : {
+                borderColor: "var(--border)",
+                color: "var(--muted)",
+              }}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* Journal area */}
       <JournalFeed
         entries={entries}
         page={page}
         basePath="/explore"
+        extraParams={category ? `&category=${encodeURIComponent(category)}` : ""}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,
