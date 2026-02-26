@@ -303,31 +303,62 @@ defmodule Inkwell.Import.Parsers.Substack do
     # Remove title duplication
     |> String.replace(~r/<h1[^>]*>.*?<\/h1>/s, "")
     |> String.replace(~r/<h2[^>]*class="[^"]*post-title[^"]*"[^>]*>.*?<\/h2>/s, "")
-    # Remove Substack subscribe/CTA buttons (fragment format uses <p class="button-wrapper">)
+    # Remove Substack subscribe/CTA buttons
     |> String.replace(~r/<p[^>]*class="[^"]*button-wrapper[^"]*"[^>]*>.*?<\/p>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*subscription-widget[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*subscribe[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*paywall[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*post-footer[^"]*"[^>]*>.*?<\/div>/s, "")
-    # Remove share buttons
-    |> String.replace(~r/<div[^>]*class="[^"]*share[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*like-button[^"]*"[^>]*>.*?<\/div>/s, "")
-    # Remove Substack embed containers (tweets, YouTube, Spotify, etc.)
-    |> String.replace(~r/<div[^>]*class="[^"]*twitter-embed[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*youtube-wrap[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*vimeo-wrap[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<div[^>]*class="[^"]*soundcloud-wrap[^"]*"[^>]*>.*?<\/div>/s, "")
-    |> String.replace(~r/<iframe[^>]*class="[^"]*spotify-wrap[^"]*"[^>]*>.*?<\/iframe>/s, "")
+    # Remove iframes (YouTube, Spotify, SoundCloud, Vimeo embeds)
+    |> String.replace(~r/<iframe[^>]*>.*?<\/iframe>/s, "")
+    # Remove <source> tags (from Substack <picture> elements — we keep the <img>)
+    |> String.replace(~r/<source[^>]*\/?>/s, "")
     # Remove navigation
     |> String.replace(~r/<nav[^>]*>.*?<\/nav>/s, "")
     |> String.replace(~r/<header[^>]*>.*?<\/header>/s, "")
     |> String.replace(~r/<footer[^>]*>.*?<\/footer>/s, "")
-    # Clean up whitespace
+    # Remove data-attrs and data-component-name attributes (Substack metadata)
+    |> String.replace(~r/\s+data-attrs="[^"]*"/s, "")
+    |> String.replace(~r/\s+data-component-name="[^"]*"/s, "")
+    # Strip ALL div tags (open and close) but keep their inner content.
+    # Substack uses divs only for layout wrappers (captioned-image-container,
+    # image2-inset, twitter-embed, youtube-wrap, etc.) — never for content.
+    # This is safe because content is in <p>, <h3>, <blockquote>, <ol>, <figure>, etc.
+    |> String.replace(~r/<div[^>]*>/s, "")
+    |> String.replace(~r/<\/div>/s, "")
+    # Unwrap Substack image wrapper <a class="image-link">...<img>...</a>
+    # (removes the <a> wrapper but keeps the <img> and other content inside)
+    |> then(&Regex.replace(~r/<a[^>]*class="[^"]*image-link[^"]*"[^>]*>(.*?)<\/a>/s, &1, "\\1"))
+    # Clean up artifacts
+    |> String.replace(~r/<picture[^>]*>\s*<\/picture>/s, "")
+    |> String.replace(~r/<figure[^>]*>\s*<\/figure>/s, "")
+    |> String.replace(~r/<a[^>]*>\s*<\/a>/s, "")
+    # Remove empty paragraphs
+    |> String.replace(~r/<p[^>]*>\s*<\/p>/s, "")
+    # Balance orphaned closing tags from unwrapped elements
+    |> balance_tags()
+    # Clean up multiple consecutive whitespace
+    |> String.replace(~r/\n{3,}/, "\n\n")
     |> String.trim()
     |> case do
       "" -> nil
       cleaned -> cleaned
     end
+  end
+
+  # Remove orphaned closing tags that don't have matching opening tags.
+  # After stripping all <div> open tags and some <a> open tags, their
+  # corresponding closing tags become orphaned and need removal.
+  defp balance_tags(html) do
+    Enum.reduce(~w(a picture figure), html, fn tag, acc ->
+      open_count = length(Regex.scan(~r/<#{tag}[\s>]/i, acc))
+      close_count = length(Regex.scan(~r/<\/#{tag}>/i, acc))
+
+      if close_count > open_count do
+        # Remove excess closing tags (from the end)
+        Enum.reduce(1..(close_count - open_count)//1, acc, fn _, h ->
+          String.replace(h, ~r/(.*)<\/#{tag}>/s, "\\1", global: false)
+        end)
+      else
+        acc
+      end
+    end)
   end
 
   # ── Date extraction ──
