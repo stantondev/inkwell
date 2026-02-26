@@ -441,92 +441,93 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
         </div>
       </div>
 
-      {/* Message thread */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "24px 20px 16px",
-          // Subtle aged-paper background
-          background: `
-            repeating-linear-gradient(
-              90deg,
-              transparent,
-              transparent 40px,
-              rgba(180,160,100,0.03) 40px,
-              rgba(180,160,100,0.03) 41px
-            ),
-            var(--background)
-          `,
-        }}
-      >
-        {/* Load older letters */}
-        {hasMore && (
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <button
-              onClick={loadOlderLetters}
-              disabled={loadingOlder}
+      {/* Desktop: side-by-side layout  |  Mobile: stacked */}
+      <div className="letter-thread-body">
+        {/* Message thread */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="letter-thread-messages"
+          style={{
+            // Subtle aged-paper background
+            background: `
+              repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 40px,
+                rgba(180,160,100,0.03) 40px,
+                rgba(180,160,100,0.03) 41px
+              ),
+              var(--background)
+            `,
+          }}
+        >
+          {/* Load older letters */}
+          {hasMore && (
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <button
+                onClick={loadOlderLetters}
+                disabled={loadingOlder}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9999px",
+                  padding: "6px 16px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  cursor: loadingOlder ? "default" : "pointer",
+                  fontFamily: "var(--font-lora, Georgia, serif)",
+                  fontStyle: "italic",
+                }}
+              >
+                {loadingOlder ? "Loading..." : "↑ Load older letters"}
+              </button>
+            </div>
+          )}
+
+          {/* Messages */}
+          <AnimatePresence initial={false}>
+            {messages.map((message) => (
+              <LetterNote
+                key={message.id}
+                message={message}
+                conversationId={conversationId}
+                onDelete={handleDelete}
+                prefersReducedMotion={prefersReducedMotion}
+                isNew={newMessageIds.has(message.id)}
+              />
+            ))}
+          </AnimatePresence>
+
+          {messages.length === 0 && (
+            <div
               style={{
-                background: "none",
-                border: "1px solid var(--border)",
-                borderRadius: "9999px",
-                padding: "6px 16px",
-                fontSize: "12px",
+                textAlign: "center",
+                padding: "40px 20px",
                 color: "var(--muted)",
-                cursor: loadingOlder ? "default" : "pointer",
                 fontFamily: "var(--font-lora, Georgia, serif)",
                 fontStyle: "italic",
+                fontSize: "15px",
               }}
             >
-              {loadingOlder ? "Loading..." : "↑ Load older letters"}
-            </button>
-          </div>
-        )}
+              The envelope is empty — write the first letter!
+            </div>
+          )}
+        </div>
 
-        {/* Messages */}
-        <AnimatePresence initial={false}>
-          {messages.map((message) => (
-            <LetterNote
-              key={message.id}
-              message={message}
-              conversationId={conversationId}
-              onDelete={handleDelete}
-              prefersReducedMotion={prefersReducedMotion}
-              isNew={newMessageIds.has(message.id)}
-            />
-          ))}
-        </AnimatePresence>
-
-        {messages.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px 20px",
-              color: "var(--muted)",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              fontStyle: "italic",
-              fontSize: "15px",
-            }}
-          >
-            The envelope is empty — write the first letter!
-          </div>
-        )}
+        {/* Compose area */}
+        <ComposeArea
+          conversationId={conversationId}
+          onSend={(message) => {
+            setMessages((prev) => [...prev, message]);
+            setNewMessageIds((prev) => new Set([...prev, message.id]));
+            lastMessageIdRef.current = message.id;
+            // Refresh nav to update badge
+            router.refresh();
+          }}
+          prefersReducedMotion={prefersReducedMotion}
+        />
       </div>
-
-      {/* Compose area */}
-      <ComposeArea
-        conversationId={conversationId}
-        onSend={(message) => {
-          setMessages((prev) => [...prev, message]);
-          setNewMessageIds((prev) => new Set([...prev, message.id]));
-          lastMessageIdRef.current = message.id;
-          // Refresh nav to update badge
-          router.refresh();
-        }}
-        prefersReducedMotion={prefersReducedMotion}
-      />
     </div>
   );
 }
@@ -584,30 +585,31 @@ function ComposeArea({
 
   const charsUsed = body.length;
   const showCounter = charsUsed > MAX * 0.8;
+  const isDisabled = !body.trim() || sending || charsUsed > MAX;
 
   return (
-    <motion.div
-      style={{
-        flexShrink: 0,
-        borderTop: "1px solid var(--border)",
-        padding: "16px 20px",
-        background: focused ? "#fdf8ee" : "var(--surface)",
-        transition: prefersReducedMotion ? "none" : "background 0.3s ease",
-        // Ruled lines when focused
-        backgroundImage: focused
-          ? `repeating-linear-gradient(
-              transparent,
-              transparent 27px,
-              rgba(180,160,100,0.18) 27px,
-              rgba(180,160,100,0.18) 28px
-            ), ${focused ? "#fdf8ee" : "var(--surface)"}`
-          : "none",
-      }}
-    >
+    <motion.div className="letter-compose-area">
+      {/* Notepad top edge — the yellow strip */}
+      <div className="letter-compose-header">
+        <span
+          style={{
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontStyle: "italic",
+            fontSize: "13px",
+            color: "#8a7a4a",
+          }}
+        >
+          Write a letter&hellip;
+        </span>
+        <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
+          ⌘↵ to send
+        </span>
+      </div>
+
       {error && (
         <div
           style={{
-            marginBottom: "8px",
+            margin: "0 18px 8px",
             fontSize: "12px",
             color: "var(--danger)",
             padding: "6px 10px",
@@ -619,7 +621,7 @@ function ComposeArea({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
+      <div className="letter-compose-body">
         <textarea
           ref={textareaRef}
           value={body}
@@ -627,86 +629,66 @@ function ComposeArea({
           onKeyDown={handleKeyDown}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder="Write your letter..."
+          placeholder="Dear friend..."
           maxLength={MAX}
-          rows={3}
+          rows={5}
           style={{
-            flex: 1,
+            width: "100%",
             resize: "none",
             border: "none",
             outline: "none",
             background: "transparent",
-            fontSize: "14px",
+            fontSize: "15px",
             lineHeight: "28px",
             fontFamily: "var(--font-lora, Georgia, serif)",
-            color: focused ? "#1a100a" : "var(--foreground)",
+            color: "#1a100a",
             padding: "0",
           }}
         />
+      </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: "6px",
-            flexShrink: 0,
-          }}
-        >
-          {showCounter && (
-            <span
-              style={{
-                fontSize: "11px",
-                color: charsUsed >= MAX ? "var(--danger)" : "var(--muted)",
-                fontVariant: "small-caps",
-              }}
-            >
-              {charsUsed}/{MAX}
-            </span>
-          )}
-
-          <motion.button
-            whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
-            onClick={send}
-            disabled={!body.trim() || sending || charsUsed > MAX}
+      <div className="letter-compose-footer">
+        {showCounter && (
+          <span
             style={{
-              padding: "9px 18px",
-              borderRadius: "9999px",
-              background:
-                !body.trim() || sending || charsUsed > MAX
-                  ? "var(--border)"
-                  : "var(--accent)",
-              color:
-                !body.trim() || sending || charsUsed > MAX
-                  ? "var(--muted)"
-                  : "white",
-              border: "none",
-              cursor:
-                !body.trim() || sending || charsUsed > MAX
-                  ? "not-allowed"
-                  : "pointer",
-              fontSize: "13px",
-              fontWeight: "600",
-              transition: "background 0.2s, color 0.2s",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              whiteSpace: "nowrap",
+              fontSize: "11px",
+              color: charsUsed >= MAX ? "var(--danger)" : "#8a7a4a",
+              fontVariant: "small-caps",
             }}
           >
-            {sending ? (
-              "Sending..."
-            ) : (
-              <>
-                Seal &amp; Send <span style={{ fontSize: "15px" }}>✉</span>
-              </>
-            )}
-          </motion.button>
-
-          <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
-            ⌘↵ to send
+            {charsUsed}/{MAX}
           </span>
-        </div>
+        )}
+        <div style={{ flex: 1 }} />
+        <motion.button
+          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
+          onClick={send}
+          disabled={isDisabled}
+          style={{
+            padding: "10px 22px",
+            borderRadius: "9999px",
+            background: isDisabled ? "#d4cbb8" : "var(--accent)",
+            color: isDisabled ? "#9a9080" : "white",
+            border: "none",
+            cursor: isDisabled ? "not-allowed" : "pointer",
+            fontSize: "14px",
+            fontWeight: "600",
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            transition: "background 0.2s, color 0.2s, transform 0.1s",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sending ? (
+            "Sending..."
+          ) : (
+            <>
+              Seal &amp; Send <span style={{ fontSize: "16px" }}>✉</span>
+            </>
+          )}
+        </motion.button>
       </div>
     </motion.div>
   );

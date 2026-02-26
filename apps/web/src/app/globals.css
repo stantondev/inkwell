@@ -670,3 +670,413 @@ body[data-focus-mode] nav {
 body[data-focus-mode] footer {
   display: none !important;
 }
+
+/* ─── Journal Editor — high-design writing experience ─────────────── */
+
+.editor-shell {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.editor-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+}
+
+.editor-topbar-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.editor-back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.editor-back-link:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.editor-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.editor-settings-toggle:hover,
+.editor-settings-toggle[aria-pressed="true"] {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.editor-history-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.editor-history-link:hover {
+  border-color: var(--accent);
+}
+
+.editor-save-draft-btn {
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.editor-save-draft-btn:hover {
+  border-color: var(--foreground);
+}
+
+.editor-publish-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 20px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.editor-publish-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Body wrapper — flex row on desktop for settings sidebar */
+.editor-body-wrapper {
+  display: flex;
+  min-height: calc(100vh - 55px);
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 80px;
+}
+
+/* The paper — centered, with journal-like feeling */
+.editor-paper {
+  width: 100%;
+  max-width: 720px;
+  position: relative;
+}
+
+.editor-dateline {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.editor-title-input {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 4px 0 8px;
+  margin-bottom: 4px;
+}
+
+.editor-title-input::placeholder {
+  opacity: 0.2;
+}
+
+@media (min-width: 640px) {
+  .editor-title-input {
+    font-size: 2.5rem;
+    line-height: 1.25;
+    padding: 6px 0 12px;
+  }
+}
+
+.editor-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 640px) {
+  .editor-meta-strip {
+    gap: 16px;
+  }
+}
+
+.editor-add-cover-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: border-color 0.15s;
+}
+
+.editor-add-cover-btn:hover {
+  border-color: var(--foreground);
+}
+
+/* Toolbar — styled as part of the page, not a separate bar */
+.editor-toolbar-container {
+  position: sticky;
+  top: 55px;
+  z-index: 30;
+  margin: 0 -8px;
+  padding: 0 4px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Writing area with subtle ruled lines */
+.editor-writing-area {
+  position: relative;
+  padding-top: 8px;
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      var(--border) 31px,
+      var(--border) 32px
+    );
+  background-position: 0 16px;
+  min-height: 55vh;
+}
+
+.editor-word-count {
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 0 4px;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+/* ── Settings sidebar ─────────────────────────────────── */
+
+.editor-settings-panel {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  width: 100%;
+}
+
+.editor-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.editor-settings-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.editor-settings-close:hover {
+  background: var(--surface-hover);
+}
+
+.editor-settings-body {
+  padding: 20px;
+}
+
+/* Desktop: sidebar slides in from the right */
+@media (min-width: 768px) {
+  .editor-settings-panel {
+    width: 320px;
+    flex-shrink: 0;
+    max-height: calc(100vh - 55px);
+    position: sticky;
+    top: 55px;
+  }
+}
+
+/* Mobile: settings panel goes full-width below the editor */
+@media (max-width: 767px) {
+  .editor-body-wrapper {
+    flex-direction: column;
+  }
+
+  .editor-settings-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* ─── Letter thread layout ───────────────────────────────────────────── */
+
+/* Mobile: stacked column (messages then compose footer) */
+.letter-thread-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.letter-thread-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px 16px;
+}
+
+/* Compose area — mobile: footer bar */
+.letter-compose-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: #fdf8ee;
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      rgba(180,160,100,0.15) 27px,
+      rgba(180,160,100,0.15) 28px
+    );
+}
+
+.letter-compose-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 0;
+}
+
+.letter-compose-body {
+  padding: 8px 18px 4px;
+}
+
+.letter-compose-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 18px 14px;
+}
+
+/* Desktop: side-by-side — messages left, compose right as sticky notepad */
+@media (min-width: 768px) {
+  .letter-thread-body {
+    flex-direction: row;
+  }
+
+  .letter-thread-messages {
+    flex: 1;
+    min-width: 0;
+    padding: 24px 28px 16px;
+  }
+
+  .letter-compose-area {
+    width: 340px;
+    flex-shrink: 0;
+    border-top: none;
+    border-left: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    align-self: flex-end;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 4px 0 0 0;
+    /* Subtle paper shadow on the left edge */
+    box-shadow: -4px 0 12px -2px rgba(120,100,50,0.06);
+  }
+
+  .letter-compose-header {
+    padding: 14px 20px 0;
+  }
+
+  .letter-compose-body {
+    padding: 8px 20px 4px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .letter-compose-body textarea {
+    min-height: 160px !important;
+  }
+
+  .letter-compose-footer {
+    padding: 4px 20px 16px;
+  }
+}
+
+/* Large desktop: wider compose panel */
+@media (min-width: 1280px) {
+  .letter-compose-area {
+    width: 380px;
+  }
+
+  .letter-compose-body textarea {
+    min-height: 200px !important;
+  }
+}

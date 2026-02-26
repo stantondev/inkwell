@@ -809,39 +809,49 @@ export function EditorClient() {
     );
   }
 
-  return (
-    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
 
-      {/* ── Top bar ──────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+  return (
+    <div className="editor-shell">
+
+      {/* ── Top bar — minimal, elegant ────────────────────────── */}
+      <header className="editor-topbar">
+        <div className="editor-topbar-inner">
           <div className="flex items-center gap-3 min-w-0">
-            <NextLink href="/feed" className="text-sm flex-shrink-0 hover:underline transition-colors"
-              style={{ color: "var(--muted)" }}>← Feed</NextLink>
-            <span style={{ color: "var(--border)" }} aria-hidden="true">│</span>
-            <span className="text-sm truncate" style={{ color: "var(--muted)" }}>
-              {isDraft
-                ? (state.title || "New draft")
-                : (state.title || (savedEntryId ? "Edit entry" : "New entry"))}
-            </span>
+            <NextLink href="/feed" className="editor-back-link" aria-label="Back to Feed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+              </svg>
+            </NextLink>
             {isDraft && savedEntryId && (
-              <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
                 draft
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-2.5">
             <SaveStatus status={saveStatus} />
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Settings toggle — always visible in top bar */}
+            <button type="button" onClick={() => setShowSettings((v) => !v)}
+              className="editor-settings-toggle"
+              title="Entry settings"
+              aria-pressed={showSettings}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
             {!isDraft && savedEntryId && (
               <NextLink
                 href={`/editor/history?entry=${savedEntryId}`}
-                className="text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 hover:border-[var(--accent)]"
-                style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                className="editor-history-link"
                 title="Version history"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
@@ -851,15 +861,13 @@ export function EditorClient() {
             )}
             {isDraft && (
               <button type="button" onClick={handleSaveDraft}
-                className="text-sm px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--border-strong)]"
-                style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                className="editor-save-draft-btn">
                 Save draft
               </button>
             )}
             <button type="button" onClick={handlePublish}
               disabled={isPublishing || !hasContent}
-              className="text-sm px-4 py-1.5 rounded-full font-medium transition-opacity disabled:opacity-40"
-              style={{ background: "var(--accent)", color: "#fff" }}>
+              className="editor-publish-btn">
               {isPublishing
                 ? (isDraft ? "Publishing…" : "Saving…")
                 : (isDraft ? "Publish" : "Save changes")}
@@ -868,303 +876,316 @@ export function EditorClient() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 pb-24">
+      {/* ── Editor body with optional settings panel ───────── */}
+      <div className="editor-body-wrapper">
 
-        {/* ── Cover image ──────────────────────────────────── */}
-        <div className={`pt-6 pb-2${focusMode ? " hidden" : ""}`}>
-          {coverImageId ? (
-            <div className="relative group rounded-xl overflow-hidden border mb-2"
-              style={{ borderColor: "var(--border)", maxHeight: 280 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/images/${coverImageId}`}
-                alt="Cover"
-                className="w-full object-cover"
-                style={{ maxHeight: 280 }}
-              />
-              <button
-                type="button"
-                onClick={() => setCoverImageId(null)}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
-                aria-label="Remove cover image"
-              >×</button>
+        {/* Main writing area */}
+        <main className="editor-main">
+
+          {/* ── Paper container ───────────────────────── */}
+          <div className="editor-paper">
+
+            {/* Date line */}
+            <div className={`editor-dateline${focusMode ? " hidden" : ""}`}>
+              <span>{today}</span>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => coverFileRef.current?.click()}
-              disabled={isUploadingCover}
-              className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--border-strong)] flex items-center gap-1.5"
-              style={{ borderColor: "var(--border)", color: "var(--muted)", borderStyle: "dashed" }}
-            >
-              {isUploadingCover ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
-                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
-                </svg>
+
+            {/* ── Cover image ──────────────────────────── */}
+            <div className={focusMode ? "hidden" : ""}>
+              {coverImageId ? (
+                <div className="relative group rounded-xl overflow-hidden border mb-6"
+                  style={{ borderColor: "var(--border)", maxHeight: 280 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/images/${coverImageId}`}
+                    alt="Cover"
+                    className="w-full object-cover"
+                    style={{ maxHeight: 280 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCoverImageId(null)}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+                    aria-label="Remove cover image"
+                  >×</button>
+                </div>
               ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                </svg>
+                <button
+                  type="button"
+                  onClick={() => coverFileRef.current?.click()}
+                  disabled={isUploadingCover}
+                  className="editor-add-cover-btn"
+                >
+                  {isUploadingCover ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  )}
+                  Add cover image
+                </button>
               )}
-              Add cover image
-            </button>
-          )}
-          <input
-            ref={coverFileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) uploadCoverImage(file);
-              if (e.target) e.target.value = "";
-            }}
-          />
-        </div>
-
-        {/* ── Title ────────────────────────────────────────── */}
-        <div className="pt-2 pb-2">
-          <input
-            type="text"
-            value={state.title}
-            onChange={(e) => update({ title: e.target.value })}
-            placeholder="Title (optional)"
-            className="w-full bg-transparent text-2xl sm:text-4xl font-bold focus:outline-none placeholder:opacity-25"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
-            aria-label="Entry title"
-          />
-        </div>
-
-        {/* ── Mood + music strip ────────────────────────── */}
-        <div className={`flex flex-wrap items-center gap-2 sm:gap-4 py-3 mb-1 border-b${focusMode ? " hidden" : ""}`}
-          style={{ borderColor: "var(--border)" }}>
-          <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
-          <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
-          <MusicInput value={state.music} onChange={(v) => update({ music: v })} />
-        </div>
-
-        {/* ── Music embed preview ─────────────────────── */}
-        {musicEmbed && (
-          <div className="music-embed-container my-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              {musicEmbed.service === "spotify" ? <SpotifyIcon size={12} /> :
-               musicEmbed.service === "youtube" ? <YouTubeIcon size={12} /> :
-               <AppleMusicIcon size={12} />}
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                {musicEmbed.label} preview
-              </span>
-            </div>
-            <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-              <iframe
-                src={musicEmbed.embedUrl}
-                width="100%"
-                height={Math.min(musicEmbed.height, 152)}
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                title={`${musicEmbed.label} embed`}
-                className="block"
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadCoverImage(file);
+                  if (e.target) e.target.value = "";
+                }}
               />
             </div>
-          </div>
-        )}
 
-        {/* ── Sticky formatting toolbar ─────────────────── */}
-        <div className="sticky z-30 border-b -mx-4 px-2"
-          style={{ top: 57, background: "var(--background)", borderColor: "var(--border)" }}>
-          <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
-            onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
-            focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)} />
-        </div>
-
-        {/* ── Focus mode hint ───────────────────────────── */}
-        {focusMode && (
-          <div className="flex items-center justify-center py-1.5">
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              Focus mode · Press <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>Esc</kbd> to exit
-            </span>
-          </div>
-        )}
-
-        {/* ── Writing area ──────────────────────────────── */}
-        {htmlMode ? (
-          <>
-            <div className="flex items-center gap-2 pt-4 pb-2">
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                HTML mode
-              </span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                Use &lt;marquee&gt;, &lt;style&gt;, CSS animations, custom divs — go wild!
-              </span>
-            </div>
-            <textarea
-              value={htmlSource}
-              onChange={(e) => {
-                setHtmlSource(e.target.value);
-                setHasContent(!!e.target.value.trim());
-              }}
-              className="w-full min-h-[65vh] py-4 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-              style={{
-                fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
-                fontSize: "13px",
-                lineHeight: "1.6",
-                borderColor: "var(--border)",
-                background: "var(--surface)",
-                color: "var(--foreground)",
-                resize: "vertical",
-                tabSize: 2,
-              }}
-              placeholder={`<!-- Write your HTML + CSS here! Examples:\n\n<style>\n  .glow {\n    color: #ff0;\n    text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;\n    animation: pulse 2s infinite;\n  }\n  @keyframes pulse {\n    0%, 100% { opacity: 1; }\n    50% { opacity: 0.5; }\n  }\n</style>\n\n<marquee>This scrolls across the page!</marquee>\n<div class="glow">Glowing text!</div>\n-->`}
-              spellCheck={false}
+            {/* ── Title ────────────────────────────────── */}
+            <input
+              type="text"
+              value={state.title}
+              onChange={(e) => update({ title: e.target.value })}
+              placeholder="Untitled"
+              className="editor-title-input"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
+              aria-label="Entry title"
             />
-          </>
-        ) : (
-          <EditorContent editor={editor} />
-        )}
 
-        <div className="text-right text-xs py-1" style={{ color: "var(--muted)" }}>
-          {htmlMode ? `${htmlSource.length.toLocaleString()} chars` : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}`}
-        </div>
+            {/* ── Mood + music strip ──────────────────── */}
+            <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
+              <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
+              <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
+              <MusicInput value={state.music} onChange={(v) => update({ music: v })} />
+            </div>
 
-        {/* ── Settings (collapsible) ────────────────────── */}
-        <div className={`mt-4 border-t pt-4${focusMode ? " hidden" : ""}`} style={{ borderColor: "var(--border)" }}>
-          <button type="button" onClick={() => setShowSettings((v) => !v)}
-            className="flex items-center gap-2 text-sm transition-colors mb-4"
-            style={{ color: "var(--muted)" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transform: showSettings ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            Entry settings
-          </button>
-
-          {showSettings && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Privacy
-                </label>
-                <select value={state.privacy}
-                  onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
-                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-                  {PRIVACY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
-                  ))}
-                </select>
+            {/* ── Music embed preview ─────────────────── */}
+            {musicEmbed && !focusMode && (
+              <div className="music-embed-container mb-4">
+                <div className="flex items-center gap-1.5 mb-2">
+                  {musicEmbed.service === "spotify" ? <SpotifyIcon size={12} /> :
+                   musicEmbed.service === "youtube" ? <YouTubeIcon size={12} /> :
+                   <AppleMusicIcon size={12} />}
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    {musicEmbed.label} preview
+                  </span>
+                </div>
+                <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                  <iframe
+                    src={musicEmbed.embedUrl}
+                    width="100%"
+                    height={Math.min(musicEmbed.height, 152)}
+                    frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    title={`${musicEmbed.label} embed`}
+                    className="block"
+                  />
+                </div>
               </div>
-              {state.privacy === "custom" && (
+            )}
+
+            {/* ── Formatting toolbar ─────────────────── */}
+            <div className="editor-toolbar-container">
+              <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
+                onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
+                focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)} />
+            </div>
+
+            {/* ── Focus mode hint ───────────────────── */}
+            {focusMode && (
+              <div className="flex items-center justify-center py-1.5">
+                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  Focus mode · Press <kbd className="px-1 py-0.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>Esc</kbd> to exit
+                </span>
+              </div>
+            )}
+
+            {/* ── Writing area ──────────────────────── */}
+            <div className="editor-writing-area">
+              {htmlMode ? (
+                <>
+                  <div className="flex items-center gap-2 pb-3">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                      style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                      HTML mode
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      Use &lt;marquee&gt;, &lt;style&gt;, CSS animations — go wild!
+                    </span>
+                  </div>
+                  <textarea
+                    value={htmlSource}
+                    onChange={(e) => {
+                      setHtmlSource(e.target.value);
+                      setHasContent(!!e.target.value.trim());
+                    }}
+                    className="w-full min-h-[55vh] py-4 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                    style={{
+                      fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+                      fontSize: "13px",
+                      lineHeight: "1.6",
+                      borderColor: "var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--foreground)",
+                      resize: "vertical",
+                      tabSize: 2,
+                    }}
+                    placeholder={`<!-- Write your HTML + CSS here! Examples:\n\n<style>\n  .glow {\n    color: #ff0;\n    text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;\n    animation: pulse 2s infinite;\n  }\n  @keyframes pulse {\n    0%, 100% { opacity: 1; }\n    50% { opacity: 0.5; }\n  }\n</style>\n\n<marquee>This scrolls across the page!</marquee>\n<div class="glow">Glowing text!</div>\n-->`}
+                    spellCheck={false}
+                  />
+                </>
+              ) : (
+                <EditorContent editor={editor} />
+              )}
+            </div>
+
+            {/* Word count footer */}
+            <div className="editor-word-count">
+              {htmlMode ? `${htmlSource.length.toLocaleString()} chars` : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}`}
+            </div>
+
+          </div>{/* end .editor-paper */}
+        </main>
+
+        {/* ── Settings panel (slide-out sidebar on desktop, inline on mobile) ── */}
+        {showSettings && (
+          <aside className="editor-settings-panel">
+            <div className="editor-settings-header">
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+                Entry Settings
+              </span>
+              <button type="button" onClick={() => setShowSettings(false)}
+                className="editor-settings-close" aria-label="Close settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="editor-settings-body">
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Filter
+                    Privacy
                   </label>
-                  {!filtersLoaded ? (
-                    <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading filters...</span>
-                  ) : filters.length === 0 ? (
+                  <select value={state.privacy}
+                    onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
+                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
+                    {PRIVACY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {state.privacy === "custom" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                      Filter
+                    </label>
+                    {!filtersLoaded ? (
+                      <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading filters...</span>
+                    ) : filters.length === 0 ? (
+                      <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
+                        No filters yet.{" "}
+                        <NextLink href="/settings/filters" className="underline" style={{ color: "var(--accent)" }}>
+                          Create your first filter
+                        </NextLink>
+                      </div>
+                    ) : (
+                      <select
+                        value={state.customFilterId ?? ""}
+                        onChange={(e) => update({ customFilterId: e.target.value || null })}
+                        className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                      >
+                        <option value="">Select a filter...</option>
+                        {filters.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name} ({f.member_ids.length} {f.member_ids.length === 1 ? "member" : "members"})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                    Category
+                  </label>
+                  <select
+                    value={state.category ?? ""}
+                    onChange={(e) => update({ category: e.target.value || null })}
+                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                  >
+                    <option value="">No category</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                    Series
+                  </label>
+                  {!seriesLoaded ? (
+                    <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading series...</span>
+                  ) : seriesOptions.length === 0 ? (
                     <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
-                      No filters yet.{" "}
-                      <NextLink href="/settings/filters" className="underline" style={{ color: "var(--accent)" }}>
-                        Create your first filter
+                      No series yet.{" "}
+                      <NextLink href="/settings/series" className="underline" style={{ color: "var(--accent)" }}>
+                        Create your first series
                       </NextLink>
                     </div>
                   ) : (
                     <select
-                      value={state.customFilterId ?? ""}
-                      onChange={(e) => update({ customFilterId: e.target.value || null })}
+                      value={state.seriesId ?? ""}
+                      onChange={(e) => update({ seriesId: e.target.value || null })}
                       className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
                       style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
                     >
-                      <option value="">Select a filter...</option>
-                      {filters.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name} ({f.member_ids.length} {f.member_ids.length === 1 ? "member" : "members"})
+                      <option value="">No series</option>
+                      {seriesOptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.title} ({s.entry_count} {s.entry_count === 1 ? "entry" : "entries"})
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Category
-                </label>
-                <select
-                  value={state.category ?? ""}
-                  onChange={(e) => update({ category: e.target.value || null })}
-                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                >
-                  <option value="">No category</option>
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Series
-                </label>
-                {!seriesLoaded ? (
-                  <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading series...</span>
-                ) : seriesOptions.length === 0 ? (
-                  <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
-                    No series yet.{" "}
-                    <NextLink href="/settings/series" className="underline" style={{ color: "var(--accent)" }}>
-                      Create your first series
-                    </NextLink>
-                  </div>
-                ) : (
-                  <select
-                    value={state.seriesId ?? ""}
-                    onChange={(e) => update({ seriesId: e.target.value || null })}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                    Tags
+                  </label>
+                  <input type="text" value={state.tags}
+                    onChange={(e) => update({ tags: e.target.value })}
+                    placeholder="coffee, 2026, writing"
                     className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                    Excerpt <span className="normal-case font-normal">(auto-filled if blank)</span>
+                  </label>
+                  <textarea
+                    value={state.excerpt}
+                    onChange={(e) => update({ excerpt: e.target.value })}
+                    placeholder="A short summary…"
+                    maxLength={300}
+                    rows={2}
+                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                     style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                  >
-                    <option value="">No series</option>
-                    {seriesOptions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.title} ({s.entry_count} {s.entry_count === 1 ? "entry" : "entries"})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Tags
-                </label>
-                <input type="text" value={state.tags}
-                  onChange={(e) => update({ tags: e.target.value })}
-                  placeholder="coffee, 2026, writing (comma-separated)"
-                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
-              </div>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                  Excerpt <span className="normal-case font-normal" style={{ color: "var(--muted)" }}>(shown in feeds &amp; RSS · auto-filled if blank)</span>
-                </label>
-                <textarea
-                  value={state.excerpt}
-                  onChange={(e) => update({ excerpt: e.target.value })}
-                  placeholder="A short summary of this entry…"
-                  maxLength={300}
-                  rows={2}
-                  className="rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                  style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                />
-                <span className="text-xs text-right" style={{ color: "var(--muted)" }}>
-                  {state.excerpt.length}/300
-                </span>
+                  />
+                  <span className="text-xs text-right" style={{ color: "var(--muted)" }}>
+                    {state.excerpt.length}/300
+                  </span>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-
-      </main>
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

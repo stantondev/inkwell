@@ -351,22 +351,8 @@ defmodule Inkwell.Letters do
     end
   end
 
-  defp maybe_notify_recipient(conv, message, sender_id, recipient_id) do
-    # Only notify if recipient had 0 unread before this message
-    # (the send_letter function already inserted the message, so count is now >= 1)
-    unread_now = count_unread_in_conversation(conv.id, recipient_id)
-
-    if unread_now <= 1 do
-      preview = String.slice(message.body, 0, 60)
-
-      Accounts.create_notification(%{
-        user_id: recipient_id,
-        type: :letter,
-        actor_id: sender_id,
-        target_type: "conversation",
-        target_id: conv.id,
-        data: %{"preview" => preview, "conversation_id" => conv.id}
-      })
-    end
+  defp maybe_notify_recipient(_conv, _message, _sender_id, _recipient_id) do
+    # Letter indicator badge in nav is sufficient — no separate notification needed
+    :ok
   end
 end

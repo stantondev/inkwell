@@ -642,7 +642,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 
 | Score | Item | Priority | Value | Est. Effort | Status |
 |---|---|---|---|---|---|
-| 70 | **Direct Messaging** | High | 5 | 5.5 days | Planned — arch doc at `docs/dm-architecture.md` |
+| 70 | **Direct Messaging** | High | 5 | 5.5 days | Done |
 | 62 | **Bookmarks** | High | 4 | 1–2 days | Done |
 | 52 | **Distraction-Free Writing Mode** | Medium | 4 | ~1 day | Done |
 | 52 | **Data Import Options** | Medium | 4 | 4–5 days | Done |
@@ -652,15 +652,14 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 42 | **Add Categories to Journal Posts** | Medium | 3 | 2–3 days | Done |
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | New |
 | 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
-| 15 | **Author Page Layout** | Low | 2 | ~1 day | New |
-| 15 | **Beta Participation** | Low | 2 | 2 days | Planned — blocked on DM |
+| 15 | **Author Page Layout** | Low | 2 | ~1 day | Done |
+| 15 | **Beta Participation** | Low | 2 | 2 days | Planned |
 | 15 | **Facilitate Patreon/tip jars** | Low | 2 | 5+ days | Shelved — legal complexity |
 
-**Recommended sprint order** (quick wins first, then big projects):
-1. Series and Collections (3–4 days)
-2. Direct Messaging (5.5 days, highest score)
+**Recommended next**: Newsletter Email Delivery (highest remaining score at 32), then Custom Domains.
 
 ### Recently Completed
+- **2026-02-25** — Sprint 3: Editor Redesign + UX Polish. Five improvements: (1) **Journal editor redesign** — complete overhaul of `/editor` with paper-like writing feel: ruled-line background via `repeating-linear-gradient`, italic serif date line, centered 720px paper container, settings moved from hidden collapsible at bottom to a 320px sidebar panel triggered by gear icon in top bar. New CSS classes: `.editor-shell`, `.editor-paper`, `.editor-writing-area`, `.editor-settings-panel`. (2) **Letter compose area redesign** — desktop switches from single-column with footer compose box to side-by-side layout: messages on left, 340px sticky notepad-style compose panel on right with cream background, ruled lines, Lora font, character counter, and "Seal & Send" button. New CSS: `.letter-thread-body`, `.letter-compose-area`. (3) **Title input descender fix** — added `leading-snug py-1` to editor title input so lowercase descenders (g, y, j, p) are no longer clipped. (4) **Remove duplicate letter notifications** — changed `maybe_notify_recipient/4` in `letters.ex` to no-op; letter indicator badge in nav is sufficient without a separate notification entry. (5) **Settings discoverability** — promoted Settings to a first-class text link in center desktop nav (between Roadmap and Plus pill), removed the small gear icon from the right-side action area.
 - **2026-02-25** — Sprint 2: Bug Fixes + Categories. (1) **Letter notification badge fix** — badges now clear immediately when reading a letter via `inkwell-nav-refresh` custom DOM event dispatched after `mark_read` calls, listened by `useLiveNavCounts` hook. (2) **Dark mode Letters textarea fix** — unfocused textarea now uses `var(--foreground)` instead of hardcoded dark brown, making text visible on dark surfaces. (3) **Journal categories** — 20 predefined categories as `Ecto.Enum` on entries (`personal`, `creative_writing`, `poetry`, `fiction`, `travel`, `tech`, etc.). Category dropdown in editor Entry Settings, category pill on feed cards and entry detail pages linking to `/category/[slug]` browse pages, horizontally-scrollable category filter bar on Explore page, backend filtering via `?category=` query param. Migration `20260222000025`. New files: `categories.ts`, `/category/[slug]/page.tsx`.
 - **2026-02-25** — Sprint 1: Writer Delight. Four features: (1) **Word count + reading time** — `word_count` integer field computed server-side on save, displayed as "N min read" on feed cards and entry detail pages. (2) **Cover images** — `cover_image_id` FK to `entry_images`, upload button in editor, hero display on feed cards (200px max) and entry detail (420px max), OpenGraph image support, orphaned image cleanup protection. (3) **Excerpts** — `excerpt` text field (max 300 chars), editable in Entry Settings, auto-generated from body_html if blank (280 chars), used in feed card preview and RSS feeds. (4) **Distraction-free writing mode** — focus mode toggle in toolbar hides nav, footer, cover section, mood/music strip, settings panel via `data-focus-mode` body attribute + CSS; Esc key to exit. Migration `20260222000021`.
 - **2026-02-24** — Data Import Options. Users can import journal entries from 6 sources via Settings → Import: Inkwell JSON (own export round-trip, supports .json.gz), WordPress WXR (XML via Saxy SAX parser), Medium HTML (ZIP), Substack CSV, Generic CSV, Generic JSON. User chooses import mode (drafts or published with original dates), default privacy (private/friends/public). Background Oban worker processes in batches of 50 with progress polling (3s), duplicate detection (title+date), cancellation, error reporting (capped at 100). `create_entry_quiet/1` skips federation fan-out. Cleanup worker at 6:30am UTC. New deps: nimble_csv, saxy. Migration `20260222000020`. Settings tabs now scroll horizontally.
