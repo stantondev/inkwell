@@ -163,6 +163,7 @@ export default async function LandingPage() {
                   "Word count & reading time",
                   "Distraction-free writing mode",
                   "Data import (WordPress, Medium, Substack & more)",
+                  "Email newsletter (up to 500 subscribers)",
                   "Pen Pal filters (up to 5)",
                   "Top 6 pen pals",
                   "100 MB image storage",
@@ -201,6 +202,9 @@ export default async function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   "Everything in Free",
+                  "Unlimited newsletter subscribers",
+                  "Custom newsletter name & reply-to",
+                  "Scheduled newsletter sends",
                   "Unlimited version history",
                   "Unlimited series & collections",
                   "1 GB image storage",
