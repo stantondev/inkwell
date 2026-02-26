@@ -8,6 +8,11 @@ export async function GET(req: NextRequest) {
   const res = await fetch(`${SERVER_API}/api/newsletter/confirm?token=${encodeURIComponent(token)}`, {
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return NextResponse.json(data, { status: res.status });
+  } catch {
+    return NextResponse.json({ error: "Invalid or expired token" }, { status: res.status || 500 });
+  }
 }
