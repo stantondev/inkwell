@@ -203,6 +203,107 @@ img, video, iframe, embed, object {
   color: var(--accent);
 }
 
+/* ── Spacing control ──────────────────────────────────────────────────── */
+
+/* Tight spacing: collapse paragraph/list margins */
+.prose-entry [data-spacing="tight"] {
+  margin-bottom: 0;
+}
+
+.prose-entry ul[data-spacing="tight"] li,
+.prose-entry ol[data-spacing="tight"] li {
+  margin-bottom: 0;
+}
+
+.prose-entry [data-spacing="tight"] + [data-spacing="tight"] {
+  margin-top: 0;
+}
+
+/* Loose spacing: double the normal margins */
+.prose-entry [data-spacing="loose"] {
+  margin-bottom: 2.5em;
+}
+
+/* ── Highlight / Mark ─────────────────────────────────────────────────── */
+
+.prose-entry mark {
+  padding: 0.1em 0.25em;
+  border-radius: 3px;
+  background-color: #fef08a;
+}
+
+/* ── Task lists ───────────────────────────────────────────────────────── */
+
+.prose-entry ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 1.25em;
+}
+
+.prose-entry ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin-bottom: 0.35em;
+}
+
+.prose-entry ul[data-type="taskList"] li > label {
+  display: flex;
+  align-items: center;
+  user-select: none;
+  flex-shrink: 0;
+  margin-top: 0.35em;
+}
+
+.prose-entry ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: default;
+}
+
+.prose-entry ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* Tight spacing for task lists */
+.prose-entry ul[data-type="taskList"][data-spacing="tight"] li {
+  margin-bottom: 0;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────── */
+
+.prose-entry table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1.25em;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.prose-entry th,
+.prose-entry td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.95em;
+}
+
+.prose-entry th {
+  background: var(--surface-hover);
+  font-weight: 600;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.85em;
+}
+
+/* Table cell selection in editor */
+.prose-entry .selectedCell {
+  background: var(--accent-light);
+}
+
 /* ─── Mood + ambient theming (HSL-based, set via --mood-hue CSS var) ──── */
 
 .mood-pill {
@@ -927,6 +1028,95 @@ body[data-focus-mode] footer {
   padding: 8px 0 4px;
   font-variant: small-caps;
   letter-spacing: 0.04em;
+}
+
+/* ── Spacing overrides in editor ── */
+
+/* Tight spacing breaks ruled-line grid intentionally */
+.editor-writing-area .prose-entry [data-spacing="tight"] {
+  margin-bottom: 0;
+}
+
+.editor-writing-area .prose-entry ul[data-spacing="tight"] li,
+.editor-writing-area .prose-entry ol[data-spacing="tight"] li,
+.editor-writing-area .prose-entry ul[data-type="taskList"][data-spacing="tight"] li {
+  margin-bottom: 0;
+}
+
+.editor-writing-area .prose-entry [data-spacing="loose"] {
+  margin-bottom: calc(var(--ruled-line) * 2);
+}
+
+/* ── Bubble menu (selection toolbar) ── */
+
+/* TipTap renders menus via a portal: a position:absolute div wrapping our content.
+   That portal div must sit above the sidebar (z-index: 40) so menus aren't clipped. */
+div:has(> div > .editor-bubble-menu),
+div:has(> div > .editor-floating-menu) {
+  z-index: 45 !important;
+}
+
+.editor-bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .editor-bubble-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ── Floating menu (empty-line block inserter) ── */
+
+.editor-floating-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-width: 140px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .editor-floating-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.editor-floating-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--foreground);
+  transition: background 0.1s;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.editor-floating-menu-item:hover {
+  background: var(--accent-light);
+}
+
+/* ── Table editor styles ── */
+
+.editor-writing-area .prose-entry table {
+  margin-bottom: var(--ruled-line);
 }
 
 /* ── Settings sidebar ─────────────────────────────────── */

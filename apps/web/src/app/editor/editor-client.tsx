@@ -2,17 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import CharacterCount from "@tiptap/extension-character-count";
+import Underline from "@tiptap/extension-underline";
+import Highlight from "@tiptap/extension-highlight";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Color from "@tiptap/extension-color";
+import TextAlign from "@tiptap/extension-text-align";
+import Typography from "@tiptap/extension-typography";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import type { Editor } from "@tiptap/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseMusicUrl } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
+import { Spacing } from "@/lib/tiptap-spacing";
 
 type Privacy = "public" | "friends_only" | "private" | "custom";
 
@@ -54,12 +67,32 @@ const PRESET_MOODS = [
   "angry 😤", "in love 💛",
 ];
 
-// ─── Toolbar ─────────────────────────────────────────────────────────────────
+const TEXT_COLORS = [
+  { label: "Default", value: "" },
+  { label: "Black", value: "#1c1917" },
+  { label: "Gray", value: "#78716c" },
+  { label: "Red", value: "#dc2626" },
+  { label: "Orange", value: "#ea580c" },
+  { label: "Blue", value: "#2563eb" },
+  { label: "Green", value: "#16a34a" },
+  { label: "Purple", value: "#7c3aed" },
+  { label: "Pink", value: "#db2777" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "Yellow", value: "#fef08a" },
+  { label: "Green", value: "#bbf7d0" },
+  { label: "Blue", value: "#bfdbfe" },
+  { label: "Pink", value: "#fbcfe8" },
+  { label: "Purple", value: "#e9d5ff" },
+];
+
+// ─── Toolbar components ───────────────────────────────────────────────────────
 
 function Btn({
-  onClick, active = false, disabled = false, title, children,
+  onClick, active = false, disabled = false, title, children, className = "",
 }: {
-  onClick: () => void; active?: boolean; disabled?: boolean; title: string; children: React.ReactNode;
+  onClick: () => void; active?: boolean; disabled?: boolean; title: string; children: React.ReactNode; className?: string;
 }) {
   return (
     <button
@@ -68,7 +101,7 @@ function Btn({
       disabled={disabled}
       title={title}
       aria-pressed={active}
-      className="w-8 h-8 flex items-center justify-center rounded transition-colors disabled:opacity-25"
+      className={`w-7 h-7 flex items-center justify-center rounded transition-colors disabled:opacity-25 ${className}`}
       style={{
         background: active ? "var(--accent-light)" : "transparent",
         color: active ? "var(--accent)" : "var(--muted)",
@@ -83,6 +116,54 @@ function Sep() {
   return <div className="w-px h-5 mx-0.5 self-center" style={{ background: "var(--border)" }} aria-hidden="true" />;
 }
 
+// Dropdown wrapper for toolbar menus
+function ToolbarDropdown({ label, active, renderContent, title }: {
+  label: React.ReactNode; active?: boolean; renderContent: (close: () => void) => React.ReactNode; title: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Btn onClick={() => setOpen((v) => !v)} active={active || open} title={title}>
+        {label}
+      </Btn>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[140px]"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+          {renderContent(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DropdownItem({ onClick, active, children }: {
+  onClick: () => void; active?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors"
+      style={{
+        background: active ? "var(--accent-light)" : "transparent",
+        color: active ? "var(--accent)" : "var(--foreground)",
+      }}>
+      {children}
+    </button>
+  );
+}
+
+// ─── Main Toolbar ─────────────────────────────────────────────────────────────
+
 function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
@@ -93,8 +174,14 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 
   const addLink = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt("URL:");
-    if (url) editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    const prev = editor.getAttributes("link").href ?? "";
+    const url = window.prompt("URL:", prev);
+    if (url === null) return;
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    }
   }, [editor]);
 
   const addImageUrl = useCallback(() => {
@@ -113,23 +200,45 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 
   if (!editor) return null;
 
+  // Determine current block type label
+  const blockLabel = editor.isActive("heading", { level: 1 }) ? "H1"
+    : editor.isActive("heading", { level: 2 }) ? "H2"
+    : editor.isActive("heading", { level: 3 }) ? "H3"
+    : "P";
+
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5" role="toolbar" aria-label="Text formatting">
+    <div className="flex flex-wrap items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Text formatting">
       {!htmlMode && (
         <>
-          <Btn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            active={editor.isActive("heading", { level: 1 })} title="Heading 1">
-            <span style={{ fontWeight: 700, fontSize: 11 }}>H1</span>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            active={editor.isActive("heading", { level: 2 })} title="Heading 2">
-            <span style={{ fontWeight: 700, fontSize: 11 }}>H2</span>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            active={editor.isActive("heading", { level: 3 })} title="Heading 3">
-            <span style={{ fontWeight: 700, fontSize: 11 }}>H3</span>
-          </Btn>
+          {/* ── Block type dropdown ── */}
+          <ToolbarDropdown
+            label={<span style={{ fontWeight: 700, fontSize: 11, minWidth: 16, textAlign: "center" }}>{blockLabel}</span>}
+            active={editor.isActive("heading")}
+            title="Block type"
+            renderContent={(close) => (
+              <>
+                <DropdownItem onClick={() => { editor.chain().focus().setParagraph().run(); close(); }}
+                  active={!editor.isActive("heading")}>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>P</span> Paragraph
+                </DropdownItem>
+                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); close(); }}
+                  active={editor.isActive("heading", { level: 1 })}>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>H1</span> Heading 1
+                </DropdownItem>
+                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); close(); }}
+                  active={editor.isActive("heading", { level: 2 })}>
+                  <span style={{ fontWeight: 700, fontSize: 12 }}>H2</span> Heading 2
+                </DropdownItem>
+                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); close(); }}
+                  active={editor.isActive("heading", { level: 3 })}>
+                  <span style={{ fontWeight: 600, fontSize: 11 }}>H3</span> Heading 3
+                </DropdownItem>
+              </>
+            )}
+          />
           <Sep />
+
+          {/* ── Inline formatting ── */}
           <Btn onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive("bold")} title="Bold (⌘B)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -142,6 +251,12 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>
             </svg>
           </Btn>
+          <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
+            active={editor.isActive("underline")} title="Underline (⌘U)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/>
+            </svg>
+          </Btn>
           <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
             active={editor.isActive("strike")} title="Strikethrough">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -149,13 +264,102 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
             </svg>
           </Btn>
           <Sep />
-          <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            active={editor.isActive("blockquote")} title="Blockquote">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
-              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+
+          {/* ── Rich text dropdown (highlight, color, sub, sup) ── */}
+          <ToolbarDropdown
+            label={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/>
+              </svg>
+            }
+            active={editor.isActive("highlight") || editor.isActive("textStyle")}
+            title="Text style"
+            renderContent={(close) => (
+              <div className="p-2 w-[200px]">
+                {/* Highlight colors */}
+                <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Highlight</div>
+                <div className="flex gap-1 mb-2 px-1">
+                  <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); close(); }}
+                    className="w-6 h-6 rounded border flex items-center justify-center text-xs"
+                    style={{ borderColor: "var(--border)" }} title="Remove highlight">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                  {HIGHLIGHT_COLORS.map((c) => (
+                    <button key={c.value} type="button"
+                      onClick={() => { editor.chain().focus().toggleHighlight({ color: c.value }).run(); close(); }}
+                      className="w-6 h-6 rounded border"
+                      style={{ background: c.value, borderColor: editor.isActive("highlight", { color: c.value }) ? "var(--accent)" : "transparent" }}
+                      title={c.label} />
+                  ))}
+                </div>
+                {/* Text colors */}
+                <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Text Color</div>
+                <div className="flex flex-wrap gap-1 mb-2 px-1">
+                  {TEXT_COLORS.map((c) => (
+                    <button key={c.label} type="button"
+                      onClick={() => {
+                        if (c.value === "") { editor.chain().focus().unsetColor().run(); }
+                        else { editor.chain().focus().setColor(c.value).run(); }
+                        close();
+                      }}
+                      className="w-6 h-6 rounded border flex items-center justify-center"
+                      style={{
+                        background: c.value || "var(--background)",
+                        borderColor: (c.value && editor.getAttributes("textStyle").color === c.value) ? "var(--accent)" : "var(--border)",
+                      }}
+                      title={c.label}>
+                      {c.value === "" && <span className="text-[9px]" style={{ color: "var(--muted)" }}>Aa</span>}
+                    </button>
+                  ))}
+                </div>
+                {/* Sub/Sup */}
+                <div className="border-t pt-1.5 mt-1 flex gap-1" style={{ borderColor: "var(--border)" }}>
+                  <button type="button" onClick={() => { editor.chain().focus().toggleSubscript().run(); close(); }}
+                    className="flex-1 px-2 py-1 rounded text-xs transition-colors"
+                    style={{
+                      background: editor.isActive("subscript") ? "var(--accent-light)" : "transparent",
+                      color: editor.isActive("subscript") ? "var(--accent)" : "var(--muted)",
+                    }}>
+                    X<sub>2</sub>
+                  </button>
+                  <button type="button" onClick={() => { editor.chain().focus().toggleSuperscript().run(); close(); }}
+                    className="flex-1 px-2 py-1 rounded text-xs transition-colors"
+                    style={{
+                      background: editor.isActive("superscript") ? "var(--accent-light)" : "transparent",
+                      color: editor.isActive("superscript") ? "var(--accent)" : "var(--muted)",
+                    }}>
+                    X<sup>2</sup>
+                  </button>
+                </div>
+              </div>
+            )}
+          />
+          <Sep />
+
+          {/* ── Alignment ── */}
+          <Btn onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            active={editor.isActive({ textAlign: "left" })} title="Align left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>
             </svg>
           </Btn>
+          <Btn onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            active={editor.isActive({ textAlign: "center" })} title="Align center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+            </svg>
+          </Btn>
+          <Btn onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            active={editor.isActive({ textAlign: "right" })} title="Align right">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/>
+            </svg>
+          </Btn>
+          <Sep />
+
+          {/* ── Lists & blocks ── */}
           <Btn onClick={() => editor.chain().focus().toggleBulletList().run()}
             active={editor.isActive("bulletList")} title="Bullet list">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,6 +376,22 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
             </svg>
           </Btn>
+          <Btn onClick={() => editor.chain().focus().toggleTaskList().run()}
+            active={editor.isActive("taskList")} title="Task list">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
+              <line x1="13" y1="8" x2="21" y2="8"/>
+              <rect x="3" y="14" width="6" height="6" rx="1"/>
+              <line x1="13" y1="17" x2="21" y2="17"/>
+            </svg>
+          </Btn>
+          <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            active={editor.isActive("blockquote")} title="Blockquote">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
+              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+            </svg>
+          </Btn>
           <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             active={editor.isActive("codeBlock")} title="Code block">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -179,7 +399,47 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
             </svg>
           </Btn>
           <Sep />
-          <Btn onClick={addLink} active={editor.isActive("link")} title="Add link">
+
+          {/* ── Spacing ── */}
+          <ToolbarDropdown
+            label={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                <path d="M21 3v3M21 21v-3M21 9v1.5M21 13.5V15" strokeWidth="1.5" strokeDasharray="1 1"/>
+              </svg>
+            }
+            active={editor.getAttributes("paragraph").spacing != null || editor.getAttributes("bulletList").spacing != null || editor.getAttributes("orderedList").spacing != null}
+            title="Spacing"
+            renderContent={(close) => (
+              <>
+                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("tight").run(); close(); }}
+                  active={editor.getAttributes("paragraph").spacing === "tight" || editor.getAttributes("bulletList").spacing === "tight"}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>
+                  </svg>
+                  Tight
+                </DropdownItem>
+                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("normal").run(); close(); }}
+                  active={editor.getAttributes("paragraph").spacing == null && editor.getAttributes("bulletList").spacing == null}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                  </svg>
+                  Normal
+                </DropdownItem>
+                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("loose").run(); close(); }}
+                  active={editor.getAttributes("paragraph").spacing === "loose" || editor.getAttributes("bulletList").spacing === "loose"}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="20" x2="21" y2="20"/>
+                  </svg>
+                  Loose
+                </DropdownItem>
+              </>
+            )}
+          />
+          <Sep />
+
+          {/* ── Insert: link, image, hr, table ── */}
+          <Btn onClick={addLink} active={editor.isActive("link")} title="Add link (⌘K)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
@@ -231,7 +491,25 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
               className="hidden" onChange={handleFileSelect} />
           </div>
+          <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal rule">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+          </Btn>
+          <Btn onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            title="Insert table">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
+              <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
+            </svg>
+          </Btn>
           <Sep />
+
+          {/* ── Undo / Redo ── */}
           <Btn onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()} title="Undo (⌘Z)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -263,6 +541,210 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
         )}
       </Btn>
     </div>
+  );
+}
+
+// ─── Bubble Menu (appears on text selection) ─────────────────────────────────
+
+function EditorBubbleMenu({ editor }: { editor: Editor }) {
+  const [showColors, setShowColors] = useState(false);
+  const [showHighlights, setShowHighlights] = useState(false);
+
+  return (
+    <BubbleMenu editor={editor} style={{ zIndex: 50 }}>
+      <div className="editor-bubble-menu">
+        <Btn onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive("bold")} title="Bold">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
+          </svg>
+        </Btn>
+        <Btn onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive("italic")} title="Italic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>
+          </svg>
+        </Btn>
+        <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
+          active={editor.isActive("underline")} title="Underline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/>
+          </svg>
+        </Btn>
+        <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive("strike")} title="Strikethrough">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6a3 3 0 0 0-5.19 2.06C10.03 9.74 10.9 11.06 12 12c1.1.94 2 2.02 2 3.44A3 3 0 0 1 8.5 18"/>
+          </svg>
+        </Btn>
+        <Sep />
+        {/* Highlight with color sub-menu */}
+        <div className="relative">
+          <Btn onClick={() => { setShowHighlights((v) => !v); setShowColors(false); }}
+            active={editor.isActive("highlight")} title="Highlight">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+            </svg>
+          </Btn>
+          {showHighlights && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-2 flex gap-1"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); setShowHighlights(false); }}
+                className="w-6 h-6 rounded border flex items-center justify-center"
+                style={{ borderColor: "var(--border)" }} title="Remove">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button key={c.value} type="button"
+                  onClick={() => { editor.chain().focus().toggleHighlight({ color: c.value }).run(); setShowHighlights(false); }}
+                  className="w-6 h-6 rounded border"
+                  style={{ background: c.value, borderColor: editor.isActive("highlight", { color: c.value }) ? "var(--accent)" : "transparent" }}
+                  title={c.label} />
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Text color */}
+        <div className="relative">
+          <Btn onClick={() => { setShowColors((v) => !v); setShowHighlights(false); }}
+            active={!!editor.getAttributes("textStyle").color} title="Text color">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/>
+            </svg>
+          </Btn>
+          {showColors && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-2 flex flex-wrap gap-1 w-[180px]"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              {TEXT_COLORS.map((c) => (
+                <button key={c.label} type="button"
+                  onClick={() => {
+                    if (c.value === "") { editor.chain().focus().unsetColor().run(); }
+                    else { editor.chain().focus().setColor(c.value).run(); }
+                    setShowColors(false);
+                  }}
+                  className="w-6 h-6 rounded border flex items-center justify-center"
+                  style={{
+                    background: c.value || "var(--background)",
+                    borderColor: (c.value && editor.getAttributes("textStyle").color === c.value) ? "var(--accent)" : "var(--border)",
+                  }}
+                  title={c.label}>
+                  {c.value === "" && <span className="text-[9px]" style={{ color: "var(--muted)" }}>Aa</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <Sep />
+        <Btn onClick={() => {
+          const prev = editor.getAttributes("link").href ?? "";
+          const url = window.prompt("URL:", prev);
+          if (url === null) return;
+          if (url === "") { editor.chain().focus().extendMarkRange("link").unsetLink().run(); }
+          else { editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run(); }
+        }} active={editor.isActive("link")} title="Link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </Btn>
+      </div>
+    </BubbleMenu>
+  );
+}
+
+// ─── Floating Menu (appears on empty lines) ──────────────────────────────────
+
+function EditorFloatingMenu({ editor, onUploadImage }: { editor: Editor; onUploadImage: () => void }) {
+  const floatingFileRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <FloatingMenu editor={editor} style={{ zIndex: 50 }}>
+      <div className="editor-floating-menu">
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          className="editor-floating-menu-item">
+          <span style={{ fontWeight: 700, fontSize: 13, minWidth: 20 }}>H1</span>
+          <span>Heading 1</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          className="editor-floating-menu-item">
+          <span style={{ fontWeight: 700, fontSize: 12, minWidth: 20 }}>H2</span>
+          <span>Heading 2</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
+            <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Bullet list</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/>
+            <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
+          </svg>
+          <span>Numbered list</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleTaskList().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
+            <line x1="13" y1="8" x2="21" y2="8"/>
+            <rect x="3" y="14" width="6" height="6" rx="1"/>
+            <line x1="13" y1="17" x2="21" y2="17"/>
+          </svg>
+          <span>Task list</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
+            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+          </svg>
+          <span>Blockquote</span>
+        </button>
+        <button type="button" onClick={onUploadImage}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Image</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ minWidth: 14 }}>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Divider</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
+            <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
+          </svg>
+          <span>Table</span>
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          <span>Code block</span>
+        </button>
+      </div>
+      <input ref={floatingFileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" />
+    </FloatingMenu>
   );
 }
 
@@ -444,6 +926,7 @@ export function EditorClient() {
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const coverFileRef = useRef<HTMLInputElement>(null);
+  const floatingImageRef = useRef<HTMLInputElement>(null);
 
   // Upload an image file: resize, upload to API, insert into editor
   const uploadImage = useCallback(async (file: File, ed: Editor | null) => {
@@ -483,6 +966,22 @@ export function EditorClient() {
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
       Image.configure({ inline: false, allowBase64: true }),
       CharacterCount.configure({ limit: 100_000 }),
+      // New extensions
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Typography,
+      Subscript,
+      Superscript,
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Spacing,
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
@@ -491,8 +990,6 @@ export function EditorClient() {
         const file = event.dataTransfer.files[0];
         if (!file.type.startsWith("image/")) return false;
         event.preventDefault();
-        // uploadImage uses editor from closure, but we need the current editor ref
-        // We use a custom event to trigger the upload from the component
         const customEvent = new CustomEvent("inkwell-image-drop", { detail: { file } });
         document.dispatchEvent(customEvent);
         return true;
@@ -1033,6 +1530,22 @@ export function EditorClient() {
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)} />
             </div>
+
+            {/* ── Bubble menu (appears on text selection) ── */}
+            {editor && !htmlMode && (
+              <EditorBubbleMenu editor={editor} />
+            )}
+
+            {/* ── Floating menu (appears on empty lines) ── */}
+            {editor && !htmlMode && (
+              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} />
+            )}
+            <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && editor) uploadImage(file, editor);
+                if (e.target) e.target.value = "";
+              }} />
 
             {/* ── Focus mode hint ───────────────────── */}
             {focusMode && (
