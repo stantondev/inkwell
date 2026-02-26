@@ -22,8 +22,10 @@ defmodule Inkwell.Accounts.User do
     field :profile_font, :string
     field :profile_layout, :string
     field :profile_widgets, :map, default: %{}
+    field :profile_banner_url, :string
     field :profile_status, :string
     field :profile_theme, :string
+    field :avatar_frame, :string
     field :ap_id, :string
     field :public_key, :string
     field :private_key, :string
@@ -79,15 +81,16 @@ defmodule Inkwell.Accounts.User do
   @allowed_fonts ~w[default lora courier georgia comic-sans times palatino verdana]
   @allowed_layouts ~w[classic wide minimal magazine]
   @allowed_themes ~w[default cottagecore vaporwave dark-academia retro-web midnight pastel ocean]
+  @allowed_frames ~w[none classic ink-ring notebook wax-seal gilded constellation botanical neon stamp]
 
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [
       :display_name, :bio, :pronouns, :avatar_url,
       :profile_html, :profile_css, :settings,
-      :profile_music, :profile_background_url, :profile_background_color,
+      :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
-      :profile_widgets, :profile_status, :profile_theme
+      :profile_widgets, :profile_status, :profile_theme, :avatar_frame
     ])
     |> validate_length(:bio, max: 2000)
     |> validate_length(:display_name, max: 100)
@@ -101,6 +104,7 @@ defmodule Inkwell.Accounts.User do
     |> maybe_validate_inclusion(:profile_font, @allowed_fonts)
     |> maybe_validate_inclusion(:profile_layout, @allowed_layouts)
     |> maybe_validate_inclusion(:profile_theme, @allowed_themes)
+    |> maybe_validate_inclusion(:avatar_frame, @allowed_frames)
   end
 
   # Only validate format/inclusion when the field is actually being changed (not nil)

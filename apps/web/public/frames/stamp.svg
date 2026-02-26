@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Postage Stamp: circular perforated edge like a vintage round stamp -->
+  <!-- Perforated outer edge — 24 scallops around the circle -->
+  <path d="M60 2 A3 3 0 0 1 60 8 A3 3 0 0 1 60 2" fill="none"/>
+  <!-- Generate scalloped circle using 24 arcs -->
+  <path d="
+    M60 1 Q67 2, 72 5 A3 3 0 0 1 74 11 Q79 14, 83 19 A3 3 0 0 1 83 25
+    Q87 30, 89 36 A3 3 0 0 1 87 42 Q89 48, 89 54 A3 3 0 0 1 86 60
+    Q89 66, 89 72 A3 3 0 0 1 87 78 Q86 84, 83 89 A3 3 0 0 1 79 93
+    Q76 97, 72 100 A3 3 0 0 1 67 103 Q63 105, 60 105 A3 3 0 0 1 56 103
+    Q52 102, 48 100 A3 3 0 0 1 44 96 Q40 93, 37 89 A3 3 0 0 1 33 84
+    Q31 80, 31 75 A3 3 0 0 1 33 69 Q31 64, 31 60 A3 3 0 0 1 33 54
+    Q31 48, 33 42 A3 3 0 0 1 36 36 Q38 31, 41 27 A3 3 0 0 1 46 23
+    Q50 18, 54 14 A3 3 0 0 1 60 11 Q63 6, 60 1Z"
+    stroke="#7a6348" stroke-width="1.5" fill="none" opacity="0.0"/>
+  <!-- Cleaner approach: concentric circles with perforated dots -->
+  <!-- Outer ring -->
+  <circle cx="60" cy="60" r="57" stroke="#7a6348" stroke-width="1.5" opacity="0.6"/>
+  <!-- Perforation dots around the outer edge — 28 evenly spaced -->
+  <g fill="none" stroke="#7a6348" stroke-width="0.8" opacity="0.5">
+    <circle cx="60" cy="1" r="2.2"/><circle cx="73" cy="3" r="2.2"/>
+    <circle cx="85" cy="8" r="2.2"/><circle cx="95" cy="17" r="2.2"/>
+    <circle cx="103" cy="28" r="2.2"/><circle cx="108" cy="40" r="2.2"/>
+    <circle cx="110" cy="53" r="2.2"/><circle cx="110" cy="67" r="2.2"/>
+    <circle cx="108" cy="80" r="2.2"/><circle cx="103" cy="92" r="2.2"/>
+    <circle cx="95" cy="103" r="2.2"/><circle cx="85" cy="112" r="2.2"/>
+    <circle cx="73" cy="117" r="2.2"/><circle cx="60" cy="119" r="2.2"/>
+    <circle cx="47" cy="117" r="2.2"/><circle cx="35" cy="112" r="2.2"/>
+    <circle cx="25" cy="103" r="2.2"/><circle cx="17" cy="92" r="2.2"/>
+    <circle cx="12" cy="80" r="2.2"/><circle cx="10" cy="67" r="2.2"/>
+    <circle cx="10" cy="53" r="2.2"/><circle cx="12" cy="40" r="2.2"/>
+    <circle cx="17" cy="28" r="2.2"/><circle cx="25" cy="17" r="2.2"/>
+    <circle cx="35" cy="8" r="2.2"/><circle cx="47" cy="3" r="2.2"/>
+  </g>
+  <!-- Inner decorative border -->
+  <circle cx="60" cy="60" r="51" stroke="#7a6348" stroke-width="0.8" opacity="0.4"/>
+  <!-- Denomination corner — vintage stamp detail -->
+  <text x="92" y="108" font-family="Georgia, serif" font-size="8" fill="#7a6348" opacity="0.35" font-style="italic">ink</text>
+  <!-- Tiny postmark cancellation lines -->
+  <g stroke="#7a6348" stroke-width="0.4" opacity="0.15">
+    <line x1="4" y1="14" x2="20" y2="8"/>
+    <line x1="4" y1="18" x2="22" y2="12"/>
+    <line x1="4" y1="22" x2="18" y2="16"/>
+  </g>
+</svg>

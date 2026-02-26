@@ -53,6 +53,10 @@ defmodule InkwellWeb.Router do
     # Images (public serving)
     get "/images/:id", EntryImageController, :show
 
+    # Avatar/banner serving (public, for federation)
+    get "/avatars/:username", UserController, :serve_avatar
+    get "/banners/:username", UserController, :serve_banner
+
     # Search
     get "/search", SearchController, :search
     get "/search/fediverse", SearchController, :fediverse
@@ -114,6 +118,7 @@ defmodule InkwellWeb.Router do
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
     post "/me/avatar", UserController, :upload_avatar
+    post "/me/banner", UserController, :upload_banner
     post "/me/background", UserController, :upload_background
     delete "/me", UserController, :delete_account
 

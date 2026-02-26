@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 
 interface FullUser {
   id: string;
@@ -12,29 +13,6 @@ interface FullUser {
   bio: string | null;
   pronouns: string | null;
   avatar_url: string | null;
-}
-
-function AvatarPreview({ url, name, size = 80 }: { url: string | null; name: string; size?: number }) {
-  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img src={url} alt={name} width={size} height={size}
-        className="rounded-full object-cover"
-        style={{ width: size, height: size }} />
-    );
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-semibold select-none"
-      style={{
-        width: size, height: size,
-        background: "var(--accent-light)", color: "var(--accent)",
-        fontSize: size * 0.32,
-      }}
-      aria-label={name}>
-      {initials}
-    </div>
-  );
 }
 
 export function ProfileEditForm({ user }: { user: FullUser }) {
@@ -139,17 +117,17 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Avatar section */}
       <div>
-        <label className="block text-sm font-medium mb-3">Profile picture</label>
+        <label className="block text-sm font-medium mb-3">Avatar</label>
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <AvatarPreview url={form.avatar_url || null} name={form.display_name || "?"} size={80} />
+            <AvatarWithFrame url={form.avatar_url || null} name={form.display_name || "?"} size={80} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ background: "rgba(0,0,0,0.5)" }}
-              aria-label="Change profile picture">
+              aria-label="Change avatar">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -164,7 +142,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
               disabled={uploading}
               className="text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
               style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-              {uploading ? "Resizing & uploading..." : "Upload photo"}
+              {uploading ? "Resizing & uploading..." : "Upload avatar"}
             </button>
             {form.avatar_url && (
               <button
@@ -172,7 +150,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
                 onClick={handleRemoveAvatar}
                 className="text-xs transition-colors"
                 style={{ color: "var(--muted)" }}>
-                Remove photo
+                Remove avatar
               </button>
             )}
           </div>
@@ -185,7 +163,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           />
         </div>
         <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-          Any size photo works — it will be automatically cropped and resized.
+          Any size image works — it will be automatically cropped and resized.
         </p>
       </div>
 

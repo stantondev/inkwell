@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/avatar-with-frame";
 
 interface SearchUser {
   id: string;
@@ -32,22 +33,6 @@ interface FediverseResult {
   avatar_url: string | null;
   ap_id: string;
   profile_url: string;
-}
-
-function Avatar({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
-  const initials = name[0]?.toUpperCase() ?? "?";
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} width={size} height={size}
-      className="rounded-full object-cover" style={{ width: size, height: size }} />;
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-semibold text-xs select-none flex-shrink-0"
-      style={{ width: size, height: size, background: "var(--accent-light)", color: "var(--accent)", fontSize: size * 0.38 }}
-      aria-label={name}>
-      {initials}
-    </div>
-  );
 }
 
 function FollowButton({ username }: { username: string }) {

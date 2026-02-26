@@ -13,7 +13,9 @@ import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { getMusicLabel } from "@/lib/music";
 import { EntryContent } from "@/components/entry-content";
 import { StampDisplay } from "@/components/stamp-display";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
+import { InlineStatusEditor } from "./inline-status-editor";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -26,6 +28,7 @@ interface ProfileUser {
   bio: string | null;
   pronouns: string | null;
   avatar_url: string | null;
+  avatar_frame?: string | null;
   ap_id: string;
   subscription_tier?: string;
   created_at: string;
@@ -33,6 +36,7 @@ interface ProfileUser {
   profile_css?: string | null;
   profile_music?: string | null;
   profile_background_url?: string | null;
+  profile_banner_url?: string | null;
   profile_background_color?: string | null;
   profile_accent_color?: string | null;
   profile_foreground_color?: string | null;
@@ -68,6 +72,7 @@ interface TopFriendUser {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
 }
 
 interface TopFriendSlot {
@@ -82,21 +87,6 @@ function timeAgo(isoString: string): string {
   if (days === 1) return "yesterday";
   if (days < 30) return `${days} days ago`;
   return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function Avatar({ url, name, size = 80 }: { url: string | null; name: string; size?: number }) {
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} width={size} height={size}
-      className="rounded-full object-cover" style={{ width: size, height: size }} />;
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-semibold select-none"
-      style={{ width: size, height: size, background: "var(--accent-light)", color: "var(--accent)", fontSize: size * 0.38 }}
-      aria-label={name}>
-      {name[0]?.toUpperCase()}
-    </div>
-  );
 }
 
 function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[]; isOwnProfile: boolean; styles: ReturnType<typeof buildProfileStyles> }) {
@@ -118,16 +108,7 @@ function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[
         {friends.map((slot) => (
           <Link key={slot.user.username} href={`/${slot.user.username}`}
             className="flex flex-col items-center gap-1 group">
-            {slot.user.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={slot.user.avatar_url} alt={slot.user.display_name}
-                className="w-10 h-10 rounded-full object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
-                style={{ background: "var(--accent-light)", color: styles.accent }}>
-                {slot.user.display_name[0]}
-              </div>
-            )}
+            <AvatarWithFrame url={slot.user.avatar_url} name={slot.user.display_name} size={36} frame={slot.user.avatar_frame} />
             <span className="text-xs text-center leading-tight truncate w-full group-hover:underline"
               style={{ color: styles.muted }}>
               {slot.user.display_name}
@@ -365,19 +346,26 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
         {/* Profile header */}
         <header className="rounded-2xl border overflow-hidden mb-8" style={styles.surface}>
-          {/* Banner / gradient */}
-          <div className="h-24 w-full" aria-hidden="true"
+          {/* Banner / header image */}
+          <div className={`${profile.profile_banner_url ? "h-32 sm:h-48" : "h-24"} w-full overflow-hidden`} aria-hidden="true"
             style={{
-              background: hasCustomBackground
-                ? "rgba(0,0,0,0.2)"
-                : isPlus && profile.profile_accent_color
-                  ? `linear-gradient(135deg, ${profile.profile_accent_color}33 0%, ${styles.surface.background} 100%)`
-                  : `linear-gradient(135deg, var(--accent-light) 0%, var(--surface-hover) 100%)`,
-            }} />
+              background: profile.profile_banner_url
+                ? "transparent"
+                : hasCustomBackground
+                  ? "rgba(0,0,0,0.2)"
+                  : isPlus && profile.profile_accent_color
+                    ? `linear-gradient(135deg, ${profile.profile_accent_color}33 0%, ${styles.surface.background} 100%)`
+                    : `linear-gradient(135deg, var(--accent-light) 0%, var(--surface-hover) 100%)`,
+            }}>
+            {profile.profile_banner_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.profile_banner_url} alt="" className="w-full h-full object-cover" />
+            )}
+          </div>
           <div className="px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="-mt-10 mb-4 flex items-end justify-between">
               <div className="rounded-full p-1" style={{ background: styles.surface.background }}>
-                <Avatar url={profile.avatar_url} name={profile.display_name} size={80} />
+                <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
               </div>
               {isOwnProfile ? (
                 <Link href="/settings"
@@ -421,11 +409,19 @@ export default async function ProfilePage({ params }: ProfileParams) {
               <p className="text-sm" style={{ color: styles.muted }}>@{profile.username}</p>
             </div>
 
-            {/* Status message */}
-            {profile.profile_status && (
-              <p className="text-sm italic mt-1 mb-3" style={{ color: styles.muted }}>
-                &ldquo;{profile.profile_status}&rdquo;
-              </p>
+            {/* Status message — inline editable on own profile */}
+            {isOwnProfile ? (
+              <InlineStatusEditor
+                initialStatus={profile.profile_status ?? null}
+                mutedColor={styles.muted}
+                accentColor={styles.accent}
+              />
+            ) : (
+              profile.profile_status && (
+                <p className="text-sm italic mt-1 mb-3" style={{ color: styles.muted }}>
+                  &ldquo;{profile.profile_status}&rdquo;
+                </p>
+              )
             )}
 
             {profile.bio && (

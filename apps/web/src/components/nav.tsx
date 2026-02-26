@@ -3,6 +3,7 @@ import type { SessionUser } from "@/lib/session";
 import { SignOutButton } from "./sign-out-button";
 import { MobileMenu } from "./mobile-menu";
 import { NavBadges } from "./nav-badges";
+import { AvatarWithFrame } from "./avatar-with-frame";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -17,24 +18,6 @@ function InkwellLogo() {
         className="h-8 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert"
       />
     </Link>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Avatar
-// ---------------------------------------------------------------------------
-function Avatar({ url, name, size = 32 }: { url: string | null; name: string; size?: number }) {
-  const initials = (name || "?").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} width={size} height={size}
-      className="rounded-full object-cover" style={{ width: size, height: size }} />;
-  }
-  return (
-    <div className="rounded-full bg-accent-light flex items-center justify-center text-accent font-semibold text-xs select-none"
-      style={{ width: size, height: size, fontSize: size * 0.38 }} aria-label={name}>
-      {initials}
-    </div>
   );
 }
 
@@ -112,7 +95,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
               <Link href={`/${user.username}`}
                 className="flex items-center gap-2 rounded-full p-0.5 transition-opacity hover:opacity-80"
                 aria-label="Your profile">
-                <Avatar url={user.avatar_url} name={user.display_name} size={32} />
+                <AvatarWithFrame url={user.avatar_url} name={user.display_name} size={28} frame={user.avatar_frame} subscriptionTier={user.subscription_tier} />
               </Link>
 
               <span className="hidden sm:block">

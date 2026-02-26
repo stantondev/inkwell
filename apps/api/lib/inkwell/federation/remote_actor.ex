@@ -4,7 +4,6 @@ defmodule Inkwell.Federation.RemoteActor do
   Actors are cached in the `remote_actors` table and refreshed after 24 hours.
   """
 
-  import Ecto.Query
   alias Inkwell.Repo
   alias Inkwell.Federation.{Http, RemoteActorSchema}
 
@@ -114,6 +113,7 @@ defmodule Inkwell.Federation.RemoteActor do
       domain: uri.host,
       display_name: data["name"] || data["preferredUsername"],
       avatar_url: get_in(data, ["icon", "url"]),
+      banner_url: get_in(data, ["image", "url"]),
       inbox: data["inbox"],
       shared_inbox: shared_inbox,
       public_key_pem: public_key_pem,

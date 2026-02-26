@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/avatar";
 
 interface AdminUser {
   id: string;
@@ -241,13 +242,7 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     {/* User */}
                     <td className="px-4 py-3">
                       <Link href={`/${user.username}`} className="flex items-center gap-2 hover:opacity-80">
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0" style={{ background: "var(--accent-light, var(--border))", color: "var(--accent)" }}>
-                            {(user.display_name || user.username).charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar url={user.avatar_url} name={user.display_name || user.username} size={28} />
                         <div className="min-w-0">
                           <div className="font-medium truncate text-sm">{user.display_name || user.username}</div>
                           <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>

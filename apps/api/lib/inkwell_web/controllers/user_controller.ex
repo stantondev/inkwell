@@ -54,7 +54,7 @@ defmodule InkwellWeb.UserController do
     free_fields = [
       "display_name", "bio", "pronouns", "avatar_url", "settings",
       "profile_status", "profile_theme",
-      "profile_background_url"
+      "profile_background_url", "profile_banner_url", "avatar_frame"
     ]
 
     # Plus-only profile customization fields (silently stripped for free users)
@@ -243,6 +243,91 @@ defmodule InkwellWeb.UserController do
     conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
   end
 
+  # POST /api/me/banner — upload profile banner/header image (free for all users)
+  def upload_banner(conn, %{"image" => image_data}) when is_binary(image_data) do
+    user = conn.assigns.current_user
+
+    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
+      [_, _type, base64] ->
+        # Max ~5MB of base64
+        if byte_size(base64) > 7_000_000 do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "Image too large — max 5MB"})
+        else
+          case Accounts.update_user_profile(user, %{"profile_banner_url" => image_data}) do
+            {:ok, updated} ->
+              json(conn, %{data: render_user_full(updated)})
+
+            {:error, _changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: "Could not save banner"})
+          end
+        end
+
+      _ ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+    end
+  end
+
+  def upload_banner(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
+  end
+
+  # GET /api/avatars/:username — serve avatar as image (public, for federation)
+  def serve_avatar(conn, %{"username" => username}) do
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      %{avatar_url: nil} ->
+        conn |> put_status(:not_found) |> json(%{error: "No avatar"})
+
+      %{avatar_url: avatar_url, updated_at: updated_at} ->
+        serve_data_uri_image(conn, avatar_url, updated_at)
+    end
+  end
+
+  # GET /api/banners/:username — serve banner as image (public, for federation)
+  def serve_banner(conn, %{"username" => username}) do
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      %{profile_banner_url: nil} ->
+        conn |> put_status(:not_found) |> json(%{error: "No banner"})
+
+      user ->
+        serve_data_uri_image(conn, user.profile_banner_url, user.updated_at)
+    end
+  end
+
+  defp serve_data_uri_image(conn, data_uri, updated_at) do
+    case Regex.run(~r/^data:image\/([^;]+);base64,(.+)$/s, data_uri) do
+      [_, type, base64] ->
+        case Base.decode64(base64) do
+          {:ok, binary} ->
+            content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
+            etag = :crypto.hash(:md5, "#{updated_at}") |> Base.encode16(case: :lower)
+
+            conn
+            |> put_resp_content_type(content_type)
+            |> put_resp_header("cache-control", "public, max-age=86400")
+            |> put_resp_header("etag", ~s("#{etag}"))
+            |> send_resp(200, binary)
+
+          :error ->
+            conn |> put_status(:internal_server_error) |> json(%{error: "Corrupt image"})
+        end
+
+      _ ->
+        conn |> put_status(:internal_server_error) |> json(%{error: "Invalid image data"})
+    end
+  end
+
   # DELETE /api/me — permanently delete the current user's account
   def delete_account(conn, %{"username" => confirmation_username}) do
     user = conn.assigns.current_user
@@ -293,8 +378,10 @@ defmodule InkwellWeb.UserController do
       profile_font: user.profile_font,
       profile_layout: user.profile_layout,
       profile_widgets: user.profile_widgets,
+      profile_banner_url: user.profile_banner_url,
       profile_status: user.profile_status,
-      profile_theme: user.profile_theme
+      profile_theme: user.profile_theme,
+      avatar_frame: user.avatar_frame
     }
   end
 
@@ -303,7 +390,8 @@ defmodule InkwellWeb.UserController do
       id: user.id,
       username: user.username,
       display_name: user.display_name,
-      avatar_url: user.avatar_url
+      avatar_url: user.avatar_url,
+      avatar_frame: user.avatar_frame
     }
   end
 

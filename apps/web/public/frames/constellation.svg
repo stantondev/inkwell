@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Constellation: stars connected by delicate lines forming a celestial ring -->
+  <!-- Soft background glow ring -->
+  <circle cx="60" cy="60" r="55" stroke="#6b8cba" stroke-width="0.5" opacity="0.15"/>
+  <!-- Major constellation stars — 4-point star shapes -->
+  <g opacity="0.85">
+    <!-- Star top -->
+    <path d="M60 2 L61.5 6 L64 4 L61.5 7 L66 8 L61.5 9 L64 12 L60 9 L56 12 L58.5 9 L54 8 L58.5 7 L56 4 L58.5 6Z" fill="#b8d4f0"/>
+    <!-- Star top-right -->
+    <path d="M96 16 L97 19.5 L99 18 L97 20.5 L101 21 L97 22 L99 24 L96 22 L93 24 L95 22 L91 21 L95 20.5 L93 18 L95 19.5Z" fill="#b8d4f0"/>
+    <!-- Star right -->
+    <path d="M114 58 L115 61.5 L118 60 L115 62 L118 64 L115 63 L116 66 L114 63 L112 66 L113 63 L110 64 L113 62 L110 60 L113 61.5Z" fill="#b8d4f0"/>
+    <!-- Star bottom-right -->
+    <path d="M98 100 L99 103 L102 102 L99 104 L102 106 L99 105 L100 108 L98 105 L96 108 L97 105 L94 106 L97 104 L94 102 L97 103Z" fill="#b8d4f0"/>
+    <!-- Star bottom -->
+    <path d="M60 114 L61.5 110 L64 112 L61.5 109 L66 108 L61.5 107 L64 104 L60 107 L56 104 L58.5 107 L54 108 L58.5 109 L56 112 L58.5 110Z" fill="#b8d4f0"/>
+    <!-- Star bottom-left -->
+    <path d="M22 100 L23 103 L20 102 L23 104 L18 106 L23 105 L22 108 L24 105 L26 108 L25 105 L28 106 L25 104 L28 102 L25 103Z" fill="#b8d4f0"/>
+    <!-- Star left -->
+    <path d="M6 58 L7 61.5 L4 60 L7 62 L2 64 L7 63 L6 66 L8 63 L10 66 L9 63 L12 64 L9 62 L12 60 L9 61.5Z" fill="#b8d4f0"/>
+    <!-- Star top-left -->
+    <path d="M24 16 L25 19.5 L22 18 L25 20.5 L20 21 L25 22 L22 24 L24 22 L27 24 L26 22 L29 21 L26 20.5 L28 18 L26 19.5Z" fill="#b8d4f0"/>
+  </g>
+  <!-- Constellation connecting lines -->
+  <g stroke="#8ab0d6" stroke-width="0.6" opacity="0.45">
+    <line x1="60" y1="6" x2="96" y2="18"/>
+    <line x1="96" y1="18" x2="114" y2="60"/>
+    <line x1="114" y1="60" x2="98" y2="102"/>
+    <line x1="98" y1="102" x2="60" y2="112"/>
+    <line x1="60" y1="112" x2="22" y2="102"/>
+    <line x1="22" y1="102" x2="6" y2="60"/>
+    <line x1="6" y1="60" x2="24" y2="18"/>
+    <line x1="24" y1="18" x2="60" y2="6"/>
+    <!-- Cross-connections for depth -->
+    <line x1="60" y1="6" x2="114" y2="60" opacity="0.2"/>
+    <line x1="6" y1="60" x2="60" y2="112" opacity="0.2"/>
+    <line x1="24" y1="18" x2="98" y2="102" opacity="0.15"/>
+  </g>
+  <!-- Small twinkle dots scattered in the ring -->
+  <circle cx="78" cy="7" r="1" fill="#d0e4f8" opacity="0.7"/>
+  <circle cx="108" cy="38" r="1.2" fill="#d0e4f8" opacity="0.6"/>
+  <circle cx="110" cy="82" r="1" fill="#d0e4f8" opacity="0.5"/>
+  <circle cx="80" cy="112" r="1.2" fill="#d0e4f8" opacity="0.6"/>
+  <circle cx="40" cy="112" r="1" fill="#d0e4f8" opacity="0.5"/>
+  <circle cx="10" cy="82" r="1.2" fill="#d0e4f8" opacity="0.6"/>
+  <circle cx="12" cy="38" r="1" fill="#d0e4f8" opacity="0.5"/>
+  <circle cx="42" cy="7" r="1.2" fill="#d0e4f8" opacity="0.7"/>
+  <!-- Shooting star accent -->
+  <line x1="86" y1="6" x2="92" y2="10" stroke="#d0e4f8" stroke-width="0.8" opacity="0.5" stroke-linecap="round"/>
+  <line x1="92" y1="10" x2="93" y2="11" stroke="#d0e4f8" stroke-width="0.4" opacity="0.3" stroke-linecap="round"/>
+</svg>

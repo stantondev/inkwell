@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { Avatar } from "@/components/avatar";
 import type { LetterMessage, ThreadData } from "./page";
 
 // Deterministic "random" rotation from message ID — gives each note a slight tilt
@@ -393,31 +394,11 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           ←
         </Link>
 
-        {initialThread.other_user.avatar_url ? (
-          <img
-            src={initialThread.other_user.avatar_url}
-            alt=""
-            style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover" }}
-          />
-        ) : (
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: "#c8b89a",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "16px",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              fontWeight: "600",
-              color: "#5a4a2a",
-            }}
-          >
-            {initialThread.other_user.display_name[0]?.toUpperCase()}
-          </div>
-        )}
+        <Avatar
+          url={initialThread.other_user.avatar_url}
+          name={initialThread.other_user.display_name}
+          size={36}
+        />
 
         <div>
           <div

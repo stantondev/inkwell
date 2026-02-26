@@ -10,6 +10,7 @@ defmodule Inkwell.Federation.RemoteActorSchema do
     field :domain, :string
     field :display_name, :string
     field :avatar_url, :string
+    field :banner_url, :string
     field :inbox, :string
     field :shared_inbox, :string
     field :public_key_pem, :string
@@ -21,7 +22,7 @@ defmodule Inkwell.Federation.RemoteActorSchema do
   def changeset(actor, attrs) do
     actor
     |> cast(attrs, [
-      :ap_id, :username, :domain, :display_name, :avatar_url,
+      :ap_id, :username, :domain, :display_name, :avatar_url, :banner_url,
       :inbox, :shared_inbox, :public_key_pem, :raw_data
     ])
     |> validate_required([:ap_id, :inbox, :public_key_pem])

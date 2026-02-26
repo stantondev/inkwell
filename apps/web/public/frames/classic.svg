@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Classic: elegant double-ring with subtle bead detail -->
+  <!-- Outer ring -->
+  <circle cx="60" cy="60" r="56" stroke="#2d4a8a" stroke-width="2.5" opacity="0.85"/>
+  <!-- Inner ring with slight gap -->
+  <circle cx="60" cy="60" r="51" stroke="#2d4a8a" stroke-width="1" opacity="0.4"/>
+  <!-- Four cardinal compass dots — subtle nod to fountain pen aesthetics -->
+  <circle cx="60" cy="2" r="2" fill="#2d4a8a" opacity="0.6"/>
+  <circle cx="60" cy="118" r="2" fill="#2d4a8a" opacity="0.6"/>
+  <circle cx="2" cy="60" r="2" fill="#2d4a8a" opacity="0.6"/>
+  <circle cx="118" cy="60" r="2" fill="#2d4a8a" opacity="0.6"/>
+  <!-- Diagonal accent dots -->
+  <circle cx="18" cy="18" r="1.2" fill="#2d4a8a" opacity="0.35"/>
+  <circle cx="102" cy="18" r="1.2" fill="#2d4a8a" opacity="0.35"/>
+  <circle cx="18" cy="102" r="1.2" fill="#2d4a8a" opacity="0.35"/>
+  <circle cx="102" cy="102" r="1.2" fill="#2d4a8a" opacity="0.35"/>
+</svg>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Avatar } from "@/components/avatar";
 
 interface FediverseAccount {
   id: string;
@@ -117,23 +118,11 @@ export default function FediverseSettingsPage() {
                 background: "var(--surface)",
               }}
             >
-              {account.remote_avatar_url ? (
-                <img
-                  src={account.remote_avatar_url}
-                  alt=""
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium"
-                  style={{
-                    background: "var(--accent-light)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  {(account.remote_username || "?")[0].toUpperCase()}
-                </div>
-              )}
+              <Avatar
+                url={account.remote_avatar_url}
+                name={account.remote_display_name || account.remote_username || "?"}
+                size={40}
+              />
 
               <div className="flex-1 min-w-0">
                 <p

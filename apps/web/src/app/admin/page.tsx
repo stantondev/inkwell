@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getSession, getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { AdminNav } from "./admin-nav";
+import { Avatar } from "@/components/avatar";
 
 export const metadata: Metadata = { title: "Admin Dashboard · Inkwell" };
 
@@ -154,13 +155,7 @@ function UserRow({ user }: { user: UserBrief }) {
       href={`/${user.username}`}
       className="flex items-center gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:opacity-80"
     >
-      {user.avatar_url ? (
-        <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-      ) : (
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: "var(--accent-light, var(--border))", color: "var(--accent)" }}>
-          {(user.display_name || user.username).charAt(0).toUpperCase()}
-        </div>
-      )}
+      <Avatar url={user.avatar_url} name={user.display_name || user.username} size={32} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{user.display_name || user.username}</div>
         <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>

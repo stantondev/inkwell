@@ -160,11 +160,25 @@ defmodule Inkwell.Federation.ActivityBuilder do
     person = if user.display_name, do: Map.put(person, "name", user.display_name), else: person
     person = if user.bio, do: Map.put(person, "summary", user.bio), else: person
 
+    instance_host = federation_config(:instance_host)
+
     person =
       if user.avatar_url do
         Map.put(person, "icon", %{
           "type" => "Image",
-          "url" => user.avatar_url
+          "mediaType" => detect_media_type(user.avatar_url),
+          "url" => "https://#{instance_host}/api/avatars/#{user.username}"
+        })
+      else
+        person
+      end
+
+    person =
+      if user.profile_banner_url do
+        Map.put(person, "image", %{
+          "type" => "Image",
+          "mediaType" => detect_media_type(user.profile_banner_url),
+          "url" => "https://#{instance_host}/api/banners/#{user.username}"
         })
       else
         person
@@ -269,6 +283,15 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────
+
+  defp detect_media_type(data_uri) when is_binary(data_uri) do
+    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,/, data_uri) do
+      [_, "jpg"] -> "image/jpeg"
+      [_, type] -> "image/#{type}"
+      _ -> "image/jpeg"
+    end
+  end
+  defp detect_media_type(_), do: "image/jpeg"
 
   defp ap_context do
     [

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Notebook: circular ring styled as ruled paper with spiral binding -->
+  <!-- Outer paper edge ring -->
+  <circle cx="60" cy="60" r="56" stroke="#b0b0b0" stroke-width="2" opacity="0.7"/>
+  <circle cx="60" cy="60" r="52" stroke="#b0b0b0" stroke-width="0.5" opacity="0.3"/>
+  <!-- Ruled lines as arcs — only in the frame ring, NOT crossing the avatar -->
+  <circle cx="60" cy="60" r="55" stroke="#cdd6e4" stroke-width="0.6" opacity="0.5" stroke-dasharray="4 6"/>
+  <circle cx="60" cy="60" r="53" stroke="#cdd6e4" stroke-width="0.6" opacity="0.4" stroke-dasharray="3 7"/>
+  <!-- Red margin line as a partial arc on the left side -->
+  <path d="M 16 30 A 48 48 0 0 0 16 90" stroke="#e88a8a" stroke-width="1" opacity="0.5" fill="none"/>
+  <!-- Spiral binding holes along the top — outside the avatar circle -->
+  <circle cx="36" cy="6" r="2.5" fill="none" stroke="#999" stroke-width="1" opacity="0.6"/>
+  <circle cx="48" cy="4.5" r="2.5" fill="none" stroke="#999" stroke-width="1" opacity="0.6"/>
+  <circle cx="60" cy="4" r="2.5" fill="none" stroke="#999" stroke-width="1" opacity="0.6"/>
+  <circle cx="72" cy="4.5" r="2.5" fill="none" stroke="#999" stroke-width="1" opacity="0.6"/>
+  <circle cx="84" cy="6" r="2.5" fill="none" stroke="#999" stroke-width="1" opacity="0.6"/>
+  <!-- Small pencil icon at bottom-right as accent -->
+  <line x1="100" y1="96" x2="108" y2="104" stroke="#999" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="108" y1="104" x2="110" y2="106" stroke="#e88a8a" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+</svg>

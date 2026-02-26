@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { ProfileStyles } from "@/lib/profile-styles";
+import { Avatar } from "@/components/avatar-with-frame";
 
 interface GuestbookEntry {
   id: string;
@@ -160,16 +161,7 @@ export function Guestbook({
               <div className="flex items-start gap-2">
                 {entry.author ? (
                   <a href={`/${entry.author.username}`} className="flex-shrink-0">
-                    {entry.author.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={entry.author.avatar_url} alt={entry.author.display_name}
-                        className="w-6 h-6 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
-                        style={{ background: "var(--accent-light)", color: styles.accent }}>
-                        {entry.author.display_name[0]}
-                      </div>
-                    )}
+                    <Avatar url={entry.author.avatar_url} name={entry.author.display_name} size={24} />
                   </a>
                 ) : (
                   <div className="w-6 h-6 rounded-full" style={{ background: styles.border }} />

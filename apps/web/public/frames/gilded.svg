@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Gilded: ornate gold circular frame with filigree scrollwork -->
+  <!-- Outer gold ring -->
+  <circle cx="60" cy="60" r="57" stroke="#c5952a" stroke-width="3" opacity="0.85"/>
+  <!-- Inner gold ring -->
+  <circle cx="60" cy="60" r="51" stroke="#c5952a" stroke-width="1.5" opacity="0.5"/>
+  <!-- Decorative ring between the two -->
+  <circle cx="60" cy="60" r="54" stroke="#daa520" stroke-width="0.5" opacity="0.3" stroke-dasharray="2 3"/>
+  <!-- Corner scrollwork flourishes — 4 pairs of symmetrical curls -->
+  <!-- Top -->
+  <path d="M44 4 Q48 10, 52 6 Q56 2, 60 3" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <path d="M76 4 Q72 10, 68 6 Q64 2, 60 3" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <!-- Bottom -->
+  <path d="M44 116 Q48 110, 52 114 Q56 118, 60 117" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <path d="M76 116 Q72 110, 68 114 Q64 118, 60 117" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <!-- Left -->
+  <path d="M4 44 Q10 48, 6 52 Q2 56, 3 60" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <path d="M4 76 Q10 72, 6 68 Q2 64, 3 60" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <!-- Right -->
+  <path d="M116 44 Q110 48, 114 52 Q118 56, 117 60" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <path d="M116 76 Q110 72, 114 68 Q118 64, 117 60" stroke="#daa520" stroke-width="1.5" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <!-- Gold gem accent dots at cardinal points -->
+  <circle cx="60" cy="1" r="2.5" fill="#daa520" opacity="0.7"/>
+  <circle cx="60" cy="119" r="2.5" fill="#daa520" opacity="0.7"/>
+  <circle cx="1" cy="60" r="2.5" fill="#daa520" opacity="0.7"/>
+  <circle cx="119" cy="60" r="2.5" fill="#daa520" opacity="0.7"/>
+  <!-- Diagonal accent gems -->
+  <circle cx="16" cy="16" r="1.8" fill="#daa520" opacity="0.5"/>
+  <circle cx="104" cy="16" r="1.8" fill="#daa520" opacity="0.5"/>
+  <circle cx="16" cy="104" r="1.8" fill="#daa520" opacity="0.5"/>
+  <circle cx="104" cy="104" r="1.8" fill="#daa520" opacity="0.5"/>
+  <!-- Fine filigree arcs between cardinal and diagonal points -->
+  <path d="M22 8 Q34 16, 46 4" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M74 4 Q86 16, 98 8" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M112 22 Q104 34, 116 46" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M116 74 Q104 86, 112 98" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M98 112 Q86 104, 74 116" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M46 116 Q34 104, 22 112" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M8 98 Q16 86, 4 74" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M4 46 Q16 34, 8 22" stroke="#daa520" stroke-width="0.6" fill="none" opacity="0.3" stroke-linecap="round"/>
+</svg>

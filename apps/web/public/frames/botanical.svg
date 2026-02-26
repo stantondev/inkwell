@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Botanical: lush wreath of leaves, vines, and small flowers -->
+  <!-- Main vine ring -->
+  <circle cx="60" cy="60" r="54" stroke="#3d6b4c" stroke-width="1" opacity="0.35"/>
+  <!-- Leaf pairs around the wreath — each leaf is a teardrop outside the avatar -->
+  <!-- Top cluster -->
+  <path d="M50 5 Q54 -2, 58 5 Q54 8, 50 5Z" fill="#4a8c5c" opacity="0.65"/>
+  <path d="M62 4 Q66 -2, 70 4 Q66 7, 62 4Z" fill="#3d7a4f" opacity="0.6"/>
+  <path d="M55 8 Q58 3, 62 8 Q58 10, 55 8Z" fill="#5a9c6a" opacity="0.45"/>
+  <!-- Top-right cluster -->
+  <path d="M90 14 Q96 10, 98 18 Q92 18, 90 14Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M96 20 Q102 18, 102 24 Q96 24, 96 20Z" fill="#3d7a4f" opacity="0.5"/>
+  <!-- Right cluster -->
+  <path d="M112 50 Q118 48, 116 56 Q112 54, 112 50Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M114 62 Q120 62, 116 68 Q112 66, 114 62Z" fill="#3d7a4f" opacity="0.55"/>
+  <path d="M112 56 Q116 54, 116 60 Q112 58, 112 56Z" fill="#5a9c6a" opacity="0.4"/>
+  <!-- Bottom-right cluster -->
+  <path d="M98 96 Q104 96, 100 104 Q96 100, 98 96Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M94 104 Q98 106, 94 110 Q90 106, 94 104Z" fill="#3d7a4f" opacity="0.5"/>
+  <!-- Bottom cluster -->
+  <path d="M50 115 Q54 122, 58 115 Q54 112, 50 115Z" fill="#4a8c5c" opacity="0.65"/>
+  <path d="M62 116 Q66 122, 70 116 Q66 113, 62 116Z" fill="#3d7a4f" opacity="0.6"/>
+  <path d="M55 112 Q58 117, 62 112 Q58 110, 55 112Z" fill="#5a9c6a" opacity="0.45"/>
+  <!-- Bottom-left cluster -->
+  <path d="M22 96 Q16 96, 20 104 Q24 100, 22 96Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M26 104 Q22 106, 26 110 Q30 106, 26 104Z" fill="#3d7a4f" opacity="0.5"/>
+  <!-- Left cluster -->
+  <path d="M8 50 Q2 48, 4 56 Q8 54, 8 50Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M6 62 Q0 62, 4 68 Q8 66, 6 62Z" fill="#3d7a4f" opacity="0.55"/>
+  <path d="M8 56 Q4 54, 4 60 Q8 58, 8 56Z" fill="#5a9c6a" opacity="0.4"/>
+  <!-- Top-left cluster -->
+  <path d="M22 18 Q16 14, 20 10 Q24 14, 22 18Z" fill="#4a8c5c" opacity="0.6"/>
+  <path d="M28 10 Q24 6, 28 4 Q32 6, 28 10Z" fill="#3d7a4f" opacity="0.5"/>
+  <!-- Small flower accents (5 flowers at compass points) -->
+  <!-- Top flower -->
+  <circle cx="60" cy="2" r="2.5" fill="#d4899a" opacity="0.6"/>
+  <circle cx="60" cy="2" r="1" fill="#e8a8b5" opacity="0.8"/>
+  <!-- Right flower -->
+  <circle cx="117" cy="60" r="2.5" fill="#d4899a" opacity="0.55"/>
+  <circle cx="117" cy="60" r="1" fill="#e8a8b5" opacity="0.75"/>
+  <!-- Bottom flower -->
+  <circle cx="60" cy="118" r="2.5" fill="#d4899a" opacity="0.6"/>
+  <circle cx="60" cy="118" r="1" fill="#e8a8b5" opacity="0.8"/>
+  <!-- Left flower -->
+  <circle cx="3" cy="60" r="2.5" fill="#d4899a" opacity="0.55"/>
+  <circle cx="3" cy="60" r="1" fill="#e8a8b5" opacity="0.75"/>
+  <!-- Tiny berry dots -->
+  <circle cx="84" cy="8" r="1.5" fill="#c97b8b" opacity="0.45"/>
+  <circle cx="36" cy="8" r="1.5" fill="#c97b8b" opacity="0.45"/>
+  <circle cx="84" cy="112" r="1.5" fill="#c97b8b" opacity="0.45"/>
+  <circle cx="36" cy="112" r="1.5" fill="#c97b8b" opacity="0.45"/>
+</svg>

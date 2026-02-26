@@ -6,17 +6,21 @@ import { PROFILE_THEMES, PROFILE_FONTS, PROFILE_LAYOUTS } from "@/lib/profile-th
 import { resizeBackgroundImage } from "@/lib/image-utils";
 import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
+import { AVATAR_FRAMES } from "@/lib/avatar-frames";
 
 interface ProfileUser {
   id: string;
   username: string;
   display_name: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
   subscription_tier?: string;
   profile_html?: string | null;
   profile_css?: string | null;
   profile_music?: string | null;
   profile_background_url?: string | null;
+  profile_banner_url?: string | null;
   profile_background_color?: string | null;
   profile_accent_color?: string | null;
   profile_foreground_color?: string | null;
@@ -64,15 +68,18 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
 export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
   const router = useRouter();
   const bgInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
   const isPlus = (user.subscription_tier || "free") === "plus";
 
   const [form, setForm] = useState({
+    avatar_frame: user.avatar_frame ?? "none",
     profile_status: user.profile_status ?? "",
     profile_theme: user.profile_theme ?? "default",
     profile_background_color: user.profile_background_color ?? "",
     profile_accent_color: user.profile_accent_color ?? "",
     profile_foreground_color: user.profile_foreground_color ?? "",
     profile_background_url: user.profile_background_url ?? "",
+    profile_banner_url: user.profile_banner_url ?? "",
     profile_font: user.profile_font ?? "default",
     profile_layout: user.profile_layout ?? "classic",
     profile_music: user.profile_music ?? "",
@@ -86,6 +93,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
   const [saving, setSaving] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -140,6 +148,38 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     setForm((f) => ({ ...f, profile_background_url: "" }));
   }
 
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+
+    setUploadingBanner(true);
+    try {
+      const dataUri = await resizeBackgroundImage(file, 1500, 0.8);
+      const res = await fetch("/api/me/banner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUri }),
+      });
+      if (res.ok) {
+        setForm((f) => ({ ...f, profile_banner_url: dataUri }));
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.error ?? "Failed to upload banner");
+        setStatus("error");
+      }
+    } catch {
+      setErrorMsg("Failed to process image");
+      setStatus("error");
+    } finally {
+      setUploadingBanner(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = "";
+    }
+  }
+
+  function removeBanner() {
+    setForm((f) => ({ ...f, profile_banner_url: "" }));
+  }
+
   function moveWidget(index: number, direction: "up" | "down") {
     const newOrder = [...widgetOrder];
     const target = direction === "up" ? index - 1 : index + 1;
@@ -167,6 +207,8 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       const mainBody: Record<string, unknown> = {
         profile_status: form.profile_status || null,
         profile_theme: form.profile_theme || null,
+        avatar_frame: form.avatar_frame || null,
+        profile_banner_url: form.profile_banner_url || null,
       };
 
       if (isPlus) {
@@ -239,6 +281,99 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Avatar Frame */}
+      <Section title="Avatar Frame" defaultOpen={true}>
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-center py-2">
+            <AvatarWithFrame
+              url={user.avatar_url}
+              name={user.display_name}
+              size={72}
+              frame={form.avatar_frame === "none" ? null : form.avatar_frame}
+              subscriptionTier={user.subscription_tier}
+            />
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {AVATAR_FRAMES.map((f) => {
+              const locked = f.plusOnly && !isPlus;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => !locked && updateForm("avatar_frame", f.id)}
+                  disabled={locked}
+                  className="rounded-lg border p-2 flex flex-col items-center gap-1 transition-all hover:scale-[1.03]"
+                  style={{
+                    borderColor: form.avatar_frame === f.id ? "var(--accent)" : "var(--border)",
+                    borderWidth: form.avatar_frame === f.id ? 2 : 1,
+                    opacity: locked ? 0.45 : 1,
+                    cursor: locked ? "not-allowed" : "pointer",
+                  }}
+                  title={locked ? "Plus subscribers only" : f.description}
+                >
+                  <AvatarWithFrame
+                    url={user.avatar_url}
+                    name={user.display_name}
+                    size={28}
+                    frame={f.id === "none" ? null : f.id}
+                    subscriptionTier="plus"
+                  />
+                  <span className="text-[10px] truncate w-full text-center" style={{ color: "var(--muted)" }}>
+                    {f.label}
+                  </span>
+                  {locked && (
+                    <span className="text-[9px] font-medium" style={{ color: "var(--accent)" }}>
+                      ✦ Plus
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
+
+      {/* Banner Image */}
+      <Section title="Banner Image" defaultOpen={false}>
+        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+          A header image displayed at the top of your profile. Recommended: 1500&times;500px.
+        </p>
+        {form.profile_banner_url ? (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg overflow-hidden border h-24" style={{ borderColor: "var(--border)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={form.profile_banner_url} alt="Banner preview" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => bannerInputRef.current?.click()}
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                {uploadingBanner ? "Uploading..." : "Change"}
+              </button>
+              <button type="button" onClick={removeBanner}
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => bannerInputRef.current?.click()}
+            disabled={uploadingBanner}
+            className="w-full rounded-lg border-2 border-dashed py-6 text-sm transition-colors hover:border-[var(--accent)] disabled:opacity-50"
+            style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            {uploadingBanner ? "Uploading..." : "Upload banner image"}
+          </button>
+        )}
+        <input
+          ref={bannerInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          onChange={handleBannerUpload}
+          className="hidden"
+        />
+      </Section>
+
       {/* Status Message */}
       <Section title="Status Message" defaultOpen={true}>
         <div className="flex flex-col gap-1.5">

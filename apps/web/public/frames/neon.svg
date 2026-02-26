@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Neon: vibrant multi-layered glow effect -->
+  <defs>
+    <filter id="neon-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="neon-soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <!-- Wide soft glow aura -->
+  <circle cx="60" cy="60" r="55" stroke="#ff3eaa" stroke-width="6" opacity="0.08" filter="url(#neon-soft)"/>
+  <!-- Main neon ring — hot pink -->
+  <circle cx="60" cy="60" r="55" stroke="#ff3eaa" stroke-width="2.5" opacity="0.7" filter="url(#neon-glow)"/>
+  <!-- Core bright line -->
+  <circle cx="60" cy="60" r="55" stroke="#ff8ed4" stroke-width="1" opacity="0.9"/>
+  <!-- Secondary cyan accent ring -->
+  <circle cx="60" cy="60" r="52" stroke="#00e5ff" stroke-width="0.8" opacity="0.35" filter="url(#neon-glow)"/>
+  <!-- Bright sparkle points where the light catches -->
+  <circle cx="60" cy="5" r="2.5" fill="#ff8ed4" opacity="0.8"/>
+  <circle cx="60" cy="115" r="2.5" fill="#ff8ed4" opacity="0.8"/>
+  <circle cx="5" cy="60" r="2" fill="#00e5ff" opacity="0.6"/>
+  <circle cx="115" cy="60" r="2" fill="#00e5ff" opacity="0.6"/>
+  <!-- Corner sparkles — alternating pink and cyan -->
+  <circle cx="18" cy="18" r="1.5" fill="#ff3eaa" opacity="0.5"/>
+  <circle cx="102" cy="18" r="1.5" fill="#00e5ff" opacity="0.4"/>
+  <circle cx="102" cy="102" r="1.5" fill="#ff3eaa" opacity="0.5"/>
+  <circle cx="18" cy="102" r="1.5" fill="#00e5ff" opacity="0.4"/>
+  <!-- Flicker line segments for energy -->
+  <line x1="30" y1="7" x2="34" y2="9" stroke="#ff8ed4" stroke-width="0.8" opacity="0.4" stroke-linecap="round"/>
+  <line x1="86" y1="7" x2="90" y2="9" stroke="#00e5ff" stroke-width="0.8" opacity="0.35" stroke-linecap="round"/>
+  <line x1="111" y1="34" x2="113" y2="30" stroke="#ff8ed4" stroke-width="0.8" opacity="0.4" stroke-linecap="round"/>
+  <line x1="111" y1="86" x2="113" y2="90" stroke="#00e5ff" stroke-width="0.8" opacity="0.35" stroke-linecap="round"/>
+</svg>

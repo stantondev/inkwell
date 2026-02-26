@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Ink Ring: organic, hand-drawn ink circle with splatter accents -->
+  <!-- Main irregular ink stroke — stays outside avatar area (r>48) -->
+  <path d="M60 5 C78 3, 96 14, 107 28 C116 40, 119 56, 116 68 C118 82, 108 98, 94 108 C82 116, 66 119, 54 116 C40 118, 24 108, 14 94 C6 82, 2 66, 5 54 C3 40, 12 24, 26 14 C38 6, 50 3, 60 5Z"
+    stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <!-- Second brushstroke layer for thickness variation -->
+  <path d="M62 7 C76 5, 94 16, 104 30 C113 42, 116 56, 114 66"
+    stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3"/>
+  <path d="M14 92 C8 78, 4 64, 7 52 C6 38, 14 24, 28 16"
+    stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3"/>
+  <!-- Ink splatter dots — scattered around outer ring -->
+  <circle cx="105" cy="22" r="2.5" fill="#1a1a1a" opacity="0.5"/>
+  <circle cx="112" cy="42" r="1.5" fill="#1a1a1a" opacity="0.4"/>
+  <circle cx="18" cy="108" r="2" fill="#1a1a1a" opacity="0.45"/>
+  <circle cx="8" cy="82" r="1.5" fill="#1a1a1a" opacity="0.35"/>
+  <circle cx="42" cy="4" r="1.8" fill="#1a1a1a" opacity="0.4"/>
+  <circle cx="96" cy="110" r="2" fill="#1a1a1a" opacity="0.35"/>
+  <!-- Tiny satellite drips -->
+  <circle cx="116" cy="55" r="1" fill="#1a1a1a" opacity="0.3"/>
+  <circle cx="30" cy="114" r="1" fill="#1a1a1a" opacity="0.25"/>
+  <circle cx="4" cy="46" r="1" fill="#1a1a1a" opacity="0.25"/>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Wax Seal: full circular scalloped wax seal — 12 bumps -->
+  <!-- Path alternates between inner points (r≈50) and outer bump tips (r≈58) -->
+  <!-- Slightly irregular for organic wax feel -->
+  <path d="
+    M60 10
+    Q76 3, 86 16
+    Q102 17, 104 34
+    Q117 44, 111 60
+    Q118 76, 104 86
+    Q102 102, 86 104
+    Q76 118, 60 111
+    Q44 118, 34 104
+    Q18 102, 16 86
+    Q3 76, 9 60
+    Q2 44, 16 34
+    Q18 17, 34 16
+    Q44 3, 60 10Z"
+    fill="#b22222" opacity="0.12"/>
+  <path d="
+    M60 10
+    Q76 3, 86 16
+    Q102 17, 104 34
+    Q117 44, 111 60
+    Q118 76, 104 86
+    Q102 102, 86 104
+    Q76 118, 60 111
+    Q44 118, 34 104
+    Q18 102, 16 86
+    Q3 76, 9 60
+    Q2 44, 16 34
+    Q18 17, 34 16
+    Q44 3, 60 10Z"
+    stroke="#b22222" stroke-width="2.5" fill="none" opacity="0.6"/>
+  <!-- Inner embossed ring -->
+  <circle cx="60" cy="60" r="49" stroke="#b22222" stroke-width="0.6" opacity="0.15"/>
+  <!-- Wax sheen highlight arc -->
+  <path d="M42 8 Q52 14, 60 10" stroke="#d44" stroke-width="0.8" fill="none" opacity="0.2"/>
+  <path d="M106 40 Q112 50, 111 60" stroke="#e55" stroke-width="0.6" fill="none" opacity="0.12"/>
+</svg>

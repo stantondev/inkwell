@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 const TOTAL_STEPS = 5;
 
 type SuggestedUser = {
@@ -29,29 +30,6 @@ function StepDots({ current, total }: { current: number; total: number }) {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-function AvatarPreview({ url, name, size = 96 }: { url: string | null; name: string; size?: number }) {
-  const initials = (name || "?").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
-  if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img src={url} alt={name} width={size} height={size}
-        className="rounded-full object-cover"
-        style={{ width: size, height: size }} />
-    );
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center font-semibold select-none"
-      style={{
-        width: size, height: size,
-        background: "var(--accent-light)", color: "var(--accent)",
-        fontSize: size * 0.32,
-      }}
-      aria-label={name}>
-      {initials}
     </div>
   );
 }
@@ -299,7 +277,7 @@ export default function WelcomePage() {
           </h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
             {step === 0 && "Choose your identity"}
-            {step === 1 && "Add a photo and pronouns"}
+            {step === 1 && "Set your avatar and pronouns"}
             {step === 2 && "Tell people about yourself"}
             {step === 3 && "Pick your vibe"}
             {step === 4 && "Find some writers to follow"}
@@ -368,11 +346,11 @@ export default function WelcomePage() {
             <div className="flex flex-col gap-5">
               <div>
                 <label className="block text-xs font-medium uppercase tracking-wide mb-3" style={{ color: "var(--muted)" }}>
-                  Profile Photo
+                  Avatar
                 </label>
                 <div className="flex flex-col items-center gap-3">
                   <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <AvatarPreview url={avatarDataUri} name={displayName || username || "?"} size={96} />
+                    <AvatarWithFrame url={avatarDataUri} name={displayName || username || "?"} size={96} />
                     <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ background: "rgba(0,0,0,0.5)" }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
@@ -388,7 +366,7 @@ export default function WelcomePage() {
                     disabled={uploading}
                     className="text-sm font-medium px-4 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
                     style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                    {uploading ? "Processing..." : avatarDataUri ? "Change photo" : "Choose photo"}
+                    {uploading ? "Processing..." : avatarDataUri ? "Change avatar" : "Choose avatar"}
                   </button>
                   {avatarDataUri && (
                     <button
