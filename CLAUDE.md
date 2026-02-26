@@ -216,10 +216,22 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Frontend**: `apps/web/src/app/settings/danger-zone.tsx` (client component), proxy route in `apps/web/src/app/api/me/route.ts`
 - **Migration**: `20260222000003` — allows NULL `user_id` on `feedback_posts` and `feedback_comments` for nilify cascade
 
+### Desktop Sidebar Navigation ("The Contents Page")
+- Fixed 260px left sidebar for desktop (≥1024px) logged-in users, replacing top nav
+- Styled as a book's table of contents: Roman numeral section headings, dot leaders to badge counts, Lora serif typography, paper texture (SVG fractalNoise), spine shadow
+- Collapsible to 60px icon-only mode via toggle button or `Cmd/Ctrl + \`, persisted in localStorage
+- Flash prevention: inline `<script>` in layout.tsx reads localStorage and sets `data-sidebar-collapsed` on body before paint
+- Focus mode integration: sidebar hides when `body[data-focus-mode]` is set (editor distraction-free mode)
+- `AppShell` layout wrapper conditionally renders sidebar (logged-in) or top nav (logged-out), hides top nav at lg+ for logged-in users
+- CSS: `--sidebar-width: 260px`, `--sidebar-collapsed-width: 60px`, `.app-content` gets `margin-left` offset
+- Masonry grid 3-column breakpoint bumped from 1440px to 1700px to account for sidebar width
+- **Key files**: `apps/web/src/components/app-shell.tsx` (server), `apps/web/src/components/sidebar.tsx` (server), `apps/web/src/components/sidebar-nav.tsx` (client — route detection, live badges, collapse state)
+
 ### Mobile Navigation
-- Hamburger menu (☰) on screens < 640px with all nav links
+- Hamburger menu (☰) on screens < 1024px with all nav links
 - Client component at `apps/web/src/components/mobile-menu.tsx`
 - Integrated in `apps/web/src/components/nav.tsx`
+- Top nav visible below 1024px for logged-in users; always visible for logged-out users
 
 ### Profile Customization (MySpace-style)
 - Users can fully customize their profile page with themes, colors, backgrounds, fonts, layouts, music, status messages, widget ordering, and custom HTML/CSS
@@ -355,12 +367,30 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 
 ## Navigation Structure
 
-### Desktop (≥640px)
-- **Left**: Inkwell logo → `/`
-- **Center**: Feed, Explore, Pen Pals, Search, Roadmap, ✦ Plus (if free), Admin (if admin)
-- **Right**: Write button, Notifications bell (with unread badge), Profile avatar, Settings gear, Sign out
+### Desktop Sidebar (≥1024px, logged-in)
+Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numeral sections, dot leaders, Lora serif typography, paper texture background, spine shadow. Collapsible to 60px icon-only mode (persisted in localStorage, keyboard shortcut `Cmd/Ctrl + \`). Hidden in editor focus mode via `body[data-focus-mode]`.
 
-### Mobile (<640px)
+- **I. Your Journal**: Feed, Explore, + Write (accent CTA button)
+- **II. Connections**: Pen Pals, Letterbox (with unread badge)
+- **III. Library**: Bookmarks, Drafts (with count badge), Search
+- **IV. Community**: Roadmap, Feedback
+- **Ornament divider** (`· · ·`)
+- **User section**: Avatar with frame, display name, @username, Notifications (with badge), Settings, ✦ Upgrade to Plus (if free), Admin (if admin), Sign out
+- **Collapse toggle**: chevron button at bottom
+
+Key files:
+- `apps/web/src/components/app-shell.tsx` — layout wrapper (conditionally renders sidebar vs top nav)
+- `apps/web/src/components/sidebar.tsx` — server component wrapper
+- `apps/web/src/components/sidebar-nav.tsx` — client component with route detection, live badges, collapse state
+
+### Top Nav (< 1024px logged-in, or all sizes logged-out)
+- Hidden at ≥1024px for logged-in users via `AppShell` wrapping in `lg:hidden`
+- **Left**: Inkwell logo → `/`
+- **Center** (≥640px, logged-in): Feed, Explore, Pen Pals, Bookmarks, Search, Roadmap, Settings, ✦ Plus (if free), Admin (if admin)
+- **Right** (logged-in): Hamburger menu (with red dot when unread notifications), Write button, Badge counts, Profile avatar, Sign out
+- **Right** (logged-out): Sign in, Get started
+
+### Mobile (<1024px, logged-in)
 - **Left**: Inkwell logo
 - **Right**: Hamburger menu (☰, with red dot when unread notifications), Profile avatar
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
@@ -587,6 +617,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - All styling uses CSS custom variables (`var(--accent)`, `var(--surface)`, `var(--border)`, `var(--muted)`, `var(--foreground)`, etc.)
 - Rounded cards with border styling: `rounded-xl border p-4` + `borderColor: var(--border)` + `background: var(--surface)`
 - Fonts: Lora (serif) for headings, system sans-serif for body
+- **Layout uses `AppShell` with conditional sidebar** — `AppShell` in `layout.tsx` renders the fixed left sidebar (260px) for logged-in desktop users (≥1024px) and the top nav for mobile/logged-out. Content area uses `.app-content` class with `margin-left` offset. Sidebar collapse state is managed via `data-sidebar-collapsed` body attribute + localStorage. New pages don't need special handling — they render inside the content area and `mx-auto` containers recenter naturally.
 - **Popups must use `FloatingPopup`** — `JournalPage` has `overflow-hidden` and `.journal-scroll` has `overflow-x: auto` (forces `overflow-y: auto`). Any absolutely-positioned dropdown/popup inside the feed must use the `FloatingPopup` portal component or it will be clipped.
 - **All client-side API calls must use same-origin proxy routes** — never call the Phoenix API directly from `"use client"` components. Create a Next.js route handler at `apps/web/src/app/api/...` that proxies to `SERVER_API`. This avoids CORS issues since `inkwell.social` and `api.inkwell.social` are different origins. Every existing feature follows this pattern.
 - **Stripe is in LIVE mode** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID` are all production (live) keys. Test-mode Stripe customer/subscription IDs from development won't work and must be cleared from the database if found.
@@ -668,6 +699,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Newsletter Email Delivery (highest remaining score at 32), then Custom Domains.
 
 ### Recently Completed
+- **2026-02-26** — Sidebar Navigation: "The Contents Page" + Editor Line Fix. Major UI overhaul replacing top nav with fixed left sidebar (260px) for desktop (≥1024px) logged-in users. Sidebar styled as a book's table of contents with Roman numeral sections (I–IV), dot leaders connecting labels to badge counts, Lora serif italic small-caps headings, paper texture (SVG fractalNoise), and spine shadow. Collapsible to 60px icon-only mode via toggle button or `Cmd/Ctrl + \`, persisted in localStorage with flash prevention inline script. Focus mode hides sidebar. `AppShell` layout wrapper replaces direct Nav/Footer rendering in root layout. Mobile/tablet unchanged (top nav + hamburger below 1024px). Masonry grid 3-column breakpoint bumped from 1440px to 1700px. Also fixed editor ruled-line alignment: changed line spacing from 32px to 33.3px to match text `line-height` (18px × 1.85), adjusted vertical offset, and snapped paragraph margins to ruled grid so all text lines sit on notebook lines. New files: `app-shell.tsx`, `sidebar.tsx`, `sidebar-nav.tsx`. Modified: `layout.tsx`, `globals.css` (~300 lines sidebar CSS + line fix).
 - **2026-02-26** — Avatar System Overhaul: Federation Fix + Banners + Frames. Three major improvements: (1) **Fix avatar federation** — avatars were stored as base64 data URIs and included directly in AP `icon.url`, breaking display on Mastodon and other fediverse instances. Added `GET /api/avatars/:username` and `GET /api/banners/:username` public endpoints that decode data URIs and serve actual images with proper Content-Type, ETag, and cache headers. Updated `build_person/1` to use HTTPS URLs and include `mediaType` in both `icon` and `image` AP properties. (2) **Profile banner/header images** — new `profile_banner_url` text field on users (free for all), upload via `POST /api/me/banner`, banner display on profile pages (h-32 sm:h-48 with object-cover), AP `image` property for federation, remote actor banner extraction from AP `image.url`. Banner upload UI in Settings → Customize. (3) **Avatar frames/decorations** — unique-to-Inkwell feature, no other fediverse platform has this. 10 decorative SVG frame overlays (5 free: none, classic, ink-ring, notebook, wax-seal; 5 Plus: gilded, constellation, botanical, neon, stamp). `avatar_frame` field on users, frame picker grid in Settings → Customize with live preview. `AvatarWithFrame` shared component replaces all inline Avatar definitions across nav, profile, feed, search, guestbook, onboarding, settings. Plus frames follow existing tier policy (saved in DB, rendered only when subscription active, re-subscribing restores). Migration `20260222000028`. New files: `avatar-frames.ts`, `avatar-with-frame.tsx`, `frames/*.svg` (9 files), `api/me/banner/route.ts`.
 - **2026-02-25** — Sprint 3: Editor Redesign + UX Polish. Five improvements: (1) **Journal editor redesign** — complete overhaul of `/editor` with paper-like writing feel: ruled-line background via `repeating-linear-gradient`, italic serif date line, centered 720px paper container, settings moved from hidden collapsible at bottom to a 320px sidebar panel triggered by gear icon in top bar. New CSS classes: `.editor-shell`, `.editor-paper`, `.editor-writing-area`, `.editor-settings-panel`. (2) **Letter compose area redesign** — desktop switches from single-column with footer compose box to side-by-side layout: messages on left, 340px sticky notepad-style compose panel on right with cream background, ruled lines, Lora font, character counter, and "Seal & Send" button. New CSS: `.letter-thread-body`, `.letter-compose-area`. (3) **Title input descender fix** — added `leading-snug py-1` to editor title input so lowercase descenders (g, y, j, p) are no longer clipped. (4) **Remove duplicate letter notifications** — changed `maybe_notify_recipient/4` in `letters.ex` to no-op; letter indicator badge in nav is sufficient without a separate notification entry. (5) **Settings discoverability** — promoted Settings to a first-class text link in center desktop nav (between Roadmap and Plus pill), removed the small gear icon from the right-side action area.
 - **2026-02-25** — Sprint 2: Bug Fixes + Categories. (1) **Letter notification badge fix** — badges now clear immediately when reading a letter via `inkwell-nav-refresh` custom DOM event dispatched after `mark_read` calls, listened by `useLiveNavCounts` hook. (2) **Dark mode Letters textarea fix** — unfocused textarea now uses `var(--foreground)` instead of hardcoded dark brown, making text visible on dark surfaces. (3) **Journal categories** — 20 predefined categories as `Ecto.Enum` on entries (`personal`, `creative_writing`, `poetry`, `fiction`, `travel`, `tech`, etc.). Category dropdown in editor Entry Settings, category pill on feed cards and entry detail pages linking to `/category/[slug]` browse pages, horizontally-scrollable category filter bar on Explore page, backend filtering via `?category=` query param. Migration `20260222000025`. New files: `categories.ts`, `/category/[slug]/page.tsx`.
