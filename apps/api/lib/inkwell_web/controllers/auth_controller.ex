@@ -121,6 +121,8 @@ defmodule InkwellWeb.AuthController do
     series_count = Inkwell.Journals.count_series(user.id)
     unread_letter_count = Inkwell.Letters.count_unread_letters(user.id)
 
+    subscriber_count = Inkwell.Newsletter.count_subscribers(user.id)
+
     json(conn, %{
       data:
         render_user(user)
@@ -128,6 +130,8 @@ defmodule InkwellWeb.AuthController do
         |> Map.put(:draft_count, draft_count)
         |> Map.put(:series_count, series_count)
         |> Map.put(:unread_letter_count, unread_letter_count)
+        |> Map.put(:newsletter_enabled, user.newsletter_enabled || false)
+        |> Map.put(:subscriber_count, subscriber_count)
     })
   end
 

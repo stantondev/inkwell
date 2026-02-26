@@ -18,6 +18,8 @@ export interface SessionUser {
   unread_notification_count?: number;
   unread_letter_count?: number;
   draft_count?: number;
+  newsletter_enabled?: boolean;
+  subscriber_count?: number;
   terms_accepted_at?: string | null;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }

@@ -66,6 +66,12 @@ defmodule InkwellWeb.Router do
 
     # Stripe webhook (public, verified by signature)
     post "/billing/webhook", BillingController, :webhook
+
+    # Newsletter (public endpoints — fixed routes before :username param)
+    get "/newsletter/confirm", NewsletterController, :confirm
+    get "/newsletter/unsubscribe", NewsletterController, :unsubscribe
+    get "/newsletter/:username", NewsletterController, :subscribe_page
+    post "/newsletter/:username/subscribe", NewsletterController, :subscribe
   end
 
   # Public endpoints with optional auth (for personalized data)
@@ -239,6 +245,16 @@ defmodule InkwellWeb.Router do
     post "/conversations/:id/read",                     ConversationController, :mark_read
     post "/conversations/:id/letters",                  LetterController, :create
     delete "/conversations/:id/letters/:letter_id",     LetterController, :delete
+
+    # Newsletter (authenticated endpoints)
+    get "/newsletter/settings", NewsletterController, :get_settings
+    patch "/newsletter/settings", NewsletterController, :update_settings
+    get "/newsletter/subscribers", NewsletterController, :list_subscribers
+    delete "/newsletter/subscribers/:id", NewsletterController, :remove_subscriber
+    post "/newsletter/send", NewsletterController, :send_newsletter
+    get "/newsletter/sends", NewsletterController, :list_sends
+    delete "/newsletter/sends/:id", NewsletterController, :cancel_send
+    get "/newsletter/stats", NewsletterController, :stats
   end
 
   # Admin API (requires auth + admin role)

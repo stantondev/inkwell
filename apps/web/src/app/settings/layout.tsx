@@ -11,6 +11,7 @@ const tabs = [
   { href: "/settings/billing", label: "Billing" },
   { href: "/settings/import", label: "Import" },
   { href: "/settings/customize", label: "Customize" },
+  { href: "/settings/newsletter", label: "Newsletter" },
   { href: "/settings/fediverse", label: "Fediverse" },
 ];
 
@@ -24,7 +25,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
         <div className="flex gap-1 mb-8 border-b overflow-x-auto" style={{ borderColor: "var(--border)" }}>
           {tabs.map((tab) => {
-            const active = pathname === tab.href;
+            const active = tab.href === "/settings"
+              ? pathname === "/settings"
+              : pathname.startsWith(tab.href);
             return (
               <Link key={tab.href} href={tab.href}
                 className="px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors whitespace-nowrap"

@@ -381,7 +381,11 @@ defmodule InkwellWeb.UserController do
       profile_banner_url: user.profile_banner_url,
       profile_status: user.profile_status,
       profile_theme: user.profile_theme,
-      avatar_frame: user.avatar_frame
+      avatar_frame: user.avatar_frame,
+      newsletter_enabled: user.newsletter_enabled || false,
+      newsletter_name: user.newsletter_name,
+      newsletter_description: user.newsletter_description,
+      subscriber_count: Inkwell.Newsletter.count_subscribers(user.id)
     }
   end
 

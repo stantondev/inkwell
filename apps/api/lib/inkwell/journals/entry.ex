@@ -28,6 +28,10 @@ defmodule Inkwell.Journals.Entry do
       :philosophy, :spirituality, :humor, :other
     ]
 
+    # Newsletter
+    field :newsletter_sent_at, :utc_datetime_usec
+    belongs_to :newsletter_send, Inkwell.Newsletter.Send
+
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :custom_filter, Inkwell.Social.FriendFilter
     belongs_to :user_icon, Inkwell.Accounts.UserIcon

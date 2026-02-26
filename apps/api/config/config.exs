@@ -37,7 +37,9 @@ config :inkwell, Oban,
        {"0 5 * * *", Inkwell.Workers.CleanupAbandonedDraftsWorker},
        {"30 5 * * *", Inkwell.Workers.CleanupRemoteEntriesWorker},
        {"0 6 * * *", Inkwell.Workers.CleanupExpiredExportsWorker},
-       {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker}
+       {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
+       {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
+       {"*/5 * * * *", Inkwell.Workers.NewsletterScheduleWorker}
      ]}
   ]
 

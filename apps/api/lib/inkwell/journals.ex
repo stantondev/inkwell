@@ -8,6 +8,7 @@ defmodule Inkwell.Journals do
   # Entries
 
   def get_entry!(id), do: Repo.get!(Entry, id)
+  def get_entry(id), do: Repo.get(Entry, id)
 
   @doc "Load multiple entries by IDs with their users preloaded."
   def get_entries_by_ids(ids) when is_list(ids) do

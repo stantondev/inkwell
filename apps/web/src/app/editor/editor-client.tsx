@@ -429,6 +429,16 @@ export function EditorClient() {
   const [coverImageId, setCoverImageId] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
 
+  // Newsletter state
+  const [newsletterEnabled, setNewsletterEnabled] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+  const [sendNewsletter, setSendNewsletter] = useState(false);
+  const [newsletterSubject, setNewsletterSubject] = useState("");
+  const [alreadySent, setAlreadySent] = useState(false);
+  const [isPlus, setIsPlus] = useState(false);
+  const [scheduleSend, setScheduleSend] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+
   // Draft tracking
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
@@ -584,6 +594,24 @@ export function EditorClient() {
     })();
   }, [state.privacy, filtersLoaded]);
 
+  // Fetch newsletter + user info when settings panel opens
+  useEffect(() => {
+    if (!showSettings) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const { data } = await res.json();
+          setNewsletterEnabled(!!data?.newsletter_enabled);
+          setSubscriberCount(data?.subscriber_count ?? 0);
+          setIsPlus((data?.subscription_tier ?? "free") === "plus");
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [showSettings]);
+
   // Fetch series options when settings panel opens
   useEffect(() => {
     if (!showSettings || seriesLoaded) return;
@@ -627,6 +655,7 @@ export function EditorClient() {
           seriesId: entry.series_id ?? null,
         });
         setCoverImageId(entry.cover_image_id ?? null);
+        setAlreadySent(!!entry.newsletter_sent_at);
 
         // Store slug + author for redirect after save
         setEntrySlug(entry.slug ?? null);
@@ -684,20 +713,31 @@ export function EditorClient() {
     }
   }, [editor, htmlMode, htmlSource]);
 
-  const buildPayload = useCallback(() => ({
-    title: state.title || null,
-    body_html: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
-    body_raw: htmlMode ? null : (editor?.getJSON() ?? {}),
-    mood: state.mood || null,
-    music: state.music || null,
-    privacy: state.privacy,
-    custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
-    tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-    excerpt: state.excerpt || null,
-    cover_image_id: coverImageId || null,
-    category: state.category || null,
-    series_id: state.seriesId || null,
-  }), [state, htmlMode, htmlSource, editor, coverImageId]);
+  const buildPayload = useCallback(() => {
+    const payload: Record<string, unknown> = {
+      title: state.title || null,
+      body_html: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
+      body_raw: htmlMode ? null : (editor?.getJSON() ?? {}),
+      mood: state.mood || null,
+      music: state.music || null,
+      privacy: state.privacy,
+      custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
+      tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+      excerpt: state.excerpt || null,
+      cover_image_id: coverImageId || null,
+      category: state.category || null,
+      series_id: state.seriesId || null,
+    };
+    // Newsletter fields — only include when sending
+    if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
+      payload.send_newsletter = true;
+      payload.newsletter_subject = newsletterSubject || state.title || "New entry";
+      if (isPlus && scheduleSend && scheduledAt) {
+        payload.newsletter_scheduled_at = scheduledAt;
+      }
+    }
+    return payload;
+  }, [state, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -1181,6 +1221,74 @@ export function EditorClient() {
                     {state.excerpt.length}/300
                   </span>
                 </div>
+
+                {/* Newsletter section — only when enabled + public */}
+                {newsletterEnabled && state.privacy === "public" && (
+                  <div className="flex flex-col gap-3 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                    <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                      Newsletter
+                    </label>
+                    {alreadySent ? (
+                      <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                        This entry was already sent as a newsletter.
+                      </div>
+                    ) : (
+                      <>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sendNewsletter}
+                            onChange={(e) => setSendNewsletter(e.target.checked)}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Send to email subscribers</span>
+                        </label>
+                        {sendNewsletter && (
+                          <>
+                            <div className="text-xs" style={{ color: "var(--muted)" }}>
+                              {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
+                            </div>
+                            <input
+                              type="text"
+                              value={newsletterSubject}
+                              onChange={(e) => setNewsletterSubject(e.target.value)}
+                              placeholder={state.title || "Email subject line"}
+                              maxLength={200}
+                              className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                              style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                            />
+                            <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                              Subject line (defaults to entry title)
+                            </span>
+                            {isPlus && (
+                              <div className="flex flex-col gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={scheduleSend}
+                                    onChange={(e) => setScheduleSend(e.target.checked)}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm">Schedule for later</span>
+                                </label>
+                                {scheduleSend && (
+                                  <input
+                                    type="datetime-local"
+                                    value={scheduledAt}
+                                    onChange={(e) => setScheduledAt(e.target.value)}
+                                    min={new Date().toISOString().slice(0, 16)}
+                                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </aside>

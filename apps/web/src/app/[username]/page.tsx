@@ -16,6 +16,7 @@ import { StampDisplay } from "@/components/stamp-display";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
 import { InlineStatusEditor } from "./inline-status-editor";
+import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -45,6 +46,10 @@ interface ProfileUser {
   profile_widgets?: { order?: string[]; hidden?: string[] } | null;
   profile_status?: string | null;
   profile_theme?: string | null;
+  newsletter_enabled?: boolean;
+  newsletter_name?: string | null;
+  newsletter_description?: string | null;
+  subscriber_count?: number;
 }
 
 interface ProfileEntry {
@@ -233,7 +238,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
     : null;
 
   // Widget ordering (Plus only — free users get default order)
-  const defaultOrder = ["about", "entries", "top_pals", "series", "guestbook", "music", "custom_html"];
+  const defaultOrder = ["about", "entries", "top_pals", "newsletter", "series", "guestbook", "music", "custom_html"];
   const widgetOrder = isPlus ? (profile.profile_widgets?.order ?? defaultOrder) : defaultOrder;
   const hiddenWidgets = new Set(isPlus ? (profile.profile_widgets?.hidden ?? []) : []);
 
@@ -300,6 +305,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
             styles={styles}
           />
         );
+      case "newsletter":
+        if (!profile.newsletter_enabled || isOwnProfile) return null;
+        return (
+          <ProfileSubscribeWidget
+            key="newsletter"
+            username={username}
+            newsletterName={profile.newsletter_name ?? null}
+            newsletterDescription={profile.newsletter_description ?? null}
+            subscriberCount={profile.subscriber_count ?? 0}
+            styles={styles}
+          />
+        );
       case "custom_html":
         if (!customContent?.bodyHtml) return null;
         return (
@@ -317,7 +334,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Separate sidebar widgets from main content widgets
   const sidebarWidgetIds = widgetOrder.filter((w) =>
-    ["top_pals", "series", "music", "guestbook", "custom_html"].includes(w)
+    ["top_pals", "newsletter", "series", "music", "guestbook", "custom_html"].includes(w)
   );
 
   return (

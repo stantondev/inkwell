@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Repo, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Repo, Social, Stamps}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -176,6 +176,9 @@ defmodule InkwellWeb.EntryController do
               |> Oban.insert()
             end
 
+            # Send as newsletter if requested
+            maybe_send_newsletter(entry, user, params)
+
             conn
             |> put_status(:created)
             |> json(%{data: render_entry_full(entry, user)})
@@ -271,6 +274,9 @@ defmodule InkwellWeb.EntryController do
                 |> FanOutWorker.new()
                 |> Oban.insert()
               end
+
+              # Send as newsletter if requested
+              maybe_send_newsletter(published, user, params)
 
               json(conn, %{data: render_entry_full(published, user)})
 
@@ -376,6 +382,28 @@ defmodule InkwellWeb.EntryController do
   end
   defp maybe_clear_custom_filter_id(attrs), do: attrs
 
+  # Trigger newsletter send if the writer opted in for this entry
+  defp maybe_send_newsletter(entry, user, params) do
+    send_newsletter = params["send_newsletter"]
+
+    if send_newsletter == true and entry.privacy == :public and (user.newsletter_enabled || false) do
+      scheduled_at = case params["newsletter_scheduled_at"] do
+        nil -> nil
+        dt_string when is_binary(dt_string) ->
+          case DateTime.from_iso8601(dt_string) do
+            {:ok, dt, _} -> dt
+            _ -> nil
+          end
+        _ -> nil
+      end
+
+      Newsletter.create_send(entry, user,
+        subject: params["newsletter_subject"],
+        scheduled_at: scheduled_at
+      )
+    end
+  end
+
   defp get_owned_entry(user_id, entry_id) do
     entry = Journals.get_entry!(entry_id)
 
@@ -430,6 +458,7 @@ defmodule InkwellWeb.EntryController do
       category: entry.category,
       series_id: entry.series_id,
       series_order: entry.series_order,
+      newsletter_sent_at: entry.newsletter_sent_at,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
