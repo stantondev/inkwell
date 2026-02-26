@@ -45,18 +45,20 @@ function getReadingTime(wordCount: number): string {
   return `${minutes} min read`;
 }
 
-function getExcerpt(entry: ExploreEntry): string {
-  if (entry.excerpt) return entry.excerpt;
-  // Strip HTML tags and decode HTML entities for a raw text preview
-  const text = entry.body_html
-    .replace(/<[^>]*>/g, "")
+function decodeEntities(str: string): string {
+  return str
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .trim();
+    .replace(/&nbsp;/g, " ");
+}
+
+function getExcerpt(entry: ExploreEntry): string {
+  if (entry.excerpt) return decodeEntities(entry.excerpt);
+  // Strip HTML tags and decode entities for a raw text preview
+  const text = decodeEntities(entry.body_html.replace(/<[^>]*>/g, "")).trim();
   if (text.length <= 120) return text;
   return text.slice(0, 120).trimEnd() + "…";
 }
