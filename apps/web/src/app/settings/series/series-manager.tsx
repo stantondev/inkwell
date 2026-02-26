@@ -165,7 +165,7 @@ function SeriesEntryList({
         // Need a different approach — let's fetch via drafts and entries
         // Actually the simplest: GET the series detail via the public route
         // We need the username for that. For now, use session info.
-        const meRes = await fetch("/api/auth/me");
+        const meRes = await fetch("/api/me");
         const me = await meRes.json();
         const username = me.data?.username;
         if (!username) return;

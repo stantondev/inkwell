@@ -43,6 +43,9 @@ if config_env() == :prod do
   config :inkwell, :frontend_url, frontend_url
   config :inkwell, :cors_origins, [frontend_url]
 
+  # API URL (used for absolute image URLs in newsletter emails)
+  config :inkwell, :api_url, System.get_env("API_URL") || "https://api.inkwell.social"
+
   # Email via Resend
   config :inkwell, :resend_api_key, System.get_env("RESEND_API_KEY")
   config :inkwell, :from_email, System.get_env("FROM_EMAIL") || "Inkwell <onboarding@resend.dev>"

@@ -1104,7 +1104,7 @@ export function EditorClient() {
     if (!showSettings) return;
     (async () => {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/me");
         if (res.ok) {
           const { data } = await res.json();
           setNewsletterEnabled(!!data?.newsletter_enabled);
