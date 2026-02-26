@@ -156,7 +156,7 @@ export function SidebarNav({
             src="/inkwell-logo.svg"
             alt="Inkwell"
             className="dark:brightness-0 dark:invert"
-            style={{ height: collapsed ? 24 : 28, width: "auto", transition: "height 200ms ease" }}
+            style={{ height: collapsed ? 24 : 38, width: "auto", transition: "height 200ms ease" }}
           />
         </Link>
       </div>

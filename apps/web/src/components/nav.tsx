@@ -15,7 +15,7 @@ function InkwellLogo() {
       <img
         src="/inkwell-logo.svg"
         alt="Inkwell"
-        className="h-8 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert"
+        className="h-10 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert"
       />
     </Link>
   );
