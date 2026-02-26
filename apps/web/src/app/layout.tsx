@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/nav";
-import { Footer } from "@/components/footer";
+import { AppShell } from "@/components/app-shell";
 import { getSession } from "@/lib/session";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -27,12 +26,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className={`${inter.variable} ${lora.variable} antialiased min-h-screen flex flex-col`}>
-        <Nav user={session?.user ?? null} />
-        <div className="flex-1">
+      <body className={`${inter.variable} ${lora.variable} antialiased`}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("inkwell-sidebar-collapsed")==="true")document.body.setAttribute("data-sidebar-collapsed","")}catch(e){}`,
+          }}
+        />
+        <AppShell user={session?.user ?? null}>
           {children}
-        </div>
-        <Footer />
+        </AppShell>
       </body>
     </html>
   );

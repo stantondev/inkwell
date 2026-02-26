@@ -167,12 +167,12 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Reader tips feature shelved** — removed from Plus tier feature lists (landing page + billing page) due to legal complexity around payment processing for tips; may revisit after ToS is finalized
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
 - **Free vs Plus tier feature gating**:
-  - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font
-  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, supporter stamp, unlimited drafts/filters, 1GB images, Plus badge
+  - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image
+  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, supporter stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage)
   - **Backend enforcement**: `PATCH /api/me` silently strips Plus-only fields (`profile_music`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`) for free users. `POST /api/me/background` returns 403 for non-Plus. Draft limit (10), filter limit (5), image storage (100MB), custom HTML/CSS, and supporter stamp also enforced.
   - **Frontend enforcement**: Settings customize editor shows `PlusGate` upgrade prompts for 8 sections (colors, background, font, layout, music, widgets, CSS, HTML). `handleSave()` only sends Plus fields when `isPlus`.
   - **Profile rendering**: `buildProfileStyles()` in `profile-styles.ts` accepts `subscription_tier` — ignores custom color/font overrides for non-Plus users, using theme defaults only. Profile page gates background image, music widget, non-classic layouts, custom HTML/CSS behind Plus.
-  - **Downgrade behavior**: saved Plus customizations stay in DB; profile renders at theme-default level; re-subscribing restores everything
+  - **Downgrade behavior**: saved Plus customizations stay in DB; profile renders at theme-default level; Plus avatar frames fall back to "none" visually; re-subscribing restores everything
 
 ### Community Feedback & Roadmap Board
 - Full public feedback board at `/roadmap` — replaces old email-only `/feedback`
@@ -228,24 +228,33 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - 4 layout options: classic (2-column), wide (full-width stacked), minimal (single column), magazine
 - 3 color pickers: Background, Text, and Accent — each overridable per-user independent of theme, with live preview
 - Background image upload (resized to max 1920px, stored as base64 data URI)
-- AIM-style status message (max 280 chars, displayed italic below username)
+- AIM-style status message (max 280 chars, displayed italic below username; inline-editable on own profile page via `InlineStatusEditor` client component)
+- Profile banner/header image — upload via Settings → Customize, displayed as cover photo at top of profile page (h-32 sm:h-48 with object-cover), free for all users
+- Avatar frames — decorative SVG overlays around profile avatar (5 free: none, classic, ink-ring, notebook, wax-seal; 5 Plus: gilded, constellation, botanical, neon, postage). Frame picker grid in Settings → Customize with live preview
 - Profile music player — Spotify/YouTube/SoundCloud embed URL, renders as "Now Playing" sidebar widget
 - Widget ordering — drag-to-reorder sidebar sections (About, Entries, Top Pals, Guestbook, Music, Custom HTML)
 - Custom CSS and Custom HTML — Plus-only ($5/mo), server-side HTML sanitization, CSS scoped via `scope-styles.ts`
 - Settings editor at `/settings/customize` with 10 collapsible sections and live preview
 - **CSS variable scoping**: `buildProfileStyles()` sets CSS custom properties (`--foreground`, `--ink`, `--muted`, `--accent`, `--surface`, `--border`, `--background`, `--surface-hover`, `--accent-light`, `--serif`) on the profile wrapper div so ALL descendant elements (including `.prose-entry` content) inherit theme-appropriate colors and fonts. This is critical — without it, `.prose-entry`'s `color: var(--ink)` would use the site default, making text invisible on dark themes.
 - **Backend**:
-  - 10 user fields: `profile_music`, `profile_background_url`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`
-  - `PATCH /api/me` — accepts all customization fields (except HTML/CSS/background which have dedicated endpoints)
+  - 12 user fields: `profile_music`, `profile_background_url`, `profile_banner_url`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`, `avatar_frame`
+  - `PATCH /api/me` — accepts all customization fields (except HTML/CSS/background/banner which have dedicated endpoints)
   - `PATCH /api/me/profile` — custom HTML/CSS (Plus-only, server-side sanitization)
   - `POST /api/me/background` — background image upload (5MB limit)
-  - Migrations: `20260222000004` (initial fields), `20260222000006` (add `profile_foreground_color`)
+  - `POST /api/me/banner` — banner image upload (5MB limit, free for all)
+  - `GET /api/avatars/:username` — serves avatar as raw image binary (decodes from data URI, public, cached)
+  - `GET /api/banners/:username` — serves banner as raw image binary (same pattern)
+  - Migrations: `20260222000004` (initial fields), `20260222000006` (add `profile_foreground_color`), `20260222000028` (add `profile_banner_url`, `avatar_frame`)
 - **Frontend**:
   - `apps/web/src/lib/profile-themes.ts` — theme, font, and layout definitions
   - `apps/web/src/lib/profile-styles.ts` — `buildProfileStyles()` resolves theme + custom overrides into CSS values AND CSS custom property overrides
-  - `apps/web/src/app/settings/customize/profile-customize-editor.tsx` — client component editor with color pickers (Background, Text, Accent) and live preview
-  - `apps/web/src/app/[username]/page.tsx` — renders customizations (backgrounds, themes, fonts, layouts, widgets, music, status, custom HTML/CSS)
-  - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`
+  - `apps/web/src/app/settings/customize/profile-customize-editor.tsx` — client component editor with color pickers (Background, Text, Accent), avatar frame picker, banner upload, and live preview
+  - `apps/web/src/app/[username]/page.tsx` — renders customizations (backgrounds, banners, themes, fonts, layouts, widgets, music, status, avatar frames, custom HTML/CSS)
+  - `apps/web/src/app/[username]/inline-status-editor.tsx` — client component for inline-editable status message on own profile (click to edit, Enter to save, Escape to cancel)
+  - `apps/web/src/lib/avatar-frames.ts` — frame metadata (id, label, description, plusOnly flag)
+  - `apps/web/src/components/avatar-with-frame.tsx` — shared component rendering avatar + SVG frame overlay; replaces all inline avatar definitions across the app
+  - `apps/web/public/frames/*.svg` — 9 handcrafted frame SVGs (viewBox 120×120, avatar circle at center 60,60 radius ~46)
+  - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`, `apps/web/src/app/api/me/banner/route.ts`
 
 ### Guestbook
 - Users can sign each other's profile guestbooks with short messages (max 500 chars)
@@ -265,7 +274,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Multi-Step Onboarding Wizard
 - `/welcome` — 4-step wizard for new users with progress dots
 - Step 1: Username + Display Name (with availability check)
-- Step 2: Photo Upload + Pronouns (file upload with canvas resize, not URL input)
+- Step 2: Avatar Upload + Pronouns (file upload with canvas resize, not URL input)
 - Step 3: Bio + Status Message ("What are you up to?")
 - Step 4: Theme Picker (grid of 8 theme swatches from `profile-themes.ts`)
 - Back/Next navigation, "Skip for now" on every step
@@ -339,9 +348,9 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Search**: text search (requires Meilisearch — not deployed to prod yet)
 - **RSS feeds**: per-user and per-tag RSS XML feeds
 - **Music player**: embedded music links on entries
-- **Profile pages**: avatar, bio, pronouns, Plus badge, Top Pen Pals sidebar, entry list, full customization (themes, backgrounds, music, guestbook, etc.)
+- **Profile pages**: avatar (with optional decorative frame), banner/header image, bio, pronouns, Plus badge, inline-editable status message, Top Pen Pals sidebar, entry list, full customization (themes, backgrounds, music, guestbook, etc.)
 - **Admin dashboard**: full admin panel at `/admin` with tabbed navigation (Dashboard / Users / Entries). Dashboard shows platform stats (total users, Plus subscribers, signups this week, entries, comments, blocked users) plus recent Plus subscribers and signups. User management at `/admin/users` with search, filtering (All/Admins/Plus/Blocked), admin promotion/demotion, user blocking (revokes all tokens), and account deletion. Entry management at `/admin/entries`. Admin access via `ADMIN_USERNAMES` env var (bootstrap) or database `role` field (promotable via UI). User schema has `role` (default "user") and `blocked_at` fields. Blocked users are rejected at the auth plug level with `account_blocked` error.
-- **ActivityPub federation**: WebFinger, actor endpoints, inbox/outbox, HTTP signatures — **live and confirmed working** (handled natively in Phoenix, not via the Node.js sidecar). Users are followable from Mastodon and other fediverse instances at `@username@inkwell.social`.
+- **ActivityPub federation**: WebFinger, actor endpoints, inbox/outbox, HTTP signatures — **live and confirmed working** (handled natively in Phoenix, not via the Node.js sidecar). Users are followable from Mastodon and other fediverse instances at `@username@inkwell.social`. Avatars served via HTTPS URLs (`/api/avatars/:username`) with `mediaType` in AP `icon` object. Banners served via `/api/banners/:username` as AP `image` property.
 - **Landing page**: public homepage with feature showcase and pricing (Plus tier shown as live)
 
 ## Navigation Structure
@@ -370,7 +379,7 @@ Profile | Top 6 | Filters | Billing | Customize
 - `user_icons` — custom profile icons
 - `friend_filters` — named lists of friends (user_id, name, member_ids UUID array) for custom entry privacy; entries reference via `custom_filter_id`
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
-- `remote_actors` — ActivityPub remote user cache
+- `remote_actors` — ActivityPub remote user cache (includes `banner_url` extracted from AP `image` property)
 - `feedback_posts` — community feedback with title, body, category, status, admin_response, release_note, completed_at, vote_count, comment_count, priority (low/medium/high/critical), value_score (1–5), attachment_ids (text[] of entry_image IDs)
 - `feedback_votes` — user_id + feedback_post_id (unique together)
 - `feedback_comments` — body, user_id, feedback_post_id
