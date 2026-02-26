@@ -36,7 +36,10 @@ defmodule Inkwell.Workers.ImportDataWorker do
   defp process_import(import_record, user_id) do
     parser = get_parser(import_record.format)
 
-    case parser.parse(import_record.file_data) do
+    # Unpack multi-file container if present
+    file_data = maybe_unpack_multifile(import_record.file_data, import_record.file_name)
+
+    case parser.parse(file_data) do
       {:error, reason} ->
         Import.mark_failed(import_record, "Parse error: #{reason}")
         :ok
@@ -180,6 +183,34 @@ defmodule Inkwell.Workers.ImportDataWorker do
   defp get_parser("wordpress_wxr"), do: Inkwell.Import.Parsers.WordpressWxr
   defp get_parser("medium_html"), do: Inkwell.Import.Parsers.MediumHtml
   defp get_parser("substack_csv"), do: Inkwell.Import.Parsers.SubstackCsv
+  defp get_parser("substack"), do: Inkwell.Import.Parsers.Substack
+  defp get_parser("auto"), do: Inkwell.Import.Parsers.AutoDetect
+
+  # When multiple files are uploaded, the frontend packs them into a JSON container.
+  # Unpack into a ZIP so parsers can handle them normally.
+  defp maybe_unpack_multifile(data, "_multifile.json") do
+    case Jason.decode(data) do
+      {:ok, %{"_multifile" => true, "files" => files}} when is_list(files) ->
+        zip_entries =
+          files
+          |> Enum.filter(fn f -> is_map(f) && is_binary(f["name"]) && is_binary(f["content"]) end)
+          |> Enum.map(fn %{"name" => name, "content" => content} ->
+            {to_charlist(name), content}
+          end)
+
+        case :zip.create(~c"multi.zip", zip_entries, [:memory]) do
+          {:ok, {_, zip_data}} -> zip_data
+          _ -> data
+        end
+
+      _ ->
+        data
+    end
+  rescue
+    _ -> data
+  end
+
+  defp maybe_unpack_multifile(data, _filename), do: data
 
   defp format_changeset_error(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)

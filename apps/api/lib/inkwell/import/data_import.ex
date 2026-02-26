@@ -28,7 +28,7 @@ defmodule Inkwell.Import.DataImport do
   end
 
   @valid_statuses ~w(pending processing completed failed cancelled)
-  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv)
+  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv substack auto)
   @valid_modes ~w(draft published)
   @valid_privacies ~w(public friends_only private)
 

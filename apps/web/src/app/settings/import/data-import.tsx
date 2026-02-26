@@ -21,53 +21,73 @@ interface ImportStatus {
 }
 
 type Format =
+  | "auto"
   | "inkwell_json"
   | "generic_csv"
   | "generic_json"
   | "wordpress_wxr"
   | "medium_html"
-  | "substack_csv";
+  | "substack";
 
-const FORMAT_OPTIONS: {
+interface FormatOption {
   value: Format;
   label: string;
   help: string;
   accept: string;
-}[] = [
+  exportGuide?: string;
+  multiFile?: boolean;
+}
+
+const FORMAT_OPTIONS: FormatOption[] = [
   {
-    value: "inkwell_json",
-    label: "Inkwell Export",
-    help: "Upload an Inkwell data export file (.json or .json.gz)",
-    accept: ".json,.gz",
+    value: "auto",
+    label: "Auto-detect",
+    help: "We'll detect the format from your file automatically — just upload and go.",
+    accept: ".zip,.html,.htm,.csv,.json,.xml,.gz",
+    multiFile: true,
   },
   {
-    value: "wordpress_wxr",
-    label: "WordPress",
-    help: "Export from WordPress: Admin \u2192 Tools \u2192 Export \u2192 All Content",
-    accept: ".xml",
+    value: "substack",
+    label: "Substack",
+    help: "Upload the ZIP export from Substack, or individual post HTML files.",
+    accept: ".zip,.html,.htm,.csv",
+    exportGuide:
+      "In Substack: Settings → Exports → Create new export → Download",
+    multiFile: true,
   },
   {
     value: "medium_html",
     label: "Medium",
-    help: "Upload the ZIP from Medium, or an individual .html file from the posts/ folder",
+    help: "Upload the ZIP from Medium. Only files in the posts/ folder will be imported.",
     accept: ".zip,.html,.htm",
+    exportGuide:
+      "In Medium: Settings → Account → Download your information → Download ZIP",
+    multiFile: true,
   },
   {
-    value: "substack_csv",
-    label: "Substack",
-    help: "Export from Substack: Settings \u2192 Export \u2192 Download all posts",
-    accept: ".csv",
+    value: "wordpress_wxr",
+    label: "WordPress",
+    help: "Upload your WordPress WXR export file. Only posts are imported (pages and attachments are skipped).",
+    accept: ".xml,.zip",
+    exportGuide:
+      "In WordPress: Admin → Tools → Export → All Content → Download Export File",
+  },
+  {
+    value: "inkwell_json",
+    label: "Inkwell Export",
+    help: "Upload an Inkwell data export file (.json or .json.gz).",
+    accept: ".json,.gz",
   },
   {
     value: "generic_csv",
     label: "Generic CSV",
-    help: "CSV with columns: title, body/content, date, tags (optional)",
-    accept: ".csv",
+    help: "CSV with columns like: title, body/content, date, tags.",
+    accept: ".csv,.txt",
   },
   {
     value: "generic_json",
     label: "Generic JSON",
-    help: "JSON array of entries with title, body_html/content, date fields",
+    help: "JSON array of entries with title, body_html/content, date fields.",
     accept: ".json",
   },
 ];
@@ -78,6 +98,17 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const FORMAT_LABELS: Record<string, string> = {
+  auto: "Auto-detect",
+  inkwell_json: "Inkwell Export",
+  wordpress_wxr: "WordPress",
+  medium_html: "Medium",
+  substack: "Substack",
+  substack_csv: "Substack (CSV)",
+  generic_csv: "Generic CSV",
+  generic_json: "Generic JSON",
+};
+
 export function DataImport() {
   const [importData, setImportData] = useState<ImportStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,12 +117,12 @@ export function DataImport() {
   const [error, setError] = useState("");
 
   // Form state
-  const [format, setFormat] = useState<Format>("inkwell_json");
+  const [format, setFormat] = useState<Format>("auto");
   const [importMode, setImportMode] = useState<"draft" | "published">("draft");
   const [privacy, setPrivacy] = useState<"private" | "friends_only" | "public">(
     "private"
   );
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [showErrors, setShowErrors] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -126,7 +157,7 @@ export function DataImport() {
   }, [importData?.status, fetchStatus]);
 
   async function handleStartImport() {
-    if (!file) {
+    if (files.length === 0) {
       setError("Please select a file to import.");
       return;
     }
@@ -136,10 +167,28 @@ export function DataImport() {
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
       formData.append("format", format);
       formData.append("import_mode", importMode);
       formData.append("default_privacy", privacy);
+
+      if (files.length === 1) {
+        // Single file — send directly
+        formData.append("file", files[0]);
+      } else {
+        // Multiple files — pack into a JSON container that the backend unpacks to ZIP
+        const fileContents = await Promise.all(
+          files.map(async (f) => {
+            const text = await f.text();
+            return { name: f.name, content: text };
+          })
+        );
+        const containerJson = JSON.stringify({
+          _multifile: true,
+          files: fileContents,
+        });
+        const blob = new Blob([containerJson], { type: "application/json" });
+        formData.append("file", blob, "_multifile.json");
+      }
 
       const res = await fetch("/api/me/import", {
         method: "POST",
@@ -151,7 +200,7 @@ export function DataImport() {
         setError(json.error || "Failed to start import.");
       } else {
         setImportData(json.data);
-        setFile(null);
+        setFiles([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch {
@@ -178,18 +227,48 @@ export function DataImport() {
 
   function handleReset() {
     setImportData(null);
-    setFile(null);
+    setFiles([]);
     setError("");
     setShowErrors(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function addFiles(newFiles: FileList | File[]) {
+    const arr = Array.from(newFiles);
+    if (arr.length === 0) return;
+
+    // Check total size
+    const totalSize =
+      arr.reduce((sum, f) => sum + f.size, 0) +
+      files.reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > 50 * 1024 * 1024) {
+      setError("Total file size exceeds 50MB limit.");
+      return;
+    }
+
+    setError("");
+
+    const selectedFormat = FORMAT_OPTIONS.find((f) => f.value === format);
+    if (selectedFormat?.multiFile) {
+      // Append to existing files for multi-file formats
+      setFiles((prev) => [...prev, ...arr]);
+    } else {
+      // Replace for single-file formats
+      setFiles(arr.slice(0, 1));
+    }
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     dropRef.current?.classList.remove("ring-2");
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) setFile(droppedFile);
+    if (e.dataTransfer.files.length > 0) {
+      addFiles(e.dataTransfer.files);
+    }
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -215,7 +294,11 @@ export function DataImport() {
   const progressPercent =
     importData && importData.total_entries > 0
       ? Math.round(
-          (importData.imported_count / importData.total_entries) * 100
+          ((importData.imported_count +
+            importData.skipped_count +
+            importData.error_count) /
+            importData.total_entries) *
+            100
         )
       : 0;
 
@@ -244,21 +327,23 @@ export function DataImport() {
           Import Data
         </h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Import journal entries from another platform or a previous Inkwell
-          export.
+          Bring your writing from another platform. Upload a single export file
+          or select multiple HTML files.
         </p>
       </div>
 
       {error && (
-        <p
-          className="text-sm rounded-lg px-3 py-2"
+        <div
+          className="text-sm rounded-lg px-3 py-2 flex items-start gap-2"
           style={{
             color: "var(--danger, #dc2626)",
-            background: "var(--surface)",
+            background: "color-mix(in srgb, var(--danger, #dc2626) 8%, var(--surface))",
+            border: "1px solid color-mix(in srgb, var(--danger, #dc2626) 20%, transparent)",
           }}
         >
-          {error}
-        </p>
+          <span className="flex-shrink-0 mt-0.5">!</span>
+          <span>{error}</span>
+        </div>
       )}
 
       {/* Upload Form */}
@@ -282,7 +367,8 @@ export function DataImport() {
               value={format}
               onChange={(e) => {
                 setFormat(e.target.value as Format);
-                setFile(null);
+                setFiles([]);
+                setError("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
               className="w-full rounded-lg border px-3 py-2 text-sm"
@@ -300,10 +386,18 @@ export function DataImport() {
             </select>
             {selectedFormat && (
               <p
-                className="text-xs mt-1"
+                className="text-xs mt-1.5"
                 style={{ color: "var(--muted)" }}
               >
                 {selectedFormat.help}
+              </p>
+            )}
+            {selectedFormat?.exportGuide && (
+              <p
+                className="text-xs mt-1 italic"
+                style={{ color: "var(--muted)" }}
+              >
+                {selectedFormat.exportGuide}
               </p>
             )}
           </div>
@@ -382,7 +476,9 @@ export function DataImport() {
               className="block text-sm font-medium mb-1.5"
               style={{ color: "var(--foreground)" }}
             >
-              File
+              {files.length > 1
+                ? `Files (${files.length} selected)`
+                : "File"}
             </label>
             <div
               ref={dropRef}
@@ -390,47 +486,71 @@ export function DataImport() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors"
+              className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-all"
               style={{
-                borderColor: "var(--border)",
-                background: "var(--background)",
+                borderColor: files.length > 0 ? "var(--accent)" : "var(--border)",
+                background: files.length > 0
+                  ? "color-mix(in srgb, var(--accent) 4%, var(--background))"
+                  : "var(--background)",
               }}
             >
-              {file ? (
-                <div className="flex items-center justify-center gap-2">
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: "var(--foreground)" }}
-                  >
-                    {file.name}
-                  </span>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    ({formatFileSize(file.size)})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                      if (fileInputRef.current)
-                        fileInputRef.current.value = "";
-                    }}
-                    className="ml-1 text-sm"
-                    style={{ color: "var(--muted)" }}
-                  >
-                    &times;
-                  </button>
+              {files.length > 0 ? (
+                <div className="space-y-2">
+                  {files.map((f, i) => (
+                    <div
+                      key={`${f.name}-${i}`}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <span
+                        className="text-sm font-medium truncate max-w-[200px]"
+                        style={{ color: "var(--foreground)" }}
+                      >
+                        {f.name}
+                      </span>
+                      <span
+                        className="text-xs flex-shrink-0"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        ({formatFileSize(f.size)})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(i);
+                        }}
+                        className="ml-1 text-sm flex-shrink-0 hover:opacity-70"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                  {selectedFormat?.multiFile && (
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Drop more files or click to add
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div>
                   <p className="text-sm" style={{ color: "var(--muted)" }}>
-                    Drop file here or click to browse
+                    Drop {selectedFormat?.multiFile ? "file(s)" : "a file"} here
+                    or click to browse
                   </p>
                   <p
                     className="text-xs mt-1"
                     style={{ color: "var(--muted)" }}
                   >
-                    Max 50MB
+                    {selectedFormat?.accept
+                      ? `Accepts: ${selectedFormat.accept
+                          .split(",")
+                          .map((ext) => ext.trim())
+                          .join(", ")}`
+                      : "Max 50MB"}
                   </p>
                 </div>
               )}
@@ -438,21 +558,54 @@ export function DataImport() {
                 ref={fileInputRef}
                 type="file"
                 accept={selectedFormat?.accept}
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                multiple={selectedFormat?.multiFile}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    addFiles(e.target.files);
+                  }
+                }}
                 className="hidden"
               />
             </div>
+            {files.length > 0 && (
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  Total:{" "}
+                  {formatFileSize(
+                    files.reduce((sum, f) => sum + f.size, 0)
+                  )}
+                </p>
+                {files.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFiles([]);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="text-xs underline"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Submit */}
           <button
             type="button"
             onClick={handleStartImport}
-            disabled={uploading || !file}
+            disabled={uploading || files.length === 0}
             className="rounded-lg px-5 py-2 text-sm font-medium transition-colors disabled:opacity-50"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
-            {uploading ? "Uploading..." : "Start Import"}
+            {uploading
+              ? "Uploading..."
+              : files.length > 1
+                ? `Import ${files.length} Files`
+                : "Start Import"}
           </button>
         </div>
       )}
@@ -474,12 +627,19 @@ export function DataImport() {
                 borderTopColor: "transparent",
               }}
             />
-            <span className="text-sm" style={{ color: "var(--foreground)" }}>
-              Importing&hellip;{" "}
-              {importData.total_entries > 0
-                ? `${importData.imported_count} of ${importData.total_entries} entries`
-                : "Parsing file..."}
-            </span>
+            <div>
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--foreground)" }}
+              >
+                Importing&hellip;
+              </span>
+              <span className="text-sm ml-1" style={{ color: "var(--muted)" }}>
+                {importData.total_entries > 0
+                  ? `${importData.imported_count + importData.skipped_count + importData.error_count} of ${importData.total_entries} entries`
+                  : "Parsing file..."}
+              </span>
+            </div>
           </div>
 
           {importData.total_entries > 0 && (
@@ -496,18 +656,37 @@ export function DataImport() {
                   }}
                 />
               </div>
-              <p
-                className="text-xs mt-1 text-right"
-                style={{ color: "var(--muted)" }}
-              >
-                {progressPercent}%
-              </p>
+              <div className="flex justify-between mt-1">
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--muted)" }}
+                >
+                  {importData.imported_count} imported
+                  {importData.skipped_count > 0 &&
+                    `, ${importData.skipped_count} skipped`}
+                  {importData.error_count > 0 &&
+                    `, ${importData.error_count} errors`}
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--muted)" }}
+                >
+                  {progressPercent}%
+                </p>
+              </div>
             </div>
           )}
 
           {importData.file_name && (
             <p className="text-xs" style={{ color: "var(--muted)" }}>
               File: {importData.file_name}
+              {importData.format && (
+                <>
+                  {" "}
+                  &middot; Format:{" "}
+                  {FORMAT_LABELS[importData.format] || importData.format}
+                </>
+              )}
             </p>
           )}
 
@@ -537,6 +716,7 @@ export function DataImport() {
           }}
         >
           <div className="flex items-center gap-2">
+            <span className="text-lg">&#10003;</span>
             <span
               className="text-sm font-medium"
               style={{ color: "var(--foreground)" }}
@@ -551,7 +731,7 @@ export function DataImport() {
             </span>
             {importData.skipped_count > 0 && (
               <span style={{ color: "var(--muted)" }}>
-                {importData.skipped_count} skipped
+                {importData.skipped_count} skipped (duplicates)
               </span>
             )}
             {importData.error_count > 0 && (
@@ -561,6 +741,16 @@ export function DataImport() {
               </span>
             )}
           </div>
+
+          {importData.imported_count === 0 &&
+            importData.error_count === 0 &&
+            importData.skipped_count === 0 && (
+              <p className="text-sm" style={{ color: "var(--muted)" }}>
+                No entries were found in the file. Make sure you&apos;re
+                uploading a supported export format. Try selecting a specific
+                format from the dropdown instead of Auto-detect.
+              </p>
+            )}
 
           {importData.import_mode === "draft" &&
             importData.imported_count > 0 && (
@@ -577,6 +767,21 @@ export function DataImport() {
               </p>
             )}
 
+          {importData.import_mode === "published" &&
+            importData.imported_count > 0 && (
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                Entries were published with their original dates. Visit{" "}
+                <a
+                  href="/feed"
+                  className="underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  your feed
+                </a>{" "}
+                to see them.
+              </p>
+            )}
+
           {/* Error details */}
           {importData.errors.length > 0 && (
             <div>
@@ -587,7 +792,11 @@ export function DataImport() {
                 style={{ color: "var(--muted)" }}
               >
                 {showErrors ? "Hide" : "Show"} error details (
-                {importData.errors.length})
+                {importData.errors.length}
+                {importData.error_count > importData.errors.length
+                  ? ` of ${importData.error_count}`
+                  : ""}
+                )
               </button>
 
               {showErrors && (
@@ -632,11 +841,19 @@ export function DataImport() {
           }}
         >
           <p
-            className="text-sm"
+            className="text-sm font-medium"
             style={{ color: "var(--danger, #dc2626)" }}
           >
             Import failed
-            {importData.error_message && `: ${importData.error_message}`}
+          </p>
+          {importData.error_message && (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              {importData.error_message}
+            </p>
+          )}
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Try selecting a specific format instead of Auto-detect, or check
+            that your export file is from a supported platform.
           </p>
           <button
             type="button"
@@ -664,7 +881,9 @@ export function DataImport() {
               <>
                 {" "}
                 {importData.imported_count}{" "}
-                {importData.imported_count === 1 ? "entry was" : "entries were"}{" "}
+                {importData.imported_count === 1
+                  ? "entry was"
+                  : "entries were"}{" "}
                 already imported before cancellation.
               </>
             )}

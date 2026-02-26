@@ -27,11 +27,42 @@ defmodule Inkwell.Import.Parsers.MediumHtml do
   defp parse_zip(data) do
     case :zip.unzip(data, [:memory]) do
       {:ok, files} ->
+        # Check if ZIP has a posts/ directory (standard Medium export structure)
+        has_posts_dir =
+          Enum.any?(files, fn {name, _} ->
+            name_str = to_string(name) |> String.downcase()
+            String.starts_with?(name_str, "posts/") ||
+              String.contains?(name_str, "/posts/")
+          end)
+
         entries =
           files
           |> Enum.filter(fn {name, _content} ->
             name_str = to_string(name)
-            String.ends_with?(name_str, ".html")
+            lower = String.downcase(name_str)
+
+            # Must be an HTML file
+            (String.ends_with?(lower, ".html") || String.ends_with?(lower, ".htm")) &&
+              # Skip OS junk
+              !String.contains?(lower, "__macosx") &&
+              !String.contains?(lower, ".ds_store") &&
+              # If posts/ directory exists, only import from there
+              if has_posts_dir do
+                String.starts_with?(lower, "posts/") ||
+                  String.contains?(lower, "/posts/")
+              else
+                # No posts/ dir: skip known non-post directories
+                !String.contains?(lower, "/profile/") &&
+                  !String.contains?(lower, "/lists/") &&
+                  !String.contains?(lower, "/highlights/") &&
+                  !String.contains?(lower, "/bookmarks/") &&
+                  !String.contains?(lower, "/blocks/") &&
+                  !String.contains?(lower, "/claps/") &&
+                  !String.contains?(lower, "/sessions/") &&
+                  !String.contains?(lower, "/ips/") &&
+                  !String.contains?(lower, "/archive/") &&
+                  !String.contains?(lower, "index.html")
+              end
           end)
           |> Enum.map(fn {name, content} ->
             parse_html_file(to_string(name), to_string(content))

@@ -4,7 +4,7 @@ defmodule InkwellWeb.ImportController do
   alias Inkwell.Import
 
   @max_file_size 52_428_800
-  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv)
+  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv substack auto)
 
   @doc "POST /api/me/import — upload file and start import"
   def create(conn, params) do
