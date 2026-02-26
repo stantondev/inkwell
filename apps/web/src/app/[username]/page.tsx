@@ -306,7 +306,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           />
         );
       case "newsletter":
-        if (!profile.newsletter_enabled || isOwnProfile) return null;
+        if (!profile.newsletter_enabled) return null;
         return (
           <ProfileSubscribeWidget
             key="newsletter"
@@ -315,6 +315,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             newsletterDescription={profile.newsletter_description ?? null}
             subscriberCount={profile.subscriber_count ?? 0}
             styles={styles}
+            preview={isOwnProfile}
           />
         );
       case "custom_html":

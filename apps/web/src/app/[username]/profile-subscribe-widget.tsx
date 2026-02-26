@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Link from "next/link";
 
 interface ProfileSubscribeWidgetProps {
   username: string;
@@ -15,6 +14,7 @@ interface ProfileSubscribeWidgetProps {
     border: string;
     foreground: string;
   };
+  preview?: boolean;
 }
 
 export function ProfileSubscribeWidget({
@@ -23,6 +23,7 @@ export function ProfileSubscribeWidget({
   newsletterDescription,
   subscriberCount,
   styles,
+  preview = false,
 }: ProfileSubscribeWidgetProps) {
   const [email, setEmail] = useState("");
   const [honeypot, setHoneypot] = useState("");
@@ -78,7 +79,28 @@ export function ProfileSubscribeWidget({
         <p className="text-xs mb-3" style={{ color: styles.muted }}>{newsletterDescription}</p>
       )}
 
-      {success ? (
+      {preview ? (
+        <div className="flex gap-1.5 opacity-60">
+          <input
+            type="email"
+            disabled
+            placeholder="your@email.com"
+            className="flex-1 min-w-0 rounded-lg border px-2.5 py-1.5 text-xs"
+            style={{
+              borderColor: styles.border,
+              background: "var(--background)",
+              color: styles.foreground,
+            }}
+          />
+          <button
+            disabled
+            className="rounded-lg px-3 py-1.5 text-xs font-medium shrink-0"
+            style={{ background: styles.accent, color: "#fff" }}
+          >
+            Subscribe
+          </button>
+        </div>
+      ) : success ? (
         <div className="text-sm py-2" style={{ color: styles.accent }}>
           Check your email to confirm!
         </div>
@@ -124,12 +146,6 @@ export function ProfileSubscribeWidget({
           </div>
         </form>
       )}
-
-      <div className="mt-2">
-        <Link href={`/${username}/subscribe`} className="text-xs hover:underline" style={{ color: styles.accent }}>
-          Subscribe page
-        </Link>
-      </div>
     </div>
   );
 }

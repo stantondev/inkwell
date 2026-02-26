@@ -31,7 +31,7 @@ export default function NewsletterSettingsPage() {
     try {
       const [settingsRes, meRes] = await Promise.all([
         fetch("/api/newsletter/settings"),
-        fetch("/api/auth/me"),
+        fetch("/api/me"),
       ]);
       if (settingsRes.ok) {
         const data = await settingsRes.json();
@@ -171,22 +171,36 @@ export default function NewsletterSettingsPage() {
             {/* Subscribe page link */}
             <div>
               <label className="block text-sm font-medium mb-1">Your subscribe page</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={username ? `https://inkwell.social/${username}/subscribe` : ""}
-                  className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                  style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--muted)" }}
-                  onFocus={(e) => {
-                    // Replace with actual username URL
-                    e.target.select();
-                  }}
-                />
-              </div>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                Share this link so people can subscribe to your newsletter
-              </p>
+              {username ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://inkwell.social/${username}/subscribe`}
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                      style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--muted)" }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(`https://inkwell.social/${username}/subscribe`)}
+                      className="rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
+                      style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                    Share this link so readers can subscribe to your newsletter
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                  <Link href="/settings" className="font-medium" style={{ color: "var(--accent)" }}>Set a username</Link>
+                  {" "}first to get your subscribe page URL.
+                </p>
+              )}
             </div>
           </div>
         )}

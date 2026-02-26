@@ -20,7 +20,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-2xl lg:max-w-5xl px-4 py-8">
         <h1 className="text-lg font-semibold mb-6">Settings</h1>
 
         <div className="flex gap-1 mb-8 border-b overflow-x-auto" style={{ borderColor: "var(--border)" }}>
