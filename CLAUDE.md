@@ -631,7 +631,8 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 1. **Make changes locally** — edit code, Phoenix hot-reloads, Next.js hot-reloads
 2. **Test locally at `http://localhost:3000`** — verify the feature works end-to-end
 3. **Run TypeScript check**: `npx tsc --noEmit --project apps/web/tsconfig.json`
-4. **Commit + push + deploy to production** (see below)
+4. **Update `CLAUDE.md`** — before deploying, update this file to reflect any new features, changed architecture, new files, updated navigation structure, new patterns, or completed backlog items. This is a required step, not optional.
+5. **Commit + push + deploy to production** (see below)
 
 > **Do not deploy directly without local testing.** We had a production outage (2026-02-24) from a deploy that caused the API to restart-loop. Testing locally first catches compile errors and broken migrations before they affect users.
 
