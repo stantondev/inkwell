@@ -51,6 +51,10 @@ defmodule Inkwell.Accounts.User do
     field :newsletter_description, :string
     field :newsletter_reply_to, :string
 
+    # Writer support
+    field :support_url, :string
+    field :support_label, :string
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification
@@ -97,7 +101,8 @@ defmodule Inkwell.Accounts.User do
       :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
       :profile_widgets, :profile_status, :profile_theme, :avatar_frame,
-      :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to
+      :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
+      :support_url, :support_label
     ])
     |> validate_length(:bio, max: 2000)
     |> validate_length(:display_name, max: 100)
@@ -107,6 +112,9 @@ defmodule Inkwell.Accounts.User do
     |> validate_length(:profile_css, max: 50_000)
     |> validate_length(:newsletter_name, max: 200)
     |> validate_length(:newsletter_description, max: 500)
+    |> validate_length(:support_url, max: 500)
+    |> validate_length(:support_label, max: 50)
+    |> maybe_validate_format(:support_url, ~r/^https:\/\/.+/, message: "must be a valid HTTPS URL")
     |> maybe_validate_format(:profile_background_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_format(:profile_accent_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_format(:profile_foreground_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")

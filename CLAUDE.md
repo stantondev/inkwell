@@ -381,6 +381,23 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - 11 proxy routes under `apps/web/src/app/api/newsletter/`
   - Settings layout: Newsletter tab added between Customize and Fediverse
 
+### Writer Support / Tip Jar (Phase 1: External Links)
+- Writers can add an external support link (Ko-fi, Buy Me a Coffee, Patreon, PayPal, etc.) to their profile
+- Available to ALL users (free + Plus) — no tier gating
+- **User fields**: `support_url` (max 500, must be HTTPS), `support_label` (max 50, default: "Support My Writing")
+- **Profile widget**: "Support {name}" sidebar card with service icon and link button, integrated into widget ordering system (`"support"` key)
+- **Entry CTA**: subtle "Support {name}'s writing" link at bottom of entry detail pages (not feed cards), only shown to non-authors
+- **Smart service detection**: `detectService(url)` parses URL domain to show appropriate icon (Ko-fi, BMC, Patreon, PayPal, Venmo, Cash App, Stripe, GoFundMe, generic heart)
+- **Backend**: `support_url` and `support_label` in `free_fields` list (no tier gating), included in `render_user/1`
+- **Frontend**:
+  - `apps/web/src/lib/support-services.ts` — service detection utility with SVG icons
+  - `apps/web/src/app/[username]/profile-support-widget.tsx` — sidebar widget component
+  - `apps/web/src/app/settings/profile-edit-form.tsx` — URL + label inputs with live preview
+  - `apps/web/src/app/[username]/[slug]/page.tsx` — entry footer CTA
+- **ToS**: Section 8.6 "External Support Links" disclaimer
+- **Phase 2 planned**: Stripe Connect Express integration for in-platform tipping (Plus-only, 8% commission)
+- Migration: `20260222000030`
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
@@ -685,7 +702,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000029_create_newsletter_infrastructure.exs`
+- Latest migration: `20260222000030_add_support_url_to_users.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -729,11 +746,12 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
 | 15 | **Author Page Layout** | Low | 2 | ~1 day | Done |
 | 15 | **Beta Participation** | Low | 2 | 2 days | Planned |
-| 15 | **Facilitate Patreon/tip jars** | Low | 2 | 5+ days | Shelved — legal complexity |
+| 15 | **Facilitate Patreon/tip jars** | Low | 2 | 5+ days | Phase 1 Done (external links); Phase 2 planned (Stripe Connect) |
 
 **Recommended next**: Custom Domains for Plus (highest remaining score at 22), then Beta Participation.
 
 ### Recently Completed
+- **2026-02-26** — Writer Support / Tip Jar (Phase 1: External Links). Writers can add an external support link (Ko-fi, Buy Me a Coffee, Patreon, PayPal, Venmo, Cash App, Stripe, GoFundMe) to their profile. Available to ALL users (free + Plus). Smart service detection parses URL domain to show appropriate icon. Profile sidebar widget with "Support {name}" heading and link button, integrated into widget ordering system. Entry detail pages show subtle CTA at bottom ("Support {name}'s writing") for non-authors. Settings → Profile has URL + label inputs with live preview showing detected service name and icon. ToS Section 8.6 added for external support links disclaimer. Phase 2 (Stripe Connect Express for in-platform tipping with 8% commission, Plus-only) is planned as future sprints. New files: `support-services.ts`, `profile-support-widget.tsx`. Modified: `user.ex` (2 fields), `user_controller.ex`, `profile-edit-form.tsx`, `[username]/page.tsx`, `[username]/[slug]/page.tsx`, `profile-customize-editor.tsx`, `terms/page.tsx`. Migration `20260222000030`.
 - **2026-02-26** — Premium Text Editor Upgrade. Major editor overhaul with 11 new TipTap extensions and custom Spacing extension. (1) **Spacing control** — custom `Spacing` extension (`apps/web/src/lib/tiptap-spacing.ts`) adds tight/normal/loose spacing to paragraphs, headings, lists, blockquotes, and task lists via `data-spacing` HTML attribute. Tight removes all gaps between items; loose doubles them. Reader CSS and editor CSS both handle spacing variants. (2) **New formatting** — underline (⌘U), highlight (5 colors), text color (9 presets), text alignment (left/center/right), subscript, superscript, smart typography (auto em-dashes, smart quotes, ellipsis). (3) **BubbleMenu** — floating toolbar on text selection with B/I/U/S, highlight colors, text color, link. (4) **FloatingMenu** — block inserter on empty lines with H1/H2, lists, blockquote, image, table, code block. (5) **Task lists** — checkbox lists with nested support, checked items get strikethrough. (6) **Tables** — 3×3 insert with header row, collapsed borders, cell selection styling. (7) **Toolbar reorganization** — grouped layout: block type dropdown (P/H1/H2/H3), inline format (B/I/U/S), rich text dropdown (highlight/color/sub/sup), alignment, lists & blocks, spacing dropdown, insert (link/image/hr/table), undo/redo, HTML/focus. (8) **Z-index fix** — bubble/floating menus render above sidebar (z-index 45 vs sidebar 40) via CSS `:has()` selector targeting TipTap's portal containers. New packages: `@tiptap/extension-text-align`, `@tiptap/extension-highlight`, `@tiptap/extension-text-style`, `@tiptap/extension-color`, `@tiptap/extension-typography`, `@tiptap/extension-underline`, `@tiptap/extension-subscript`, `@tiptap/extension-superscript`, `@tiptap/extension-table`, `@tiptap/extension-task-list`, `@tiptap/extension-task-item`. New file: `tiptap-spacing.ts`. Modified: `editor-client.tsx` (major rewrite), `globals.css` (reader + editor CSS for all new features), `package.json`.
 - **2026-02-26** — Newsletter settings fixes: route ordering, username editing, profile widget. Five fixes from testing session: (1) **Router ordering bug** — `GET /newsletter/:username` matched before `GET /newsletter/settings`, treating "settings" as a username lookup. Moved parameterized routes to separate scope after authenticated scope. (2) **Subscribe URL blank** — newsletter settings page fetched `/api/auth/me` (no proxy) instead of `/api/me`. Added Copy button for subscribe URL. (3) **Username editing** — added inline username editor to Settings → Profile with debounced availability check (400ms) via `/api/username-available`, validation, and `PATCH /api/me/username`. (4) **Settings container width** — expanded from `max-w-2xl` to `max-w-2xl lg:max-w-5xl` for desktop. (5) **Profile subscribe widget** — shows in preview mode (disabled/dimmed) on own profile instead of being hidden; removed redundant "Subscribe page" link from widget. Modified: `router.ex`, `newsletter/page.tsx`, `profile-edit-form.tsx`, `settings/layout.tsx`, `[username]/page.tsx`, `profile-subscribe-widget.tsx`.
 - **2026-02-26** — Newsletter proxy route fix. Confirm and unsubscribe proxy routes crashed on non-JSON responses. Added defensive `res.text()` + `JSON.parse()` try/catch pattern. Modified: `api/newsletter/confirm/route.ts`, `api/newsletter/unsubscribe/route.ts`.

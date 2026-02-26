@@ -281,6 +281,16 @@ export default function TermsPage() {
             directly by the payment processor and is subject to their terms and privacy policy. Inkwell does not store your
             full payment card details.
           </p>
+
+          <h3 className="font-semibold mt-4 mb-2">8.6 External Support Links</h3>
+          <p>
+            Writers may add links to third-party payment or support services (such as Ko-fi, Buy Me a Coffee, Patreon, or
+            similar platforms) on their profiles and entries. These services are operated by independent third parties, not
+            by Inkwell. Inkwell does not process, facilitate, endorse, or guarantee any payments made through external links.
+            All transactions conducted through external support links occur directly between you and the third-party service,
+            and are subject to that service&apos;s own terms, conditions, and privacy policies. Inkwell assumes no liability
+            for any disputes, losses, or issues arising from the use of third-party payment services.
+          </p>
         </section>
 
         {/* 9. Copyright and DMCA Policy */}

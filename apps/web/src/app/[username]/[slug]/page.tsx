@@ -15,6 +15,7 @@ import { EntryStamps } from "./entry-stamps";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
+import { detectService, getServiceIconSvg } from "@/lib/support-services";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -27,6 +28,8 @@ interface EntryAuthor {
   avatar_url: string | null;
   bio: string | null;
   pronouns: string | null;
+  support_url?: string | null;
+  support_label?: string | null;
 }
 
 interface EntryData {
@@ -480,6 +483,26 @@ export default async function EntryPage({ params }: EntryParams) {
             isPlus={session?.user.subscription_tier === "plus"}
           />
         </div>
+
+        {/* Support CTA */}
+        {author.support_url && !isOwnEntry && (
+          <div className="mt-8 pt-6 border-t flex items-center justify-center" style={{ borderColor: "var(--border)" }}>
+            <a
+              href={author.support_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
+              style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+            >
+              <span
+                dangerouslySetInnerHTML={{ __html: getServiceIconSvg(detectService(author.support_url).icon) }}
+                style={{ color: detectService(author.support_url).color !== "var(--accent)" ? detectService(author.support_url).color : undefined }}
+                className="flex items-center"
+              />
+              {author.support_label || `Support ${author.display_name}'s writing`}
+            </a>
+          </div>
+        )}
 
         {/* Author card */}
         <div className="mt-8 pt-8 border-t flex items-center gap-4" style={{ borderColor: "var(--border)" }}>

@@ -54,7 +54,8 @@ defmodule InkwellWeb.UserController do
     free_fields = [
       "display_name", "bio", "pronouns", "avatar_url", "settings",
       "profile_status", "profile_theme",
-      "profile_background_url", "profile_banner_url", "avatar_frame"
+      "profile_background_url", "profile_banner_url", "avatar_frame",
+      "support_url", "support_label"
     ]
 
     # Plus-only profile customization fields (silently stripped for free users)
@@ -385,7 +386,9 @@ defmodule InkwellWeb.UserController do
       newsletter_enabled: user.newsletter_enabled || false,
       newsletter_name: user.newsletter_name,
       newsletter_description: user.newsletter_description,
-      subscriber_count: Inkwell.Newsletter.count_subscribers(user.id)
+      subscriber_count: Inkwell.Newsletter.count_subscribers(user.id),
+      support_url: user.support_url,
+      support_label: user.support_label
     }
   end
 

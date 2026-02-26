@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
+import { detectService, getServiceIconSvg } from "@/lib/support-services";
 
 interface FullUser {
   id: string;
@@ -13,6 +14,8 @@ interface FullUser {
   bio: string | null;
   pronouns: string | null;
   avatar_url: string | null;
+  support_url?: string | null;
+  support_label?: string | null;
 }
 
 export function ProfileEditForm({ user }: { user: FullUser }) {
@@ -23,6 +26,8 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
     bio: user.bio ?? "",
     pronouns: user.pronouns ?? "",
     avatar_url: user.avatar_url ?? "",
+    support_url: user.support_url ?? "",
+    support_label: user.support_label ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -164,6 +169,8 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           bio: form.bio || null,
           pronouns: form.pronouns || null,
           avatar_url: form.avatar_url || null,
+          support_url: form.support_url || null,
+          support_label: form.support_label || null,
         }),
       });
       const data = await res.json();
@@ -333,6 +340,67 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           onChange={e => setForm(f => ({ ...f, pronouns: e.target.value }))}
           placeholder="e.g. she/her, they/them"
           className={inputClass} style={inputStyle} />
+      </div>
+
+      {/* Writer Support Link */}
+      <div className="border-t pt-5 mt-2" style={{ borderColor: "var(--border)" }}>
+        <h3 className="text-sm font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+          Writer Support Link
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
+          Add a link to your Ko-fi, Buy Me a Coffee, Patreon, or any support page.
+          It will appear on your profile and at the bottom of your entries.
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Support URL</label>
+            <input
+              type="url"
+              value={form.support_url}
+              maxLength={500}
+              onChange={e => setForm(f => ({ ...f, support_url: e.target.value }))}
+              placeholder="https://ko-fi.com/yourname"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Button label</label>
+            <input
+              type="text"
+              value={form.support_label}
+              maxLength={50}
+              onChange={e => setForm(f => ({ ...f, support_label: e.target.value }))}
+              placeholder="Support My Writing"
+              className={inputClass}
+              style={inputStyle}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              Leave blank to use the default label.
+            </p>
+          </div>
+
+          {form.support_url && form.support_url.startsWith("https://") && (
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted)" }}>Preview</label>
+              <div
+                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
+                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                <span
+                  dangerouslySetInnerHTML={{ __html: getServiceIconSvg(detectService(form.support_url).icon) }}
+                  style={{ color: detectService(form.support_url).color }}
+                />
+                {form.support_label || "Support My Writing"}
+              </div>
+              <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
+                Detected: {detectService(form.support_url).name}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-4 pt-2">

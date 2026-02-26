@@ -31,7 +31,7 @@ interface ProfileUser {
   profile_theme?: string | null;
 }
 
-const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "newsletter", "series", "guestbook", "music", "custom_html"];
+const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
 
 function PlusGate({ feature }: { feature: string }) {
   return (

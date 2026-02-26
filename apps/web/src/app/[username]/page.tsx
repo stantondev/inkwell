@@ -17,6 +17,7 @@ import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
 import { InlineStatusEditor } from "./inline-status-editor";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
+import { ProfileSupportWidget } from "./profile-support-widget";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -50,6 +51,8 @@ interface ProfileUser {
   newsletter_name?: string | null;
   newsletter_description?: string | null;
   subscriber_count?: number;
+  support_url?: string | null;
+  support_label?: string | null;
 }
 
 interface ProfileEntry {
@@ -239,7 +242,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Widget ordering (Plus only — free users get default order)
   // Merge any new widget types that aren't in the user's saved order (e.g., newsletter/series added after they customized)
-  const defaultOrder = ["about", "entries", "top_pals", "newsletter", "series", "guestbook", "music", "custom_html"];
+  const defaultOrder = ["about", "entries", "top_pals", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
   const savedOrder = isPlus ? (profile.profile_widgets?.order ?? null) : null;
   const widgetOrder = savedOrder
     ? [...savedOrder, ...defaultOrder.filter((w) => !savedOrder.includes(w))]
@@ -309,6 +312,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
             styles={styles}
           />
         );
+      case "support":
+        if (!profile.support_url) return null;
+        return (
+          <ProfileSupportWidget
+            key="support"
+            supportUrl={profile.support_url}
+            supportLabel={profile.support_label ?? null}
+            displayName={profile.display_name}
+            styles={styles}
+            preview={isOwnProfile}
+          />
+        );
       case "newsletter":
         if (!profile.newsletter_enabled) return null;
         return (
@@ -339,7 +354,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Separate sidebar widgets from main content widgets
   const sidebarWidgetIds = widgetOrder.filter((w) =>
-    ["top_pals", "newsletter", "series", "music", "guestbook", "custom_html"].includes(w)
+    ["top_pals", "support", "newsletter", "series", "music", "guestbook", "custom_html"].includes(w)
   );
 
   return (
