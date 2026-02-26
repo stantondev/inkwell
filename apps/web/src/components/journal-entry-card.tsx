@@ -5,6 +5,7 @@ import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
 import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { getMusicLabel } from "@/lib/music";
 
 export interface JournalEntry {
   id: string;
@@ -233,7 +234,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
                 className="text-xs truncate max-w-[100px] sm:max-w-[160px]"
                 style={{ color: "var(--muted)" }}
               >
-                ♪ {entry.music}
+                ♪ {getMusicLabel(entry.music)}
               </span>
             )}
           </div>

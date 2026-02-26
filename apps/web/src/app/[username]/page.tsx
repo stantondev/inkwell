@@ -10,6 +10,7 @@ import { FollowButton } from "./follow-button";
 import { WriteLetterButton } from "./write-letter-button";
 import { MusicPlayer } from "@/components/music-player";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
+import { getMusicLabel } from "@/lib/music";
 import { EntryContent } from "@/components/entry-content";
 import { StampDisplay } from "@/components/stamp-display";
 import { Guestbook } from "./guestbook";
@@ -153,7 +154,7 @@ function ProfileEntryCard({ entry, username, styles }: { entry: ProfileEntry; us
           {(entry.mood || entry.music) && (
             <div className="flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-0.5 mb-2 text-xs" style={{ color: styles.muted }}>
               {entry.mood && <span><span className="font-medium" style={{ color: styles.foreground }}>mood:</span> {entry.mood}</span>}
-              {entry.music && <span><span className="font-medium" style={{ color: styles.foreground }}>♪</span> {entry.music}</span>}
+              {entry.music && <span><span className="font-medium" style={{ color: styles.foreground }}>♪</span> {getMusicLabel(entry.music)}</span>}
             </div>
           )}
         </div>

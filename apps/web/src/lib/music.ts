@@ -3,8 +3,16 @@
  * Used by both the editor (client) and the entry reading page (server).
  */
 
+export type MusicService =
+  | "spotify"
+  | "youtube"
+  | "apple-music"
+  | "soundcloud"
+  | "bandcamp"
+  | "audio";
+
 export interface MusicEmbed {
-  service: "spotify" | "youtube" | "apple-music";
+  service: MusicService;
   embedUrl: string;
   /** Full-size height for the reading page */
   height: number;
@@ -60,7 +68,7 @@ export function parseMusicUrl(input: string): MusicEmbed | null {
 
   // ── Apple Music ───────────────────────────────────────────────────
   // https://music.apple.com/us/album/in-rainbows/1109714933
-  if (/music\.apple\.com\//.test(s) && /\/(album|playlist)\//.test(s)) {
+  if (/music\.apple\.com\//.test(s) && /\/(album|playlist|song)\//.test(s)) {
     return {
       service: "apple-music",
       embedUrl: s.replace("music.apple.com", "embed.music.apple.com"),
@@ -69,5 +77,52 @@ export function parseMusicUrl(input: string): MusicEmbed | null {
     };
   }
 
+  // ── SoundCloud ────────────────────────────────────────────────────
+  // https://soundcloud.com/artist/track-name
+  // https://soundcloud.com/artist/sets/playlist-name
+  if (/soundcloud\.com\/[^/]+\/[^/]+/.test(s)) {
+    return {
+      service: "soundcloud",
+      embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(s)}&color=%232d4a8a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`,
+      height: s.includes("/sets/") ? 300 : 166,
+      label: "SoundCloud",
+    };
+  }
+
+  // ── Bandcamp ──────────────────────────────────────────────────────
+  // https://artist.bandcamp.com/track/track-name
+  // https://artist.bandcamp.com/album/album-name
+  if (/[a-zA-Z0-9-]+\.bandcamp\.com\/(track|album)\//.test(s)) {
+    return {
+      service: "bandcamp",
+      embedUrl: s,
+      height: s.includes("/album/") ? 340 : 120,
+      label: "Bandcamp",
+    };
+  }
+
+  // ── Direct audio file ─────────────────────────────────────────────
+  // .mp3, .wav, .ogg, .m4a, .flac, .aac, .webm, .opus
+  if (/^https?:\/\/.+\.(mp3|wav|ogg|m4a|flac|aac|webm|opus)(\?.*)?$/i.test(s)) {
+    return {
+      service: "audio",
+      embedUrl: s,
+      height: 54,
+      label: "Audio",
+    };
+  }
+
   return null;
+}
+
+/**
+ * Returns a human-friendly label for a music field value.
+ * If it's a recognized service URL, returns the service name.
+ * If it's plain text, returns the text as-is.
+ */
+export function getMusicLabel(input: string): string {
+  if (!input) return "";
+  const embed = parseMusicUrl(input);
+  if (embed) return embed.label;
+  return input;
 }
