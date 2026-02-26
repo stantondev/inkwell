@@ -47,8 +47,16 @@ function getReadingTime(wordCount: number): string {
 
 function getExcerpt(entry: ExploreEntry): string {
   if (entry.excerpt) return entry.excerpt;
-  // Strip HTML tags for a raw text preview
-  const text = entry.body_html.replace(/<[^>]*>/g, "").trim();
+  // Strip HTML tags and decode HTML entities for a raw text preview
+  const text = entry.body_html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .trim();
   if (text.length <= 120) return text;
   return text.slice(0, 120).trimEnd() + "…";
 }
