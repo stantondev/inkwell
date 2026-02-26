@@ -125,6 +125,12 @@ function notificationText(n: Notification): string {
       return "upvoted your feedback post";
     case "letter":
       return "sent you a letter";
+    case "tip": {
+      const amountCents = n.data?.amount_cents as number | undefined;
+      const amt = amountCents ? `$${(amountCents / 100).toFixed(2)}` : "";
+      const tipMsg = n.data?.message as string | undefined;
+      return `sent you ${amt ? amt + " in " : ""}postage${tipMsg ? ` \u2014 "${tipMsg}"` : ""}`;
+    }
     default:
       return "interacted with your content";
   }
@@ -264,6 +270,26 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "tip") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        <line x1="12" y1="10" x2="12" y2="16"/>
+        <line x1="9" y1="13" x2="15" y2="13"/>
+      </svg>
+    );
+  }
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
@@ -324,6 +350,10 @@ function getActorInfo(n: Notification) {
 }
 
 function getNotificationHref(n: Notification): string | null {
+  // Postage notifications link to the postage history page
+  if (n.type === "tip") {
+    return "/settings/support/postage";
+  }
   // Letter notifications link to the conversation thread
   if (n.type === "letter" && n.data?.conversation_id) {
     return `/letters/${n.data.conversation_id}`;

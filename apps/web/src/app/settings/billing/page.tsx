@@ -167,6 +167,7 @@ export default function BillingPage() {
                 "1 GB image storage (Free: 100 MB)",
                 "Unlimited drafts (Free: 10 max)",
                 "Unlimited pen pal filters (Free: 5 max)",
+                "Integrated Postage (reader support payments)",
                 "Custom colors, fonts & layouts",
                 "Background images & profile music",
                 "Widget reordering",

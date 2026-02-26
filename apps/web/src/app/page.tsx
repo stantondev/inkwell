@@ -210,6 +210,7 @@ export default async function LandingPage() {
                   "1 GB image storage",
                   "Unlimited drafts",
                   "Unlimited pen pal filters",
+                  "Integrated Postage (reader support payments)",
                   "Custom colors, fonts & layouts",
                   "Background images & profile music",
                   "Widget reordering",

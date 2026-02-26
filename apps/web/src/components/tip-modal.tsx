@@ -205,7 +205,7 @@ function AmountStep({
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
         <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-          Support {recipientName}
+          Send postage to {recipientName}
         </h2>
       </div>
 
@@ -285,7 +285,7 @@ function AmountStep({
       {isValidAmount && (
         <div className="rounded-lg border p-3 mb-4 text-sm" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
           <div className="flex justify-between mb-1">
-            <span style={{ color: "var(--muted)" }}>Tip</span>
+            <span style={{ color: "var(--muted)" }}>Postage</span>
             <span>{formatDollars(effectiveAmount)}</span>
           </div>
           <div className="flex justify-between mb-1">
@@ -375,10 +375,10 @@ function PaymentStep({ recipientName, amountCents, tipId, onSuccess, onBack }: P
       </button>
 
       <h2 className="text-lg font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-        Complete your tip
+        Complete your postage
       </h2>
       <p className="text-sm mb-5" style={{ color: "var(--muted)" }}>
-        {formatDollars(amountCents)} tip to {recipientName} — total {formatDollars(calculateTotal(amountCents))}
+        {formatDollars(amountCents)} postage to {recipientName} — total {formatDollars(calculateTotal(amountCents))}
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -417,7 +417,7 @@ function SuccessStep({ recipientName, amountCents, onClose }: { recipientName: s
         Thank you!
       </h2>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        Your {formatDollars(amountCents)} tip was sent to {recipientName}.
+        Your {formatDollars(amountCents)} postage was sent to {recipientName}.
       </p>
       <button
         onClick={onClose}

@@ -315,7 +315,11 @@ defmodule Inkwell.Tipping do
       type: :tip,
       user_id: tip.recipient_id,
       actor_id: if(tip.anonymous, do: nil, else: tip.sender_id),
-      target_id: tip.id
+      target_id: tip.id,
+      data: %{
+        "amount_cents" => tip.amount_cents,
+        "message" => tip.message
+      }
     })
   end
 

@@ -12,6 +12,17 @@ interface ConnectStatus {
   account_id?: string;
 }
 
+interface TipStats {
+  all_time_total_cents: number;
+  all_time_count: number;
+  month_total_cents: number;
+  month_count: number;
+}
+
+function formatStatDollars(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 interface UserData {
   support_url?: string | null;
   support_label?: string | null;
@@ -33,6 +44,7 @@ export default function SupportSettingsPage() {
   const [disconnectLoading, setDisconnectLoading] = useState(false);
   const [error, setError] = useState("");
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [tipStats, setTipStats] = useState<TipStats | null>(null);
 
   // Support link form state
   const [supportUrl, setSupportUrl] = useState("");
@@ -75,6 +87,11 @@ export default function SupportSettingsPage() {
     }
     fetchData();
     fetchConnectStatus();
+    // Fetch tip stats
+    fetch("/api/tips/stats")
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.data) setTipStats(data.data); })
+      .catch(() => {});
   }, [fetchConnectStatus]);
 
   // Refresh connect status when returning from onboarding
@@ -216,7 +233,7 @@ export default function SupportSettingsPage() {
           <span className="font-medium" style={{ color: "var(--success)" }}>
             Stripe setup complete!
           </span>{" "}
-          Your account is being verified. Tips will be enabled once Stripe confirms your account.
+          Your account is being verified. Postage will be enabled once Stripe confirms your account.
         </div>
       )}
 
@@ -299,12 +316,12 @@ export default function SupportSettingsPage() {
         </div>
       </div>
 
-      {/* Section 2: Integrated Tips via Stripe Connect (Plus only) */}
+      {/* Section 2: Integrated Postage via Stripe Connect (Plus only) */}
       <div className="rounded-xl border p-6"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
         <div className="flex items-center gap-3 mb-1">
           <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Integrated Tips
+            Integrated Postage
           </h2>
           <span className="rounded-full px-2 py-0.5 text-xs font-medium"
             style={{ background: "var(--accent)", color: "#fff" }}>
@@ -312,15 +329,15 @@ export default function SupportSettingsPage() {
           </span>
         </div>
         <p className="text-xs mb-5" style={{ color: "var(--muted)" }}>
-          Let readers tip you directly on Inkwell. Payments are processed by Stripe.
-          You receive 92% of each tip — Inkwell takes an 8% platform fee.
+          Let readers send you postage directly on Inkwell. Payments are processed by Stripe.
+          You receive 92% of each payment — Inkwell takes an 8% platform fee.
         </p>
 
         {!isPlus ? (
           /* Non-Plus: show upgrade prompt */
           <div className="rounded-lg border p-4" style={{ borderColor: "var(--border)" }}>
             <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-              Integrated tips are available for Inkwell Plus members. Upgrade to let readers
+              Integrated postage is available for Inkwell Plus members. Upgrade to let readers
               support you directly without leaving the platform.
             </p>
             <a href="/settings/billing"
@@ -335,15 +352,54 @@ export default function SupportSettingsPage() {
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--success)" }} />
               <span className="text-sm font-medium" style={{ color: "var(--success)" }}>
-                Tips are active
+                Postage is active
               </span>
             </div>
+
+            {/* Tip stats summary */}
+            {tipStats && tipStats.all_time_count > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                    {formatStatDollars(tipStats.all_time_total_cents)}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>All-time</div>
+                </div>
+                <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                    {tipStats.all_time_count}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>Total postage</div>
+                </div>
+                <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                    {formatStatDollars(tipStats.month_total_cents)}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>This month</div>
+                </div>
+                <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                    {tipStats.month_count}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>This month</div>
+                </div>
+              </div>
+            )}
+
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              Readers can now tip you on your profile and entries. Tips are deposited to your
+              Readers can now send you postage on your profile and entries. Payments are deposited to your
               connected Stripe account.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="/settings/support/postage"
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                View postage history
+              </a>
+
               <button
                 onClick={handleDashboard}
                 disabled={dashboardLoading}
@@ -396,7 +452,7 @@ export default function SupportSettingsPage() {
             </div>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
               Your Stripe account has been created but setup isn&apos;t complete yet.
-              Continue the onboarding process to start receiving tips.
+              Continue the onboarding process to start receiving postage.
             </p>
 
             <button
@@ -420,7 +476,7 @@ export default function SupportSettingsPage() {
                 </li>
                 <li className="flex gap-2 items-start">
                   <span style={{ color: "var(--accent)" }}>2.</span>
-                  A tip button appears on your profile and entries
+                  A postage button appears on your profile and entries
                 </li>
                 <li className="flex gap-2 items-start">
                   <span style={{ color: "var(--accent)" }}>3.</span>
@@ -428,7 +484,7 @@ export default function SupportSettingsPage() {
                 </li>
                 <li className="flex gap-2 items-start">
                   <span style={{ color: "var(--accent)" }}>4.</span>
-                  You receive 92% of each tip directly to your bank account
+                  You receive 92% of each payment directly to your bank account
                 </li>
               </ul>
             </div>
@@ -439,7 +495,7 @@ export default function SupportSettingsPage() {
               className="rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              {connectLoading ? "Redirecting to Stripe..." : "Enable Tips"}
+              {connectLoading ? "Redirecting to Stripe..." : "Enable Postage"}
             </button>
 
             <p className="text-xs" style={{ color: "var(--muted)" }}>
@@ -457,11 +513,11 @@ export default function SupportSettingsPage() {
       {/* Fee info */}
       <div className="text-xs space-y-1" style={{ color: "var(--muted)" }}>
         <p>
-          <strong>Fee breakdown:</strong> Inkwell takes 8% of each tip. Readers pay a small
-          processing fee on top (2.9% + $0.30, charged by Stripe). You receive 92% of the tip amount.
+          <strong>Fee breakdown:</strong> Inkwell takes 8% of each postage payment. Readers pay a small
+          processing fee on top (2.9% + $0.30, charged by Stripe). You receive 92% of the postage amount.
         </p>
         <p>
-          Tips are one-time voluntary contributions. See our{" "}
+          Postage payments are one-time voluntary contributions. See our{" "}
           <a href="/terms" className="underline" target="_blank" rel="noopener noreferrer">Terms of Service</a>{" "}
           for details.
         </p>

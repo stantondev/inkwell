@@ -56,7 +56,35 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
 - `NEXT_PUBLIC_API_URL` — set as build arg in fly.web.toml as `https://api.inkwell.social` (no longer used by client components; kept for backward compat)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — set as build arg in fly.web.toml; required for Stripe Elements tip payment modal (public key, safe to embed)
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — set as build arg in fly.web.toml; required for Stripe Elements postage payment modal (public key, safe to embed)
+
+### Postage Setup Guide (Stripe Connect)
+
+The Postage feature (reader support payments) requires these steps to go live:
+
+**1. Get your Stripe Publishable Key**
+- Go to https://dashboard.stripe.com/apikeys
+- Copy the **Publishable key** (starts with `pk_live_`)
+- Edit `fly.web.toml` → set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_live_..."` in `[build.args]`
+- Redeploy web: `fly deploy --config fly.web.toml --wait-timeout 600`
+
+**2. Enable Stripe Connect in your Stripe Dashboard**
+- Go to https://dashboard.stripe.com/settings/connect
+- Complete the Connect platform profile (business info, branding)
+- Set the Connect branding (icon, color) — this is what writers see during onboarding
+
+**3. Set up a Connect webhook (optional but recommended)**
+- Go to https://dashboard.stripe.com/webhooks
+- The existing billing webhook already handles Connect events (`account.updated`, `payment_intent.succeeded`, `payment_intent.payment_failed`)
+- If you want a separate Connect webhook endpoint, create one and set `STRIPE_CONNECT_WEBHOOK_SECRET` as a Fly secret on `inkwell-api`
+
+**4. Test the flow**
+- As a Plus user, go to Settings → Support → "Enable Postage"
+- Complete Stripe Express onboarding (test mode uses test data)
+- As another user, visit the writer's profile → click "Send postage" → complete payment
+- Writer receives 92% of postage; Inkwell keeps 8% commission
+
+**Local dev**: No `STRIPE_SECRET_KEY` is set locally, so Stripe calls return `stripe_not_configured` errors. The UI handles this gracefully. To test locally, set `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in your local environment.
 
 ### Docker builds
 - API Dockerfile at `apps/api/Dockerfile` — build context is **project root**, paths use `apps/api/` prefix
@@ -165,7 +193,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
 - Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
 - Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
-- **Reader tips feature shelved** — removed from Plus tier feature lists (landing page + billing page) due to legal complexity around payment processing for tips; may revisit after ToS is finalized
+- **Postage (reader support payments)** — Plus-only feature; integrated via Stripe Connect Express. See "Writer Support / Postage" feature section
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
 - **Free vs Plus tier feature gating**:
   - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image
@@ -382,22 +410,41 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - 11 proxy routes under `apps/web/src/app/api/newsletter/`
   - Settings layout: Newsletter tab added between Customize and Fediverse
 
-### Writer Support / Tip Jar (Phase 1: External Links)
-- Writers can add an external support link (Ko-fi, Buy Me a Coffee, Patreon, PayPal, etc.) to their profile
-- Available to ALL users (free + Plus) — no tier gating
-- **User fields**: `support_url` (max 500, must be HTTPS), `support_label` (max 50, default: "Support My Writing")
-- **Profile widget**: "Support {name}" sidebar card with service icon and link button, integrated into widget ordering system (`"support"` key)
-- **Entry CTA**: subtle "Support {name}'s writing" link at bottom of entry detail pages (not feed cards), only shown to non-authors
-- **Smart service detection**: `detectService(url)` parses URL domain to show appropriate icon (Ko-fi, BMC, Patreon, PayPal, Venmo, Cash App, Stripe, GoFundMe, generic heart)
-- **Backend**: `support_url` and `support_label` in `free_fields` list (no tier gating), included in `render_user/1`
-- **Frontend**:
-  - `apps/web/src/lib/support-services.ts` — service detection utility with SVG icons
-  - `apps/web/src/app/[username]/profile-support-widget.tsx` — sidebar widget component
-  - `apps/web/src/app/settings/profile-edit-form.tsx` — URL + label inputs with live preview
-  - `apps/web/src/app/[username]/[slug]/page.tsx` — entry footer CTA
-- **ToS**: Section 8.6 "External Support Links" disclaimer
-- **Phase 2 planned**: Stripe Connect Express integration for in-platform tipping (Plus-only, 8% commission)
-- Migration: `20260222000030`
+### Writer Support / Postage (Complete — 4 Sprints)
+User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondence/letter/stamp theme.
+- **Sprint 1: External Support Links** (all users) — writers add Ko-fi, BMC, Patreon, etc. links to profile
+  - `support_url` (max 500, HTTPS), `support_label` (max 50) in `free_fields`
+  - Profile sidebar widget with smart service icon detection, entry footer CTA
+  - Migration: `20260222000030`
+- **Sprint 2: Stripe Connect Onboarding** (Plus-only) — writers connect Express accounts to receive postage
+  - User fields: `stripe_connect_account_id`, `stripe_connect_enabled`, `stripe_connect_onboarded`
+  - Tipping context module (`tipping.ex`): account creation, onboarding links, dashboard links, disconnect
+  - TippingController: 5 Connect management endpoints
+  - Settings → Support page with connect/disconnect UI, status indicators
+  - Migration: `20260222000031`
+- **Sprint 3: Postage Payment Flow** — readers send postage to writers via Stripe Elements
+  - `tips` table (internal): sender, recipient, amount_cents, total_cents, stripe_payment_intent_id, anonymous, message, status
+  - Destination charges: `application_fee_amount` (8% commission), `transfer_data[destination]` to writer's Connect account
+  - Fee structure: reader pays postage + processing fee (2.9% + $0.30), writer receives postage - 8%, Inkwell gets 8%
+  - 3-step postage modal: amount selection → Stripe PaymentElement → success
+  - "Send postage" button on profiles and entry detail pages (only when writer has Connect enabled + viewer logged in)
+  - Webhook handling: `payment_intent.succeeded` / `payment_intent.payment_failed` update status
+  - NPM packages: `@stripe/stripe-js`, `@stripe/react-stripe-js`
+  - Migration: `20260222000032`
+- **Sprint 4: Notifications & History** — postage notifications and dashboard
+  - `:tip` notification type (internal) with heart icon, amount display, message preview ("sent you $5.00 in postage")
+  - Postage history page at `/settings/support/postage` with received/sent tabs and stats
+  - Support settings page shows postage stats (all-time, this month) and "View postage history" link
+  - Notification data includes `amount_cents` and `message` for display
+- **Key files**:
+  - `apps/api/lib/inkwell/tipping.ex` — full tipping context (Connect + tips)
+  - `apps/api/lib/inkwell/tipping/tip.ex` — Tip Ecto schema
+  - `apps/api/lib/inkwell_web/controllers/tipping_controller.ex` — 10 endpoints
+  - `apps/web/src/components/tip-button.tsx`, `tip-modal.tsx` — postage UI ("Send postage" button + payment modal)
+  - `apps/web/src/app/settings/support/page.tsx` — support settings with Connect + stats
+  - `apps/web/src/app/settings/support/postage/page.tsx` — postage history
+  - 8 proxy routes under `apps/web/src/app/api/tipping/` and `apps/web/src/app/api/tips/`
+- **ToS**: Section 8.6 "External Support Links", Section 8.7 "Postage (Plus Feature)"
 
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
@@ -465,7 +512,7 @@ Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter |
 - `entry_images` — uploaded images for entries (id, user_id, data as base64 data URI, content_type, filename, byte_size)
 - `newsletter_subscribers` — email subscribers per writer (writer_id, email, status: pending/confirmed/unsubscribed, confirm_token, unsubscribe_token, source)
 - `newsletter_sends` — newsletter send records (entry_id, writer_id, subject, status: queued/sending/sent/failed/cancelled, recipient_count, sent_count, failed_count, scheduled_at)
-- `tips` — reader-to-writer tips (sender_id, recipient_id, amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
+- `tips` — reader-to-writer postage payments (sender_id, recipient_id, amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -748,14 +795,14 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
 | 15 | **Author Page Layout** | Low | 2 | ~1 day | Done |
 | 15 | **Beta Participation** | Low | 2 | 2 days | Planned |
-| 15 | **Facilitate Patreon/tip jars** | Low | 2 | 5+ days | Phase 1+2+3 Done; Phase 4 (history/notifications) planned |
+| 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
 **Recommended next**: Custom Domains for Plus (highest remaining score at 22), then Beta Participation.
 
 ### Recently Completed
-- **2026-02-26** — Writer Support / Tip Jar (Phase 3: Tip Payment Flow). Full tip payment system — readers can send $1-$100 tips to writers with Stripe Connect integrated. Backend: `tips` table (sender, recipient, amount, total, stripe_payment_intent_id, anonymous, message, status), `Tipping` context extended with `create_tip/3` (creates PaymentIntent with destination charge + 8% application_fee), `confirm_tip/1`, `handle_payment_succeeded/1`, `handle_payment_failed/1`, `list_tips_received/2`, `list_tips_sent/2`, `get_tip_stats/1`. TippingController extended with 5 new endpoints (create_tip, confirm_tip, tips_received, tips_sent, tip_stats). Webhook handling for `payment_intent.succeeded` and `payment_intent.payment_failed` events updates tip status and creates `:tip` notification. Fee structure: reader pays tip + processing fee (2.9% + $0.30), writer receives tip - 8% commission, Inkwell keeps commission. Frontend: `TipModal` component with 3-step flow (amount selection with $1/$3/$5/$10 presets + custom input, fee breakdown, anonymous toggle, optional 200-char message → Stripe Elements PaymentElement for card input → success confirmation). `TipButton` component (default + compact variants). Tip button shown on profile sidebar (when writer has Connect enabled + viewer is logged in + not own profile) and entry detail pages (alongside external support link). Stripe packages: `@stripe/stripe-js`, `@stripe/react-stripe-js`. `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` build arg added to Dockerfile + fly.web.toml. 5 proxy routes under `apps/web/src/app/api/tips/`. New files: `tip.ex`, `tip-modal.tsx`, `tip-button.tsx`, 5 proxy routes. Modified: `tipping.ex`, `tipping_controller.ex`, `billing_controller.ex`, `router.ex`, `[username]/page.tsx`, `[username]/[slug]/page.tsx`, `Dockerfile`, `fly.web.toml`, `package.json`. Migration `20260222000032`.
-- **2026-02-26** — Writer Support / Tip Jar (Phase 2: Stripe Connect Onboarding). Plus-only Stripe Connect Express integration so writers can receive tips directly on Inkwell. Writers connect their Stripe account from Settings → Support, completing onboarding via Stripe's hosted flow. Backend: 3 new user fields (`stripe_connect_account_id`, `stripe_connect_enabled`, `stripe_connect_onboarded`), `Inkwell.Tipping` context module with Stripe Connect API calls (create Express account, onboarding links, login links, status check, disconnect, `account.updated` webhook handling), `TippingController` with 5 endpoints (connect, status, dashboard, disconnect, refresh). Billing controller extended to handle `account.updated` webhook events for automatic Connect status updates. Frontend: Settings → Support page with two sections — External Support Link (all users, moved from Profile settings) and Integrated Tips (Plus-gated, shows "Enable Tips" → Stripe onboarding → connected status with dashboard link and disconnect option). Support tab added to settings navigation between Newsletter and Fediverse. 5 proxy routes under `apps/web/src/app/api/tipping/`. User controller renders `stripe_connect_enabled` in public profile and full connect fields in private profile. New files: `tipping.ex`, `tipping_controller.ex`, `settings/support/page.tsx`, 5 proxy route files. Modified: `user.ex`, `user_controller.ex`, `billing_controller.ex`, `router.ex`, `settings/layout.tsx`. Migration `20260222000031`.
-- **2026-02-26** — Writer Support / Tip Jar (Phase 1: External Links). Writers can add an external support link (Ko-fi, Buy Me a Coffee, Patreon, PayPal, Venmo, Cash App, Stripe, GoFundMe) to their profile. Available to ALL users (free + Plus). Smart service detection parses URL domain to show appropriate icon. Profile sidebar widget with "Support {name}" heading and link button, integrated into widget ordering system. Entry detail pages show subtle CTA at bottom ("Support {name}'s writing") for non-authors. Settings → Profile has URL + label inputs with live preview showing detected service name and icon. ToS Section 8.6 added for external support links disclaimer. Phase 2 (Stripe Connect Express for in-platform tipping with 8% commission, Plus-only) is planned as future sprints. New files: `support-services.ts`, `profile-support-widget.tsx`. Modified: `user.ex` (2 fields), `user_controller.ex`, `profile-edit-form.tsx`, `[username]/page.tsx`, `[username]/[slug]/page.tsx`, `profile-customize-editor.tsx`, `terms/page.tsx`. Migration `20260222000030`.
+- **2026-02-26** — Writer Support / Postage (Sprints 3+4: Payment Flow + Notifications + History + Rebrand). Full postage payment system with Stripe Connect. Rebranded from "Tips" to "Postage" to fit Inkwell's correspondence/letter/stamp theme. User-facing text uses "Postage" / "Send postage" throughout; internal API paths and DB table name remain `tips`. Sprint 3: `tips` table, `Tipping` context with `create_tip/3` (destination charges + 8% commission), 3-step payment modal (amount → Stripe Elements → success), "Send postage" button on profiles/entries, webhook handling, `@stripe/stripe-js` + `@stripe/react-stripe-js`. Sprint 4: `:tip` notification with amount ("sent you $5.00 in postage"), postage history page at `/settings/support/postage` with received/sent tabs + stats, support settings shows stats grid + "View postage history" link. Added "Integrated Postage" to Plus feature lists on landing page and billing page. New: `tip.ex`, `tip-modal.tsx`, `tip-button.tsx`, `settings/support/postage/page.tsx`, 5 proxy routes. Migration `20260222000032`.
+- **2026-02-26** — Writer Support / Postage (Sprint 2: Stripe Connect Onboarding). Plus-only Stripe Connect Express. Writers connect Stripe account from Settings → Support. Backend: 3 user fields, `Tipping` context module with Connect API calls, `TippingController` (5 endpoints), `account.updated` webhook handling. Frontend: Support settings page with Connect UI + external link section. 5 proxy routes. Migration `20260222000031`.
+- **2026-02-26** — Writer Support / Postage (Sprint 1: External Links). External support links (Ko-fi, BMC, Patreon, etc.) for all users. Smart service detection, profile sidebar widget, entry footer CTA. Migration `20260222000030`.
 - **2026-02-26** — Premium Text Editor Upgrade. Major editor overhaul with 11 new TipTap extensions and custom Spacing extension. (1) **Spacing control** — custom `Spacing` extension (`apps/web/src/lib/tiptap-spacing.ts`) adds tight/normal/loose spacing to paragraphs, headings, lists, blockquotes, and task lists via `data-spacing` HTML attribute. Tight removes all gaps between items; loose doubles them. Reader CSS and editor CSS both handle spacing variants. (2) **New formatting** — underline (⌘U), highlight (5 colors), text color (9 presets), text alignment (left/center/right), subscript, superscript, smart typography (auto em-dashes, smart quotes, ellipsis). (3) **BubbleMenu** — floating toolbar on text selection with B/I/U/S, highlight colors, text color, link. (4) **FloatingMenu** — block inserter on empty lines with H1/H2, lists, blockquote, image, table, code block. (5) **Task lists** — checkbox lists with nested support, checked items get strikethrough. (6) **Tables** — 3×3 insert with header row, collapsed borders, cell selection styling. (7) **Toolbar reorganization** — grouped layout: block type dropdown (P/H1/H2/H3), inline format (B/I/U/S), rich text dropdown (highlight/color/sub/sup), alignment, lists & blocks, spacing dropdown, insert (link/image/hr/table), undo/redo, HTML/focus. (8) **Z-index fix** — bubble/floating menus render above sidebar (z-index 45 vs sidebar 40) via CSS `:has()` selector targeting TipTap's portal containers. New packages: `@tiptap/extension-text-align`, `@tiptap/extension-highlight`, `@tiptap/extension-text-style`, `@tiptap/extension-color`, `@tiptap/extension-typography`, `@tiptap/extension-underline`, `@tiptap/extension-subscript`, `@tiptap/extension-superscript`, `@tiptap/extension-table`, `@tiptap/extension-task-list`, `@tiptap/extension-task-item`. New file: `tiptap-spacing.ts`. Modified: `editor-client.tsx` (major rewrite), `globals.css` (reader + editor CSS for all new features), `package.json`.
 - **2026-02-26** — Newsletter settings fixes: route ordering, username editing, profile widget. Five fixes from testing session: (1) **Router ordering bug** — `GET /newsletter/:username` matched before `GET /newsletter/settings`, treating "settings" as a username lookup. Moved parameterized routes to separate scope after authenticated scope. (2) **Subscribe URL blank** — newsletter settings page fetched `/api/auth/me` (no proxy) instead of `/api/me`. Added Copy button for subscribe URL. (3) **Username editing** — added inline username editor to Settings → Profile with debounced availability check (400ms) via `/api/username-available`, validation, and `PATCH /api/me/username`. (4) **Settings container width** — expanded from `max-w-2xl` to `max-w-2xl lg:max-w-5xl` for desktop. (5) **Profile subscribe widget** — shows in preview mode (disabled/dimmed) on own profile instead of being hidden; removed redundant "Subscribe page" link from widget. Modified: `router.ex`, `newsletter/page.tsx`, `profile-edit-form.tsx`, `settings/layout.tsx`, `[username]/page.tsx`, `profile-subscribe-widget.tsx`.
 - **2026-02-26** — Newsletter proxy route fix. Confirm and unsubscribe proxy routes crashed on non-JSON responses. Added defensive `res.text()` + `JSON.parse()` try/catch pattern. Modified: `api/newsletter/confirm/route.ts`, `api/newsletter/unsubscribe/route.ts`.
