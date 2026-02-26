@@ -98,7 +98,24 @@ export default function LandingPage() {
               <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
               <p className="text-3xl font-bold mb-4">$0</p>
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-                {["Unlimited public entries", "8 profile themes", "Per-entry privacy controls", "Pen Pal filters (up to 5)", "Top 6 pen pals", "100 MB image storage", "Up to 10 drafts", "Status message", "RSS feed"].map((item) => (
+                {[
+                  "Unlimited public entries",
+                  "8 profile themes",
+                  "Per-entry privacy controls",
+                  "Version history (25 per entry)",
+                  "Series & collections (up to 5)",
+                  "Bookmarks & reading list",
+                  "Categories & cover images",
+                  "Word count & reading time",
+                  "Distraction-free writing mode",
+                  "Data import (WordPress, Medium, Substack & more)",
+                  "Pen Pal filters (up to 5)",
+                  "Top 6 pen pals",
+                  "100 MB image storage",
+                  "Up to 10 drafts",
+                  "Status message",
+                  "RSS feed",
+                ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
                     <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
                     {item}
@@ -130,6 +147,8 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   "Everything in Free",
+                  "Unlimited version history",
+                  "Unlimited series & collections",
                   "1 GB image storage",
                   "Unlimited drafts",
                   "Unlimited pen pal filters",
@@ -170,7 +189,7 @@ export default function LandingPage() {
         >
           What writing on Inkwell looks like
         </p>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* Card 1: Journal page-turning UI */}
           <div
             className="rounded-xl border p-5 flex flex-col gap-4"
@@ -287,6 +306,50 @@ export default function LandingPage() {
               </h3>
               <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
                 No counts, no dopamine metrics. Press a meaningful reaction onto someone&apos;s entry like an ink stamp on paper.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 4: Writer tools */}
+          <div
+            className="rounded-xl border p-5 flex flex-col gap-4"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            {/* Writer tools illustration */}
+            <div
+              className="rounded-lg p-4 flex items-center justify-center"
+              style={{ background: "var(--accent-light)", minHeight: 140 }}
+            >
+              <div className="flex flex-col gap-2 w-full max-w-[180px]">
+                {/* Series/collection stack */}
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-5 h-5 rounded flex items-center justify-center text-xs" style={{ background: "var(--accent)", color: "#fff" }}>1</div>
+                  <div className="flex-1 h-2 rounded-full" style={{ background: "var(--border)" }} />
+                </div>
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-5 h-5 rounded flex items-center justify-center text-xs" style={{ background: "var(--accent)", color: "#fff" }}>2</div>
+                  <div className="flex-1 h-2 rounded-full" style={{ background: "var(--border)" }} />
+                </div>
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-5 h-5 rounded flex items-center justify-center text-xs" style={{ background: "var(--accent)", color: "#fff" }}>3</div>
+                  <div className="flex-1 h-2 rounded-full w-3/4" style={{ background: "var(--border)" }} />
+                </div>
+                {/* Version dots */}
+                <div className="flex items-center gap-1 mt-1 justify-center">
+                  <div className="w-2 h-2 rounded-full" style={{ background: "var(--border)" }} />
+                  <div className="w-2 h-2 rounded-full" style={{ background: "var(--border)" }} />
+                  <div className="w-2 h-2 rounded-full" style={{ background: "var(--accent)", opacity: 0.6 }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--accent)" }} />
+                  <span className="text-xs ml-1" style={{ color: "var(--accent)" }}>v4</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Tools for serious writers
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                Version history, series &amp; collections, categories, cover images, distraction-free mode, and import from WordPress, Medium &amp; Substack.
               </p>
             </div>
           </div>
