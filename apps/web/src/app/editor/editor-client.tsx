@@ -660,7 +660,15 @@ function EditorFloatingMenu({ editor, onUploadImage }: { editor: Editor; onUploa
   const floatingFileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <FloatingMenu editor={editor} style={{ zIndex: 50 }}>
+    <FloatingMenu editor={editor} style={{ zIndex: 50 }}
+      shouldShow={({ editor: e }) => {
+        // Don't show on the initial empty editor (only one empty paragraph)
+        if (e.isEmpty) return false;
+        // Show only on empty text blocks (paragraphs, headings)
+        const { $from } = e.state.selection;
+        const node = $from.parent;
+        return node.isTextblock && node.content.size === 0;
+      }}>
       <div className="editor-floating-menu">
         <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           className="editor-floating-menu-item">
