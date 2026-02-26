@@ -791,15 +791,24 @@ body[data-focus-mode] footer {
 .editor-main {
   flex: 1;
   min-width: 0;
-  display: flex;
-  justify-content: center;
   padding: 24px 16px 80px;
 }
 
-/* The paper — centered, with journal-like feeling */
+@media (min-width: 640px) {
+  .editor-main {
+    padding: 24px 32px 80px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .editor-main {
+    padding: 24px 48px 80px;
+  }
+}
+
+/* The paper — wide, filling available space */
 .editor-paper {
   width: 100%;
-  max-width: 720px;
   position: relative;
 }
 
