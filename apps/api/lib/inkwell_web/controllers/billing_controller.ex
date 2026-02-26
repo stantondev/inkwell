@@ -98,9 +98,17 @@ defmodule InkwellWeb.BillingController do
     end
   end
 
-  # Handle Stripe Connect events (account.updated)
+  # Handle Stripe Connect events (account.updated) and payment_intent events (tips)
   defp handle_connect_event(%{"type" => "account.updated", "data" => %{"object" => account}}) do
     Tipping.handle_account_updated(account)
+  end
+
+  defp handle_connect_event(%{"type" => "payment_intent.succeeded", "data" => %{"object" => pi}}) do
+    Tipping.handle_payment_succeeded(pi)
+  end
+
+  defp handle_connect_event(%{"type" => "payment_intent.payment_failed", "data" => %{"object" => pi}}) do
+    Tipping.handle_payment_failed(pi)
   end
 
   defp handle_connect_event(_), do: :ok

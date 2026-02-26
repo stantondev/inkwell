@@ -18,6 +18,7 @@ import { Guestbook } from "./guestbook";
 import { InlineStatusEditor } from "./inline-status-editor";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
 import { ProfileSupportWidget } from "./profile-support-widget";
+import { TipButton } from "@/components/tip-button";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -53,6 +54,7 @@ interface ProfileUser {
   subscriber_count?: number;
   support_url?: string | null;
   support_label?: string | null;
+  stripe_connect_enabled?: boolean;
 }
 
 interface ProfileEntry {
@@ -312,18 +314,35 @@ export default async function ProfilePage({ params }: ProfileParams) {
             styles={styles}
           />
         );
-      case "support":
-        if (!profile.support_url) return null;
+      case "support": {
+        const hasTips = profile.stripe_connect_enabled && !isOwnProfile && !!session;
+        const hasExternalLink = !!profile.support_url;
+        if (!hasTips && !hasExternalLink) return null;
         return (
-          <ProfileSupportWidget
-            key="support"
-            supportUrl={profile.support_url}
-            supportLabel={profile.support_label ?? null}
-            displayName={profile.display_name}
-            styles={styles}
-            preview={isOwnProfile}
-          />
+          <div key="support" className="flex flex-col gap-4">
+            {hasTips && (
+              <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
+                <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: styles.muted }}>
+                  Support {profile.display_name}
+                </h3>
+                <TipButton
+                  recipientId={profile.id}
+                  recipientName={profile.display_name}
+                />
+              </div>
+            )}
+            {hasExternalLink && (
+              <ProfileSupportWidget
+                supportUrl={profile.support_url!}
+                supportLabel={profile.support_label ?? null}
+                displayName={profile.display_name}
+                styles={styles}
+                preview={isOwnProfile}
+              />
+            )}
+          </div>
         );
+      }
       case "newsletter":
         if (!profile.newsletter_enabled) return null;
         return (

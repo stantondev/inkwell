@@ -16,6 +16,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
+import { TipButton } from "@/components/tip-button";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -30,6 +31,7 @@ interface EntryAuthor {
   pronouns: string | null;
   support_url?: string | null;
   support_label?: string | null;
+  stripe_connect_enabled?: boolean;
 }
 
 interface EntryData {
@@ -485,22 +487,30 @@ export default async function EntryPage({ params }: EntryParams) {
         </div>
 
         {/* Support CTA */}
-        {author.support_url && !isOwnEntry && (
-          <div className="mt-8 pt-6 border-t flex items-center justify-center" style={{ borderColor: "var(--border)" }}>
-            <a
-              href={author.support_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
-              style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
-            >
-              <span
-                dangerouslySetInnerHTML={{ __html: getServiceIconSvg(detectService(author.support_url).icon) }}
-                style={{ color: detectService(author.support_url).color !== "var(--accent)" ? detectService(author.support_url).color : undefined }}
-                className="flex items-center"
+        {(author.stripe_connect_enabled || author.support_url) && !isOwnEntry && (
+          <div className="mt-8 pt-6 border-t flex flex-col items-center gap-3" style={{ borderColor: "var(--border)" }}>
+            {author.stripe_connect_enabled && session && (
+              <TipButton
+                recipientId={author.id}
+                recipientName={author.display_name}
               />
-              {author.support_label || `Support ${author.display_name}'s writing`}
-            </a>
+            )}
+            {author.support_url && (
+              <a
+                href={author.support_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
+                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+              >
+                <span
+                  dangerouslySetInnerHTML={{ __html: getServiceIconSvg(detectService(author.support_url).icon) }}
+                  style={{ color: detectService(author.support_url).color !== "var(--accent)" ? detectService(author.support_url).color : undefined }}
+                  className="flex items-center"
+                />
+                {author.support_label || `Support ${author.display_name}'s writing`}
+              </a>
+            )}
           </div>
         )}
 

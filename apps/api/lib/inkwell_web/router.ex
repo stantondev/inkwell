@@ -251,6 +251,13 @@ defmodule InkwellWeb.Router do
     post "/tipping/connect/disconnect", TippingController, :disconnect
     post "/tipping/connect/refresh", TippingController, :refresh
 
+    # Tips (authenticated)
+    post "/tips", TippingController, :create_tip
+    post "/tips/:id/confirm", TippingController, :confirm_tip
+    get "/tips/received", TippingController, :tips_received
+    get "/tips/sent", TippingController, :tips_sent
+    get "/tips/stats", TippingController, :tip_stats
+
     # Newsletter (authenticated endpoints)
     get "/newsletter/settings", NewsletterController, :get_settings
     patch "/newsletter/settings", NewsletterController, :update_settings

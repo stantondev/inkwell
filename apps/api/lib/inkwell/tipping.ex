@@ -6,9 +6,14 @@ defmodule Inkwell.Tipping do
   """
 
   alias Inkwell.Accounts.User
+  alias Inkwell.Tipping.Tip
   alias Inkwell.Repo
 
+  import Ecto.Query
+
   require Logger
+
+  @commission_rate 0.08
 
   @stripe_api "https://api.stripe.com/v1"
 
@@ -175,6 +180,198 @@ defmodule Inkwell.Tipping do
         })
         |> Repo.update()
     end
+  end
+
+  # ── Tips: Creation & Payment ──────────────────────────────────────────
+
+  @doc """
+  Create a tip PaymentIntent with destination charge to the writer's connected account.
+  Returns {:ok, %{client_secret, tip_id}} for the frontend to confirm with Stripe Elements.
+
+  Fee structure:
+  - Reader pays: tip_amount + processing fee (2.9% + $0.30)
+  - Writer receives: tip_amount - 8% commission
+  - Inkwell receives: 8% commission
+  - Stripe receives: processing fee (charged to reader)
+  """
+  def create_tip(%User{} = sender, %User{} = recipient, attrs) do
+    amount_cents = attrs["amount_cents"] || attrs[:amount_cents]
+    anonymous = attrs["anonymous"] || attrs[:anonymous] || false
+    message = attrs["message"] || attrs[:message]
+
+    cond do
+      !recipient.stripe_connect_enabled ->
+        {:error, :tips_not_enabled}
+
+      !recipient.stripe_connect_account_id ->
+        {:error, :no_connect_account}
+
+      sender.id == recipient.id ->
+        {:error, :cannot_tip_self}
+
+      !is_integer(amount_cents) or amount_cents < 100 or amount_cents > 10_000 ->
+        {:error, :invalid_amount}
+
+      true ->
+        # Calculate fees
+        # Processing fee: ceil((tip + 30) / (1 - 0.029)) - tip
+        total_cents = ceil((amount_cents + 30) / (1 - 0.029)) |> trunc()
+        commission_cents = ceil(amount_cents * @commission_rate) |> trunc()
+
+        # Create Stripe PaymentIntent with destination charge
+        params =
+          URI.encode_query(%{
+            "amount" => total_cents,
+            "currency" => "usd",
+            "payment_method_types[]" => "card",
+            "application_fee_amount" => commission_cents,
+            "transfer_data[destination]" => recipient.stripe_connect_account_id,
+            "metadata[sender_id]" => sender.id,
+            "metadata[recipient_id]" => recipient.id,
+            "metadata[tip_amount_cents]" => amount_cents,
+            "metadata[anonymous]" => to_string(anonymous)
+          })
+
+        case stripe_post("/payment_intents", params) do
+          {:ok, %{"id" => pi_id, "client_secret" => client_secret}} ->
+            # Create tip record in DB
+            tip_attrs = %{
+              sender_id: sender.id,
+              recipient_id: recipient.id,
+              amount_cents: amount_cents,
+              total_cents: total_cents,
+              currency: "usd",
+              stripe_payment_intent_id: pi_id,
+              anonymous: anonymous,
+              message: message,
+              status: "pending"
+            }
+
+            case %Tip{} |> Tip.changeset(tip_attrs) |> Repo.insert() do
+              {:ok, tip} ->
+                {:ok, %{client_secret: client_secret, tip_id: tip.id, total_cents: total_cents}}
+
+              {:error, changeset} ->
+                Logger.error("Failed to save tip record: #{inspect(changeset.errors)}")
+                {:error, :db_error}
+            end
+
+          {:error, reason} ->
+            Logger.error("Failed to create PaymentIntent: #{inspect(reason)}")
+            {:error, reason}
+        end
+    end
+  end
+
+  @doc "Mark a tip as succeeded after frontend confirms payment."
+  def confirm_tip(tip_id) do
+    case Repo.get(Tip, tip_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Tip{status: "pending"} = tip ->
+        tip
+        |> Tip.changeset(%{status: "succeeded"})
+        |> Repo.update()
+
+      %Tip{status: status} ->
+        {:error, {:already_processed, status}}
+    end
+  end
+
+  @doc "Handle payment_intent.succeeded webhook — mark tip as succeeded."
+  def handle_payment_succeeded(%{"id" => pi_id}) do
+    case Tip |> where([t], t.stripe_payment_intent_id == ^pi_id) |> Repo.one() do
+      nil ->
+        Logger.info("payment_intent.succeeded for unknown PI #{pi_id}")
+        :ok
+
+      %Tip{status: "pending"} = tip ->
+        tip |> Tip.changeset(%{status: "succeeded"}) |> Repo.update()
+        # Create notification for recipient
+        create_tip_notification(tip)
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  @doc "Handle payment_intent.payment_failed webhook — mark tip as failed."
+  def handle_payment_failed(%{"id" => pi_id}) do
+    case Tip |> where([t], t.stripe_payment_intent_id == ^pi_id) |> Repo.one() do
+      nil -> :ok
+
+      %Tip{status: "pending"} = tip ->
+        tip |> Tip.changeset(%{status: "failed"}) |> Repo.update()
+        :ok
+
+      _ -> :ok
+    end
+  end
+
+  defp create_tip_notification(%Tip{} = tip) do
+    Inkwell.Accounts.create_notification(%{
+      type: :tip,
+      user_id: tip.recipient_id,
+      actor_id: if(tip.anonymous, do: nil, else: tip.sender_id),
+      target_id: tip.id
+    })
+  end
+
+  # ── Tips: Listing & Stats ────────────────────────────────────────────
+
+  @doc "List tips received by a writer, paginated."
+  def list_tips_received(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    Tip
+    |> where([t], t.recipient_id == ^user_id and t.status == "succeeded")
+    |> order_by([t], desc: t.inserted_at)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> preload(:sender)
+    |> Repo.all()
+  end
+
+  @doc "List tips sent by a reader, paginated."
+  def list_tips_sent(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    Tip
+    |> where([t], t.sender_id == ^user_id and t.status == "succeeded")
+    |> order_by([t], desc: t.inserted_at)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> preload(:recipient)
+    |> Repo.all()
+  end
+
+  @doc "Get tip stats for a writer (total received, count, this month)."
+  def get_tip_stats(user_id) do
+    now = DateTime.utc_now()
+    month_start = %{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
+
+    all_time =
+      Tip
+      |> where([t], t.recipient_id == ^user_id and t.status == "succeeded")
+      |> select([t], %{total: coalesce(sum(t.amount_cents), 0), count: count(t.id)})
+      |> Repo.one()
+
+    this_month =
+      Tip
+      |> where([t], t.recipient_id == ^user_id and t.status == "succeeded" and t.inserted_at >= ^month_start)
+      |> select([t], %{total: coalesce(sum(t.amount_cents), 0), count: count(t.id)})
+      |> Repo.one()
+
+    %{
+      all_time_total_cents: all_time.total,
+      all_time_count: all_time.count,
+      month_total_cents: this_month.total,
+      month_count: this_month.count
+    }
   end
 
   # ── Webhook: account.updated ────────────────────────────────────────

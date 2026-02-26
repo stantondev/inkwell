@@ -32,6 +32,8 @@ COPY apps/web/ ./apps/web/
 # Public env vars are baked into the client bundle at build time
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 
 # Build Next.js from the web workspace
 RUN npm run build --workspace=apps/web
