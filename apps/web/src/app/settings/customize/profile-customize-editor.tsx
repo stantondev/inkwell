@@ -31,7 +31,7 @@ interface ProfileUser {
   profile_theme?: string | null;
 }
 
-const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "guestbook", "music", "custom_html"];
+const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "newsletter", "series", "guestbook", "music", "custom_html"];
 
 function PlusGate({ feature }: { feature: string }) {
   return (
@@ -87,9 +87,13 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     profile_css: user.profile_css ?? "",
   });
 
-  const [widgetOrder, setWidgetOrder] = useState<string[]>(
-    (user.profile_widgets as { order?: string[] })?.order ?? DEFAULT_WIDGET_ORDER
-  );
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
+    const saved = (user.profile_widgets as { order?: string[] })?.order;
+    if (!saved) return DEFAULT_WIDGET_ORDER;
+    // Merge any new widget types that weren't in the saved order
+    const missing = DEFAULT_WIDGET_ORDER.filter((w) => !saved.includes(w));
+    return [...saved, ...missing];
+  });
 
   const [saving, setSaving] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
@@ -193,6 +197,8 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     about: "About / Bio",
     entries: "Journal Entries",
     top_pals: "Top Pen Pals",
+    newsletter: "Newsletter",
+    series: "Series",
     guestbook: "Guestbook",
     music: "Now Playing",
     custom_html: "Custom HTML",

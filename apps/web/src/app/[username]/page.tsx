@@ -238,8 +238,12 @@ export default async function ProfilePage({ params }: ProfileParams) {
     : null;
 
   // Widget ordering (Plus only — free users get default order)
+  // Merge any new widget types that aren't in the user's saved order (e.g., newsletter/series added after they customized)
   const defaultOrder = ["about", "entries", "top_pals", "newsletter", "series", "guestbook", "music", "custom_html"];
-  const widgetOrder = isPlus ? (profile.profile_widgets?.order ?? defaultOrder) : defaultOrder;
+  const savedOrder = isPlus ? (profile.profile_widgets?.order ?? null) : null;
+  const widgetOrder = savedOrder
+    ? [...savedOrder, ...defaultOrder.filter((w) => !savedOrder.includes(w))]
+    : defaultOrder;
   const hiddenWidgets = new Set(isPlus ? (profile.profile_widgets?.hidden ?? []) : []);
 
   // Build sidebar widgets based on ordering
