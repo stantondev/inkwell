@@ -241,16 +241,16 @@ export default function SupportSettingsPage() {
       <div className="rounded-xl border p-6"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
         <h2 className="text-base font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-          External Support Link
+          External Payment Link
         </h2>
         <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
-          Add a link to your Ko-fi, Buy Me a Coffee, Patreon, or any support page.
-          It will appear on your profile and at the bottom of your entries.
+          Link to your Ko-fi, Buy Me a Coffee, Patreon, or any payment page.
+          A button will appear on your profile and at the bottom of your entries. Free for all users.
         </p>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">Support URL</label>
+            <label className="block text-sm font-medium mb-1.5">Payment URL</label>
             <input
               type="url"
               value={supportUrl}
