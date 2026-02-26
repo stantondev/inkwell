@@ -2,6 +2,7 @@ defmodule InkwellWeb.BillingController do
   use InkwellWeb, :controller
 
   alias Inkwell.Billing
+  alias Inkwell.Tipping
 
   require Logger
 
@@ -79,7 +80,11 @@ defmodule InkwellWeb.BillingController do
           case Jason.decode(raw_body) do
             {:ok, event} ->
               # Process asynchronously to return 200 quickly
-              Task.start(fn -> Billing.handle_webhook_event(event) end)
+              Task.start(fn ->
+                Billing.handle_webhook_event(event)
+                # Also handle Connect events (account.updated)
+                handle_connect_event(event)
+              end)
               json(conn, %{received: true})
 
             {:error, _} ->
@@ -92,4 +97,11 @@ defmodule InkwellWeb.BillingController do
       end
     end
   end
+
+  # Handle Stripe Connect events (account.updated)
+  defp handle_connect_event(%{"type" => "account.updated", "data" => %{"object" => account}}) do
+    Tipping.handle_account_updated(account)
+  end
+
+  defp handle_connect_event(_), do: :ok
 end

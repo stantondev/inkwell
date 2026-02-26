@@ -55,6 +55,11 @@ defmodule Inkwell.Accounts.User do
     field :support_url, :string
     field :support_label, :string
 
+    # Stripe Connect (tipping)
+    field :stripe_connect_account_id, :string
+    field :stripe_connect_enabled, :boolean, default: false
+    field :stripe_connect_onboarded, :boolean, default: false
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification
@@ -86,6 +91,11 @@ defmodule Inkwell.Accounts.User do
   def subscription_changeset(user, attrs) do
     user
     |> cast(attrs, [:stripe_customer_id, :stripe_subscription_id, :subscription_tier, :subscription_status, :subscription_expires_at])
+  end
+
+  def stripe_connect_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:stripe_connect_account_id, :stripe_connect_enabled, :stripe_connect_onboarded])
   end
 
   @allowed_fonts ~w[default lora courier georgia comic-sans times palatino verdana]

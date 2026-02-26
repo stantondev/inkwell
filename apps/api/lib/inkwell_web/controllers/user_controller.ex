@@ -388,7 +388,8 @@ defmodule InkwellWeb.UserController do
       newsletter_description: user.newsletter_description,
       subscriber_count: Inkwell.Newsletter.count_subscribers(user.id),
       support_url: user.support_url,
-      support_label: user.support_label
+      support_label: user.support_label,
+      stripe_connect_enabled: user.stripe_connect_enabled || false
     }
   end
 
@@ -411,7 +412,9 @@ defmodule InkwellWeb.UserController do
       profile_css: user.profile_css,
       settings: user.settings,
       subscription_status: user.subscription_status || "none",
-      subscription_expires_at: user.subscription_expires_at
+      subscription_expires_at: user.subscription_expires_at,
+      stripe_connect_account_id: user.stripe_connect_account_id,
+      stripe_connect_onboarded: user.stripe_connect_onboarded || false
     })
   end
 

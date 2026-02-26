@@ -244,6 +244,13 @@ defmodule InkwellWeb.Router do
     post "/conversations/:id/letters",                  LetterController, :create
     delete "/conversations/:id/letters/:letter_id",     LetterController, :delete
 
+    # Tipping / Stripe Connect (authenticated)
+    post "/tipping/connect", TippingController, :connect
+    get "/tipping/connect/status", TippingController, :status
+    post "/tipping/connect/dashboard", TippingController, :dashboard
+    post "/tipping/connect/disconnect", TippingController, :disconnect
+    post "/tipping/connect/refresh", TippingController, :refresh
+
     # Newsletter (authenticated endpoints)
     get "/newsletter/settings", NewsletterController, :get_settings
     patch "/newsletter/settings", NewsletterController, :update_settings

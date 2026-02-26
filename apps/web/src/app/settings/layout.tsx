@@ -12,6 +12,7 @@ const tabs = [
   { href: "/settings/import", label: "Import" },
   { href: "/settings/customize", label: "Customize" },
   { href: "/settings/newsletter", label: "Newsletter" },
+  { href: "/settings/support", label: "Support" },
   { href: "/settings/fediverse", label: "Fediverse" },
 ];
 
