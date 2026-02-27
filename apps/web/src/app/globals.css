@@ -775,14 +775,16 @@ body[data-focus-mode] footer {
 /* ─── Journal Editor — high-design writing experience ─────────────── */
 
 .editor-shell {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--background);
   color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .editor-topbar {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 40;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -886,7 +888,8 @@ body[data-focus-mode] footer {
 /* Body wrapper — flex row on desktop for settings sidebar */
 .editor-body-wrapper {
   display: flex;
-  min-height: calc(100vh - 55px);
+  flex: 1;
+  min-height: 0;
 }
 
 .editor-main {
@@ -987,7 +990,7 @@ body[data-focus-mode] footer {
 /* Toolbar — styled as part of the page, not a separate bar */
 .editor-toolbar-container {
   position: sticky;
-  top: 55px;
+  top: 0;
   z-index: 30;
   margin: 0 -8px;
   padding: 0 4px;
@@ -1302,14 +1305,19 @@ div:has(> div > .editor-floating-menu) {
   margin-top: 4px;
 }
 
-/* Desktop: persistent right panel, full viewport height */
+/* Desktop: fixed-height flex layout — panel fills wrapper via stretch */
 @media (min-width: 768px) {
+  .editor-body-wrapper {
+    overflow: hidden;
+  }
+
+  .editor-main {
+    overflow-y: auto;
+  }
+
   .editor-settings-panel {
     width: 300px;
     flex-shrink: 0;
-    height: calc(100vh - 55px);
-    position: sticky;
-    top: 55px;
   }
 }
 
@@ -1317,6 +1325,7 @@ div:has(> div > .editor-floating-menu) {
 @media (max-width: 767px) {
   .editor-body-wrapper {
     flex-direction: column;
+    overflow-y: auto;
   }
 
   .editor-settings-panel {
