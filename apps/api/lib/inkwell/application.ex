@@ -5,11 +5,16 @@ defmodule Inkwell.Application do
 
   @impl true
   def start(_type, _args) do
+    # Set up HTTP request metrics tracking (ETS + telemetry handler)
+    Inkwell.Metrics.HttpTracker.setup()
+
     children = [
       Inkwell.Repo,
       {Phoenix.PubSub, name: Inkwell.PubSub},
       {Oban, Application.fetch_env!(:inkwell, Oban)},
-      InkwellWeb.Endpoint
+      InkwellWeb.Endpoint,
+      # Metrics pusher — pushes to Grafana Cloud every 60s (returns :ignore if not configured)
+      Inkwell.Metrics.Pusher
     ]
 
     opts = [strategy: :one_for_one, name: Inkwell.Supervisor]

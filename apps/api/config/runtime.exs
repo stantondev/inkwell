@@ -96,6 +96,19 @@ if config_env() == :prod do
 
   config :inkwell, :healthchecks, healthchecks
 
+  # Grafana Cloud metrics (optional — disabled if GRAFANA_METRICS_URL not set)
+  # Pusher sends BEAM/DB/Oban/HTTP metrics every 60s via InfluxDB line protocol.
+  # Get these values from Grafana Cloud → your stack → Prometheus details.
+  grafana_url = System.get_env("GRAFANA_METRICS_URL")
+
+  if is_binary(grafana_url) and grafana_url != "" do
+    config :inkwell, :grafana, %{
+      metrics_url: grafana_url,
+      metrics_user: System.get_env("GRAFANA_METRICS_USER") || "",
+      api_key: System.get_env("GRAFANA_API_KEY") || ""
+    }
+  end
+
   # Federation / ActivityPub
   config :inkwell, :federation,
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
