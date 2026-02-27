@@ -903,6 +903,7 @@ export function EditorClient() {
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
+  const settingsInitialized = useRef(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasContent, setHasContent] = useState(false);
   const [wordCount, setWordCount] = useState(0);
@@ -935,6 +936,19 @@ export function EditorClient() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
+
+  // Desktop: open settings panel by default (persisted in localStorage)
+  useEffect(() => {
+    if (settingsInitialized.current) return;
+    settingsInitialized.current = true;
+    if (window.innerWidth >= 768) {
+      const stored = localStorage.getItem("inkwell-editor-panel");
+      // Default to open on desktop unless explicitly collapsed
+      if (stored !== "collapsed") {
+        setShowSettings(true);
+      }
+    }
+  }, []);
 
   // Upload an image file: resize, upload to API, insert into editor
   const uploadImage = useCallback(async (file: File, ed: Editor | null) => {
@@ -1099,9 +1113,8 @@ export function EditorClient() {
     })();
   }, [state.privacy, filtersLoaded]);
 
-  // Fetch newsletter + user info when settings panel opens
+  // Fetch newsletter + user info eagerly on mount
   useEffect(() => {
-    if (!showSettings) return;
     (async () => {
       try {
         const res = await fetch("/api/me");
@@ -1115,11 +1128,11 @@ export function EditorClient() {
         // ignore
       }
     })();
-  }, [showSettings]);
+  }, []);
 
-  // Fetch series options when settings panel opens
+  // Fetch series options eagerly on mount
   useEffect(() => {
-    if (!showSettings || seriesLoaded) return;
+    if (seriesLoaded) return;
     (async () => {
       try {
         const res = await fetch("/api/series");
@@ -1133,7 +1146,7 @@ export function EditorClient() {
         setSeriesLoaded(true);
       }
     })();
-  }, [showSettings, seriesLoaded]);
+  }, [seriesLoaded]);
 
   // Load existing entry when editing
   useEffect(() => {
@@ -1194,6 +1207,17 @@ export function EditorClient() {
   }, [editId, editor]);
 
   const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }));
+
+  // Toggle settings panel + persist on desktop
+  const toggleSettings = useCallback(() => {
+    setShowSettings((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined" && window.innerWidth >= 768) {
+        localStorage.setItem("inkwell-editor-panel", next ? "open" : "collapsed");
+      }
+      return next;
+    });
+  }, []);
 
   const musicEmbed = parseMusicUrl(state.music);
 
@@ -1379,16 +1403,24 @@ export function EditorClient() {
             <SaveStatus status={saveStatus} />
           </div>
           <div className="flex items-center gap-2">
-            {/* Settings toggle — always visible in top bar */}
-            <button type="button" onClick={() => setShowSettings((v) => !v)}
+            {/* Settings panel toggle */}
+            <button type="button" onClick={toggleSettings}
               className="editor-settings-toggle"
-              title="Entry settings"
+              title={showSettings ? "Hide settings" : "Show settings"}
               aria-pressed={showSettings}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
+              {showSettings ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="13 17 18 12 13 7"/>
+                  <polyline points="6 17 11 12 6 7"/>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="11 17 6 12 11 7"/>
+                  <polyline points="18 17 13 12 18 7"/>
+                </svg>
+              )}
             </button>
             {!isDraft && savedEntryId && (
               <NextLink
@@ -1618,10 +1650,12 @@ export function EditorClient() {
               <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
                 Entry Settings
               </span>
-              <button type="button" onClick={() => setShowSettings(false)}
+              <button type="button" onClick={toggleSettings}
                 className="editor-settings-close" aria-label="Close settings">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="13 17 18 12 13 7"/>
+                </svg>
               </button>
             </div>
             <div className="editor-settings-body">

@@ -1162,10 +1162,10 @@ div:has(> div > .editor-floating-menu) {
   padding: 20px;
 }
 
-/* Desktop: sidebar slides in from the right */
+/* Desktop: sidebar is a persistent right panel */
 @media (min-width: 768px) {
   .editor-settings-panel {
-    width: 320px;
+    width: 300px;
     flex-shrink: 0;
     max-height: calc(100vh - 55px);
     position: sticky;
