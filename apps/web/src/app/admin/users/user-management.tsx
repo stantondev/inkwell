@@ -256,9 +256,9 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                     </td>
 
                     {/* Role */}
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3 hidden sm:table-cell whitespace-nowrap">
                       {user.is_admin ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--accent)", color: "white" }}>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-block" style={{ background: "var(--accent)", color: "white" }}>
                           Admin{user.is_env_admin ? " *" : ""}
                         </span>
                       ) : (
