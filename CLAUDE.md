@@ -742,6 +742,12 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ---
 
+### Dev Server Troubleshooting — STOP EARLY
+- **Use `preview_start` tool** with the `.claude/launch.json` configs (`web` and `api`). Do NOT use Bash to start servers.
+- **If the dev server won't start or pages return 500**: try ONE clean restart (stop + start). If it still fails, **stop immediately and ask the user**. Do not attempt multiple different approaches (env vars, config changes, cache deletion, package reinstalls). This wastes tokens and time.
+- **Never modify `next.config.ts`** to "fix" dev server issues without asking the user first.
+- **Turbopack SST warnings** ("Persisting failed") are usually non-fatal. Check if pages actually return 200 before panicking.
+
 ### Important patterns
 - Phoenix uses runtime.exs for all production config (env vars read at boot, not compile time)
 - CORS origins configured at runtime via custom plug (`InkwellWeb.Plugs.CORS`)

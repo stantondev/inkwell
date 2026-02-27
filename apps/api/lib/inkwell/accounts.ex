@@ -48,7 +48,8 @@ defmodule Inkwell.Accounts do
         where: r.follower_id == ^current_user_id and r.status in [:pending, :accepted],
         select: r.following_id
 
-    query =
+    # Primary: users with published public entries, ordered by most recent
+    writers =
       from u in User,
         join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
         where: e.status == :published and e.privacy == :public,
@@ -60,7 +61,28 @@ defmodule Inkwell.Accounts do
         limit: ^limit,
         select: u
 
-    Repo.all(query)
+    results = Repo.all(writers)
+
+    # Fallback: if not enough writers with entries, pad with recently joined users
+    if length(results) < limit do
+      writer_ids = Enum.map(results, & &1.id)
+      remaining = limit - length(results)
+
+      fallback =
+        from u in User,
+          where: u.id != ^current_user_id,
+          where: u.id not in ^writer_ids,
+          where: u.id not in subquery(already_following),
+          where: is_nil(u.blocked_at),
+          where: not is_nil(u.username),
+          order_by: [desc: u.inserted_at],
+          limit: ^remaining,
+          select: u
+
+      results ++ Repo.all(fallback)
+    else
+      results
+    end
   end
 
   # User Icons

@@ -6,7 +6,7 @@ import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 type SuggestedUser = {
   id: string;
@@ -171,7 +171,7 @@ export default function WelcomePage() {
     }
   }
 
-  async function handleFinish() {
+  async function saveProfile(): Promise<boolean> {
     setSaving(true);
     setError("");
 
@@ -187,7 +187,7 @@ export default function WelcomePage() {
           const data = await usernameRes.json();
           setError(data.errors?.username?.[0] ?? data.error ?? "Could not set username");
           setSaving(false);
-          return;
+          return false;
         }
       }
 
@@ -222,13 +222,22 @@ export default function WelcomePage() {
         const data = await profileRes.json();
         setError(data.error ?? "Could not save profile");
         setSaving(false);
-        return;
+        return false;
       }
 
-      router.push("/editor");
+      setSaving(false);
+      return true;
     } catch {
       setError("Network error — please try again");
       setSaving(false);
+      return false;
+    }
+  }
+
+  async function handleFinishAndProceed() {
+    const saved = await saveProfile();
+    if (saved) {
+      setStep(TOTAL_STEPS - 1); // go to "What's next?" step
     }
   }
 
@@ -237,7 +246,7 @@ export default function WelcomePage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: { onboarded: true } }),
-    }).then(() => router.push("/editor")).catch(() => router.push("/editor"));
+    }).then(() => setStep(TOTAL_STEPS - 1)).catch(() => setStep(TOTAL_STEPS - 1));
   }
 
   function nextStep() {
@@ -283,10 +292,11 @@ export default function WelcomePage() {
             {step === 3 && "Pick your vibe"}
             {step === 4 && "Our community standards"}
             {step === 5 && "Find some writers to follow"}
+            {step === 6 && "You're all set!"}
           </p>
         </div>
 
-        <StepDots current={step} total={TOTAL_STEPS} />
+        {step < TOTAL_STEPS - 1 && <StepDots current={step} total={TOTAL_STEPS - 1} />}
 
         <div className="rounded-2xl border p-6"
           style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -567,12 +577,99 @@ export default function WelcomePage() {
             </div>
           )}
 
+          {/* Step 7: What's next? */}
+          {step === 6 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
+                Your profile is ready. What would you like to do first?
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push("/explore")}
+                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">Explore the community</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      Read what others are writing and discover new voices
+                    </p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/editor")}
+                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">Write your first entry</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      Open the editor and start journaling right away
+                    </p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push(`/${username || "feed"}`)}
+                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">View your profile</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      See how your page looks and customize it further
+                    </p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {error && (
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
 
-          {/* Navigation — hidden on guidelines step (step 4) since it has its own "I Agree" button */}
-          {step !== 4 && (
+          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 6) */}
+          {step !== 4 && step !== 6 && (
             <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <div>
                 {step === 0 ? (
@@ -591,14 +688,23 @@ export default function WelcomePage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {step < TOTAL_STEPS - 1 && step > 0 && (
+                {step < TOTAL_STEPS - 2 && step > 0 && (
                   <button type="button" onClick={handleSkip}
                     className="text-xs transition-colors hover:underline"
                     style={{ color: "var(--muted)" }}>
                     Skip all
                   </button>
                 )}
-                {step < TOTAL_STEPS - 1 ? (
+                {step === TOTAL_STEPS - 2 ? (
+                  <button
+                    type="button"
+                    onClick={handleFinishAndProceed}
+                    disabled={saving}
+                    className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                    style={{ background: "var(--accent)", color: "#fff" }}>
+                    {saving ? "Saving..." : "Finish setup"}
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={nextStep}
@@ -606,15 +712,6 @@ export default function WelcomePage() {
                     className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
                     style={{ background: "var(--accent)", color: "#fff" }}>
                     Next
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleFinish}
-                    disabled={saving}
-                    className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
-                    style={{ background: "var(--accent)", color: "#fff" }}>
-                    {saving ? "Saving..." : "Start writing →"}
                   </button>
                 )}
               </div>
