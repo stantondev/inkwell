@@ -1,0 +1,510 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Your Grafana Cloud Metrics (Prometheus) data source",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "panel", "id": "timeseries", "name": "Time series" },
+    { "type": "panel", "id": "stat", "name": "Stat" },
+    { "type": "panel", "id": "bargauge", "name": "Bar gauge" },
+    { "type": "panel", "id": "gauge", "name": "Gauge" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus" }
+  ],
+  "id": null,
+  "uid": null,
+  "title": "Inkwell API",
+  "description": "BEAM VM, HTTP traffic, database connections, and Oban job queue metrics for the Inkwell API",
+  "tags": ["inkwell", "elixir", "beam", "oban"],
+  "timezone": "utc",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {
+    "refresh_intervals": ["1m", "5m", "15m", "30m", "1h"]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "HTTP Traffic",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Requests (60s window)",
+      "description": "Total HTTP requests in the last 60-second collection interval",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "http_requests_total{service_name=\"inkwell-api\"}",
+          "legendFormat": "requests",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Avg Latency",
+      "description": "Average HTTP request latency in the last collection interval",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "orange", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "http_requests_avg_ms{service_name=\"inkwell-api\"}",
+          "legendFormat": "avg",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "5xx Error Rate",
+      "description": "Percentage of requests returning 5xx in the last interval",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "http_requests_status_5xx{service_name=\"inkwell-api\"} / clamp_min(http_requests_total{service_name=\"inkwell-api\"}, 1) * 100",
+          "legendFormat": "5xx %",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by Status Class",
+      "description": "HTTP requests per collection interval, broken down by status code class",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "barAlignment": 0,
+            "fillOpacity": 80,
+            "stacking": { "mode": "normal" },
+            "lineWidth": 0,
+            "pointSize": 5,
+            "spanNulls": false
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "3xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "http_requests_status_2xx{service_name=\"inkwell-api\"}", "legendFormat": "2xx", "refId": "A" },
+        { "expr": "http_requests_status_3xx{service_name=\"inkwell-api\"}", "legendFormat": "3xx", "refId": "B" },
+        { "expr": "http_requests_status_4xx{service_name=\"inkwell-api\"}", "legendFormat": "4xx", "refId": "C" },
+        { "expr": "http_requests_status_5xx{service_name=\"inkwell-api\"}", "legendFormat": "5xx", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Latency",
+      "description": "Average and total HTTP request latency over time",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "auto",
+            "spanNulls": false
+          },
+          "unit": "ms",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        { "expr": "http_requests_avg_ms{service_name=\"inkwell-api\"}", "legendFormat": "avg latency", "refId": "A" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "BEAM Virtual Machine",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Total Memory",
+      "description": "Total BEAM VM memory usage",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 209715200 },
+              { "color": "red", "value": 419430400 }
+            ]
+          },
+          "unit": "decbytes"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        { "expr": "beam_memory_total{service_name=\"inkwell-api\"}", "legendFormat": "total", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Processes",
+      "description": "Number of Erlang processes",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 3, "x": 4, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5000 },
+              { "color": "red", "value": 20000 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        { "expr": "beam_info_process_count{service_name=\"inkwell-api\"}", "legendFormat": "processes", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Run Queue",
+      "description": "Scheduler run queue length (0 = idle, high = overloaded)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 3, "x": 7, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        { "expr": "beam_info_run_queue{service_name=\"inkwell-api\"}", "legendFormat": "run queue", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Uptime",
+      "description": "BEAM VM uptime",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 2, "x": 10, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [{ "color": "blue", "value": null }]
+          },
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        { "expr": "beam_info_uptime_seconds{service_name=\"inkwell-api\"}", "legendFormat": "uptime", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Breakdown",
+      "description": "BEAM VM memory by category over time",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "stacking": { "mode": "normal" },
+            "spanNulls": false
+          },
+          "unit": "decbytes",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "beam_memory_processes{service_name=\"inkwell-api\"}", "legendFormat": "processes", "refId": "A" },
+        { "expr": "beam_memory_ets{service_name=\"inkwell-api\"}", "legendFormat": "ETS", "refId": "B" },
+        { "expr": "beam_memory_binary{service_name=\"inkwell-api\"}", "legendFormat": "binary", "refId": "C" },
+        { "expr": "beam_memory_atom{service_name=\"inkwell-api\"}", "legendFormat": "atom", "refId": "D" },
+        { "expr": "beam_memory_system{service_name=\"inkwell-api\"} - beam_memory_ets{service_name=\"inkwell-api\"} - beam_memory_binary{service_name=\"inkwell-api\"} - beam_memory_atom{service_name=\"inkwell-api\"}", "legendFormat": "other system", "refId": "E" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Process & Port Count",
+      "description": "Erlang process and port counts over time",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": false
+          },
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        { "expr": "beam_info_process_count{service_name=\"inkwell-api\"}", "legendFormat": "processes", "refId": "A" },
+        { "expr": "beam_info_port_count{service_name=\"inkwell-api\"}", "legendFormat": "ports", "refId": "B" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Database & Background Jobs",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "DB Connections",
+      "description": "Active PostgreSQL connections",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 8 },
+              { "color": "red", "value": 15 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        { "expr": "db_connections_active{service_name=\"inkwell-api\"}", "legendFormat": "active", "refId": "A" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Oban Job Queues",
+      "description": "Background job counts by state",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 5, "w": 8, "x": 4, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "executing" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "retryable" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "scheduled" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "targets": [
+        { "expr": "oban_jobs_available{service_name=\"inkwell-api\"}", "legendFormat": "available", "refId": "A" },
+        { "expr": "oban_jobs_executing{service_name=\"inkwell-api\"}", "legendFormat": "executing", "refId": "B" },
+        { "expr": "oban_jobs_retryable{service_name=\"inkwell-api\"}", "legendFormat": "retryable", "refId": "C" },
+        { "expr": "oban_jobs_scheduled{service_name=\"inkwell-api\"}", "legendFormat": "scheduled", "refId": "D" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB Connections Over Time",
+      "description": "PostgreSQL active connections over time",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "spanNulls": false
+          },
+          "unit": "short",
+          "color": { "fixedColor": "green", "mode": "fixed" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        { "expr": "db_connections_active{service_name=\"inkwell-api\"}", "legendFormat": "active connections", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Oban Jobs Over Time",
+      "description": "Background job queue depths over time",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "spanNulls": false
+          },
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "expr": "oban_jobs_available{service_name=\"inkwell-api\"}", "legendFormat": "available", "refId": "A" },
+        { "expr": "oban_jobs_executing{service_name=\"inkwell-api\"}", "legendFormat": "executing", "refId": "B" },
+        { "expr": "oban_jobs_retryable{service_name=\"inkwell-api\"}", "legendFormat": "retryable", "refId": "C" },
+        { "expr": "oban_jobs_scheduled{service_name=\"inkwell-api\"}", "legendFormat": "scheduled", "refId": "D" }
+      ]
+    }
+  ]
+}

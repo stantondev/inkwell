@@ -235,7 +235,7 @@ defmodule Inkwell.Metrics.Pusher do
            []
          ) do
       {:ok, {{_, status, _}, _, _}} when status in 200..299 ->
-        Logger.debug("Metrics pushed to Grafana Cloud (#{status})")
+        Logger.info("Metrics pushed to Grafana Cloud (#{status})")
 
       {:ok, {{_, status, _}, _, resp_body}} ->
         Logger.warning(
