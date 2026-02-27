@@ -642,6 +642,305 @@ img, video, iframe, embed, object {
   pointer-events: none;
 }
 
+/* ─── Guidelines Book (Onboarding) ──────────────────────────────────── */
+
+.guidelines-book-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.guidelines-book-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.guidelines-book-nav-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.guidelines-book-nav-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.guidelines-book-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.guidelines-book-container {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+/* Desktop: two-page spread */
+.guidelines-book-spread {
+  display: grid;
+  grid-template-columns: 1fr 2px 1fr;
+  min-height: 420px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  .guidelines-book-spread {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.2),
+      0 6px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Mobile: single page */
+.guidelines-book-single {
+  min-height: 380px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  .guidelines-book-single {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.2),
+      0 6px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Individual page */
+.guidelines-book-page {
+  background: var(--surface);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Paper texture */
+.guidelines-book-paper-texture {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.018;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  .guidelines-book-paper-texture {
+    opacity: 0.035;
+    mix-blend-mode: soft-light;
+  }
+}
+
+/* Page content area */
+.guidelines-book-page-content {
+  position: relative;
+  flex: 1;
+  padding: 32px 28px 48px;
+  z-index: 1;
+}
+
+@media (max-width: 767px) {
+  .guidelines-book-page-content {
+    padding: 24px 20px 48px;
+  }
+}
+
+/* Left page gets right padding toward spine */
+.guidelines-book-page-left .guidelines-book-page-content {
+  padding-right: 24px;
+}
+
+/* Right page gets left padding away from spine */
+.guidelines-book-page-right .guidelines-book-page-content {
+  padding-left: 24px;
+}
+
+/* Page title */
+.guidelines-book-page-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--accent);
+  margin: 0 0 6px;
+  line-height: 1.35;
+}
+
+/* Ornamental divider */
+.guidelines-book-ornament {
+  font-family: var(--font-lora, Georgia, serif);
+  color: var(--muted);
+  opacity: 0.4;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 16px;
+  user-select: none;
+}
+
+/* Page body */
+.guidelines-book-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guidelines-book-page-body p {
+  font-size: 0.835rem;
+  line-height: 1.7;
+  color: var(--foreground);
+  margin: 0;
+}
+
+/* Page number */
+.guidelines-book-page-number {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.5;
+  user-select: none;
+  z-index: 1;
+}
+
+/* Empty page (when odd total) */
+.guidelines-book-page-empty {
+  background: var(--surface);
+}
+
+/* Spine */
+.guidelines-book-spine {
+  width: 2px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: stretch;
+  box-shadow: -3px 0 8px -3px rgba(0, 0, 0, 0.06), 3px 0 8px -3px rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  .guidelines-book-spine {
+    box-shadow: -3px 0 8px -3px rgba(0, 0, 0, 0.25), 3px 0 8px -3px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Stacked page edge effect */
+.guidelines-book-edge {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: -4px;
+  width: 4px;
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    3px 0 0 -0.5px var(--surface),
+    3px 0 0 0 var(--border);
+  opacity: 0.6;
+}
+
+/* Page indicator dots */
+.guidelines-book-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.guidelines-book-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s ease;
+}
+
+.guidelines-book-dot.active {
+  width: 20px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.guidelines-book-dot.visited {
+  background: var(--accent);
+  opacity: 0.35;
+}
+
+/* Page counter text */
+.guidelines-book-counter {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* Agree section */
+.guidelines-book-agree {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.guidelines-book-agree-btn {
+  padding: 10px 28px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--accent);
+  color: #fff;
+}
+
+.guidelines-book-agree-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.guidelines-book-agree-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ─── End Guidelines Book ───────────────────────────────────────────── */
+
 /* Wider entry detail layout */
 .entry-wide {
   max-width: 56rem; /* 896px */

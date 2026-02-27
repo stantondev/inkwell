@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
-const TOTAL_STEPS = 5;
+import { GuidelinesBook } from "@/components/guidelines-book";
+const TOTAL_STEPS = 6;
 
 type SuggestedUser = {
   id: string;
@@ -90,9 +91,9 @@ export default function WelcomePage() {
       .finally(() => setLoaded(true));
   }, []);
 
-  // Fetch suggested writers when entering step 4
+  // Fetch suggested writers when entering step 5
   useEffect(() => {
-    if (step !== 4) return;
+    if (step !== 5) return;
     setLoadingSuggested(true);
     fetch("/api/discover/writers")
       .then((r) => r.json())
@@ -213,7 +214,7 @@ export default function WelcomePage() {
           ...(pronouns.trim() ? { pronouns: pronouns.trim() } : {}),
           ...(status.trim() ? { profile_status: status.trim() } : {}),
           ...(theme !== "default" ? { profile_theme: theme } : {}),
-          settings: { onboarded: true },
+          settings: { onboarded: true, guidelines_accepted: true },
         }),
       });
 
@@ -254,7 +255,7 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
       style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="w-full max-w-md">
+      <div className={`w-full ${step === 4 ? "max-w-4xl" : "max-w-md"}`} style={{ transition: "max-width 0.3s ease" }}>
         {/* Logo */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -280,7 +281,8 @@ export default function WelcomePage() {
             {step === 1 && "Set your avatar and pronouns"}
             {step === 2 && "Tell people about yourself"}
             {step === 3 && "Pick your vibe"}
-            {step === 4 && "Find some writers to follow"}
+            {step === 4 && "Our community standards"}
+            {step === 5 && "Find some writers to follow"}
           </p>
         </div>
 
@@ -475,8 +477,15 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 5: Discover writers */}
+          {/* Step 5: Community Guidelines Book */}
           {step === 4 && (
+            <div className="flex flex-col gap-3">
+              <GuidelinesBook onAgree={nextStep} />
+            </div>
+          )}
+
+          {/* Step 6: Discover writers */}
+          {step === 5 && (
             <div className="flex flex-col gap-3">
               {loadingSuggested ? (
                 <div className="flex items-center justify-center py-8">
@@ -562,53 +571,55 @@ export default function WelcomePage() {
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
-            <div>
-              {step === 0 ? (
-                <button type="button" onClick={handleSkip}
-                  className="text-sm transition-colors hover:underline"
-                  style={{ color: "var(--muted)" }}>
-                  Skip for now
-                </button>
-              ) : (
-                <button type="button" onClick={prevStep}
-                  className="text-sm transition-colors hover:underline"
-                  style={{ color: "var(--muted)" }}>
-                  Back
-                </button>
-              )}
-            </div>
+          {/* Navigation — hidden on guidelines step (step 4) since it has its own "I Agree" button */}
+          {step !== 4 && (
+            <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
+              <div>
+                {step === 0 ? (
+                  <button type="button" onClick={handleSkip}
+                    className="text-sm transition-colors hover:underline"
+                    style={{ color: "var(--muted)" }}>
+                    Skip for now
+                  </button>
+                ) : (
+                  <button type="button" onClick={prevStep}
+                    className="text-sm transition-colors hover:underline"
+                    style={{ color: "var(--muted)" }}>
+                    Back
+                  </button>
+                )}
+              </div>
 
-            <div className="flex items-center gap-3">
-              {step < TOTAL_STEPS - 1 && step > 0 && (
-                <button type="button" onClick={handleSkip}
-                  className="text-xs transition-colors hover:underline"
-                  style={{ color: "var(--muted)" }}>
-                  Skip all
-                </button>
-              )}
-              {step < TOTAL_STEPS - 1 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  disabled={!canProceedStep0 && step === 0}
-                  className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
-                  style={{ background: "var(--accent)", color: "#fff" }}>
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleFinish}
-                  disabled={saving}
-                  className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
-                  style={{ background: "var(--accent)", color: "#fff" }}>
-                  {saving ? "Saving..." : "Start writing →"}
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {step < TOTAL_STEPS - 1 && step > 0 && (
+                  <button type="button" onClick={handleSkip}
+                    className="text-xs transition-colors hover:underline"
+                    style={{ color: "var(--muted)" }}>
+                    Skip all
+                  </button>
+                )}
+                {step < TOTAL_STEPS - 1 ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={!canProceedStep0 && step === 0}
+                    className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                    style={{ background: "var(--accent)", color: "#fff" }}>
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleFinish}
+                    disabled={saving}
+                    className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                    style={{ background: "var(--accent)", color: "#fff" }}>
+                    {saving ? "Saving..." : "Start writing →"}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

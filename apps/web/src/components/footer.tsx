@@ -16,6 +16,7 @@ export function Footer() {
         <div className="flex flex-wrap gap-3 sm:gap-5">
           <Link href="/terms" className="hover:underline">Terms</Link>
           <Link href="/privacy" className="hover:underline">Privacy</Link>
+          <Link href="/guidelines" className="hover:underline">Guidelines</Link>
           <Link href="/brand" className="hover:underline">Brand</Link>
           <Link href="/about" className="hover:underline">About</Link>
           <Link href="/roadmap" className="hover:underline">Roadmap</Link>

@@ -322,14 +322,32 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Proxy routes: `apps/web/src/app/api/users/[username]/guestbook/route.ts`, `apps/web/src/app/api/guestbook/[id]/route.ts`
 
 ### Multi-Step Onboarding Wizard
-- `/welcome` — 4-step wizard for new users with progress dots
-- Step 1: Username + Display Name (with availability check)
-- Step 2: Avatar Upload + Pronouns (file upload with canvas resize, not URL input)
-- Step 3: Bio + Status Message ("What are you up to?")
-- Step 4: Theme Picker (grid of 8 theme swatches from `profile-themes.ts`)
-- Back/Next navigation, "Skip for now" on every step
-- Final step saves all fields and redirects to `/feed`
+- `/welcome` — 6-step wizard for new users with progress dots
+- Step 0: Username + Display Name (with availability check)
+- Step 1: Avatar Upload + Pronouns (file upload with canvas resize, not URL input)
+- Step 2: Bio + Status Message ("What are you up to?")
+- Step 3: Theme Picker (grid of 8 theme swatches from `profile-themes.ts`)
+- **Step 4: Community Guidelines Book (NEW)** — interactive open-book UI that users must read through and agree to before continuing. "Skip for now" and "Skip all" links are hidden on this step. See "Community Guidelines" section below.
+- Step 5: Discover Writers (find people to follow)
+- Back/Next navigation, "Skip for now" on every step (except guidelines)
+- Final step saves all fields (including `guidelines_accepted: true`) and redirects to `/feed`
 - Shared utility: `apps/web/src/lib/image-utils.ts` — `resizeImage()` (square crop) and `resizeBackgroundImage()` (aspect-preserving)
+
+### Community Guidelines
+- 8-page community guidelines informed by ActivityPub/fediverse best practices
+- Topics: Welcome, Be Kind, What Belongs, What Doesn't, Privacy & Consent, The Open Social Web (fediverse), Intellectual Property, When Things Go Wrong (graduated enforcement)
+- Interactive book UI in onboarding (Step 4) — desktop shows 2-page spread with spine, mobile shows single page
+- Page-turn animation via `motion` (Framer Motion): 3D `rotateY` flip on desktop, slide on mobile
+- Keyboard navigation (ArrowLeft/ArrowRight), swipe gestures on mobile
+- "I Agree" button disabled until user reaches last page/spread
+- Respects `prefers-reduced-motion` via existing hook
+- Paper texture (fractalNoise SVG), spine shadow, stacked page-edge effect — reuses existing journal design patterns
+- `guidelines_accepted: true` stored in user's `settings` JSON field (no migration needed)
+- Static reference page at `/guidelines` (accessible anytime from footer)
+- **Data**: `apps/web/src/lib/community-guidelines.ts` — structured page content array
+- **Component**: `apps/web/src/components/guidelines-book.tsx` — `"use client"` book with `useIsDesktop` hook, `AnimatePresence`, agree gate
+- **CSS**: `globals.css` — `.guidelines-book-*` classes (~300 lines) for container, pages, spine, animations, responsive, dark mode
+- **Static page**: `apps/web/src/app/guidelines/page.tsx` — full guidelines rendered as numbered sections
 
 ### Friend Filters (Full Implementation)
 - Named lists of pen pals used for custom entry privacy (e.g., "Close Friends", "College Crew")
@@ -567,8 +585,9 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 | `/terms` | `apps/web/src/app/terms/page.tsx` | Terms of Service (18 sections) |
 | `/privacy` | `apps/web/src/app/privacy/page.tsx` | Privacy Policy (12 sections) |
 | `/brand` | `apps/web/src/app/brand/page.tsx` | Trademark & Brand Usage Policy (11 sections) |
+| `/guidelines` | `apps/web/src/app/guidelines/page.tsx` | Community Guidelines (8 sections) |
 
-All three are static Next.js server components with Lora headings, prose body text, and cross-links.
+All four are static Next.js server components with Lora headings, prose body text, and cross-links.
 
 ### Terms Acceptance Flow
 - Login form has a required checkbox: "I agree to the Terms of Service and Privacy Policy" (links open in new tab)
@@ -580,7 +599,7 @@ All three are static Next.js server components with Lora headings, prose body te
 
 ### Site Footer
 - `apps/web/src/components/footer.tsx` — shared footer component rendered in root layout
-- Links: Terms, Privacy, Brand, Roadmap
+- Links: Terms, Privacy, Guidelines, Brand, About, Roadmap, Submit Feedback
 - Replaces the landing page's inline footer
 
 ### Key Decisions
@@ -815,6 +834,8 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Custom Domains for Plus (highest remaining score at 22), then Beta Participation.
 
 ### Recently Completed
+- **2026-02-27** — Community Guidelines + Interactive Book UI. Created 8-page community guidelines covering welcome, kindness, content standards, prohibited content, privacy & consent, fediverse etiquette, intellectual property, and graduated enforcement. Built an interactive open-book UI component for the onboarding wizard (new Step 4) with CSS 3D page-turn animations (desktop: 2-page spread with spine + `rotateY` flip; mobile: single page with slide). Paper texture via fractalNoise SVG, spine shadow, stacked page-edge effect reusing existing journal design patterns. Users must read through all pages before the "I Agree" button enables. Keyboard navigation (ArrowLeft/ArrowRight), swipe gestures, `prefers-reduced-motion` support. `guidelines_accepted: true` stored in user's `settings` JSON (no migration). Static reference page at `/guidelines` linked from footer. New files: `community-guidelines.ts`, `guidelines-book.tsx`, `guidelines/page.tsx`. Modified: `welcome/page.tsx` (6 steps), `globals.css` (~300 lines book CSS), `footer.tsx`.
+
 - **2026-02-27** — FEP-b2b8 Long-form Text compliance. Updated ActivityPub federation to use `Article` type for journal entries instead of `Note` (per community best practices flagged by the Mastodon/fediverse community). Changes to `activity_builder.ex`: `type` changed from `"Note"` to `"Article"`; added `summary` field from entry `excerpt`; added `updated` field when `updated_at` differs from `published_at`; added `image` field for cover images; added `generator` application metadata; added `preview` Note (title + excerpt as HTML) for microblogging consumers like Mastodon that don't render Articles inline. No migrations or frontend changes needed.
 
 - **2026-02-27** — Profile Page Overhaul ("Your Journal, Your World") — 4-sprint redesign. **Sprint 3 (Themes)**: Replaced 8 generic color-palette themes with 8 structural themes (Inkwell Classic, Manuscript, Broadsheet, Midnight Library, Botanical Press, Neon Terminal, Watercolor, Zine) — each with unique typography, spacing, borders, and decorative elements via CSS theme classes. Legacy theme IDs transparently mapped on save. No migration needed. **Sprint 1 (Entry Display + Pagination)**: 3 display modes (cards/full/timeline) with per-mode pagination (9/1/20 entries per page). New `profile_entry_display` field, `ProfileEntries` client component, page-number pagination with ellipsis. Migration `20260222000034`. **Sprint 2 (Search & Filtering)**: Debounced text search (ILIKE on title), category/year dropdowns, tag pills (top 10), sort toggle (newest/oldest). Backend: `list_entry_years/1`, `list_entry_tags/1`, `list_entry_categories/1` metadata queries, `count_entries_filtered/2` for accurate filtered pagination. Shows only when profile has >3 entries. **Sprint 4 (Profile Structure)**: Header stats (entries/pen pals/readers/joined), pinned entries (max 3 highlighted cards above main content), social links (X, Bluesky, Mastodon, GitHub, Website as icon pills), tag cloud widget (size-weighted top 20 tags). Settings editor: pinned entry search picker, social link URL inputs. `count_followers/1` and `count_following/1` in Social context. Migration `20260222000035`. New files: `profile-entries.tsx`, `profile-search-bar.tsx`, `profile-search-filter.tsx`, `api/users/[username]/entries/route.ts`. Modified: `user.ex`, `social.ex`, `journals.ex`, `user_controller.ex`, `entry_controller.ex`, `page.tsx`, `profile-customize-editor.tsx`, `profile-themes.ts`, `profile-styles.ts`, `globals.css`.
