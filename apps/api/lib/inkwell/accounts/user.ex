@@ -25,6 +25,7 @@ defmodule Inkwell.Accounts.User do
     field :profile_banner_url, :string
     field :profile_status, :string
     field :profile_theme, :string
+    field :profile_entry_display, :string, default: "cards"
     field :avatar_frame, :string
     field :ap_id, :string
     field :public_key, :string
@@ -59,6 +60,10 @@ defmodule Inkwell.Accounts.User do
     field :stripe_connect_account_id, :string
     field :stripe_connect_enabled, :boolean, default: false
     field :stripe_connect_onboarded, :boolean, default: false
+
+    # Profile improvements
+    field :pinned_entry_ids, {:array, :string}, default: []
+    field :social_links, :map, default: %{}
 
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
@@ -100,8 +105,19 @@ defmodule Inkwell.Accounts.User do
 
   @allowed_fonts ~w[default lora courier georgia comic-sans times palatino verdana]
   @allowed_layouts ~w[classic wide minimal magazine]
-  @allowed_themes ~w[default cottagecore vaporwave dark-academia retro-web midnight pastel ocean]
+  @allowed_themes ~w[default manuscript broadsheet midnight-library botanical-press neon-terminal watercolor zine]
+  # Legacy theme IDs mapped to new ones for backwards compatibility
+  @legacy_theme_map %{
+    "cottagecore" => "botanical-press",
+    "vaporwave" => "neon-terminal",
+    "dark-academia" => "midnight-library",
+    "retro-web" => "zine",
+    "midnight" => "midnight-library",
+    "pastel" => "watercolor",
+    "ocean" => "broadsheet"
+  }
   @allowed_frames ~w[none classic ink-ring notebook wax-seal gilded constellation botanical neon stamp]
+  @allowed_entry_displays ~w[full cards preview]
 
   def profile_changeset(user, attrs) do
     user
@@ -110,9 +126,10 @@ defmodule Inkwell.Accounts.User do
       :profile_html, :profile_css, :settings,
       :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
-      :profile_widgets, :profile_status, :profile_theme, :avatar_frame,
+      :profile_widgets, :profile_status, :profile_theme, :profile_entry_display, :avatar_frame,
       :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
-      :support_url, :support_label
+      :support_url, :support_label,
+      :pinned_entry_ids, :social_links
     ])
     |> validate_length(:bio, max: 2000)
     |> validate_length(:display_name, max: 100)
@@ -124,14 +141,25 @@ defmodule Inkwell.Accounts.User do
     |> validate_length(:newsletter_description, max: 500)
     |> validate_length(:support_url, max: 500)
     |> validate_length(:support_label, max: 50)
+    |> validate_pinned_entries()
     |> maybe_validate_format(:support_url, ~r/^https:\/\/.+/, message: "must be a valid HTTPS URL")
     |> maybe_validate_format(:profile_background_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_format(:profile_accent_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_format(:profile_foreground_color, ~r/^#[0-9a-fA-F]{6}$/, message: "must be a valid hex color")
     |> maybe_validate_inclusion(:profile_font, @allowed_fonts)
     |> maybe_validate_inclusion(:profile_layout, @allowed_layouts)
+    |> normalize_theme()
     |> maybe_validate_inclusion(:profile_theme, @allowed_themes)
     |> maybe_validate_inclusion(:avatar_frame, @allowed_frames)
+    |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
+  end
+
+  # Transparently migrate old theme IDs to new ones on save
+  defp normalize_theme(changeset) do
+    case get_change(changeset, :profile_theme) do
+      nil -> changeset
+      theme -> put_change(changeset, :profile_theme, Map.get(@legacy_theme_map, theme, theme))
+    end
   end
 
   # Only validate format/inclusion when the field is actually being changed (not nil)
@@ -140,6 +168,15 @@ defmodule Inkwell.Accounts.User do
       nil -> changeset
       "" -> changeset
       _ -> validate_format(changeset, field, format, opts)
+    end
+  end
+
+  defp validate_pinned_entries(changeset) do
+    case get_change(changeset, :pinned_entry_ids) do
+      nil -> changeset
+      ids when is_list(ids) and length(ids) <= 3 -> changeset
+      ids when is_list(ids) -> add_error(changeset, :pinned_entry_ids, "cannot pin more than 3 entries")
+      _ -> changeset
     end
   end
 

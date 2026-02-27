@@ -13,6 +13,7 @@ interface ProfileSubscribeWidgetProps {
     accent: string;
     border: string;
     foreground: string;
+    borderRadius: string;
   };
   preview?: boolean;
 }
@@ -60,7 +61,7 @@ export function ProfileSubscribeWidget({
   };
 
   return (
-    <div className="rounded-xl border p-3 sm:p-4" style={styles.surface}>
+    <div className={`profile-widget-card ${styles.borderRadius} border p-3 sm:p-4`} style={styles.surface}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-medium uppercase tracking-widest" style={{ color: styles.muted }}>
           Newsletter

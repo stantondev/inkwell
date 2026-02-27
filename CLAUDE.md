@@ -273,19 +273,25 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Profile banner/header image — upload via Settings → Customize, displayed as cover photo at top of profile page (h-32 sm:h-48 with object-cover), free for all users
 - Avatar frames — decorative SVG overlays around profile avatar (5 free: none, classic, ink-ring, notebook, wax-seal; 5 Plus: gilded, constellation, botanical, neon, postage). Frame picker grid in Settings → Customize with live preview
 - Profile music player — Spotify/YouTube/SoundCloud embed URL, renders as "Now Playing" sidebar widget
-- Widget ordering — drag-to-reorder sidebar sections (About, Entries, Top Pals, Guestbook, Music, Custom HTML)
+- Widget ordering — drag-to-reorder sidebar sections (About, Entries, Top Pals, Tags, Guestbook, Music, Custom HTML)
 - Custom CSS and Custom HTML — Plus-only ($5/mo), server-side HTML sanitization, CSS scoped via `scope-styles.ts`
-- Settings editor at `/settings/customize` with 10 collapsible sections and live preview
+- 3 entry display modes: Cards (masonry grid, default), Full Post (one entry per page), Timeline (compact list)
+- Pinned entries — highlight up to 3 entries at the top of profile, search-to-select in Settings
+- Social links — X/Twitter, Bluesky, Mastodon, GitHub, Website URLs displayed as icon pills below bio
+- Tag cloud widget — size-weighted display of top 20 tags in sidebar
+- Profile search & filtering — debounced text search, category/year dropdowns, tag pills, sort toggle (shown when >3 entries)
+- Header stats — entry count, pen pal count, reader count, join date
+- Settings editor at `/settings/customize` with 14 collapsible sections and live preview
 - **CSS variable scoping**: `buildProfileStyles()` sets CSS custom properties (`--foreground`, `--ink`, `--muted`, `--accent`, `--surface`, `--border`, `--background`, `--surface-hover`, `--accent-light`, `--serif`) on the profile wrapper div so ALL descendant elements (including `.prose-entry` content) inherit theme-appropriate colors and fonts. This is critical — without it, `.prose-entry`'s `color: var(--ink)` would use the site default, making text invisible on dark themes.
 - **Backend**:
-  - 12 user fields: `profile_music`, `profile_background_url`, `profile_banner_url`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`, `avatar_frame`
+  - 15 user fields: `profile_music`, `profile_background_url`, `profile_banner_url`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`, `profile_status`, `profile_theme`, `avatar_frame`, `profile_entry_display`, `pinned_entry_ids`, `social_links`
   - `PATCH /api/me` — accepts all customization fields (except HTML/CSS/background/banner which have dedicated endpoints)
   - `PATCH /api/me/profile` — custom HTML/CSS (Plus-only, server-side sanitization)
   - `POST /api/me/background` — background image upload (5MB limit)
   - `POST /api/me/banner` — banner image upload (5MB limit, free for all)
   - `GET /api/avatars/:username` — serves avatar as raw image binary (decodes from data URI, public, cached)
   - `GET /api/banners/:username` — serves banner as raw image binary (same pattern)
-  - Migrations: `20260222000004` (initial fields), `20260222000006` (add `profile_foreground_color`), `20260222000028` (add `profile_banner_url`, `avatar_frame`)
+  - Migrations: `20260222000004` (initial fields), `20260222000006` (add `profile_foreground_color`), `20260222000028` (add `profile_banner_url`, `avatar_frame`), `20260222000034` (add `profile_entry_display`), `20260222000035` (add `pinned_entry_ids`, `social_links`)
 - **Frontend**:
   - `apps/web/src/lib/profile-themes.ts` — theme, font, and layout definitions
   - `apps/web/src/lib/profile-styles.ts` — `buildProfileStyles()` resolves theme + custom overrides into CSS values AND CSS custom property overrides
@@ -295,7 +301,10 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - `apps/web/src/lib/avatar-frames.ts` — frame metadata (id, label, description, plusOnly flag)
   - `apps/web/src/components/avatar-with-frame.tsx` — shared component rendering avatar + SVG frame overlay; replaces all inline avatar definitions across the app
   - `apps/web/public/frames/*.svg` — 9 handcrafted frame SVGs (viewBox 120×120, avatar circle at center 60,60 radius ~46)
-  - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`, `apps/web/src/app/api/me/banner/route.ts`
+  - `apps/web/src/app/[username]/profile-entries.tsx` — client component for paginated entry display (cards/full/timeline modes)
+  - `apps/web/src/app/[username]/profile-search-bar.tsx` — client component for search input, filter dropdowns, sort toggle
+  - `apps/web/src/app/[username]/profile-search-filter.tsx` — wrapper holding filter state, renders search bar + entries
+  - Proxy routes: `apps/web/src/app/api/me/profile/route.ts`, `apps/web/src/app/api/me/background/route.ts`, `apps/web/src/app/api/me/banner/route.ts`, `apps/web/src/app/api/users/[username]/entries/route.ts`
 
 ### Guestbook
 - Users can sign each other's profile guestbooks with short messages (max 500 chars)
@@ -500,7 +509,7 @@ Key files:
 Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Fediverse
 
 ## Database Tables
-- `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame)
+- `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
 - `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published), word_count, excerpt, cover_image_id (FK to entry_images)
 - `comments` — on entries, with user_id and body
 - `relationships` — follow/friend/block between users (status: pending/accepted/blocked)
@@ -757,7 +766,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000033_add_entry_id_to_tips.exs`
+- Latest migration: `20260222000035_add_profile_improvements.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -806,6 +815,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Custom Domains for Plus (highest remaining score at 22), then Beta Participation.
 
 ### Recently Completed
+- **2026-02-27** — Profile Page Overhaul ("Your Journal, Your World") — 4-sprint redesign. **Sprint 3 (Themes)**: Replaced 8 generic color-palette themes with 8 structural themes (Inkwell Classic, Manuscript, Broadsheet, Midnight Library, Botanical Press, Neon Terminal, Watercolor, Zine) — each with unique typography, spacing, borders, and decorative elements via CSS theme classes. Legacy theme IDs transparently mapped on save. No migration needed. **Sprint 1 (Entry Display + Pagination)**: 3 display modes (cards/full/timeline) with per-mode pagination (9/1/20 entries per page). New `profile_entry_display` field, `ProfileEntries` client component, page-number pagination with ellipsis. Migration `20260222000034`. **Sprint 2 (Search & Filtering)**: Debounced text search (ILIKE on title), category/year dropdowns, tag pills (top 10), sort toggle (newest/oldest). Backend: `list_entry_years/1`, `list_entry_tags/1`, `list_entry_categories/1` metadata queries, `count_entries_filtered/2` for accurate filtered pagination. Shows only when profile has >3 entries. **Sprint 4 (Profile Structure)**: Header stats (entries/pen pals/readers/joined), pinned entries (max 3 highlighted cards above main content), social links (X, Bluesky, Mastodon, GitHub, Website as icon pills), tag cloud widget (size-weighted top 20 tags). Settings editor: pinned entry search picker, social link URL inputs. `count_followers/1` and `count_following/1` in Social context. Migration `20260222000035`. New files: `profile-entries.tsx`, `profile-search-bar.tsx`, `profile-search-filter.tsx`, `api/users/[username]/entries/route.ts`. Modified: `user.ex`, `social.ex`, `journals.ex`, `user_controller.ex`, `entry_controller.ex`, `page.tsx`, `profile-customize-editor.tsx`, `profile-themes.ts`, `profile-styles.ts`, `globals.css`.
 - **2026-02-26** — Per-Entry Postage Stats (Author-Only). Added `entry_id` nullable FK to `tips` table so postage payments are linked to the entry they were sent from. `get_entry_tip_stats/1` aggregation query returns total cents and count for succeeded tips on a specific entry. Entry show API response includes `tip_total_cents` and `tip_count` when the viewer is the entry author. Frontend displays a subtle accent-colored stat line in the entry meta chips: "3 min read · $12.00 in postage" — only visible to the author. TipButton and TipModal updated to accept optional `entryId` prop, included in POST body. Profile-page tips continue to work without an entry_id. Migration `20260222000033`. Modified: `tip.ex`, `tipping.ex`, `entry_controller.ex`, `tip-button.tsx`, `tip-modal.tsx`, `[username]/[slug]/page.tsx`.
 - **2026-02-26** — Editor Settings Panel: Design Overhaul ("The Margins"). Complete visual redesign of the editor settings panel to match the sidebar's "Contents Page" paper aesthetic. Paper texture via SVG fractalNoise, spine shadow (`box-shadow: -4px 0 16px -4px`), hidden scrollbar. Section-based layout with border dividers between each setting group. Lora italic serif heading ("Entry Settings"). Uppercase small-caps labels (11px, 0.1em letter-spacing) with inline SVG icons for each section: lock (Privacy), book (Category), file (Series), tag (Tags), lines (Excerpt), mail (Newsletter). Custom-styled form elements: select dropdowns with SVG chevron arrow (`appearance: none` + `background-image`), rounded inputs/textareas with accent focus borders, muted hint text. Full viewport height (`calc(100vh - 55px)`) with `position: sticky` so panel stays visible while scrolling editor content. Dark mode variants for shadow and texture. Panel extends to bottom of viewport. New CSS classes: `.editor-settings-section`, `.editor-settings-label`, `.editor-settings-select`, `.editor-settings-input`, `.editor-settings-textarea`, `.editor-settings-hint`, `.editor-settings-heading`. Modified: `editor-client.tsx`, `globals.css`, `CLAUDE.md`.
 - **2026-02-26** — Editor Settings Panel: Open by Default. Editor settings panel (Privacy, Category, Series, Tags, Excerpt, Newsletter) now opens by default on desktop (≥768px) instead of being hidden behind a gear icon. Panel state persisted in localStorage (`inkwell-editor-panel`). Toggle button changed from gear icon to double-chevron collapse/expand arrows. Newsletter and series data fetched eagerly on mount instead of waiting for panel toggle. Mobile behavior unchanged (hidden by default, toggleable). Fixed newsletter bug: editor was fetching `/api/auth/me` (no proxy route) instead of `/api/me`, causing newsletter UI to never appear. Also fixed `:api_url` config missing in production `runtime.exs`. Modified: `editor-client.tsx`, `globals.css`, `runtime.exs`, `series-manager.tsx`.

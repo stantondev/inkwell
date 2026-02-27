@@ -8,11 +8,13 @@ interface FullUser {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
   subscription_tier?: string;
   profile_html?: string | null;
   profile_css?: string | null;
   profile_music?: string | null;
   profile_background_url?: string | null;
+  profile_banner_url?: string | null;
   profile_background_color?: string | null;
   profile_accent_color?: string | null;
   profile_foreground_color?: string | null;
@@ -21,6 +23,9 @@ interface FullUser {
   profile_widgets?: Record<string, unknown> | null;
   profile_status?: string | null;
   profile_theme?: string | null;
+  profile_entry_display?: string | null;
+  pinned_entry_ids?: string[];
+  social_links?: Record<string, string> | null;
 }
 
 export default async function CustomizePage() {

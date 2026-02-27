@@ -14,34 +14,55 @@ defmodule InkwellWeb.EntryController do
       page = parse_int(params["page"], 1)
       per_page = parse_int(params["per_page"], 20)
 
-      opts = [page: page, per_page: per_page]
+      # Search & filter params
+      filter_opts = [
+        page: page,
+        per_page: per_page,
+        search: params["q"],
+        category: params["category"],
+        tag: params["tag"],
+        year: params["year"],
+        sort: params["sort"] || "newest"
+      ]
 
       entries =
         cond do
           viewer && viewer.id == user.id ->
             # Owner: see everything (published only — drafts are separate)
-            Journals.list_entries(user.id, opts)
+            Journals.list_entries(user.id, filter_opts)
 
           viewer && Social.is_friend?(viewer.id, user.id) ->
             # Friends: public + friends_only + custom entries where viewer is in the filter
-            all = Journals.list_entries(user.id, Keyword.put(opts, :privacy, [:public, :friends_only, :custom]))
+            all = Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, [:public, :friends_only, :custom]))
             Enum.filter(all, fn entry ->
               entry.privacy != :custom || viewer_in_custom_filter?(entry, viewer.id)
             end)
 
           true ->
-            Journals.list_public_entries(user.id, opts)
+            Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, :public))
         end
 
       entry_ids = Enum.map(entries, & &1.id)
       stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+      comment_counts = Journals.count_comments_for_entries(entry_ids)
+
+      # Total count for pagination UI (respects active filters)
+      count_opts = Keyword.drop(filter_opts, [:page, :per_page, :sort])
+      total_count =
+        cond do
+          viewer && viewer.id == user.id ->
+            Journals.count_entries_filtered(user.id, count_opts)
+          true ->
+            Journals.count_entries_filtered(user.id, Keyword.put(count_opts, :privacy, :public))
+        end
 
       json(conn, %{
         data: Enum.map(entries, fn entry ->
           render_entry(entry)
           |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
+          |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
         end),
-        pagination: %{page: page, per_page: per_page}
+        pagination: %{page: page, per_page: per_page, total: total_count}
       })
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})

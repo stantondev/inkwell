@@ -33,12 +33,21 @@ defmodule Inkwell.Journals do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
     tag = Keyword.get(opts, :tag)
+    search = Keyword.get(opts, :search)
+    category = Keyword.get(opts, :category)
+    year = Keyword.get(opts, :year)
+    sort = Keyword.get(opts, :sort, "newest")
 
     query =
       Entry
       |> where(user_id: ^user_id)
       |> where([e], e.status == :published)
-      |> order_by(desc: :published_at)
+
+    query =
+      case sort do
+        "oldest" -> order_by(query, asc: :published_at)
+        _ -> order_by(query, desc: :published_at)
+      end
 
     query =
       case privacy do
@@ -48,11 +57,74 @@ defmodule Inkwell.Journals do
       end
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = if category, do: where(query, [e], e.category == ^category), else: query
+
+    query =
+      if search && search != "" do
+        term = "%#{search}%"
+        where(query, [e], ilike(e.title, ^term))
+      else
+        query
+      end
+
+    query =
+      if year do
+        year_int = if is_binary(year), do: String.to_integer(year), else: year
+        start_dt = %DateTime{year: year_int, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
+        end_dt = %DateTime{year: year_int + 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
+        where(query, [e], e.published_at >= ^start_dt and e.published_at < ^end_dt)
+      else
+        query
+      end
 
     query
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
     |> Repo.all()
+  end
+
+  @doc "Count entries matching filters (for pagination total)."
+  def count_entries_filtered(user_id, opts \\ []) do
+    privacy = Keyword.get(opts, :privacy)
+    tag = Keyword.get(opts, :tag)
+    search = Keyword.get(opts, :search)
+    category = Keyword.get(opts, :category)
+    year = Keyword.get(opts, :year)
+
+    query =
+      Entry
+      |> where(user_id: ^user_id)
+      |> where([e], e.status == :published)
+
+    query =
+      case privacy do
+        list when is_list(list) -> where(query, [e], e.privacy in ^list)
+        nil -> query
+        p -> where(query, privacy: ^p)
+      end
+
+    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = if category, do: where(query, [e], e.category == ^category), else: query
+
+    query =
+      if search && search != "" do
+        term = "%#{search}%"
+        where(query, [e], ilike(e.title, ^term))
+      else
+        query
+      end
+
+    query =
+      if year do
+        year_int = if is_binary(year), do: String.to_integer(year), else: year
+        start_dt = %DateTime{year: year_int, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
+        end_dt = %DateTime{year: year_int + 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
+        where(query, [e], e.published_at >= ^start_dt and e.published_at < ^end_dt)
+      else
+        query
+      end
+
+    Repo.aggregate(query, :count)
   end
 
   def list_public_entries(user_id, opts \\ []) do
@@ -534,6 +606,48 @@ defmodule Inkwell.Journals do
     |> where(user_id: ^user_id)
     |> where([e], e.status == :published)
     |> Repo.aggregate(:count)
+  end
+
+  def count_public_entries(user_id) do
+    Entry
+    |> where(user_id: ^user_id)
+    |> where([e], e.status == :published and e.privacy == :public)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "List distinct years that a user has published entries, newest first."
+  def list_entry_years(user_id) do
+    Entry
+    |> where(user_id: ^user_id)
+    |> where([e], e.status == :published and not is_nil(e.published_at))
+    |> select([e], fragment("DISTINCT EXTRACT(YEAR FROM ?)::integer", e.published_at))
+    |> order_by([e], fragment("1 DESC"))
+    |> Repo.all()
+  end
+
+  @doc "List all tags used by a user's published entries with frequency counts."
+  def list_entry_tags(user_id) do
+    Entry
+    |> where(user_id: ^user_id)
+    |> where([e], e.status == :published)
+    |> where([e], fragment("array_length(?, 1) > 0", e.tags))
+    |> select([e], e.tags)
+    |> Repo.all()
+    |> List.flatten()
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {_tag, count} -> -count end)
+  end
+
+  @doc "List all categories used by a user's published entries with counts."
+  def list_entry_categories(user_id) do
+    Entry
+    |> where(user_id: ^user_id)
+    |> where([e], e.status == :published and not is_nil(e.category))
+    |> group_by([e], e.category)
+    |> select([e], {e.category, count(e.id)})
+    |> order_by([e], fragment("2 DESC"))
+    |> Repo.all()
+    |> Enum.map(fn {cat, count} -> %{category: cat, count: count} end)
   end
 
   # ── Entry Images ─────────────────────────────────────────────────────────

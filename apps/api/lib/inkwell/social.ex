@@ -148,6 +148,18 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  def count_followers(user_id) do
+    Relationship
+    |> where([r], r.following_id == ^user_id and r.status == :accepted)
+    |> Repo.aggregate(:count)
+  end
+
+  def count_following(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted)
+    |> Repo.aggregate(:count)
+  end
+
   def is_friend?(user_id, other_id) do
     Relationship
     |> where([r], r.follower_id == ^user_id and r.following_id == ^other_id and r.status == :accepted)

@@ -26,14 +26,25 @@ defmodule InkwellWeb.UserController do
               end
           end
 
+        entry_years = Journals.list_entry_years(user.id)
+        entry_tags = Journals.list_entry_tags(user.id)
+        entry_categories = Journals.list_entry_categories(user.id)
+        follower_count = Social.count_followers(user.id)
+        following_count = Social.count_following(user.id)
+
         conn |> json(%{
           data: render_user(user),
           meta: %{
             entry_count: entry_count,
+            follower_count: follower_count,
+            following_count: following_count,
             relationship_status: relationship_status,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
-            end)
+            end),
+            entry_years: entry_years,
+            entry_tags: Enum.map(entry_tags, fn {tag, count} -> %{tag: tag, count: count} end),
+            entry_categories: entry_categories
           }
         })
     end
@@ -53,9 +64,10 @@ defmodule InkwellWeb.UserController do
     # Free-tier fields (always allowed)
     free_fields = [
       "display_name", "bio", "pronouns", "avatar_url", "settings",
-      "profile_status", "profile_theme",
+      "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
-      "support_url", "support_label"
+      "support_url", "support_label",
+      "pinned_entry_ids", "social_links"
     ]
 
     # Plus-only profile customization fields (silently stripped for free users)
@@ -382,6 +394,7 @@ defmodule InkwellWeb.UserController do
       profile_banner_url: user.profile_banner_url,
       profile_status: user.profile_status,
       profile_theme: user.profile_theme,
+      profile_entry_display: user.profile_entry_display || "cards",
       avatar_frame: user.avatar_frame,
       newsletter_enabled: user.newsletter_enabled || false,
       newsletter_name: user.newsletter_name,
@@ -389,7 +402,9 @@ defmodule InkwellWeb.UserController do
       subscriber_count: Inkwell.Newsletter.count_subscribers(user.id),
       support_url: user.support_url,
       support_label: user.support_label,
-      stripe_connect_enabled: user.stripe_connect_enabled || false
+      stripe_connect_enabled: user.stripe_connect_enabled || false,
+      pinned_entry_ids: user.pinned_entry_ids || [],
+      social_links: user.social_links || %{}
     }
   end
 

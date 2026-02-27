@@ -1,4 +1,4 @@
-import { PROFILE_THEMES, PROFILE_FONTS } from "./profile-themes";
+import { PROFILE_THEMES, PROFILE_FONTS, LEGACY_THEME_MAP } from "./profile-themes";
 
 export interface ProfileCustomization {
   profile_theme?: string | null;
@@ -17,6 +17,10 @@ export interface ProfileStyles {
   muted: string;
   foreground: string;
   border: string;
+  /** Combined CSS class string for theme structural overrides (e.g., "theme-manuscript theme-spacing-normal") */
+  themeClass: string;
+  /** Tailwind border-radius class based on theme borderStyle */
+  borderRadius: string;
 }
 
 /**
@@ -29,7 +33,11 @@ export interface ProfileStyles {
  */
 export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles {
   const isPlus = (profile.subscription_tier ?? "free") === "plus";
-  const theme = PROFILE_THEMES.find((t) => t.id === profile.profile_theme);
+
+  // Resolve theme — check new IDs first, then try legacy mapping
+  const themeId = profile.profile_theme ?? "default";
+  const resolvedThemeId = LEGACY_THEME_MAP[themeId] ?? themeId;
+  const theme = PROFILE_THEMES.find((t) => t.id === resolvedThemeId);
 
   // For non-Plus users, ignore custom overrides — use theme defaults only
   const font = isPlus
@@ -90,6 +98,18 @@ export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles
     cssVarOverrides["--serif"] = font.family;
   }
 
+  // Compute theme structural class
+  const themeClass = [
+    theme?.themeClass ?? "theme-classic",
+    `theme-spacing-${theme?.spacing ?? "normal"}`,
+  ].join(" ");
+
+  // Compute border radius class based on theme
+  const borderRadius =
+    theme?.borderStyle === "sharp" ? "rounded-none" :
+    theme?.borderStyle === "pill" ? "rounded-3xl" :
+    "rounded-xl";
+
   return {
     page: {
       background: (isPlus && profile.profile_background_url) ? undefined : bg,
@@ -105,5 +125,7 @@ export function buildProfileStyles(profile: ProfileCustomization): ProfileStyles
     muted,
     foreground,
     border,
+    themeClass,
+    borderRadius,
   };
 }
