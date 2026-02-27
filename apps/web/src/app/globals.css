@@ -1119,55 +1119,195 @@ div:has(> div > .editor-floating-menu) {
   margin-bottom: var(--ruled-line);
 }
 
-/* ── Settings sidebar ─────────────────────────────────── */
+/* ── Settings sidebar — "The Margins" ─────────────────── */
 
 .editor-settings-panel {
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
+  position: relative;
+  /* Spine shadow — like a book page fold */
+  box-shadow: -4px 0 16px -4px rgba(0, 0, 0, 0.04);
+  scrollbar-width: none;
+}
+
+.editor-settings-panel::-webkit-scrollbar {
+  width: 0;
+}
+
+/* Paper texture — matching sidebar */
+.editor-settings-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.012;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .editor-settings-panel {
+    box-shadow: -4px 0 16px -4px rgba(0, 0, 0, 0.2);
+  }
+
+  .editor-settings-panel::before {
+    opacity: 0.03;
+    mix-blend-mode: soft-light;
+  }
 }
 
 .editor-settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: 20px 20px 12px;
   position: sticky;
   top: 0;
   background: var(--surface);
   z-index: 1;
 }
 
+.editor-settings-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 13px;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
 .editor-settings-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
 .editor-settings-close:hover {
-  background: var(--surface-hover);
+  background: var(--accent-light);
+  color: var(--accent);
 }
 
 .editor-settings-body {
-  padding: 20px;
+  padding: 0 20px 24px;
+  position: relative;
+  z-index: 1;
 }
 
-/* Desktop: sidebar is a persistent right panel */
+/* Section styling within settings */
+.editor-settings-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-settings-section:last-child {
+  border-bottom: none;
+}
+
+.editor-settings-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-settings-label svg {
+  opacity: 0.5;
+}
+
+.editor-settings-select {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--background);
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.editor-settings-select:focus {
+  border-color: var(--accent);
+}
+
+.editor-settings-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--background);
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.editor-settings-input:focus {
+  border-color: var(--accent);
+}
+
+.editor-settings-input::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.editor-settings-textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--background);
+  color: var(--foreground);
+  outline: none;
+  resize: none;
+  transition: border-color 0.15s;
+}
+
+.editor-settings-textarea:focus {
+  border-color: var(--accent);
+}
+
+.editor-settings-textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.editor-settings-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Desktop: persistent right panel, full viewport height */
 @media (min-width: 768px) {
   .editor-settings-panel {
     width: 300px;
     flex-shrink: 0;
-    max-height: calc(100vh - 55px);
+    height: calc(100vh - 55px);
     position: sticky;
     top: 55px;
   }
@@ -1182,6 +1322,11 @@ div:has(> div > .editor-floating-menu) {
   .editor-settings-panel {
     border-left: none;
     border-top: 1px solid var(--border);
+    box-shadow: none;
+  }
+
+  .editor-settings-panel::before {
+    display: none;
   }
 }
 

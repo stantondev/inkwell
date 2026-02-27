@@ -1643,57 +1643,52 @@ export function EditorClient() {
           </div>{/* end .editor-paper */}
         </main>
 
-        {/* ── Settings panel (slide-out sidebar on desktop, inline on mobile) ── */}
+        {/* ── Settings panel — "The Margins" ──────────────── */}
         {showSettings && (
           <aside className="editor-settings-panel">
             <div className="editor-settings-header">
-              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-                Entry Settings
-              </span>
+              <span className="editor-settings-heading">Entry Settings</span>
               <button type="button" onClick={toggleSettings}
                 className="editor-settings-close" aria-label="Close settings">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="13 17 18 12 13 7"/>
                 </svg>
               </button>
             </div>
             <div className="editor-settings-body">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Privacy
-                  </label>
-                  <select value={state.privacy}
-                    onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
-                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}>
-                    {PRIVACY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
-                    ))}
-                  </select>
+
+              {/* Privacy */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  Privacy
                 </div>
+                <select value={state.privacy}
+                  onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
+                  className="editor-settings-select">
+                  {PRIVACY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
+                  ))}
+                </select>
                 {state.privacy === "custom" && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                      Filter
-                    </label>
+                  <div style={{ marginTop: 8 }}>
                     {!filtersLoaded ? (
-                      <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading filters...</span>
+                      <span className="editor-settings-hint">Loading filters...</span>
                     ) : filters.length === 0 ? (
-                      <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
+                      <div className="editor-settings-hint">
                         No filters yet.{" "}
-                        <NextLink href="/settings/filters" className="underline" style={{ color: "var(--accent)" }}>
-                          Create your first filter
+                        <NextLink href="/settings/filters" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                          Create one
                         </NextLink>
                       </div>
                     ) : (
                       <select
                         value={state.customFilterId ?? ""}
                         onChange={(e) => update({ customFilterId: e.target.value || null })}
-                        className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                      >
+                        className="editor-settings-select">
                         <option value="">Select a filter...</option>
                         {filters.map((f) => (
                           <option key={f.id} value={f.id}>
@@ -1704,147 +1699,162 @@ export function EditorClient() {
                     )}
                   </div>
                 )}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Category
-                  </label>
+              </div>
+
+              {/* Category */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                  Category
+                </div>
+                <select
+                  value={state.category ?? ""}
+                  onChange={(e) => update({ category: e.target.value || null })}
+                  className="editor-settings-select">
+                  <option value="">No category</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Series */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  Series
+                </div>
+                {!seriesLoaded ? (
+                  <span className="editor-settings-hint">Loading series...</span>
+                ) : seriesOptions.length === 0 ? (
+                  <div className="editor-settings-hint">
+                    No series yet.{" "}
+                    <NextLink href="/settings/series" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                      Create one
+                    </NextLink>
+                  </div>
+                ) : (
                   <select
-                    value={state.category ?? ""}
-                    onChange={(e) => update({ category: e.target.value || null })}
-                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                  >
-                    <option value="">No category</option>
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    value={state.seriesId ?? ""}
+                    onChange={(e) => update({ seriesId: e.target.value || null })}
+                    className="editor-settings-select">
+                    <option value="">No series</option>
+                    {seriesOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title} ({s.entry_count} {s.entry_count === 1 ? "entry" : "entries"})
+                      </option>
                     ))}
                   </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Series
-                  </label>
-                  {!seriesLoaded ? (
-                    <span className="text-xs py-2" style={{ color: "var(--muted)" }}>Loading series...</span>
-                  ) : seriesOptions.length === 0 ? (
-                    <div className="text-xs py-2" style={{ color: "var(--muted)" }}>
-                      No series yet.{" "}
-                      <NextLink href="/settings/series" className="underline" style={{ color: "var(--accent)" }}>
-                        Create your first series
-                      </NextLink>
-                    </div>
-                  ) : (
-                    <select
-                      value={state.seriesId ?? ""}
-                      onChange={(e) => update({ seriesId: e.target.value || null })}
-                      className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                      style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                    >
-                      <option value="">No series</option>
-                      {seriesOptions.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.title} ({s.entry_count} {s.entry_count === 1 ? "entry" : "entries"})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Tags
-                  </label>
-                  <input type="text" value={state.tags}
-                    onChange={(e) => update({ tags: e.target.value })}
-                    placeholder="coffee, 2026, writing"
-                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                    Excerpt <span className="normal-case font-normal">(auto-filled if blank)</span>
-                  </label>
-                  <textarea
-                    value={state.excerpt}
-                    onChange={(e) => update({ excerpt: e.target.value })}
-                    placeholder="A short summary…"
-                    maxLength={300}
-                    rows={2}
-                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                  />
-                  <span className="text-xs text-right" style={{ color: "var(--muted)" }}>
-                    {state.excerpt.length}/300
-                  </span>
-                </div>
-
-                {/* Newsletter section — only when enabled + public */}
-                {newsletterEnabled && state.privacy === "public" && (
-                  <div className="flex flex-col gap-3 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
-                    <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
-                      Newsletter
-                    </label>
-                    {alreadySent ? (
-                      <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
-                        This entry was already sent as a newsletter.
-                      </div>
-                    ) : (
-                      <>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={sendNewsletter}
-                            onChange={(e) => setSendNewsletter(e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="text-sm">Send to email subscribers</span>
-                        </label>
-                        {sendNewsletter && (
-                          <>
-                            <div className="text-xs" style={{ color: "var(--muted)" }}>
-                              {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
-                            </div>
-                            <input
-                              type="text"
-                              value={newsletterSubject}
-                              onChange={(e) => setNewsletterSubject(e.target.value)}
-                              placeholder={state.title || "Email subject line"}
-                              maxLength={200}
-                              className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                              style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                            />
-                            <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                              Subject line (defaults to entry title)
-                            </span>
-                            {isPlus && (
-                              <div className="flex flex-col gap-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={scheduleSend}
-                                    onChange={(e) => setScheduleSend(e.target.checked)}
-                                    className="rounded"
-                                  />
-                                  <span className="text-sm">Schedule for later</span>
-                                </label>
-                                {scheduleSend && (
-                                  <input
-                                    type="datetime-local"
-                                    value={scheduledAt}
-                                    onChange={(e) => setScheduledAt(e.target.value)}
-                                    min={new Date().toISOString().slice(0, 16)}
-                                    className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                                    style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-                                  />
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
                 )}
               </div>
+
+              {/* Tags */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+                  </svg>
+                  Tags
+                </div>
+                <input type="text" value={state.tags}
+                  onChange={(e) => update({ tags: e.target.value })}
+                  placeholder="coffee, 2026, writing"
+                  className="editor-settings-input" />
+              </div>
+
+              {/* Excerpt */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/>
+                  </svg>
+                  Excerpt
+                </div>
+                <textarea
+                  value={state.excerpt}
+                  onChange={(e) => update({ excerpt: e.target.value })}
+                  placeholder="A short summary…"
+                  maxLength={300}
+                  rows={2}
+                  className="editor-settings-textarea"
+                />
+                <div className="editor-settings-hint" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Auto-filled if blank</span>
+                  <span>{state.excerpt.length}/300</span>
+                </div>
+              </div>
+
+              {/* Newsletter section — only when enabled + public */}
+              {newsletterEnabled && state.privacy === "public" && (
+                <div className="editor-settings-section">
+                  <div className="editor-settings-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    Newsletter
+                  </div>
+                  {alreadySent ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      This entry was already sent as a newsletter.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={sendNewsletter}
+                          onChange={(e) => setSendNewsletter(e.target.checked)}
+                          className="rounded"
+                        />
+                        Send to email subscribers
+                      </label>
+                      {sendNewsletter && (
+                        <>
+                          <div className="editor-settings-hint">
+                            {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
+                          </div>
+                          <input
+                            type="text"
+                            value={newsletterSubject}
+                            onChange={(e) => setNewsletterSubject(e.target.value)}
+                            placeholder={state.title || "Email subject line"}
+                            maxLength={200}
+                            className="editor-settings-input"
+                          />
+                          <div className="editor-settings-hint">Subject line (defaults to entry title)</div>
+                          {isPlus && (
+                            <div className="flex flex-col gap-2">
+                              <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={scheduleSend}
+                                  onChange={(e) => setScheduleSend(e.target.checked)}
+                                  className="rounded"
+                                />
+                                Schedule for later
+                              </label>
+                              {scheduleSend && (
+                                <input
+                                  type="datetime-local"
+                                  value={scheduledAt}
+                                  onChange={(e) => setScheduledAt(e.target.value)}
+                                  min={new Date().toISOString().slice(0, 16)}
+                                  className="editor-settings-input"
+                                />
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </aside>
         )}
