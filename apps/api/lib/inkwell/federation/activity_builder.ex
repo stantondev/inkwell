@@ -71,10 +71,12 @@ defmodule Inkwell.Federation.ActivityBuilder do
         article
       end
 
-    # updated timestamp (only when different from published_at)
+    # updated timestamp (only when meaningfully different from published_at — >60s gap
+    # avoids false positives from the microsecond difference between published_at and
+    # updated_at that occurs on initial publication in the same DB transaction)
     article =
       if entry.updated_at && entry.published_at &&
-           DateTime.compare(entry.updated_at, entry.published_at) == :gt do
+           DateTime.diff(entry.updated_at, entry.published_at, :second) > 60 do
         Map.put(article, "updated", format_datetime(entry.updated_at))
       else
         article
