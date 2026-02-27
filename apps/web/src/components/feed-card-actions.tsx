@@ -172,7 +172,7 @@ export function FeedCardActions({
           <button
             ref={commentBtnRef}
             onClick={handleCommentToggle}
-            className="flex items-center gap-1.5 text-sm transition-colors"
+            className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80"
             style={{ color: "var(--muted)" }}
             title="Comments"
           >
