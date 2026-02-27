@@ -6,17 +6,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
   IMPORTANT: All AP IDs are derived from the configured instance_host at runtime,
   NOT from stored ap_id fields (which may use a different domain like inkwell.social).
   This ensures the actor ID in activities matches the Person endpoint.
+
+  Entries are federated as `Article` objects per FEP-b2b8 (Long-form Text), with a
+  `preview` Note included for microblogging consumers (Mastodon etc.) that don't
+  display Article objects inline.
   """
 
   @public "https://www.w3.org/ns/activitystreams#Public"
 
   @doc """
-  Builds a Create activity wrapping a Note for a published entry.
+  Builds a Create activity wrapping an Article for a published entry.
   """
   def build_create_note(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
-    note = build_note(entry, author)
+    article = build_article(entry, author)
 
     %{
       "@context" => ap_context(),
@@ -26,50 +30,92 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "published" => format_datetime(entry.published_at),
       "to" => [@public],
       "cc" => ["#{actor_url}/followers"],
-      "object" => note
+      "object" => article
     }
   end
 
   @doc """
-  Builds a Note object from an entry.
+  Builds an Article object from an entry (FEP-b2b8 compliant).
   """
-  def build_note(entry, author) do
+  def build_article(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
     frontend_host = federation_config(:frontend_host)
+    instance_host = federation_config(:instance_host)
     page_url = "#{frontend_host}/#{author.username}/#{entry.slug}"
 
-    note = %{
-      "type" => "Note",
+    article = %{
+      "type" => "Article",
       "id" => entry_url,
       "attributedTo" => actor_url,
       "content" => entry.body_html,
       "published" => format_datetime(entry.published_at),
       "url" => page_url,
       "to" => [@public],
-      "cc" => ["#{actor_url}/followers"]
+      "cc" => ["#{actor_url}/followers"],
+      "generator" => %{
+        "type" => "Application",
+        "name" => "Inkwell",
+        "url" => "https://inkwell.social"
+      }
     }
 
-    # Add title as "name" if present (Mastodon shows this)
-    note = if entry.title, do: Map.put(note, "name", entry.title), else: note
+    # title → name (plain text per spec)
+    article = if entry.title, do: Map.put(article, "name", entry.title), else: article
 
-    # Add hashtags
-    note =
-      if entry.tags && length(entry.tags) > 0 do
-        tags = Enum.map(entry.tags, fn tag ->
-          %{
-            "type" => "Hashtag",
-            "name" => "##{tag}",
-            "href" => "#{frontend_host}/tag/#{tag}"
-          }
-        end)
-        Map.put(note, "tag", tags)
+    # excerpt → summary (teaser/abstract, per FEP-b2b8 §summary)
+    article =
+      if entry.excerpt && entry.excerpt != "" do
+        Map.put(article, "summary", entry.excerpt)
       else
-        note
+        article
       end
 
-    note
+    # updated timestamp (only when different from published_at)
+    article =
+      if entry.updated_at && entry.published_at &&
+           DateTime.compare(entry.updated_at, entry.published_at) == :gt do
+        Map.put(article, "updated", format_datetime(entry.updated_at))
+      else
+        article
+      end
+
+    # cover image → image (for AP consumers that show link card thumbnails)
+    article =
+      if entry.cover_image_id do
+        Map.put(article, "image", %{
+          "type" => "Link",
+          "href" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
+          "mediaType" => "image/jpeg"
+        })
+      else
+        article
+      end
+
+    # hashtags
+    article =
+      if entry.tags && length(entry.tags) > 0 do
+        tags =
+          Enum.map(entry.tags, fn tag ->
+            %{
+              "type" => "Hashtag",
+              "name" => "##{tag}",
+              "href" => "#{frontend_host}/tag/#{tag}"
+            }
+          end)
+
+        Map.put(article, "tag", tags)
+      else
+        article
+      end
+
+    # preview Note for microblogging consumers (Mastodon etc.) per FEP-b2b8 §preview
+    Map.put(article, "preview", build_preview_note(entry, actor_url, instance_host))
   end
+
+  # Keep the old name as an alias for any internal callers
+  @doc false
+  def build_note(entry, author), do: build_article(entry, author)
 
   @doc """
   Builds an Update activity for an edited entry.
@@ -77,7 +123,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
   def build_update_note(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
-    note = build_note(entry, author)
+    article = build_article(entry, author)
 
     %{
       "@context" => ap_context(),
@@ -87,7 +133,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "published" => format_datetime(DateTime.utc_now()),
       "to" => [@public],
       "cc" => ["#{actor_url}/followers"],
-      "object" => note
+      "object" => article
     }
   end
 
@@ -282,7 +328,58 @@ defmodule Inkwell.Federation.ActivityBuilder do
     |> String.replace("https://inkwell.social/", "https://#{instance_host}/")
   end
 
-  # ── Helpers ──────────────────────────────────────────────────────────────
+  # ── Private Helpers ──────────────────────────────────────────────────────
+
+  # Builds a Note-type preview for microblogging consumers (FEP-b2b8 §preview).
+  # Content: bold title + excerpt (or stripped/truncated body). No "Read more" link.
+  defp build_preview_note(entry, actor_url, instance_host) do
+    preview = %{
+      "type" => "Note",
+      "attributedTo" => actor_url,
+      "published" => format_datetime(entry.published_at),
+      "content" => build_preview_content(entry)
+    }
+
+    if entry.cover_image_id do
+      Map.put(preview, "attachment", %{
+        "type" => "Link",
+        "href" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
+        "mediaType" => "image/jpeg"
+      })
+    else
+      preview
+    end
+  end
+
+  defp build_preview_content(entry) do
+    title_html =
+      if entry.title && entry.title != "",
+        do: "<p><strong>#{entry.title}</strong></p>",
+        else: ""
+
+    excerpt_html =
+      cond do
+        entry.excerpt && entry.excerpt != "" ->
+          "<p>#{entry.excerpt}</p>"
+
+        entry.body_html ->
+          plain = entry.body_html |> strip_html_tags() |> String.trim()
+          truncated = if String.length(plain) > 280, do: String.slice(plain, 0, 280) <> "…", else: plain
+          if truncated != "", do: "<p>#{truncated}</p>", else: ""
+
+        true ->
+          ""
+      end
+
+    title_html <> excerpt_html
+  end
+
+  defp strip_html_tags(html) when is_binary(html) do
+    Regex.replace(~r/<[^>]+>/, html, " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+  end
+  defp strip_html_tags(_), do: ""
 
   defp detect_media_type(data_uri) when is_binary(data_uri) do
     case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,/, data_uri) do
