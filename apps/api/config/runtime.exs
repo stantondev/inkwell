@@ -73,6 +73,9 @@ if config_env() == :prod do
   # Feedback email recipient
   config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "stanton@inkwell.social"
 
+  # Monitoring (API key for /health/deep endpoint)
+  config :inkwell, :monitor_api_key, System.get_env("MONITOR_API_KEY")
+
   # Federation / ActivityPub
   config :inkwell, :federation,
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",

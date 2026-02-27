@@ -298,10 +298,11 @@ defmodule InkwellWeb.Router do
     delete "/entries/:id", AdminController, :delete_entry
   end
 
-  # Health check — used by Fly.io to confirm the machine is alive
+  # Health check — used by Fly.io and external monitors
   scope "/", InkwellWeb do
     pipe_through :api
     get "/health", HealthController, :check
+    get "/health/deep", HealthController, :deep
   end
 
   # ActivityPub / Federation endpoints
