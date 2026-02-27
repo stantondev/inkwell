@@ -19,7 +19,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: February 22, 2026
+        Last Updated: February 27, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">
@@ -225,8 +225,9 @@ export default function TermsPage() {
             7. Profile Customization
           </h2>
           <p>
-            Inkwell allows users to customize their profiles using CSS and HTML within a sandboxed environment (Shadow
-            DOM). You agree that your profile customizations will not attempt to break out of the sandbox, inject
+            Inkwell allows users to customize their profiles using CSS and HTML. Custom CSS is scoped to your profile
+            section to prevent it from affecting other parts of the site, and custom HTML is sanitized server-side to
+            remove potentially harmful elements. You agree that your profile customizations will not attempt to inject
             malicious scripts, impersonate Inkwell interface elements, or create deceptive or misleading experiences for
             other users.
           </p>
@@ -290,6 +291,28 @@ export default function TermsPage() {
             All transactions conducted through external support links occur directly between you and the third-party service,
             and are subject to that service&apos;s own terms, conditions, and privacy policies. Inkwell assumes no liability
             for any disputes, losses, or issues arising from the use of third-party payment services.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">8.7 Postage (Plus Feature)</h3>
+          <p>
+            Inkwell Plus subscribers may enable &ldquo;Postage,&rdquo; a feature that allows readers to send monetary
+            support directly to writers through the Inkwell platform. Postage payments are processed via Stripe Connect.
+            By enabling Postage, writers agree to Stripe&apos;s Connected Account terms.
+          </p>
+          <p className="mt-3">
+            <strong>Fee structure:</strong> The reader pays the selected postage amount plus standard payment processing
+            fees. The writer receives the postage amount minus an 8% platform commission. Inkwell retains the 8%
+            commission to support platform operations.
+          </p>
+          <p className="mt-3">
+            <strong>No guarantees:</strong> Inkwell does not guarantee any minimum level of reader support. Postage is a
+            voluntary, non-refundable contribution from readers to writers. Inkwell is not responsible for disputes
+            between readers and writers regarding postage payments.
+          </p>
+          <p className="mt-3">
+            <strong>Disconnect:</strong> Writers may disconnect their Stripe Connect account at any time through their
+            account settings, which will disable Postage on their profile. Previously completed payments are not
+            affected by disconnecting.
           </p>
         </section>
 

@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: February 22, 2026
+        Last Updated: February 27, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">
@@ -78,12 +78,12 @@ export default function PrivacyPage() {
               your IP address, browser type and version, operating system, referring URL, pages visited, and timestamps.
             </li>
             <li>
-              <strong>Device information:</strong> We collect information about the device you use to access the Service,
-              including device type, screen resolution, and unique device identifiers.
+              <strong>Device information:</strong> We collect basic information about the device you use to access the
+              Service, including device type and browser type, as part of standard server log data.
             </li>
             <li>
               <strong>Cookies and similar technologies:</strong> We use essential cookies to maintain your session and
-              preferences. See Section 7 for more details.
+              preferences. See Section 8 for more details.
             </li>
           </ul>
 
@@ -170,9 +170,11 @@ export default function PrivacyPage() {
               accordance with their respective data processing terms.
             </li>
             <li>
-              <strong>Legal requirements:</strong> We may disclose your information if required to do so by law, or if we
-              believe in good faith that such disclosure is reasonably necessary to comply with legal process, respond to
-              claims, or protect the rights, property, or safety of Inkwell, our users, or the public.
+              <strong>Legal requirements:</strong> We will only disclose your information to law enforcement or government
+              authorities when compelled by a valid court order, warrant, or other legally binding judicial process. We do
+              not voluntarily disclose user data in response to informal requests, subpoenas without judicial oversight, or
+              &ldquo;good faith&rdquo; requests from law enforcement. Any disclosure will be limited to the narrowest scope
+              required by the specific legal instrument. See Section 6 for our full Law Enforcement Request policy.
             </li>
             <li>
               <strong>Business transfers:</strong> In the event of a merger, acquisition, reorganization, or sale of
@@ -258,8 +260,10 @@ export default function PrivacyPage() {
               friends-only, private, or custom friend filters).
             </li>
             <li>
-              <strong>Email preferences:</strong> You can manage your email notification preferences in your account
-              settings. Service-critical emails (such as security alerts) cannot be opted out of.
+              <strong>Newsletter subscriptions:</strong> If you subscribe to a writer&apos;s newsletter, you can
+              unsubscribe at any time via the one-click unsubscribe link included in every newsletter email. Inkwell
+              sends only service-critical transactional emails (such as magic link sign-in and account security alerts),
+              which cannot be opted out of.
             </li>
           </ul>
 
@@ -346,18 +350,64 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 6. Data Security */}
+        {/* 6. Law Enforcement and Government Requests */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            6. Data Security
+            6. Law Enforcement and Government Requests
+          </h2>
+          <p>
+            Inkwell is committed to protecting the privacy of its users. We have adopted the following principles
+            for handling law enforcement and government requests for user data:
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">6.1 Warrant Requirement</h3>
+          <p>
+            We require a valid warrant issued by a judge, or equivalent judicial authorization, before disclosing the
+            content of any user&apos;s journal entries, private messages, drafts, or other non-public content. We do not
+            treat subpoenas (which do not require judicial approval) as sufficient legal basis to disclose content data.
+            For non-content data (such as basic account information or IP address logs), we require at minimum a valid
+            subpoena or court order.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">6.2 User Notification</h3>
+          <p>
+            When we receive a legal request for your data, we will notify you before disclosing any information so that
+            you have the opportunity to challenge the request, unless we are legally prohibited from doing so (for
+            example, by a court-issued gag order or nondisclosure order under 18 U.S.C. &sect; 2705). If we are
+            initially prohibited from notifying you, we will notify you as soon as the prohibition is lifted or expires.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">6.3 Narrow Scope</h3>
+          <p>
+            We will carefully review every request to ensure it is legally valid, properly scoped, and specific. We will
+            resist requests that are overly broad, vague, or otherwise inappropriate. Any disclosure will be limited to
+            the narrowest set of data required by the specific legal instrument.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">6.4 Transparency</h3>
+          <p>
+            We may publish periodic transparency reports summarizing the number and types of government requests we
+            receive and how we respond to them. These reports will not include information that identifies individual
+            users.
+          </p>
+        </section>
+
+        {/* 7. Data Security */}
+        <section>
+          <h2
+            className="text-xl font-semibold mb-3"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            7. Data Security
           </h2>
           <p>
             We implement reasonable technical and organizational measures to protect your personal information, including
-            encryption of data in transit (TLS/HTTPS), hashed password storage, and access controls on our
-            infrastructure.
+            encryption of data in transit (TLS/HTTPS), cryptographically random authentication tokens, rate limiting on
+            sensitive endpoints, and access controls on our infrastructure. Inkwell uses passwordless authentication
+            (magic link email), so no passwords are stored.
           </p>
           <p className="mt-3">
             However, no method of transmission over the internet or electronic storage is completely secure. We cannot
@@ -366,13 +416,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 7. Cookies and Similar Technologies */}
+        {/* 8. Cookies and Similar Technologies */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            7. Cookies and Similar Technologies
+            8. Cookies and Similar Technologies
           </h2>
           <p>Inkwell uses the following types of cookies:</p>
           <ul className="list-disc pl-6 mt-3 flex flex-col gap-3">
@@ -390,13 +440,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 8. Children's Privacy */}
+        {/* 9. Children's Privacy */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            8. Children&apos;s Privacy
+            9. Children&apos;s Privacy
           </h2>
           <p>
             The Service is not directed to children under the age of 16. We do not knowingly collect personal information
@@ -411,13 +461,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 9. International Data Transfers */}
+        {/* 10. International Data Transfers */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            9. International Data Transfers
+            10. International Data Transfers
           </h2>
           <p>
             Inkwell&apos;s servers are located in Chicago, IL, USA. If you access the Service from outside this
@@ -426,13 +476,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 10. Third-Party Links and Federated Content */}
+        {/* 11. Third-Party Links and Federated Content */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            10. Third-Party Links and Federated Content
+            11. Third-Party Links and Federated Content
           </h2>
           <p>
             The Service may contain links to third-party websites or display content from federated servers. This Privacy
@@ -441,13 +491,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 11. Changes to This Privacy Policy */}
+        {/* 12. Changes to This Privacy Policy */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            11. Changes to This Privacy Policy
+            12. Changes to This Privacy Policy
           </h2>
           <p>
             We may update this Privacy Policy from time to time. If we make material changes, we will notify you by
@@ -459,13 +509,13 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        {/* 12. Contact Us */}
+        {/* 13. Contact Us */}
         <section>
           <h2
             className="text-xl font-semibold mb-3"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            12. Contact Us
+            13. Contact Us
           </h2>
           <p>
             If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please
