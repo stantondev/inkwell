@@ -6,10 +6,11 @@ import { TipModal } from "./tip-modal";
 interface TipButtonProps {
   recipientId: string;
   recipientName: string;
+  entryId?: string;
   variant?: "default" | "compact";
 }
 
-export function TipButton({ recipientId, recipientName, variant = "default" }: TipButtonProps) {
+export function TipButton({ recipientId, recipientName, entryId, variant = "default" }: TipButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   if (variant === "compact") {
@@ -31,6 +32,7 @@ export function TipButton({ recipientId, recipientName, variant = "default" }: T
           <TipModal
             recipientId={recipientId}
             recipientName={recipientName}
+            entryId={entryId}
             onClose={() => setShowModal(false)}
           />
         )}

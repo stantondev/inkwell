@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Repo, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -64,11 +64,22 @@ defmodule InkwellWeb.EntryController do
         entry_with_user = %{entry | user: user}
         series_nav = Journals.get_series_navigation(entry_with_user)
 
-        render_entry_full(entry, user)
-        |> Map.put(:stamps, stamp_types)
-        |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
-        |> Map.put(:bookmarked, bookmarked)
-        |> Map.put(:series, series_nav)
+        result =
+          render_entry_full(entry, user)
+          |> Map.put(:stamps, stamp_types)
+          |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
+          |> Map.put(:bookmarked, bookmarked)
+          |> Map.put(:series, series_nav)
+
+        # Include per-entry postage stats for the author only
+        if viewer && viewer.id == user.id do
+          tip_stats = Tipping.get_entry_tip_stats(entry.id)
+          result
+          |> Map.put(:tip_total_cents, tip_stats.total_cents)
+          |> Map.put(:tip_count, tip_stats.count)
+        else
+          result
+        end
       end
 
       cond do

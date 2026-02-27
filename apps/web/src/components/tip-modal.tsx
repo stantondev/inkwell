@@ -1,16 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
+// Lazy-load Stripe.js — only when modal actually opens
+let stripePromise: Promise<Stripe | null> | null = null;
+function getStripe() {
+  if (!stripePromise) {
+    stripePromise = loadStripe(
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+    );
+  }
+  return stripePromise;
+}
 
 interface TipModalProps {
   recipientId: string;
   recipientName: string;
+  entryId?: string;
   onClose: () => void;
 }
 
@@ -29,7 +38,7 @@ function calculateFee(amountCents: number) {
   return calculateTotal(amountCents) - amountCents;
 }
 
-export function TipModal({ recipientId, recipientName, onClose }: TipModalProps) {
+export function TipModal({ recipientId, recipientName, entryId, onClose }: TipModalProps) {
   const [amountCents, setAmountCents] = useState(500);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustom, setIsCustom] = useState(false);
@@ -40,6 +49,22 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"amount" | "payment" | "success">("amount");
+  const [mounted, setMounted] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Ensure portal target exists (client-side only)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -49,6 +74,11 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
+
+  // Initialize Stripe lazily when modal opens
+  useEffect(() => {
+    getStripe();
+  }, []);
 
   const effectiveAmount = isCustom
     ? Math.round(parseFloat(customAmount || "0") * 100)
@@ -70,6 +100,7 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
           amount_cents: effectiveAmount,
           anonymous,
           message: message.trim() || null,
+          ...(entryId ? { entry_id: entryId } : {}),
         }),
       });
 
@@ -98,23 +129,64 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
     setLoading(false);
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
+  // Close when clicking backdrop (not modal content)
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === backdropRef.current) {
+      onClose();
+    }
+  };
 
+  if (!mounted) return null;
+
+  const modalContent = (
+    <div
+      ref={backdropRef}
+      onClick={handleBackdropClick}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        background: "rgba(0, 0, 0, 0.5)",
+        WebkitOverflowScrolling: "touch",
+      }}
+    >
       {/* Modal */}
       <div
-        className="relative w-full max-w-md rounded-2xl border p-6 shadow-xl"
-        style={{ background: "var(--background)", borderColor: "var(--border)" }}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "28rem",
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          borderRadius: "1rem",
+          border: "1px solid var(--border)",
+          padding: "1.5rem",
+          boxShadow: "0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1)",
+          background: "var(--background)",
+        }}
       >
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full transition-colors hover:bg-[var(--surface-hover)]"
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            padding: "4px",
+            borderRadius: "9999px",
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--foreground)",
+          }}
           aria-label="Close"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -146,7 +218,7 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
 
         {step === "payment" && clientSecret && (
           <Elements
-            stripe={stripePromise}
+            stripe={getStripe()}
             options={{ clientSecret, appearance: { theme: "stripe" } }}
           >
             <PaymentStep
@@ -169,6 +241,8 @@ export function TipModal({ recipientId, recipientName, onClose }: TipModalProps)
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 // ── Step 1: Amount Selection ──────────────────────────────────────

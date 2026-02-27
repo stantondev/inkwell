@@ -64,6 +64,8 @@ interface EntryData {
     prev_entry?: { slug: string; title: string | null } | null;
     next_entry?: { slug: string; title: string | null } | null;
   } | null;
+  tip_total_cents?: number;
+  tip_count?: number;
   author: EntryAuthor;
 }
 
@@ -400,6 +402,15 @@ export default async function EntryPage({ params }: EntryParams) {
               {mins} min read
             </span>
 
+            {isOwnEntry && entry.tip_total_cents != null && entry.tip_total_cents > 0 && (
+              <>
+                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
+                <span className="text-sm" style={{ color: "var(--accent)" }}>
+                  ${(entry.tip_total_cents / 100).toFixed(2)} in postage
+                </span>
+              </>
+            )}
+
             {entry.category && (
               <>
                 <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
@@ -493,6 +504,7 @@ export default async function EntryPage({ params }: EntryParams) {
               <TipButton
                 recipientId={author.id}
                 recipientName={author.display_name}
+                entryId={entry.id}
               />
             )}
             {author.support_url && (

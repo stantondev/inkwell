@@ -436,6 +436,12 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - Postage history page at `/settings/support/postage` with received/sent tabs and stats
   - Support settings page shows postage stats (all-time, this month) and "View postage history" link
   - Notification data includes `amount_cents` and `message` for display
+- **Sprint 5: Per-Entry Postage Stats** — author-only postage stats on entry detail page
+  - `entry_id` nullable FK added to `tips` table (profile-page tips have no entry)
+  - `get_entry_tip_stats/1` aggregation query in `Tipping` context
+  - Entry show response includes `tip_total_cents` and `tip_count` when viewer is the author
+  - Subtle stat line in entry meta: "3 min read · $12.00 in postage" (accent-colored, author-only)
+  - Migration `20260222000033`
 - **Key files**:
   - `apps/api/lib/inkwell/tipping.ex` — full tipping context (Connect + tips)
   - `apps/api/lib/inkwell/tipping/tip.ex` — Tip Ecto schema
@@ -512,7 +518,7 @@ Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter |
 - `entry_images` — uploaded images for entries (id, user_id, data as base64 data URI, content_type, filename, byte_size)
 - `newsletter_subscribers` — email subscribers per writer (writer_id, email, status: pending/confirmed/unsubscribed, confirm_token, unsubscribe_token, source)
 - `newsletter_sends` — newsletter send records (entry_id, writer_id, subject, status: queued/sending/sent/failed/cancelled, recipient_count, sent_count, failed_count, scheduled_at)
-- `tips` — reader-to-writer postage payments (sender_id, recipient_id, amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
+- `tips` — reader-to-writer postage payments (sender_id, recipient_id, entry_id (nullable FK to entries), amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -751,7 +757,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000032_create_tips.exs`
+- Latest migration: `20260222000033_add_entry_id_to_tips.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -800,6 +806,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Custom Domains for Plus (highest remaining score at 22), then Beta Participation.
 
 ### Recently Completed
+- **2026-02-26** — Per-Entry Postage Stats (Author-Only). Added `entry_id` nullable FK to `tips` table so postage payments are linked to the entry they were sent from. `get_entry_tip_stats/1` aggregation query returns total cents and count for succeeded tips on a specific entry. Entry show API response includes `tip_total_cents` and `tip_count` when the viewer is the entry author. Frontend displays a subtle accent-colored stat line in the entry meta chips: "3 min read · $12.00 in postage" — only visible to the author. TipButton and TipModal updated to accept optional `entryId` prop, included in POST body. Profile-page tips continue to work without an entry_id. Migration `20260222000033`. Modified: `tip.ex`, `tipping.ex`, `entry_controller.ex`, `tip-button.tsx`, `tip-modal.tsx`, `[username]/[slug]/page.tsx`.
 - **2026-02-26** — Editor Settings Panel: Design Overhaul ("The Margins"). Complete visual redesign of the editor settings panel to match the sidebar's "Contents Page" paper aesthetic. Paper texture via SVG fractalNoise, spine shadow (`box-shadow: -4px 0 16px -4px`), hidden scrollbar. Section-based layout with border dividers between each setting group. Lora italic serif heading ("Entry Settings"). Uppercase small-caps labels (11px, 0.1em letter-spacing) with inline SVG icons for each section: lock (Privacy), book (Category), file (Series), tag (Tags), lines (Excerpt), mail (Newsletter). Custom-styled form elements: select dropdowns with SVG chevron arrow (`appearance: none` + `background-image`), rounded inputs/textareas with accent focus borders, muted hint text. Full viewport height (`calc(100vh - 55px)`) with `position: sticky` so panel stays visible while scrolling editor content. Dark mode variants for shadow and texture. Panel extends to bottom of viewport. New CSS classes: `.editor-settings-section`, `.editor-settings-label`, `.editor-settings-select`, `.editor-settings-input`, `.editor-settings-textarea`, `.editor-settings-hint`, `.editor-settings-heading`. Modified: `editor-client.tsx`, `globals.css`, `CLAUDE.md`.
 - **2026-02-26** — Editor Settings Panel: Open by Default. Editor settings panel (Privacy, Category, Series, Tags, Excerpt, Newsletter) now opens by default on desktop (≥768px) instead of being hidden behind a gear icon. Panel state persisted in localStorage (`inkwell-editor-panel`). Toggle button changed from gear icon to double-chevron collapse/expand arrows. Newsletter and series data fetched eagerly on mount instead of waiting for panel toggle. Mobile behavior unchanged (hidden by default, toggleable). Fixed newsletter bug: editor was fetching `/api/auth/me` (no proxy route) instead of `/api/me`, causing newsletter UI to never appear. Also fixed `:api_url` config missing in production `runtime.exs`. Modified: `editor-client.tsx`, `globals.css`, `runtime.exs`, `series-manager.tsx`.
 - **2026-02-26** — Writer Support / Postage (Sprints 3+4: Payment Flow + Notifications + History + Rebrand). Full postage payment system with Stripe Connect. Rebranded from "Tips" to "Postage" to fit Inkwell's correspondence/letter/stamp theme. User-facing text uses "Postage" / "Send postage" throughout; internal API paths and DB table name remain `tips`. Sprint 3: `tips` table, `Tipping` context with `create_tip/3` (destination charges + 8% commission), 3-step payment modal (amount → Stripe Elements → success), "Send postage" button on profiles/entries, webhook handling, `@stripe/stripe-js` + `@stripe/react-stripe-js`. Sprint 4: `:tip` notification with amount ("sent you $5.00 in postage"), postage history page at `/settings/support/postage` with received/sent tabs + stats, support settings shows stats grid + "View postage history" link. Added "Integrated Postage" to Plus feature lists on landing page and billing page. New: `tip.ex`, `tip-modal.tsx`, `tip-button.tsx`, `settings/support/postage/page.tsx`, 5 proxy routes. Migration `20260222000032`.

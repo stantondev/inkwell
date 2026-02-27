@@ -198,6 +198,7 @@ defmodule Inkwell.Tipping do
     amount_cents = attrs["amount_cents"] || attrs[:amount_cents]
     anonymous = attrs["anonymous"] || attrs[:anonymous] || false
     message = attrs["message"] || attrs[:message]
+    entry_id = attrs["entry_id"] || attrs[:entry_id]
 
     cond do
       !recipient.stripe_connect_enabled ->
@@ -238,6 +239,7 @@ defmodule Inkwell.Tipping do
             tip_attrs = %{
               sender_id: sender.id,
               recipient_id: recipient.id,
+              entry_id: entry_id,
               amount_cents: amount_cents,
               total_cents: total_cents,
               currency: "usd",
@@ -270,9 +272,14 @@ defmodule Inkwell.Tipping do
         {:error, :not_found}
 
       %Tip{status: "pending"} = tip ->
-        tip
-        |> Tip.changeset(%{status: "succeeded"})
-        |> Repo.update()
+        case tip |> Tip.changeset(%{status: "succeeded"}) |> Repo.update() do
+          {:ok, updated_tip} ->
+            create_tip_notification(updated_tip)
+            {:ok, updated_tip}
+
+          error ->
+            error
+        end
 
       %Tip{status: status} ->
         {:error, {:already_processed, status}}
@@ -290,6 +297,10 @@ defmodule Inkwell.Tipping do
         tip |> Tip.changeset(%{status: "succeeded"}) |> Repo.update()
         # Create notification for recipient
         create_tip_notification(tip)
+        :ok
+
+      %Tip{status: "succeeded"} ->
+        # Frontend already confirmed — just ensure notification exists
         :ok
 
       _ ->
@@ -351,6 +362,14 @@ defmodule Inkwell.Tipping do
     |> offset(^offset)
     |> preload(:recipient)
     |> Repo.all()
+  end
+
+  @doc "Get tip stats for a specific entry (total received, count). Only counts succeeded tips."
+  def get_entry_tip_stats(entry_id) do
+    Tip
+    |> where([t], t.entry_id == ^entry_id and t.status == "succeeded")
+    |> select([t], %{total_cents: coalesce(sum(t.amount_cents), 0), count: count(t.id)})
+    |> Repo.one()
   end
 
   @doc "Get tip stats for a writer (total received, count, this month)."

@@ -8,6 +8,7 @@ defmodule Inkwell.Tipping.Tip do
   schema "tips" do
     belongs_to :sender, Inkwell.Accounts.User
     belongs_to :recipient, Inkwell.Accounts.User
+    belongs_to :entry, Inkwell.Journals.Entry
     field :amount_cents, :integer
     field :total_cents, :integer
     field :currency, :string, default: "usd"
@@ -21,7 +22,7 @@ defmodule Inkwell.Tipping.Tip do
 
   def changeset(tip, attrs) do
     tip
-    |> cast(attrs, [:sender_id, :recipient_id, :amount_cents, :total_cents, :currency,
+    |> cast(attrs, [:sender_id, :recipient_id, :entry_id, :amount_cents, :total_cents, :currency,
                      :stripe_payment_intent_id, :anonymous, :message, :status])
     |> validate_required([:sender_id, :recipient_id, :amount_cents, :total_cents, :status])
     |> validate_number(:amount_cents, greater_than_or_equal_to: 100, less_than_or_equal_to: 10_000)
