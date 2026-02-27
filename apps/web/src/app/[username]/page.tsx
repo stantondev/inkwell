@@ -431,19 +431,35 @@ export default async function ProfilePage({ params }: ProfileParams) {
         );
       case "support": {
         const hasTips = profile.stripe_connect_enabled && !isOwnProfile && !!session;
+        const hasTipsPreview = profile.stripe_connect_enabled && isOwnProfile;
         const hasExternalLink = !!profile.support_url;
-        if (!hasTips && !hasExternalLink) return null;
+        if (!hasTips && !hasTipsPreview && !hasExternalLink) return null;
         return (
           <div key="support" className="flex flex-col gap-4">
-            {hasTips && (
+            {(hasTips || hasTipsPreview) && (
               <div className={`profile-widget-card ${styles.borderRadius} border p-3 sm:p-4`} style={styles.surface}>
                 <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: styles.muted }}>
                   Support {profile.display_name}
                 </h3>
-                <TipButton
-                  recipientId={profile.id}
-                  recipientName={profile.display_name}
-                />
+                {hasTipsPreview ? (
+                  <div className="opacity-60 cursor-default">
+                    <div
+                      className={`flex items-center justify-center gap-2 w-full rounded-lg border px-4 py-2.5 text-sm font-medium`}
+                      style={{ borderColor: styles.accent, color: styles.accent }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      Send postage
+                    </div>
+                    <p className="text-xs mt-2 text-center" style={{ color: styles.muted }}>
+                      Visitors will see this widget
+                    </p>
+                  </div>
+                ) : (
+                  <TipButton
+                    recipientId={profile.id}
+                    recipientName={profile.display_name}
+                  />
+                )}
               </div>
             )}
             {hasExternalLink && (
