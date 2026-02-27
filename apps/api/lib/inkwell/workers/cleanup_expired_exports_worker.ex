@@ -15,6 +15,7 @@ defmodule Inkwell.Workers.CleanupExpiredExportsWorker do
       Logger.info("Cleaned up #{count} expired data export(s)")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_expired_exports)
     :ok
   end
 end

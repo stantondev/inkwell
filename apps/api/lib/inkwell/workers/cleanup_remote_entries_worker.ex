@@ -16,6 +16,7 @@ defmodule Inkwell.Workers.CleanupRemoteEntriesWorker do
       Logger.info("Cleaned up #{count} old remote entry/entries")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_remote_entries)
     :ok
   end
 end

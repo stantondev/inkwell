@@ -23,6 +23,7 @@ defmodule Inkwell.Workers.CleanupUnconfirmedSubscribersWorker do
       Logger.info("Cleaned up #{count} unconfirmed newsletter subscribers")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_unconfirmed_subscribers)
     :ok
   end
 end

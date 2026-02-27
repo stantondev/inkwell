@@ -15,6 +15,7 @@ defmodule Inkwell.Workers.CleanupAbandonedDraftsWorker do
       Logger.info("Cleaned up #{count} abandoned draft(s)")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_abandoned_drafts)
     :ok
   end
 end

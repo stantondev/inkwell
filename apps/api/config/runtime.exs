@@ -76,6 +76,26 @@ if config_env() == :prod do
   # Monitoring (API key for /health/deep endpoint)
   config :inkwell, :monitor_api_key, System.get_env("MONITOR_API_KEY")
 
+  # Healthchecks.io heartbeat ping URLs (one per Oban cron worker)
+  # Workers ping these URLs after successful runs. If a ping is missed,
+  # Healthchecks.io alerts via Slack. URLs look like: https://hc-ping.com/<uuid>
+  healthchecks =
+    %{
+      cleanup_expired_tokens: System.get_env("HC_CLEANUP_TOKENS"),
+      cleanup_orphaned_images: System.get_env("HC_CLEANUP_IMAGES"),
+      cleanup_read_notifications: System.get_env("HC_CLEANUP_NOTIFICATIONS"),
+      cleanup_abandoned_drafts: System.get_env("HC_CLEANUP_DRAFTS"),
+      cleanup_remote_entries: System.get_env("HC_CLEANUP_REMOTE"),
+      cleanup_expired_exports: System.get_env("HC_CLEANUP_EXPORTS"),
+      cleanup_expired_imports: System.get_env("HC_CLEANUP_IMPORTS"),
+      cleanup_unconfirmed_subscribers: System.get_env("HC_CLEANUP_SUBSCRIBERS"),
+      newsletter_schedule: System.get_env("HC_NEWSLETTER_SCHEDULE")
+    }
+    |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+    |> Map.new()
+
+  config :inkwell, :healthchecks, healthchecks
+
   # Federation / ActivityPub
   config :inkwell, :federation,
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",

@@ -22,6 +22,7 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{states_count} expired OAuth state(s)")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end
 end

@@ -15,6 +15,7 @@ defmodule Inkwell.Workers.CleanupOrphanedImagesWorker do
       Logger.info("Cleaned up #{count} orphaned entry image(s)")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_orphaned_images)
     :ok
   end
 end

@@ -15,6 +15,7 @@ defmodule Inkwell.Workers.CleanupReadNotificationsWorker do
       Logger.info("Cleaned up #{count} old read notification(s)")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:cleanup_read_notifications)
     :ok
   end
 end

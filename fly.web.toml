@@ -31,12 +31,12 @@ primary_region = "ord"
     soft_limit = 200
 
 [[http_service.checks]]
-  interval = "15s"
-  timeout = "10s"
-  grace_period = "60s"
+  interval = "30s"
+  timeout = "15s"
+  grace_period = "90s"
   method = "GET"
   path = "/"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"
+  memory = "512mb"

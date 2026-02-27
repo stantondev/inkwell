@@ -30,6 +30,7 @@ defmodule Inkwell.Workers.NewsletterScheduleWorker do
       Logger.info("Triggered #{length(sends)} scheduled newsletter sends")
     end
 
+    Inkwell.Workers.Heartbeat.ping(:newsletter_schedule)
     :ok
   end
 end
