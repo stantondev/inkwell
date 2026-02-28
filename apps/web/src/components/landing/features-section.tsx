@@ -73,42 +73,99 @@ function JournalMockup() {
   );
 }
 
-// Federation visual for "Your Pen Pals" feature
+// Federation visual for "Your Pen Pals" feature — ActivityPub hub-and-spoke diagram
+const FEDIVERSE_NODES = [
+  { name: "Mastodon", icon: "M", angle: -90 },
+  { name: "Ghost", icon: "G", angle: -30 },
+  { name: "WordPress", icon: "W", angle: 30 },
+  { name: "Pixelfed", icon: "P", angle: 90 },
+  { name: "Threads", icon: "T", angle: 150 },
+  { name: "Lemmy", icon: "L", angle: 210 },
+];
+
 function FederationVisual() {
+  const prefersReducedMotion = useReducedMotion();
+  const cx = 200;
+  const cy = 180;
+  const radius = 130;
+
   return (
-    <div className="landing-federation-visual">
-      {/* Center: Inkwell pen nib */}
-      <div className="landing-federation-center">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" aria-hidden="true">
-          <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-        </svg>
-      </div>
-      {/* Orbiting nodes — fediverse instances */}
-      <div className="landing-federation-orbit" aria-hidden="true">
-        {["M", "B", "G", "P"].map((letter, i) => (
-          <div
-            key={letter}
-            className="landing-federation-node"
-            style={{ "--orbit-index": i } as React.CSSProperties}
-          >
-            <span>{letter}</span>
-          </div>
-        ))}
-      </div>
-      {/* Dotted connection lines */}
-      <svg className="landing-federation-lines" viewBox="0 0 200 200" aria-hidden="true">
-        <circle cx="100" cy="100" r="70" stroke="var(--accent)" strokeWidth="1" strokeDasharray="4 4" fill="none" opacity="0.2" />
-        <circle cx="100" cy="100" r="45" stroke="var(--accent)" strokeWidth="0.5" strokeDasharray="3 6" fill="none" opacity="0.1" />
+    <div className="landing-fedi-diagram" role="img" aria-label="Inkwell connects to Mastodon, Ghost, WordPress, Pixelfed, Threads, and Lemmy via ActivityPub">
+      <svg viewBox="0 0 400 360" fill="none" className="landing-fedi-svg">
+        {/* Outer orbit ring */}
+        <circle cx={cx} cy={cy} r={radius} stroke="var(--accent)" strokeWidth="1" strokeDasharray="6 4" fill="none" opacity="0.15" />
+        <circle cx={cx} cy={cy} r={radius - 30} stroke="var(--accent)" strokeWidth="0.5" strokeDasharray="3 6" fill="none" opacity="0.08" />
+
+        {/* Connection lines from center to each node */}
+        {FEDIVERSE_NODES.map((node) => {
+          const rad = (node.angle * Math.PI) / 180;
+          const nx = cx + radius * Math.cos(rad);
+          const ny = cy + radius * Math.sin(rad);
+          return (
+            <motion.line
+              key={node.name}
+              x1={cx}
+              y1={cy}
+              x2={nx}
+              y2={ny}
+              stroke="var(--accent)"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+              opacity="0.25"
+              initial={prefersReducedMotion ? false : { pathLength: 0, opacity: 0 }}
+              whileInView={{ pathLength: 1, opacity: 0.25 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            />
+          );
+        })}
+
+        {/* Platform nodes */}
+        {FEDIVERSE_NODES.map((node, i) => {
+          const rad = (node.angle * Math.PI) / 180;
+          const nx = cx + radius * Math.cos(rad);
+          const ny = cy + radius * Math.sin(rad);
+          return (
+            <motion.g
+              key={node.name}
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.5 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.4 + i * 0.08 }}
+              style={{ transformOrigin: `${nx}px ${ny}px` }}
+            >
+              <circle cx={nx} cy={ny} r="22" fill="var(--surface)" stroke="var(--border)" strokeWidth="1" />
+              <text x={nx} y={ny + 1} textAnchor="middle" dominantBaseline="central" fill="var(--muted)" fontSize="11" fontWeight="600" fontFamily="system-ui, sans-serif">
+                {node.icon}
+              </text>
+              <text x={nx} y={ny + 34} textAnchor="middle" fill="var(--muted)" fontSize="9" fontFamily="system-ui, sans-serif" opacity="0.7">
+                {node.name}
+              </text>
+            </motion.g>
+          );
+        })}
+
+        {/* Center: Inkwell hub */}
+        <motion.g
+          initial={prefersReducedMotion ? false : { scale: 0.6, opacity: 0 }}
+          whileInView={{ scale: 1, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          style={{ transformOrigin: `${cx}px ${cy}px` }}
+        >
+          <circle cx={cx} cy={cy} r="32" fill="var(--accent)" opacity="0.12" />
+          <circle cx={cx} cy={cy} r="26" fill="var(--accent-light)" stroke="var(--accent)" strokeWidth="1.5" />
+          {/* Pen nib icon */}
+          <g transform={`translate(${cx - 10}, ${cy - 10}) scale(0.833)`}>
+            <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </motion.g>
+
+        {/* "ActivityPub" protocol label */}
+        <text x={cx} y={cy + radius + 42} textAnchor="middle" fill="var(--accent)" fontSize="10" fontFamily="var(--font-lora, Georgia, serif)" fontStyle="italic" opacity="0.6" letterSpacing="0.05em">
+          connected via ActivityPub
+        </text>
       </svg>
-      {/* Avatar frames showcase */}
-      <div className="landing-frames-row">
-        {["classic", "botanical", "constellation", "wax-seal"].map((frame) => (
-          <div key={frame} className="landing-frame-preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/frames/${frame}.svg`} alt="" className="w-full h-full" />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
