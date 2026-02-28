@@ -23,6 +23,7 @@ export const CATEGORIES: Category[] = [
   { value: "philosophy", label: "Philosophy" },
   { value: "spirituality", label: "Spirituality" },
   { value: "humor", label: "Humor" },
+  { value: "books", label: "Books" },
   { value: "other", label: "Other" },
 ];
 

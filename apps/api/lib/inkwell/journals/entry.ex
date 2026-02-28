@@ -25,7 +25,7 @@ defmodule Inkwell.Journals.Entry do
       :personal, :creative_writing, :poetry, :fiction, :travel, :tech,
       :music, :film_tv, :food, :health, :career, :education,
       :relationships, :parenting, :finance, :news_politics,
-      :philosophy, :spirituality, :humor, :other
+      :philosophy, :spirituality, :humor, :books, :other
     ]
 
     # Newsletter

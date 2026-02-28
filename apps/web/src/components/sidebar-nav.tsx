@@ -187,6 +187,7 @@ export function SidebarNav({
         </div>
         <NavItem href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" active={isActive("/pen-pals")} collapsed={collapsed} />
         <NavItem href="/letters" icon={<LettersIcon />} label="Letterbox" badge={unreadLetterCount} active={isActive("/letters")} collapsed={collapsed} />
+        <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} collapsed={collapsed} />
       </div>
 
       {/* ─── III. Library ─── */}
@@ -197,7 +198,6 @@ export function SidebarNav({
         </div>
         <NavItem href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} collapsed={collapsed} />
         <NavItem href="/drafts" icon={<DraftsIcon />} label="Drafts" badge={draftCount} active={isActive("/drafts")} collapsed={collapsed} />
-        <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} collapsed={collapsed} />
       </div>
 
       {/* ─── IV. Community ─── */}

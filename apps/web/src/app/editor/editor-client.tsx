@@ -1531,6 +1531,23 @@ export function EditorClient() {
               aria-label="Entry title"
             />
 
+            {/* ── Inline category picker ─────────────── */}
+            {!focusMode && (
+              <div className="editor-inline-category">
+                <select
+                  value={state.category ?? ""}
+                  onChange={(e) => update({ category: e.target.value || null })}
+                  className="editor-inline-category-select"
+                  aria-label="Category"
+                >
+                  <option value="">+ Add category</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* ── Mood + music strip ──────────────────── */}
             <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
               <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
