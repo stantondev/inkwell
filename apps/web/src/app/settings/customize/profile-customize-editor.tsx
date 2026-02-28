@@ -278,7 +278,13 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         profile_entry_display: form.profile_entry_display || "cards",
         pinned_entry_ids: pinnedIds,
         social_links: Object.fromEntries(
-          Object.entries(socialLinks).filter(([, v]) => v.trim()),
+          Object.entries(socialLinks)
+            .filter(([, v]) => v.trim())
+            .map(([k, v]) => {
+              const trimmed = v.trim();
+              if (/^https?:\/\//i.test(trimmed)) return [k, trimmed];
+              return [k, `https://${trimmed}`];
+            }),
         ),
       };
 
