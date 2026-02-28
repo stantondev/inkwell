@@ -40,6 +40,7 @@ defmodule InkwellWeb.FeedbackController do
     per_page = min(parse_int(params["per_page"], 10), 50)
 
     posts = Feedback.list_release_notes(page: page, per_page: per_page)
+    total = Feedback.count_release_notes()
     viewer = conn.assigns[:current_user]
 
     voted_ids =
@@ -55,7 +56,7 @@ defmodule InkwellWeb.FeedbackController do
         Enum.map(posts, fn post ->
           render_post(post, MapSet.member?(voted_ids, post.id))
         end),
-      pagination: %{page: page, per_page: per_page}
+      pagination: %{page: page, per_page: per_page, total: total}
     })
   end
 
@@ -294,14 +295,20 @@ defmodule InkwellWeb.FeedbackController do
   # POST /api/feedback/:id/comments — add comment (auth required)
   def create_comment(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
+    alias InkwellWeb.Helpers.MentionHelper
 
     case Feedback.get_post(id) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Post not found"})
 
       post ->
+        # Convert plain text to safe HTML, then process @mentions
+        raw_body = params["body"] || ""
+        body_html = MentionHelper.plain_text_to_html(raw_body)
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
+
         attrs = %{
-          "body" => params["body"],
+          "body" => processed_html,
           "user_id" => user.id,
           "feedback_post_id" => id
         }
@@ -323,6 +330,22 @@ defmodule InkwellWeb.FeedbackController do
                 })
               end)
             end
+
+            # Create notifications for @mentioned users (skip self + post author)
+            Task.start(fn ->
+              for mentioned <- mentioned_users,
+                  mentioned.id != user.id,
+                  is_nil(post.user_id) or mentioned.id != post.user_id do
+                Accounts.create_notification(%{
+                  type: :feedback_mention,
+                  user_id: mentioned.id,
+                  actor_id: user.id,
+                  target_type: "feedback_post",
+                  target_id: post.id,
+                  data: %{post_id: post.id, post_title: post.title}
+                })
+              end
+            end)
 
             conn |> put_status(:created) |> json(%{data: render_feedback_comment(comment)})
 

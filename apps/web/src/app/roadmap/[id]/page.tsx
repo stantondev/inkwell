@@ -335,9 +335,16 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
                       <DeleteCommentButtonClient commentId={comment.id} />
                     )}
                   </div>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {comment.body}
-                  </p>
+                  {comment.body.startsWith("<p>") ? (
+                    <div
+                      className="text-sm leading-relaxed prose-mentions"
+                      dangerouslySetInnerHTML={{ __html: comment.body }}
+                    />
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {comment.body}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

@@ -3509,3 +3509,206 @@ body[data-focus-mode] .app-content {
 @media (prefers-reduced-motion: reduce) {
   .landing-final-lines { clip-path: none !important; }
 }
+
+/* ─── Release Notes Page ("The Inkwell Gazette") ──────────────────────── */
+
+.release-notes-paper-texture {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.018;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+/* Timeline container */
+.release-notes-timeline {
+  position: relative;
+}
+
+/* Timeline vertical line — desktop only */
+@media (min-width: 768px) {
+  .release-notes-timeline::before {
+    content: "";
+    position: absolute;
+    left: 140px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.15;
+    border-radius: 1px;
+  }
+}
+
+/* Month group */
+.release-notes-month {
+  margin-bottom: 2.5rem;
+}
+
+.release-notes-month:last-child {
+  margin-bottom: 0;
+}
+
+/* Month header */
+.release-notes-month-header {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 768px) {
+  .release-notes-month-header {
+    padding-left: 164px;
+  }
+}
+
+/* Items list */
+.release-notes-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Individual card */
+.release-notes-card {
+  position: relative;
+}
+
+/* Desktop: timeline dot */
+@media (min-width: 768px) {
+  .release-notes-card::before {
+    content: "";
+    position: absolute;
+    left: 135px;
+    top: 22px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--background);
+    border: 2px solid var(--accent);
+    z-index: 1;
+  }
+}
+
+/* Card inner */
+.release-notes-card-inner {
+  position: relative;
+  border-left: 3px solid var(--accent);
+  border-left-opacity: 0.2;
+  padding: 1rem 1.25rem;
+  margin-left: 0;
+  border-radius: 0 12px 12px 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  transition: box-shadow 0.2s;
+}
+
+.release-notes-card-inner:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 768px) {
+  .release-notes-card-inner {
+    margin-left: 160px;
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+/* Date */
+.release-notes-date {
+  display: block;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+/* Desktop: date in left column */
+@media (min-width: 768px) {
+  .release-notes-date {
+    position: absolute;
+    right: calc(100% + 40px);
+    top: 1.25rem;
+    width: 120px;
+    text-align: right;
+    font-size: 0.8rem;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+}
+
+/* Release note body */
+.release-notes-body {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--foreground);
+  margin-bottom: 0.75rem;
+  white-space: pre-wrap;
+}
+
+/* Attribution line */
+.release-notes-attribution {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Vote count badge */
+.release-notes-votes {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+/* Pagination */
+.release-notes-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .release-notes-card-inner:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  .release-notes-paper-texture {
+    opacity: 0.01;
+  }
+}
+
+/* prose-mentions: ensure mention links are styled in feedback comments */
+.prose-mentions a.mention {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.prose-mentions a.mention:hover {
+  text-decoration: underline;
+}

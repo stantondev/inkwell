@@ -4,6 +4,7 @@ defmodule InkwellWeb.CommentController do
   alias Inkwell.{Accounts, Journals, Social}
   alias Inkwell.Repo
   alias Inkwell.Journals.Comment
+  alias InkwellWeb.Helpers.MentionHelper
 
   # GET /api/users/:username/entries/:slug/comments
   def index(conn, %{"username" => username, "slug" => slug}) do
@@ -79,7 +80,7 @@ defmodule InkwellWeb.CommentController do
 
         # Convert @mentions to profile links in body_html
         body_html = params["body_html"] || ""
-        {processed_html, mentioned_users} = process_mentions(body_html)
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
         attrs = Map.put(attrs, "body_html", processed_html)
 
         case Journals.create_comment(attrs) do
@@ -137,7 +138,7 @@ defmodule InkwellWeb.CommentController do
 
         true ->
           # Process @mentions in edited body
-          {processed_html, _mentioned_users} = process_mentions(params["body_html"] || "")
+          {processed_html, _mentioned_users} = MentionHelper.process_mentions(params["body_html"] || "")
           case Journals.update_comment(comment, %{"body_html" => processed_html}) do
             {:ok, comment} ->
               json(conn, %{data: render_comment(comment)})
@@ -234,43 +235,4 @@ defmodule InkwellWeb.CommentController do
   end
   defp parse_int(val, _) when is_integer(val), do: val
 
-  # Parse @username mentions from HTML body, convert to profile links, return {html, users}
-  defp process_mentions(body_html) do
-    # Match @username patterns (alphanumeric + underscores + hyphens, 1-30 chars)
-    mention_regex = ~r/@([a-zA-Z0-9_-]{1,30})\b/
-
-    # Extract unique usernames
-    usernames =
-      Regex.scan(mention_regex, body_html)
-      |> Enum.map(fn [_, username] -> String.downcase(username) end)
-      |> Enum.uniq()
-
-    if usernames == [] do
-      {body_html, []}
-    else
-      # Look up all mentioned users in one query
-      import Ecto.Query, only: [from: 2]
-      users =
-        from(u in Inkwell.Accounts.User,
-          where: fragment("lower(?)", u.username) in ^usernames,
-          where: is_nil(u.blocked_at),
-          select: %{id: u.id, username: u.username}
-        )
-        |> Inkwell.Repo.all()
-
-      # Build a lookup map (lowercase username → user)
-      user_map = Map.new(users, fn u -> {String.downcase(u.username), u} end)
-
-      # Replace @username with profile links (only for users that exist)
-      processed_html =
-        Regex.replace(mention_regex, body_html, fn full_match, username ->
-          case Map.get(user_map, String.downcase(username)) do
-            nil -> full_match
-            user -> ~s(<a href="/#{user.username}" class="mention" data-mention="#{user.username}">@#{user.username}</a>)
-          end
-        end)
-
-      {processed_html, users}
-    end
-  end
 end

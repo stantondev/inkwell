@@ -94,6 +94,12 @@ defmodule Inkwell.Feedback do
     |> Repo.all()
   end
 
+  def count_release_notes do
+    FeedbackPost
+    |> where([p], p.status == :done and not is_nil(p.release_note))
+    |> Repo.aggregate(:count)
+  end
+
   # ── Votes ──────────────────────────────────────────────────────────────────
 
   def toggle_vote(user_id, post_id) do

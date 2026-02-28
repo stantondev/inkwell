@@ -327,7 +327,7 @@ export default async function RoadmapPage({ searchParams }: PageProps) {
 
             <div className="mt-3">
               <Link
-                href={buildUrl({ status: "done" })}
+                href="/roadmap/releases"
                 className="text-xs font-medium hover:underline"
                 style={{ color: "var(--accent)" }}
               >

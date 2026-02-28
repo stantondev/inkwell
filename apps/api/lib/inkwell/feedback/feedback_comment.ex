@@ -18,6 +18,6 @@ defmodule Inkwell.Feedback.FeedbackComment do
     comment
     |> cast(attrs, [:body, :user_id, :feedback_post_id])
     |> validate_required([:body, :user_id, :feedback_post_id])
-    |> validate_length(:body, min: 1, max: 3000)
+    |> validate_length(:body, min: 1, max: 6000)
   end
 end

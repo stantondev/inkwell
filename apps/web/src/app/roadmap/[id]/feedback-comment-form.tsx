@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
+import { MentionDropdown } from "@/components/mention-dropdown";
 
 interface FeedbackCommentFormProps {
   postId: string;
@@ -12,6 +14,20 @@ export function FeedbackCommentForm({ postId }: FeedbackCommentFormProps) {
   const [body, setBody] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    mentionUsers,
+    mentionIndex,
+    showDropdown,
+    handleMentionChange,
+    handleMentionKeyDown,
+    insertMention,
+  } = useMentionAutocomplete({ textareaRef, text: body, setText: setBody });
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (handleMentionKeyDown(e)) return;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,19 +59,31 @@ export function FeedbackCommentForm({ postId }: FeedbackCommentFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        rows={3}
-        maxLength={3000}
-        placeholder="Add a comment..."
-        className="w-full rounded-xl border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 transition"
-        style={{
-          borderColor: "var(--border)",
-          background: "var(--surface)",
-          color: "var(--foreground)",
-        }}
-      />
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={body}
+          onChange={handleMentionChange}
+          onKeyDown={handleKeyDown}
+          rows={3}
+          maxLength={3000}
+          placeholder="Add a comment… (type @ to mention someone)"
+          className="w-full rounded-xl border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 transition"
+          style={{
+            borderColor: "var(--border)",
+            background: "var(--surface)",
+            color: "var(--foreground)",
+          }}
+        />
+        {showDropdown && (
+          <MentionDropdown
+            users={mentionUsers}
+            activeIndex={mentionIndex}
+            onSelect={insertMention}
+            position="above"
+          />
+        )}
+      </div>
       {error && (
         <p className="text-xs" style={{ color: "#B91C1C" }}>{error}</p>
       )}

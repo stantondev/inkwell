@@ -123,6 +123,8 @@ function notificationText(n: Notification): string {
     }
     case "feedback_comment":
       return "commented on your feedback post";
+    case "feedback_mention":
+      return "mentioned you in a feedback comment";
     case "feedback_vote":
       return "upvoted your feedback post";
     case "letter":
@@ -314,7 +316,8 @@ function NotificationIcon({
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
-    type === "feedback_vote"
+    type === "feedback_vote" ||
+    type === "feedback_mention"
   ) {
     return (
       <svg
@@ -383,7 +386,8 @@ function getNotificationHref(n: Notification): string | null {
   if (
     (n.type === "feedback_status_change" ||
       n.type === "feedback_comment" ||
-      n.type === "feedback_vote") &&
+      n.type === "feedback_vote" ||
+      n.type === "feedback_mention") &&
     n.data?.post_id
   ) {
     return `/roadmap/${n.data.post_id}`;
@@ -775,7 +779,8 @@ export function NotificationList({
                         {!!n.data?.post_title &&
                           (n.type === "feedback_status_change" ||
                             n.type === "feedback_comment" ||
-                            n.type === "feedback_vote") && (
+                            n.type === "feedback_vote" ||
+                            n.type === "feedback_mention") && (
                             <a
                               href={`/roadmap/${n.data.post_id}`}
                               onClick={(e) => e.stopPropagation()}
