@@ -2774,16 +2774,28 @@ body[data-focus-mode] .app-content {
   margin-bottom: 3rem;
 }
 .landing-features-grid {
-  display: grid;
-  gap: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 1rem 0 1.5rem;
+  -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar but keep scroll */
+  scrollbar-width: none;
 }
-@media (min-width: 768px) {
-  .landing-features-grid { grid-template-columns: 1fr 1fr; gap: 2.5rem; }
-}
+.landing-features-grid::-webkit-scrollbar { display: none; }
 
 /* Feature page card */
 .landing-feature-page {
   will-change: transform, opacity;
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  width: 80vw;
+  max-width: 480px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
 }
 .landing-feature-paper {
   position: relative;
@@ -2792,6 +2804,9 @@ body[data-focus-mode] .app-content {
   background: var(--surface);
   padding: 2rem;
   overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.04),
     0 4px 12px rgba(0, 0, 0, 0.03),
@@ -2843,6 +2858,7 @@ body[data-focus-mode] .app-content {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1;
 }
 
 .landing-feature-title {
@@ -2860,6 +2876,10 @@ body[data-focus-mode] .app-content {
 .landing-feature-visual {
   position: relative;
   min-height: 180px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* ==========================================================================

@@ -86,15 +86,15 @@ const FEDIVERSE_NODES = [
 function FederationVisual() {
   const prefersReducedMotion = useReducedMotion();
   const cx = 200;
-  const cy = 180;
-  const radius = 130;
+  const cy = 155;
+  const radius = 105;
 
   return (
     <div className="landing-fedi-diagram" role="img" aria-label="Inkwell connects to Mastodon, Ghost, WordPress, Pixelfed, Threads, and Lemmy via ActivityPub">
-      <svg viewBox="0 0 400 360" fill="none" className="landing-fedi-svg">
+      <svg viewBox="0 0 400 330" fill="none" className="landing-fedi-svg">
         {/* Outer orbit ring */}
         <circle cx={cx} cy={cy} r={radius} stroke="var(--accent)" strokeWidth="1" strokeDasharray="6 4" fill="none" opacity="0.15" />
-        <circle cx={cx} cy={cy} r={radius - 30} stroke="var(--accent)" strokeWidth="0.5" strokeDasharray="3 6" fill="none" opacity="0.08" />
+        <circle cx={cx} cy={cy} r={radius - 25} stroke="var(--accent)" strokeWidth="0.5" strokeDasharray="3 6" fill="none" opacity="0.08" />
 
         {/* Connection lines from center to each node */}
         {FEDIVERSE_NODES.map((node) => {
@@ -134,11 +134,11 @@ function FederationVisual() {
               transition={{ duration: 0.4, delay: 0.4 + i * 0.08 }}
               style={{ transformOrigin: `${nx}px ${ny}px` }}
             >
-              <circle cx={nx} cy={ny} r="22" fill="var(--surface)" stroke="var(--border)" strokeWidth="1" />
-              <text x={nx} y={ny + 1} textAnchor="middle" dominantBaseline="central" fill="var(--muted)" fontSize="11" fontWeight="600" fontFamily="system-ui, sans-serif">
+              <circle cx={nx} cy={ny} r="18" fill="var(--surface)" stroke="var(--border)" strokeWidth="1" />
+              <text x={nx} y={ny + 1} textAnchor="middle" dominantBaseline="central" fill="var(--muted)" fontSize="10" fontWeight="600" fontFamily="system-ui, sans-serif">
                 {node.icon}
               </text>
-              <text x={nx} y={ny + 34} textAnchor="middle" fill="var(--muted)" fontSize="9" fontFamily="system-ui, sans-serif" opacity="0.7">
+              <text x={nx} y={ny + 28} textAnchor="middle" fill="var(--muted)" fontSize="8" fontFamily="system-ui, sans-serif" opacity="0.7">
                 {node.name}
               </text>
             </motion.g>
@@ -153,16 +153,16 @@ function FederationVisual() {
           transition={{ duration: 0.5, delay: 0.1 }}
           style={{ transformOrigin: `${cx}px ${cy}px` }}
         >
-          <circle cx={cx} cy={cy} r="32" fill="var(--accent)" opacity="0.12" />
-          <circle cx={cx} cy={cy} r="26" fill="var(--accent-light)" stroke="var(--accent)" strokeWidth="1.5" />
+          <circle cx={cx} cy={cy} r="26" fill="var(--accent)" opacity="0.12" />
+          <circle cx={cx} cy={cy} r="21" fill="var(--accent-light)" stroke="var(--accent)" strokeWidth="1.5" />
           {/* Pen nib icon */}
-          <g transform={`translate(${cx - 10}, ${cy - 10}) scale(0.833)`}>
+          <g transform={`translate(${cx - 8}, ${cy - 8}) scale(0.667)`}>
             <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </g>
         </motion.g>
 
         {/* "ActivityPub" protocol label */}
-        <text x={cx} y={cy + radius + 42} textAnchor="middle" fill="var(--accent)" fontSize="10" fontFamily="var(--font-lora, Georgia, serif)" fontStyle="italic" opacity="0.6" letterSpacing="0.05em">
+        <text x={cx} y={cy + radius + 48} textAnchor="middle" fill="var(--accent)" fontSize="9" fontFamily="var(--font-lora, Georgia, serif)" fontStyle="italic" opacity="0.6" letterSpacing="0.05em">
           connected via ActivityPub
         </text>
       </svg>
