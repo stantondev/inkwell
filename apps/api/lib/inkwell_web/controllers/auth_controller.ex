@@ -132,6 +132,8 @@ defmodule InkwellWeb.AuthController do
         |> Map.put(:unread_letter_count, unread_letter_count)
         |> Map.put(:newsletter_enabled, user.newsletter_enabled || false)
         |> Map.put(:subscriber_count, subscriber_count)
+        |> Map.put(:sends_this_month, Inkwell.Newsletter.count_sends_this_month(user.id))
+        |> Map.put(:send_limit, Inkwell.Newsletter.send_limit(user.subscription_tier))
     })
   end
 

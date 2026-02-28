@@ -10,6 +10,8 @@ interface NewsletterSettings {
   newsletter_reply_to: string | null;
   subscriber_count: number;
   subscriber_limit: number | null;
+  sends_this_month: number;
+  send_limit: number;
 }
 
 export default function NewsletterSettingsPage() {
@@ -165,6 +167,36 @@ export default function NewsletterSettingsPage() {
                   Upgrade to Plus
                 </Link>
                 {" "}for unlimited subscribers.
+              </div>
+            )}
+
+            {/* Monthly send quota */}
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-2xl font-semibold">{settings?.sends_this_month ?? 0}</span>
+                <span className="text-sm ml-2" style={{ color: "var(--muted)" }}>
+                  / {settings?.send_limit ?? 2} sends this month
+                </span>
+              </div>
+              <Link href="/settings/newsletter/sends"
+                className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+                Send history
+              </Link>
+            </div>
+
+            {settings && (settings.sends_this_month ?? 0) >= (settings.send_limit ?? 2) && (
+              <div className="text-sm p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                {"You've used all your sends for this month. "}
+                {!isPlus ? (
+                  <>
+                    <Link href="/settings/billing" className="font-medium" style={{ color: "var(--accent)" }}>
+                      Upgrade to Plus
+                    </Link>
+                    {" "}for 8 sends/month (vs 2 on Free).
+                  </>
+                ) : (
+                  "Your limit resets at the start of next month."
+                )}
               </div>
             )}
 

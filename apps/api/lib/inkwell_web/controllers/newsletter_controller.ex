@@ -147,7 +147,9 @@ defmodule InkwellWeb.NewsletterController do
         newsletter_description: user.newsletter_description,
         newsletter_reply_to: user.newsletter_reply_to,
         subscriber_count: subscriber_count,
-        subscriber_limit: limit
+        subscriber_limit: limit,
+        sends_this_month: Newsletter.count_sends_this_month(user.id),
+        send_limit: Newsletter.send_limit(user.subscription_tier)
       }
     })
   end
@@ -186,7 +188,9 @@ defmodule InkwellWeb.NewsletterController do
             newsletter_description: updated_user.newsletter_description,
             newsletter_reply_to: updated_user.newsletter_reply_to,
             subscriber_count: subscriber_count,
-            subscriber_limit: limit
+            subscriber_limit: limit,
+            sends_this_month: Newsletter.count_sends_this_month(updated_user.id),
+            send_limit: Newsletter.send_limit(updated_user.subscription_tier)
           }
         })
 
@@ -260,6 +264,10 @@ defmodule InkwellWeb.NewsletterController do
                 {:error, :no_subscribers} ->
                   conn |> put_status(422) |> json(%{error: "You have no confirmed subscribers"})
 
+                {:error, :send_limit_exceeded} ->
+                  limit = Newsletter.send_limit(user.subscription_tier)
+                  conn |> put_status(422) |> json(%{error: "You've reached your monthly limit of #{limit} newsletter sends. #{if (user.subscription_tier || "free") != "plus", do: "Upgrade to Plus for more sends.", else: "Your limit resets at the start of next month."}"})
+
                 {:error, changeset} ->
                   conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
               end
@@ -316,7 +324,9 @@ defmodule InkwellWeb.NewsletterController do
       data: %{
         subscriber_count: subscriber_count,
         subscriber_limit: limit,
-        newsletter_enabled: user.newsletter_enabled || false
+        newsletter_enabled: user.newsletter_enabled || false,
+        sends_this_month: Newsletter.count_sends_this_month(user.id),
+        send_limit: Newsletter.send_limit(user.subscription_tier)
       }
     })
   end

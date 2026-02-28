@@ -314,6 +314,24 @@ export default function TermsPage() {
             account settings, which will disable Postage on their profile. Previously completed payments are not
             affected by disconnecting.
           </p>
+
+          <h3 className="font-semibold mt-4 mb-2">8.8 Newsletter Send Limits</h3>
+          <p>
+            Inkwell provides email newsletter functionality that allows writers to send published entries to their
+            subscribers. To ensure sustainable platform operations, newsletter sends are subject to monthly limits:
+          </p>
+          <ul className="list-disc pl-6 mt-3 flex flex-col gap-2">
+            <li>
+              <strong>Free tier:</strong> Up to 2 newsletter sends per calendar month and up to 500 subscribers.
+            </li>
+            <li>
+              <strong>Inkwell Plus:</strong> Up to 8 newsletter sends per calendar month with unlimited subscribers.
+            </li>
+          </ul>
+          <p className="mt-3">
+            Send limits reset at the beginning of each calendar month (UTC). Cancelled or failed sends still count toward
+            the monthly limit. Inkwell reserves the right to adjust these limits with 30 days&apos; notice to affected users.
+          </p>
         </section>
 
         {/* 9. Copyright and DMCA Policy */}

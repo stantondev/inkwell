@@ -429,7 +429,9 @@ defmodule InkwellWeb.UserController do
       subscription_status: user.subscription_status || "none",
       subscription_expires_at: user.subscription_expires_at,
       stripe_connect_account_id: user.stripe_connect_account_id,
-      stripe_connect_onboarded: user.stripe_connect_onboarded || false
+      stripe_connect_onboarded: user.stripe_connect_onboarded || false,
+      sends_this_month: Inkwell.Newsletter.count_sends_this_month(user.id),
+      send_limit: Inkwell.Newsletter.send_limit(user.subscription_tier)
     })
   end
 

@@ -929,6 +929,8 @@ export function EditorClient() {
   const [isPlus, setIsPlus] = useState(false);
   const [scheduleSend, setScheduleSend] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [sendsThisMonth, setSendsThisMonth] = useState(0);
+  const [sendLimit, setSendLimit] = useState(2);
 
   // Draft tracking
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
@@ -1123,6 +1125,8 @@ export function EditorClient() {
           setNewsletterEnabled(!!data?.newsletter_enabled);
           setSubscriberCount(data?.subscriber_count ?? 0);
           setIsPlus((data?.subscription_tier ?? "free") === "plus");
+          setSendsThisMonth(data?.sends_this_month ?? 0);
+          setSendLimit(data?.send_limit ?? 2);
         }
       } catch {
         // ignore
@@ -1818,6 +1822,15 @@ export function EditorClient() {
                     <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
                       This entry was already sent as a newsletter.
                     </div>
+                  ) : sendsThisMonth >= sendLimit ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      You&apos;ve used all {sendLimit} newsletter sends this month.{" "}
+                      {!isPlus ? (
+                        <NextLink href="/settings/billing" className="font-medium" style={{ color: "var(--accent)" }}>Upgrade to Plus</NextLink>
+                      ) : (
+                        <span>Resets next month.</span>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-3">
                       <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
@@ -1833,6 +1846,7 @@ export function EditorClient() {
                         <>
                           <div className="editor-settings-hint">
                             {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
+                            <span className="ml-1">({sendLimit - sendsThisMonth} {sendLimit - sendsThisMonth === 1 ? "send" : "sends"} remaining this month)</span>
                           </div>
                           <input
                             type="text"

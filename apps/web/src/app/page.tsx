@@ -99,7 +99,7 @@ export default async function LandingPage() {
                   "Bookmarks & reading list",
                   "Categories & cover images",
                   "Data import (WordPress, Medium, Substack & more)",
-                  "Email newsletter (up to 500 subscribers)",
+                  "Email newsletter (500 subscribers, 2 sends/mo)",
                   "100 MB image storage",
                   "Up to 10 drafts",
                   "RSS feed",
@@ -136,7 +136,7 @@ export default async function LandingPage() {
               <ul className="space-y-2 text-sm relative z-[1]" style={{ color: "var(--muted)" }}>
                 {[
                   "Everything in Free",
-                  "Unlimited newsletter subscribers",
+                  "Unlimited newsletter subscribers, 8 sends/mo",
                   "Custom newsletter name & reply-to",
                   "Scheduled newsletter sends",
                   "Unlimited version history",

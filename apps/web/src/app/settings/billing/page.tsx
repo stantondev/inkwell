@@ -159,7 +159,7 @@ export default function BillingPage() {
             </p>
             <ul className="text-sm space-y-1.5" style={{ color: "var(--muted)" }}>
               {[
-                "Unlimited newsletter subscribers (Free: 500 max)",
+                "Unlimited newsletter subscribers, 8 sends/mo (Free: 500 subs, 2 sends/mo)",
                 "Custom newsletter name & reply-to",
                 "Scheduled newsletter sends",
                 "Unlimited version history (Free: 25 per entry)",

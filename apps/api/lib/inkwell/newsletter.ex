@@ -10,6 +10,8 @@ defmodule Inkwell.Newsletter do
   alias Inkwell.Newsletter.{Subscriber, Send}
 
   @free_subscriber_limit 500
+  @free_send_limit 2
+  @plus_send_limit 8
 
   # ── Subscriber Management ──
 
@@ -157,6 +159,37 @@ defmodule Inkwell.Newsletter do
     if (subscription_tier || "free") == "plus", do: nil, else: @free_subscriber_limit
   end
 
+  # ── Send Limits ──
+
+  @doc "Count newsletter sends this calendar month for a writer (queued, sending, or sent)."
+  def count_sends_this_month(writer_id) do
+    now = DateTime.utc_now()
+    month_start = %DateTime{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}}
+
+    Send
+    |> where([s], s.writer_id == ^writer_id)
+    |> where([s], s.status in ["queued", "sending", "sent"])
+    |> where([s], s.inserted_at >= ^month_start)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "Get the monthly send limit for a subscription tier."
+  def send_limit(subscription_tier) do
+    if (subscription_tier || "free") == "plus", do: @plus_send_limit, else: @free_send_limit
+  end
+
+  @doc "Check if writer has reached their monthly send limit."
+  def at_send_limit?(writer_id, subscription_tier) do
+    count_sends_this_month(writer_id) >= send_limit(subscription_tier)
+  end
+
+  @doc "Get remaining sends this month for a writer."
+  def remaining_sends(writer_id, subscription_tier) do
+    limit = send_limit(subscription_tier)
+    used = count_sends_this_month(writer_id)
+    max(limit - used, 0)
+  end
+
   # ── Newsletter Sends ──
 
   @doc "Create a send record and enqueue the delivery worker."
@@ -165,41 +198,46 @@ defmodule Inkwell.Newsletter do
     scheduled_at = Keyword.get(opts, :scheduled_at)
     recipient_count = count_subscribers(writer.id)
 
-    if recipient_count == 0 do
-      {:error, :no_subscribers}
-    else
-      attrs = %{
-        entry_id: entry.id,
-        writer_id: writer.id,
-        subject: subject,
-        recipient_count: recipient_count,
-        status: "queued",
-        scheduled_at: scheduled_at
-      }
+    cond do
+      recipient_count == 0 ->
+        {:error, :no_subscribers}
 
-      case %Send{} |> Send.changeset(attrs) |> Repo.insert() do
-        {:ok, send} ->
-          # Link send to entry
-          entry
-          |> Ecto.Changeset.change(%{newsletter_send_id: send.id})
-          |> Repo.update()
+      at_send_limit?(writer.id, writer.subscription_tier) ->
+        {:error, :send_limit_exceeded}
 
-          # Enqueue delivery worker
-          worker_opts = if scheduled_at do
-            [scheduled_at: scheduled_at]
-          else
-            []
-          end
+      true ->
+        attrs = %{
+          entry_id: entry.id,
+          writer_id: writer.id,
+          subject: subject,
+          recipient_count: recipient_count,
+          status: "queued",
+          scheduled_at: scheduled_at
+        }
 
-          %{send_id: send.id}
-          |> Inkwell.Workers.NewsletterDeliveryWorker.new(worker_opts)
-          |> Oban.insert()
+        case %Send{} |> Send.changeset(attrs) |> Repo.insert() do
+          {:ok, send} ->
+            # Link send to entry
+            entry
+            |> Ecto.Changeset.change(%{newsletter_send_id: send.id})
+            |> Repo.update()
 
-          {:ok, send}
+            # Enqueue delivery worker
+            worker_opts = if scheduled_at do
+              [scheduled_at: scheduled_at]
+            else
+              []
+            end
 
-        error ->
-          error
-      end
+            %{send_id: send.id}
+            |> Inkwell.Workers.NewsletterDeliveryWorker.new(worker_opts)
+            |> Oban.insert()
+
+            {:ok, send}
+
+          error ->
+            error
+        end
     end
   end
 
