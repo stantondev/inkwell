@@ -175,6 +175,19 @@ img, video, iframe, embed, object {
   text-decoration-thickness: 1px;
 }
 
+/* @mention links in comments */
+a.mention,
+.prose-entry a.mention {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.mention:hover,
+.prose-entry a.mention:hover {
+  text-decoration: underline;
+}
+
 /* Images */
 .prose-entry img {
   border-radius: 10px;

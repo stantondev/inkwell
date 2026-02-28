@@ -77,6 +77,11 @@ defmodule InkwellWeb.CommentController do
           "ap_id" => "https://inkwell.social/comments/#{:erlang.unique_integer([:positive])}"
         }
 
+        # Convert @mentions to profile links in body_html
+        body_html = params["body_html"] || ""
+        {processed_html, mentioned_users} = process_mentions(body_html)
+        attrs = Map.put(attrs, "body_html", processed_html)
+
         case Journals.create_comment(attrs) do
           {:ok, comment} ->
             # Notify entry author (unless commenter is the author)
@@ -87,6 +92,19 @@ defmodule InkwellWeb.CommentController do
                 actor_id: user.id,
                 target_type: "entry",
                 target_id: entry_id
+              })
+            end
+
+            # Notify mentioned users (skip self and entry author who already got notified)
+            skip_ids = MapSet.new([user.id, entry.user_id])
+            for mentioned <- mentioned_users, mentioned.id not in skip_ids do
+              Accounts.create_notification(%{
+                user_id: mentioned.id,
+                type: :mention,
+                actor_id: user.id,
+                target_type: "entry",
+                target_id: entry_id,
+                data: %{comment_id: comment.id}
               })
             end
 
@@ -103,6 +121,37 @@ defmodule InkwellWeb.CommentController do
     rescue
       Ecto.NoResultsError ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+    end
+  end
+
+  # PATCH /api/comments/:id
+  def update(conn, %{"id" => id} = params) do
+    user = conn.assigns.current_user
+
+    try do
+      comment = Repo.get!(Comment, id) |> Repo.preload([:user])
+
+      cond do
+        comment.user_id != user.id ->
+          conn |> put_status(:forbidden) |> json(%{error: "Not your comment"})
+
+        true ->
+          # Process @mentions in edited body
+          {processed_html, _mentioned_users} = process_mentions(params["body_html"] || "")
+          case Journals.update_comment(comment, %{"body_html" => processed_html}) do
+            {:ok, comment} ->
+              json(conn, %{data: render_comment(comment)})
+
+            {:error, :edit_window_expired} ->
+              conn |> put_status(422) |> json(%{error: "Comments can only be edited within 24 hours of posting."})
+
+            {:error, changeset} ->
+              conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+          end
+      end
+    rescue
+      Ecto.NoResultsError ->
+        conn |> put_status(:not_found) |> json(%{error: "Comment not found"})
     end
   end
 
@@ -163,7 +212,8 @@ defmodule InkwellWeb.CommentController do
       depth: comment.depth,
       author: author,
       remote_author: remote_author,
-      created_at: comment.inserted_at
+      created_at: comment.inserted_at,
+      edited_at: comment.edited_at
     }
   end
 
@@ -183,4 +233,44 @@ defmodule InkwellWeb.CommentController do
     end
   end
   defp parse_int(val, _) when is_integer(val), do: val
+
+  # Parse @username mentions from HTML body, convert to profile links, return {html, users}
+  defp process_mentions(body_html) do
+    # Match @username patterns (alphanumeric + underscores + hyphens, 1-30 chars)
+    mention_regex = ~r/@([a-zA-Z0-9_-]{1,30})\b/
+
+    # Extract unique usernames
+    usernames =
+      Regex.scan(mention_regex, body_html)
+      |> Enum.map(fn [_, username] -> String.downcase(username) end)
+      |> Enum.uniq()
+
+    if usernames == [] do
+      {body_html, []}
+    else
+      # Look up all mentioned users in one query
+      import Ecto.Query, only: [from: 2]
+      users =
+        from(u in Inkwell.Accounts.User,
+          where: fragment("lower(?)", u.username) in ^usernames,
+          where: is_nil(u.blocked_at),
+          select: %{id: u.id, username: u.username}
+        )
+        |> Inkwell.Repo.all()
+
+      # Build a lookup map (lowercase username → user)
+      user_map = Map.new(users, fn u -> {String.downcase(u.username), u} end)
+
+      # Replace @username with profile links (only for users that exist)
+      processed_html =
+        Regex.replace(mention_regex, body_html, fn full_match, username ->
+          case Map.get(user_map, String.downcase(username)) do
+            nil -> full_match
+            user -> ~s(<a href="/#{user.username}" class="mention" data-mention="#{user.username}">@#{user.username}</a>)
+          end
+        end)
+
+      {processed_html, users}
+    end
+  end
 end

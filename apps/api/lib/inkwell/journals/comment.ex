@@ -10,6 +10,7 @@ defmodule Inkwell.Journals.Comment do
     field :ap_id, :string
     field :remote_author, :map
     field :depth, :integer, default: 0
+    field :edited_at, :utc_datetime_usec
 
     belongs_to :entry, Inkwell.Journals.Entry
     belongs_to :remote_entry, Inkwell.Federation.RemoteEntry
@@ -28,6 +29,13 @@ defmodule Inkwell.Journals.Comment do
     |> validate_entry_target()
     |> validate_has_author()
     |> compute_depth()
+  end
+
+  def edit_changeset(comment, attrs) do
+    comment
+    |> cast(attrs, [:body_html])
+    |> validate_required([:body_html])
+    |> put_change(:edited_at, DateTime.utc_now() |> DateTime.truncate(:microsecond))
   end
 
   defp validate_entry_target(changeset) do

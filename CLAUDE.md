@@ -481,7 +481,7 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
-- **Comments**: threaded on entries; feed cards have inline comment popup via `FeedCardActions`
+- **Comments**: threaded on entries with inline editing (24h edit window) and @mention autocomplete; feed cards have inline comment popup via `FeedCardActions`. Mentions are parsed server-side into profile links (`<a class="mention">`), and mentioned users receive `:mention` notifications. Edit/Delete text links appear on own comments within 24 hours; "(edited)" indicator with tooltip shown after edits.
 - **Relationships**: follow/accept/reject/block with pending state
 - **Tag pages**: `/tag/[tag]` — public entries filtered by tag
 - **Explore**: public discovery feed; optional auth for personalized `my_stamp` data
@@ -791,7 +791,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260222000035_add_profile_improvements.exs`
+- Latest migration: `20260228000036_add_edited_at_to_comments.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -832,7 +832,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 42 | **Word Count and Reading Time** | Medium | 3 | ~0.5 day | Done |
 | 42 | **Add Categories to Journal Posts** | Medium | 3 | 2–3 days | Done |
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | Done |
-| 70 | **Update Comments** (edit + @mentions) | High | 5 | 2–3 days | Under Review |
+| 70 | **Update Comments** (edit + @mentions) | High | 5 | 2–3 days | Done |
 | 66 | **Clubs** (group discussion spaces) | Medium | 5 | ~5 days | Under Review |
 | 56 | **Custom Domains for Plus** | Medium | 4 | 5+ days | Under Review |
 | 54 | **Post by Email** | Medium | 4 | 3–4 days | Under Review |
@@ -844,9 +844,10 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 15 | **Beta Participation** | Low | 2 | 2 days | Done |
 | 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
-**Recommended next**: Update Comments (score 70), then Clubs (Plus-gated creation, ~5 day MVP).
+**Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
 
 ### Recently Completed
+- **2026-02-28** — Update Comments (Edit + @Mentions). Two-phase feature upgrade to the comments system. **Phase A (Editable Comments)**: Added `edited_at` field to comments, 24-hour edit window enforced server-side (`update_comment/2` checks `DateTime.add` deadline), `PATCH /api/comments/:id` endpoint with ownership verification, `EditableComment` client component with inline editing (textarea + Save/Cancel, Cmd/Ctrl+Enter shortcut), "(edited)" indicator with tooltip showing edit timestamp. "Edit · Delete" text links replace old icon buttons. **Phase B (@Mentions)**: `search_users_by_prefix/2` for autocomplete (ILIKE on username, excludes blocked users), `GET /api/users/mention-search?q=prefix` endpoint (optional_auth, positioned before `:username` catch-all), `process_mentions/1` in comment controller parses `@username` via regex and converts to `<a href="/username" class="mention" data-mention="username">` links with batch user lookup. Mention notifications (`:mention` type, already existed in enum) created for mentioned users, skipping self and entry author. Frontend: full rewrite of `comment-form.tsx` with debounced autocomplete (200ms), keyboard navigation (ArrowUp/Down/Enter/Tab/Escape), dropdown positioned above textarea, mention insertion with cursor repositioning. `.mention` CSS styles (bold, underline on hover). Notification list updated with "mentioned you in a comment" text and @ icon. Migration `20260228000036`. New files: `editable-comment.tsx`, `api/users/mention-search/route.ts`. Modified: `comment.ex`, `journals.ex`, `accounts.ex`, `comment_controller.ex`, `user_controller.ex`, `router.ex`, `comment-form.tsx`, `[slug]/page.tsx`, `notification-list.tsx`, `globals.css`, `api/comments/[id]/route.ts`.
 - **2026-02-28** — Newsletter Send Limits (Cost Controls). Monthly send caps to protect Resend API costs: Free = 2 sends/month, Plus = 8 sends/month. Computed from `newsletter_sends` table (no migration needed). Backend: `count_sends_this_month/1`, `send_limit/1`, `at_send_limit?/2`, `remaining_sends/2` in Newsletter context; `create_send/3` rejects with `:send_limit_exceeded` when over limit; controller returns descriptive 422 error with upgrade prompt for free users. Send quota (`sends_this_month`, `send_limit`) exposed in `GET /api/me`, `GET /api/newsletter/settings`, and `GET /api/newsletter/stats`. Frontend: editor disables newsletter checkbox and shows quota message when at limit with remaining count; newsletter settings page shows "0 / 2 sends this month" counter with send history link and at-limit warning with upgrade CTA. Marketing: landing page Free tier updated to "500 subscribers, 2 sends/mo", Plus to "8 sends/mo"; billing page updated similarly; ToS Section 8.8 "Newsletter Send Limits" added. Modified: `newsletter.ex`, `newsletter_controller.ex`, `auth_controller.ex`, `user_controller.ex`, `editor-client.tsx`, `newsletter/page.tsx`, `page.tsx`, `billing/page.tsx`, `terms/page.tsx`.
 - **2026-02-28** — Category UX + Nav Reorganization. (1) **"Books" category** — added 21st category to Ecto.Enum and frontend category list (no migration needed — category is a plain string column, not a PG enum). (2) **Inline category picker in editor** — compact italic serif dropdown below the title ("+ Add category") so users don't have to dig into the settings panel to categorize entries. Styled to match editor paper aesthetic, hidden in focus mode. Category also still available in settings panel. (3) **Search moved to Connections** — Search relocated from sidebar section III (Library) to section II (Connections) for better discoverability. Modified: `entry.ex`, `categories.ts`, `editor-client.tsx`, `globals.css`, `sidebar-nav.tsx`.
 - **2026-02-27** — Community Guidelines + Interactive Book UI. Created 8-page community guidelines covering welcome, kindness, content standards, prohibited content, privacy & consent, fediverse etiquette, intellectual property, and graduated enforcement. Built an interactive open-book UI component for the onboarding wizard (new Step 4) with CSS 3D page-turn animations (desktop: 2-page spread with spine + `rotateY` flip; mobile: single page with slide). Paper texture via fractalNoise SVG, spine shadow, stacked page-edge effect reusing existing journal design patterns. Users must read through all pages before the "I Agree" button enables. Keyboard navigation (ArrowLeft/ArrowRight), swipe gestures, `prefers-reduced-motion` support. `guidelines_accepted: true` stored in user's `settings` JSON (no migration). Static reference page at `/guidelines` linked from footer. New files: `community-guidelines.ts`, `guidelines-book.tsx`, `guidelines/page.tsx`. Modified: `welcome/page.tsx` (6 steps), `globals.css` (~300 lines book CSS), `footer.tsx`.

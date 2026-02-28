@@ -94,6 +94,9 @@ defmodule InkwellWeb.Router do
     # Stamps (optional auth: author sees who stamped)
     get "/entries/:entry_id/stamps", StampController, :index
 
+    # @mention search (must be before /users/:username to avoid matching as username)
+    get "/users/mention-search", UserController, :mention_search
+
     # User profile (optional auth for relationship status)
     get "/users/:username", UserController, :show
 
@@ -159,6 +162,7 @@ defmodule InkwellWeb.Router do
 
     # Comments
     post "/entries/:entry_id/comments", CommentController, :create
+    patch "/comments/:id", CommentController, :update
     delete "/comments/:id", CommentController, :delete
 
     # Stamps

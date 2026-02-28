@@ -41,6 +41,26 @@ defmodule Inkwell.Accounts do
     not Repo.exists?(from u in User, where: u.username == ^username)
   end
 
+  @doc "Search users by username prefix for @mention autocomplete. Returns up to `limit` users."
+  def search_users_by_prefix(prefix, limit \\ 10) do
+    prefix = String.trim(prefix) |> String.downcase()
+
+    if String.length(prefix) < 1 do
+      []
+    else
+      like_pattern = "#{prefix}%"
+
+      User
+      |> where([u], like(u.username, ^like_pattern))
+      |> where([u], not is_nil(u.username))
+      |> where([u], is_nil(u.blocked_at))
+      |> order_by([u], asc: u.username)
+      |> limit(^limit)
+      |> select([u], %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url})
+      |> Repo.all()
+    end
+  end
+
   # Returns recently active public writers, excluding current user and anyone already followed/pending.
   def list_suggested_users(current_user_id, limit \\ 12) do
     already_following =

@@ -777,6 +777,25 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @comment_edit_window_hours 24
+
+  @doc "Update a comment's body. Only allowed within 24 hours of creation."
+  def update_comment(%Comment{} = comment, attrs) do
+    deadline = DateTime.add(comment.inserted_at, @comment_edit_window_hours * 3600, :second)
+
+    if DateTime.compare(DateTime.utc_now(), deadline) == :gt do
+      {:error, :edit_window_expired}
+    else
+      comment
+      |> Comment.edit_changeset(attrs)
+      |> Repo.update()
+      |> case do
+        {:ok, comment} -> {:ok, Repo.preload(comment, [:user])}
+        error -> error
+      end
+    end
+  end
+
   def delete_comment(%Comment{} = comment) do
     Repo.delete(comment)
   end

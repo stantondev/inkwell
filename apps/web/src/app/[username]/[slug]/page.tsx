@@ -8,7 +8,7 @@ import { Avatar } from "@/components/avatar";
 import { EntryContent } from "@/components/entry-content";
 import { JournalPage } from "@/components/journal-page";
 import { CommentForm } from "./comment-form";
-import { DeleteCommentButton } from "./delete-comment-button";
+import { EditableComment } from "./editable-comment";
 import { EntryActions } from "./entry-actions";
 import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
@@ -73,6 +73,7 @@ interface Comment {
   id: string;
   body_html: string;
   created_at: string;
+  edited_at: string | null;
   author: {
     id: string;
     username: string;
@@ -617,16 +618,18 @@ export default async function EntryPage({ params }: EntryParams) {
                       <span className="text-xs" style={{ color: "var(--muted)" }}>
                         {timeAgo(comment.created_at)}
                       </span>
+                      {comment.edited_at && (
+                        <span className="text-xs italic" style={{ color: "var(--muted)" }} title={`Edited ${new Date(comment.edited_at).toLocaleString()}`}>
+                          (edited)
+                        </span>
+                      )}
                     </div>
-                    <div
-                      className="prose-entry"
-                      style={{ fontSize: "0.925rem", lineHeight: 1.65 }}
-                      dangerouslySetInnerHTML={{ __html: comment.body_html }}
+                    <EditableComment
+                      comment={comment}
+                      canEdit={!!session && session.user.id === comment.author?.id && !isRemote}
+                      canDelete={session?.user.username === comment.author?.username || isAdmin}
                     />
                   </div>
-                  {(session?.user.username === comment.author?.username || isAdmin) && (
-                    <DeleteCommentButton commentId={comment.id} />
-                  )}
                 </div>
               );
             })}

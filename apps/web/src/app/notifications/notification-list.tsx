@@ -97,6 +97,8 @@ function notificationText(n: Notification): string {
     case "comment_added":
     case "comment":
       return "commented on your entry";
+    case "mention":
+      return "mentioned you in a comment";
     case "like":
       return "liked your entry";
     case "stamp": {
@@ -207,6 +209,25 @@ function NotificationIcon({
         aria-hidden="true"
       >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    );
+  }
+  if (type === "mention") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
       </svg>
     );
   }

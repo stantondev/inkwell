@@ -141,6 +141,16 @@ defmodule InkwellWeb.UserController do
     json(conn, %{available: available})
   end
 
+  # GET /api/users/mention-search?q=prefix — search users by username prefix for @mentions
+  def mention_search(conn, %{"q" => q}) do
+    users = Accounts.search_users_by_prefix(q, 8)
+    json(conn, %{data: users})
+  end
+
+  def mention_search(conn, _params) do
+    json(conn, %{data: []})
+  end
+
   # POST /api/me/avatar — upload avatar image (accepts base64 JSON body)
   # Body: { "image": "data:image/png;base64,..." }
   def upload_avatar(conn, %{"image" => image_data}) when is_binary(image_data) do
