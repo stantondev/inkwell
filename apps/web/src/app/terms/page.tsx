@@ -74,6 +74,13 @@ export default function TermsPage() {
             if you become aware of any unauthorized use of your account.
           </p>
           <p className="mt-3">
+            Certain usernames are reserved by Inkwell and may not be registered. These include names that could cause
+            brand confusion (such as &quot;inkwell&quot; or variations thereof), names that impersonate platform roles
+            (such as &quot;admin&quot; or &quot;moderator&quot;), and names that conflict with system routes. We reserve
+            the right to reclaim or reassign any username at any time, including usernames that were registered before
+            a reservation was put in place. Affected users will be notified and given the opportunity to choose a new username.
+          </p>
+          <p className="mt-3">
             We reserve the right to suspend or terminate your account if any information provided proves to be inaccurate,
             not current, or incomplete, or if we have reasonable grounds to suspect a violation of these Terms.
           </p>
