@@ -29,15 +29,15 @@ defmodule InkwellWeb.UserController do
         entry_years = Journals.list_entry_years(user.id)
         entry_tags = Journals.list_entry_tags(user.id)
         entry_categories = Journals.list_entry_categories(user.id)
-        follower_count = Social.count_followers(user.id)
-        following_count = Social.count_following(user.id)
+        pen_pal_count = Social.count_pen_pals(user.id)
+        reader_count = Social.count_readers(user.id)
 
         conn |> json(%{
           data: render_user(user),
           meta: %{
             entry_count: entry_count,
-            follower_count: follower_count,
-            following_count: following_count,
+            pen_pal_count: pen_pal_count,
+            reader_count: reader_count,
             relationship_status: relationship_status,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}

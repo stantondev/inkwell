@@ -263,8 +263,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let topFriends: TopFriendSlot[] = [];
   let seriesList: ProfileSeriesItem[] = [];
   let entryCount = 0;
-  let followerCount = 0;
-  let followingCount = 0;
+  let penPalCount = 0;
+  let readerCount = 0;
   let relationshipStatus: string | null = null;
 
   let entryYears: number[] = [];
@@ -276,8 +276,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
       data: ProfileUser;
       meta: {
         entry_count: number;
-        follower_count?: number;
-        following_count?: number;
+        pen_pal_count?: number;
+        reader_count?: number;
         top_friends: TopFriendSlot[];
         relationship_status?: string | null;
         entry_years?: number[];
@@ -288,8 +288,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
     profile = data.data;
     entryCount = data.meta.entry_count;
-    followerCount = data.meta.follower_count ?? 0;
-    followingCount = data.meta.following_count ?? 0;
+    penPalCount = data.meta.pen_pal_count ?? 0;
+    readerCount = data.meta.reader_count ?? 0;
     topFriends = data.meta.top_friends ?? [];
     relationshipStatus = data.meta.relationship_status ?? null;
     entryYears = data.meta.entry_years ?? [];
@@ -695,11 +695,11 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm" style={{ color: styles.muted }}>
               <span><strong style={{ color: styles.foreground }}>{entryCount}</strong> entries</span>
-              {followingCount > 0 && (
-                <span><strong style={{ color: styles.foreground }}>{followingCount}</strong> pen pals</span>
+              {penPalCount > 0 && (
+                <span><strong style={{ color: styles.foreground }}>{penPalCount}</strong> pen pals</span>
               )}
-              {followerCount > 0 && (
-                <span><strong style={{ color: styles.foreground }}>{followerCount}</strong> readers</span>
+              {readerCount > 0 && (
+                <span><strong style={{ color: styles.foreground }}>{readerCount}</strong> readers</span>
               )}
               <span>Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
             </div>

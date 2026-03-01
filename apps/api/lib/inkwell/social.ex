@@ -160,6 +160,20 @@ defmodule Inkwell.Social do
     |> Repo.aggregate(:count)
   end
 
+  # Pen pals = mutual follows (both follow each other)
+  def count_pen_pals(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted and r.is_mutual == true)
+    |> Repo.aggregate(:count)
+  end
+
+  # Readers = people following you who you haven't followed back
+  def count_readers(user_id) do
+    Relationship
+    |> where([r], r.following_id == ^user_id and r.status == :accepted and r.is_mutual == false)
+    |> Repo.aggregate(:count)
+  end
+
   def is_friend?(user_id, other_id) do
     Relationship
     |> where([r], r.follower_id == ^user_id and r.following_id == ^other_id and r.status == :accepted)
