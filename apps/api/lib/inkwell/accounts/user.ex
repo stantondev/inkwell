@@ -65,6 +65,10 @@ defmodule Inkwell.Accounts.User do
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}
 
+    # Invitations
+    field :invite_code, :string
+    field :invited_by_id, :binary_id
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification

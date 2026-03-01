@@ -6,7 +6,7 @@ import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 type SuggestedUser = {
   id: string;
@@ -66,6 +66,14 @@ export default function WelcomePage() {
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
+  // Step 6: Invite friends
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteEmails, setInviteEmails] = useState([""]);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
   // General
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -100,6 +108,15 @@ export default function WelcomePage() {
       .then((data) => setSuggestedUsers(data.data ?? []))
       .catch(() => setSuggestedUsers([]))
       .finally(() => setLoadingSuggested(false));
+  }, [step]);
+
+  // Fetch invite code when entering step 6
+  useEffect(() => {
+    if (step !== 6) return;
+    fetch("/api/invite-code")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.url) setInviteUrl(data.url); })
+      .catch(() => {});
   }, [step]);
 
   // Username availability check
@@ -168,6 +185,43 @@ export default function WelcomePage() {
         next.delete(user.id);
         return next;
       });
+    }
+  }
+
+  async function handleInviteCopy() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      // Fallback: select the input
+    }
+  }
+
+  async function handleSendInvites() {
+    const validEmails = inviteEmails.filter((em) => em.trim() && em.includes("@"));
+    if (validEmails.length === 0) return;
+    setInviteSending(true);
+    try {
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emails: validEmails,
+          message: inviteMessage.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setInviteSent(true);
+        setInviteEmails([""]);
+        setInviteMessage("");
+        setTimeout(() => setInviteSent(false), 3000);
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setInviteSending(false);
     }
   }
 
@@ -292,7 +346,8 @@ export default function WelcomePage() {
             {step === 3 && "Pick your vibe"}
             {step === 4 && "Our community standards"}
             {step === 5 && "Find some writers to follow"}
-            {step === 6 && "You're all set!"}
+            {step === 6 && "Bring your friends along"}
+            {step === 7 && "You're all set!"}
           </p>
         </div>
 
@@ -577,8 +632,103 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 7: What's next? */}
+          {/* Step 7: Invite friends */}
           {step === 6 && (
+            <div className="flex flex-col gap-5">
+              {/* Share invite link */}
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: "var(--muted)" }}>
+                  Share your invite link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={inviteUrl}
+                    className={`flex-1 ${inputClass}`}
+                    style={inputStyle}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleInviteCopy}
+                    className="rounded-lg border px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap"
+                    style={{ borderColor: "var(--border)", background: inviteCopied ? "var(--accent)" : "var(--surface)", color: inviteCopied ? "#fff" : "var(--foreground)" }}
+                  >
+                    {inviteCopied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
+                  Anyone who signs up through this link is connected to you.
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                <span className="text-xs" style={{ color: "var(--muted)" }}>or send a sealed letter</span>
+                <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+              </div>
+
+              {/* Email invites */}
+              <div>
+                {inviteEmails.map((em, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="email"
+                      value={em}
+                      onChange={(e) => {
+                        const updated = [...inviteEmails];
+                        updated[i] = e.target.value;
+                        setInviteEmails(updated);
+                      }}
+                      placeholder="friend@example.com"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                    {inviteEmails.length > 1 && (
+                      <button type="button" onClick={() => setInviteEmails(inviteEmails.filter((_, j) => j !== i))}
+                        className="text-xs" style={{ color: "var(--muted)" }}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {inviteEmails.length < 3 && (
+                  <button type="button" onClick={() => setInviteEmails([...inviteEmails, ""])}
+                    className="text-sm" style={{ color: "var(--accent)" }}>
+                    + Add another
+                  </button>
+                )}
+                <textarea
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value.slice(0, 500))}
+                  placeholder="Write something personal... (optional)"
+                  rows={2}
+                  maxLength={500}
+                  className={`${inputClass} resize-none mt-3`}
+                  style={inputStyle}
+                />
+                {inviteSent && (
+                  <p className="text-sm font-medium mt-2" style={{ color: "var(--accent)" }}>
+                    Invitations sent!
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSendInvites}
+                  disabled={inviteSending || inviteEmails.every((e) => !e.trim())}
+                  className="rounded-full px-5 py-2 text-sm font-medium mt-3 transition-opacity disabled:opacity-50"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  {inviteSending ? "Sending..." : "Seal & send"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 8: What's next? */}
+          {step === 7 && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
                 Your profile is ready. What would you like to do first?
@@ -668,8 +818,8 @@ export default function WelcomePage() {
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
 
-          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 6) */}
-          {step !== 4 && step !== 6 && (
+          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 7) */}
+          {step !== 4 && step !== 7 && (
             <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <div>
                 {step === 0 ? (

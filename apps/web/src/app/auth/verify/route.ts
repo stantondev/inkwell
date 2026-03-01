@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
       path: "/",
     });
 
+    // Clear invite cookie after successful authentication
+    response.cookies.set("inkwell_invite", "", {
+      maxAge: 0,
+      path: "/",
+    });
+
     return response;
   } catch {
     return NextResponse.redirect(

@@ -50,10 +50,25 @@ function EnterEmailStep({
     setNoAccount(false);
 
     try {
+      // Read invite cookie if present (for users arriving via invite link)
+      const inviteParams: Record<string, string> = {};
+      try {
+        const cookieStr = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("inkwell_invite="));
+        if (cookieStr) {
+          const parsed = JSON.parse(decodeURIComponent(cookieStr.split("=")[1]));
+          if (parsed.type === "code") inviteParams.invite_code = parsed.value;
+          if (parsed.type === "token") inviteParams.invite_token = parsed.value;
+        }
+      } catch {
+        // Ignore malformed cookie
+      }
+
       const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), ...inviteParams }),
       });
 
       const data = await res.json();

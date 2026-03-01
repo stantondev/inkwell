@@ -28,6 +28,12 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{keys_count} revoked API key(s)")
     end
 
+    {:ok, invites_count} = Inkwell.Invitations.cleanup_expired()
+
+    if invites_count > 0 do
+      Logger.info("Cleaned up #{invites_count} expired invitation(s)")
+    end
+
     Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end

@@ -3,6 +3,7 @@ defmodule InkwellWeb.AuthController do
 
   alias Inkwell.Accounts
   alias Inkwell.Auth
+  alias Inkwell.Invitations
 
   # POST /api/auth/magic-link
   def send_magic_link(conn, %{"email" => email} = params) do
@@ -31,6 +32,9 @@ defmodule InkwellWeb.AuthController do
                 display_name: username
               }) do
                 {:ok, new_user} ->
+                  # Track invite attribution
+                  maybe_accept_invite(new_user, params)
+
                   case Accounts.set_terms_accepted(new_user) do
                     {:ok, accepted_user} -> {:ok, accepted_user}
                     {:error, _changeset} -> {:ok, new_user}
@@ -164,7 +168,8 @@ defmodule InkwellWeb.AuthController do
       is_admin: Accounts.is_admin?(user),
       settings: user.settings || %{},
       subscription_tier: user.subscription_tier || "free",
-      terms_accepted_at: user.terms_accepted_at
+      terms_accepted_at: user.terms_accepted_at,
+      invite_count: Invitations.count_accepted(user.id)
     }
   end
 
@@ -196,6 +201,19 @@ defmodule InkwellWeb.AuthController do
     |> Enum.map_join("; ", fn {field, errors} ->
       "#{field} #{Enum.join(errors, ", ")}"
     end)
+  end
+
+  defp maybe_accept_invite(new_user, params) do
+    cond do
+      invite_token = params["invite_token"] ->
+        Invitations.accept_by_token(invite_token, new_user.id)
+
+      invite_code = params["invite_code"] ->
+        Invitations.accept_by_code(invite_code, new_user.id)
+
+      true ->
+        :ok
+    end
   end
 
   defp frontend_url do

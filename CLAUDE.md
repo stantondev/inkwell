@@ -335,13 +335,15 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Proxy routes: `apps/web/src/app/api/users/[username]/guestbook/route.ts`, `apps/web/src/app/api/guestbook/[id]/route.ts`
 
 ### Multi-Step Onboarding Wizard
-- `/welcome` — 6-step wizard for new users with progress dots
+- `/welcome` — 8-step wizard for new users with progress dots
 - Step 0: Username + Display Name (with availability check)
 - Step 1: Avatar Upload + Pronouns (file upload with canvas resize, not URL input)
 - Step 2: Bio + Status Message ("What are you up to?")
 - Step 3: Theme Picker (grid of 8 theme swatches from `profile-themes.ts`)
-- **Step 4: Community Guidelines Book (NEW)** — interactive open-book UI that users must read through and agree to before continuing. "Skip for now" and "Skip all" links are hidden on this step. See "Community Guidelines" section below.
+- **Step 4: Community Guidelines Book** — interactive open-book UI that users must read through and agree to before continuing. "Skip for now" and "Skip all" links are hidden on this step. See "Community Guidelines" section below.
 - Step 5: Discover Writers (find people to follow)
+- **Step 6: Invite Friends** — share personal invite link (copy button) or send up to 3 "sealed letter" email invites with optional personal message. Fully skippable.
+- Step 7: What's next? — destination picker (Explore / Write / Profile)
 - Back/Next navigation, "Skip for now" on every step (except guidelines)
 - Final step saves all fields (including `guidelines_accepted: true`) and redirects to `/feed`
 - Shared utility: `apps/web/src/lib/image-utils.ts` — `resizeImage()` (square crop) and `resizeBackgroundImage()` (aspect-preserving)
@@ -544,6 +546,38 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - Settings tab: "API" after Fediverse
   - Footer link: "API" → `/developers`
 
+### Invite Friends ("Sealed Letters")
+- Two-tier invite system: permanent personal invite links + tracked email invitations ("sealed letters")
+- **Personal invite link**: per-user 8-char code (`inkwell.social/i/kJ7mX9pQ`), generated on first access, never expires. Copy button, Web Share API, Share on X.
+- **Email invites**: up to 5 emails per request, optional personal message (max 500 chars), 30-day token expiry. "Sealed letter" HTML email template (Georgia serif, cream bg, inviter avatar, personal message blockquote, "Break the seal & join" CTA). Sent via Oban background worker.
+- **Invite limits**: Free = 10/day, Plus = 25/day. 7-day cooldown per email address. Existing user emails silently succeed (prevents user enumeration).
+- **Invite tracking**: `invited_by_id` on users, `:invite_accepted` notification when invitee signs up. Cookie-based attribution (`inkwell_invite` cookie, 30-day, JSON with type + value).
+- **Invite landing pages**: `/i/[code]` (shareable link) and `/i/e/[token]` (email invite) — paper-textured card with inviter avatar, value props, "Join Inkwell" CTA. Email landing includes personal message blockquote.
+- **Onboarding step 6**: share invite link + send up to 3 sealed letter emails. Fully skippable.
+- **Settings → Invite page**: 3 sections — invite link with copy/share, email form (up to 5), invitation history with stats (Sent/Accepted/Pending) and status badges.
+- **Backend**:
+  - `apps/api/lib/inkwell/invitations/invitation.ex` — Ecto schema
+  - `apps/api/lib/inkwell/invitations.ex` — context: `get_or_create_invite_code/1`, `create_invitation/3`, `accept_by_code/2`, `accept_by_token/2`, `list_invitations/2`, `get_stats/1`, `cleanup_expired/0`
+  - `apps/api/lib/inkwell_web/controllers/invitation_controller.ex` — 6 actions: `get_code`, `index`, `stats`, `create` (auth) + `show_inviter`, `show_invite` (public)
+  - `apps/api/lib/inkwell/workers/invite_delivery_worker.ex` — Oban worker for sending invite emails
+  - Routes (auth): `GET /invite-code`, `GET /invitations`, `GET /invitations/stats`, `POST /invitations`
+  - Routes (public): `GET /invite-link/:code`, `GET /invite-token/:token`
+  - `auth_controller.ex` modified: `maybe_accept_invite/2` checks invite_code/invite_token params on signup, sets `invited_by_id`, creates `:invite_accepted` notification
+  - `render_user/1` includes `invite_count` in session response
+  - `cleanup_expired_tokens_worker.ex` also runs `Invitations.cleanup_expired()`
+  - Migration: `20260228000039`
+- **Frontend**:
+  - `apps/web/src/app/i/[code]/page.tsx` + `invite-landing-content.tsx` — shareable link landing page
+  - `apps/web/src/app/i/e/[token]/page.tsx` + `email-invite-landing-content.tsx` — email invite landing page
+  - `apps/web/src/app/settings/invite/page.tsx` — full invite settings page
+  - `apps/web/src/app/welcome/page.tsx` — step 6 invite UI (TOTAL_STEPS = 8)
+  - Proxy routes: `api/invite-code/route.ts`, `api/invitations/route.ts`, `api/invitations/stats/route.ts`
+  - Sidebar: "Invite friends" in Section IV (Community) with paper-plane icon
+  - Mobile menu: "Invite Friends" link
+  - `get-started/page.tsx` + `login/page.tsx`: read `inkwell_invite` cookie, pass `invite_code`/`invite_token` to magic-link POST
+  - `auth/verify/route.ts`: clears `inkwell_invite` cookie after successful auth
+  - `notification-list.tsx`: renders `:invite_accepted` with paper-plane icon, links to invitee's profile
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries with inline editing (24h edit window) and @mention autocomplete; feed cards have inline comment popup via `FeedCardActions`. Mentions are parsed server-side into profile links (`<a class="mention">`), and mentioned users receive `:mention` notifications. Edit/Delete text links appear on own comments within 24 hours; "(edited)" indicator with tooltip shown after edits.
@@ -566,7 +600,7 @@ Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numera
 - **I. Your Journal**: Feed, Explore, + Write (accent CTA button)
 - **II. Connections**: Pen Pals, Letterbox (with unread badge), Search
 - **III. Library**: Bookmarks, Drafts (with count badge)
-- **IV. Community**: Roadmap, Feedback
+- **IV. Community**: Roadmap, Feedback, Invite friends
 - **Ornament divider** (`· · ·`)
 - **User section**: Avatar with frame, display name, @username, Notifications (with badge), Settings, ✦ Upgrade to Plus (if free), Admin (if admin), Sign out
 - **Collapse toggle**: chevron button at bottom
@@ -589,10 +623,10 @@ Key files:
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
 ### Settings Tabs
-Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Fediverse | API
+Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Invite | Fediverse | API
 
 ## Database Tables
-- `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
+- `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, invite_code (unique 8-char), invited_by_id (FK → users), profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
 - `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published), word_count, excerpt, cover_image_id (FK to entry_images), sensitive (bool), content_warning (string 200), admin_sensitive (bool)
 - `remote_entries` — includes `sensitive` (bool) and `content_warning` (string) for federated content
 - `reports` — content reports (reporter_id, entry_id, reason enum, details text, status: pending/reviewed/dismissed/actioned, admin_notes, resolved_by, resolved_at; unique on [reporter_id, entry_id])
@@ -614,6 +648,7 @@ Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter |
 - `newsletter_sends` — newsletter send records (entry_id, writer_id, subject, status: queued/sending/sent/failed/cancelled, recipient_count, sent_count, failed_count, scheduled_at)
 - `tips` — reader-to-writer postage payments (sender_id, recipient_id, entry_id (nullable FK to entries), amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
 - `api_keys` — API keys for programmatic access (user_id FK, name, prefix, key_hash SHA-256, scopes string array, last_used_at, expires_at, revoked_at; unique on key_hash and prefix)
+- `invitations` — email invite tracking (inviter_id FK → users, email, token unique, status: pending/accepted/expired, accepted_by_id FK → users, accepted_at, message max 500, expires_at; indexes on inviter_id + email)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -859,7 +894,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260228000038_create_api_keys.exs`
+- Latest migration: `20260228000039_create_invitations.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -915,6 +950,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
 
 ### Recently Completed
+- **2026-02-28** — Invite Friends ("Sealed Letters"). Two-tier invite system for organic growth: permanent personal invite links (`/i/CODE`) and tracked email invitations ("sealed letters") with personal messages. Backend: `invitations` table, `invite_code` + `invited_by_id` fields on users, `Invitations` context module, `InvitationController` (6 actions), `InviteDeliveryWorker` (Oban), sealed letter HTML email template in `email.ex`. Invite limits: Free 10/day, Plus 25/day; 7-day per-email cooldown; 30-day token expiry; silent success for existing users (prevents enumeration). Cookie-based attribution: landing pages set `inkwell_invite` cookie (JSON), read by get-started/login pages and passed to magic-link auth, cleared after verification. Auth controller: `maybe_accept_invite/2` sets `invited_by_id` on new users and creates `:invite_accepted` notification. `invite_count` in `render_user/1` session response. Cleanup: expired invitations handled by existing `CleanupExpiredTokensWorker`. Frontend: two landing pages (`/i/[code]` with paper texture + inviter avatar + value props, `/i/e/[token]` with personal message blockquote), Settings → Invite page (3 sections: invite link with copy/share, email form up to 5, invitation history with stats), onboarding step 6 (invite link + 3 email fields, skippable). Sidebar "Invite friends" in Community section, mobile menu link. Notification list renders `:invite_accepted` with paper-plane icon linking to invitee's profile. Migration `20260228000039`. New files: `invitation.ex`, `invitations.ex`, `invitation_controller.ex`, `invite_delivery_worker.ex`, `i/[code]/page.tsx`, `invite-landing-content.tsx`, `i/e/[token]/page.tsx`, `email-invite-landing-content.tsx`, `settings/invite/page.tsx`, 3 proxy routes. Modified: `email.ex`, `notification.ex`, `user.ex`, `auth_controller.ex`, `router.ex`, `cleanup_expired_tokens_worker.ex`, `welcome/page.tsx`, `sidebar-nav.tsx`, `mobile-menu.tsx`, `settings/layout.tsx`, `notification-list.tsx`, `middleware.ts`, `get-started/page.tsx`, `login/page.tsx`, `auth/verify/route.ts`.
 - **2026-02-28** — Public API & API Keys. Full API key authentication system for programmatic access to all existing REST endpoints. Keys use `ink_` prefix + 32 random bytes Base64url, SHA-256 hashed in DB (raw key shown once at creation). Auth plugs detect `ink_` prefix to route to API key verification instead of session token flow. Free users get read-only access; Plus users get read+write. Per-key ETS rate limiting (Free: 100 read/15min; Plus: 300 read + 60 write/15min) with `x-ratelimit-*` headers. Keys cannot manage keys (403 for API-key-authenticated requests to key management endpoints). Max 10 keys per user, soft revoke via `revoked_at`, optional expiration. Settings → API page with create form, one-time raw key display modal with copy, key list with revoke. `/developers` documentation page with Authentication, Scopes, Rate Limits, Endpoints, Examples, Error Codes sections. Revoked keys cleaned up >90 days by existing cleanup worker. Blocked users get all keys revoked. Migration `20260228000038`. New files: `api_key.ex`, `api_keys.ex`, `api_key_controller.ex`, `require_write_scope.ex`, `api_key_rate_limit.ex`, `settings/api/page.tsx`, `developers/page.tsx`, 2 proxy routes. Modified: `require_auth.ex`, `optional_auth.ex`, `router.ex`, `accounts.ex`, `cleanup_expired_tokens_worker.ex`, `settings/layout.tsx`, `footer.tsx`.
 - **2026-02-28** — Sensitive Content Handling & Reporting System. Full content moderation pipeline: authors self-label sensitive entries with optional CW text (max 200 chars), admins can override via independent `admin_sensitive` flag, Explore hides sensitive entries by default (user opt-in via settings toggle), feed shows CW overlay. ContentWarning component wraps body/cover/music/tags behind "Show content" button while keeping title/author/stamps visible. Report system with 6 reason categories, one-report-per-user-per-entry constraint, admin Reports tab with filter/action UI, pending count badge in admin nav. AP federation: outbound `sensitive: true` + `summary` as CW text (Mastodon standard), inbound parses `sensitive` flag on remote entries. Migration `20260228000037` (entries: `sensitive`, `content_warning`, `admin_sensitive`; remote_entries: `sensitive`, `content_warning`; new `reports` table). New files: `moderation/report.ex`, `moderation.ex`, `report_controller.ex`, `content-warning.tsx`, `report-modal.tsx`, `report-button.tsx`, `content-safety.tsx`, `admin/reports/page.tsx`, 5 proxy routes. Modified: `entry.ex`, `journals.ex`, `entry_controller.ex`, `explore_controller.ex`, `feed_controller.ex`, `admin_controller.ex`, `activity_builder.ex`, `remote_entry.ex`, `router.ex`, `notification.ex`, `editor-client.tsx`, `journal-entry-card.tsx`, `[slug]/page.tsx`, `feed-card-actions.tsx`, `admin-nav.tsx`, `admin/page.tsx`, `admin-entry-list.tsx`, `settings/page.tsx`, `globals.css`.
 - **2026-02-28** — Roadmap @Mentions + Release Notes Page. Two improvements to the community feedback system. **Part 1 (@Mentions in feedback comments)**: Extracted shared `MentionHelper` module (`process_mentions/1`, `plain_text_to_html/1`) from comment controller — now reused by both entry and feedback comment controllers. Feedback comments convert plain text to XSS-safe HTML before mention processing. `:feedback_mention` notification type added (star icon, routes to `/roadmap/{id}`). Shared `useMentionAutocomplete` hook extracted from entry comment form for reuse. `MentionDropdown` component shared between entry and feedback comment forms. Backward-compatible rendering: comments starting with `<p>` render as HTML, older plain text comments render with `whitespace-pre-wrap`. Body max length increased from 3000 to 6000 to accommodate HTML overhead. **Part 2 (Release Notes page)**: Dedicated `/roadmap/releases` page replaces the old `?status=done` filter. "Inkwell Gazette" design: italic serif heading with ornament divider, "What's new at Inkwell" subtitle, month-grouped entries (small-caps accent-color headers), timeline cards with ink-blue left border, date in italic serif (left column on desktop ≥768px with vertical timeline line), CategoryBadge + bold serif title link, release note body in Lora serif, "Suggested by" attribution with avatar + @username, upvote counts, page-number pagination. CSS `.release-notes-*` classes. `count_release_notes/0` added to Feedback context, `total` added to releases API pagination. New files: `mention_helper.ex`, `use-mention-autocomplete.ts`, `mention-dropdown.tsx`, `roadmap/releases/page.tsx`. Modified: `comment_controller.ex`, `feedback_controller.ex`, `notification.ex`, `feedback_comment.ex`, `feedback.ex`, `feedback_controller.ex`, `comment-form.tsx`, `feedback-comment-form.tsx`, `roadmap/[id]/page.tsx`, `notification-list.tsx`, `roadmap/page.tsx`, `globals.css`.

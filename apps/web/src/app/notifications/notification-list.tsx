@@ -135,6 +135,8 @@ function notificationText(n: Notification): string {
       const tipMsg = n.data?.message as string | undefined;
       return `sent you ${amt ? amt + " in " : ""}postage${tipMsg ? ` \u2014 "${tipMsg}"` : ""}`;
     }
+    case "invite_accepted":
+      return "joined Inkwell from your invitation";
     default:
       return "interacted with your content";
   }
@@ -313,6 +315,25 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "invite_accepted") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <line x1="22" y1="2" x2="11" y2="13" />
+        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      </svg>
+    );
+  }
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
@@ -374,6 +395,10 @@ function getActorInfo(n: Notification) {
 }
 
 function getNotificationHref(n: Notification): string | null {
+  // Invite accepted notifications link to the new user's profile
+  if (n.type === "invite_accepted" && n.actor) {
+    return `/${n.actor.username}`;
+  }
   // Postage notifications link to the postage history page
   if (n.type === "tip") {
     return "/settings/support/postage";

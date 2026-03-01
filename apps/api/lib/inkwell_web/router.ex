@@ -72,6 +72,10 @@ defmodule InkwellWeb.Router do
     # Username availability check (public)
     get "/username-available", UserController, :username_available
 
+    # Invite link info (public)
+    get "/invite-link/:code", InvitationController, :show_inviter
+    get "/invite-token/:token", InvitationController, :show_invite
+
     # Stripe webhook (public, verified by signature)
     post "/billing/webhook", BillingController, :webhook
 
@@ -277,6 +281,12 @@ defmodule InkwellWeb.Router do
 
     # Content reports (authenticated)
     post "/entries/:entry_id/report", ReportController, :create
+
+    # Invitations (authenticated)
+    get "/invite-code", InvitationController, :get_code
+    get "/invitations", InvitationController, :index
+    get "/invitations/stats", InvitationController, :stats
+    post "/invitations", InvitationController, :create
 
     # Newsletter (authenticated endpoints)
     get "/newsletter/settings", NewsletterController, :get_settings

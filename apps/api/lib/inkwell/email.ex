@@ -434,6 +434,55 @@ defmodule Inkwell.Email do
     """
   end
 
+  @doc "Send an invite 'sealed letter' email to a friend."
+  def send_invite_email(to_email, inviter, invite_url, message) do
+    api_key = Application.get_env(:inkwell, :resend_api_key)
+    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+
+    inviter_name = inviter.display_name || inviter.username
+
+    if is_nil(api_key) or api_key == "" do
+      require Logger
+      Logger.warning("RESEND_API_KEY not set — invite email for #{to_email}: #{invite_url}")
+      {:ok, :no_email_configured}
+    else
+      body = Jason.encode!(%{
+        from: from_email,
+        to: [to_email],
+        subject: "You've received a letter from @#{inviter.username} on Inkwell",
+        html: invite_html(inviter, inviter_name, invite_url, message)
+      })
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{api_key}"},
+        {~c"content-type", ~c"application/json"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :post,
+             {~c"#{@resend_url}", headers, ~c"application/json", body},
+             [ssl: [verify: :verify_none]],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
+          {:ok, :sent}
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          require Logger
+          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
+          {:error, {:resend_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          require Logger
+          Logger.error("Resend HTTP error: #{inspect(reason)}")
+          {:error, :send_failed}
+      end
+    end
+  end
+
   defp export_ready_html(settings_url) do
     """
     <!DOCTYPE html>
@@ -454,6 +503,72 @@ defmodule Inkwell.Email do
         <p style="color: #707088; font-size: 13px; margin-top: 32px; line-height: 1.5;">
           This download link expires in 48 hours.<br/>
           After that, you can request a new export anytime.
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  defp invite_html(inviter, inviter_name, invite_url, message) do
+    api_url = Application.get_env(:inkwell, :api_url, "http://localhost:4000")
+    avatar_url = "#{api_url}/api/avatars/#{inviter.username}"
+    escaped_name = escape_html(inviter_name)
+    escaped_username = escape_html(inviter.username)
+
+    message_block =
+      if message && String.trim(message) != "" do
+        escaped_message = escape_html(message)
+        """
+        <div style="background: #f5f0e6; border-left: 3px solid #2d4a8a; padding: 16px 20px; margin: 24px 0; border-radius: 0 8px 8px 0;">
+          <p style="font-family: Georgia, serif; font-style: italic; color: #4a4a4a; font-size: 15px; line-height: 1.6; margin: 0;">
+            &ldquo;#{escaped_message}&rdquo;
+          </p>
+        </div>
+        """
+      else
+        ""
+      end
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Georgia, serif; background: #faf9f6; color: #333; padding: 40px 20px; margin: 0;">
+      <div style="max-width: 460px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 40px; border: 1px solid #e8e4de;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <p style="font-family: Georgia, serif; font-size: 14px; color: #2d4a8a; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 8px 0;">Inkwell</p>
+          <h1 style="font-family: Georgia, serif; font-size: 22px; color: #2d4a8a; margin: 0 0 12px 0; font-weight: normal;">
+            You&rsquo;ve received a sealed letter
+          </h1>
+          <hr style="border: none; border-top: 1px solid #e8e4de; margin: 0 80px; position: relative;" />
+        </div>
+
+        <div style="text-align: center; margin-bottom: 24px;">
+          <img src="#{avatar_url}" alt="" width="48" height="48"
+               style="border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 12px;" />
+          <p style="font-size: 16px; color: #333; margin: 12px 0 0 0;">
+            <strong>@#{escaped_username}</strong> invites you to join Inkwell
+          </p>
+        </div>
+
+        #{message_block}
+
+        <p style="font-size: 15px; color: #666; line-height: 1.6; text-align: center; margin-bottom: 32px;">
+          Inkwell is a social journal &mdash; a place to write, share, and connect on the open social web. No algorithms, no ads, your space.
+        </p>
+
+        <div style="text-align: center; margin-bottom: 32px;">
+          <a href="#{invite_url}"
+             style="display: inline-block; background: #2d4a8a; color: #fff; text-decoration: none;
+                    padding: 14px 32px; border-radius: 24px; font-weight: 600; font-size: 16px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+            Break the seal &amp; join
+          </a>
+        </div>
+
+        <p style="color: #999; font-size: 12px; text-align: center; line-height: 1.5; margin-top: 24px;">
+          Sent by @#{escaped_username} via Inkwell. This link expires in 30 days.<br/>
+          If you don&rsquo;t know #{escaped_name}, you can safely ignore this.
         </p>
       </div>
     </body>
