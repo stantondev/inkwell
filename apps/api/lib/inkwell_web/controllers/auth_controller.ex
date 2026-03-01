@@ -160,6 +160,7 @@ defmodule InkwellWeb.AuthController do
       username: user.username,
       display_name: user.display_name || user.username,
       avatar_url: user.avatar_url,
+      avatar_config: user.avatar_config,
       avatar_frame: user.avatar_frame,
       bio: user.bio,
       bio_html: user.bio_html,

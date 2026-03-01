@@ -63,7 +63,7 @@ defmodule InkwellWeb.UserController do
 
     # Free-tier fields (always allowed)
     free_fields = [
-      "display_name", "bio", "bio_html", "pronouns", "avatar_url", "settings",
+      "display_name", "bio", "bio_html", "pronouns", "avatar_url", "avatar_config", "settings",
       "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
       "support_url", "support_label",
@@ -406,6 +406,7 @@ defmodule InkwellWeb.UserController do
       bio_html: user.bio_html,
       pronouns: user.pronouns,
       avatar_url: user.avatar_url,
+      avatar_config: user.avatar_config,
       ap_id: user.ap_id,
       subscription_tier: user.subscription_tier || "free",
       created_at: user.inserted_at,

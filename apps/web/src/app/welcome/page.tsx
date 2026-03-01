@@ -7,6 +7,13 @@ import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
 import { BioEditor } from "@/components/bio-editor";
+import dynamic from "next/dynamic";
+import type { AvatarConfig } from "@/lib/avatar-builder-config";
+
+const AvatarBuilder = dynamic(
+  () => import("@/components/avatar-builder").then((m) => m.AvatarBuilder),
+  { ssr: false, loading: () => <div style={{ padding: "1rem", color: "var(--muted)", textAlign: "center" }}>Loading builder...</div> }
+);
 const TOTAL_STEPS = 9;
 
 type SuggestedUser = {
@@ -53,6 +60,8 @@ export default function WelcomePage() {
   const [pronouns, setPronouns] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarMode, setAvatarMode] = useState<"upload" | "build">("upload");
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
 
   // Step 3: Bio & Status
   const [bioHtml, setBioHtml] = useState("");
@@ -441,6 +450,7 @@ export default function WelcomePage() {
           ...(pronouns.trim() ? { pronouns: pronouns.trim() } : {}),
           ...(status.trim() ? { profile_status: status.trim() } : {}),
           ...(theme !== "default" ? { profile_theme: theme } : {}),
+          ...(avatarConfig ? { avatar_config: avatarConfig } : {}),
           settings: { onboarded: true, guidelines_accepted: true },
         }),
       });
@@ -589,46 +599,90 @@ export default function WelcomePage() {
                 <label className="block text-xs font-medium uppercase tracking-wide mb-3" style={{ color: "var(--muted)" }}>
                   Avatar
                 </label>
-                <div className="flex flex-col items-center gap-3">
-                  <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <AvatarWithFrame url={avatarDataUri} name={displayName || username || "?"} size={96} />
-                    <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: "rgba(0,0,0,0.5)" }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                        <circle cx="12" cy="13" r="4"/>
-                      </svg>
-                    </div>
-                  </div>
+
+                {/* Upload / Build toggle */}
+                <div className="flex justify-center gap-1 mb-4 p-0.5 rounded-lg" style={{ background: "var(--border)" }}>
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="text-sm font-medium px-4 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
-                    style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-                    {uploading ? "Processing..." : avatarDataUri ? "Change avatar" : "Choose avatar"}
+                    onClick={() => setAvatarMode("upload")}
+                    className="flex-1 text-sm font-medium py-1.5 px-3 rounded-md transition-all"
+                    style={{
+                      background: avatarMode === "upload" ? "var(--surface)" : "transparent",
+                      color: avatarMode === "upload" ? "var(--foreground)" : "var(--muted)",
+                      boxShadow: avatarMode === "upload" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+                    }}
+                  >
+                    Upload photo
                   </button>
-                  {avatarDataUri && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarMode("build")}
+                    className="flex-1 text-sm font-medium py-1.5 px-3 rounded-md transition-all"
+                    style={{
+                      background: avatarMode === "build" ? "var(--surface)" : "transparent",
+                      color: avatarMode === "build" ? "var(--foreground)" : "var(--muted)",
+                      boxShadow: avatarMode === "build" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+                    }}
+                  >
+                    Build avatar
+                  </button>
+                </div>
+
+                {avatarMode === "upload" && (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <AvatarWithFrame url={avatarDataUri} name={displayName || username || "?"} size={96} />
+                      <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: "rgba(0,0,0,0.5)" }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                          <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setAvatarDataUri(null)}
-                      className="text-xs"
-                      style={{ color: "var(--muted)" }}>
-                      Remove
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="text-sm font-medium px-4 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                      {uploading ? "Processing..." : avatarDataUri ? "Change avatar" : "Choose avatar"}
                     </button>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    onChange={handleAvatarSelect}
-                    className="hidden"
+                    {avatarDataUri && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatarDataUri(null)}
+                        className="text-xs"
+                        style={{ color: "var(--muted)" }}>
+                        Remove
+                      </button>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      onChange={handleAvatarSelect}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+                      Any size works — it will be cropped and resized automatically
+                    </p>
+                  </div>
+                )}
+
+                {avatarMode === "build" && (
+                  <AvatarBuilder
+                    compact
+                    initialConfig={avatarConfig}
+                    photoUrl={null}
+                    displayName={displayName || username || "?"}
+                    onSave={async (config, renderedDataUri) => {
+                      setAvatarConfig(config);
+                      setAvatarDataUri(renderedDataUri);
+                    }}
                   />
-                  <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
-                    Any size works — it will be cropped and resized automatically
-                  </p>
-                </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">

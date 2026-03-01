@@ -13,6 +13,7 @@ defmodule Inkwell.Accounts.User do
     field :bio_html, :string
     field :pronouns, :string
     field :avatar_url, :string
+    field :avatar_config, :map
     field :profile_html, :string
     field :profile_css, :string
     field :profile_music, :string
@@ -137,7 +138,7 @@ defmodule Inkwell.Accounts.User do
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [
-      :display_name, :bio, :bio_html, :pronouns, :avatar_url,
+      :display_name, :bio, :bio_html, :pronouns, :avatar_url, :avatar_config,
       :profile_html, :profile_css, :settings,
       :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
@@ -168,6 +169,15 @@ defmodule Inkwell.Accounts.User do
     |> maybe_validate_inclusion(:profile_theme, @allowed_themes)
     |> maybe_validate_inclusion(:avatar_frame, @allowed_frames)
     |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
+    |> validate_avatar_config()
+  end
+
+  defp validate_avatar_config(changeset) do
+    case get_change(changeset, :avatar_config) do
+      nil -> changeset
+      %{"style" => style, "options" => options} when is_binary(style) and is_map(options) -> changeset
+      _ -> add_error(changeset, :avatar_config, "must have style and options keys")
+    end
   end
 
   # Transparently migrate old theme IDs to new ones on save

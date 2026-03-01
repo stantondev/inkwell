@@ -8,6 +8,7 @@ export interface SessionUser {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  avatar_config?: Record<string, unknown> | null;
   avatar_frame?: string | null;
   bio: string | null;
   pronouns: string | null;
