@@ -27,6 +27,7 @@ interface ProfileUser {
   username: string;
   display_name: string;
   bio: string | null;
+  bio_html: string | null;
   pronouns: string | null;
   avatar_url: string | null;
   avatar_frame?: string | null;
@@ -105,6 +106,10 @@ const SOCIAL_PLATFORMS: Record<string, { label: string; icon: string }> = {
   github: { label: "GitHub", icon: "M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" },
   website: { label: "Website", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" },
 };
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 function ensureUrl(url: string): string {
   const trimmed = url.trim();
@@ -679,8 +684,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
               )
             )}
 
-            {profile.bio && (
-              <p className="text-sm leading-relaxed mb-4 max-w-prose">{profile.bio}</p>
+            {(profile.bio_html || profile.bio) && (
+              <div
+                className="prose-bio mb-4 max-w-prose"
+                dangerouslySetInnerHTML={{
+                  __html: profile.bio_html || `<p>${escapeHtml(profile.bio || "")}</p>`
+                }}
+              />
             )}
 
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm" style={{ color: styles.muted }}>

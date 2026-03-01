@@ -63,7 +63,7 @@ defmodule InkwellWeb.UserController do
 
     # Free-tier fields (always allowed)
     free_fields = [
-      "display_name", "bio", "pronouns", "avatar_url", "settings",
+      "display_name", "bio", "bio_html", "pronouns", "avatar_url", "settings",
       "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
       "support_url", "support_label",
@@ -79,6 +79,22 @@ defmodule InkwellWeb.UserController do
 
     allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
     allowed = Map.take(params, allowed_keys)
+
+    # When bio_html is sent, sanitize it and auto-derive plain text bio
+    allowed =
+      case Map.get(allowed, "bio_html") do
+        nil -> allowed
+        html ->
+          sanitized = sanitize_profile_html(html)
+          plain =
+            sanitized
+            |> String.replace(~r/<[^>]*>/, "")
+            |> String.replace(~r/&[^;]+;/, " ")
+            |> String.replace(~r/\s+/, " ")
+            |> String.trim()
+            |> String.slice(0, 2000)
+          allowed |> Map.put("bio_html", sanitized) |> Map.put("bio", plain)
+      end
 
     # Merge settings instead of replacing, so {onboarded: true} doesn't wipe other settings
     allowed =
@@ -128,7 +144,8 @@ defmodule InkwellWeb.UserController do
           username: u.username,
           display_name: u.display_name,
           avatar_url: u.avatar_url,
-          bio: u.bio
+          bio: u.bio,
+          bio_html: u.bio_html
         }
       end)
 
@@ -386,6 +403,7 @@ defmodule InkwellWeb.UserController do
       username: user.username,
       display_name: user.display_name,
       bio: user.bio,
+      bio_html: user.bio_html,
       pronouns: user.pronouns,
       avatar_url: user.avatar_url,
       ap_id: user.ap_id,

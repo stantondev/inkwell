@@ -687,11 +687,21 @@ defmodule Inkwell.Journals do
       |> Enum.flat_map(fn ids -> ids || [] end)
       |> MapSet.new()
 
+    # Also protect images embedded in user bios
+    bio_referenced =
+      Inkwell.Accounts.User
+      |> where([u], not is_nil(u.bio_html))
+      |> select([u], u.bio_html)
+      |> Repo.all()
+      |> Enum.flat_map(&extract_image_ids/1)
+      |> MapSet.new()
+
     referenced_ids =
       entry_referenced
       |> MapSet.union(cover_image_referenced)
       |> MapSet.union(series_cover_referenced)
       |> MapSet.union(feedback_referenced)
+      |> MapSet.union(bio_referenced)
 
     # Get candidate orphan images (older than cutoff)
     candidates =

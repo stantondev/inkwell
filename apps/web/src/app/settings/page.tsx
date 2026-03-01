@@ -12,6 +12,7 @@ interface FullUser {
   email: string;
   display_name: string;
   bio: string | null;
+  bio_html: string | null;
   pronouns: string | null;
   avatar_url: string | null;
 }

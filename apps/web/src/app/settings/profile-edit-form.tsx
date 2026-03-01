@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
+import { BioEditor } from "@/components/bio-editor";
 
 interface FullUser {
   id: string;
@@ -12,6 +13,7 @@ interface FullUser {
   email: string;
   display_name: string;
   bio: string | null;
+  bio_html: string | null;
   pronouns: string | null;
   avatar_url: string | null;
   support_url?: string | null;
@@ -23,7 +25,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     display_name: user.display_name ?? "",
-    bio: user.bio ?? "",
+    bio_html: user.bio_html || user.bio || "",
     pronouns: user.pronouns ?? "",
     avatar_url: user.avatar_url ?? "",
     support_url: user.support_url ?? "",
@@ -166,7 +168,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           display_name: form.display_name,
-          bio: form.bio || null,
+          bio_html: form.bio_html || null,
           pronouns: form.pronouns || null,
           avatar_url: form.avatar_url || null,
           support_url: form.support_url || null,
@@ -328,10 +330,11 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
 
       <div>
         <label className="block text-sm font-medium mb-1.5">Bio</label>
-        <textarea value={form.bio} rows={3} maxLength={500}
-          onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
-          placeholder="Tell people a little about yourself..."
-          className={inputClass} style={{ ...inputStyle, resize: "vertical" }} />
+        <BioEditor
+          content={form.bio_html}
+          onChange={(html) => setForm(f => ({ ...f, bio_html: html }))}
+          placeholder="Tell people about yourself..."
+        />
       </div>
 
       <div>

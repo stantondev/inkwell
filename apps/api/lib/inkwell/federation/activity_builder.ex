@@ -220,7 +220,12 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
     # Add optional fields
     person = if user.display_name, do: Map.put(person, "name", user.display_name), else: person
-    person = if user.bio, do: Map.put(person, "summary", user.bio), else: person
+    person =
+      cond do
+        user.bio_html -> Map.put(person, "summary", user.bio_html)
+        user.bio -> Map.put(person, "summary", user.bio)
+        true -> person
+      end
 
     instance_host = federation_config(:instance_host)
 

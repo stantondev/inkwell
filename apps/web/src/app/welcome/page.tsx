@@ -6,6 +6,7 @@ import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
+import { BioEditor } from "@/components/bio-editor";
 const TOTAL_STEPS = 9;
 
 type SuggestedUser = {
@@ -54,7 +55,7 @@ export default function WelcomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 3: Bio & Status
-  const [bio, setBio] = useState("");
+  const [bioHtml, setBioHtml] = useState("");
   const [status, setStatus] = useState("");
 
   // Step 4: Theme
@@ -128,7 +129,8 @@ export default function WelcomePage() {
         if (user.display_name && user.display_name !== user.username) setDisplayName(user.display_name);
         if (user.avatar_url) setAvatarDataUri(user.avatar_url);
         if (user.pronouns) setPronouns(user.pronouns);
-        if (user.bio) setBio(user.bio);
+        if (user.bio_html) setBioHtml(user.bio_html);
+        else if (user.bio) setBioHtml(user.bio);
         // Track current subscription state
         if (user.subscription_tier) setCurrentTier(user.subscription_tier);
         if (user.ink_donor_status) setCurrentDonorStatus(user.ink_donor_status);
@@ -435,7 +437,7 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...(displayName.trim() ? { display_name: displayName.trim() } : {}),
-          ...(bio.trim() ? { bio: bio.trim() } : {}),
+          ...(bioHtml.trim() ? { bio_html: bioHtml.trim() } : {}),
           ...(pronouns.trim() ? { pronouns: pronouns.trim() } : {}),
           ...(status.trim() ? { profile_status: status.trim() } : {}),
           ...(theme !== "default" ? { profile_theme: theme } : {}),
@@ -653,14 +655,11 @@ export default function WelcomePage() {
                 <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
                   Bio <span className="normal-case font-normal">(optional)</span>
                 </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
+                <BioEditor
+                  content={bioHtml}
+                  onChange={setBioHtml}
                   placeholder="Tell people about yourself..."
-                  maxLength={2000}
-                  rows={4}
-                  className={`${inputClass} resize-none`}
-                  style={inputStyle}
+                  compact
                 />
               </div>
 

@@ -10,6 +10,7 @@ defmodule Inkwell.Accounts.User do
     field :email, :string
     field :display_name, :string
     field :bio, :string
+    field :bio_html, :string
     field :pronouns, :string
     field :avatar_url, :string
     field :profile_html, :string
@@ -136,7 +137,7 @@ defmodule Inkwell.Accounts.User do
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [
-      :display_name, :bio, :pronouns, :avatar_url,
+      :display_name, :bio, :bio_html, :pronouns, :avatar_url,
       :profile_html, :profile_css, :settings,
       :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
@@ -146,6 +147,7 @@ defmodule Inkwell.Accounts.User do
       :pinned_entry_ids, :social_links
     ])
     |> validate_length(:bio, max: 2000)
+    |> validate_length(:bio_html, max: 10_000)
     |> validate_length(:display_name, max: 100)
     |> validate_length(:profile_status, max: 280)
     |> validate_length(:profile_music, max: 500)

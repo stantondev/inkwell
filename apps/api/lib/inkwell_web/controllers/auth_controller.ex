@@ -162,6 +162,7 @@ defmodule InkwellWeb.AuthController do
       avatar_url: user.avatar_url,
       avatar_frame: user.avatar_frame,
       bio: user.bio,
+      bio_html: user.bio_html,
       pronouns: user.pronouns,
       ap_id: user.ap_id,
       created_at: user.inserted_at,
