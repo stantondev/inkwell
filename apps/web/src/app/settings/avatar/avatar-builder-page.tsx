@@ -98,6 +98,18 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
         onSave={handleSave}
         onRevertToPhoto={hasPhotoAvatar ? handleRevertToPhoto : undefined}
       />
+
+      <p className="avatar-builder-attribution">
+        Avatar illustrations by{" "}
+        <a href="https://www.dicebear.com/styles/croodles/" target="_blank" rel="noopener noreferrer">
+          Croodles
+        </a>
+        {" "}via{" "}
+        <a href="https://www.dicebear.com" target="_blank" rel="noopener noreferrer">
+          DiceBear
+        </a>
+        . These are placeholder styles while we work with an artist on custom Inkwell avatars.
+      </p>
     </div>
   );
 }

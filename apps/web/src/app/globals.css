@@ -4617,6 +4617,28 @@ body[data-focus-mode] .app-content {
   color: var(--accent);
 }
 
+.avatar-builder-attribution {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  font-family: var(--font-lora, Georgia, serif);
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.avatar-builder-attribution a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.avatar-builder-attribution a:hover {
+  color: var(--accent);
+}
+
 /* Responsive: stack on mobile */
 @media (max-width: 639px) {
   .avatar-builder {

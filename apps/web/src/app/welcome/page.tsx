@@ -672,16 +672,29 @@ export default function WelcomePage() {
                 )}
 
                 {avatarMode === "build" && (
-                  <AvatarBuilder
-                    compact
-                    initialConfig={avatarConfig}
-                    photoUrl={null}
-                    displayName={displayName || username || "?"}
-                    onSave={async (config, renderedDataUri) => {
-                      setAvatarConfig(config);
-                      setAvatarDataUri(renderedDataUri);
-                    }}
-                  />
+                  <>
+                    <AvatarBuilder
+                      compact
+                      initialConfig={avatarConfig}
+                      photoUrl={null}
+                      displayName={displayName || username || "?"}
+                      onSave={async (config, renderedDataUri) => {
+                        setAvatarConfig(config);
+                        setAvatarDataUri(renderedDataUri);
+                      }}
+                    />
+                    <p className="avatar-builder-attribution">
+                      Illustrations by{" "}
+                      <a href="https://www.dicebear.com/styles/croodles/" target="_blank" rel="noopener noreferrer">
+                        Croodles
+                      </a>
+                      {" "}via{" "}
+                      <a href="https://www.dicebear.com" target="_blank" rel="noopener noreferrer">
+                        DiceBear
+                      </a>
+                      {" "}&mdash; custom Inkwell avatars coming soon.
+                    </p>
+                  </>
                 )}
               </div>
 
