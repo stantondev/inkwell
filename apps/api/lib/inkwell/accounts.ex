@@ -278,8 +278,9 @@ defmodule Inkwell.Accounts do
     |> Repo.update()
     |> case do
       {:ok, user} ->
-        # Revoke all auth tokens to force sign out
+        # Revoke all auth tokens and API keys to force sign out
         Inkwell.Auth.revoke_all_user_tokens(user.id)
+        Inkwell.ApiKeys.revoke_all_user_keys(user.id)
         {:ok, user}
       error -> error
     end

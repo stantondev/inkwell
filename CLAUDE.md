@@ -118,7 +118,13 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - `apps/api/lib/inkwell/auth/auth_token.ex` — Ecto schema for `auth_tokens` table
 - `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc (also handles feedback emails); reads `FROM_EMAIL` env var, falls back to `Inkwell <onboarding@resend.dev>` if not set
 - `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout/me endpoints; `render_user/1` returns session data including `subscription_tier` and `unread_notification_count`
-- `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug
+- `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug; detects `ink_` prefix for API key routing
+- `apps/api/lib/inkwell_web/plugs/optional_auth.ex` — same `ink_` prefix detection for optional auth routes
+- `apps/api/lib/inkwell/api_keys.ex` — API key context (create, list, revoke, verify, cleanup)
+- `apps/api/lib/inkwell/api_keys/api_key.ex` — API key Ecto schema with SHA-256 hashing
+- `apps/api/lib/inkwell_web/controllers/api_key_controller.ex` — API key CRUD (session-auth only, keys can't manage keys)
+- `apps/api/lib/inkwell_web/plugs/require_write_scope.ex` — blocks write ops for read-only API keys
+- `apps/api/lib/inkwell_web/plugs/api_key_rate_limit.ex` — per-key ETS rate limiter (Free: 100 read/15min; Plus: 300 read + 60 write/15min)
 - `apps/api/lib/inkwell_web/plugs/rate_limit.ex` — ETS-based sliding window rate limiter (5 req / 5 min per IP, x-forwarded-for aware)
 - `apps/api/lib/inkwell_web/plugs/hsts.ex` — adds Strict-Transport-Security header in production (no HTTPS redirect to avoid health check loops)
 - `apps/api/lib/inkwell/workers/cleanup_expired_tokens_worker.ex` — Oban cron worker, runs daily at 3am UTC to delete expired auth tokens
@@ -512,6 +518,32 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - `apps/web/src/app/admin/reports/page.tsx` — admin reports management page
   - 5 proxy routes: `api/entries/[id]/report/`, `api/admin/reports/`, `api/admin/reports/[id]/`, `api/admin/entries/[id]/mark-sensitive/`, `api/admin/entries/[id]/unmark-sensitive/`
 
+### Public API & API Keys
+- API key authentication for programmatic access to all existing REST endpoints
+- **Key format**: `ink_` prefix + 32 random bytes Base64url (e.g., `ink_Kj7mX9pQ2vL8nR4tY6...`). Raw key shown **once** at creation; only SHA-256 hash stored in DB (GitHub/Stripe pattern)
+- **Prefix detection**: `require_auth.ex` and `optional_auth.ex` check for `ink_` prefix → route to `ApiKeys.verify_api_key/1` instead of session token verification
+- **Scopes**: `read` (all users) and `write` (Plus-only). `RequireWriteScope` plug blocks POST/PATCH/PUT/DELETE for read-only keys; GET requests always pass through
+- **Per-key rate limiting**: ETS sliding window keyed on `api_key.id`, not IP. Free: 100 read/15min; Plus: 300 read + 60 write/15min. `x-ratelimit-limit` and `x-ratelimit-remaining` headers. No-op for session auth
+- **Keys can't manage keys**: `ApiKeyController` returns 403 when `auth_method == :api_key` — prevents privilege escalation via stolen key. Only browser sessions can create/revoke keys
+- **Max 10 keys per user**, soft revoke via `revoked_at`, optional expiration
+- **Backend**:
+  - `apps/api/lib/inkwell/api_keys/api_key.ex` — Ecto schema, `create_changeset/2` (generates key, hashes, stores prefix), `revoke_changeset/1`
+  - `apps/api/lib/inkwell/api_keys.ex` — context: `create_api_key/2`, `list_api_keys/1`, `revoke_api_key/2`, `verify_api_key/1`, `revoke_all_user_keys/1`, `cleanup_revoked_keys/0`
+  - `apps/api/lib/inkwell_web/controllers/api_key_controller.ex` — index, create, revoke (session-auth only)
+  - `apps/api/lib/inkwell_web/plugs/require_write_scope.ex` — scope + tier enforcement for mutating requests
+  - `apps/api/lib/inkwell_web/plugs/api_key_rate_limit.ex` — per-key ETS rate limiter
+  - Routes: `GET /api/api-keys`, `POST /api/api-keys`, `DELETE /api/api-keys/:id` (in authenticated scope)
+  - Pipelines: `:api_key_rate_limited` and `:write_scope` added to authenticated scope
+  - `accounts.ex` `block_user/1` calls `revoke_all_user_keys/1`
+  - `CleanupExpiredTokensWorker` also cleans up revoked keys >90 days old
+  - Migration: `20260228000038`
+- **Frontend**:
+  - `apps/web/src/app/settings/api/page.tsx` — create key form (name, scopes, expiration), display-once raw key modal with copy, key list with revoke, rate limits info
+  - `apps/web/src/app/developers/page.tsx` — static API documentation page (Authentication, Scopes, Rate Limits, Endpoints, Examples, Error Codes)
+  - Proxy routes: `apps/web/src/app/api/api-keys/route.ts` (GET/POST), `apps/web/src/app/api/api-keys/[id]/route.ts` (DELETE)
+  - Settings tab: "API" after Fediverse
+  - Footer link: "API" → `/developers`
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries with inline editing (24h edit window) and @mention autocomplete; feed cards have inline comment popup via `FeedCardActions`. Mentions are parsed server-side into profile links (`<a class="mention">`), and mentioned users receive `:mention` notifications. Edit/Delete text links appear on own comments within 24 hours; "(edited)" indicator with tooltip shown after edits.
@@ -557,7 +589,7 @@ Key files:
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
 ### Settings Tabs
-Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Fediverse
+Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Fediverse | API
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
@@ -581,6 +613,7 @@ Profile | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter |
 - `newsletter_subscribers` — email subscribers per writer (writer_id, email, status: pending/confirmed/unsubscribed, confirm_token, unsubscribe_token, source)
 - `newsletter_sends` — newsletter send records (entry_id, writer_id, subject, status: queued/sending/sent/failed/cancelled, recipient_count, sent_count, failed_count, scheduled_at)
 - `tips` — reader-to-writer postage payments (sender_id, recipient_id, entry_id (nullable FK to entries), amount_cents, total_cents, currency, stripe_payment_intent_id, anonymous, message, status: pending/succeeded/failed/refunded)
+- `api_keys` — API keys for programmatic access (user_id FK, name, prefix, key_hash SHA-256, scopes string array, last_used_at, expires_at, revoked_at; unique on key_hash and prefix)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -590,7 +623,7 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 ### Scheduled Cleanup Jobs
 | Worker | Schedule | What it does |
 |---|---|---|
-| `CleanupExpiredTokensWorker` | Daily 3am UTC | Deletes expired auth tokens (magic link 15min TTL, API session 90-day TTL with sliding window) |
+| `CleanupExpiredTokensWorker` | Daily 3am UTC | Deletes expired auth tokens (magic link 15min TTL, API session 90-day TTL with sliding window), expired OAuth states, and revoked API keys older than 90 days |
 | `CleanupOrphanedImagesWorker` | Daily 4am UTC | Deletes `entry_images` older than 24h not referenced in any entry `body_html` |
 | `CleanupReadNotificationsWorker` | Daily 4:30am UTC | Deletes read notifications older than 90 days |
 | `CleanupAbandonedDraftsWorker` | Daily 5am UTC | Deletes draft entries not updated in 365 days |
@@ -598,7 +631,7 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 | `NewsletterScheduleWorker` | Every 5 min | Enqueues delivery for scheduled newsletter sends whose time has arrived |
 
 ### Account Deletion (self-serve from Settings)
-- **Immediately deleted** (FK cascade `delete_all`): entries, comments (on owned entries), auth tokens, relationships, top friends, notifications (as recipient), stamps, friend filters, entry images, profile icons, feedback votes, guestbook entries (where user is profile owner)
+- **Immediately deleted** (FK cascade `delete_all`): entries, comments (on owned entries), auth tokens, API keys, relationships, top friends, notifications (as recipient), stamps, friend filters, entry images, profile icons, feedback votes, guestbook entries (where user is profile owner)
 - **Anonymized** (FK `nilify_all`, content preserved): feedback posts, feedback comments, comments (user_id nulled), guestbook entries (author_id nulled), notifications (actor_id nulled)
 - Stripe subscription cancelled before deletion
 
@@ -634,7 +667,7 @@ All four are static Next.js server components with Lora headings, prose body tex
 
 ### Site Footer
 - `apps/web/src/components/footer.tsx` — shared footer component rendered in root layout
-- Links: Terms, Privacy, Guidelines, Brand, About, Roadmap, Submit Feedback
+- Links: Terms, Privacy, Guidelines, Brand, About, Roadmap, Submit Feedback, API
 - Replaces the landing page's inline footer
 
 ### Key Decisions
@@ -826,7 +859,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260228000037_add_sensitive_content_fields.exs`
+- Latest migration: `20260228000038_create_api_keys.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -872,7 +905,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 56 | **Custom Domains for Plus** | Medium | 4 | 5+ days | Under Review |
 | 54 | **Post by Email** | Medium | 4 | 3–4 days | Under Review |
 | 46 | **About Post Categories** (UX fix + books) | Medium | 3 | ~0.5 day | Done |
-| 46 | **Public API** | Medium | 3 | 3–5 days | Under Review |
+| 46 | **Public API** | Medium | 3 | 3–5 days | Done |
 | 26 | **Move Search in Nav** | Low | 2 | ~15 min | Done |
 | 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
 | 15 | **Author Page Layout** | Low | 2 | ~1 day | Done |
@@ -882,6 +915,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
 
 ### Recently Completed
+- **2026-02-28** — Public API & API Keys. Full API key authentication system for programmatic access to all existing REST endpoints. Keys use `ink_` prefix + 32 random bytes Base64url, SHA-256 hashed in DB (raw key shown once at creation). Auth plugs detect `ink_` prefix to route to API key verification instead of session token flow. Free users get read-only access; Plus users get read+write. Per-key ETS rate limiting (Free: 100 read/15min; Plus: 300 read + 60 write/15min) with `x-ratelimit-*` headers. Keys cannot manage keys (403 for API-key-authenticated requests to key management endpoints). Max 10 keys per user, soft revoke via `revoked_at`, optional expiration. Settings → API page with create form, one-time raw key display modal with copy, key list with revoke. `/developers` documentation page with Authentication, Scopes, Rate Limits, Endpoints, Examples, Error Codes sections. Revoked keys cleaned up >90 days by existing cleanup worker. Blocked users get all keys revoked. Migration `20260228000038`. New files: `api_key.ex`, `api_keys.ex`, `api_key_controller.ex`, `require_write_scope.ex`, `api_key_rate_limit.ex`, `settings/api/page.tsx`, `developers/page.tsx`, 2 proxy routes. Modified: `require_auth.ex`, `optional_auth.ex`, `router.ex`, `accounts.ex`, `cleanup_expired_tokens_worker.ex`, `settings/layout.tsx`, `footer.tsx`.
 - **2026-02-28** — Sensitive Content Handling & Reporting System. Full content moderation pipeline: authors self-label sensitive entries with optional CW text (max 200 chars), admins can override via independent `admin_sensitive` flag, Explore hides sensitive entries by default (user opt-in via settings toggle), feed shows CW overlay. ContentWarning component wraps body/cover/music/tags behind "Show content" button while keeping title/author/stamps visible. Report system with 6 reason categories, one-report-per-user-per-entry constraint, admin Reports tab with filter/action UI, pending count badge in admin nav. AP federation: outbound `sensitive: true` + `summary` as CW text (Mastodon standard), inbound parses `sensitive` flag on remote entries. Migration `20260228000037` (entries: `sensitive`, `content_warning`, `admin_sensitive`; remote_entries: `sensitive`, `content_warning`; new `reports` table). New files: `moderation/report.ex`, `moderation.ex`, `report_controller.ex`, `content-warning.tsx`, `report-modal.tsx`, `report-button.tsx`, `content-safety.tsx`, `admin/reports/page.tsx`, 5 proxy routes. Modified: `entry.ex`, `journals.ex`, `entry_controller.ex`, `explore_controller.ex`, `feed_controller.ex`, `admin_controller.ex`, `activity_builder.ex`, `remote_entry.ex`, `router.ex`, `notification.ex`, `editor-client.tsx`, `journal-entry-card.tsx`, `[slug]/page.tsx`, `feed-card-actions.tsx`, `admin-nav.tsx`, `admin/page.tsx`, `admin-entry-list.tsx`, `settings/page.tsx`, `globals.css`.
 - **2026-02-28** — Roadmap @Mentions + Release Notes Page. Two improvements to the community feedback system. **Part 1 (@Mentions in feedback comments)**: Extracted shared `MentionHelper` module (`process_mentions/1`, `plain_text_to_html/1`) from comment controller — now reused by both entry and feedback comment controllers. Feedback comments convert plain text to XSS-safe HTML before mention processing. `:feedback_mention` notification type added (star icon, routes to `/roadmap/{id}`). Shared `useMentionAutocomplete` hook extracted from entry comment form for reuse. `MentionDropdown` component shared between entry and feedback comment forms. Backward-compatible rendering: comments starting with `<p>` render as HTML, older plain text comments render with `whitespace-pre-wrap`. Body max length increased from 3000 to 6000 to accommodate HTML overhead. **Part 2 (Release Notes page)**: Dedicated `/roadmap/releases` page replaces the old `?status=done` filter. "Inkwell Gazette" design: italic serif heading with ornament divider, "What's new at Inkwell" subtitle, month-grouped entries (small-caps accent-color headers), timeline cards with ink-blue left border, date in italic serif (left column on desktop ≥768px with vertical timeline line), CategoryBadge + bold serif title link, release note body in Lora serif, "Suggested by" attribution with avatar + @username, upvote counts, page-number pagination. CSS `.release-notes-*` classes. `count_release_notes/0` added to Feedback context, `total` added to releases API pagination. New files: `mention_helper.ex`, `use-mention-autocomplete.ts`, `mention-dropdown.tsx`, `roadmap/releases/page.tsx`. Modified: `comment_controller.ex`, `feedback_controller.ex`, `notification.ex`, `feedback_comment.ex`, `feedback.ex`, `feedback_controller.ex`, `comment-form.tsx`, `feedback-comment-form.tsx`, `roadmap/[id]/page.tsx`, `notification-list.tsx`, `roadmap/page.tsx`, `globals.css`.
 - **2026-02-28** — Update Comments (Edit + @Mentions). Two-phase feature upgrade to the comments system. **Phase A (Editable Comments)**: Added `edited_at` field to comments, 24-hour edit window enforced server-side (`update_comment/2` checks `DateTime.add` deadline), `PATCH /api/comments/:id` endpoint with ownership verification, `EditableComment` client component with inline editing (textarea + Save/Cancel, Cmd/Ctrl+Enter shortcut), "(edited)" indicator with tooltip showing edit timestamp. "Edit · Delete" text links replace old icon buttons. **Phase B (@Mentions)**: `search_users_by_prefix/2` for autocomplete (ILIKE on username, excludes blocked users), `GET /api/users/mention-search?q=prefix` endpoint (optional_auth, positioned before `:username` catch-all), `process_mentions/1` in comment controller parses `@username` via regex and converts to `<a href="/username" class="mention" data-mention="username">` links with batch user lookup. Mention notifications (`:mention` type, already existed in enum) created for mentioned users, skipping self and entry author. Frontend: full rewrite of `comment-form.tsx` with debounced autocomplete (200ms), keyboard navigation (ArrowUp/Down/Enter/Tab/Escape), dropdown positioned above textarea, mention insertion with cursor repositioning. `.mention` CSS styles (bold, underline on hover). Notification list updated with "mentioned you in a comment" text and @ icon. Migration `20260228000036`. New files: `editable-comment.tsx`, `api/users/mention-search/route.ts`. Modified: `comment.ex`, `journals.ex`, `accounts.ex`, `comment_controller.ex`, `user_controller.ex`, `router.ex`, `comment-form.tsx`, `[slug]/page.tsx`, `notification-list.tsx`, `globals.css`, `api/comments/[id]/route.ts`.

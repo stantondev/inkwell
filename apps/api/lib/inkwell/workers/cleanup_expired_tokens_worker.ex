@@ -22,6 +22,12 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{states_count} expired OAuth state(s)")
     end
 
+    {:ok, keys_count} = Inkwell.ApiKeys.cleanup_revoked_keys()
+
+    if keys_count > 0 do
+      Logger.info("Cleaned up #{keys_count} revoked API key(s)")
+    end
+
     Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end

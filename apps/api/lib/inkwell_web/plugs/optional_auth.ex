@@ -11,11 +11,24 @@ defmodule InkwellWeb.Plugs.OptionalAuth do
   def call(conn, _opts) do
     case get_req_header(conn, "authorization") do
       ["Bearer " <> token | _] ->
-        case Inkwell.Auth.verify_api_session_token(String.trim(token)) do
-          nil -> conn
-          user_id ->
-            user = Inkwell.Accounts.get_user!(user_id)
-            assign(conn, :current_user, user)
+        token = String.trim(token)
+
+        if String.starts_with?(token, "ink_") do
+          case Inkwell.ApiKeys.verify_api_key(token) do
+            {:ok, api_key} ->
+              conn
+              |> assign(:current_user, api_key.user)
+              |> assign(:api_key, api_key)
+              |> assign(:auth_method, :api_key)
+            :error -> conn
+          end
+        else
+          case Inkwell.Auth.verify_api_session_token(token) do
+            nil -> conn
+            user_id ->
+              user = Inkwell.Accounts.get_user!(user_id)
+              assign(conn, :current_user, user)
+          end
         end
 
       _ ->

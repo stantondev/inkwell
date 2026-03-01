@@ -19,6 +19,30 @@ defmodule InkwellWeb.Plugs.RequireAuth do
   end
 
   defp authenticate_with_token(conn, token) do
+    if String.starts_with?(token, "ink_") do
+      authenticate_with_api_key(conn, token)
+    else
+      authenticate_with_session_token(conn, token)
+    end
+  end
+
+  defp authenticate_with_api_key(conn, raw_key) do
+    case Inkwell.ApiKeys.verify_api_key(raw_key) do
+      {:ok, api_key} ->
+        conn
+        |> assign(:api_key, api_key)
+        |> assign(:auth_method, :api_key)
+        |> check_blocked(api_key.user)
+
+      :error ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Invalid or expired API key"})
+        |> halt()
+    end
+  end
+
+  defp authenticate_with_session_token(conn, token) do
     case Inkwell.Auth.verify_api_session_token(token) do
       nil ->
         conn

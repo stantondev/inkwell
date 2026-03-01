@@ -23,6 +23,14 @@ defmodule InkwellWeb.Router do
     plug InkwellWeb.Plugs.RateLimit, max_requests: 5, window_seconds: 300
   end
 
+  pipeline :api_key_rate_limited do
+    plug InkwellWeb.Plugs.ApiKeyRateLimit
+  end
+
+  pipeline :write_scope do
+    plug InkwellWeb.Plugs.RequireWriteScope
+  end
+
   # Rate-limited auth endpoints
   scope "/api", InkwellWeb do
     pipe_through [:api, :rate_limited]
@@ -105,9 +113,14 @@ defmodule InkwellWeb.Router do
     get "/users/:username/series/:slug", SeriesController, :show
   end
 
-  # Authenticated API
+  # Authenticated API (with API key rate limiting and write scope enforcement)
   scope "/api", InkwellWeb do
-    pipe_through [:api, :authenticated]
+    pipe_through [:api, :authenticated, :api_key_rate_limited, :write_scope]
+
+    # API key management (session-only — controller rejects API key auth)
+    get "/api-keys", ApiKeyController, :index
+    post "/api-keys", ApiKeyController, :create
+    delete "/api-keys/:id", ApiKeyController, :revoke
 
     # Auth session
     get "/auth/me", AuthController, :me

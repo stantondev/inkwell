@@ -14,6 +14,7 @@ const tabs = [
   { href: "/settings/newsletter", label: "Newsletter" },
   { href: "/settings/support", label: "Postage" },
   { href: "/settings/fediverse", label: "Fediverse" },
+  { href: "/settings/api", label: "API" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

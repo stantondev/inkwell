@@ -21,6 +21,7 @@ export function Footer() {
           <Link href="/about" className="hover:underline">About</Link>
           <Link href="/roadmap" className="hover:underline">Roadmap</Link>
           <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
+          <Link href="/developers" className="hover:underline">API</Link>
         </div>
         <span>&copy; 2026 Inkwell</span>
       </div>
