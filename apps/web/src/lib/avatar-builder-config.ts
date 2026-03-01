@@ -14,69 +14,42 @@ export interface AvatarOptionCategory {
 export interface AvatarBuilderStyle {
   id: string;
   label: string;
+  description: string;
   categories: AvatarOptionCategory[];
 }
 
-// DiceBear v9 Avataaars option values — verified against @dicebear/avataaars types
-export const AVATAAARS_STYLE: AvatarBuilderStyle = {
-  id: "avataaars",
-  label: "Avataaars",
+// DiceBear v9 Croodles option values — verified against @dicebear/croodles types
+export const CROODLES_STYLE: AvatarBuilderStyle = {
+  id: "croodles",
+  label: "Croodles",
+  description: "Hand-drawn doodle characters",
   categories: [
     {
-      id: "skinColor",
-      label: "Skin Tone",
-      type: "color",
+      id: "face",
+      label: "Face",
+      type: "select",
       options: [
-        { value: "ffd5be", label: "Light" },
-        { value: "edb98a", label: "Light Warm" },
-        { value: "d08b5b", label: "Medium" },
-        { value: "ae5d29", label: "Medium Dark" },
-        { value: "614335", label: "Dark" },
-        { value: "4a312c", label: "Deep" },
+        { value: "variant01", label: "Classic" },
+        { value: "variant02", label: "Round" },
+        { value: "variant03", label: "Soft" },
+        { value: "variant04", label: "Angular" },
+        { value: "variant05", label: "Wide" },
+        { value: "variant06", label: "Oval" },
+        { value: "variant07", label: "Long" },
+        { value: "variant08", label: "Square" },
       ],
     },
     {
       id: "top",
-      label: "Hair Style",
+      label: "Hair",
       type: "select",
-      options: [
-        { value: "shortFlat", label: "Short Flat" },
-        { value: "shortRound", label: "Short Round" },
-        { value: "shortWaved", label: "Short Waved" },
-        { value: "shortCurly", label: "Short Curly" },
-        { value: "sides", label: "Sides" },
-        { value: "theCaesar", label: "Caesar" },
-        { value: "theCaesarAndSidePart", label: "Caesar Side Part" },
-        { value: "bob", label: "Bob" },
-        { value: "bun", label: "Bun" },
-        { value: "straight01", label: "Straight" },
-        { value: "straight02", label: "Straight Long" },
-        { value: "straightAndStrand", label: "Straight & Strand" },
-        { value: "longButNotTooLong", label: "Medium Length" },
-        { value: "miaWallace", label: "Mia Wallace" },
-        { value: "curly", label: "Curly" },
-        { value: "curvy", label: "Curvy" },
-        { value: "bigHair", label: "Big Hair" },
-        { value: "frizzle", label: "Frizzle" },
-        { value: "shaggy", label: "Shaggy" },
-        { value: "shaggyMullet", label: "Shaggy Mullet" },
-        { value: "shavedSides", label: "Shaved Sides" },
-        { value: "fro", label: "Afro" },
-        { value: "froBand", label: "Afro Band" },
-        { value: "dreads01", label: "Dreads" },
-        { value: "dreads02", label: "Dreads Long" },
-        { value: "frida", label: "Frida" },
-        { value: "hat", label: "Hat" },
-        { value: "winterHat1", label: "Winter Hat" },
-        { value: "winterHat02", label: "Winter Hat 2" },
-        { value: "winterHat03", label: "Winter Hat 3" },
-        { value: "winterHat04", label: "Winter Hat 4" },
-        { value: "turban", label: "Turban" },
-        { value: "hijab", label: "Hijab" },
-      ],
+      options: Array.from({ length: 29 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
     },
     {
-      id: "hairColor",
+      id: "topColor",
       label: "Hair Color",
       type: "color",
       options: [
@@ -89,145 +62,133 @@ export const AVATAAARS_STYLE: AvatarBuilderStyle = {
         { value: "c93305", label: "Red" },
         { value: "ecdcbf", label: "Strawberry" },
         { value: "724133", label: "Chestnut" },
+        { value: "2d4a8a", label: "Ink Blue" },
       ],
     },
     {
       id: "eyes",
       label: "Eyes",
       type: "select",
-      options: [
-        { value: "default", label: "Default" },
-        { value: "happy", label: "Happy" },
-        { value: "surprised", label: "Surprised" },
-        { value: "wink", label: "Wink" },
-        { value: "winkWacky", label: "Wacky Wink" },
-        { value: "squint", label: "Squint" },
-        { value: "closed", label: "Closed" },
-        { value: "hearts", label: "Hearts" },
-        { value: "side", label: "Side" },
-        { value: "xDizzy", label: "Dizzy" },
-        { value: "cry", label: "Cry" },
-        { value: "eyeRoll", label: "Eye Roll" },
-      ],
-    },
-    {
-      id: "eyebrows",
-      label: "Eyebrows",
-      type: "select",
-      options: [
-        { value: "default", label: "Default" },
-        { value: "defaultNatural", label: "Natural" },
-        { value: "flatNatural", label: "Flat" },
-        { value: "raisedExcited", label: "Raised" },
-        { value: "raisedExcitedNatural", label: "Raised Natural" },
-        { value: "sadConcerned", label: "Sad" },
-        { value: "sadConcernedNatural", label: "Sad Natural" },
-        { value: "unibrowNatural", label: "Unibrow" },
-        { value: "upDown", label: "Up Down" },
-        { value: "upDownNatural", label: "Up Down Natural" },
-        { value: "frownNatural", label: "Frown" },
-        { value: "angryNatural", label: "Angry" },
-        { value: "angry", label: "Angry Bold" },
-      ],
+      options: Array.from({ length: 16 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
     },
     {
       id: "mouth",
       label: "Mouth",
       type: "select",
-      options: [
-        { value: "default", label: "Default" },
-        { value: "smile", label: "Smile" },
-        { value: "twinkle", label: "Twinkle" },
-        { value: "tongue", label: "Tongue" },
-        { value: "serious", label: "Serious" },
-        { value: "sad", label: "Sad" },
-        { value: "screamOpen", label: "Scream" },
-        { value: "grimace", label: "Grimace" },
-        { value: "eating", label: "Eating" },
-        { value: "concerned", label: "Concerned" },
-        { value: "disbelief", label: "Disbelief" },
-        { value: "vomit", label: "Vomit" },
-      ],
+      options: Array.from({ length: 18 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
     },
     {
-      id: "facialHair",
-      label: "Facial Hair",
+      id: "nose",
+      label: "Nose",
+      type: "select",
+      options: Array.from({ length: 9 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
+    },
+    {
+      id: "beard",
+      label: "Beard",
       type: "select",
       options: [
         { value: "__none", label: "None" },
-        { value: "beardLight", label: "Light Beard" },
-        { value: "beardMedium", label: "Medium Beard" },
-        { value: "beardMajestic", label: "Majestic Beard" },
-        { value: "moustacheFancy", label: "Fancy Moustache" },
-        { value: "moustacheMagnum", label: "Magnum Moustache" },
+        { value: "variant01", label: "Style 1" },
+        { value: "variant02", label: "Style 2" },
+        { value: "variant03", label: "Style 3" },
+        { value: "variant04", label: "Style 4" },
+        { value: "variant05", label: "Style 5" },
       ],
     },
     {
-      id: "clothing",
-      label: "Clothing",
+      id: "mustache",
+      label: "Mustache",
       type: "select",
       options: [
-        { value: "blazerAndShirt", label: "Blazer & Shirt" },
-        { value: "blazerAndSweater", label: "Blazer & Sweater" },
-        { value: "collarAndSweater", label: "Collar & Sweater" },
-        { value: "graphicShirt", label: "Graphic Shirt" },
-        { value: "hoodie", label: "Hoodie" },
-        { value: "overall", label: "Overall" },
-        { value: "shirtCrewNeck", label: "Crew Neck" },
-        { value: "shirtScoopNeck", label: "Scoop Neck" },
-        { value: "shirtVNeck", label: "V-Neck" },
+        { value: "__none", label: "None" },
+        { value: "variant01", label: "Style 1" },
+        { value: "variant02", label: "Style 2" },
+        { value: "variant03", label: "Style 3" },
+        { value: "variant04", label: "Style 4" },
       ],
     },
     {
-      id: "clothesColor",
-      label: "Clothing Color",
+      id: "baseColor",
+      label: "Background",
       type: "color",
       options: [
-        { value: "262e33", label: "Black" },
-        { value: "65c9ff", label: "Blue" },
-        { value: "5199e4", label: "Navy" },
-        { value: "25557c", label: "Dark Blue" },
-        { value: "e6e6e6", label: "Gray" },
-        { value: "929598", label: "Dark Gray" },
-        { value: "a7ffc4", label: "Mint" },
-        { value: "ffdeb5", label: "Peach" },
-        { value: "ffafb9", label: "Pink" },
-        { value: "ff5c5c", label: "Red" },
+        { value: "f5ebe0", label: "Parchment" },
+        { value: "fefae0", label: "Cream" },
+        { value: "e9edc9", label: "Sage" },
+        { value: "d5c7a3", label: "Tan" },
+        { value: "ccd5ae", label: "Olive" },
+        { value: "ddb892", label: "Warm" },
+        { value: "b7c4cf", label: "Slate" },
+        { value: "f2e9e4", label: "Blush" },
         { value: "ffffff", label: "White" },
-      ],
-    },
-    {
-      id: "accessories",
-      label: "Accessories",
-      type: "select",
-      options: [
-        { value: "__none", label: "None" },
-        { value: "kurt", label: "Round Glasses" },
-        { value: "prescription01", label: "Prescription 1" },
-        { value: "prescription02", label: "Prescription 2" },
-        { value: "round", label: "Round" },
-        { value: "sunglasses", label: "Sunglasses" },
-        { value: "wayfarers", label: "Wayfarers" },
-        { value: "eyepatch", label: "Eyepatch" },
       ],
     },
   ],
 };
 
+// DiceBear v9 Croodles Neutral — verified against @dicebear/croodles-neutral types
+export const CROODLES_NEUTRAL_STYLE: AvatarBuilderStyle = {
+  id: "croodlesNeutral",
+  label: "Croodles Neutral",
+  description: "Minimal doodle expressions",
+  categories: [
+    {
+      id: "eyes",
+      label: "Eyes",
+      type: "select",
+      options: Array.from({ length: 16 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
+    },
+    {
+      id: "nose",
+      label: "Nose",
+      type: "select",
+      options: Array.from({ length: 9 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
+    },
+    {
+      id: "mouth",
+      label: "Mouth",
+      type: "select",
+      options: Array.from({ length: 18 }, (_, i) => ({
+        value: `variant${String(i + 1).padStart(2, "0")}`,
+        label: `Style ${i + 1}`,
+      })),
+    },
+  ],
+};
+
+export const AVATAR_STYLES: AvatarBuilderStyle[] = [CROODLES_STYLE, CROODLES_NEUTRAL_STYLE];
+
+export function getStyleById(id: string): AvatarBuilderStyle {
+  return AVATAR_STYLES.find((s) => s.id === id) ?? CROODLES_STYLE;
+}
+
+export function getDefaultOptionsForStyle(style: AvatarBuilderStyle): Record<string, string> {
+  const opts: Record<string, string> = {};
+  for (const cat of style.categories) {
+    opts[cat.id] = cat.options[0].value;
+  }
+  return opts;
+}
+
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
-  style: "avataaars",
-  options: {
-    skinColor: "d08b5b",
-    top: "shortFlat",
-    hairColor: "2c1b18",
-    eyes: "default",
-    eyebrows: "default",
-    mouth: "smile",
-    facialHair: "__none",
-    clothing: "shirtCrewNeck",
-    clothesColor: "65c9ff",
-    accessories: "__none",
-  },
+  style: "croodles",
+  options: getDefaultOptionsForStyle(CROODLES_STYLE),
 };
 
 export interface AvatarConfig {
@@ -235,9 +196,6 @@ export interface AvatarConfig {
   options: Record<string, string>;
 }
 
-// "__none" is a sentinel for optional categories (facialHair, accessories).
+// "__none" is a sentinel for optional categories (beard, mustache).
 // When building DiceBear options, these map to probability=0 instead of a value.
-export const OPTIONAL_CATEGORIES = new Set(["facialHair", "accessories"]);
-
-// All available styles (for future expansion when custom art is commissioned)
-export const AVATAR_STYLES = [AVATAAARS_STYLE];
+export const OPTIONAL_CATEGORIES = new Set(["beard", "mustache"]);

@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { createAvatar } from "@dicebear/core";
-import * as avataaars from "@dicebear/avataaars";
+import * as croodles from "@dicebear/croodles";
+import * as croodlesNeutral from "@dicebear/croodles-neutral";
 import {
-  AVATAAARS_STYLE,
-  DEFAULT_AVATAR_CONFIG,
+  AVATAR_STYLES,
   OPTIONAL_CATEGORIES,
+  getStyleById,
+  getDefaultOptionsForStyle,
   type AvatarConfig,
 } from "@/lib/avatar-builder-config";
 import { renderSvgToDataUri } from "@/lib/avatar-render";
@@ -23,19 +25,23 @@ interface AvatarBuilderProps {
   compact?: boolean;
 }
 
+// Map style IDs to their DiceBear style objects
+const DICEBEAR_STYLES: Record<string, typeof croodles> = {
+  croodles: croodles,
+  croodlesNeutral: croodlesNeutral,
+};
+
 function buildDiceBearOptions(options: Record<string, string>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(options)) {
     if (OPTIONAL_CATEGORIES.has(key)) {
       if (value === "__none") {
-        // Use probability=0 to hide optional features
         result[`${key}Probability`] = 0;
       } else {
         result[key] = [value];
         result[`${key}Probability`] = 100;
       }
     } else {
-      // All options passed as single-item arrays (DiceBear picks from array)
       result[key] = [value];
     }
   }
@@ -52,28 +58,43 @@ export function AvatarBuilder({
   onRevertToPhoto,
   compact = false,
 }: AvatarBuilderProps) {
+  const initStyleId = initialConfig?.style ?? "croodles";
+  const initStyle = getStyleById(initStyleId);
+
+  const [styleId, setStyleId] = useState(initStyleId);
   const [options, setOptions] = useState<Record<string, string>>(
-    initialConfig?.options ?? { ...DEFAULT_AVATAR_CONFIG.options }
+    initialConfig?.options ?? { ...getDefaultOptionsForStyle(initStyle) }
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeCategory, setActiveCategory] = useState(AVATAAARS_STYLE.categories[0].id);
+
+  const currentStyle = getStyleById(styleId);
+  const [activeCategory, setActiveCategory] = useState(currentStyle.categories[0].id);
 
   // Generate SVG string on every option change
   const svgString = useMemo(() => {
+    const dicebearStyle = DICEBEAR_STYLES[styleId] ?? croodles;
     const dbOpts = buildDiceBearOptions(options);
-    const avatar = createAvatar(avataaars, {
+    const avatar = createAvatar(dicebearStyle, {
       ...dbOpts,
       backgroundColor: ["transparent"],
       backgroundType: ["solid"],
     });
     return avatar.toString();
-  }, [options]);
+  }, [options, styleId]);
 
   // Generate a data URI for the AvatarWithFrame preview
   const previewDataUri = useMemo(() => {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
   }, [svgString]);
+
+  function switchStyle(newStyleId: string) {
+    const newStyle = getStyleById(newStyleId);
+    setStyleId(newStyleId);
+    setOptions(getDefaultOptionsForStyle(newStyle));
+    setActiveCategory(newStyle.categories[0].id);
+    setSaved(false);
+  }
 
   function updateOption(key: string, value: string) {
     setOptions((prev) => ({ ...prev, [key]: value }));
@@ -82,7 +103,7 @@ export function AvatarBuilder({
 
   function randomize() {
     const newOptions: Record<string, string> = {};
-    for (const cat of AVATAAARS_STYLE.categories) {
+    for (const cat of currentStyle.categories) {
       const choices = cat.options.filter((o) => !o.plusOnly);
       const random = choices[Math.floor(Math.random() * choices.length)];
       newOptions[cat.id] = random.value;
@@ -95,7 +116,7 @@ export function AvatarBuilder({
     setSaving(true);
     try {
       const dataUri = await renderSvgToDataUri(svgString, 400, 0.85);
-      const config: AvatarConfig = { style: "avataaars", options };
+      const config: AvatarConfig = { style: styleId, options };
       await onSave(config, dataUri);
       setSaved(true);
     } finally {
@@ -103,7 +124,7 @@ export function AvatarBuilder({
     }
   }
 
-  const categories = AVATAAARS_STYLE.categories;
+  const categories = currentStyle.categories;
   const activeCat = categories.find((c) => c.id === activeCategory);
 
   return (
@@ -152,6 +173,23 @@ export function AvatarBuilder({
 
       {/* Customization panel */}
       <div className="avatar-builder-panel">
+        {/* Style toggle */}
+        {AVATAR_STYLES.length > 1 && (
+          <div className="avatar-builder-style-toggle">
+            {AVATAR_STYLES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => switchStyle(s.id)}
+                className={`avatar-builder-style-btn ${styleId === s.id ? "active" : ""}`}
+                title={s.description}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Category tabs */}
         <div className="avatar-builder-categories">
           {categories.map((cat) => (
