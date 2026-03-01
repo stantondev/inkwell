@@ -125,6 +125,10 @@ function notificationText(n: Notification): string {
       return "commented on your feedback post";
     case "feedback_mention":
       return "mentioned you in a feedback comment";
+    case "poll_comment":
+      return "commented on your poll";
+    case "poll_mention":
+      return "mentioned you in a poll comment";
     case "feedback_vote":
       return "upvoted your feedback post";
     case "letter":
@@ -334,6 +338,26 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "poll_comment" || type === "poll_mention") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <rect x="4" y="14" width="4" height="6" rx="1" />
+        <rect x="10" y="8" width="4" height="12" rx="1" />
+        <rect x="16" y="4" width="4" height="16" rx="1" />
+      </svg>
+    );
+  }
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
@@ -406,6 +430,10 @@ function getNotificationHref(n: Notification): string | null {
   // Letter notifications link to the conversation thread
   if (n.type === "letter" && n.data?.conversation_id) {
     return `/letters/${n.data.conversation_id}`;
+  }
+  // Poll notifications link to the poll
+  if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {
+    return `/polls/${n.target_id}`;
   }
   // Feedback notifications link to the roadmap post
   if (

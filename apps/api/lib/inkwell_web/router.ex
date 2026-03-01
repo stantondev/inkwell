@@ -104,6 +104,7 @@ defmodule InkwellWeb.Router do
     get "/polls", PollController, :index
     get "/polls/active", PollController, :active_widget
     get "/polls/:id", PollController, :show
+    get "/polls/:id/comments", PollController, :list_comments
 
     # Comments by entry ID (optional auth for visibility check)
     get "/entries/:entry_id/comments", CommentController, :index_by_entry
@@ -290,6 +291,8 @@ defmodule InkwellWeb.Router do
     post "/polls/:id/vote", PollController, :vote
     patch "/polls/:id", PollController, :update_entry_poll
     post "/entries/:entry_id/poll", PollController, :create_entry_poll
+    post "/polls/:id/comments", PollController, :create_comment
+    delete "/polls/comments/:comment_id", PollController, :delete_comment
 
     # Content reports (authenticated)
     post "/entries/:entry_id/report", ReportController, :create

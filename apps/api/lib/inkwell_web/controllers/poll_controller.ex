@@ -3,6 +3,8 @@ defmodule InkwellWeb.PollController do
 
   alias Inkwell.Polls
   alias Inkwell.Journals
+  alias Inkwell.Accounts
+  alias InkwellWeb.Helpers.MentionHelper
 
   # ── Public (optional auth) ─────────────────────────────────────────────────
 
@@ -270,6 +272,118 @@ defmodule InkwellWeb.PollController do
     end
   end
 
+  # ── Comments ──────────────────────────────────────────────────────────────
+
+  def list_comments(conn, %{"id" => poll_id}) do
+    case Polls.get_poll(poll_id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Poll not found"})
+
+      _poll ->
+        comments = Polls.list_comments(poll_id)
+        json(conn, %{data: Enum.map(comments, &render_comment/1)})
+    end
+  end
+
+  def create_comment(conn, %{"id" => poll_id, "body" => body}) when is_binary(body) do
+    user = conn.assigns.current_user
+
+    case Polls.get_poll(poll_id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Poll not found"})
+
+      poll ->
+        # Convert plain text to safe HTML, then process @mentions
+        html_body = MentionHelper.plain_text_to_html(body)
+        {processed_body, mentioned_users} = MentionHelper.process_mentions(html_body)
+
+        case Polls.create_comment(%{body: processed_body, user_id: user.id, poll_id: poll_id}) do
+          {:ok, comment} ->
+            # Notify poll creator (skip if self)
+            if poll.creator_id && poll.creator_id != user.id do
+              Task.start(fn ->
+                Accounts.create_notification(%{
+                  type: :poll_comment,
+                  user_id: poll.creator_id,
+                  actor_id: user.id,
+                  target_type: "poll",
+                  target_id: poll.id,
+                  data: %{poll_question: String.slice(poll.question, 0, 100)}
+                })
+              end)
+            end
+
+            # Notify mentioned users (skip self + poll creator)
+            Task.start(fn ->
+              Enum.each(mentioned_users, fn mentioned ->
+                if mentioned.id != user.id && mentioned.id != poll.creator_id do
+                  Accounts.create_notification(%{
+                    type: :poll_mention,
+                    user_id: mentioned.id,
+                    actor_id: user.id,
+                    target_type: "poll",
+                    target_id: poll.id,
+                    data: %{poll_question: String.slice(poll.question, 0, 100)}
+                  })
+                end
+              end)
+            end)
+
+            conn |> put_status(:created) |> json(%{data: render_comment(comment)})
+
+          {:error, changeset} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+        end
+    end
+  end
+
+  def create_comment(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "body is required"})
+  end
+
+  def delete_comment(conn, %{"comment_id" => comment_id}) do
+    user = conn.assigns.current_user
+
+    case Polls.get_comment(comment_id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Comment not found"})
+
+      comment ->
+        is_owner = comment.user_id == user.id
+        is_admin = user.role == "admin"
+
+        if is_owner || is_admin do
+          case Polls.delete_comment(comment) do
+            {:ok, _} -> conn |> put_status(:no_content) |> json(%{})
+            {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to delete comment"})
+          end
+        else
+          conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
+        end
+    end
+  end
+
+  defp render_comment(comment) do
+    user =
+      if comment.user do
+        %{
+          id: comment.user.id,
+          username: comment.user.username,
+          display_name: comment.user.display_name,
+          avatar_url: comment.user.avatar_url
+        }
+      else
+        %{id: nil, username: "[deleted]", display_name: "[Deleted User]", avatar_url: nil}
+      end
+
+    %{
+      id: comment.id,
+      body: comment.body,
+      user: user,
+      inserted_at: comment.inserted_at
+    }
+  end
+
   # ── Helpers ────────────────────────────────────────────────────────────────
 
   def render_poll(poll, viewer_vote) do
@@ -316,6 +430,7 @@ defmodule InkwellWeb.PollController do
       options: options,
       my_vote: viewer_vote,
       creator: creator,
+      comment_count: poll.comment_count || 0,
       entry_id: poll.entry_id,
       created_at: poll.inserted_at
     }

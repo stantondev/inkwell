@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { PollWidget, type PollData } from "@/components/poll-widget";
+import { PollComments } from "./poll-comments";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = { title: "Poll · Inkwell" };
@@ -54,6 +55,20 @@ export default async function PollDetailPage({ params }: { params: Promise<{ id:
           </span>
         )}
         <span>{new Date(poll.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+      </div>
+
+      {/* Comments */}
+      <div
+        className="mt-8 pt-6 border-t"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <PollComments
+          pollId={poll.id}
+          isLoggedIn={!!session}
+          currentUserId={session?.user?.id}
+          isAdmin={session?.user?.is_admin === true}
+          initialCommentCount={poll.comment_count}
+        />
       </div>
     </main>
   );

@@ -6,7 +6,7 @@ defmodule Inkwell.Polls do
   import Ecto.Query
   alias Ecto.Multi
   alias Inkwell.Repo
-  alias Inkwell.Polls.{Poll, PollOption, PollVote}
+  alias Inkwell.Polls.{Poll, PollComment, PollOption, PollVote}
 
   # ── Read ────────────────────────────────────────────────────────────────────
 
@@ -283,5 +283,65 @@ defmodule Inkwell.Polls do
       |> Repo.all()
 
     {polls, total}
+  end
+
+  # ── Comments ─────────────────────────────────────────────────────────────
+
+  def list_comments(poll_id) do
+    PollComment
+    |> where(poll_id: ^poll_id)
+    |> order_by(asc: :inserted_at)
+    |> preload(:user)
+    |> Repo.all()
+  end
+
+  def create_comment(attrs) do
+    multi =
+      Multi.new()
+      |> Multi.insert(:comment, PollComment.changeset(%PollComment{}, attrs))
+      |> Multi.run(:increment, fn repo, %{comment: comment} ->
+        {1, _} =
+          Poll
+          |> where(id: ^comment.poll_id)
+          |> repo.update_all(inc: [comment_count: 1])
+
+        {:ok, :done}
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, %{comment: comment}} ->
+        {:ok, Repo.preload(comment, :user)}
+
+      {:error, :comment, changeset, _} ->
+        {:error, changeset}
+    end
+  end
+
+  def delete_comment(%PollComment{} = comment) do
+    multi =
+      Multi.new()
+      |> Multi.delete(:comment, comment)
+      |> Multi.run(:decrement, fn repo, _ ->
+        {1, _} =
+          Poll
+          |> where(id: ^comment.poll_id)
+          |> repo.update_all(inc: [comment_count: -1])
+
+        {:ok, :done}
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, _} -> {:ok, comment}
+      {:error, :comment, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  def get_comment(id) do
+    PollComment
+    |> Repo.get(id)
+    |> case do
+      nil -> nil
+      comment -> Repo.preload(comment, :user)
+    end
   end
 end

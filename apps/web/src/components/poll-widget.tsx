@@ -21,6 +21,7 @@ export interface PollData {
   total_votes: number;
   options: PollOption[];
   my_vote: string | null;
+  comment_count: number;
   creator: { id: string | null; username: string; display_name: string; avatar_url: string | null };
   entry_id: string | null;
   created_at: string;

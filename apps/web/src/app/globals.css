@@ -4747,3 +4747,16 @@ body[data-focus-mode] .app-content {
   border-radius: 50%;
   background: var(--accent);
 }
+
+/* Poll comment body */
+.poll-comment-body p {
+  margin: 0;
+}
+.poll-comment-body a.mention {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.poll-comment-body a.mention:hover {
+  text-decoration: underline;
+}

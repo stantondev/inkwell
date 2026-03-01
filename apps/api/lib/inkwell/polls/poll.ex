@@ -13,11 +13,13 @@ defmodule Inkwell.Polls.Poll do
     field :closes_at, :utc_datetime_usec
     field :closed_at, :utc_datetime_usec
     field :total_votes, :integer, default: 0
+    field :comment_count, :integer, default: 0
 
     belongs_to :creator, Inkwell.Accounts.User
     belongs_to :entry, Inkwell.Journals.Entry
     has_many :options, Inkwell.Polls.PollOption
     has_many :votes, Inkwell.Polls.PollVote
+    has_many :comments, Inkwell.Polls.PollComment
 
     timestamps(type: :utc_datetime_usec)
   end
