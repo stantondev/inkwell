@@ -6,7 +6,7 @@ import { resizeImage } from "@/lib/image-utils";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 type SuggestedUser = {
   id: string;
@@ -74,6 +74,16 @@ export default function WelcomePage() {
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
+  // Step 5: Choose your path (tier selection)
+  const [selectedTier, setSelectedTier] = useState<"free" | "plus">("free");
+  const [selectedDonorAmount, setSelectedDonorAmount] = useState<number | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutReturned, setCheckoutReturned] = useState<"success" | "canceled" | null>(null);
+  const [checkoutType, setCheckoutType] = useState<string | null>(null);
+  const [activatingSubscription, setActivatingSubscription] = useState(false);
+  const [currentTier, setCurrentTier] = useState<string>("free");
+  const [currentDonorStatus, setCurrentDonorStatus] = useState<string | null>(null);
+
   // General
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +91,31 @@ export default function WelcomePage() {
 
   // Pre-fill fields from existing user data (e.g. fediverse-derived username)
   useEffect(() => {
+    // Read plan cookie (set by get-started page)
+    try {
+      const planCookie = document.cookie.split("; ").find((c) => c.startsWith("inkwell_plan="));
+      if (planCookie) {
+        const plan = planCookie.split("=")[1];
+        if (plan === "plus") setSelectedTier("plus");
+        // Clear cookie after reading
+        document.cookie = "inkwell_plan=; path=/; max-age=0";
+      }
+    } catch { /* ignore */ }
+
+    // Handle Stripe checkout return
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    const type = params.get("type");
+    const returnStep = params.get("step");
+
+    if (checkout && returnStep) {
+      setStep(parseInt(returnStep, 10));
+      setCheckoutReturned(checkout as "success" | "canceled");
+      setCheckoutType(type);
+      // Clean URL params
+      window.history.replaceState({}, "", "/welcome");
+    }
+
     fetch("/api/session")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -94,14 +129,63 @@ export default function WelcomePage() {
         if (user.avatar_url) setAvatarDataUri(user.avatar_url);
         if (user.pronouns) setPronouns(user.pronouns);
         if (user.bio) setBio(user.bio);
+        // Track current subscription state
+        if (user.subscription_tier) setCurrentTier(user.subscription_tier);
+        if (user.ink_donor_status) setCurrentDonorStatus(user.ink_donor_status);
+        if (user.subscription_tier === "plus") setSelectedTier("plus");
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
 
-  // Fetch suggested writers when entering step 5
+  // Poll for subscription activation after Stripe checkout return
   useEffect(() => {
-    if (step !== 5) return;
+    if (checkoutReturned !== "success" || !checkoutType) return;
+
+    setActivatingSubscription(true);
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const res = await fetch("/api/session");
+        if (res.ok) {
+          const data = await res.json();
+          const user = data?.data;
+          if (checkoutType === "plus" && user?.subscription_tier === "plus") {
+            setCurrentTier("plus");
+            setSelectedTier("plus");
+            setActivatingSubscription(false);
+            setCheckoutReturned(null);
+            return;
+          }
+          if (checkoutType === "donor" && user?.ink_donor_status === "active") {
+            setCurrentDonorStatus("active");
+            setActivatingSubscription(false);
+            setCheckoutReturned(null);
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+
+      if (attempts < 3) {
+        setTimeout(poll, 2000);
+      } else {
+        // Give up polling but show success anyway — webhook will catch up
+        if (checkoutType === "plus") setCurrentTier("plus");
+        if (checkoutType === "donor") setCurrentDonorStatus("active");
+        setActivatingSubscription(false);
+        setCheckoutReturned(null);
+      }
+    };
+
+    // Start polling after a brief delay
+    setTimeout(poll, 1500);
+  }, [checkoutReturned, checkoutType]);
+
+  // Fetch suggested writers when entering step 6 (was step 5)
+  useEffect(() => {
+    if (step !== 6) return;
     setLoadingSuggested(true);
     fetch("/api/discover/writers")
       .then((r) => r.json())
@@ -110,9 +194,9 @@ export default function WelcomePage() {
       .finally(() => setLoadingSuggested(false));
   }, [step]);
 
-  // Fetch invite code when entering step 6
+  // Fetch invite code when entering step 7 (was step 6)
   useEffect(() => {
-    if (step !== 6) return;
+    if (step !== 7) return;
     fetch("/api/invite-code")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.url) setInviteUrl(data.url); })
@@ -245,6 +329,73 @@ export default function WelcomePage() {
     }
   }
 
+  async function handleTierCheckout() {
+    setCheckoutLoading(true);
+    setError("");
+
+    try {
+      // Determine what to checkout for
+      // If Plus is selected and not already Plus, checkout Plus first
+      if (selectedTier === "plus" && currentTier !== "plus") {
+        const res = await fetch("/api/billing/onboarding-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "plus" }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          // Save donor selection in sessionStorage so we can offer it after Plus return
+          if (selectedDonorAmount) {
+            sessionStorage.setItem("inkwell_donor_amount", String(selectedDonorAmount));
+          }
+          window.location.href = data.url;
+          return;
+        }
+        setError(data.error || "Unable to start checkout. Please try again.");
+        setCheckoutLoading(false);
+        return;
+      }
+
+      // If donor is selected and not already a donor, checkout donor
+      if (selectedDonorAmount && currentDonorStatus !== "active") {
+        const res = await fetch("/api/billing/onboarding-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "donor", amount_cents: selectedDonorAmount }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        setError(data.error || "Unable to start checkout. Please try again.");
+        setCheckoutLoading(false);
+        return;
+      }
+
+      // Nothing to checkout — proceed to next step
+      nextStep();
+    } catch {
+      setError("Could not reach the server. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
+  // After returning from Plus checkout, check if donor was also selected
+  useEffect(() => {
+    if (currentTier === "plus" && !activatingSubscription && step === 5) {
+      const savedDonor = sessionStorage.getItem("inkwell_donor_amount");
+      if (savedDonor) {
+        sessionStorage.removeItem("inkwell_donor_amount");
+        const amount = parseInt(savedDonor, 10);
+        if ([100, 200, 300].includes(amount) && currentDonorStatus !== "active") {
+          setSelectedDonorAmount(amount);
+        }
+      }
+    }
+  }, [currentTier, activatingSubscription, step, currentDonorStatus]);
+
   async function saveProfile(): Promise<boolean> {
     setSaving(true);
     setError("");
@@ -338,7 +489,7 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
       style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className={`w-full ${step === 4 ? "max-w-4xl" : "max-w-md"}`} style={{ transition: "max-width 0.3s ease" }}>
+      <div className={`w-full ${step === 4 ? "max-w-4xl" : step === 5 ? "max-w-2xl" : "max-w-md"}`} style={{ transition: "max-width 0.3s ease" }}>
         {/* Logo */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -365,9 +516,10 @@ export default function WelcomePage() {
             {step === 2 && "Tell people about yourself"}
             {step === 3 && "Pick your vibe"}
             {step === 4 && "Our community standards"}
-            {step === 5 && "Find some writers to follow"}
-            {step === 6 && "Bring your friends along"}
-            {step === 7 && "You're all set!"}
+            {step === 5 && "Every writer\u2019s journey is different"}
+            {step === 6 && "Find some writers to follow"}
+            {step === 7 && "Bring your friends along"}
+            {step === 8 && "You\u2019re all set!"}
           </p>
         </div>
 
@@ -569,8 +721,200 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 6: Discover writers */}
+          {/* Step 5: Choose Your Path — tier selection */}
           {step === 5 && (
+            <div className="flex flex-col gap-5">
+              <h2 className="text-lg font-semibold text-center" style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}>
+                Choose your path
+              </h2>
+
+              {activatingSubscription && (
+                <div className="flex items-center justify-center gap-2 py-6">
+                  <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" stroke="var(--border)" strokeWidth="3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <p className="text-sm" style={{ color: "var(--muted)" }}>
+                    {checkoutType === "plus" ? "Activating your Plus subscription..." : "Activating your Ink Donor badge..."}
+                  </p>
+                </div>
+              )}
+
+              {checkoutReturned === "canceled" && !activatingSubscription && (
+                <p className="text-sm text-center rounded-lg px-3 py-2" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                  No worries — you can always upgrade later from Settings.
+                </p>
+              )}
+
+              {!activatingSubscription && (
+                <>
+                  {/* Tier cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Free tier */}
+                    <button
+                      type="button"
+                      onClick={() => { if (currentTier !== "plus") setSelectedTier("free"); }}
+                      className="onboarding-tier-card rounded-xl border-2 p-4 text-left transition-all"
+                      style={{
+                        borderColor: selectedTier === "free" ? "var(--accent)" : "var(--border)",
+                        background: "var(--background)",
+                        opacity: currentTier === "plus" ? 0.5 : 1,
+                        cursor: currentTier === "plus" ? "default" : "pointer",
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold">Free</p>
+                        {selectedTier === "free" && (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" fill="var(--accent)" />
+                            <path d="M8 12l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold mb-3">$0<span className="text-xs font-normal" style={{ color: "var(--muted)" }}> /month</span></p>
+                      <ul className="space-y-1.5 text-xs" style={{ color: "var(--muted)" }}>
+                        {["Unlimited entries", "8 profile themes", "Newsletter (500 subs)", "RSS feed", "Per-entry privacy", "100 MB images"].map((item) => (
+                          <li key={item} className="flex gap-1.5 items-start">
+                            <span style={{ color: "var(--success)" }}>&#10003;</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+
+                    {/* Plus tier */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTier("plus")}
+                      className="onboarding-tier-card rounded-xl border-2 p-4 text-left transition-all relative"
+                      style={{
+                        borderColor: selectedTier === "plus" ? "var(--accent)" : "var(--border)",
+                        background: "var(--background)",
+                      }}
+                    >
+                      <div className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                        Best value
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
+                        {(selectedTier === "plus" || currentTier === "plus") && (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" fill="var(--accent)" />
+                            <path d="M8 12l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold mb-3">$5<span className="text-xs font-normal" style={{ color: "var(--muted)" }}> /month</span></p>
+                      {currentTier === "plus" && (
+                        <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>Active</p>
+                      )}
+                      <ul className="space-y-1.5 text-xs" style={{ color: "var(--muted)" }}>
+                        {["Everything in Free", "Custom colors & fonts", "Unlimited newsletter", "Postage (reader support)", "Custom HTML & CSS", "Plus badge"].map((item) => (
+                          <li key={item} className="flex gap-1.5 items-start">
+                            <span style={{ color: "var(--accent)" }}>&#10003;</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  </div>
+
+                  {/* Ink Donor section */}
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>Optional</span>
+                    <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                  </div>
+
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1.5">
+                      <svg width="14" height="17" viewBox="0 0 10 12" fill="var(--ink-deep, #2d4a8a)" aria-hidden="true">
+                        <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+                      </svg>
+                      <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                        Become an Ink Donor
+                      </p>
+                    </div>
+                    <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+                      Help keep Inkwell ad-free. No features unlocked — just an ink-blue badge and our gratitude.
+                    </p>
+
+                    {currentDonorStatus === "active" ? (
+                      <p className="text-xs font-medium" style={{ color: "var(--ink-deep, #2d4a8a)" }}>
+                        You&apos;re already an Ink Donor — thank you!
+                      </p>
+                    ) : (
+                      <div className="flex items-center justify-center gap-3">
+                        {[
+                          { cents: 100, label: "$1" },
+                          { cents: 200, label: "$2" },
+                          { cents: 300, label: "$3" },
+                        ].map(({ cents, label }) => (
+                          <button
+                            key={cents}
+                            type="button"
+                            onClick={() => setSelectedDonorAmount(selectedDonorAmount === cents ? null : cents)}
+                            className="onboarding-donor-pill flex flex-col items-center justify-center rounded-full transition-all"
+                            style={{
+                              width: 56,
+                              height: 56,
+                              border: selectedDonorAmount === cents ? "2px solid var(--ink-deep, #2d4a8a)" : "2px solid var(--border)",
+                              background: selectedDonorAmount === cents ? "rgba(45, 74, 138, 0.08)" : "var(--background)",
+                            }}
+                          >
+                            <span className="text-sm font-bold" style={{ color: selectedDonorAmount === cents ? "var(--ink-deep, #2d4a8a)" : "var(--foreground)" }}>{label}</span>
+                            <span className="text-[9px]" style={{ color: "var(--muted)" }}>/mo</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-between gap-4 pt-4 mt-1 border-t" style={{ borderColor: "var(--border)" }}>
+                    <button type="button" onClick={prevStep}
+                      className="text-sm transition-colors hover:underline"
+                      style={{ color: "var(--muted)" }}>
+                      Back
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      {/* Skip all */}
+                      <button type="button" onClick={handleSkip}
+                        className="text-xs transition-colors hover:underline"
+                        style={{ color: "var(--muted)" }}>
+                        Skip all
+                      </button>
+
+                      {/* If nothing to checkout, just continue */}
+                      {((selectedTier === "free" || currentTier === "plus") && (!selectedDonorAmount || currentDonorStatus === "active")) ? (
+                        <button
+                          type="button"
+                          onClick={nextStep}
+                          className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity"
+                          style={{ background: "var(--accent)", color: "#fff" }}>
+                          Continue
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleTierCheckout}
+                          disabled={checkoutLoading}
+                          className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                          style={{ background: "var(--accent)", color: "#fff" }}>
+                          {checkoutLoading ? "Loading..." : "Continue to checkout"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 6: Discover writers (was step 5) */}
+          {step === 6 && (
             <div className="flex flex-col gap-3">
               {loadingSuggested ? (
                 <div className="flex items-center justify-center py-8">
@@ -652,8 +996,8 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 7: Invite friends */}
-          {step === 6 && (
+          {/* Step 7: Invite friends (was step 6) */}
+          {step === 7 && (
             <div className="flex flex-col gap-5">
               {/* Share invite link */}
               <div>
@@ -761,8 +1105,8 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 8: What's next? */}
-          {step === 7 && (
+          {/* Step 9: What's next? (was step 7) */}
+          {step === 8 && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
                 Your profile is ready. What would you like to do first?
@@ -852,8 +1196,8 @@ export default function WelcomePage() {
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
 
-          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 7) */}
-          {step !== 4 && step !== 7 && (
+          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 8) */}
+          {step !== 4 && step !== 5 && step !== 8 && (
             <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <div>
                 {step === 0 ? (

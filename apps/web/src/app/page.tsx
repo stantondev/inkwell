@@ -112,7 +112,7 @@ export default async function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/get-started"
+                href="/get-started?plan=free"
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
@@ -158,7 +158,7 @@ export default async function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/get-started"
+                href="/get-started?plan=plus"
                 className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80 relative z-[1]"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >

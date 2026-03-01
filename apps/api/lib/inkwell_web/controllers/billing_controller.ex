@@ -80,6 +80,54 @@ defmodule InkwellWeb.BillingController do
     |> json(%{error: "Invalid amount. Choose $1, $2, or $3."})
   end
 
+  # POST /api/billing/onboarding-checkout — create checkout during onboarding (redirects back to /welcome)
+  def onboarding_checkout(conn, %{"type" => "plus"}) do
+    user = conn.assigns.current_user
+
+    case Billing.create_onboarding_checkout_session(user, "plus") do
+      {:ok, %{url: url}} ->
+        json(conn, %{url: url})
+
+      {:error, :stripe_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Billing is not yet configured. Coming soon!"})
+
+      {:error, reason} ->
+        Logger.error("Onboarding checkout (Plus) failed: #{inspect(reason)}")
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Unable to start checkout. Please try again."})
+    end
+  end
+
+  def onboarding_checkout(conn, %{"type" => "donor", "amount_cents" => amount_cents})
+      when amount_cents in [100, 200, 300] do
+    user = conn.assigns.current_user
+
+    case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
+      {:ok, %{url: url}} ->
+        json(conn, %{url: url})
+
+      {:error, :stripe_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Donations are not yet configured. Coming soon!"})
+
+      {:error, reason} ->
+        Logger.error("Onboarding checkout (Donor) failed: #{inspect(reason)}")
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Unable to start checkout. Please try again."})
+    end
+  end
+
+  def onboarding_checkout(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "Invalid checkout parameters."})
+  end
+
   # GET /api/billing/status — return current subscription status
   def status(conn, _params) do
     user = conn.assigns.current_user

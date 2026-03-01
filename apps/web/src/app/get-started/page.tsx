@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
 
@@ -42,6 +42,15 @@ const VALUE_PROPS = [
 ];
 
 export default function GetStartedPage() {
+  // Persist plan intent (free/plus) from landing page through magic link flow
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
+    if (plan === "plus" || plan === "free") {
+      document.cookie = `inkwell_plan=${plan}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+    }
+  }, []);
+
   const [step, setStep] = useState<Step>("enter_email");
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);

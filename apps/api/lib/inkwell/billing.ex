@@ -146,6 +146,78 @@ defmodule Inkwell.Billing do
     end
   end
 
+  @doc "Create a Stripe Checkout session for Plus during onboarding (redirects back to /welcome)."
+  def create_onboarding_checkout_session(%User{} = user, "plus") do
+    with {:ok, customer_id} <- ensure_customer(user) do
+      config = stripe_config()
+      frontend_url = Application.get_env(:inkwell, :frontend_url) || "https://inkwell.social"
+
+      if is_nil(config[:price_id]) or config[:price_id] == "" do
+        {:error, :stripe_not_configured}
+      else
+        params =
+          URI.encode_query(%{
+            "customer" => customer_id,
+            "mode" => "subscription",
+            "line_items[0][price]" => config[:price_id],
+            "line_items[0][quantity]" => "1",
+            "success_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
+            "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
+            "client_reference_id" => user.id,
+            "metadata[user_id]" => user.id
+          })
+
+        case stripe_post("/checkout/sessions", params) do
+          {:ok, %{"url" => url, "id" => session_id}} ->
+            {:ok, %{url: url, session_id: session_id}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+    end
+  end
+
+  @doc "Create a Stripe Checkout session for Ink Donor during onboarding (redirects back to /welcome)."
+  def create_onboarding_checkout_session(%User{} = user, "donor", amount_cents) when amount_cents in [100, 200, 300] do
+    config = stripe_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url) || "https://inkwell.social"
+
+    price_id = case amount_cents do
+      100 -> config[:ink_donor_price_1]
+      200 -> config[:ink_donor_price_2]
+      300 -> config[:ink_donor_price_3]
+    end
+
+    if is_nil(price_id) or price_id == "" do
+      {:error, :stripe_not_configured}
+    else
+      with {:ok, customer_id} <- ensure_customer(user) do
+        params =
+          URI.encode_query(%{
+            "customer" => customer_id,
+            "mode" => "subscription",
+            "line_items[0][price]" => price_id,
+            "line_items[0][quantity]" => "1",
+            "success_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
+            "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
+            "client_reference_id" => user.id,
+            "metadata[user_id]" => user.id,
+            "metadata[type]" => "ink_donor",
+            "metadata[amount_cents]" => to_string(amount_cents)
+          })
+
+        case stripe_post("/checkout/sessions", params) do
+          {:ok, %{"url" => url, "id" => session_id}} ->
+            {:ok, %{url: url, session_id: session_id}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+    end
+  end
+
   # ── Webhook Processing ─────────────────────────────────────────────────
 
   @doc "Process a Stripe webhook event."

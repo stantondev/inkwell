@@ -3523,6 +3523,40 @@ body[data-focus-mode] .app-content {
 }
 
 /* ==========================================================================
+   ONBOARDING — Tier Selection Cards & Donor Pills
+   ========================================================================== */
+.onboarding-tier-card {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.onboarding-tier-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.onboarding-tier-selected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 16px rgba(0,0,0,0.08);
+}
+.onboarding-donor-pill {
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.onboarding-donor-pill:hover {
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+.onboarding-donor-pill-selected {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: white !important;
+}
+@media (max-width: 639px) {
+  .onboarding-tier-card:hover {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
    INK DONOR — "Keep the Ink Flowing"
    ========================================================================== */
 .landing-donor {

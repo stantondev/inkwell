@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const body = await req.json();
-  const res = await fetch(`${SERVER_API}/api/billing/donor-checkout`, {
+  const res = await fetch(`${SERVER_API}/api/billing/onboarding-checkout`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
