@@ -169,7 +169,9 @@ defmodule InkwellWeb.AuthController do
       settings: user.settings || %{},
       subscription_tier: user.subscription_tier || "free",
       terms_accepted_at: user.terms_accepted_at,
-      invite_count: Invitations.count_accepted(user.id)
+      invite_count: Invitations.count_accepted(user.id),
+      ink_donor_status: user.ink_donor_status,
+      ink_donor_amount_cents: user.ink_donor_amount_cents
     }
   end
 

@@ -105,7 +105,9 @@ defmodule InkwellWeb.ExploreController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url
+            avatar_url: author.avatar_url,
+            subscription_tier: author.subscription_tier,
+            ink_donor_status: author.ink_donor_status
           },
           user_icon: entry.user_icon,
           comment_count: Map.get(local_comment_counts, entry.id, 0),

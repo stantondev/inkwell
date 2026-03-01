@@ -1,6 +1,6 @@
 defmodule Inkwell.Billing do
   @moduledoc """
-  Stripe integration for Inkwell Plus subscriptions.
+  Stripe integration for Inkwell Plus subscriptions and Ink Donor donations.
   Uses raw :httpc calls to the Stripe API (same pattern as Resend in Email module).
   """
 
@@ -89,6 +89,59 @@ defmodule Inkwell.Billing do
 
       {:error, reason} ->
         Logger.error("Failed to cancel Stripe subscription #{subscription_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc "Create a Stripe Checkout session for an Ink Donor donation."
+  def create_donor_checkout_session(%User{} = user, amount_cents) when amount_cents in [100, 200, 300] do
+    config = stripe_config()
+
+    price_id = case amount_cents do
+      100 -> config[:ink_donor_price_1]
+      200 -> config[:ink_donor_price_2]
+      300 -> config[:ink_donor_price_3]
+    end
+
+    if is_nil(price_id) or price_id == "" do
+      {:error, :stripe_not_configured}
+    else
+      with {:ok, customer_id} <- ensure_customer(user) do
+        params =
+          URI.encode_query(%{
+            "customer" => customer_id,
+            "mode" => "subscription",
+            "line_items[0][price]" => price_id,
+            "line_items[0][quantity]" => "1",
+            "success_url" => config[:success_url] <> "&donor=true",
+            "cancel_url" => config[:cancel_url],
+            "client_reference_id" => user.id,
+            "metadata[user_id]" => user.id,
+            "metadata[type]" => "ink_donor",
+            "metadata[amount_cents]" => to_string(amount_cents)
+          })
+
+        case stripe_post("/checkout/sessions", params) do
+          {:ok, %{"url" => url, "id" => session_id}} ->
+            {:ok, %{url: url, session_id: session_id}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+    end
+  end
+
+  @doc "Cancel an Ink Donor subscription immediately (used during account deletion)."
+  def cancel_donor_subscription(nil), do: :ok
+  def cancel_donor_subscription(subscription_id) do
+    case stripe_delete("/subscriptions/#{subscription_id}") do
+      {:ok, _} ->
+        Logger.info("Canceled Ink Donor subscription #{subscription_id}")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to cancel Ink Donor subscription #{subscription_id}: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -239,16 +292,44 @@ defmodule Inkwell.Billing do
         :error
 
       user ->
-        user
-        |> User.subscription_changeset(%{
-          stripe_customer_id: customer_id,
-          stripe_subscription_id: sub_id,
-          subscription_tier: "plus",
-          subscription_status: "active"
-        })
-        |> Repo.update()
+        if get_in(object, ["metadata", "type"]) == "ink_donor" do
+          amount_cents = case get_in(object, ["metadata", "amount_cents"]) do
+            s when is_binary(s) ->
+              case Integer.parse(s) do
+                {n, _} -> n
+                :error -> nil
+              end
+            i when is_integer(i) -> i
+            _ -> nil
+          end
 
-        Logger.info("User #{user.username} upgraded to Plus (sub: #{sub_id})")
+          # Ensure stripe_customer_id is set
+          if is_nil(user.stripe_customer_id) do
+            user |> User.subscription_changeset(%{stripe_customer_id: customer_id}) |> Repo.update()
+          end
+
+          user
+          |> User.ink_donor_changeset(%{
+            ink_donor_stripe_subscription_id: sub_id,
+            ink_donor_status: "active",
+            ink_donor_amount_cents: amount_cents
+          })
+          |> Repo.update()
+
+          Logger.info("User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo, sub: #{sub_id})")
+        else
+          user
+          |> User.subscription_changeset(%{
+            stripe_customer_id: customer_id,
+            stripe_subscription_id: sub_id,
+            subscription_tier: "plus",
+            subscription_status: "active"
+          })
+          |> Repo.update()
+
+          Logger.info("User #{user.username} upgraded to Plus (sub: #{sub_id})")
+        end
+
         :ok
     end
   end
@@ -264,30 +345,46 @@ defmodule Inkwell.Billing do
         :ok
 
       user ->
-        expires_at = case get_in(object, ["current_period_end"]) do
-          ts when is_integer(ts) -> DateTime.from_unix!(ts)
-          _ -> nil
+        price_id = get_in(object, ["items", "data", Access.at(0), "price", "id"])
+
+        if is_donor_price?(price_id) or sub_id == user.ink_donor_stripe_subscription_id do
+          donor_status = if status in ["active", "trialing"], do: "active", else: status
+
+          user
+          |> User.ink_donor_changeset(%{
+            ink_donor_stripe_subscription_id: sub_id,
+            ink_donor_status: donor_status
+          })
+          |> Repo.update()
+
+          Logger.info("Ink Donor subscription updated for #{user.username}: status=#{status}")
+        else
+          expires_at = case get_in(object, ["current_period_end"]) do
+            ts when is_integer(ts) -> DateTime.from_unix!(ts)
+            _ -> nil
+          end
+
+          tier = if status in ["active", "trialing"], do: "plus", else: user.subscription_tier
+
+          attrs = %{
+            stripe_subscription_id: sub_id,
+            subscription_status: status,
+            subscription_tier: tier,
+            subscription_expires_at: expires_at
+          }
+
+          user
+          |> User.subscription_changeset(attrs)
+          |> Repo.update()
+
+          Logger.info("Subscription updated for #{user.username}: status=#{status}")
         end
 
-        tier = if status in ["active", "trialing"], do: "plus", else: user.subscription_tier
-
-        attrs = %{
-          stripe_subscription_id: sub_id,
-          subscription_status: status,
-          subscription_tier: tier,
-          subscription_expires_at: expires_at
-        }
-
-        user
-        |> User.subscription_changeset(attrs)
-        |> Repo.update()
-
-        Logger.info("Subscription updated for #{user.username}: status=#{status}")
         :ok
     end
   end
 
-  defp handle_subscription_deleted(%{"customer" => customer_id} = _object) do
+  defp handle_subscription_deleted(%{"id" => sub_id, "customer" => customer_id} = object) do
     user = find_user_by_customer(customer_id)
 
     case user do
@@ -295,15 +392,53 @@ defmodule Inkwell.Billing do
         :ok
 
       user ->
-        user
-        |> User.subscription_changeset(%{
-          subscription_tier: "free",
-          subscription_status: "canceled",
-          stripe_subscription_id: nil
-        })
-        |> Repo.update()
+        price_id = get_in(object, ["items", "data", Access.at(0), "price", "id"])
 
-        Logger.info("Subscription canceled for #{user.username} — reverted to Free")
+        if is_donor_price?(price_id) or sub_id == user.ink_donor_stripe_subscription_id do
+          user
+          |> User.ink_donor_changeset(%{
+            ink_donor_status: "canceled",
+            ink_donor_stripe_subscription_id: nil
+          })
+          |> Repo.update()
+
+          Logger.info("Ink Donor canceled for #{user.username}")
+        else
+          user
+          |> User.subscription_changeset(%{
+            subscription_tier: "free",
+            subscription_status: "canceled",
+            stripe_subscription_id: nil
+          })
+          |> Repo.update()
+
+          Logger.info("Subscription canceled for #{user.username} — reverted to Free")
+        end
+
+        :ok
+    end
+  end
+
+  defp handle_payment_failed(%{"customer" => customer_id, "subscription" => sub_id} = _object) do
+    user = find_user_by_customer(customer_id)
+
+    case user do
+      nil -> :ok
+      user ->
+        if sub_id == user.ink_donor_stripe_subscription_id do
+          user
+          |> User.ink_donor_changeset(%{ink_donor_status: "past_due"})
+          |> Repo.update()
+
+          Logger.warning("Ink Donor payment failed for #{user.username}")
+        else
+          user
+          |> User.subscription_changeset(%{subscription_status: "past_due"})
+          |> Repo.update()
+
+          Logger.warning("Payment failed for #{user.username} — marked past_due")
+        end
+
         :ok
     end
   end
@@ -322,6 +457,17 @@ defmodule Inkwell.Billing do
         :ok
     end
   end
+
+  # ── Private: Ink Donor helpers ─────────────────────────────────────────
+
+  defp donor_price_ids do
+    config = stripe_config()
+    [config[:ink_donor_price_1], config[:ink_donor_price_2], config[:ink_donor_price_3]]
+    |> Enum.reject(fn id -> is_nil(id) or id == "" end)
+  end
+
+  defp is_donor_price?(nil), do: false
+  defp is_donor_price?(price_id), do: price_id in donor_price_ids()
 
   # ── Private: Helpers ───────────────────────────────────────────────────
 

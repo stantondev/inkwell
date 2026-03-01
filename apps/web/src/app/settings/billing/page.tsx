@@ -7,6 +7,17 @@ interface BillingStatus {
   subscription_tier: string;
   subscription_status: string;
   subscription_expires_at: string | null;
+  ink_donor_status: string | null;
+  ink_donor_amount_cents: number | null;
+}
+
+function InkDropIcon({ size = 10 }: { size?: number }) {
+  const h = Math.round(size * 1.2);
+  return (
+    <svg width={size} height={h} viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+      <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+    </svg>
+  );
 }
 
 export default function BillingPage() {
@@ -14,11 +25,14 @@ export default function BillingPage() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [donorLoading, setDonorLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedAmount, setSelectedAmount] = useState(200);
 
   const justSucceeded = searchParams.get("success") === "true";
   const justCanceled = searchParams.get("canceled") === "true";
+  const justDonored = justSucceeded && searchParams.get("donor") === "true";
 
   useEffect(() => {
     async function fetchStatus() {
@@ -55,6 +69,28 @@ export default function BillingPage() {
     }
   }
 
+  async function handleDonorCheckout(amountCents: number) {
+    setDonorLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/billing/donor-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount_cents: amountCents }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "Unable to start checkout");
+        setDonorLoading(false);
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setDonorLoading(false);
+    }
+  }
+
   async function handlePortal() {
     setPortalLoading(true);
     setError("");
@@ -75,6 +111,8 @@ export default function BillingPage() {
 
   const isPlus = status?.subscription_tier === "plus";
   const isPastDue = status?.subscription_status === "past_due";
+  const isDonor = status?.ink_donor_status === "active";
+  const isDonorPastDue = status?.ink_donor_status === "past_due";
 
   if (loading) {
     return (
@@ -89,13 +127,22 @@ export default function BillingPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Success/cancel banners */}
-      {justSucceeded && (
+      {justSucceeded && !justDonored && (
         <div className="rounded-xl border p-4 text-sm"
           style={{ borderColor: "var(--success)", background: "var(--surface)" }}>
           <span className="font-medium" style={{ color: "var(--success)" }}>
             Welcome to Inkwell Plus!
           </span>{" "}
           Your subscription is now active. Thank you for supporting Inkwell.
+        </div>
+      )}
+      {justDonored && (
+        <div className="rounded-xl border p-4 text-sm"
+          style={{ borderColor: "var(--ink-deep, #2d4a8a)", background: "var(--surface)" }}>
+          <span className="font-medium" style={{ color: "var(--ink-deep, #2d4a8a)" }}>
+            Thank you, Ink Donor!
+          </span>{" "}
+          Your donation is now active. Every drop helps keep Inkwell ad-free.
         </div>
       )}
       {justCanceled && (
@@ -193,6 +240,79 @@ export default function BillingPage() {
 
         {error && (
           <p className="text-sm mt-3" style={{ color: "var(--danger)" }}>{error}</p>
+        )}
+      </div>
+
+      {/* Ink Donor section */}
+      <div className="rounded-xl border p-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Ink Donor
+          </h2>
+          {isDonor && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+              style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff", opacity: 0.9 }}>
+              <InkDropIcon size={8} />
+              Active
+            </span>
+          )}
+        </div>
+
+        {isDonor ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              You&apos;re donating <strong style={{ color: "var(--foreground)" }}>${((status?.ink_donor_amount_cents ?? 0) / 100).toFixed(0)}/month</strong> to
+              help keep Inkwell running. Thank you for being an Ink Donor — every drop of ink helps.
+            </p>
+            <button onClick={handlePortal} disabled={portalLoading}
+              className="self-start rounded-full px-5 py-2 text-sm font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
+              {portalLoading ? "Opening..." : "Manage donation"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm" style={{ color: "var(--foreground)" }}>
+              <em style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>Keep the ink flowing.</em>
+            </p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Ink Donor is a small voluntary donation to help sustain Inkwell. No features are unlocked —
+              just the satisfaction of keeping an ad-free, community-owned platform alive, and an Ink Donor
+              badge on your profile.
+            </p>
+
+            {isDonorPastDue && (
+              <p className="text-sm" style={{ color: "var(--danger)" }}>
+                Your last donation payment failed. You can start a new donation below.
+              </p>
+            )}
+
+            <div className="flex gap-3 items-center">
+              {[100, 200, 300].map((cents) => (
+                <button
+                  key={cents}
+                  onClick={() => setSelectedAmount(cents)}
+                  className="rounded-full px-5 py-2 text-sm font-medium border-2 transition-all"
+                  style={{
+                    borderColor: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "var(--border)",
+                    color: selectedAmount === cents ? "#fff" : "var(--ink-deep, #2d4a8a)",
+                    background: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "transparent",
+                  }}>
+                  ${cents / 100}/mo
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handleDonorCheckout(selectedAmount)}
+              disabled={donorLoading}
+              className="self-start inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff" }}>
+              <InkDropIcon size={10} />
+              {donorLoading ? "Redirecting..." : "Become an Ink Donor"}
+            </button>
+          </div>
         )}
       </div>
 

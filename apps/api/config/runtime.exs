@@ -67,6 +67,9 @@ if config_env() == :prod do
     secret_key: System.get_env("STRIPE_SECRET_KEY"),
     webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET"),
     price_id: System.get_env("STRIPE_PRICE_ID"),
+    ink_donor_price_1: System.get_env("STRIPE_INK_DONOR_PRICE_1"),
+    ink_donor_price_2: System.get_env("STRIPE_INK_DONOR_PRICE_2"),
+    ink_donor_price_3: System.get_env("STRIPE_INK_DONOR_PRICE_3"),
     success_url: "#{frontend_url}/settings/billing?success=true",
     cancel_url: "#{frontend_url}/settings/billing?canceled=true"
 

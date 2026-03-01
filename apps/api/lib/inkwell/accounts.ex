@@ -183,9 +183,14 @@ defmodule Inkwell.Accounts do
   # Account deletion
 
   def delete_account(%User{} = user) do
-    # Cancel Stripe subscription if active
+    # Cancel Stripe Plus subscription if active
     if user.stripe_subscription_id do
       Inkwell.Billing.cancel_subscription(user.stripe_subscription_id)
+    end
+
+    # Cancel Stripe Ink Donor subscription if active
+    if user.ink_donor_stripe_subscription_id do
+      Inkwell.Billing.cancel_donor_subscription(user.ink_donor_stripe_subscription_id)
     end
 
     # DB cascading foreign keys handle all associated data

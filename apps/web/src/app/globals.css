@@ -3523,6 +3523,166 @@ body[data-focus-mode] .app-content {
 }
 
 /* ==========================================================================
+   INK DONOR — "Keep the Ink Flowing"
+   ========================================================================== */
+.landing-donor {
+  position: relative;
+  border-top: 1px solid var(--border);
+  padding: 3rem 1rem;
+  background: var(--ink-deep, #2d4a8a);
+  overflow: hidden;
+}
+/* Paper texture overlay */
+.landing-donor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.06;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+/* Subtle radial glow behind the content */
+.landing-donor::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 600px;
+  height: 400px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.landing-donor-inner {
+  max-width: 52rem;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* Animated ink drop */
+.landing-donor-drop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+  animation: donor-drop-float 3s ease-in-out infinite;
+}
+@keyframes donor-drop-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-donor-drop { animation: none; }
+}
+
+.landing-donor-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.5rem;
+}
+
+.landing-donor-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-style: italic;
+  color: #fff;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+@media (min-width: 640px) {
+  .landing-donor-title { font-size: 2.25rem; }
+}
+
+.landing-donor-desc {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1.5rem;
+  max-width: 44rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landing-donor-amounts {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.landing-donor-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.landing-donor-amount:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.landing-donor-amount-value {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.landing-donor-amount-period {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+.landing-donor-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--ink-deep, #2d4a8a);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.landing-donor-cta:hover {
+  opacity: 0.9;
+  transform: scale(1.03);
+}
+
+.landing-donor-footnote {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-lora, Georgia, serif);
+}
+
+/* ==========================================================================
    COLOPHON — "Built in the Open"
    ========================================================================== */
 .landing-colophon {

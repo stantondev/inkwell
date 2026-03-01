@@ -241,6 +241,7 @@ defmodule InkwellWeb.Router do
 
     # Billing (authenticated)
     post "/billing/checkout", BillingController, :checkout
+    post "/billing/donor-checkout", BillingController, :donor_checkout
     post "/billing/portal", BillingController, :portal
     get "/billing/status", BillingController, :status
 

@@ -56,6 +56,8 @@ interface ProfileUser {
   profile_entry_display?: string | null;
   pinned_entry_ids?: string[];
   social_links?: Record<string, string> | null;
+  ink_donor_status?: string | null;
+  ink_donor_amount_cents?: number | null;
 }
 
 interface ProfileEntry {
@@ -642,6 +644,15 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium align-middle"
                     style={{ background: styles.accent, color: "#fff" }}>
                     Plus
+                  </span>
+                )}
+                {profile.ink_donor_status === "active" && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium align-middle"
+                    style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff", opacity: 0.9 }}>
+                    <svg width="8" height="10" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+                      <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+                    </svg>
+                    Ink Donor
                   </span>
                 )}
                 {profile.pronouns && (

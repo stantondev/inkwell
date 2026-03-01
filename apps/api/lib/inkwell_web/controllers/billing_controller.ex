@@ -53,6 +53,33 @@ defmodule InkwellWeb.BillingController do
     end
   end
 
+  # POST /api/billing/donor-checkout — create a Stripe Checkout for Ink Donor
+  def donor_checkout(conn, %{"amount_cents" => amount_cents}) when amount_cents in [100, 200, 300] do
+    user = conn.assigns.current_user
+
+    case Billing.create_donor_checkout_session(user, amount_cents) do
+      {:ok, %{url: url}} ->
+        json(conn, %{url: url})
+
+      {:error, :stripe_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Donations are not yet configured. Coming soon!"})
+
+      {:error, reason} ->
+        Logger.error("Donor checkout failed: #{inspect(reason)}")
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Unable to start checkout. Please try again."})
+    end
+  end
+
+  def donor_checkout(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "Invalid amount. Choose $1, $2, or $3."})
+  end
+
   # GET /api/billing/status — return current subscription status
   def status(conn, _params) do
     user = conn.assigns.current_user
@@ -61,7 +88,9 @@ defmodule InkwellWeb.BillingController do
       data: %{
         subscription_tier: user.subscription_tier || "free",
         subscription_status: user.subscription_status || "none",
-        subscription_expires_at: user.subscription_expires_at
+        subscription_expires_at: user.subscription_expires_at,
+        ink_donor_status: user.ink_donor_status,
+        ink_donor_amount_cents: user.ink_donor_amount_cents
       }
     })
   end

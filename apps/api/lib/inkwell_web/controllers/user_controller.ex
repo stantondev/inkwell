@@ -414,7 +414,9 @@ defmodule InkwellWeb.UserController do
       support_label: user.support_label,
       stripe_connect_enabled: user.stripe_connect_enabled || false,
       pinned_entry_ids: user.pinned_entry_ids || [],
-      social_links: user.social_links || %{}
+      social_links: user.social_links || %{},
+      ink_donor_status: user.ink_donor_status,
+      ink_donor_amount_cents: user.ink_donor_amount_cents
     }
   end
 

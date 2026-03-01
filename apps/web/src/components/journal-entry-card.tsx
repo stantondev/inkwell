@@ -49,6 +49,8 @@ export interface JournalEntry {
     domain?: string;
     /** URL to the remote user's profile */
     profile_url?: string;
+    subscription_tier?: string;
+    ink_donor_status?: string | null;
   };
 }
 
@@ -168,6 +170,21 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-medium group-hover:underline">
                   {entry.author.display_name}
+                  {entry.author.subscription_tier === "plus" && (
+                    <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium align-middle"
+                      style={{ background: "var(--accent)", color: "#fff" }}>
+                      Plus
+                    </span>
+                  )}
+                  {entry.author.ink_donor_status === "active" && (
+                    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[10px] font-medium align-middle"
+                      style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff", opacity: 0.9 }}>
+                      <svg width="6" height="8" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+                        <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+                      </svg>
+                      Donor
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs" style={{ color: "var(--muted)" }}>
                   @{entry.author.username} &middot; {ago}

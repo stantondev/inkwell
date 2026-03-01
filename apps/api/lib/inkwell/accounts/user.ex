@@ -61,6 +61,11 @@ defmodule Inkwell.Accounts.User do
     field :stripe_connect_enabled, :boolean, default: false
     field :stripe_connect_onboarded, :boolean, default: false
 
+    # Ink Donor (voluntary donation)
+    field :ink_donor_stripe_subscription_id, :string
+    field :ink_donor_status, :string
+    field :ink_donor_amount_cents, :integer
+
     # Profile improvements
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}
@@ -105,6 +110,11 @@ defmodule Inkwell.Accounts.User do
   def stripe_connect_changeset(user, attrs) do
     user
     |> cast(attrs, [:stripe_connect_account_id, :stripe_connect_enabled, :stripe_connect_onboarded])
+  end
+
+  def ink_donor_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:ink_donor_stripe_subscription_id, :ink_donor_status, :ink_donor_amount_cents])
   end
 
   @allowed_fonts ~w[default lora courier georgia comic-sans times palatino verdana]

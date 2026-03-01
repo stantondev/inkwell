@@ -169,6 +169,56 @@ export default async function LandingPage() {
               </p>
             </div>
           </div>
+
+        </div>
+      </section>
+
+      {/* ── Ink Donor — "Keep the Ink Flowing" ─────────────────────── */}
+      <section className="landing-donor" aria-label="Ink Donor">
+        <div className="landing-donor-inner">
+          {/* Animated ink drop */}
+          <div className="landing-donor-drop" aria-hidden="true">
+            <svg width="32" height="40" viewBox="0 0 10 12" fill="currentColor">
+              <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+            </svg>
+          </div>
+
+          <p className="landing-donor-eyebrow">Community sustained</p>
+
+          <h2 className="landing-donor-title">
+            Keep the ink flowing
+          </h2>
+
+          <p className="landing-donor-desc">
+            Not everyone needs Plus — and that&apos;s okay. Ink Donors are the quiet patrons
+            who keep Inkwell ad-free, algorithm-free, and open for everyone. No features
+            unlocked. Just an ink-blue badge, and the knowledge that you helped keep the
+            presses running.
+          </p>
+
+          <div className="landing-donor-amounts">
+            {[
+              { cents: 100, label: "$1" },
+              { cents: 200, label: "$2" },
+              { cents: 300, label: "$3" },
+            ].map(({ cents, label }) => (
+              <div key={cents} className="landing-donor-amount">
+                <span className="landing-donor-amount-value">{label}</span>
+                <span className="landing-donor-amount-period">/month</span>
+              </div>
+            ))}
+          </div>
+
+          <Link href="/settings/billing" className="landing-donor-cta">
+            <svg width="14" height="17" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+              <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+            </svg>
+            Become an Ink Donor
+          </Link>
+
+          <p className="landing-donor-footnote">
+            Every drop of ink helps. Cancel anytime.
+          </p>
         </div>
       </section>
 

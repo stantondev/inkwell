@@ -21,6 +21,8 @@ export interface SessionUser {
   newsletter_enabled?: boolean;
   subscriber_count?: number;
   terms_accepted_at?: string | null;
+  ink_donor_status?: string | null;
+  ink_donor_amount_cents?: number | null;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 
