@@ -83,11 +83,21 @@ defmodule Inkwell.Accounts.User do
     timestamps(type: :utc_datetime_usec)
   end
 
+  # Usernames that could cause brand confusion or conflict with routes
+  @reserved_usernames ~w(
+    inkwell inkwellsocial inkwell_social admin administrator
+    moderator mod support help system root superuser
+    api auth login signup register settings notifications
+    feed explore search admin inbox outbox users
+    newsletter billing noreply postmaster webmaster abuse
+  )
+
   def registration_changeset(user, attrs) do
     user
     |> cast(attrs, [:username, :email, :display_name])
     |> validate_required([:username, :email])
     |> validate_format(:username, ~r/^[a-zA-Z0-9_]{3,30}$/, message: "must be 3-30 alphanumeric characters or underscores")
+    |> validate_not_reserved(:username)
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> unique_constraint(:username)
     |> unique_constraint(:email)
@@ -100,8 +110,23 @@ defmodule Inkwell.Accounts.User do
     |> cast(attrs, [:username])
     |> validate_required([:username])
     |> validate_format(:username, ~r/^[a-zA-Z0-9_]{3,30}$/, message: "must be 3-30 alphanumeric characters or underscores")
+    |> validate_not_reserved(:username)
     |> unique_constraint(:username)
     |> generate_ap_id()
+  end
+
+  def reserved_username?(username) do
+    String.downcase(username) in @reserved_usernames
+  end
+
+  defp validate_not_reserved(changeset, field) do
+    validate_change(changeset, field, fn _, value ->
+      if reserved_username?(value) do
+        [{field, "is reserved and cannot be used"}]
+      else
+        []
+      end
+    end)
   end
 
   def subscription_changeset(user, attrs) do

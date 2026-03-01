@@ -38,7 +38,8 @@ defmodule Inkwell.Accounts do
   end
 
   def username_available?(username) do
-    not Repo.exists?(from u in User, where: u.username == ^username)
+    not User.reserved_username?(username) and
+      not Repo.exists?(from u in User, where: u.username == ^username)
   end
 
   @doc "Search users by username prefix for @mention autocomplete. Returns up to `limit` users."
