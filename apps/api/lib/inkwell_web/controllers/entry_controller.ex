@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Repo, Social, Stamps, Tipping}
+  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Polls, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -85,12 +85,22 @@ defmodule InkwellWeb.EntryController do
         entry_with_user = %{entry | user: user}
         series_nav = Journals.get_series_navigation(entry_with_user)
 
+        # Load entry poll if one exists
+        poll_data =
+          case Polls.get_poll_for_entry(entry.id) do
+            nil -> nil
+            poll ->
+              my_vote = if viewer, do: Polls.get_user_vote(viewer.id, poll.id), else: nil
+              InkwellWeb.PollController.render_poll(poll, my_vote)
+          end
+
         result =
           render_entry_full(entry, user)
           |> Map.put(:stamps, stamp_types)
           |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
           |> Map.put(:bookmarked, bookmarked)
           |> Map.put(:series, series_nav)
+          |> Map.put(:poll, poll_data)
 
         # Include per-entry postage stats for the author only
         if viewer && viewer.id == user.id do
@@ -143,7 +153,16 @@ defmodule InkwellWeb.EntryController do
 
     case get_owned_entry(user.id, id) do
       {:ok, entry} ->
-        json(conn, %{data: render_entry_full(entry, user)})
+        poll_data =
+          case Polls.get_poll_for_entry(entry.id) do
+            nil -> nil
+            poll ->
+              my_vote = Polls.get_user_vote(user.id, poll.id)
+              InkwellWeb.PollController.render_poll(poll, my_vote)
+          end
+
+        result = render_entry_full(entry, user) |> Map.put(:poll, poll_data)
+        json(conn, %{data: result})
 
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})

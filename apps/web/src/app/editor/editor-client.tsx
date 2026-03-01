@@ -938,6 +938,14 @@ export function EditorClient() {
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Poll state (Plus-only)
+  const [pollEnabled, setPollEnabled] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [pollClosesAt, setPollClosesAt] = useState("");
+  const [existingPollId, setExistingPollId] = useState<string | null>(null);
+  const [pollLocked, setPollLocked] = useState(false); // locked after votes received
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
 
@@ -1183,6 +1191,16 @@ export function EditorClient() {
         setCoverImageId(entry.cover_image_id ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
 
+        // Load existing poll data
+        if (entry.poll) {
+          setPollEnabled(true);
+          setExistingPollId(entry.poll.id);
+          setPollQuestion(entry.poll.question);
+          setPollOptions(entry.poll.options.map((o: { label: string }) => o.label));
+          setPollClosesAt(entry.poll.closes_at ? entry.poll.closes_at.slice(0, 16) : "");
+          setPollLocked(entry.poll.total_votes > 0);
+        }
+
         // Store slug + author for redirect after save
         setEntrySlug(entry.slug ?? null);
         setEntryAuthor(entry.author?.username ?? null);
@@ -1372,13 +1390,51 @@ export function EditorClient() {
       }
 
       const entry = data.data;
+      const entryId = entry.id;
+
+      // Create or update entry poll after publish
+      if (pollEnabled && isPlus && pollQuestion.trim() && pollOptions.filter(o => o.trim()).length >= 2) {
+        const validOptions = pollOptions.filter(o => o.trim());
+        if (!existingPollId) {
+          // Create new poll
+          try {
+            await fetch(`/api/entries/${entryId}/poll`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question: pollQuestion,
+                options: validOptions,
+                closes_at: pollClosesAt || null,
+              }),
+            });
+          } catch {
+            // Poll creation failed but entry was saved — don't block navigation
+          }
+        } else if (!pollLocked) {
+          // Update existing poll (only if no votes yet)
+          try {
+            await fetch(`/api/polls/${existingPollId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question: pollQuestion,
+                options: validOptions,
+                closes_at: pollClosesAt || null,
+              }),
+            });
+          } catch {
+            // Poll update failed — don't block navigation
+          }
+        }
+      }
+
       router.push(`/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`);
     } catch (err) {
       alert(`Could not ${isDraft ? "publish" : "save"}: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setIsPublishing(false);
     }
-  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug]);
+  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked]);
 
   if (loading) {
     return (
@@ -1841,6 +1897,97 @@ export function EditorClient() {
                   <span>{state.excerpt.length}/300</span>
                 </div>
               </div>
+
+              {/* Poll (Plus-only) */}
+              {isPlus && (
+                <div className="editor-settings-section">
+                  <div className="editor-settings-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="14" width="4" height="6" rx="1"/><rect x="10" y="8" width="4" height="12" rx="1"/><rect x="16" y="4" width="4" height="16" rx="1"/>
+                    </svg>
+                    Poll
+                  </div>
+                  {pollLocked ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      Poll is locked after receiving votes. It cannot be edited.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={pollEnabled}
+                          onChange={(e) => setPollEnabled(e.target.checked)}
+                          className="rounded"
+                        />
+                        Add a poll to this entry
+                      </label>
+                      {pollEnabled && (
+                        <>
+                          <input
+                            type="text"
+                            value={pollQuestion}
+                            onChange={(e) => setPollQuestion(e.target.value)}
+                            placeholder="Ask a question..."
+                            maxLength={500}
+                            className="editor-settings-input"
+                          />
+                          {pollOptions.map((opt, i) => (
+                            <div key={i} className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => {
+                                  const next = [...pollOptions];
+                                  next[i] = e.target.value;
+                                  setPollOptions(next);
+                                }}
+                                placeholder={`Option ${i + 1}`}
+                                maxLength={200}
+                                className="editor-settings-input flex-1"
+                                style={{ marginBottom: 0 }}
+                              />
+                              {pollOptions.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}
+                                  className="text-xs px-1.5 py-1 rounded transition-colors"
+                                  style={{ color: "var(--muted)" }}
+                                  title="Remove option"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {pollOptions.length < 10 && (
+                            <button
+                              type="button"
+                              onClick={() => setPollOptions([...pollOptions, ""])}
+                              className="text-xs font-medium transition-colors"
+                              style={{ color: "var(--accent)" }}
+                            >
+                              + Add option
+                            </button>
+                          )}
+                          <div>
+                            <span className="editor-settings-hint">Close date (optional)</span>
+                            <input
+                              type="datetime-local"
+                              value={pollClosesAt}
+                              onChange={(e) => setPollClosesAt(e.target.value)}
+                              min={new Date().toISOString().slice(0, 16)}
+                              className="editor-settings-input"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Newsletter section — only when enabled + public */}
               {newsletterEnabled && state.privacy === "public" && (

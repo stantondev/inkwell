@@ -1,5 +1,8 @@
 import type { SessionUser } from "@/lib/session";
+import { getToken } from "@/lib/session";
+import { apiFetch } from "@/lib/api";
 import { SidebarNav } from "./sidebar-nav";
+import type { PollData } from "./poll-widget";
 
 /**
  * Sidebar — "The Contents Page"
@@ -8,7 +11,15 @@ import { SidebarNav } from "./sidebar-nav";
  * with Roman numeral sections, dot leaders, Lora serif typography, and
  * paper texture. Hidden below 1024px where the top nav + hamburger is used.
  */
-export function Sidebar({ user }: { user: SessionUser }) {
+export async function Sidebar({ user }: { user: SessionUser }) {
+  // Fetch active platform poll for the sidebar widget
+  let activePoll: PollData | null = null;
+  try {
+    const token = await getToken();
+    const data = await apiFetch<{ data: PollData | null }>("/api/polls/active", {}, token);
+    activePoll = data.data;
+  } catch {}
+
   return (
     <aside
       className="sidebar-nav hidden lg:flex flex-col"
@@ -24,6 +35,7 @@ export function Sidebar({ user }: { user: SessionUser }) {
         initialNotificationCount={user.unread_notification_count ?? 0}
         initialLetterCount={user.unread_letter_count ?? 0}
         initialDraftCount={user.draft_count ?? 0}
+        activePoll={activePoll}
       />
     </aside>
   );

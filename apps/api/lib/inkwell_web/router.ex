@@ -100,6 +100,11 @@ defmodule InkwellWeb.Router do
     get "/feedback/releases", FeedbackController, :releases
     get "/feedback/:id", FeedbackController, :show
 
+    # Polls (optional auth for my_vote; /polls/active must precede /polls/:id)
+    get "/polls", PollController, :index
+    get "/polls/active", PollController, :active_widget
+    get "/polls/:id", PollController, :show
+
     # Comments by entry ID (optional auth for visibility check)
     get "/entries/:entry_id/comments", CommentController, :index_by_entry
 
@@ -281,6 +286,11 @@ defmodule InkwellWeb.Router do
     get "/tips/sent", TippingController, :tips_sent
     get "/tips/stats", TippingController, :tip_stats
 
+    # Polls (authenticated)
+    post "/polls/:id/vote", PollController, :vote
+    patch "/polls/:id", PollController, :update_entry_poll
+    post "/entries/:entry_id/poll", PollController, :create_entry_poll
+
     # Content reports (authenticated)
     post "/entries/:entry_id/report", ReportController, :create
 
@@ -330,6 +340,12 @@ defmodule InkwellWeb.Router do
     delete "/entries/:id", AdminController, :delete_entry
     post "/entries/:id/mark-sensitive", AdminController, :mark_sensitive
     post "/entries/:id/unmark-sensitive", AdminController, :unmark_sensitive
+
+    # Polls (admin)
+    get "/polls", PollController, :admin_index
+    post "/polls", PollController, :create_platform
+    post "/polls/:id/close", PollController, :close
+    delete "/polls/:id", PollController, :delete
 
     # Content reports (admin)
     get "/reports", ReportController, :index

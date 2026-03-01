@@ -19,6 +19,8 @@ import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
 import { TipButton } from "@/components/tip-button";
+import { PollWidget } from "@/components/poll-widget";
+import type { PollData } from "@/components/poll-widget";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -72,6 +74,7 @@ interface EntryData {
   is_sensitive?: boolean;
   tip_total_cents?: number;
   tip_count?: number;
+  poll?: PollData | null;
   author: EntryAuthor;
 }
 
@@ -499,6 +502,13 @@ export default async function EntryPage({ params }: EntryParams) {
             </div>
           )}
         </ContentWarning>
+
+        {/* Entry Poll */}
+        {entry.poll && (
+          <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+            <PollWidget poll={entry.poll} isLoggedIn={!!session} />
+          </div>
+        )}
 
         {/* Stamps */}
         <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>

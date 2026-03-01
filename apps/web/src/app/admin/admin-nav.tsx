@@ -8,6 +8,7 @@ const tabs = [
   { label: "Users", href: "/admin/users" },
   { label: "Entries", href: "/admin/entries" },
   { label: "Reports", href: "/admin/reports" },
+  { label: "Polls", href: "/admin/polls" },
 ];
 
 export function AdminNav({ pendingReports }: { pendingReports?: number }) {
