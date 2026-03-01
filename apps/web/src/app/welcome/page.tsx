@@ -199,6 +199,26 @@ export default function WelcomePage() {
     }
   }
 
+  function handleInviteShareX() {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(`I've been writing on @inkwellsocial -- a social journal with no algorithms and no ads. Join me: ${inviteUrl}`);
+    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
+  }
+  function handleInviteShareBluesky() {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(`I've been writing on Inkwell — a social journal with no algorithms and no ads. Join me: ${inviteUrl}`);
+    window.open(`https://bsky.app/intent/compose?text=${text}`, "_blank");
+  }
+  function handleInviteShareMastodon() {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(`I've been writing on #Inkwell — a social journal on the open web, no algorithms and no ads. Join me: ${inviteUrl}`);
+    window.open(`https://mastodonshare.com/?text=${text}`, "_blank");
+  }
+  function handleInviteShareFacebook() {
+    if (!inviteUrl) return;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteUrl)}`, "_blank");
+  }
+
   async function handleSendInvites() {
     const validEmails = inviteEmails.filter((em) => em.trim() && em.includes("@"));
     if (validEmails.length === 0) return;
@@ -657,6 +677,20 @@ export default function WelcomePage() {
                   >
                     {inviteCopied ? "Copied!" : "Copy"}
                   </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  <button type="button" onClick={handleInviteShareBluesky}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                    style={{ borderColor: "var(--border)" }}>Bluesky</button>
+                  <button type="button" onClick={handleInviteShareMastodon}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                    style={{ borderColor: "var(--border)" }}>Mastodon</button>
+                  <button type="button" onClick={handleInviteShareX}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                    style={{ borderColor: "var(--border)" }}>X</button>
+                  <button type="button" onClick={handleInviteShareFacebook}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                    style={{ borderColor: "var(--border)" }}>Facebook</button>
                 </div>
                 <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
                   Anyone who signs up through this link is connected to you.

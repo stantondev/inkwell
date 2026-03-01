@@ -104,6 +104,30 @@ export default function InviteSettingsPage() {
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   }
 
+  function handleShareBluesky() {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(`I've been writing on Inkwell — a social journal with no algorithms and no ads. Join me: ${inviteUrl}`);
+    window.open(`https://bsky.app/intent/compose?text=${text}`, "_blank");
+  }
+
+  function handleShareMastodon() {
+    if (!inviteUrl) return;
+    const text = encodeURIComponent(`I've been writing on #Inkwell — a social journal on the open web, no algorithms and no ads. Join me: ${inviteUrl}`);
+    window.open(`https://mastodonshare.com/?text=${text}`, "_blank");
+  }
+
+  function handleShareFacebook() {
+    if (!inviteUrl) return;
+    const url = encodeURIComponent(inviteUrl);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+  }
+
+  function handleShareLinkedIn() {
+    if (!inviteUrl) return;
+    const url = encodeURIComponent(inviteUrl);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, "_blank");
+  }
+
   function addEmailField() {
     if (emails.length < 5) {
       setEmails([...emails, ""]);
@@ -223,11 +247,43 @@ export default function InviteSettingsPage() {
           )}
           <button
             type="button"
+            onClick={handleShareBluesky}
+            className="rounded-full border px-4 py-1.5 text-xs font-medium transition-colors"
+            style={{ borderColor: "var(--border)" }}
+          >
+            Bluesky
+          </button>
+          <button
+            type="button"
+            onClick={handleShareMastodon}
+            className="rounded-full border px-4 py-1.5 text-xs font-medium transition-colors"
+            style={{ borderColor: "var(--border)" }}
+          >
+            Mastodon
+          </button>
+          <button
+            type="button"
             onClick={handleShareX}
             className="rounded-full border px-4 py-1.5 text-xs font-medium transition-colors"
             style={{ borderColor: "var(--border)" }}
           >
-            Share on X
+            X
+          </button>
+          <button
+            type="button"
+            onClick={handleShareFacebook}
+            className="rounded-full border px-4 py-1.5 text-xs font-medium transition-colors"
+            style={{ borderColor: "var(--border)" }}
+          >
+            Facebook
+          </button>
+          <button
+            type="button"
+            onClick={handleShareLinkedIn}
+            className="rounded-full border px-4 py-1.5 text-xs font-medium transition-colors"
+            style={{ borderColor: "var(--border)" }}
+          >
+            LinkedIn
           </button>
         </div>
 
