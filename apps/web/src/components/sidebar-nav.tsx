@@ -215,7 +215,7 @@ export function SidebarNav({
         <NavItem href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} collapsed={collapsed} />
         <NavItem href="/roadmap/new" icon={<SubmitFeedbackIcon />} label="Feedback" active={pathname === "/roadmap/new"} collapsed={collapsed} />
         <NavItem href="/settings/invite" icon={<InviteIcon />} label="Invite friends" active={isActive("/settings/invite")} collapsed={collapsed} />
-        {activePoll && !collapsed && (
+        {activePoll && !activePoll.my_vote && !collapsed && (
           <div style={{ padding: "4px 0 0" }}>
             <PollWidget poll={activePoll} compact isLoggedIn={true} />
           </div>

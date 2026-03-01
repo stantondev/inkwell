@@ -806,7 +806,7 @@ Completed 2026-02-23. Replaced old pencil mark + text logo with brand logo from 
 
 ### Critical
 - **Meilisearch not deployed** — search falls back to Postgres ILIKE (works, but slower). Config key mismatch is now fixed; deploying Meilisearch requires a new Fly app + persistent volume + `MEILI_URL`/`MEILI_API_KEY` secrets.
-- **HTTP Signature verification in log-only mode** — inbox now verifies signatures and logs pass/fail but does not hard-reject on failure. Once production logs confirm verification is consistently passing, switch to hard reject.
+- **HTTP Signature verification** — ~~log-only mode~~ now hard-rejects invalid/missing signatures with 401 Unauthorized. All major AP implementations sign requests; unsigned or failed-verification requests are rejected at the inbox level.
 
 ### Nice to Have
 - **CI/CD** — `.github/workflows/deploy.yml` created; requires `FLY_API_TOKEN` secret in GitHub repo settings (Settings → Secrets → Actions, value from `fly auth token`)

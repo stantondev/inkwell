@@ -222,21 +222,30 @@ defmodule InkwellWeb.FederationController do
 
   # POST /users/:username/inbox
   def inbox(conn, %{"username" => username} = params) do
-    verify_inbox_signature(conn)
+    case verify_inbox_signature(conn) do
+      :ok ->
+        case Accounts.get_user_by_username(username) do
+          nil ->
+            conn |> put_status(:not_found) |> json(%{error: "Not found"})
 
-    case Accounts.get_user_by_username(username) do
-      nil ->
-        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+          user ->
+            process_activity(conn, params, user)
+        end
 
-      user ->
-        process_activity(conn, params, user)
+      {:error, _reason} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
 
   # POST /inbox  (shared inbox)
   def shared_inbox(conn, params) do
-    verify_inbox_signature(conn)
-    process_activity(conn, params, nil)
+    case verify_inbox_signature(conn) do
+      :ok ->
+        process_activity(conn, params, nil)
+
+      {:error, _reason} ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+    end
   end
 
   # ── Activity processing ─────────────────────────────────────────────────
@@ -279,16 +288,17 @@ defmodule InkwellWeb.FederationController do
 
   # ── Signature verification ──────────────────────────────────────────────
 
-  # Verifies the HTTP Signature on inbound ActivityPub requests (log-only mode).
-  # All activity processing continues regardless of outcome — this lets us
-  # confirm verification works in production logs before switching to hard reject.
+  # Verifies the HTTP Signature on inbound ActivityPub requests.
+  # Returns :ok on success, {:error, reason} on failure (hard reject).
   defp verify_inbox_signature(conn) do
     case HttpSignature.parse_signature(conn) do
       {:error, :no_signature} ->
-        Logger.warning("Inbox: no HTTP Signature header from #{actor_from_conn(conn)}")
+        Logger.warning("Inbox: REJECTED — no HTTP Signature header from #{actor_from_conn(conn)}")
+        {:error, :no_signature}
 
       {:error, reason} ->
-        Logger.warning("Inbox: malformed Signature header — #{inspect(reason)}")
+        Logger.warning("Inbox: REJECTED — malformed Signature header — #{inspect(reason)}")
+        {:error, reason}
 
       {:ok, sig_parts} ->
         key_id = sig_parts["keyId"] || ""
@@ -300,13 +310,16 @@ defmodule InkwellWeb.FederationController do
             case HttpSignature.verify_signature(conn, sig_parts, actor.public_key_pem) do
               :ok ->
                 Logger.debug("Inbox: signature verified for #{actor_uri}")
+                :ok
 
               {:error, reason} ->
-                Logger.warning("Inbox: signature FAILED for #{actor_uri} — #{inspect(reason)}")
+                Logger.warning("Inbox: REJECTED — signature FAILED for #{actor_uri} — #{inspect(reason)}")
+                {:error, reason}
             end
 
           {:error, reason} ->
-            Logger.warning("Inbox: could not fetch actor #{actor_uri} — #{inspect(reason)}")
+            Logger.warning("Inbox: REJECTED — could not fetch actor #{actor_uri} — #{inspect(reason)}")
+            {:error, reason}
         end
     end
   end
