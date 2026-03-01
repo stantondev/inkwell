@@ -389,6 +389,7 @@ defmodule Inkwell.Billing do
           |> Repo.update()
 
           Logger.info("User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo, sub: #{sub_id})")
+          Inkwell.Slack.notify_ink_donor(user.username, amount_cents)
         else
           user
           |> User.subscription_changeset(%{
@@ -400,6 +401,7 @@ defmodule Inkwell.Billing do
           |> Repo.update()
 
           Logger.info("User #{user.username} upgraded to Plus (sub: #{sub_id})")
+          Inkwell.Slack.notify_plus_subscription(user.username)
         end
 
         :ok
@@ -475,6 +477,7 @@ defmodule Inkwell.Billing do
           |> Repo.update()
 
           Logger.info("Ink Donor canceled for #{user.username}")
+          Inkwell.Slack.notify_donor_cancellation(user.username)
         else
           user
           |> User.subscription_changeset(%{
@@ -485,6 +488,7 @@ defmodule Inkwell.Billing do
           |> Repo.update()
 
           Logger.info("Subscription canceled for #{user.username} — reverted to Free")
+          Inkwell.Slack.notify_plus_cancellation(user.username)
         end
 
         :ok
@@ -503,12 +507,14 @@ defmodule Inkwell.Billing do
           |> Repo.update()
 
           Logger.warning("Ink Donor payment failed for #{user.username}")
+          Inkwell.Slack.notify_payment_failed(user.username, :donor)
         else
           user
           |> User.subscription_changeset(%{subscription_status: "past_due"})
           |> Repo.update()
 
           Logger.warning("Payment failed for #{user.username} — marked past_due")
+          Inkwell.Slack.notify_payment_failed(user.username, :plus)
         end
 
         :ok
@@ -526,6 +532,7 @@ defmodule Inkwell.Billing do
         |> Repo.update()
 
         Logger.warning("Payment failed for #{user.username} — marked past_due")
+        Inkwell.Slack.notify_payment_failed(user.username, :plus)
         :ok
     end
   end

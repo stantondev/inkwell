@@ -76,6 +76,9 @@ if config_env() == :prod do
   # Feedback email recipient
   config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "stanton@inkwell.social"
 
+  # Slack notifications (optional — disabled if not set)
+  config :inkwell, :slack_webhook_url, System.get_env("SLACK_WEBHOOK_URL")
+
   # Monitoring (API key for /health/deep endpoint)
   config :inkwell, :monitor_api_key, System.get_env("MONITOR_API_KEY")
 

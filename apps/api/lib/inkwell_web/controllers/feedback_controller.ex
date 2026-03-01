@@ -154,10 +154,13 @@ defmodule InkwellWeb.FeedbackController do
 
     case Feedback.create_post(attrs) do
       {:ok, post} ->
-        # Send email notification to admin (fire-and-forget)
+        # Send email + Slack notification to admin (fire-and-forget)
         category_label = params["category"] || "idea"
         message = "#{params["title"]}\n\n#{params["body"]}"
-        Task.start(fn -> Email.send_feedback(user, category_label, message) end)
+        Task.start(fn ->
+          Email.send_feedback(user, category_label, message)
+          Inkwell.Slack.notify_new_feedback(user.username, category_label, params["title"] || "")
+        end)
 
         Logger.info("Feedback post created by #{user.username}: [#{category_label}] #{params["title"]}")
 
