@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { ProfileEditForm } from "./profile-edit-form";
+import { ContentSafety } from "./content-safety";
 import { DataExport } from "./data-export";
 import { DangerZone } from "./danger-zone";
 
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
   return (
     <>
       <ProfileEditForm user={user} />
+      <ContentSafety />
       <DataExport />
       <DangerZone username={user.username} />
     </>

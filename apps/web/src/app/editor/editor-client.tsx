@@ -51,6 +51,8 @@ interface EditorState {
   excerpt: string;
   category: string | null;
   seriesId: string | null;
+  sensitive: boolean;
+  contentWarning: string;
 }
 
 const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
@@ -899,7 +901,7 @@ export function EditorClient() {
   const editId = searchParams.get("edit");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null,
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "",
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [showSettings, setShowSettings] = useState(false);
@@ -1175,6 +1177,8 @@ export function EditorClient() {
           excerpt: entry.excerpt ?? "",
           category: entry.category ?? null,
           seriesId: entry.series_id ?? null,
+          sensitive: entry.sensitive ?? false,
+          contentWarning: entry.content_warning ?? "",
         });
         setCoverImageId(entry.cover_image_id ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
@@ -1260,6 +1264,8 @@ export function EditorClient() {
       cover_image_id: coverImageId || null,
       category: state.category || null,
       series_id: state.seriesId || null,
+      sensitive: state.sensitive,
+      content_warning: state.sensitive ? (state.contentWarning || null) : null,
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
@@ -1718,6 +1724,33 @@ export function EditorClient() {
                         ))}
                       </select>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Content Warning */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  Content Warning
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={state.sensitive}
+                    onChange={(e) => update({ sensitive: e.target.checked })} />
+                  This entry contains sensitive content
+                </label>
+                {state.sensitive && (
+                  <div style={{ marginTop: 8 }}>
+                    <input type="text" value={state.contentWarning}
+                      onChange={(e) => update({ contentWarning: e.target.value })}
+                      placeholder="Describe the content (optional)"
+                      maxLength={200}
+                      className="editor-settings-input" />
+                    <span className="editor-settings-hint">
+                      Sensitive entries are hidden from Explore by default. Readers can opt in.
+                    </span>
                   </div>
                 )}
               </div>

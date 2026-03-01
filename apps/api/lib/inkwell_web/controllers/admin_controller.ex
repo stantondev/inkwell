@@ -3,6 +3,7 @@ defmodule InkwellWeb.AdminController do
 
   alias Inkwell.Accounts
   alias Inkwell.Journals
+  alias Inkwell.Moderation
   alias InkwellWeb.EntryController
 
   # GET /api/admin/stats
@@ -12,7 +13,7 @@ defmodule InkwellWeb.AdminController do
     recent_signups = Accounts.recent_signups(10)
 
     json(conn, %{
-      stats: stats,
+      stats: Map.put(stats, :pending_reports, Moderation.count_pending_reports()),
       recent_plus: Enum.map(recent_plus, &render_user_brief/1),
       recent_signups: Enum.map(recent_signups, &render_user_brief/1)
     })
@@ -150,6 +151,34 @@ defmodule InkwellWeb.AdminController do
       end),
       pagination: %{page: page, per_page: per_page}
     })
+  end
+
+  # POST /api/admin/entries/:id/mark-sensitive
+  def mark_sensitive(conn, %{"id" => id}) do
+    case Journals.mark_entry_sensitive(id) do
+      {:ok, entry} ->
+        json(conn, %{data: EntryController.render_entry(entry)})
+
+      {:error, _} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+    end
+  rescue
+    Ecto.NoResultsError ->
+      conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+  end
+
+  # POST /api/admin/entries/:id/unmark-sensitive
+  def unmark_sensitive(conn, %{"id" => id}) do
+    case Journals.unmark_entry_sensitive(id) do
+      {:ok, entry} ->
+        json(conn, %{data: EntryController.render_entry(entry)})
+
+      {:error, _} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+    end
+  rescue
+    Ecto.NoResultsError ->
+      conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
   end
 
   # DELETE /api/admin/entries/:id

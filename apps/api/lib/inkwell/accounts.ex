@@ -200,6 +200,16 @@ defmodule Inkwell.Accounts do
   end
   def is_admin?(_), do: false
 
+  @doc "List all admin users (both DB-role and env-var admins)."
+  def list_admins do
+    admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
+
+    User
+    |> where([u], u.role == "admin" or u.username in ^admin_usernames)
+    |> where([u], is_nil(u.blocked_at))
+    |> Repo.all()
+  end
+
   @doc "Check if user is an env-var admin (cannot be demoted via UI)."
   def is_env_admin?(%User{username: username}) do
     admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])

@@ -11,6 +11,8 @@ interface AdminEntry {
   published_at: string | null;
   created_at: string;
   tags: string[];
+  sensitive?: boolean;
+  admin_sensitive?: boolean;
   author: {
     username: string;
     display_name: string;
@@ -30,6 +32,27 @@ function timeAgo(iso: string): string {
 export function AdminEntryList({ entries: initial }: { entries: AdminEntry[] }) {
   const [entries, setEntries] = useState(initial);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  async function handleToggleSensitive(entry: AdminEntry) {
+    const isSensitive = entry.sensitive || entry.admin_sensitive;
+    const endpoint = isSensitive ? "unmark-sensitive" : "mark-sensitive";
+    setToggling(entry.id);
+    try {
+      const res = await fetch(`/api/admin/entries/${entry.id}/${endpoint}`, { method: "POST" });
+      if (res.ok) {
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === entry.id
+              ? { ...e, admin_sensitive: !isSensitive }
+              : e
+          )
+        );
+      }
+    } finally {
+      setToggling(null);
+    }
+  }
 
   async function handleDelete(id: string, title: string | null) {
     const label = title ?? "this entry";
@@ -73,11 +96,20 @@ export function AdminEntryList({ entries: initial }: { entries: AdminEntry[] }) 
               <tr key={entry.id} className="border-b last:border-0"
                 style={{ borderColor: "var(--border)" }}>
                 <td className="px-4 py-3 max-w-xs">
-                  <Link href={`/${entry.author.username}/${entry.slug}`}
-                    className="font-medium hover:underline truncate block"
-                    style={{ color: "var(--foreground)" }}>
-                    {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    {(entry.sensitive || entry.admin_sensitive) && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                        <title>Sensitive content</title>
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    )}
+                    <Link href={`/${entry.author.username}/${entry.slug}`}
+                      className="font-medium hover:underline truncate block"
+                      style={{ color: "var(--foreground)" }}>
+                      {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
+                    </Link>
+                  </div>
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
                   <Link href={`/${entry.author.username}`} className="hover:underline"
@@ -98,13 +130,23 @@ export function AdminEntryList({ entries: initial }: { entries: AdminEntry[] }) 
                   {timeAgo(entry.published_at ?? entry.created_at)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleDelete(entry.id, entry.title)}
-                    disabled={deleting === entry.id}
-                    className="text-xs px-3 py-1 rounded-lg border font-medium transition-colors disabled:opacity-40"
-                    style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-                    {deleting === entry.id ? "…" : "Delete"}
-                  </button>
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      onClick={() => handleToggleSensitive(entry)}
+                      disabled={toggling === entry.id}
+                      className="text-xs px-3 py-1 rounded-lg border font-medium transition-colors disabled:opacity-40"
+                      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+                      title={(entry.sensitive || entry.admin_sensitive) ? "Unmark sensitive" : "Mark sensitive"}>
+                      {toggling === entry.id ? "…" : (entry.sensitive || entry.admin_sensitive) ? "Unmark" : "Sensitive"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(entry.id, entry.title)}
+                      disabled={deleting === entry.id}
+                      className="text-xs px-3 py-1 rounded-lg border font-medium transition-colors disabled:opacity-40"
+                      style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                      {deleting === entry.id ? "…" : "Delete"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

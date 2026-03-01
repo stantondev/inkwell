@@ -545,6 +545,10 @@ defmodule InkwellWeb.FederationController do
               _ -> note["id"]
             end
 
+          # Parse sensitivity flag (Mastodon/fediverse standard)
+          is_sensitive = note["sensitive"] == true
+          content_warning = if is_sensitive, do: note["summary"], else: nil
+
           attrs = %{
             ap_id: note["id"],
             url: url,
@@ -552,7 +556,9 @@ defmodule InkwellWeb.FederationController do
             body_html: note["content"] || "",
             tags: tags,
             published_at: parse_ap_datetime(note["published"]),
-            remote_actor_id: remote_actor.id
+            remote_actor_id: remote_actor.id,
+            sensitive: is_sensitive,
+            content_warning: content_warning
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do

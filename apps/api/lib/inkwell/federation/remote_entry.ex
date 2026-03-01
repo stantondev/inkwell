@@ -12,6 +12,8 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :body_html, :string
     field :tags, {:array, :string}, default: []
     field :published_at, :utc_datetime_usec
+    field :sensitive, :boolean, default: false
+    field :content_warning, :string
 
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
 
@@ -20,7 +22,7 @@ defmodule Inkwell.Federation.RemoteEntry do
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id])
+    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning])
     |> validate_required([:ap_id, :body_html, :remote_actor_id])
     |> unique_constraint(:ap_id)
   end

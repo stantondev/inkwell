@@ -5,11 +5,13 @@ import { apiFetch } from "@/lib/api";
 import { getSession, getToken } from "@/lib/session";
 import { parseMusicUrl, type MusicService } from "@/lib/music";
 import { Avatar } from "@/components/avatar";
+import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { JournalPage } from "@/components/journal-page";
 import { CommentForm } from "./comment-form";
 import { EditableComment } from "./editable-comment";
 import { EntryActions } from "./entry-actions";
+import { ReportButton } from "./report-button";
 import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
 import { BookmarkButton } from "@/components/bookmark-button";
@@ -64,6 +66,10 @@ interface EntryData {
     prev_entry?: { slug: string; title: string | null } | null;
     next_entry?: { slug: string; title: string | null } | null;
   } | null;
+  sensitive?: boolean;
+  content_warning?: string | null;
+  admin_sensitive?: boolean;
+  is_sensitive?: boolean;
   tip_total_cents?: number;
   tip_count?: number;
   author: EntryAuthor;
@@ -327,19 +333,6 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
-        {/* Cover image */}
-        {entry.cover_image_id && (
-          <div className="w-full overflow-hidden" style={{ maxHeight: 420 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/images/${entry.cover_image_id}`}
-              alt={entry.title ?? "Entry cover"}
-              className="w-full object-cover"
-              style={{ maxHeight: 420 }}
-              loading="eager"
-            />
-          </div>
-        )}
 
         <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12">
 
@@ -364,6 +357,9 @@ export default async function EntryPage({ params }: EntryParams) {
                   isLoggedIn={true}
                   size={18}
                 />
+              )}
+              {session && !isOwnEntry && (
+                <ReportButton entryId={entry.id} />
               )}
               {(isOwnEntry || isAdmin) && (
                 <EntryActions entryId={entry.id} username={username} showEdit={isOwnEntry} />
@@ -453,6 +449,22 @@ export default async function EntryPage({ params }: EntryParams) {
         </div>
       </div>
 
+      {/* Cover image */}
+      {entry.cover_image_id && (
+        <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
+          <div className="w-full overflow-hidden" style={{ maxHeight: 420 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/images/${entry.cover_image_id}`}
+              alt={entry.title ?? "Entry cover"}
+              className="w-full object-cover"
+              style={{ maxHeight: 420 }}
+              loading="eager"
+            />
+          </div>
+        </ContentWarning>
+      )}
+
       {/* ── Series navigation ──────────────────────────────────────── */}
       {entry.series && entry.series_order && (
         <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12">
@@ -462,29 +474,31 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Entry body ──────────────────────────────────────────────── */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <JournalPage corner className="p-6 lg:p-10">
-          <EntryContent
-            html={entry.body_html}
-            entryId={entry.id}
-            className={`prose-entry${entry.title ? " drop-cap" : ""}`}
-          />
-        </JournalPage>
+        <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
+          <JournalPage corner className="p-6 lg:p-10">
+            <EntryContent
+              html={entry.body_html}
+              entryId={entry.id}
+              className={`prose-entry${entry.title ? " drop-cap" : ""}`}
+            />
+          </JournalPage>
 
-        {/* Tags */}
-        {entry.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
-            {entry.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/tag/${tag}`}
-                className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-              >
-                #{tag}
-              </Link>
-            ))}
-          </div>
-        )}
+          {/* Tags */}
+          {entry.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+              {entry.tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/tag/${tag}`}
+                  className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  #{tag}
+                </Link>
+              ))}
+            </div>
+          )}
+        </ContentWarning>
 
         {/* Stamps */}
         <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>

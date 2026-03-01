@@ -25,6 +25,7 @@ interface StatsData {
     total_entries: number;
     total_comments: number;
     blocked_users: number;
+    pending_reports: number;
   };
   recent_plus: UserBrief[];
   recent_signups: UserBrief[];
@@ -79,18 +80,19 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="mb-8">
-          <AdminNav />
+          <AdminNav pendingReports={stats?.pending_reports} />
         </div>
 
         {/* Stat Cards */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-10">
             <StatCard label="Total Users" value={stats.total_users} />
             <StatCard label="Plus Subscribers" value={stats.plus_subscribers} accent />
             <StatCard label="New This Week" value={stats.signups_this_week} />
             <StatCard label="Total Entries" value={stats.total_entries} />
             <StatCard label="Total Comments" value={stats.total_comments} />
             <StatCard label="Blocked" value={stats.blocked_users} danger={stats.blocked_users > 0} />
+            <StatCard label="Pending Reports" value={stats.pending_reports} danger={stats.pending_reports > 0} />
           </div>
         )}
 

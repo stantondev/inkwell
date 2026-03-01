@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
+import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
@@ -32,6 +33,9 @@ export interface JournalEntry {
     username: string;
     series_order: number;
   } | null;
+  sensitive?: boolean;
+  content_warning?: string | null;
+  is_sensitive?: boolean;
   /** "local" (default) or "remote" for federated entries */
   source?: "local" | "remote";
   /** Original URL for remote entries */
@@ -88,20 +92,6 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
 
   return (
     <JournalPage corner edge className="flex flex-col">
-      {/* Cover image */}
-      {entry.cover_image_id && (
-        <div className="w-full overflow-hidden" style={{ maxHeight: 280 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/images/${entry.cover_image_id}`}
-            alt={entry.title ?? "Entry cover"}
-            className="w-full object-cover"
-            style={{ maxHeight: 280 }}
-            loading="lazy"
-          />
-        </div>
-      )}
-
       {/* Top section */}
       <div className="p-4 sm:p-5 lg:p-6 flex flex-col relative">
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
@@ -240,87 +230,104 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           </div>
         </div>
 
-        {/* Body preview — excerpt (plain text) or HTML clamp */}
-        {entry.excerpt ? (
-          <div>
-            <p
-              className="text-sm leading-relaxed line-clamp-8"
-              style={{ color: "var(--foreground)", opacity: 0.85 }}
-            >
-              {entry.excerpt}
-            </p>
-            {isRemote ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 text-sm font-medium hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                Continue reading &rarr;
-              </a>
-            ) : (
-              <Link
-                href={href}
-                className="inline-block mt-3 text-sm font-medium hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                Continue reading &rarr;
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div>
-            <div className="journal-body-clamp">
-              <EntryContent
-                html={entry.body_html}
-                entryId={entry.id}
-                className="prose-entry text-sm leading-relaxed"
+        {/* Sensitive content wrapper — hides body/cover/music/tags behind CW */}
+        <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning} compact>
+          {/* Cover image */}
+          {entry.cover_image_id && (
+            <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: 280 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/images/${entry.cover_image_id}`}
+                alt={entry.title ?? "Entry cover"}
+                className="w-full object-cover"
+                style={{ maxHeight: 280 }}
+                loading="lazy"
               />
             </div>
-            {isRemote ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 text-sm font-medium hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                Continue reading &rarr;
-              </a>
-            ) : (
-              <Link
-                href={href}
-                className="inline-block mt-3 text-sm font-medium hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                Continue reading &rarr;
-              </Link>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Music embed */}
-        <MusicPlayer music={entry.music} />
-
-        {/* Tags */}
-        {entry.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-5">
-            {entry.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/tag/${tag}`}
-                className="text-xs px-2 py-0.5 rounded-full border transition-colors hover:border-accent"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--muted)",
-                }}
+          {/* Body preview — excerpt (plain text) or HTML clamp */}
+          {entry.excerpt ? (
+            <div>
+              <p
+                className="text-sm leading-relaxed line-clamp-8"
+                style={{ color: "var(--foreground)", opacity: 0.85 }}
               >
-                #{tag}
-              </Link>
-            ))}
-          </div>
-        )}
+                {entry.excerpt}
+              </p>
+              {isRemote ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </a>
+              ) : (
+                <Link
+                  href={href}
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="journal-body-clamp">
+                <EntryContent
+                  html={entry.body_html}
+                  entryId={entry.id}
+                  className="prose-entry text-sm leading-relaxed"
+                />
+              </div>
+              {isRemote ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </a>
+              ) : (
+                <Link
+                  href={href}
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Music embed */}
+          <MusicPlayer music={entry.music} />
+
+          {/* Tags */}
+          {entry.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-5">
+              {entry.tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/tag/${tag}`}
+                  className="text-xs px-2 py-0.5 rounded-full border transition-colors hover:border-accent"
+                  style={{
+                    borderColor: "var(--border)",
+                    color: "var(--muted)",
+                  }}
+                >
+                  #{tag}
+                </Link>
+              ))}
+            </div>
+          )}
+        </ContentWarning>
       </div>
 
       {/* Footer — either custom actions or static default */}

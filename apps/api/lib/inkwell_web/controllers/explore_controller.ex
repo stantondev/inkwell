@@ -15,11 +15,26 @@ defmodule InkwellWeb.ExploreController do
     category = params["category"]
     viewer = conn.assigns[:current_user]
 
+    # Check if the viewer has opted in to see sensitive content
+    include_sensitive =
+      case viewer do
+        %{settings: %{"show_sensitive_content" => true}} -> true
+        _ -> false
+      end
+
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag, category: category)
-    remote_entries = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
+    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag, category: category, include_sensitive: include_sensitive)
+    all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
+
+    # Filter out sensitive remote entries unless viewer has opted in
+    remote_entries =
+      if include_sensitive do
+        all_remote
+      else
+        Enum.reject(all_remote, fn re -> re.sensitive end)
+      end
 
     # Normalize into a common shape
     local_items = Enum.map(local_entries, fn entry ->
@@ -123,6 +138,9 @@ defmodule InkwellWeb.ExploreController do
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: Map.get(remote_comment_counts, re.id, 0),
+          sensitive: re.sensitive || false,
+          content_warning: re.content_warning,
+          is_sensitive: re.sensitive || false,
           mood: nil,
           music: nil,
           slug: nil,

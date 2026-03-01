@@ -111,6 +111,20 @@ defmodule Inkwell.Federation.ActivityBuilder do
         article
       end
 
+    # Content sensitivity flag (Mastodon/fediverse standard)
+    is_sensitive = (Map.get(entry, :sensitive, false) || false) || (Map.get(entry, :admin_sensitive, false) || false)
+
+    article =
+      if is_sensitive do
+        cw_text = Map.get(entry, :content_warning) || "Sensitive content"
+
+        article
+        |> Map.put("sensitive", true)
+        |> Map.put("summary", cw_text)
+      else
+        article
+      end
+
     # preview Note for microblogging consumers (Mastodon etc.) per FEP-b2b8 §preview
     Map.put(article, "preview", build_preview_note(entry, actor_url, instance_host))
   end

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { StampPicker } from "@/components/stamp-picker";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { FloatingPopup } from "@/components/floating-popup";
+import { ReportModal } from "@/components/report-modal";
 
 interface FeedComment {
   id: string;
@@ -78,6 +79,7 @@ export function FeedCardActions({
   const [commentError, setCommentError] = useState("");
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [stamps, setStamps] = useState(initialStamps);
+  const [reportOpen, setReportOpen] = useState(false);
   const commentBtnRef = useRef<HTMLButtonElement>(null);
   const submittingRef = useRef(false);
 
@@ -362,7 +364,28 @@ export function FeedCardActions({
             onBookmarkChange={onBookmarkChange}
           />
         )}
+
+        {/* Report button — only for other users' non-remote entries */}
+        {!isOwnEntry && !isRemote && isLoggedIn && (
+          <button
+            onClick={() => setReportOpen(true)}
+            className="flex items-center transition-opacity hover:opacity-80 cursor-pointer"
+            style={{ color: "var(--muted)" }}
+            title="Report"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+              <line x1="4" y1="22" x2="4" y2="15" />
+            </svg>
+          </button>
+        )}
       </div>
+
+      {/* Report modal */}
+      {reportOpen && (
+        <ReportModal entryId={entryId} onClose={() => setReportOpen(false)} />
+      )}
     </div>
   );
 }

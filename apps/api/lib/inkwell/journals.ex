@@ -570,6 +570,7 @@ defmodule Inkwell.Journals do
     per_page = Keyword.get(opts, :per_page, 20)
     tag = Keyword.get(opts, :tag)
     category = Keyword.get(opts, :category)
+    include_sensitive = Keyword.get(opts, :include_sensitive, false)
 
     query =
       Entry
@@ -577,6 +578,14 @@ defmodule Inkwell.Journals do
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
       |> order_by(desc: :published_at)
+
+    # Filter out sensitive entries unless the viewer has opted in
+    query =
+      if include_sensitive do
+        query
+      else
+        where(query, [e], e.sensitive == false and e.admin_sensitive == false)
+      end
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
@@ -648,6 +657,22 @@ defmodule Inkwell.Journals do
     |> order_by([e], fragment("2 DESC"))
     |> Repo.all()
     |> Enum.map(fn {cat, count} -> %{category: cat, count: count} end)
+  end
+
+  # ── Content Moderation ───────────────────────────────────────────────────
+
+  @doc "Admin-mark an entry as sensitive (independent of author's own flag)."
+  def mark_entry_sensitive(entry_id) do
+    get_entry!(entry_id)
+    |> Ecto.Changeset.change(admin_sensitive: true)
+    |> Repo.update()
+  end
+
+  @doc "Remove admin-sensitive flag from an entry."
+  def unmark_entry_sensitive(entry_id) do
+    get_entry!(entry_id)
+    |> Ecto.Changeset.change(admin_sensitive: false)
+    |> Repo.update()
   end
 
   # ── Entry Images ─────────────────────────────────────────────────────────

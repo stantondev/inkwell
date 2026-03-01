@@ -107,6 +107,9 @@ defmodule InkwellWeb.FeedController do
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: Map.get(remote_comment_counts, re.id, 0),
+          sensitive: re.sensitive || false,
+          content_warning: re.content_warning,
+          is_sensitive: re.sensitive || false,
           mood: nil,
           music: nil,
           slug: nil,
@@ -128,7 +131,9 @@ defmodule InkwellWeb.FeedController do
         conn |> put_status(:not_found) |> send_resp(404, "User not found")
 
       user ->
-        entries = Journals.list_public_entries(user.id, per_page: 20)
+        entries =
+          Journals.list_public_entries(user.id, per_page: 20)
+          |> Enum.reject(fn e -> e.sensitive || e.admin_sensitive end)
         xml = build_rss(user, entries, "#{base_url()}/users/#{username}")
 
         conn

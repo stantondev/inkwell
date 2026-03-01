@@ -166,7 +166,8 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category", "series_id"])
+                      "excerpt", "cover_image_id", "category", "series_id",
+                      "sensitive", "content_warning"])
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
         |> maybe_auto_series_order()
@@ -190,7 +191,8 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category", "series_id"])
+                      "excerpt", "cover_image_id", "category", "series_id",
+                      "sensitive", "content_warning"])
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
@@ -236,7 +238,8 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                       "excerpt", "cover_image_id", "category", "series_id"])
+                       "excerpt", "cover_image_id", "category", "series_id",
+                       "sensitive", "content_warning"])
         |> maybe_clear_custom_filter_id()
         |> maybe_auto_series_order()
         |> put_word_count()
@@ -290,7 +293,8 @@ defmodule InkwellWeb.EntryController do
           params
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
-                        "excerpt", "cover_image_id", "category", "series_id"])
+                        "excerpt", "cover_image_id", "category", "series_id",
+                        "sensitive", "content_warning"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> maybe_auto_series_order()
@@ -491,6 +495,10 @@ defmodule InkwellWeb.EntryController do
       series_id: entry.series_id,
       series_order: entry.series_order,
       newsletter_sent_at: entry.newsletter_sent_at,
+      sensitive: entry.sensitive || false,
+      content_warning: entry.content_warning,
+      admin_sensitive: entry.admin_sensitive || false,
+      is_sensitive: (entry.sensitive || false) || (entry.admin_sensitive || false),
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }

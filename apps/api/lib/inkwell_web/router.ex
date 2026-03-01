@@ -262,6 +262,9 @@ defmodule InkwellWeb.Router do
     get "/tips/sent", TippingController, :tips_sent
     get "/tips/stats", TippingController, :tip_stats
 
+    # Content reports (authenticated)
+    post "/entries/:entry_id/report", ReportController, :create
+
     # Newsletter (authenticated endpoints)
     get "/newsletter/settings", NewsletterController, :get_settings
     patch "/newsletter/settings", NewsletterController, :update_settings
@@ -300,6 +303,12 @@ defmodule InkwellWeb.Router do
     # Entry management
     get "/entries", AdminController, :list_entries
     delete "/entries/:id", AdminController, :delete_entry
+    post "/entries/:id/mark-sensitive", AdminController, :mark_sensitive
+    post "/entries/:id/unmark-sensitive", AdminController, :unmark_sensitive
+
+    # Content reports (admin)
+    get "/reports", ReportController, :index
+    patch "/reports/:id", ReportController, :update
   end
 
   # Health check — used by Fly.io and external monitors
