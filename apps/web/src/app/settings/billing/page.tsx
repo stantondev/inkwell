@@ -168,6 +168,7 @@ export default function BillingPage() {
                 "Unlimited drafts (Free: 10 max)",
                 "Unlimited pen pal filters (Free: 5 max)",
                 "Integrated Postage (reader support payments)",
+                "API read + write access, 300 req/15 min (Free: read-only, 100 req/15 min)",
                 "Custom colors, fonts & layouts",
                 "Background images & profile music",
                 "Widget reordering",

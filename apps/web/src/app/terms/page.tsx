@@ -332,6 +332,32 @@ export default function TermsPage() {
             Send limits reset at the beginning of each calendar month (UTC). Cancelled or failed sends still count toward
             the monthly limit. Inkwell reserves the right to adjust these limits with 30 days&apos; notice to affected users.
           </p>
+
+          <h3 className="font-semibold mt-4 mb-2">8.9 API Access</h3>
+          <p>
+            Inkwell provides a public API that allows users to programmatically access and manage their content using API keys.
+            API keys are created in your account settings and are shown only once at creation — you are responsible for storing
+            them securely.
+          </p>
+          <ul className="list-disc pl-6 mt-3 flex flex-col gap-2">
+            <li>
+              <strong>Free tier:</strong> Read-only API access (100 requests per 15-minute window per key).
+            </li>
+            <li>
+              <strong>Inkwell Plus:</strong> Read and write API access (300 read requests and 60 write requests per 15-minute
+              window per key).
+            </li>
+          </ul>
+          <p className="mt-3">
+            Each user may create up to 10 API keys. API keys are subject to the same content policies, terms, and
+            acceptable use standards as content created through the web interface. You must not share your API keys publicly
+            or embed them in client-side code. Inkwell reserves the right to revoke API keys that are used in violation of
+            these Terms or that pose a security risk to the platform.
+          </p>
+          <p className="mt-3">
+            Automated content creation via the API must comply with all applicable content policies. Rate limits are enforced
+            per key and may be adjusted with notice.
+          </p>
         </section>
 
         {/* 9. Copyright and DMCA Policy */}

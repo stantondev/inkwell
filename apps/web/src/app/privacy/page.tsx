@@ -69,6 +69,11 @@ export default function PrivacyPage() {
               <strong>Communications:</strong> If you contact us for support, we collect the contents of your messages and
               any attachments.
             </li>
+            <li>
+              <strong>API keys:</strong> If you create API keys for programmatic access, we store a cryptographic hash of
+              each key along with a short prefix for identification, usage metadata (last used timestamp), and the
+              permissions you selected. The full API key is shown only once at creation and is not stored by Inkwell.
+            </li>
           </ul>
 
           <h3 className="font-semibold mt-4 mb-2">1.2 Information Collected Automatically</h3>
@@ -226,8 +231,14 @@ export default function PrivacyPage() {
               and comments are preserved in an anonymized form with no personally identifiable information attached.
             </li>
             <li>
+              <strong>API Keys.</strong> API keys remain active until you revoke them or they reach their optional expiration
+              date. Revoked keys are permanently deleted after 90 days. All API keys are immediately deleted when you delete
+              your account.
+            </li>
+            <li>
               <strong>Automated Cleanup.</strong> We run automated processes daily to remove expired sessions, orphaned
-              files, old notifications, and abandoned drafts in accordance with the retention periods described above.
+              files, old notifications, abandoned drafts, and revoked API keys in accordance with the retention periods
+              described above.
             </li>
           </ul>
         </section>
