@@ -75,10 +75,10 @@ export function ThemeExplorer() {
                   background: "var(--te-surface)",
                 }}
               >
-                <span style={{ color: "var(--te-foreground)", fontFamily, fontSize: "11px", fontWeight: 600 }}>
+                <span style={{ color: "var(--te-foreground)", fontFamily, fontSize: "13px", fontWeight: 600 }}>
                   {title}
                 </span>
-                <span style={{ color: "var(--te-muted)", fontSize: "9px" }}>3 min read</span>
+                <span style={{ color: "var(--te-muted)", fontSize: "11px" }}>3 min read</span>
               </div>
             ))}
           </div>
