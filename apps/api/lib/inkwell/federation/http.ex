@@ -26,8 +26,8 @@ defmodule Inkwell.Federation.Http do
   defp http_opts do
     [
       {:ssl, ssl_opts()},
-      {:timeout, 15_000},
-      {:connect_timeout, 10_000}
+      {:timeout, 30_000},
+      {:connect_timeout, 15_000}
     ]
   end
 
@@ -60,9 +60,13 @@ defmodule Inkwell.Federation.Http do
   def post(url, body, headers) do
     url_cl = String.to_charlist(url)
     content_type = ~c"application/activity+json"
-    body_cl = String.to_charlist(body)
+    # Use :erlang.binary_to_list/1, NOT String.to_charlist/1.
+    # String.to_charlist converts UTF-8 to Unicode codepoints (integers > 255),
+    # which :httpc can't send as raw bytes, causing silent timeouts.
+    # :erlang.binary_to_list preserves the raw UTF-8 byte sequence.
+    body_bytes = :erlang.binary_to_list(body)
 
-    case :httpc.request(:post, {url_cl, headers, content_type, body_cl}, http_opts(), []) do
+    case :httpc.request(:post, {url_cl, headers, content_type, body_bytes}, http_opts(), []) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} when status in 200..299 ->
         Logger.info("Federation POST to #{url} succeeded (#{status})")
         :ok

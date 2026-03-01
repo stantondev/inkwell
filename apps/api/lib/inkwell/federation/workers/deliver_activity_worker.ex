@@ -1,12 +1,12 @@
 defmodule Inkwell.Federation.Workers.DeliverActivityWorker do
   @moduledoc """
   Oban worker that delivers a single ActivityPub activity to a remote inbox.
-  Retries up to 5 times with exponential backoff.
+  Retries up to 10 times with exponential backoff (30s, 1m, 2m, 4m, 8m, 16m, 32m, 64m, 128m, 256m).
   """
 
   use Oban.Worker,
     queue: :federation,
-    max_attempts: 5,
+    max_attempts: 10,
     priority: 1
 
   alias Inkwell.Repo
@@ -36,6 +36,12 @@ defmodule Inkwell.Federation.Workers.DeliverActivityWorker do
             {:error, reason}
         end
     end
+  end
+
+  # Exponential backoff: 30s, 1m, 2m, 4m, ... up to ~4h
+  @impl Oban.Worker
+  def backoff(%Oban.Job{attempt: attempt}) do
+    trunc(:math.pow(2, attempt) * 15)
   end
 
   defp federation_config(key) do

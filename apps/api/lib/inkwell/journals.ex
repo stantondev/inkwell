@@ -166,20 +166,9 @@ defmodule Inkwell.Journals do
   end
 
   def create_entry(attrs) do
-    result =
-      %Entry{}
-      |> Entry.changeset(attrs)
-      |> Repo.insert()
-
-    # Fan out to federation if public
-    case result do
-      {:ok, entry} when entry.privacy == :public ->
-        enqueue_fan_out(entry, "create")
-        result
-
-      _ ->
-        result
-    end
+    %Entry{}
+    |> Entry.changeset(attrs)
+    |> Repo.insert()
   end
 
   @doc """
@@ -204,46 +193,13 @@ defmodule Inkwell.Journals do
       end
     end
 
-    result =
-      entry
-      |> Entry.changeset(attrs)
-      |> Repo.update()
-
-    case result do
-      {:ok, updated} when updated.privacy == :public ->
-        enqueue_fan_out(updated, "update")
-        result
-
-      _ ->
-        result
-    end
+    entry
+    |> Entry.changeset(attrs)
+    |> Repo.update()
   end
 
   def delete_entry(%Entry{} = entry) do
-    ap_id = entry.ap_id
-    user_id = entry.user_id
-    was_public = entry.privacy == :public
-
-    result = Repo.delete(entry)
-
-    # Fan out delete if the entry was public
-    case result do
-      {:ok, _} when was_public and not is_nil(ap_id) ->
-        %{entry_ap_id: ap_id, action: "delete", user_id: user_id}
-        |> Inkwell.Federation.Workers.FanOutWorker.new()
-        |> Oban.insert()
-
-        result
-
-      _ ->
-        result
-    end
-  end
-
-  defp enqueue_fan_out(entry, action) do
-    %{entry_id: entry.id, action: action, user_id: entry.user_id}
-    |> Inkwell.Federation.Workers.FanOutWorker.new()
-    |> Oban.insert()
+    Repo.delete(entry)
   end
 
   # ── Drafts ─────────────────────────────────────────────────────────────────
@@ -270,11 +226,6 @@ defmodule Inkwell.Journals do
       {:ok, published} ->
         # Create version 1 — the first published snapshot
         create_version(published)
-
-        if published.privacy == :public do
-          enqueue_fan_out(published, "create")
-        end
-
         result
 
       _ ->
