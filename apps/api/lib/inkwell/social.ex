@@ -65,6 +65,29 @@ defmodule Inkwell.Social do
                    (r.follower_id == ^blocked_id and r.following_id == ^blocker_id))
     |> Repo.delete_all()
 
+    # Delete stamps between the two users (both directions)
+    entry_ids_by_blocker =
+      from(e in Inkwell.Journals.Entry, where: e.user_id == ^blocker_id, select: e.id)
+
+    entry_ids_by_blocked =
+      from(e in Inkwell.Journals.Entry, where: e.user_id == ^blocked_id, select: e.id)
+
+    Inkwell.Stamps.Stamp
+    |> where([s], s.user_id == ^blocker_id and s.entry_id in subquery(entry_ids_by_blocked))
+    |> Repo.delete_all()
+
+    Inkwell.Stamps.Stamp
+    |> where([s], s.user_id == ^blocked_id and s.entry_id in subquery(entry_ids_by_blocker))
+    |> Repo.delete_all()
+
+    # Remove from top friends (both directions)
+    TopFriend
+    |> where([tf],
+      (tf.user_id == ^blocker_id and tf.friend_id == ^blocked_id) or
+      (tf.user_id == ^blocked_id and tf.friend_id == ^blocker_id)
+    )
+    |> Repo.delete_all()
+
     # Create block
     %Relationship{}
     |> Relationship.changeset(%{
@@ -73,6 +96,75 @@ defmodule Inkwell.Social do
       status: :blocked
     })
     |> Repo.insert()
+  end
+
+  def unblock(blocker_id, blocked_id) do
+    {count, _} =
+      Relationship
+      |> where([r], r.follower_id == ^blocker_id and r.following_id == ^blocked_id and r.status == :blocked)
+      |> Repo.delete_all()
+
+    case count do
+      0 -> {:error, :not_found}
+      _ -> :ok
+    end
+  end
+
+  @doc "Check if either user has blocked the other (bidirectional)."
+  def is_blocked_between?(user_a_id, user_b_id) do
+    Relationship
+    |> where([r],
+      (r.follower_id == ^user_a_id and r.following_id == ^user_b_id and r.status == :blocked) or
+      (r.follower_id == ^user_b_id and r.following_id == ^user_a_id and r.status == :blocked)
+    )
+    |> Repo.exists?()
+  end
+
+  @doc "Get all user IDs blocked in both directions (users I blocked + users who blocked me)."
+  def get_blocked_user_ids(user_id) do
+    blocked_by_me =
+      Relationship
+      |> where([r], r.follower_id == ^user_id and r.status == :blocked)
+      |> select([r], r.following_id)
+      |> Repo.all()
+
+    blocked_me =
+      Relationship
+      |> where([r], r.following_id == ^user_id and r.status == :blocked)
+      |> select([r], r.follower_id)
+      |> Repo.all()
+
+    Enum.uniq(blocked_by_me ++ blocked_me)
+  end
+
+  @doc "Get directional block status between two users."
+  def get_block_status(viewer_id, target_id) do
+    blocked_by_me =
+      Relationship
+      |> where([r], r.follower_id == ^viewer_id and r.following_id == ^target_id and r.status == :blocked)
+      |> Repo.exists?()
+
+    blocked_by_them =
+      Relationship
+      |> where([r], r.follower_id == ^target_id and r.following_id == ^viewer_id and r.status == :blocked)
+      |> Repo.exists?()
+
+    case {blocked_by_me, blocked_by_them} do
+      {true, true} -> :mutual_block
+      {true, false} -> :blocked_by_me
+      {false, true} -> :blocked_by_them
+      {false, false} -> nil
+    end
+  end
+
+  @doc "List users that the given user has blocked."
+  def list_blocked_users(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :blocked)
+    |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.following_id == u.id)
+    |> select([r, u], u)
+    |> order_by([r], desc: r.inserted_at)
+    |> Repo.all()
   end
 
   def get_relationship(follower_id, following_id) do

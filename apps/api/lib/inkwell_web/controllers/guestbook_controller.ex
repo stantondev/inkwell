@@ -1,8 +1,7 @@
 defmodule InkwellWeb.GuestbookController do
   use InkwellWeb, :controller
 
-  alias Inkwell.Guestbook
-  alias Inkwell.Accounts
+  alias Inkwell.{Guestbook, Accounts, Social}
 
   # GET /api/users/:username/guestbook — list entries (public)
   def index(conn, %{"username" => username} = params) do
@@ -11,10 +10,15 @@ defmodule InkwellWeb.GuestbookController do
         conn |> put_status(:not_found) |> json(%{error: "User not found"})
 
       user ->
+        viewer = conn.assigns[:current_user]
         limit = min(String.to_integer(Map.get(params, "limit", "20")), 50)
         offset = String.to_integer(Map.get(params, "offset", "0"))
         entries = Guestbook.list_entries(user.id, limit: limit, offset: offset)
         count = Guestbook.count_entries(user.id)
+
+        # Post-filter guestbook entries from blocked users
+        blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+        entries = if blocked_ids != [], do: Enum.reject(entries, fn e -> e.author_id in blocked_ids end), else: entries
 
         json(conn, %{
           data: Enum.map(entries, &render_entry/1),
@@ -32,18 +36,22 @@ defmodule InkwellWeb.GuestbookController do
         conn |> put_status(:not_found) |> json(%{error: "User not found"})
 
       profile_user ->
-        case Guestbook.create_entry(%{
-          "body" => body,
-          "profile_user_id" => profile_user.id,
-          "author_id" => current_user.id
-        }) do
-          {:ok, entry} ->
-            entry = Inkwell.Repo.preload(entry, :author)
-            conn |> put_status(:created) |> json(%{data: render_entry(entry)})
+        if Social.is_blocked_between?(current_user.id, profile_user.id) do
+          conn |> put_status(:forbidden) |> json(%{error: "Cannot sign this guestbook"})
+        else
+          case Guestbook.create_entry(%{
+            "body" => body,
+            "profile_user_id" => profile_user.id,
+            "author_id" => current_user.id
+          }) do
+            {:ok, entry} ->
+              entry = Inkwell.Repo.preload(entry, :author)
+              conn |> put_status(:created) |> json(%{data: render_entry(entry)})
 
-          {:error, changeset} ->
-            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
-            conn |> put_status(:unprocessable_entity) |> json(%{errors: errors})
+            {:error, changeset} ->
+              errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
+              conn |> put_status(:unprocessable_entity) |> json(%{errors: errors})
+          end
         end
     end
   end

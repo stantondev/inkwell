@@ -280,7 +280,11 @@ defmodule InkwellWeb.PollController do
         conn |> put_status(:not_found) |> json(%{error: "Poll not found"})
 
       _poll ->
+        viewer = conn.assigns[:current_user]
         comments = Polls.list_comments(poll_id)
+        # Post-filter comments from blocked users
+        blocked_ids = if viewer, do: Inkwell.Social.get_blocked_user_ids(viewer.id), else: []
+        comments = if blocked_ids != [], do: Enum.reject(comments, fn c -> c.user_id in blocked_ids end), else: comments
         json(conn, %{data: Enum.map(comments, &render_comment/1)})
     end
   end

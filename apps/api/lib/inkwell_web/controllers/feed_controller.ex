@@ -11,12 +11,13 @@ defmodule InkwellWeb.FeedController do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], 20)
 
-    friend_ids = Social.list_friend_ids(user.id)
+    blocked_ids = Social.get_blocked_user_ids(user.id)
+    friend_ids = Social.list_friend_ids(user.id) -- blocked_ids
 
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count)
+    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids)
     remote_entries = RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
 
     # Normalize into a common shape and merge chronologically

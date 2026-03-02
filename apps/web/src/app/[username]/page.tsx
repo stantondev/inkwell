@@ -8,6 +8,7 @@ import { PROFILE_FONTS } from "@/lib/profile-themes";
 import { scopeEntryHtml } from "@/lib/scope-styles";
 import { FollowButton } from "./follow-button";
 import { WriteLetterButton } from "./write-letter-button";
+import { BlockButton } from "./block-button";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
@@ -297,6 +298,43 @@ export default async function ProfilePage({ params }: ProfileParams) {
     entryCategories = data.meta.entry_categories ?? [];
   } catch {
     notFound();
+  }
+
+  // Handle blocked states — show limited profile
+  if (relationshipStatus === "unavailable") {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+        <div className="text-center p-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)" }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold mb-2">This profile is not available</h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            The content you&apos;re looking for cannot be displayed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (relationshipStatus === "blocked_by_me") {
+    return (
+      <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+        <div className="mx-auto max-w-2xl px-4 py-12">
+          <div className="rounded-xl border p-8 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+            <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={64} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
+            <h1 className="text-lg font-semibold mt-4">@{profile.username}</h1>
+            <p className="text-sm mt-2 mb-6" style={{ color: "var(--muted)" }}>
+              You&apos;ve blocked this user. They can&apos;t see your content or interact with you.
+            </p>
+            <BlockButton targetUsername={username} initialBlocked={true} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Compute display mode and per_page for initial fetch
@@ -637,6 +675,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   {/* Write a Letter button — only for accepted pen pals */}
                   {relationshipStatus === "accepted" && session && (
                     <WriteLetterButton username={username} />
+                  )}
+                  {session && (
+                    <BlockButton targetUsername={username} initialBlocked={false} />
                   )}
                 </div>
               )}

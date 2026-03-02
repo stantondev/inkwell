@@ -51,25 +51,30 @@ defmodule InkwellWeb.RelationshipController do
     user = conn.assigns.current_user
 
     with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
-      if target.id == user.id do
-        conn |> put_status(:unprocessable_entity) |> json(%{error: "Cannot follow yourself"})
-      else
-        case Social.follow(user.id, target.id) do
-          {:ok, _rel} ->
-            # Notify the target
-            Accounts.create_notification(%{
-              user_id: target.id,
-              type: :follow_request,
-              actor_id: user.id,
-              target_type: "user",
-              target_id: target.id
-            })
+      cond do
+        target.id == user.id ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Cannot follow yourself"})
 
-            json(conn, %{ok: true, status: "pending"})
+        Social.is_blocked_between?(user.id, target.id) ->
+          conn |> put_status(:forbidden) |> json(%{error: "Cannot follow this user"})
 
-          {:error, _changeset} ->
-            conn |> put_status(:unprocessable_entity) |> json(%{error: "Already following"})
-        end
+        true ->
+          case Social.follow(user.id, target.id) do
+            {:ok, _rel} ->
+              # Notify the target
+              Accounts.create_notification(%{
+                user_id: target.id,
+                type: :follow_request,
+                actor_id: user.id,
+                target_type: "user",
+                target_id: target.id
+              })
+
+              json(conn, %{ok: true, status: "pending"})
+
+            {:error, _changeset} ->
+              conn |> put_status(:unprocessable_entity) |> json(%{error: "Already following"})
+          end
       end
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
@@ -167,5 +172,27 @@ defmodule InkwellWeb.RelationshipController do
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
     end
+  end
+
+  # DELETE /api/relationships/:username/block
+  def unblock(conn, %{"username" => username}) do
+    user = conn.assigns.current_user
+
+    with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
+      case Social.unblock(user.id, target.id) do
+        :ok -> json(conn, %{ok: true})
+        {:error, :not_found} ->
+          conn |> put_status(:not_found) |> json(%{error: "Not blocked"})
+      end
+    else
+      nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
+    end
+  end
+
+  # GET /api/blocked-users
+  def blocked_users(conn, _params) do
+    user = conn.assigns.current_user
+    users = Social.list_blocked_users(user.id)
+    json(conn, %{data: Enum.map(users, &UserController.render_user_brief/1)})
   end
 end

@@ -20,9 +20,15 @@ defmodule InkwellWeb.UserController do
             nil -> nil
             %{id: id} when id == user.id -> nil
             current_user ->
-              case Social.get_relationship(current_user.id, user.id) do
-                {:ok, rel} -> to_string(rel.status)
-                {:error, :not_found} -> nil
+              case Social.get_block_status(current_user.id, user.id) do
+                :blocked_by_me -> "blocked_by_me"
+                :mutual_block -> "blocked_by_me"
+                :blocked_by_them -> "unavailable"
+                nil ->
+                  case Social.get_relationship(current_user.id, user.id) do
+                    {:ok, rel} -> to_string(rel.status)
+                    {:error, :not_found} -> nil
+                  end
               end
           end
 
@@ -160,7 +166,9 @@ defmodule InkwellWeb.UserController do
 
   # GET /api/users/mention-search?q=prefix — search users by username prefix for @mentions
   def mention_search(conn, %{"q" => q}) do
-    users = Accounts.search_users_by_prefix(q, 8)
+    viewer = conn.assigns[:current_user]
+    blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+    users = Accounts.search_users_by_prefix(q, 8, blocked_ids)
     json(conn, %{data: users})
   end
 

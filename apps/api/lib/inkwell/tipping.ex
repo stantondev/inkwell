@@ -201,6 +201,9 @@ defmodule Inkwell.Tipping do
     entry_id = attrs["entry_id"] || attrs[:entry_id]
 
     cond do
+      Inkwell.Social.is_blocked_between?(sender.id, recipient.id) ->
+        {:error, :blocked}
+
       !recipient.stripe_connect_enabled ->
         {:error, :tips_not_enabled}
 

@@ -1,7 +1,7 @@
 defmodule InkwellWeb.StampController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Journals, Stamps, Accounts}
+  alias Inkwell.{Journals, Social, Stamps, Accounts}
 
   @valid_stamp_types ~w(felt holding_space beautifully_said rooting throwback i_cannot supporter)
 
@@ -13,7 +13,8 @@ defmodule InkwellWeb.StampController do
     with :ok <- validate_stamp_type(stamp_type),
          :ok <- validate_plus_for_supporter(stamp_type, user),
          {:ok, entry} <- get_entry(entry_id),
-         :ok <- validate_not_own_entry(entry, user) do
+         :ok <- validate_not_own_entry(entry, user),
+         :ok <- validate_not_blocked(entry, user) do
       case Stamps.stamp_entry(user.id, entry_id, stamp_type) do
         {:ok, stamp, action} ->
           # Create notification for entry author only on new stamps
@@ -49,6 +50,9 @@ defmodule InkwellWeb.StampController do
 
       {:error, :own_entry} ->
         conn |> put_status(:forbidden) |> json(%{error: "Cannot stamp your own entry"})
+
+      {:error, :blocked} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Cannot stamp this entry"})
 
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
@@ -127,6 +131,10 @@ defmodule InkwellWeb.StampController do
 
   defp validate_not_own_entry(entry, user) do
     if entry.user_id == user.id, do: {:error, :own_entry}, else: :ok
+  end
+
+  defp validate_not_blocked(entry, user) do
+    if Social.is_blocked_between?(user.id, entry.user_id), do: {:error, :blocked}, else: :ok
   end
 
   defp get_entry(entry_id) do

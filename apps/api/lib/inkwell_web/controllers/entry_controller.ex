@@ -11,6 +11,12 @@ defmodule InkwellWeb.EntryController do
   def index(conn, %{"username" => username} = params) do
     with user when not is_nil(user) <- Accounts.get_user_by_username(username) do
       viewer = conn.assigns[:current_user]
+
+      # Block check: if either user blocked the other, return empty
+      if viewer && viewer.id != user.id && Social.is_blocked_between?(viewer.id, user.id) do
+        conn |> put_status(:forbidden) |> json(%{error: "Not available"})
+      else
+
       page = parse_int(params["page"], 1)
       per_page = parse_int(params["per_page"], 20)
 
@@ -64,6 +70,7 @@ defmodule InkwellWeb.EntryController do
         end),
         pagination: %{page: page, per_page: per_page, total: total_count}
       })
+      end
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
     end
@@ -76,6 +83,11 @@ defmodule InkwellWeb.EntryController do
          :published <- entry.status do
 
       viewer = conn.assigns[:current_user]
+
+      # Block check: if blocked between viewer and entry author, return 404
+      if viewer && viewer.id != user.id && Social.is_blocked_between?(viewer.id, user.id) do
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+      else
 
       render_with_stamps = fn ->
         stamp_types = Stamps.get_entry_stamp_types(entry.id)
@@ -140,6 +152,7 @@ defmodule InkwellWeb.EntryController do
 
         true ->
           conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+      end
       end
     else
       :draft -> conn |> put_status(:not_found) |> json(%{error: "Entry not found"})

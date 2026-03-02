@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Journals, Social, Stamps}
   alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
@@ -22,10 +22,12 @@ defmodule InkwellWeb.ExploreController do
         _ -> false
       end
 
+    blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag, category: category, include_sensitive: include_sensitive)
+    local_entries = Journals.list_public_explore_entries(page: 1, per_page: fetch_count, tag: tag, category: category, include_sensitive: include_sensitive, exclude_user_ids: blocked_ids)
     all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
 
     # Filter out sensitive remote entries unless viewer has opted in

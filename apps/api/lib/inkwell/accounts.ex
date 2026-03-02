@@ -43,7 +43,7 @@ defmodule Inkwell.Accounts do
   end
 
   @doc "Search users by username prefix for @mention autocomplete. Returns up to `limit` users."
-  def search_users_by_prefix(prefix, limit \\ 10) do
+  def search_users_by_prefix(prefix, limit \\ 10, exclude_ids \\ []) do
     prefix = String.trim(prefix) |> String.downcase()
 
     if String.length(prefix) < 1 do
@@ -51,14 +51,23 @@ defmodule Inkwell.Accounts do
     else
       like_pattern = "#{prefix}%"
 
-      User
-      |> where([u], like(u.username, ^like_pattern))
-      |> where([u], not is_nil(u.username))
-      |> where([u], is_nil(u.blocked_at))
-      |> order_by([u], asc: u.username)
-      |> limit(^limit)
-      |> select([u], %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url})
-      |> Repo.all()
+      query =
+        User
+        |> where([u], like(u.username, ^like_pattern))
+        |> where([u], not is_nil(u.username))
+        |> where([u], is_nil(u.blocked_at))
+        |> order_by([u], asc: u.username)
+        |> limit(^limit)
+        |> select([u], %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url})
+
+      query =
+        if exclude_ids != [] do
+          where(query, [u], u.id not in ^exclude_ids)
+        else
+          query
+        end
+
+      Repo.all(query)
     end
   end
 
@@ -69,6 +78,8 @@ defmodule Inkwell.Accounts do
         where: r.follower_id == ^current_user_id and r.status in [:pending, :accepted],
         select: r.following_id
 
+    blocked_ids = Inkwell.Social.get_blocked_user_ids(current_user_id)
+
     # Primary: users with published public entries, ordered by most recent
     writers =
       from u in User,
@@ -76,6 +87,7 @@ defmodule Inkwell.Accounts do
         where: e.status == :published and e.privacy == :public,
         where: u.id != ^current_user_id,
         where: u.id not in subquery(already_following),
+        where: u.id not in ^blocked_ids,
         where: is_nil(u.blocked_at),
         group_by: u.id,
         order_by: [desc: max(e.inserted_at)],
@@ -94,6 +106,7 @@ defmodule Inkwell.Accounts do
           where: u.id != ^current_user_id,
           where: u.id not in ^writer_ids,
           where: u.id not in subquery(already_following),
+          where: u.id not in ^blocked_ids,
           where: is_nil(u.blocked_at),
           where: not is_nil(u.username),
           order_by: [desc: u.inserted_at],
@@ -141,9 +154,17 @@ defmodule Inkwell.Accounts do
   end
 
   def create_notification(attrs) do
-    %Notification{}
-    |> Notification.changeset(attrs)
-    |> Repo.insert()
+    user_id = attrs[:user_id] || attrs["user_id"]
+    actor_id = attrs[:actor_id] || attrs["actor_id"]
+
+    # Skip notification if block exists between these users
+    if actor_id && Inkwell.Social.is_blocked_between?(user_id, actor_id) do
+      {:ok, :blocked_skipped}
+    else
+      %Notification{}
+      |> Notification.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def mark_notifications_read(user_id, notification_ids) do

@@ -211,7 +211,9 @@ defmodule InkwellWeb.Router do
     post "/relationships/:username/accept", RelationshipController, :accept
     delete "/relationships/:username/unfollow", RelationshipController, :unfollow
     post "/relationships/:username/block", RelationshipController, :block
+    delete "/relationships/:username/block", RelationshipController, :unblock
     delete "/relationships/:username/reject", RelationshipController, :reject
+    get "/blocked-users", RelationshipController, :blocked_users
 
     # Username
     patch "/me/username", UserController, :update_username

@@ -136,21 +136,32 @@ defmodule Inkwell.Journals do
   def list_feed_entries(user_id, friend_ids, opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
+    exclude_user_ids = Keyword.get(opts, :exclude_user_ids, [])
 
     # Get IDs of custom-privacy filters that include this user
     custom_filter_ids = get_filters_containing_user(user_id)
 
-    Entry
-    |> where([e], e.status == :published)
-    |> where([e], not is_nil(e.published_at))
-    |> where([e],
-        # Own entries (any privacy except drafts)
-        e.user_id == ^user_id or
-        # Friends' public/friends-only entries
-        (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only]) or
-        # Custom-privacy entries where viewer is in the filter
-        (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids)
-      )
+    query =
+      Entry
+      |> where([e], e.status == :published)
+      |> where([e], not is_nil(e.published_at))
+      |> where([e],
+          # Own entries (any privacy except drafts)
+          e.user_id == ^user_id or
+          # Friends' public/friends-only entries
+          (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only]) or
+          # Custom-privacy entries where viewer is in the filter
+          (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids)
+        )
+
+    query =
+      if exclude_user_ids != [] do
+        where(query, [e], e.user_id not in ^exclude_user_ids)
+      else
+        query
+      end
+
+    query
     |> order_by(desc: :published_at)
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
@@ -522,6 +533,7 @@ defmodule Inkwell.Journals do
     tag = Keyword.get(opts, :tag)
     category = Keyword.get(opts, :category)
     include_sensitive = Keyword.get(opts, :include_sensitive, false)
+    exclude_user_ids = Keyword.get(opts, :exclude_user_ids, [])
 
     query =
       Entry
@@ -540,6 +552,13 @@ defmodule Inkwell.Journals do
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
+
+    query =
+      if exclude_user_ids != [] do
+        where(query, [e], e.user_id not in ^exclude_user_ids)
+      else
+        query
+      end
 
     query
     |> limit(^per_page)

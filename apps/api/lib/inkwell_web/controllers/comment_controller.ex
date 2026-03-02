@@ -19,6 +19,9 @@ defmodule InkwellWeb.CommentController do
 
       if accessible? do
         comments = Journals.list_comments(entry.id)
+        # Post-filter comments from blocked users
+        blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+        comments = if blocked_ids != [], do: Enum.reject(comments, fn c -> c.user_id in blocked_ids end), else: comments
         json(conn, %{data: Enum.map(comments, &render_comment/1)})
       else
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
@@ -43,6 +46,9 @@ defmodule InkwellWeb.CommentController do
 
       if accessible? do
         comments = Journals.list_comments(entry.id)
+        # Post-filter comments from blocked users
+        blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+        comments = if blocked_ids != [], do: Enum.reject(comments, fn c -> c.user_id in blocked_ids end), else: comments
         # Apply limit (most recent N)
         limited = Enum.take(comments, -limit) |> Enum.reverse() |> Enum.reverse()
         json(conn, %{data: Enum.map(limited, &render_comment/1)})
@@ -62,62 +68,62 @@ defmodule InkwellWeb.CommentController do
     try do
       entry = Journals.get_entry!(entry_id)
 
-      # Verify viewer can see the entry
-      accessible? =
-        entry.privacy == :public ||
-        entry.user_id == user.id ||
-        Social.is_friend?(user.id, entry.user_id)
+      # Check if blocked
+      cond do
+        Social.is_blocked_between?(user.id, entry.user_id) ->
+          conn |> put_status(:forbidden) |> json(%{error: "Cannot comment on this entry"})
 
-      if accessible? do
-        attrs = %{
-          "entry_id" => entry_id,
-          "user_id" => user.id,
-          "body_html" => params["body_html"],
-          "parent_comment_id" => params["parent_comment_id"],
-          "user_icon_id" => params["user_icon_id"],
-          "ap_id" => "https://inkwell.social/comments/#{:erlang.unique_integer([:positive])}"
-        }
+        not (entry.privacy == :public || entry.user_id == user.id || Social.is_friend?(user.id, entry.user_id)) ->
+          conn |> put_status(:forbidden) |> json(%{error: "Cannot comment on this entry"})
 
-        # Convert @mentions to profile links in body_html
-        body_html = params["body_html"] || ""
-        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
-        attrs = Map.put(attrs, "body_html", processed_html)
+        true ->
+          attrs = %{
+            "entry_id" => entry_id,
+            "user_id" => user.id,
+            "body_html" => params["body_html"],
+            "parent_comment_id" => params["parent_comment_id"],
+            "user_icon_id" => params["user_icon_id"],
+            "ap_id" => "https://inkwell.social/comments/#{:erlang.unique_integer([:positive])}"
+          }
 
-        case Journals.create_comment(attrs) do
-          {:ok, comment} ->
-            # Notify entry author (unless commenter is the author)
-            if entry.user_id != user.id do
-              Accounts.create_notification(%{
-                user_id: entry.user_id,
-                type: :comment,
-                actor_id: user.id,
-                target_type: "entry",
-                target_id: entry_id
-              })
-            end
+          # Convert @mentions to profile links in body_html
+          body_html = params["body_html"] || ""
+          {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
+          attrs = Map.put(attrs, "body_html", processed_html)
 
-            # Notify mentioned users (skip self and entry author who already got notified)
-            skip_ids = MapSet.new([user.id, entry.user_id])
-            for mentioned <- mentioned_users, mentioned.id not in skip_ids do
-              Accounts.create_notification(%{
-                user_id: mentioned.id,
-                type: :mention,
-                actor_id: user.id,
-                target_type: "entry",
-                target_id: entry_id,
-                data: %{comment_id: comment.id}
-              })
-            end
+          case Journals.create_comment(attrs) do
+            {:ok, comment} ->
+              # Notify entry author (unless commenter is the author)
+              if entry.user_id != user.id do
+                Accounts.create_notification(%{
+                  user_id: entry.user_id,
+                  type: :comment,
+                  actor_id: user.id,
+                  target_type: "entry",
+                  target_id: entry_id
+                })
+              end
 
-            conn |> put_status(:created) |> json(%{data: render_comment(comment)})
+              # Notify mentioned users (skip self and entry author who already got notified)
+              skip_ids = MapSet.new([user.id, entry.user_id])
+              for mentioned <- mentioned_users, mentioned.id not in skip_ids do
+                Accounts.create_notification(%{
+                  user_id: mentioned.id,
+                  type: :mention,
+                  actor_id: user.id,
+                  target_type: "entry",
+                  target_id: entry_id,
+                  data: %{comment_id: comment.id}
+                })
+              end
 
-          {:error, changeset} ->
-            conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{errors: format_errors(changeset)})
-        end
-      else
-        conn |> put_status(:forbidden) |> json(%{error: "Cannot comment on this entry"})
+              conn |> put_status(:created) |> json(%{data: render_comment(comment)})
+
+            {:error, changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{errors: format_errors(changeset)})
+          end
       end
     rescue
       Ecto.NoResultsError ->

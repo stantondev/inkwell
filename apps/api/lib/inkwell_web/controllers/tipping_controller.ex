@@ -144,6 +144,9 @@ defmodule InkwellWeb.TippingController do
           {:ok, result} ->
             json(conn, %{data: result})
 
+          {:error, :blocked} ->
+            conn |> put_status(:forbidden) |> json(%{error: "Cannot send postage to this user."})
+
           {:error, :tips_not_enabled} ->
             conn |> put_status(:bad_request) |> json(%{error: "This writer has not enabled tips."})
 
