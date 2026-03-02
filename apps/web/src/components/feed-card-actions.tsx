@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StampPicker } from "@/components/stamp-picker";
 import { BookmarkButton } from "@/components/bookmark-button";
+import { InkButton } from "@/components/ink-button";
 import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
 
@@ -27,6 +28,8 @@ interface FeedCardActionsProps {
   stamps: string[];
   myStamp: string | null;
   bookmarked: boolean;
+  inkCount?: number;
+  myInk?: boolean;
   isOwnEntry: boolean;
   isLoggedIn: boolean;
   isPlus: boolean;
@@ -62,6 +65,8 @@ export function FeedCardActions({
   isOwnEntry,
   isLoggedIn,
   isPlus,
+  inkCount = 0,
+  myInk = false,
   stampApiPath,
   commentApiPath,
   bookmarkApiPath,
@@ -341,6 +346,15 @@ export function FeedCardActions({
             )}
           </FloatingPopup>
         </div>
+
+        {/* Ink button */}
+        <InkButton
+          entryId={entryId}
+          initialInked={myInk}
+          initialCount={inkCount}
+          isOwnEntry={isOwnEntry}
+          isLoggedIn={isLoggedIn}
+        />
 
         {/* Stamp button */}
         <StampPicker

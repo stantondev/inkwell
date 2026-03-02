@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
   const page = searchParams.get("page") || "1";
   const category = searchParams.get("category");
   const tag = searchParams.get("tag");
+  const sort = searchParams.get("sort");
 
   const params = new URLSearchParams({ page });
   if (category) params.set("category", category);
   if (tag) params.set("tag", tag);
+  if (sort) params.set("sort", sort);
 
   try {
     const headers: Record<string, string> = {};

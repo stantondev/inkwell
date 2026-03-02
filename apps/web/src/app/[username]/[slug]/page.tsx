@@ -18,6 +18,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
+import { InkButton } from "@/components/ink-button";
 import { TipButton } from "@/components/tip-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
@@ -72,6 +73,8 @@ interface EntryData {
   content_warning?: string | null;
   admin_sensitive?: boolean;
   is_sensitive?: boolean;
+  ink_count?: number;
+  my_ink?: boolean;
   tip_total_cents?: number;
   tip_count?: number;
   poll?: PollData | null;
@@ -353,6 +356,14 @@ export default async function EntryPage({ params }: EntryParams) {
               @{username}
             </Link>
             <div className="flex items-center gap-3">
+              <InkButton
+                entryId={entry.id}
+                initialInked={entry.my_ink ?? false}
+                initialCount={entry.ink_count ?? 0}
+                isOwnEntry={isOwnEntry ?? false}
+                isLoggedIn={!!session}
+                size={18}
+              />
               {session && (
                 <BookmarkButton
                   entryId={entry.id}

@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Newsletter, Polls, Repo, Social, Stamps, Tipping}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, Polls, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -93,6 +93,7 @@ defmodule InkwellWeb.EntryController do
         stamp_types = Stamps.get_entry_stamp_types(entry.id)
         my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
         bookmarked = if viewer, do: Bookmarks.get_user_bookmark(viewer.id, entry.id) != nil, else: false
+        my_ink = if viewer, do: Inks.has_inked?(viewer.id, entry.id), else: false
 
         entry_with_user = %{entry | user: user}
         series_nav = Journals.get_series_navigation(entry_with_user)
@@ -111,6 +112,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:stamps, stamp_types)
           |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
           |> Map.put(:bookmarked, bookmarked)
+          |> Map.put(:my_ink, my_ink)
           |> Map.put(:series, series_nav)
           |> Map.put(:poll, poll_data)
 
@@ -531,6 +533,7 @@ defmodule InkwellWeb.EntryController do
       content_warning: entry.content_warning,
       admin_sensitive: entry.admin_sensitive || false,
       is_sensitive: (entry.sensitive || false) || (entry.admin_sensitive || false),
+      ink_count: entry.ink_count || 0,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }

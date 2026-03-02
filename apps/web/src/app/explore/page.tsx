@@ -9,27 +9,57 @@ import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories"
 
 export const metadata: Metadata = { title: "Explore · Inkwell" };
 
+interface TrendingEntry {
+  id: string;
+  title: string | null;
+  slug: string;
+  ink_count: number;
+  published_at: string;
+  author: {
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
 interface PageProps {
-  searchParams: Promise<{ page?: string; category?: string }>;
+  searchParams: Promise<{ page?: string; category?: string; sort?: string }>;
 }
 
 export default async function ExplorePage({ searchParams }: PageProps) {
   const session = await getSession();
-  const { page: pageParam, category } = await searchParams;
+  const { page: pageParam, category, sort } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const activeSort = sort === "most_inked" ? "most_inked" : "newest";
 
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
+  const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
 
   let entries: JournalEntry[] = [];
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?page=${page}${categoryParam}`,
+      `/api/explore?page=${page}${categoryParam}${sortParam}`,
       {},
       session?.token
     );
     entries = data.data ?? [];
   } catch {
     // show empty state
+  }
+
+  // Fetch trending entries (only on first page, no category filter, newest sort)
+  let trending: TrendingEntry[] = [];
+  if (page === 1 && !category && activeSort === "newest") {
+    try {
+      const data = await apiFetch<{ data: TrendingEntry[] }>(
+        "/api/explore/trending",
+        {},
+        session?.token
+      );
+      trending = data.data ?? [];
+    } catch {
+      // silent
+    }
   }
 
   const categoryLabel = category ? getCategoryLabel(category) : null;
@@ -97,6 +127,40 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             >
               Explore
             </span>
+
+            <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
+
+            {/* Sort toggle */}
+            <Link
+              href={`/explore${category ? `?category=${encodeURIComponent(category)}` : ""}`}
+              className="text-xs px-3 py-1 rounded-full border transition-colors"
+              style={activeSort === "newest" ? {
+                borderColor: "var(--accent)",
+                background: "var(--accent-light)",
+                color: "var(--accent)",
+                fontWeight: 500,
+              } : {
+                borderColor: "var(--border)",
+                color: "var(--muted)",
+              }}
+            >
+              Newest
+            </Link>
+            <Link
+              href={`/explore?sort=most_inked${category ? `&category=${encodeURIComponent(category)}` : ""}`}
+              className="text-xs px-3 py-1 rounded-full border transition-colors"
+              style={activeSort === "most_inked" ? {
+                borderColor: "var(--accent)",
+                background: "var(--accent-light)",
+                color: "var(--accent)",
+                fontWeight: 500,
+              } : {
+                borderColor: "var(--border)",
+                color: "var(--muted)",
+              }}
+            >
+              Most Inked
+            </Link>
           </div>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -162,13 +226,73 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         </EducationCard>
       </div>
 
+      {/* Trending This Week */}
+      {trending.length > 0 && (
+        <div className="mx-auto max-w-7xl px-4 pb-4">
+          <h2
+            className="text-xs font-semibold uppercase tracking-widest mb-3"
+            style={{
+              color: "var(--muted)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              letterSpacing: "0.1em",
+            }}
+          >
+            Trending This Week
+          </h2>
+          <div
+            className="flex gap-3 overflow-x-auto pb-2"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {trending.map((t) => (
+              <Link
+                key={t.id}
+                href={`/${t.author.username}/${t.slug}`}
+                className="flex-shrink-0 rounded-xl border p-3 transition-colors hover:border-[var(--accent)]"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "var(--surface)",
+                  width: 220,
+                }}
+              >
+                <p
+                  className="text-sm font-medium leading-snug line-clamp-2 mb-2"
+                  style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+                >
+                  {t.title || "Untitled"}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    {t.author.display_name}
+                  </span>
+                  <span
+                    className="text-xs font-medium flex items-center gap-1"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <svg width="10" height="12" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                      <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                    </svg>
+                    {t.ink_count}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Journal area */}
       <JournalFeed
         entries={entries}
         page={page}
         basePath="/explore"
-        loadMorePath={`/api/explore${category ? `?category=${encodeURIComponent(category)}` : ""}`}
-        extraParams={category ? `&category=${encodeURIComponent(category)}` : ""}
+        loadMorePath={(() => {
+          const p = new URLSearchParams();
+          if (category) p.set("category", category);
+          if (activeSort !== "newest") p.set("sort", activeSort);
+          const qs = p.toString();
+          return `/api/explore${qs ? `?${qs}` : ""}`;
+        })()}
+        extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,

@@ -33,6 +33,8 @@ export interface JournalEntry {
     username: string;
     series_order: number;
   } | null;
+  ink_count?: number;
+  my_ink?: boolean;
   sensitive?: boolean;
   content_warning?: string | null;
   is_sensitive?: boolean;

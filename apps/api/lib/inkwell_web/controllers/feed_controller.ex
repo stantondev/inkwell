@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Journals, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Social, Stamps}
   alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
@@ -45,6 +45,7 @@ defmodule InkwellWeb.FeedController do
     my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, local_entry_ids)
     comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, local_entry_ids)
+    inks_set = Inks.get_user_inks_for_entries(user.id, local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
 
     # Build stamp/comment maps for remote entries
@@ -78,6 +79,8 @@ defmodule InkwellWeb.FeedController do
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id),
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
+          ink_count: entry.ink_count || 0,
+          my_ink: MapSet.member?(inks_set, entry.id),
           series: Map.get(series_map, entry.id)
         })
 
@@ -110,6 +113,8 @@ defmodule InkwellWeb.FeedController do
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: Map.get(remote_comment_counts, re.id, 0),
+          ink_count: 0,
+          my_ink: false,
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,

@@ -534,13 +534,19 @@ defmodule Inkwell.Journals do
     category = Keyword.get(opts, :category)
     include_sensitive = Keyword.get(opts, :include_sensitive, false)
     exclude_user_ids = Keyword.get(opts, :exclude_user_ids, [])
+    sort = Keyword.get(opts, :sort, "newest")
 
     query =
       Entry
       |> where([e], e.privacy == :public)
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
-      |> order_by(desc: :published_at)
+
+    query =
+      case sort do
+        "most_inked" -> order_by(query, [e], [desc: e.ink_count, desc: e.published_at])
+        _ -> order_by(query, desc: :published_at)
+      end
 
     # Filter out sensitive entries unless the viewer has opted in
     query =

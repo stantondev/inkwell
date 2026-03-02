@@ -90,6 +90,8 @@ export function JournalFeed({
         stamps={entry.stamps ?? []}
         myStamp={entry.my_stamp ?? null}
         bookmarked={entry.bookmarked ?? false}
+        inkCount={entry.ink_count ?? 0}
+        myInk={entry.my_ink ?? false}
         isOwnEntry={isOwnEntry}
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}

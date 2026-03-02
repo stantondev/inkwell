@@ -39,6 +39,9 @@ defmodule Inkwell.Journals.Entry do
     field :series_order, :integer
     has_many :comments, Inkwell.Journals.Comment
 
+    # Discovery
+    field :ink_count, :integer, default: 0
+
     # Content moderation
     field :sensitive, :boolean, default: false
     field :content_warning, :string

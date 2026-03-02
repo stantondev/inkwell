@@ -88,6 +88,9 @@ defmodule InkwellWeb.Router do
   scope "/api", InkwellWeb do
     pipe_through [:api, :optional_auth]
 
+    # Trending entries (optional auth for my_ink)
+    get "/explore/trending", ExploreController, :trending
+
     # Public discovery feed (optional auth for my_stamp)
     get "/explore", ExploreController, :index
 
@@ -191,6 +194,9 @@ defmodule InkwellWeb.Router do
     # Stamps
     post "/entries/:entry_id/stamp", StampController, :create
     delete "/entries/:entry_id/stamp", StampController, :delete
+
+    # Inks (discovery signal)
+    post "/entries/:entry_id/ink", InkController, :toggle
 
     # Bookmarks (reading list)
     post "/entries/:entry_id/bookmark", BookmarkController, :create

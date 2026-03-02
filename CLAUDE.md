@@ -172,6 +172,33 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - `apps/web/src/components/feed-card-actions.tsx` — `"use client"` footer for feed/explore cards: Read link + comment popup + stamp picker
   - Stamp SVG assets at `apps/web/public/stamps/*.svg` — swappable for artist illustrations
 
+### Inks (Community Discovery Signal)
+- One ink per reader per entry — binary toggle (ink/un-ink), countable
+- Cannot ink own entries; read-only count display for authors
+- Visible ink count on feed cards, entry detail, explore
+- **"Trending This Week"** section at top of Explore — most-inked entries from last 7 days (min 2 inks, max 8 entries)
+- **"Most Inked" sort option** on Explore alongside "Newest"
+- `:ink` notification when someone inks your entry
+- Blocked user enforcement — can't ink blocked users, inks deleted on block
+- Free for all users (not Plus-gated)
+- Ink drop icon (teardrop shape) — fills with accent color when inked
+- Denormalized `ink_count` integer on entries table for fast sorting
+- **Backend**:
+  - `apps/api/lib/inkwell/inks/ink.ex` — Ecto schema with unique constraint `[:user_id, :entry_id]`
+  - `apps/api/lib/inkwell/inks.ex` — context: `toggle_ink/2` (atomic inc/dec in transaction), `has_inked?/2`, `get_user_inks_for_entries/2` (batch MapSet), `list_trending_entries/1`
+  - `apps/api/lib/inkwell_web/controllers/ink_controller.ex` — `POST /api/entries/:entry_id/ink` (toggle, creates `:ink` notification on create)
+  - Ink routes: `POST /api/entries/:entry_id/ink` (auth), `GET /api/explore/trending` (optional auth)
+  - Feed, explore, and entry controllers query and return `ink_count` and `my_ink` (viewer's ink boolean)
+  - Explore controller supports `?sort=most_inked` query param and `trending/2` action
+  - Block cascade in `social.ex` deletes inks between blocked users (both directions)
+- **Frontend**:
+  - `apps/web/src/components/ink-button.tsx` — client component with optimistic toggle, ink drop SVG, scale animation, read-only mode for own entries, redirect to `/login` if not logged in
+  - `apps/web/src/app/api/entries/[id]/ink/route.ts` — POST proxy
+  - `apps/web/src/app/api/explore/trending/route.ts` — GET proxy (optional auth)
+  - Explore page: trending horizontal scroll section + sort toggle pills (Newest / Most Inked)
+  - Notification list: ink drop icon, "inked your entry" text, links to entry
+  - Migration: `20260302000046`
+
 ### Floating Popup (Portal-Based)
 - `apps/web/src/components/floating-popup.tsx` — reusable React Portal popup component
 - Uses `createPortal` to render at `document.body`, escaping `overflow-hidden` on `JournalPage` and `overflow-x: auto` on `.journal-scroll` (which forces `overflow-y: auto` per CSS spec)
@@ -707,7 +734,7 @@ Profile | Avatar | Top 6 | Filters | Series | Billing | Import | Customize | New
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, invite_code (unique 8-char), invited_by_id (FK → users), ink_donor_stripe_subscription_id, ink_donor_status, ink_donor_amount_cents, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
-- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published), word_count, excerpt, cover_image_id (FK to entry_images), sensitive (bool), content_warning (string 200), admin_sensitive (bool)
+- `entries` — journal entries with slug, title, body_html, body_raw, mood, music, tags, privacy (public/friends_only/private/custom), custom_filter_id (FK to friend_filters), status (draft/published), word_count, excerpt, cover_image_id (FK to entry_images), sensitive (bool), content_warning (string 200), admin_sensitive (bool), ink_count (integer, default 0)
 - `remote_entries` — includes `sensitive` (bool) and `content_warning` (string) for federated content
 - `reports` — content reports (reporter_id, entry_id, reason enum, details text, status: pending/reviewed/dismissed/actioned, admin_notes, resolved_by, resolved_at; unique on [reporter_id, entry_id])
 - `comments` — on entries, with user_id and body
@@ -715,6 +742,7 @@ Profile | Avatar | Top 6 | Filters | Series | Billing | Import | Customize | New
 - `top_friends` — user_id + friend_id + position (1-6)
 - `notifications` — type (follow/comment/entry/stamp/fediverse_follow/etc), actor_id (nullable for remote actors), target_id, data (JSON, stores remote_actor details for fediverse notifications), read flag
 - `stamps` — entry_id + user_id + stamp_type; unique on [user_id, entry_id]
+- `inks` — entry_id + user_id (FK → users delete_all, FK → entries delete_all); unique on [user_id, entry_id]; index on entry_id
 - `user_icons` — custom profile icons
 - `friend_filters` — named lists of friends (user_id, name, member_ids UUID array) for custom entry privacy; entries reference via `custom_filter_id`
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
@@ -978,7 +1006,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260302000045_upgrade_direct_messages.exs`
+- Latest migration: `20260302000046_create_inks.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -1034,6 +1062,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
 
 ### Recently Completed
+- **2026-03-02** — Inks (Community Discovery Signal). Lightweight appreciation/discovery mechanism for surfacing quality writing through human curation. One ink per user per entry (binary toggle), visible ink count on all surfaces. Cannot ink own entries (read-only count display). "Trending This Week" section on Explore (most-inked entries from last 7 days, min 2 inks, max 8). "Most Inked" sort option on Explore alongside "Newest". `:ink` notification type. Blocked user enforcement: can't ink blocked users, inks deleted on block cascade. Free for all users. Ink drop icon (teardrop shape, fills with accent color when inked). Backend: `inks` table with unique constraint on `[user_id, entry_id]`, denormalized `ink_count` integer on entries (atomic inc/dec in transaction), `Inkwell.Inks` context module (`toggle_ink/2`, `has_inked?/2`, `get_user_inks_for_entries/2` batch MapSet, `list_trending_entries/1`), `InkController` with `POST /api/entries/:entry_id/ink` toggle, `ExploreController.trending/2` action, `?sort=most_inked` query param support in explore. Feed/explore/entry controllers return `ink_count` and `my_ink` for all entries. Block cascade in `social.ex` deletes inks both directions. Frontend: `InkButton` client component with optimistic toggle + scale animation + read-only mode for authors, Explore page trending horizontal scroll section + sort toggle pills, notification list with ink drop icon. Migration `20260302000046`. New files: `ink.ex`, `inks.ex`, `ink_controller.ex`, `ink-button.tsx`, `api/entries/[id]/ink/route.ts`, `api/explore/trending/route.ts`. Modified: `entry.ex`, `notification.ex`, `router.ex`, `feed_controller.ex`, `explore_controller.ex`, `entry_controller.ex`, `journals.ex`, `social.ex`, `journal-entry-card.tsx`, `feed-card-actions.tsx`, `journal-feed.tsx`, `[username]/[slug]/page.tsx`, `explore/page.tsx`, `notification-list.tsx`, `api/explore/route.ts`.
 - **2026-03-02** — User-to-User Blocking. Complete block feature enabling users to block/unblock from profiles. Backend: enhanced `Social.block/2` with cascade cleanup (deletes stamps between users both directions, removes from top friends), added 5 new Social context functions (`unblock/2`, `is_blocked_between?/2`, `get_blocked_user_ids/1`, `get_block_status/2`, `list_blocked_users/1`), 2 new API endpoints (`DELETE /api/relationships/:username/block`, `GET /api/blocked-users`), block check in `follow/2`. Visibility enforcement across 10 controllers: feed/explore queries exclude blocked user IDs at query level, comments/guestbook entries post-filtered to hide blocked users, stamps/comments/guestbook/tipping creation blocked with 403, entry show/index return 404/403 for blocked users, poll comments post-filtered, centralized notification suppression in `create_notification/1` (returns `{:ok, :blocked_skipped}`), search/mention results and suggested users exclude blocked IDs. Profile page: `"blocked_by_me"` state shows limited profile (avatar + username + "You've blocked this user" + unblock), `"unavailable"` state shows generic "not available" (doesn't reveal who blocked). Three-dot menu with confirmation dialog on non-own profiles. Settings → Blocked page lists blocked users with unblock buttons. No migration needed — uses existing `relationships` table. New files: `block-button.tsx`, `settings/blocked/page.tsx`, `api/block/[username]/route.ts`, `api/blocked-users/route.ts`. Modified: `social.ex`, `relationship_controller.ex`, `user_controller.ex`, `router.ex`, `feed_controller.ex`, `explore_controller.ex`, `comment_controller.ex`, `stamp_controller.ex`, `guestbook_controller.ex`, `entry_controller.ex`, `tipping_controller.ex`, `tipping.ex`, `poll_controller.ex`, `accounts.ex`, `journals.ex`, `[username]/page.tsx`, `settings/layout.tsx`.
 - **2026-03-02** — Rich Letters Upgrade. Upgraded private messaging from plain text to full rich text with TipTap editor, message editing, inline images, resizable compose panel, and 10,000-char limit. **Backend**: `body_html` (text, nullable) and `edited_at` (utc_datetime_usec, nullable) columns added to `direct_messages`. `DirectMessage` schema gains `edit_changeset/2` with auto-timestamping. `Letters.send_letter/4` accepts optional `body_html`; new `Letters.update_letter/3` verifies sender ownership (no time limit for private DMs). `LetterController` fully rewritten: `create/2` accepts `body_html` with server-side HTML sanitization (same regex pattern as profile bio), derives plain text `body` from HTML (strips tags, normalizes whitespace); new `update/2` action. `ConversationController.render_message/2` returns `body_html` + `edited_at`. PATCH route added to router. Orphaned image cleanup extended to scan `direct_messages.body_html`. **Frontend**: New `LetterEditor` TipTap component (~200 lines) — StarterKit (no headings/codeBlock), Link, Underline, Placeholder, CharacterCount (10000), Typography, Image upload via existing `/api/images`. Toolbar: formatting (B/I/U/S), insert (link/image), blocks (bullet/ordered/blockquote). Cmd+Enter to send. `letter-thread.tsx` fully rewritten (~540 lines): `LetterNote` renders rich HTML via `.prose-letter` class or plain text with `pre-wrap` (backward compat), shows "(edited)" indicator with tooltip, "edit · remove" actions on hover for own messages, inline edit mode with compact `LetterEditor` + Save/Cancel. `ResizeHandle` — draggable vertical divider between messages and compose (min 280px, max 600px, default 340px, persisted in localStorage). Expand toggle for wider compose area. `ComposeArea` — TipTap-based with "Seal & Send" button, forced re-mount on send to clear editor. CSS: `.prose-letter` (serif rich content rendering with explicit dark text for light notecards), `.letter-editor-*` (toolbar/button/content styles), `.letter-resize-handle` (hidden on mobile), `.letter-compose-expand-btn`. PATCH proxy route added. Migration `20260302000045`. New files: `letter-editor.tsx`, `20260302000045_upgrade_direct_messages.exs`. Modified: `direct_message.ex`, `letters.ex`, `letter_controller.ex`, `conversation_controller.ex`, `router.ex`, `journals.ex` (orphan cleanup), `page.tsx` (types), `letter-thread.tsx` (major rewrite), `route.ts` (PATCH proxy), `globals.css`.
 - **2026-03-02** — Contextual User Education + Reader's Guide. Added dismissible education cards to Feed and Explore pages explaining how each works (mailbox vs bookstore), plus fediverse handle explanation on Explore. Cards use `EducationCard` reusable client component with localStorage-persisted dismiss state, paper texture, ink-blue left accent border, Lora italic heading, "Got it" pill button, optional "Learn more" link, and fade-out exit animation. New static "Reader's Guide" page at `/guide` with 6 deep-linkable sections: Feed & Explore, Writing & Publishing, Pen Pals & Following, Stamps/Comments/Interaction, The Fediverse (explicitly explains dual-identity: "if someone has accounts on both Inkwell and Mastodon, those are separate identities"), and Customizing Your Space. Redesigned `EmptyFeed` with 3 action cards (Explore, Find pen pals, Write first entry) + fediverse hint. Onboarding step 8 gains 4th destination card: "Learn how Inkwell works" → `/guide`. Footer updated with Guide link. No backend changes. New files: `education-card.tsx`, `guide/page.tsx`. Modified: `feed/page.tsx` (education card + EmptyFeed redesign), `explore/page.tsx` (education card), `welcome/page.tsx` (step 8 4th card), `footer.tsx` (Guide link), `globals.css` (education card CSS).

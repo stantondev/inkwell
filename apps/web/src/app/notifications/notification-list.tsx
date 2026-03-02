@@ -139,6 +139,8 @@ function notificationText(n: Notification): string {
       const tipMsg = n.data?.message as string | undefined;
       return `sent you ${amt ? amt + " in " : ""}postage${tipMsg ? ` \u2014 "${tipMsg}"` : ""}`;
     }
+    case "ink":
+      return "inked your entry";
     case "invite_accepted":
       return "joined Inkwell from your invitation";
     case "fediverse_follow":
@@ -318,6 +320,20 @@ function NotificationIcon({
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         <line x1="12" y1="10" x2="12" y2="16"/>
         <line x1="9" y1="13" x2="15" y2="13"/>
+      </svg>
+    );
+  }
+  if (type === "ink") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 16 20"
+        fill="currentColor"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
       </svg>
     );
   }
