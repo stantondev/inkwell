@@ -141,6 +141,8 @@ function notificationText(n: Notification): string {
     }
     case "invite_accepted":
       return "joined Inkwell from your invitation";
+    case "fediverse_follow":
+      return "followed you from the fediverse";
     default:
       return "interacted with your content";
   }
@@ -335,6 +337,26 @@ function NotificationIcon({
       >
         <line x1="22" y1="2" x2="11" y2="13" />
         <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      </svg>
+    );
+  }
+  if (type === "fediverse_follow") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       </svg>
     );
   }

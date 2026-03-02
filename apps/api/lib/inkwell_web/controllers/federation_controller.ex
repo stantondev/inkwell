@@ -341,7 +341,7 @@ defmodule InkwellWeb.FederationController do
          {:ok, remote_actor} <- RemoteActor.fetch(actor_uri) do
 
       case create_remote_follow(remote_actor, target_user) do
-        {:ok, _rel} ->
+        {:ok, :created, _rel} ->
           # Auto-accept: send Accept activity back
           accept = ActivityBuilder.build_accept(activity, target_user)
           inbox = remote_actor.shared_inbox || remote_actor.inbox
@@ -350,7 +350,21 @@ defmodule InkwellWeb.FederationController do
           |> DeliverActivityWorker.new()
           |> Oban.insert()
 
+          # Notify the Inkwell user about the new fediverse follower
+          create_fediverse_follow_notification(target_user, remote_actor)
+
           Logger.info("Accepted follow from #{actor_uri} → #{target_user.username}")
+
+        {:ok, :existing, _rel} ->
+          # Duplicate Follow activity — re-send Accept but skip notification
+          accept = ActivityBuilder.build_accept(activity, target_user)
+          inbox = remote_actor.shared_inbox || remote_actor.inbox
+
+          %{activity: accept, inbox_url: inbox, user_id: target_user.id}
+          |> DeliverActivityWorker.new()
+          |> Oban.insert()
+
+          Logger.info("Re-accepted existing follow from #{actor_uri} → #{target_user.username}")
 
         {:error, reason} ->
           Logger.warning("Failed to create follow relationship: #{inspect(reason)}")
@@ -372,18 +386,48 @@ defmodule InkwellWeb.FederationController do
 
     case existing do
       nil ->
-        %Inkwell.Social.Relationship{}
-        |> Inkwell.Social.Relationship.changeset(%{
-          remote_actor_id: remote_actor.id,
-          following_id: target_user.id,
-          status: :accepted,
-          is_mutual: false
-        })
-        |> Repo.insert()
+        case %Inkwell.Social.Relationship{}
+             |> Inkwell.Social.Relationship.changeset(%{
+               remote_actor_id: remote_actor.id,
+               following_id: target_user.id,
+               status: :accepted,
+               is_mutual: false
+             })
+             |> Repo.insert() do
+          {:ok, rel} -> {:ok, :created, rel}
+          {:error, reason} -> {:error, reason}
+        end
 
       rel ->
-        {:ok, rel}
+        {:ok, :existing, rel}
     end
+  end
+
+  defp create_fediverse_follow_notification(target_user, remote_actor) do
+    profile_url =
+      case remote_actor.raw_data do
+        %{"url" => url} when is_binary(url) -> url
+        _ -> remote_actor.ap_id
+      end
+
+    %Inkwell.Accounts.Notification{}
+    |> Inkwell.Accounts.Notification.changeset(%{
+      user_id: target_user.id,
+      type: :fediverse_follow,
+      target_type: "user",
+      target_id: target_user.id,
+      data: %{
+        remote_actor: %{
+          display_name: remote_actor.display_name || remote_actor.username,
+          username: remote_actor.username,
+          domain: remote_actor.domain,
+          avatar_url: remote_actor.avatar_url,
+          profile_url: profile_url,
+          ap_id: remote_actor.ap_id
+        }
+      }
+    })
+    |> Repo.insert()
   end
 
   # ── Undo handling ───────────────────────────────────────────────────────
