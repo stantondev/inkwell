@@ -92,14 +92,14 @@ export function LetterEditor({
 
       try {
         const dataUri = await resizeEntryImage(file);
-        const blob = await fetch(dataUri).then((r) => r.blob());
-        const formData = new FormData();
-        formData.append("image", blob, file.name);
-
-        const res = await fetch("/api/images", { method: "POST", body: formData });
+        const res = await fetch("/api/images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: dataUri }),
+        });
         if (!res.ok) throw new Error("Upload failed");
-        const json = await res.json();
-        editor.chain().focus().setImage({ src: `/api/images/${json.id}` }).run();
+        const { data } = await res.json();
+        editor.chain().focus().setImage({ src: `/api/images/${data.id}` }).run();
       } catch {
         // silently fail
       }
