@@ -210,18 +210,16 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       {/* Education card — shown once, dismissible */}
       <div className="mx-auto max-w-7xl px-4">
         <EducationCard
-          storageKey="inkwell-edu-explore-card"
+          storageKey="inkwell-edu-explore-card-v2"
           heading="Discover the community"
-          learnMoreHref="/guide#feed-explore"
+          learnMoreHref="/guide#interaction"
         >
           <p>
             Explore shows all public entries from Inkwell writers and the wider
-            fediverse — a network of connected platforms including Mastodon and
-            others. You might notice some entries show handles like{" "}
-            <span style={{ fontFamily: "monospace", fontSize: "11px" }}>
-              @user@mastodon.social
-            </span>
-            {" "}— those are from writers on other fediverse platforms.
+            fediverse. Click the <strong>ink drop</strong> icon on entries you
+            think deserve more readers — the most-inked entries appear in{" "}
+            <strong>Trending This Week</strong> above, and you can sort
+            by &ldquo;Most Inked&rdquo; to find community favorites.
           </p>
         </EducationCard>
       </div>

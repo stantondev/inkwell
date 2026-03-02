@@ -339,7 +339,7 @@ export function FeaturesSection() {
         <div className="landing-features-grid" ref={containerRef} onScroll={handleScroll}>
           <FeaturePage
             title="Your Journal"
-            description="A rich text editor with moods, music, stamps, cover images, and distraction-free writing mode. Import from WordPress, Medium, or Substack."
+            description="A rich text editor with moods, music, stamps, inks, cover images, and distraction-free writing mode. Import from WordPress, Medium, or Substack."
             index={0}
           >
             <JournalMockup />

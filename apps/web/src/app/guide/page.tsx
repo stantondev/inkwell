@@ -150,8 +150,8 @@ export default function GuidePage() {
           </p>
         </Section>
 
-        {/* IV. Stamps, Comments & Interaction */}
-        <Section id="interaction" number="IV" title="Stamps, Comments & Interaction">
+        {/* IV. Stamps, Inks, Comments & Interaction */}
+        <Section id="interaction" number="IV" title="Stamps, Inks & Interaction">
           <p>
             <strong>Stamps</strong> are Inkwell&rsquo;s way of reacting to
             entries — like pressing an ink stamp onto paper. Each entry shows
@@ -162,6 +162,15 @@ export default function GuidePage() {
             You can leave one stamp per entry. Pick the one that fits how the
             entry made you feel — &ldquo;Felt this,&rdquo; &ldquo;Holding
             space,&rdquo; &ldquo;Beautifully said,&rdquo; and more.
+          </p>
+          <p>
+            <strong>Inks</strong> are a way to signal &ldquo;more people should
+            read this.&rdquo; Click the ink drop icon on any entry to ink it.
+            Unlike stamps (which express how something made you feel), inks are
+            a discovery signal — they help surface great writing. The most-inked
+            entries appear in the <strong>Trending This Week</strong> section on
+            Explore, and you can sort Explore by &ldquo;Most Inked&rdquo; to
+            find community favorites.
           </p>
           <p>
             <strong>Comments</strong> support @mentions — type{" "}
