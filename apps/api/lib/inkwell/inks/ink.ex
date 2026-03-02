@@ -8,6 +8,7 @@ defmodule Inkwell.Inks.Ink do
   schema "inks" do
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :entry, Inkwell.Journals.Entry
+    belongs_to :remote_entry, Inkwell.Federation.RemoteEntry
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
     field :ap_like_id, :string
 
@@ -16,11 +17,28 @@ defmodule Inkwell.Inks.Ink do
 
   def changeset(ink, attrs) do
     ink
-    |> cast(attrs, [:user_id, :entry_id, :remote_actor_id, :ap_like_id])
-    |> validate_required([:entry_id])
+    |> cast(attrs, [:user_id, :entry_id, :remote_entry_id, :remote_actor_id, :ap_like_id])
+    |> validate_entry_target()
     |> validate_actor_present()
     |> unique_constraint([:user_id, :entry_id])
+    |> unique_constraint([:user_id, :remote_entry_id])
     |> unique_constraint([:remote_actor_id, :entry_id], name: :inks_remote_actor_id_entry_id_index)
+  end
+
+  defp validate_entry_target(changeset) do
+    entry_id = get_field(changeset, :entry_id)
+    remote_entry_id = get_field(changeset, :remote_entry_id)
+
+    cond do
+      is_nil(entry_id) and is_nil(remote_entry_id) ->
+        add_error(changeset, :entry_id, "either entry_id or remote_entry_id must be present")
+
+      not is_nil(entry_id) and not is_nil(remote_entry_id) ->
+        add_error(changeset, :entry_id, "cannot set both entry_id and remote_entry_id")
+
+      true ->
+        changeset
+    end
   end
 
   defp validate_actor_present(changeset) do

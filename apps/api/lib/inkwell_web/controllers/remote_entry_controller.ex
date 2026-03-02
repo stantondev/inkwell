@@ -1,7 +1,7 @@
 defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Journals, Stamps}
+  alias Inkwell.{Inks, Journals, Stamps}
   alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, RemoteActor}
   alias Inkwell.Federation.Workers.DeliverActivityWorker
   alias Inkwell.Repo
@@ -124,6 +124,40 @@ defmodule InkwellWeb.RemoteEntryController do
     end
   end
 
+  # POST /api/remote-entries/:id/ink
+  def toggle_ink(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case get_remote_entry(id) do
+      {:ok, remote_entry} ->
+        case Inks.toggle_ink_remote(user.id, id) do
+          {:ok, {:created, _ink}} ->
+            # Send Announce to followers (boost)
+            remote_entry = Repo.preload(remote_entry, :remote_actor)
+            deliver_announce(remote_entry, user)
+
+            ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
+            json(conn, %{data: %{inked: true, ink_count: ink_count}})
+
+          {:ok, {:removed, _}} ->
+            # Send Undo { Announce } to followers
+            remote_entry = Repo.preload(remote_entry, :remote_actor)
+            deliver_undo_announce(remote_entry, user)
+
+            ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
+            json(conn, %{data: %{inked: false, ink_count: ink_count}})
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: format_errors(changeset)})
+        end
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+    end
+  end
+
   # ── Activity delivery helpers ──────────────────────────────────────────
 
   defp deliver_like(remote_entry, user) do
@@ -148,6 +182,22 @@ defmodule InkwellWeb.RemoteEntryController do
       |> DeliverActivityWorker.new()
       |> Oban.insert()
     end
+  end
+
+  defp deliver_announce(remote_entry, user) do
+    alias Inkwell.Federation.Workers.FanOutWorker
+
+    %{entry_ap_id: remote_entry.ap_id, action: "announce", user_id: user.id}
+    |> FanOutWorker.new()
+    |> Oban.insert()
+  end
+
+  defp deliver_undo_announce(remote_entry, user) do
+    alias Inkwell.Federation.Workers.FanOutWorker
+
+    %{entry_ap_id: remote_entry.ap_id, action: "undo_announce", user_id: user.id}
+    |> FanOutWorker.new()
+    |> Oban.insert()
   end
 
   defp deliver_reply(remote_entry, comment, user) do

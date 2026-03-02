@@ -96,6 +96,15 @@ defmodule InkwellWeb.ExploreController do
         %{}
       end
 
+    remote_ink_counts = Inks.count_inks_for_remote_entries(remote_entry_ids)
+
+    remote_inks_set =
+      if viewer do
+        Inks.get_user_inks_for_remote_entries(viewer.id, remote_entry_ids)
+      else
+        MapSet.new()
+      end
+
     remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
@@ -156,8 +165,8 @@ defmodule InkwellWeb.ExploreController do
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: Map.get(remote_comment_counts, re.id, 0),
-          ink_count: 0,
-          my_ink: false,
+          ink_count: Map.get(remote_ink_counts, re.id, 0),
+          my_ink: MapSet.member?(remote_inks_set, re.id),
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,

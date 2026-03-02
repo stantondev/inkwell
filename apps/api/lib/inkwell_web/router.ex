@@ -263,6 +263,7 @@ defmodule InkwellWeb.Router do
     # Remote entry interactions (federated)
     post "/remote-entries/:id/stamp", RemoteEntryController, :stamp
     delete "/remote-entries/:id/stamp", RemoteEntryController, :unstamp
+    post "/remote-entries/:id/ink", RemoteEntryController, :toggle_ink
     get "/remote-entries/:id/comments", RemoteEntryController, :list_comments
     post "/remote-entries/:id/comments", RemoteEntryController, :create_comment
 

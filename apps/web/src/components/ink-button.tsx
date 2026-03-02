@@ -13,6 +13,8 @@ interface InkButtonProps {
   size?: number;
   /** Show count (default true) */
   showCount?: boolean;
+  /** Override API path for remote entries */
+  apiPath?: string;
 }
 
 export function InkButton({
@@ -23,6 +25,7 @@ export function InkButton({
   isLoggedIn,
   size = 15,
   showCount = true,
+  apiPath,
 }: InkButtonProps) {
   const [inked, setInked] = useState(initialInked);
   const [count, setCount] = useState(initialCount);
@@ -56,7 +59,7 @@ export function InkButton({
     setTimeout(() => setAnimating(false), 200);
 
     try {
-      const res = await fetch(`/api/entries/${entryId}/ink`, {
+      const res = await fetch(apiPath ?? `/api/entries/${entryId}/ink`, {
         method: "POST",
         cache: "no-store",
       });

@@ -100,6 +100,7 @@ export function JournalFeed({
           ? {
               stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
               commentApiPath: `/api/remote-entries/${entry.id}/comments`,
+              inkApiPath: `/api/remote-entries/${entry.id}/ink`,
               externalUrl: entry.url,
               externalDomain: entry.author.domain,
             }

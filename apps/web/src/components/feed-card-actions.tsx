@@ -40,6 +40,8 @@ interface FeedCardActionsProps {
   /** External URL for "View on {domain}" link */
   externalUrl?: string;
   externalDomain?: string;
+  /** Override API path for remote entry inks */
+  inkApiPath?: string;
   /** Whether this is a federated/remote entry */
   isRemote?: boolean;
   onStampsChange?: (stamps: string[]) => void;
@@ -72,6 +74,7 @@ export function FeedCardActions({
   bookmarkApiPath,
   externalUrl,
   externalDomain,
+  inkApiPath,
   isRemote = false,
   onStampsChange,
   onBookmarkChange,
@@ -354,6 +357,7 @@ export function FeedCardActions({
           initialCount={inkCount}
           isOwnEntry={isOwnEntry}
           isLoggedIn={isLoggedIn}
+          apiPath={inkApiPath}
         />
 
         {/* Stamp button */}

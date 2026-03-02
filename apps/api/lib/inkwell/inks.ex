@@ -138,6 +138,60 @@ defmodule Inkwell.Inks do
     end
   end
 
+  # ── Remote entry inks (local user inking a federated entry) ───────────
+
+  @doc """
+  Toggle ink on a remote entry: create if not exists, delete if exists.
+  No denormalized counter (remote_entries has no ink_count column).
+  Returns {:ok, {:created, ink}} or {:ok, {:removed, nil}}.
+  """
+  def toggle_ink_remote(user_id, remote_entry_id) do
+    case Repo.get_by(Ink, user_id: user_id, remote_entry_id: remote_entry_id) do
+      nil ->
+        case %Ink{} |> Ink.changeset(%{user_id: user_id, remote_entry_id: remote_entry_id}) |> Repo.insert() do
+          {:ok, ink} -> {:ok, {:created, ink}}
+          {:error, changeset} -> {:error, changeset}
+        end
+
+      existing ->
+        Repo.delete!(existing)
+        {:ok, {:removed, nil}}
+    end
+  end
+
+  @doc """
+  Batch query: returns a MapSet of remote entry IDs the user has inked.
+  Used by explore controller for efficient bulk lookups.
+  """
+  def get_user_inks_for_remote_entries(user_id, remote_entry_ids) when is_list(remote_entry_ids) do
+    if remote_entry_ids == [] do
+      MapSet.new()
+    else
+      Ink
+      |> where([i], i.user_id == ^user_id and i.remote_entry_id in ^remote_entry_ids)
+      |> select([i], i.remote_entry_id)
+      |> Repo.all()
+      |> MapSet.new()
+    end
+  end
+
+  @doc """
+  Batch query: returns a map of remote_entry_id => ink count.
+  Used by explore controller for displaying ink counts on remote entries.
+  """
+  def count_inks_for_remote_entries(remote_entry_ids) when is_list(remote_entry_ids) do
+    if remote_entry_ids == [] do
+      %{}
+    else
+      Ink
+      |> where([i], i.remote_entry_id in ^remote_entry_ids)
+      |> group_by([i], i.remote_entry_id)
+      |> select([i], {i.remote_entry_id, count(i.id)})
+      |> Repo.all()
+      |> Map.new()
+    end
+  end
+
   # ── Trending ───────────────────────────────────────────────────────────
 
   @doc """
