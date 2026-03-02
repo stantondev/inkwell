@@ -277,8 +277,7 @@ defmodule InkwellWeb.FederationController do
         handle_delete(conn, activity, target_user)
 
       "Announce" ->
-        # Boost — acknowledge for now
-        conn |> put_status(:accepted) |> json(%{ok: true})
+        handle_announce(conn, activity, target_user)
 
       _ ->
         Logger.info("Ignoring unsupported activity type: #{activity_type}")
@@ -472,6 +471,25 @@ defmodule InkwellWeb.FederationController do
               entry ->
                 Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
                 Logger.info("Processed Undo Like from #{actor_uri} on entry #{entry.id}")
+            end
+        end
+
+      %{"type" => "Announce", "object" => object_uri} = announce_object when is_binary(object_uri) ->
+        actor_uri = activity["actor"]
+        announce_id = announce_object["id"]
+
+        case RemoteActor.get_by_ap_id(actor_uri) do
+          nil ->
+            if is_binary(announce_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+
+          remote_actor ->
+            case find_entry_by_ap_url(object_uri) do
+              nil ->
+                if is_binary(announce_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+
+              entry ->
+                Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
+                Logger.info("Processed Undo Announce from #{actor_uri} on entry #{entry.id}")
             end
         end
 
@@ -699,6 +717,49 @@ defmodule InkwellWeb.FederationController do
 
                 {:error, reason} ->
                   Logger.warning("Failed to create federated ink: #{inspect(reason)}")
+              end
+
+            _ ->
+              :ok
+          end
+      end
+    end
+
+    conn |> put_status(:accepted) |> json(%{ok: true})
+  end
+
+  # ── Announce handling (inbound boost → ink) ─────────────────────────
+
+  defp handle_announce(conn, activity, _target_user) do
+    # Announce object can be a bare string URI or %{"id" => id}
+    object_uri =
+      case activity["object"] do
+        uri when is_binary(uri) -> uri
+        %{"id" => id} when is_binary(id) -> id
+        _ -> nil
+      end
+
+    actor_uri = activity["actor"]
+    announce_id = activity["id"]
+
+    if is_binary(object_uri) do
+      case find_entry_by_ap_url(object_uri) do
+        nil ->
+          :ok
+
+        entry ->
+          case RemoteActor.fetch(actor_uri) do
+            {:ok, remote_actor} ->
+              case Inkwell.Inks.create_remote_ink(remote_actor.id, entry.id, announce_id) do
+                {:ok, {:created, _ink}} ->
+                  create_ink_notification(entry, remote_actor)
+                  Logger.info("Received federated boost-ink on entry #{entry.id} from #{actor_uri}")
+
+                {:ok, :existing} ->
+                  Logger.info("Duplicate Announce from #{actor_uri} on entry #{entry.id}, skipping")
+
+                {:error, reason} ->
+                  Logger.warning("Failed to create boost-ink: #{inspect(reason)}")
               end
 
             _ ->

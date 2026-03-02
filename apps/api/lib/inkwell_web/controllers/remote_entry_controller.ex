@@ -129,7 +129,7 @@ defmodule InkwellWeb.RemoteEntryController do
   defp deliver_like(remote_entry, user) do
     actor = remote_entry.remote_actor
     if actor do
-      activity = ActivityBuilder.build_like(remote_entry.ap_id, user)
+      activity = ActivityBuilder.build_like(remote_entry.ap_id, user, actor.ap_id)
       inbox = actor.shared_inbox || actor.inbox
 
       %{activity: activity, inbox_url: inbox, user_id: user.id}
@@ -141,7 +141,7 @@ defmodule InkwellWeb.RemoteEntryController do
   defp deliver_undo_like(remote_entry, user) do
     actor = remote_entry.remote_actor
     if actor do
-      activity = ActivityBuilder.build_undo_like(remote_entry.ap_id, user)
+      activity = ActivityBuilder.build_undo_like(remote_entry.ap_id, user, actor.ap_id)
       inbox = actor.shared_inbox || actor.inbox
 
       %{activity: activity, inbox_url: inbox, user_id: user.id}

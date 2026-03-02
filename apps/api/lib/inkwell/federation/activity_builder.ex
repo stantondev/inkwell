@@ -258,8 +258,9 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds a Like activity for stamping a remote entry.
+  `remote_actor_ap_id` is the AP ID of the post author (used for `to` addressing).
   """
-  def build_like(remote_entry_ap_id, user) do
+  def build_like(remote_entry_ap_id, user, remote_actor_ap_id) do
     actor_url = actor_url(user)
 
     %{
@@ -267,6 +268,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "type" => "Like",
       "id" => "#{actor_url}#like-#{System.system_time(:second)}",
       "actor" => actor_url,
+      "to" => [remote_actor_ap_id],
       "object" => remote_entry_ap_id
     }
   end
@@ -274,7 +276,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds an Undo { Like } activity for removing a stamp from a remote entry.
   """
-  def build_undo_like(remote_entry_ap_id, user) do
+  def build_undo_like(remote_entry_ap_id, user, remote_actor_ap_id) do
     actor_url = actor_url(user)
 
     %{
@@ -282,11 +284,55 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "type" => "Undo",
       "id" => "#{actor_url}#undo-like-#{System.system_time(:second)}",
       "actor" => actor_url,
+      "to" => [remote_actor_ap_id],
       "object" => %{
         "type" => "Like",
         "id" => "#{actor_url}#like-#{remote_entry_ap_id}",
         "actor" => actor_url,
         "object" => remote_entry_ap_id
+      }
+    }
+  end
+
+  # ── Announce (boost/ink) ─────────────────────────────────────────────────
+
+  @doc """
+  Builds an Announce activity for inking (boosting) a public entry.
+  Addressed to Public + actor's followers so it appears in followers' timelines.
+  """
+  def build_announce(entry_ap_id, user) do
+    actor_url = actor_url(user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Announce",
+      "id" => "#{actor_url}#announce-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "published" => format_datetime(DateTime.utc_now()),
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"],
+      "object" => entry_ap_id
+    }
+  end
+
+  @doc """
+  Builds an Undo { Announce } activity for un-inking (unboosting) an entry.
+  """
+  def build_undo_announce(entry_ap_id, user) do
+    actor_url = actor_url(user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Undo",
+      "id" => "#{actor_url}#undo-announce-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"],
+      "object" => %{
+        "type" => "Announce",
+        "id" => "#{actor_url}#announce-#{entry_ap_id}",
+        "actor" => actor_url,
+        "object" => entry_ap_id
       }
     }
   end

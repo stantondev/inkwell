@@ -59,6 +59,8 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
   defp build_activity("create", entry, user), do: ActivityBuilder.build_create_note(entry, user)
   defp build_activity("update", entry, user), do: ActivityBuilder.build_update_note(entry, user)
   defp build_activity("delete", entry, user), do: ActivityBuilder.build_delete(entry.ap_id, user)
+  defp build_activity("announce", entry, user), do: ActivityBuilder.build_announce(entry.ap_id, user)
+  defp build_activity("undo_announce", entry, user), do: ActivityBuilder.build_undo_announce(entry.ap_id, user)
 
   @doc false
   def collect_remote_inboxes(user_id) do
