@@ -696,12 +696,22 @@ defmodule Inkwell.Journals do
       |> Enum.flat_map(&extract_image_ids/1)
       |> MapSet.new()
 
+    # Also protect images embedded in letters (direct messages)
+    letter_referenced =
+      Inkwell.Letters.DirectMessage
+      |> where([m], not is_nil(m.body_html))
+      |> select([m], m.body_html)
+      |> Repo.all()
+      |> Enum.flat_map(&extract_image_ids/1)
+      |> MapSet.new()
+
     referenced_ids =
       entry_referenced
       |> MapSet.union(cover_image_referenced)
       |> MapSet.union(series_cover_referenced)
       |> MapSet.union(feedback_referenced)
       |> MapSet.union(bio_referenced)
+      |> MapSet.union(letter_referenced)
 
     # Get candidate orphan images (older than cutoff)
     candidates =

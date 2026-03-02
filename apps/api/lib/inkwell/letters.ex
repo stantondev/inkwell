@@ -140,8 +140,9 @@ defmodule Inkwell.Letters do
 
   @doc """
   Send a letter in `conversation_id` from `sender_id`.
+  Accepts a map with `body` (plain text) and optionally `body_html` (rich text).
   """
-  def send_letter(conversation_id, sender_id, body) do
+  def send_letter(conversation_id, sender_id, body, body_html \\ nil) do
     case get_participant_conversation(conversation_id, sender_id) do
       nil ->
         {:error, :not_found}
@@ -155,7 +156,8 @@ defmodule Inkwell.Letters do
           attrs = %{
             conversation_id: conversation_id,
             sender_id: sender_id,
-            body: String.trim(body)
+            body: String.trim(body),
+            body_html: body_html
           }
 
           case %DirectMessage{} |> DirectMessage.changeset(attrs) |> Repo.insert() do
@@ -170,6 +172,29 @@ defmodule Inkwell.Letters do
 
             error ->
               error
+          end
+        end
+    end
+  end
+
+  @doc """
+  Edit an existing letter. Only the sender can edit their own messages.
+  """
+  def update_letter(message_id, sender_id, attrs) do
+    case Repo.get(DirectMessage, message_id) do
+      nil ->
+        {:error, :not_found}
+
+      message ->
+        if message.sender_id != sender_id do
+          {:error, :forbidden}
+        else
+          message
+          |> DirectMessage.edit_changeset(attrs)
+          |> Repo.update()
+          |> case do
+            {:ok, msg} -> {:ok, Repo.preload(msg, :sender)}
+            error -> error
           end
         end
     end

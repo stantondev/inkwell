@@ -2127,16 +2127,202 @@ div:has(> div > .editor-floating-menu) {
   }
 }
 
-/* Large desktop: wider compose panel */
+/* Large desktop: wider compose panel (only when not using custom width) */
 @media (min-width: 1280px) {
-  .letter-compose-area {
+  .letter-compose-area:not([style*="width"]) {
     width: 380px;
   }
-
-  .letter-compose-body textarea {
-    min-height: 200px !important;
-  }
 }
+
+/* ─── Rich Letter Content (.prose-letter) ───────────────────────────── */
+.prose-letter {
+  font-size: 14px;
+  line-height: 24px;
+  font-family: var(--font-lora, Georgia, serif);
+  color: #1a100a;
+  word-break: break-word;
+  max-width: 100%;
+}
+.prose-letter p { margin-bottom: 0.5em; }
+.prose-letter p:last-child { margin-bottom: 0; }
+.prose-letter ul { list-style: disc; padding-left: 1.25em; margin-bottom: 0.5em; }
+.prose-letter ol { list-style: decimal; padding-left: 1.25em; margin-bottom: 0.5em; }
+.prose-letter li { margin-bottom: 0.15em; }
+.prose-letter blockquote {
+  border-left: 2px solid rgba(180,160,100,0.4);
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  font-style: italic;
+  color: #5a4a2a;
+}
+.prose-letter a { color: var(--accent); text-decoration: underline; }
+.prose-letter a:hover { opacity: 0.8; }
+.prose-letter img {
+  border-radius: 6px;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5em 0;
+}
+.prose-letter strong { font-weight: 700; }
+.prose-letter em { font-style: italic; }
+.prose-letter u { text-decoration: underline; }
+.prose-letter s { text-decoration: line-through; opacity: 0.7; }
+.prose-letter code {
+  background: rgba(180,160,100,0.1);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.prose-letter hr {
+  border: none;
+  text-align: center;
+  margin: 0.75em 0;
+  color: rgba(180,160,100,0.4);
+}
+.prose-letter hr::before { content: "· · ·"; }
+
+@media (prefers-color-scheme: dark) {
+  /* Note: prose-letter color stays #1a100a — notecards always have light backgrounds */
+  .prose-letter blockquote { border-left-color: rgba(100,120,160,0.4); }
+  .prose-letter code { background: rgba(100,120,160,0.15); }
+}
+
+/* ─── Letter Editor Toolbar ─────────────────────────────────────────── */
+.letter-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 18px;
+  border-bottom: 1px solid rgba(180,160,100,0.2);
+}
+.letter-editor-toolbar-group {
+  display: flex;
+  gap: 1px;
+  padding-right: 6px;
+  border-right: 1px solid rgba(180,160,100,0.15);
+  margin-right: 6px;
+}
+.letter-editor-toolbar-group:last-child {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
+}
+.letter-editor-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  color: #6a5a3a;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+.letter-editor-btn:hover {
+  background: rgba(180,160,100,0.1);
+  border-color: rgba(180,160,100,0.2);
+}
+.letter-editor-btn-active {
+  background: rgba(180,160,100,0.15);
+  border-color: rgba(180,160,100,0.3);
+  color: #3a2a10;
+}
+
+/* Editor content area — transparent bg so notepad lines show through */
+.letter-editor-content .tiptap {
+  outline: none;
+  font-size: 15px;
+  line-height: 28px;
+  font-family: var(--font-lora, Georgia, serif);
+  color: #1a100a;
+  min-height: 80px;
+  padding: 0 18px 8px;
+}
+.letter-editor-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #b8a87a;
+  pointer-events: none;
+  float: left;
+  height: 0;
+  font-style: italic;
+}
+.letter-editor-content .tiptap p { margin-bottom: 0.25em; }
+.letter-editor-content .tiptap p:last-child { margin-bottom: 0; }
+.letter-editor-content .tiptap ul { list-style: disc; padding-left: 1.25em; margin-bottom: 0.25em; }
+.letter-editor-content .tiptap ol { list-style: decimal; padding-left: 1.25em; margin-bottom: 0.25em; }
+.letter-editor-content .tiptap li { margin-bottom: 0; }
+.letter-editor-content .tiptap blockquote {
+  border-left: 2px solid rgba(180,160,100,0.4);
+  margin: 0.25em 0;
+  padding: 0.15em 0.75em;
+  font-style: italic;
+  color: #5a4a2a;
+}
+.letter-editor-content .tiptap a { color: var(--accent); text-decoration: underline; }
+.letter-editor-content .tiptap img {
+  border-radius: 6px;
+  max-width: 100%;
+  height: auto;
+  margin: 0.25em 0;
+}
+.letter-editor-content .tiptap hr { border: none; text-align: center; margin: 0.5em 0; }
+.letter-editor-content .tiptap hr::before { content: "· · ·"; color: rgba(180,160,100,0.4); }
+
+/* Edit mode: editor inside a message note */
+.letter-edit-mode .letter-editor-toolbar { padding: 4px 10px; }
+.letter-edit-mode .letter-editor-content .tiptap {
+  padding: 0;
+  min-height: 40px;
+  font-size: 14px;
+  line-height: 24px;
+}
+
+/* ─── Letter Resize Handle ──────────────────────────────────────────── */
+.letter-resize-handle {
+  display: none;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  z-index: 5;
+}
+.letter-resize-handle:hover,
+.letter-resize-handle.dragging {
+  background: rgba(180,160,100,0.15);
+}
+.letter-resize-handle::after {
+  content: "⋮";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.letter-resize-handle:hover::after,
+.letter-resize-handle.dragging::after {
+  opacity: 0.6;
+}
+@media (min-width: 768px) {
+  .letter-resize-handle { display: block; }
+}
+
+/* ─── Letter Compose Expand Toggle ──────────────────────────────────── */
+.letter-compose-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 2px;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.letter-compose-expand-btn:hover { opacity: 1; }
 
 /* ─── Sidebar — "The Contents Page" ─────────────────────────────────── */
 

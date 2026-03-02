@@ -7,6 +7,8 @@ defmodule Inkwell.Letters.DirectMessage do
 
   schema "direct_messages" do
     field :body, :string
+    field :body_html, :string
+    field :edited_at, :utc_datetime_usec
     field :deleted_by_a, :boolean, default: false
     field :deleted_by_b, :boolean, default: false
 
@@ -18,8 +20,16 @@ defmodule Inkwell.Letters.DirectMessage do
 
   def changeset(message, attrs) do
     message
-    |> cast(attrs, [:conversation_id, :sender_id, :body])
+    |> cast(attrs, [:conversation_id, :sender_id, :body, :body_html])
     |> validate_required([:conversation_id, :sender_id, :body])
-    |> validate_length(:body, min: 1, max: 2000)
+    |> validate_length(:body, min: 1, max: 10_000)
+  end
+
+  def edit_changeset(message, attrs) do
+    message
+    |> cast(attrs, [:body, :body_html])
+    |> validate_required([:body])
+    |> validate_length(:body, min: 1, max: 10_000)
+    |> put_change(:edited_at, DateTime.utc_now() |> DateTime.truncate(:microsecond))
   end
 end

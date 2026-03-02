@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Avatar } from "@/components/avatar";
+import { LetterEditor } from "@/components/letter-editor";
 import type { LetterMessage, ThreadData } from "./page";
 
 // Deterministic "random" rotation from message ID — gives each note a slight tilt
@@ -15,7 +16,6 @@ function seedRotation(id: string): number {
     hash = (hash << 5) - hash + id.charCodeAt(i);
     hash |= 0;
   }
-  // Clamp to ±1.5 degrees
   return ((hash % 100) / 100) * 3 - 1.5;
 }
 
@@ -40,21 +40,36 @@ function formatMessageTime(dateStr: string): string {
   });
 }
 
+// ---------------------------------------------------------------------------
+// LetterNote — individual message
+// ---------------------------------------------------------------------------
+
 function LetterNote({
   message,
   conversationId,
   onDelete,
+  onUpdate,
   prefersReducedMotion,
   isNew,
+  isEditing,
+  onStartEdit,
+  onCancelEdit,
 }: {
   message: LetterMessage;
   conversationId: string;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, updated: LetterMessage) => void;
   prefersReducedMotion: boolean;
   isNew: boolean;
+  isEditing: boolean;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
 }) {
-  const [showDelete, setShowDelete] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const editHtmlRef = useRef(message.body_html || message.body || "");
   const rotation = prefersReducedMotion ? 0 : seedRotation(message.id);
 
   const handleDelete = async () => {
@@ -65,11 +80,38 @@ function LetterNote({
         `/api/letters/${conversationId}/messages/${message.id}`,
         { method: "DELETE" }
       );
-      if (res.ok) {
-        onDelete(message.id);
-      }
+      if (res.ok) onDelete(message.id);
     } catch {
       setDeleting(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    const html = editHtmlRef.current;
+    if (!html || saving) return;
+    setSaving(true);
+    setEditError(null);
+
+    try {
+      const res = await fetch(
+        `/api/letters/${conversationId}/messages/${message.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body_html: html }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        setEditError(json.error || "Failed to save");
+        return;
+      }
+      onUpdate(message.id, json.data);
+      onCancelEdit();
+    } catch {
+      setEditError("Failed to save — please try again");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -95,8 +137,8 @@ function LetterNote({
         alignItems: message.is_mine ? "flex-end" : "flex-start",
         marginBottom: "20px",
       }}
-      onMouseEnter={() => setShowDelete(true)}
-      onMouseLeave={() => setShowDelete(false)}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
     >
       {/* Sender label */}
       {!message.is_mine && (
@@ -119,11 +161,11 @@ function LetterNote({
         style={{
           maxWidth: "min(480px, 80%)",
           position: "relative",
-          transform: `rotate(${rotation}deg)`,
+          transform: isEditing ? "none" : `rotate(${rotation}deg)`,
           transition: prefersReducedMotion ? "none" : "transform 0.2s ease",
         }}
       >
-        {/* Drop shadow — looks like paper lifting slightly */}
+        {/* Drop shadow */}
         <div
           aria-hidden="true"
           style={{
@@ -142,9 +184,8 @@ function LetterNote({
             zIndex: 1,
             background: message.is_mine ? "#f0f4fd" : "#fdf8ee",
             borderRadius: "4px",
-            padding: "14px 18px",
+            padding: isEditing ? "8px" : "14px 18px",
             border: `1px solid ${message.is_mine ? "#c8d5f0" : "#e0d4b8"}`,
-            // Ruled lines effect
             backgroundImage: message.is_mine
               ? `repeating-linear-gradient(
                   transparent,
@@ -160,76 +201,381 @@ function LetterNote({
                 )`,
           }}
         >
-          {/* Message body */}
-          <p
-            style={{
-              margin: 0,
-              fontSize: "14px",
-              lineHeight: "24px",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              color: "#1a100a",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {message.body}
-          </p>
+          {/* Message body — edit mode or display mode */}
+          {isEditing ? (
+            <div>
+              <LetterEditor
+                content={message.body_html || `<p>${(message.body || "").replace(/\n/g, "</p><p>")}</p>`}
+                onChange={(html) => { editHtmlRef.current = html; }}
+                onSubmit={handleSaveEdit}
+                compact
+                autoFocus
+              />
+              {editError && (
+                <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "6px" }}>
+                  {editError}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px", justifyContent: "flex-end" }}>
+                <button
+                  onClick={onCancelEdit}
+                  style={{
+                    background: "none",
+                    border: "1px solid rgba(180,160,100,0.3)",
+                    borderRadius: "6px",
+                    padding: "4px 12px",
+                    fontSize: "12px",
+                    color: "#6a5a3a",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  style={{
+                    background: "var(--accent)",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "4px 12px",
+                    fontSize: "12px",
+                    color: "white",
+                    cursor: saving ? "not-allowed" : "pointer",
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Render rich HTML or plain text */}
+              {message.body_html ? (
+                <div
+                  className="prose-letter"
+                  dangerouslySetInnerHTML={{ __html: message.body_html }}
+                />
+              ) : (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    lineHeight: "24px",
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                    color: "#1a100a",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {message.body}
+                </p>
+              )}
+            </>
+          )}
 
-          {/* Postmark timestamp */}
-          <div
-            style={{
-              marginTop: "10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-            }}
-          >
-            <span
+          {/* Footer: timestamp + actions */}
+          {!isEditing && (
+            <div
               style={{
-                fontSize: "10px",
-                color: message.is_mine ? "#6a80aa" : "#8a7a4a",
-                fontVariant: "small-caps",
-                letterSpacing: "0.06em",
+                marginTop: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
               }}
             >
-              {formatMessageTime(message.inserted_at)}
-            </span>
-
-            {/* Delete button (own messages only) */}
-            {message.is_mine && (
-              <AnimatePresence>
-                {showDelete && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.15 }}
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "11px",
-                      color: "#aa6666",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      opacity: deleting ? 0.5 : 1,
-                    }}
-                    title="Remove this letter"
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: message.is_mine ? "#6a80aa" : "#8a7a4a",
+                  fontVariant: "small-caps",
+                  letterSpacing: "0.06em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                {formatMessageTime(message.inserted_at)}
+                {message.edited_at && (
+                  <span
+                    title={`Edited ${new Date(message.edited_at).toLocaleString()}`}
+                    style={{ fontStyle: "italic", opacity: 0.7 }}
                   >
-                    ✕ remove
-                  </motion.button>
+                    (edited)
+                  </span>
                 )}
-              </AnimatePresence>
-            )}
-          </div>
+              </span>
+
+              {/* Edit + Delete buttons (own messages only) */}
+              {message.is_mine && (
+                <AnimatePresence>
+                  {showActions && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      style={{ display: "flex", gap: "4px", alignItems: "center" }}
+                    >
+                      <button
+                        onClick={() => onStartEdit(message.id)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          color: message.is_mine ? "#6a80aa" : "#8a7a4a",
+                          padding: "2px 4px",
+                        }}
+                        title="Edit this letter"
+                      >
+                        edit
+                      </button>
+                      <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.4 }}>·</span>
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          color: "#aa6666",
+                          padding: "2px 4px",
+                          opacity: deleting ? 0.5 : 1,
+                        }}
+                        title="Remove this letter"
+                      >
+                        remove
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ResizeHandle — draggable divider between messages and compose
+// ---------------------------------------------------------------------------
+
+function ResizeHandle({
+  onResize,
+}: {
+  onResize: (deltaX: number) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startXRef = useRef(0);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setDragging(true);
+      startXRef.current = e.clientX;
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        const delta = startXRef.current - ev.clientX;
+        startXRef.current = ev.clientX;
+        onResize(delta);
+      };
+
+      const handleMouseUp = () => {
+        setDragging(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [onResize]
+  );
+
+  return (
+    <div
+      className={`letter-resize-handle ${dragging ? "dragging" : ""}`}
+      onMouseDown={handleMouseDown}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ComposeArea — TipTap rich text compose
+// ---------------------------------------------------------------------------
+
+function ComposeArea({
+  conversationId,
+  onSend,
+  prefersReducedMotion,
+  composeWidth,
+  expanded,
+  onToggleExpand,
+}: {
+  conversationId: string;
+  onSend: (message: LetterMessage) => void;
+  prefersReducedMotion: boolean;
+  composeWidth: number | null;
+  expanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const htmlRef = useRef("");
+  const editorKeyRef = useRef(0);
+
+  const send = async () => {
+    const html = htmlRef.current;
+    // Check if content is empty (just empty p tags)
+    const stripped = html.replace(/<[^>]*>/g, "").trim();
+    if (!stripped || sending) return;
+
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/letters/${conversationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body_html: html }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.errors?.body?.[0] ?? json.error ?? "Failed to send letter");
+        return;
+      }
+      htmlRef.current = "";
+      editorKeyRef.current += 1;
+      onSend(json.data);
+    } catch {
+      setError("Failed to send letter — please try again");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const widthStyle = composeWidth
+    ? { width: `${expanded ? Math.max(composeWidth, 500) : composeWidth}px` }
+    : expanded
+    ? { width: "60%" }
+    : undefined;
+
+  return (
+    <motion.div
+      className="letter-compose-area"
+      style={widthStyle}
+    >
+      {/* Notepad header */}
+      <div className="letter-compose-header">
+        <span
+          style={{
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontStyle: "italic",
+            fontSize: "13px",
+            color: "#8a7a4a",
+          }}
+        >
+          Write a letter&hellip;
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            className="letter-compose-expand-btn"
+            onClick={onToggleExpand}
+            title={expanded ? "Collapse compose" : "Expand compose"}
+          >
+            {expanded ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" />
+                <line x1="14" y1="10" x2="21" y2="3" /><line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            )}
+          </button>
+          <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
+            ⌘↵ to send
+          </span>
+        </span>
+      </div>
+
+      {error && (
+        <div
+          style={{
+            margin: "0 18px 8px",
+            fontSize: "12px",
+            color: "var(--danger)",
+            padding: "6px 10px",
+            background: "rgba(220,38,38,0.08)",
+            borderRadius: "6px",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="letter-compose-body" style={{ flex: 1, overflow: "auto" }}>
+        <LetterEditor
+          key={editorKeyRef.current}
+          content=""
+          onChange={(html) => { htmlRef.current = html; }}
+          onSubmit={send}
+          autoFocus
+        />
+      </div>
+
+      <div className="letter-compose-footer">
+        <div style={{ flex: 1 }} />
+        <motion.button
+          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
+          onClick={send}
+          disabled={sending}
+          style={{
+            padding: "10px 22px",
+            borderRadius: "9999px",
+            background: sending ? "#d4cbb8" : "var(--accent)",
+            color: sending ? "#9a9080" : "white",
+            border: "none",
+            cursor: sending ? "not-allowed" : "pointer",
+            fontSize: "14px",
+            fontWeight: "600",
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            transition: "background 0.2s, color 0.2s, transform 0.1s",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sending ? (
+            "Sending..."
+          ) : (
+            <>
+              Seal &amp; Send <span style={{ fontSize: "16px" }}>✉</span>
+            </>
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// LetterThread — main thread component
+// ---------------------------------------------------------------------------
 
 interface Props {
   initialThread: ThreadData;
@@ -237,12 +583,19 @@ interface Props {
   currentUsername: string;
 }
 
+const COMPOSE_MIN = 280;
+const COMPOSE_MAX = 600;
+const COMPOSE_DEFAULT = 340;
+const COMPOSE_STORAGE_KEY = "inkwell-compose-width";
+
 export function LetterThread({ initialThread, conversationId, currentUsername }: Props) {
   const [messages, setMessages] = useState<LetterMessage[]>(initialThread.messages);
   const [hasMore, setHasMore] = useState(initialThread.has_more);
   const [page, setPage] = useState(initialThread.page);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [composeExpanded, setComposeExpanded] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(
@@ -250,6 +603,27 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
   );
   const isAtBottomRef = useRef(true);
   const router = useRouter();
+
+  // Compose width from localStorage
+  const [composeWidth, setComposeWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const saved = localStorage.getItem(COMPOSE_STORAGE_KEY);
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (parsed >= COMPOSE_MIN && parsed <= COMPOSE_MAX) {
+        setComposeWidth(parsed);
+      }
+    }
+  }, []);
+
+  const handleResize = useCallback((delta: number) => {
+    setComposeWidth((prev) => {
+      const current = prev ?? COMPOSE_DEFAULT;
+      const next = Math.min(COMPOSE_MAX, Math.max(COMPOSE_MIN, current + delta));
+      localStorage.setItem(COMPOSE_STORAGE_KEY, String(next));
+      return next;
+    });
+  }, []);
 
   // Mark as read on mount and refresh nav badge
   useEffect(() => {
@@ -302,7 +676,6 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
             setMessages((prev) => [...prev, ...newMsgs]);
             lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
 
-            // Mark as read and refresh nav badge
             fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
               .then(() => window.dispatchEvent(new Event("inkwell-nav-refresh")))
               .catch(() => {});
@@ -346,6 +719,12 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
 
   const handleDelete = useCallback((id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const handleUpdate = useCallback((id: string, updated: LetterMessage) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? updated : m))
+    );
   }, []);
 
   const loadOlderLetters = async () => {
@@ -430,7 +809,6 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           onScroll={handleScroll}
           className="letter-thread-messages"
           style={{
-            // Subtle aged-paper background
             background: `
               repeating-linear-gradient(
                 90deg,
@@ -474,8 +852,12 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
                 message={message}
                 conversationId={conversationId}
                 onDelete={handleDelete}
+                onUpdate={handleUpdate}
                 prefersReducedMotion={prefersReducedMotion}
                 isNew={newMessageIds.has(message.id)}
+                isEditing={editingMessageId === message.id}
+                onStartEdit={(id) => setEditingMessageId(id)}
+                onCancelEdit={() => setEditingMessageId(null)}
               />
             ))}
           </AnimatePresence>
@@ -496,6 +878,9 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           )}
         </div>
 
+        {/* Resize handle (desktop only) */}
+        <ResizeHandle onResize={handleResize} />
+
         {/* Compose area */}
         <ComposeArea
           conversationId={conversationId}
@@ -503,174 +888,14 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
             setMessages((prev) => [...prev, message]);
             setNewMessageIds((prev) => new Set([...prev, message.id]));
             lastMessageIdRef.current = message.id;
-            // Refresh nav to update badge
             router.refresh();
           }}
           prefersReducedMotion={prefersReducedMotion}
+          composeWidth={composeWidth}
+          expanded={composeExpanded}
+          onToggleExpand={() => setComposeExpanded((p) => !p)}
         />
       </div>
     </div>
-  );
-}
-
-function ComposeArea({
-  conversationId,
-  onSend,
-  prefersReducedMotion,
-}: {
-  conversationId: string;
-  onSend: (message: LetterMessage) => void;
-  prefersReducedMotion: boolean;
-}) {
-  const [body, setBody] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [focused, setFocused] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const MAX = 2000;
-
-  const send = async () => {
-    const trimmed = body.trim();
-    if (!trimmed || sending) return;
-
-    setSending(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/letters/${conversationId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: trimmed }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.errors?.body?.[0] ?? json.error ?? "Failed to send letter");
-        return;
-      }
-      setBody("");
-      onSend(json.data);
-      // Re-focus after send
-      setTimeout(() => textareaRef.current?.focus(), 50);
-    } catch {
-      setError("Failed to send letter — please try again");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      send();
-    }
-  };
-
-  const charsUsed = body.length;
-  const showCounter = charsUsed > MAX * 0.8;
-  const isDisabled = !body.trim() || sending || charsUsed > MAX;
-
-  return (
-    <motion.div className="letter-compose-area">
-      {/* Notepad top edge — the yellow strip */}
-      <div className="letter-compose-header">
-        <span
-          style={{
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            fontStyle: "italic",
-            fontSize: "13px",
-            color: "#8a7a4a",
-          }}
-        >
-          Write a letter&hellip;
-        </span>
-        <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
-          ⌘↵ to send
-        </span>
-      </div>
-
-      {error && (
-        <div
-          style={{
-            margin: "0 18px 8px",
-            fontSize: "12px",
-            color: "var(--danger)",
-            padding: "6px 10px",
-            background: "rgba(220,38,38,0.08)",
-            borderRadius: "6px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div className="letter-compose-body">
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder="Dear friend..."
-          maxLength={MAX}
-          rows={5}
-          style={{
-            width: "100%",
-            resize: "none",
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            fontSize: "15px",
-            lineHeight: "28px",
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            color: "#1a100a",
-            padding: "0",
-          }}
-        />
-      </div>
-
-      <div className="letter-compose-footer">
-        {showCounter && (
-          <span
-            style={{
-              fontSize: "11px",
-              color: charsUsed >= MAX ? "var(--danger)" : "#8a7a4a",
-              fontVariant: "small-caps",
-            }}
-          >
-            {charsUsed}/{MAX}
-          </span>
-        )}
-        <div style={{ flex: 1 }} />
-        <motion.button
-          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
-          onClick={send}
-          disabled={isDisabled}
-          style={{
-            padding: "10px 22px",
-            borderRadius: "9999px",
-            background: isDisabled ? "#d4cbb8" : "var(--accent)",
-            color: isDisabled ? "#9a9080" : "white",
-            border: "none",
-            cursor: isDisabled ? "not-allowed" : "pointer",
-            fontSize: "14px",
-            fontWeight: "600",
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            transition: "background 0.2s, color 0.2s, transform 0.1s",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {sending ? (
-            "Sending..."
-          ) : (
-            <>
-              Seal &amp; Send <span style={{ fontSize: "16px" }}>✉</span>
-            </>
-          )}
-        </motion.button>
-      </div>
-    </motion.div>
   );
 }

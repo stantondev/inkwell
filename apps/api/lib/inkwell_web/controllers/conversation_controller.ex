@@ -129,6 +129,8 @@ defmodule InkwellWeb.ConversationController do
     %{
       id: message.id,
       body: message.body,
+      body_html: message.body_html,
+      edited_at: message.edited_at,
       sender_username: message.sender.username,
       sender_display_name: message.sender.display_name,
       sender_avatar_url: message.sender.avatar_url,

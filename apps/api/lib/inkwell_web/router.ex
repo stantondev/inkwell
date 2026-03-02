@@ -271,6 +271,7 @@ defmodule InkwellWeb.Router do
     get  "/conversations/:id",                          ConversationController, :show
     post "/conversations/:id/read",                     ConversationController, :mark_read
     post "/conversations/:id/letters",                  LetterController, :create
+    patch "/conversations/:id/letters/:letter_id",      LetterController, :update
     delete "/conversations/:id/letters/:letter_id",     LetterController, :delete
 
     # Tipping / Stripe Connect (authenticated)

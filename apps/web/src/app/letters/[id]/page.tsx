@@ -9,6 +9,8 @@ export const metadata: Metadata = { title: "Letters · Inkwell" };
 export interface LetterMessage {
   id: string;
   body: string;
+  body_html: string | null;
+  edited_at: string | null;
   sender_username: string;
   sender_display_name: string;
   sender_avatar_url: string | null;
