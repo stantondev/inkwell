@@ -62,6 +62,84 @@ defmodule Inkwell.Inks do
     end
   end
 
+  # ── Federated inks (inbound ActivityPub Like) ───────────────────────────
+
+  @doc """
+  Creates an ink from a remote (fediverse) actor on a local entry.
+  Idempotent — returns {:ok, :existing} if the actor already inked this entry.
+  Atomically increments ink_count.
+  """
+  def create_remote_ink(remote_actor_id, entry_id, ap_like_id) do
+    case Repo.get_by(Ink, remote_actor_id: remote_actor_id, entry_id: entry_id) do
+      nil ->
+        Repo.transaction(fn ->
+          attrs = %{remote_actor_id: remote_actor_id, entry_id: entry_id, ap_like_id: ap_like_id}
+
+          case %Ink{} |> Ink.changeset(attrs) |> Repo.insert() do
+            {:ok, ink} ->
+              Entry
+              |> where(id: ^entry_id)
+              |> Repo.update_all(inc: [ink_count: 1])
+
+              {:created, ink}
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+        end)
+
+      _existing ->
+        {:ok, :existing}
+    end
+  end
+
+  @doc """
+  Removes a remote actor's ink from a local entry (for Undo { Like }).
+  Returns {:ok, :removed} or {:ok, :not_found}.
+  """
+  def remove_remote_ink(remote_actor_id, entry_id) do
+    case Repo.get_by(Ink, remote_actor_id: remote_actor_id, entry_id: entry_id) do
+      nil ->
+        {:ok, :not_found}
+
+      ink ->
+        Repo.transaction(fn ->
+          Repo.delete!(ink)
+
+          Entry
+          |> where(id: ^entry_id)
+          |> Repo.update_all(inc: [ink_count: -1])
+
+          :removed
+        end)
+    end
+  end
+
+  @doc """
+  Removes a remote ink by its AP Like ID (fallback for Undo matching).
+  """
+  def remove_remote_ink_by_ap_id(ap_like_id) when is_binary(ap_like_id) do
+    case Repo.get_by(Ink, ap_like_id: ap_like_id) do
+      nil ->
+        {:ok, :not_found}
+
+      ink ->
+        entry_id = ink.entry_id
+
+        Repo.transaction(fn ->
+          Repo.delete!(ink)
+
+          Entry
+          |> where(id: ^entry_id)
+          |> Repo.update_all(inc: [ink_count: -1])
+
+          :removed
+        end)
+    end
+  end
+
+  # ── Trending ───────────────────────────────────────────────────────────
+
   @doc """
   Trending entries: most inked public entries in the last N days.
   Returns entries with users preloaded, ordered by ink_count DESC.

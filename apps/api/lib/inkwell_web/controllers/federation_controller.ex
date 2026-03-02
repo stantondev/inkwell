@@ -455,6 +455,26 @@ defmodule InkwellWeb.FederationController do
             Logger.info("Processed unfollow from #{actor_uri}")
         end
 
+      %{"type" => "Like", "object" => object_uri} = like_object when is_binary(object_uri) ->
+        actor_uri = activity["actor"]
+        like_id = like_object["id"]
+
+        case RemoteActor.get_by_ap_id(actor_uri) do
+          nil ->
+            # Fallback: try matching by AP Like ID
+            if is_binary(like_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(like_id)
+
+          remote_actor ->
+            case find_entry_by_ap_url(object_uri) do
+              nil ->
+                if is_binary(like_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(like_id)
+
+              entry ->
+                Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
+                Logger.info("Processed Undo Like from #{actor_uri} on entry #{entry.id}")
+            end
+        end
+
       _ ->
         :ok
     end
@@ -659,6 +679,7 @@ defmodule InkwellWeb.FederationController do
   defp handle_like(conn, activity, _target_user) do
     object_uri = activity["object"]
     actor_uri = activity["actor"]
+    like_id = activity["id"]
 
     if is_binary(object_uri) do
       case find_entry_by_ap_url(object_uri) do
@@ -668,8 +689,17 @@ defmodule InkwellWeb.FederationController do
         entry ->
           case RemoteActor.fetch(actor_uri) do
             {:ok, remote_actor} ->
-              create_like_notification(entry, remote_actor)
-              Logger.info("Received like on entry #{entry.id} from #{actor_uri}")
+              case Inkwell.Inks.create_remote_ink(remote_actor.id, entry.id, like_id) do
+                {:ok, {:created, _ink}} ->
+                  create_ink_notification(entry, remote_actor)
+                  Logger.info("Received federated ink on entry #{entry.id} from #{actor_uri}")
+
+                {:ok, :existing} ->
+                  Logger.info("Duplicate Like from #{actor_uri} on entry #{entry.id}, skipping")
+
+                {:error, reason} ->
+                  Logger.warning("Failed to create federated ink: #{inspect(reason)}")
+              end
 
             _ ->
               :ok
@@ -739,7 +769,7 @@ defmodule InkwellWeb.FederationController do
     |> Repo.insert()
   end
 
-  defp create_like_notification(entry, remote_actor) do
+  defp create_ink_notification(entry, remote_actor) do
     profile_url =
       case remote_actor.raw_data do
         %{"url" => url} when is_binary(url) -> url
@@ -749,7 +779,9 @@ defmodule InkwellWeb.FederationController do
     %Inkwell.Accounts.Notification{}
     |> Inkwell.Accounts.Notification.changeset(%{
       user_id: entry.user_id,
-      type: :like,
+      type: :ink,
+      target_type: "entry",
+      target_id: entry.id,
       data: %{
         entry_id: entry.id,
         entry_title: entry.title,
