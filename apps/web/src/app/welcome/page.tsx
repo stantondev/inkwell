@@ -1195,7 +1195,7 @@ export default function WelcomePage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold">Explore the community</p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      Read what others are writing and discover new voices
+                      Browse public entries from Inkwell writers and the fediverse
                     </p>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1254,7 +1254,36 @@ export default function WelcomePage() {
                     <path d="M9 18l6-6-6-6"/>
                   </svg>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/guide")}
+                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">Learn how Inkwell works</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      A quick guide to feeds, pen pals, stamps, and the fediverse
+                    </p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
               </div>
+              <p className="text-xs text-center mt-3" style={{ color: "var(--muted)" }}>
+                You can always find these options in the sidebar.
+              </p>
             </div>
           )}
 

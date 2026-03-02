@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
+import { EducationCard } from "@/components/education-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
 export const dynamic = "force-dynamic";
@@ -18,35 +19,118 @@ interface PageProps {
 // ---------------------------------------------------------------------------
 function EmptyFeed({ username }: { username: string }) {
   return (
-    <div
-      className="rounded-2xl border p-12 text-center"
-      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-    >
-      <p
-        className="text-lg font-semibold mb-2"
-        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+    <div className="mx-auto" style={{ maxWidth: "540px" }}>
+      <div
+        className="rounded-2xl border p-8 text-center"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
-        Your feed is quiet
-      </p>
-      <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        Follow some pen pals to see their journal entries here, or write your
-        first entry.
-      </p>
-      <div className="flex gap-3 justify-center flex-wrap">
-        <Link
-          href="/editor"
-          className="rounded-full px-4 py-2 text-sm font-medium"
-          style={{ background: "var(--accent)", color: "#fff" }}
+        <p
+          className="text-lg font-semibold mb-2"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
         >
-          Write your first entry
-        </Link>
-        <Link
-          href={`/${username}`}
-          className="rounded-full border px-4 py-2 text-sm font-medium transition-colors"
-          style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-        >
-          View your profile
-        </Link>
+          Your Feed is quiet
+        </p>
+        <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+          Your Feed fills up as you follow writers. When your pen pals publish
+          new entries, they appear here — like letters arriving in your mailbox.
+        </p>
+
+        {/* Action cards */}
+        <div className="flex flex-col gap-2.5 text-left">
+          <Link
+            href="/explore"
+            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
+            style={{ borderColor: "var(--border)", background: "var(--background)" }}
+          >
+            <div
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Explore the community</p>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                Browse public entries from Inkwell writers and the fediverse
+              </p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: "var(--muted)", flexShrink: 0 }}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/search"
+            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
+            style={{ borderColor: "var(--border)", background: "var(--background)" }}
+          >
+            <div
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Find pen pals</p>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                Search for writers by name and send a follow request
+              </p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: "var(--muted)", flexShrink: 0 }}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/editor"
+            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
+            style={{ borderColor: "var(--border)", background: "var(--background)" }}
+          >
+            <div
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Write your first entry</p>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                Open the editor and start journaling
+              </p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: "var(--muted)", flexShrink: 0 }}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+        </div>
+
+        {/* Fediverse hint */}
+        <p className="text-xs mt-5" style={{ color: "var(--muted)" }}>
+          Inkwell is part of the{" "}
+          <Link href="/guide#fediverse" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
+            fediverse
+          </Link>
+          {" "}— when you follow someone on Mastodon or another connected platform, their posts appear here too.
+        </p>
       </div>
     </div>
   );
@@ -113,6 +197,25 @@ export default async function FeedPage({ searchParams }: PageProps) {
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
           Journal entries from your pen pals
         </p>
+      </div>
+
+      {/* Education card — shown once, dismissible */}
+      <div className="mx-auto max-w-7xl px-4">
+        <EducationCard
+          storageKey="inkwell-edu-feed-card"
+          heading="Welcome to your Feed"
+          learnMoreHref="/guide#feed-explore"
+        >
+          <p>
+            Your Feed shows journal entries from writers you follow — your pen
+            pals. Entries from writers on Mastodon and other fediverse platforms
+            you follow also appear here. Looking to discover new voices?{" "}
+            <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
+              Switch to Explore
+            </Link>
+            .
+          </p>
+        </EducationCard>
       </div>
 
       {/* Journal area */}

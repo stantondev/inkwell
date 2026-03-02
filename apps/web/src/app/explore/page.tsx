@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
+import { EducationCard } from "@/components/education-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
@@ -140,6 +141,25 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Education card — shown once, dismissible */}
+      <div className="mx-auto max-w-7xl px-4">
+        <EducationCard
+          storageKey="inkwell-edu-explore-card"
+          heading="Discover the community"
+          learnMoreHref="/guide#feed-explore"
+        >
+          <p>
+            Explore shows all public entries from Inkwell writers and the wider
+            fediverse — a network of connected platforms including Mastodon and
+            others. You might notice some entries show handles like{" "}
+            <span style={{ fontFamily: "monospace", fontSize: "11px" }}>
+              @user@mastodon.social
+            </span>
+            {" "}— those are from writers on other fediverse platforms.
+          </p>
+        </EducationCard>
       </div>
 
       {/* Journal area */}
