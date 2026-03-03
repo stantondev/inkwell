@@ -195,11 +195,32 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
+  @free_entry_limit 10
+  @plus_entry_limit 30
+  @entry_rate_window 3_600  # 1 hour in seconds
+
   # POST /api/entries
   def create(conn, params) do
     user = conn.assigns.current_user
     is_draft = params["status"] == "draft"
+    tier = user.subscription_tier || "free"
 
+    # Anti-spam: per-user creation rate limit (Free: 10/hr, Plus: 30/hr)
+    with :ok <- check_entry_rate_limit(user.id, tier),
+         # Anti-spam: reject duplicate body_html within 60 seconds
+         :ok <- check_duplicate(user.id, params["body_html"]) do
+      create_entry(conn, params, user, is_draft, tier)
+    else
+      {:error, :rate_limited} ->
+        limit = if tier == "plus", do: @plus_entry_limit, else: @free_entry_limit
+        conn |> put_status(:too_many_requests) |> json(%{error: "Rate limit exceeded. Maximum #{limit} entries per hour."})
+
+      {:error, :duplicate} ->
+        conn |> put_status(:conflict) |> json(%{error: "You already posted this content. Please wait before reposting."})
+    end
+  end
+
+  defp create_entry(conn, params, user, is_draft, _tier) do
     if is_draft do
       if (user.subscription_tier || "free") != "plus" && Journals.count_drafts(user.id) >= @free_draft_limit do
         conn |> put_status(:unprocessable_entity) |> json(%{error: "draft_limit_reached"})
@@ -218,6 +239,7 @@ defmodule InkwellWeb.EntryController do
 
       case Journals.create_draft(attrs) do
         {:ok, entry} ->
+          record_entry_creation(user.id)
           conn
           |> put_status(:created)
           |> json(%{data: render_entry_full(entry, user)})
@@ -245,6 +267,7 @@ defmodule InkwellWeb.EntryController do
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         case Journals.create_entry(attrs) do
           {:ok, entry} ->
+            record_entry_creation(user.id)
             # Fan out to federated followers for public entries
             if entry.privacy == :public do
               %{entry_id: entry.id, action: "create", user_id: user.id}
@@ -493,6 +516,47 @@ defmodule InkwellWeb.EntryController do
   rescue
     Ecto.NoResultsError ->
       {:error, :not_found}
+  end
+
+  # --- Anti-spam helpers ---
+
+  defp check_entry_rate_limit(user_id, tier) do
+    now = System.system_time(:second)
+    cutoff = now - @entry_rate_window
+    limit = if tier == "plus", do: @plus_entry_limit, else: @free_entry_limit
+
+    timestamps =
+      case :ets.lookup(:entry_creation_buckets, user_id) do
+        [{^user_id, ts}] -> Enum.filter(ts, &(&1 > cutoff))
+        [] -> []
+      end
+
+    if length(timestamps) >= limit do
+      {:error, :rate_limited}
+    else
+      :ok
+    end
+  end
+
+  defp record_entry_creation(user_id) do
+    now = System.system_time(:second)
+    cutoff = now - @entry_rate_window
+
+    timestamps =
+      case :ets.lookup(:entry_creation_buckets, user_id) do
+        [{^user_id, ts}] -> Enum.filter(ts, &(&1 > cutoff))
+        [] -> []
+      end
+
+    :ets.insert(:entry_creation_buckets, {user_id, [now | timestamps]})
+  end
+
+  defp check_duplicate(user_id, body_html) do
+    if Journals.recent_duplicate?(user_id, body_html) do
+      {:error, :duplicate}
+    else
+      :ok
+    end
   end
 
   defp maybe_generate_slug(attrs, params) do

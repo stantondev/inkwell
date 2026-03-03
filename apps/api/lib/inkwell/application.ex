@@ -8,6 +8,9 @@ defmodule Inkwell.Application do
     # Set up HTTP request metrics tracking (ETS + telemetry handler)
     Inkwell.Metrics.HttpTracker.setup()
 
+    # ETS table for per-user entry creation rate limiting
+    :ets.new(:entry_creation_buckets, [:set, :public, :named_table])
+
     children = [
       Inkwell.Repo,
       {Phoenix.PubSub, name: Inkwell.PubSub},

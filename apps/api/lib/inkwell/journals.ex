@@ -183,6 +183,22 @@ defmodule Inkwell.Journals do
   end
 
   @doc """
+  Returns true if the user posted an entry with identical body_html in the last 60 seconds.
+  Used to prevent accidental double-submits and API spam.
+  """
+  def recent_duplicate?(user_id, body_html) when is_binary(body_html) and byte_size(body_html) > 0 do
+    cutoff = DateTime.utc_now() |> DateTime.add(-60, :second)
+
+    from(e in Entry,
+      where: e.user_id == ^user_id and e.body_html == ^body_html and e.inserted_at > ^cutoff,
+      limit: 1,
+      select: e.id
+    )
+    |> Repo.exists?()
+  end
+  def recent_duplicate?(_user_id, _body_html), do: false
+
+  @doc """
   Create a published entry without federation fan-out.
   Used by the data import worker to avoid flooding followers with old posts.
   """
