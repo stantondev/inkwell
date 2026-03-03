@@ -2787,6 +2787,317 @@ body[data-focus-mode] .app-content {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Settings Ledger — two-panel "book of settings" layout
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.settings-ledger {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── Desktop Nav Panel (>=768px) ─── */
+
+.settings-ledger-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 16px -4px rgba(0, 0, 0, 0.04);
+  scrollbar-width: none;
+  padding-bottom: 32px;
+}
+
+.settings-ledger-nav::-webkit-scrollbar {
+  width: 0;
+}
+
+/* Paper texture — same as sidebar-nav */
+.settings-ledger-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.012;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+/* Heading */
+.settings-ledger-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+  padding: 24px 16px 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Section groups */
+.settings-ledger-section {
+  padding: 0 8px 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.settings-ledger-section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 8px 4px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-variant: small-caps;
+  text-transform: lowercase;
+  user-select: none;
+}
+
+.settings-ledger-numeral {
+  font-style: normal;
+  font-weight: 600;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Nav links */
+.settings-ledger-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 1px 0;
+  border-radius: 6px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 13px;
+  color: var(--foreground);
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease;
+  border-left: 3px solid transparent;
+}
+
+.settings-ledger-link:hover {
+  background: var(--surface-hover);
+}
+
+.settings-ledger-link--active {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+.settings-ledger-link--active:hover {
+  background: var(--accent-light);
+}
+
+.settings-ledger-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.settings-ledger-link--active .settings-ledger-icon {
+  opacity: 1;
+}
+
+/* Ornament divider */
+.settings-ledger-ornament {
+  text-align: center;
+  padding: 8px 0;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.4em;
+  opacity: 0.4;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Content Area ─── */
+
+.settings-ledger-content {
+  flex: 1;
+  min-width: 0;
+  padding: 32px 40px;
+  max-width: 900px;
+}
+
+/* ─── Mobile Nav (<768px) ─── */
+
+.settings-ledger-mobile-header {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .settings-ledger-nav {
+    display: none;
+  }
+
+  .settings-ledger-content {
+    padding: 0 16px 32px;
+  }
+
+  .settings-ledger-mobile-header {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    margin-bottom: 24px;
+  }
+}
+
+.settings-ledger-mobile-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--foreground);
+  font-family: var(--font-lora, Georgia, serif);
+  text-align: left;
+}
+
+.settings-ledger-mobile-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.settings-ledger-mobile-section-name {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.settings-ledger-mobile-separator {
+  color: var(--muted);
+  opacity: 0.5;
+  font-size: 12px;
+}
+
+.settings-ledger-mobile-page-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-ledger-mobile-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 200ms ease;
+}
+
+.settings-ledger-mobile-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Accordion */
+.settings-ledger-mobile-sections {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease;
+  border-top: 1px solid var(--border);
+}
+
+.settings-ledger-mobile-sections--open {
+  max-height: 800px;
+}
+
+.settings-ledger-mobile-group {
+  padding: 8px 16px;
+}
+
+.settings-ledger-mobile-group + .settings-ledger-mobile-group {
+  border-top: 1px solid var(--border);
+}
+
+.settings-ledger-mobile-group-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-variant: small-caps;
+  text-transform: lowercase;
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+/* Pill links */
+.settings-ledger-mobile-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.settings-ledger-mobile-pill {
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-family: var(--font-lora, Georgia, serif);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.settings-ledger-mobile-pill:hover {
+  background: var(--surface-hover);
+}
+
+.settings-ledger-mobile-pill--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.settings-ledger-mobile-pill--active:hover {
+  background: var(--accent);
+}
+
+/* ─── Dark mode ─── */
+
+@media (prefers-color-scheme: dark) {
+  .settings-ledger-nav {
+    box-shadow: 4px 0 16px -4px rgba(0, 0, 0, 0.2);
+  }
+
+  .settings-ledger-nav::before {
+    opacity: 0.03;
+    mix-blend-mode: soft-light;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    Profile Theme Structural Styles
    Each theme class overrides borders, spacing, typography, and
    decorative elements on profile pages.

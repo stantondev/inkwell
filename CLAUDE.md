@@ -747,8 +747,21 @@ Key files:
 - **Right**: Hamburger menu (☰, with red dot when unread notifications), Profile avatar
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Search, Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
-### Settings Tabs
-Profile | Avatar | Top 6 | Filters | Series | Billing | Import | Customize | Newsletter | Support | Invite | Blocked | Redactions | Fediverse | API
+### Settings Navigation ("The Settings Ledger")
+Two-panel layout matching the main sidebar's book aesthetic. Desktop: 220px sticky left nav with paper texture, spine shadow, Roman numeral sections. Mobile: compact breadcrumb header with accordion dropdown of pill-style links.
+
+**I. Profile & Identity** — Profile, Avatar, Top 6 Pen Pals
+**II. Appearance** — Customize
+**III. Writing & Content** — Series, Filters, Import, Redactions, Content Safety
+**IV. Community & Social** — Newsletter, Invite Friends, Blocked Users, Fediverse
+**V. Billing & Developer** — Subscription, Postage, API Keys
+**VI. Account & Data** — Data Export, Delete Account
+
+Key files:
+- `apps/web/src/app/settings/layout.tsx` — two-panel ledger layout (SettingsLedgerNav + SettingsMobileNav + children)
+- `apps/web/src/app/settings/settings-ledger-nav.tsx` — desktop sidebar nav with `SETTINGS_SECTIONS` config (exported for mobile reuse)
+- `apps/web/src/app/settings/settings-mobile-nav.tsx` — mobile breadcrumb + accordion dropdown
+- CSS: `.settings-ledger-*` classes in `globals.css`
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, invite_code (unique 8-char), invited_by_id (FK → users), ink_donor_stripe_subscription_id, ink_donor_status, ink_donor_amount_cents, profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, profile_entry_display, pinned_entry_ids, social_links)
