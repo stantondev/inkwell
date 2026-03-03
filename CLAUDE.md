@@ -994,6 +994,9 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 > **Do not deploy directly without local testing.** We had a production outage (2026-02-24) from a deploy that caused the API to restart-loop. Testing locally first catches compile errors and broken migrations before they affect users.
 
+### Release Notes
+- **After every deploy, provide release notes** — immediately after deploying a fix or feature, write a technical release note suitable for the roadmap admin panel. Format: 1-2 sentence summary of what changed and why, written for a technical audience. Include what the user-facing impact is. These are used to update roadmap item statuses and write the "Recently Shipped" release notes on `/roadmap/releases`.
+
 ### Git & Deploy
 - **Always commit, push, and deploy for me** — after completing features and verifying locally, commit all changes, push to `main`, and deploy both API and web to Fly.io
 - **GitHub repo**: https://github.com/stantondev/inkwell.git (remote: `origin`, branch: `main`)
