@@ -312,7 +312,7 @@ defmodule InkwellWeb.FederationController do
                 :ok
 
               {:error, reason} ->
-                Logger.warning("Inbox: REJECTED — signature FAILED for #{actor_uri} — #{inspect(reason)}")
+                Logger.warning("Inbox: signature FAILED for #{actor_uri} — #{inspect(reason)}")
                 {:error, reason}
             end
 

@@ -81,6 +81,7 @@ defmodule Inkwell.Federation.HttpSignature do
   def verify_signature(conn, sig_parts, public_key_pem) do
     signing_string = reconstruct_signing_string(conn, sig_parts)
     signature_bytes = Base.decode64!(sig_parts["signature"])
+
     public_key = decode_public_key(public_key_pem)
 
     if :public_key.verify(signing_string, :sha256, signature_bytes, public_key) do
@@ -117,8 +118,11 @@ defmodule Inkwell.Federation.HttpSignature do
 
   defp reconstruct_signing_string(conn, sig_parts) do
     signed_headers = Map.get(sig_parts, "headers", "date") |> String.split(" ")
+    build_signing_string_from_list(conn, signed_headers)
+  end
 
-    signed_headers
+  defp build_signing_string_from_list(conn, headers_list) do
+    headers_list
     |> Enum.map(fn
       "(request-target)" ->
         method = conn.method |> String.downcase()
@@ -127,7 +131,16 @@ defmodule Inkwell.Federation.HttpSignature do
         "(request-target): #{method} #{path}#{query}"
 
       "host" ->
-        "host: #{get_header(conn, "host")}"
+        # Use X-Original-Host when present — the Next.js federation proxy
+        # forwards the original Host header here because Node.js fetch()
+        # overrides Host with the internal API hostname.
+        host =
+          case get_header(conn, "x-original-host") do
+            "" -> get_header(conn, "host")
+            original -> original
+          end
+
+        "host: #{host}"
 
       "date" ->
         "date: #{get_header(conn, "date")}"

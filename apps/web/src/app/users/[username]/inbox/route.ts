@@ -17,28 +17,26 @@ export async function POST(
   try {
     const body = await request.text();
 
+    // Build headers to forward. Node.js fetch() overrides the `Host` header
+    // with the target URL's hostname, so we pass the original host via
+    // X-Original-Host for HTTP Signature verification (Mastodon signs with
+    // host: inkwell.social, but the internal API host is api.inkwell.social).
+    const forwardHeaders: Record<string, string> = {
+      "content-type":
+        request.headers.get("content-type") ?? "application/activity+json",
+    };
+    const originalHost = request.headers.get("host");
+    if (originalHost) forwardHeaders["x-original-host"] = originalHost;
+    for (const h of ["signature", "date", "digest"]) {
+      const v = request.headers.get(h);
+      if (v) forwardHeaders[h] = v;
+    }
+
     const res = await fetch(
       `${API_URL}/users/${encodeURIComponent(username)}/inbox`,
       {
         method: "POST",
-        headers: {
-          "content-type": "application/activity+json",
-          // Forward the original Host so Phoenix can reconstruct the correct
-          // signing string for HTTP Signature verification (Mastodon signs
-          // with host: inkwell.social, not the internal API host).
-          ...(request.headers.get("host")
-            ? { host: request.headers.get("host")! }
-            : {}),
-          ...(request.headers.get("signature")
-            ? { signature: request.headers.get("signature")! }
-            : {}),
-          ...(request.headers.get("date")
-            ? { date: request.headers.get("date")! }
-            : {}),
-          ...(request.headers.get("digest")
-            ? { digest: request.headers.get("digest")! }
-            : {}),
-        },
+        headers: forwardHeaders,
         body,
       }
     );
