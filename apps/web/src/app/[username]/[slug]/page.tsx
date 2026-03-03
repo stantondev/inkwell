@@ -340,10 +340,22 @@ export default async function EntryPage({ params }: EntryParams) {
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
 
-        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12">
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12 relative">
+
+          {/* Stamps — positioned like postage on a letter, top-right */}
+          <div className="absolute top-8 right-4 sm:right-6 md:right-8 lg:right-12 z-10">
+            <EntryStamps
+              entryId={entry.id}
+              initialStamps={entry.stamps ?? []}
+              initialMyStamp={entry.my_stamp ?? null}
+              isOwnEntry={isOwnEntry ?? false}
+              isLoggedIn={!!session}
+              isPlus={session?.user.subscription_tier === "plus"}
+            />
+          </div>
 
           {/* Nav row */}
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex flex-col gap-3 mb-6">
             <Link
               href={`/${username}`}
               className="text-sm transition-colors hover:underline flex items-center gap-1.5"
@@ -393,7 +405,7 @@ export default async function EntryPage({ params }: EntryParams) {
           {/* Title */}
           {entry.title && (
             <h1
-              className="text-2xl sm:text-4xl font-bold leading-tight mb-7"
+              className="text-2xl sm:text-4xl font-bold leading-tight mb-7 pr-20 sm:pr-28"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
             >
               {entry.title}
@@ -520,18 +532,6 @@ export default async function EntryPage({ params }: EntryParams) {
             <PollWidget poll={entry.poll} isLoggedIn={!!session} />
           </div>
         )}
-
-        {/* Stamps */}
-        <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
-          <EntryStamps
-            entryId={entry.id}
-            initialStamps={entry.stamps ?? []}
-            initialMyStamp={entry.my_stamp ?? null}
-            isOwnEntry={isOwnEntry ?? false}
-            isLoggedIn={!!session}
-            isPlus={session?.user.subscription_tier === "plus"}
-          />
-        </div>
 
         {/* Support CTA */}
         {(author.stripe_connect_enabled || author.support_url) && !isOwnEntry && (

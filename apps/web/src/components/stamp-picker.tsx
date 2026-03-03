@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { STAMP_CONFIG, STAMP_TYPES } from "./stamp-config";
+import { STAMP_CONFIG, STAMP_TYPES, resolveStampType } from "./stamp-config";
+import { StampFrame } from "./stamp-frame";
 import { FloatingPopup } from "./floating-popup";
 
 interface StampPickerProps {
@@ -28,14 +29,16 @@ export function StampPicker({
   onStampChange,
 }: StampPickerProps) {
   const [open, setOpen] = useState(false);
-  const [myStamp, setMyStamp] = useState<string | null>(currentStamp);
+  const [myStamp, setMyStamp] = useState<string | null>(
+    currentStamp ? resolveStampType(currentStamp) : null
+  );
   const [loading, setLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const apiPath = stampApiPath ?? `/api/entries/${entryId}/stamp`;
 
   useEffect(() => {
-    setMyStamp(currentStamp);
+    setMyStamp(currentStamp ? resolveStampType(currentStamp) : null);
   }, [currentStamp]);
 
   if (isOwnEntry) return null;
@@ -99,12 +102,20 @@ export function StampPicker({
     }
   }
 
-  const stampList = (
+  // Grid of stamp thumbnails
+  const stampGrid = (
     <>
-      <p className="text-xs font-medium mb-2.5" style={{ color: "var(--muted)" }}>
+      <p
+        className="text-xs font-medium mb-3"
+        style={{
+          color: "var(--muted)",
+          fontFamily: "var(--font-lora, Georgia, serif)",
+          fontStyle: "italic",
+        }}
+      >
         Choose a stamp
       </p>
-      <div className="flex flex-col gap-1">
+      <div className="stamp-picker-grid">
         {STAMP_TYPES.map((type) => {
           const config = STAMP_CONFIG[type];
           const isDisabled = config.plusOnly && !isPlus;
@@ -115,37 +126,41 @@ export function StampPicker({
               key={type}
               onClick={() => !isDisabled && handleStamp(type)}
               disabled={isDisabled || loading}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors"
-              style={{
-                background: isActive ? "var(--accent-light)" : "transparent",
-                color: isDisabled ? "var(--muted)" : "var(--foreground)",
-                opacity: isDisabled ? 0.5 : 1,
-                cursor: isDisabled ? "not-allowed" : loading ? "wait" : "pointer",
-              }}
+              className="stamp-picker-item"
+              data-active={isActive ? "true" : undefined}
+              data-disabled={isDisabled ? "true" : undefined}
               title={isDisabled ? "Plus subscription required" : config.description}
             >
-              <div
-                className={`flex-shrink-0${type === "supporter" && !isDisabled ? " stamp-supporter-shimmer" : ""}`}
-                style={{ width: 28, height: 28 }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={config.icon} alt="" width={28} height={28} style={{ width: 28, height: 28, filter: 'var(--stamp-filter)' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm leading-tight">
-                  {config.label}
-                  {config.plusOnly && (
-                    <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full"
-                      style={{ background: "var(--accent)", color: "#fff" }}>Plus</span>
-                  )}
-                </div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>{config.description}</div>
-              </div>
+              <StampFrame
+                stampType={type}
+                size="lg"
+                showLabel={false}
+              />
+              <span className="stamp-picker-item-label">
+                {config.label}
+                {config.plusOnly && (
+                  <span
+                    className="ml-1 text-[8px] px-1 py-0.5 rounded-full"
+                    style={{ background: "var(--accent)", color: "#fff" }}
+                  >
+                    Plus
+                  </span>
+                )}
+              </span>
+              <span className="stamp-picker-item-desc">{config.description}</span>
               {isActive && (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
-                  strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                  className="flex-shrink-0">
-                  <polyline points="20 6 9 17 4 12"/>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               )}
             </button>
@@ -155,7 +170,7 @@ export function StampPicker({
     </>
   );
 
-  // Compact mode — icon-only button for feed cards
+  // Compact mode — mini stamp icon button for feed cards
   if (compact) {
     return (
       <div ref={pickerRef}>
@@ -167,24 +182,38 @@ export function StampPicker({
             color: myStamp ? "var(--accent)" : "var(--muted)",
             cursor: loading ? "wait" : "pointer",
           }}
-          aria-label={myStamp ? `Your stamp: ${STAMP_CONFIG[myStamp]?.label}. Click to change.` : "Stamp this entry"}
+          aria-label={
+            myStamp
+              ? `Your stamp: ${STAMP_CONFIG[myStamp]?.label}. Click to change.`
+              : "Stamp this entry"
+          }
           title={myStamp ? `Stamped: ${STAMP_CONFIG[myStamp]?.label}` : "Add a stamp"}
         >
           {myStamp ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={STAMP_CONFIG[myStamp]?.icon}
-              alt=""
-              width={18}
-              height={18}
-              style={{ width: 18, height: 18, filter: 'var(--stamp-filter)' }}
-            />
+            <StampFrame stampType={myStamp} size="xs" />
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="6"/>
-              <circle cx="12" cy="12" r="2"/>
+            // Mini stamp silhouette icon (dashed rectangle)
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 20 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect
+                x="2"
+                y="1"
+                width="16"
+                height="22"
+                rx="1.5"
+                strokeDasharray="2.5 2"
+              />
+              <circle cx="10" cy="10" r="3" opacity="0.5" />
+              <line x1="6" y1="17" x2="14" y2="17" opacity="0.4" />
             </svg>
           )}
         </button>
@@ -198,11 +227,11 @@ export function StampPicker({
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
-            minWidth: "min(240px, calc(100vw - 32px))",
-            maxWidth: "min(320px, calc(100vw - 32px))",
+            minWidth: "min(280px, calc(100vw - 32px))",
+            maxWidth: "min(340px, calc(100vw - 32px))",
           }}
         >
-          {stampList}
+          {stampGrid}
         </FloatingPopup>
       </div>
     );
@@ -221,26 +250,40 @@ export function StampPicker({
           color: myStamp ? "var(--accent)" : "var(--muted)",
           cursor: loading ? "wait" : "pointer",
         }}
-        aria-label={myStamp ? `Your stamp: ${STAMP_CONFIG[myStamp]?.label}. Click to change.` : "Stamp this entry"}
+        aria-label={
+          myStamp
+            ? `Your stamp: ${STAMP_CONFIG[myStamp]?.label}. Click to change.`
+            : "Stamp this entry"
+        }
       >
         {myStamp ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={STAMP_CONFIG[myStamp]?.icon}
-              alt=""
-              width={16}
-              height={16}
-              style={{ width: 16, height: 16, filter: 'var(--stamp-filter)' }}
-            />
+            <StampFrame stampType={myStamp} size="xs" />
             <span>{STAMP_CONFIG[myStamp]?.label}</span>
           </>
         ) : (
           <>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 8v8M8 12h8"/>
+            {/* Mini stamp icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 20 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect
+                x="2"
+                y="1"
+                width="16"
+                height="22"
+                rx="1.5"
+                strokeDasharray="2.5 2"
+              />
+              <path d="M10 8v8M6 12h8" opacity="0.6" />
             </svg>
             <span>Stamp</span>
           </>
@@ -256,11 +299,11 @@ export function StampPicker({
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
-          minWidth: "min(240px, calc(100vw - 32px))",
-          maxWidth: "min(320px, calc(100vw - 32px))",
+          minWidth: "min(280px, calc(100vw - 32px))",
+          maxWidth: "min(340px, calc(100vw - 32px))",
         }}
       >
-        {stampList}
+        {stampGrid}
       </FloatingPopup>
     </div>
   );

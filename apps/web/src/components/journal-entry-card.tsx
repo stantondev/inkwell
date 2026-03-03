@@ -102,7 +102,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
-            <StampDisplay stamps={entry.stamps} size={32} />
+            <StampDisplay stamps={entry.stamps} size="md" />
           </div>
         )}
 
@@ -122,7 +122,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
         {/* Title */}
         {entry.title && (
           <h2
-            className="text-2xl font-bold mb-4 leading-snug pr-12 sm:pr-20"
+            className="text-2xl font-bold mb-4 leading-snug pr-14 sm:pr-24"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
             {isRemote ? (

@@ -8,7 +8,7 @@ defmodule InkwellWeb.RemoteEntryController do
 
   import Ecto.Query
 
-  @valid_stamp_types ~w(felt holding_space beautifully_said rooting throwback i_cannot supporter)
+  @valid_stamp_types ~w(felt holding_space beautifully_said rooting throwback i_cannot first_class)
 
   # POST /api/remote-entries/:id/stamp
   def stamp(conn, %{"id" => id} = params) do
@@ -16,7 +16,7 @@ defmodule InkwellWeb.RemoteEntryController do
     stamp_type = params["stamp_type"]
 
     with :ok <- validate_stamp_type(stamp_type),
-         :ok <- validate_plus_for_supporter(stamp_type, user),
+         :ok <- validate_plus_for_first_class(stamp_type, user),
          {:ok, remote_entry} <- get_remote_entry(id) do
       case Stamps.stamp_remote_entry(user.id, id, stamp_type) do
         {:ok, stamp, _action} ->
@@ -229,10 +229,10 @@ defmodule InkwellWeb.RemoteEntryController do
   defp validate_stamp_type(stamp_type) when stamp_type in @valid_stamp_types, do: :ok
   defp validate_stamp_type(_), do: {:error, :invalid_stamp_type}
 
-  defp validate_plus_for_supporter("supporter", user) do
+  defp validate_plus_for_first_class("first_class", user) do
     if user.subscription_tier == "plus", do: :ok, else: {:error, :plus_required}
   end
-  defp validate_plus_for_supporter(_, _), do: :ok
+  defp validate_plus_for_first_class(_, _), do: :ok
 
   defp render_comment(comment) do
     author =

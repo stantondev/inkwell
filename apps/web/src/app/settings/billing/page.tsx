@@ -220,7 +220,7 @@ export default function BillingPage() {
                 "Background images & profile music",
                 "Widget reordering",
                 "Custom HTML & CSS theming",
-                "Supporter stamp",
+                "First Class stamp",
                 "Plus badge on your profile",
                 "Priority support",
               ].map((item) => (

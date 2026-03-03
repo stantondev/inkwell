@@ -5,7 +5,7 @@ defmodule Inkwell.Stamps.Stamp do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @stamp_types [:felt, :holding_space, :beautifully_said, :rooting, :throwback, :i_cannot, :supporter]
+  @stamp_types [:felt, :holding_space, :beautifully_said, :rooting, :throwback, :i_cannot, :first_class]
 
   schema "stamps" do
     field :stamp_type, Ecto.Enum, values: @stamp_types

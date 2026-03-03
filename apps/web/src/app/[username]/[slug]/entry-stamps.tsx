@@ -30,15 +30,15 @@ export function EntryStamps({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      {/* Left: stamp icons (author can click to see who) */}
+    <div className="flex flex-col items-end gap-2">
+      {/* Stamp icons (author can click to see who) */}
       <StampPopover
         entryId={entryId}
         stamps={stamps}
         isAuthor={isOwnEntry}
       />
 
-      {/* Right: stamp picker (readers only, not author) */}
+      {/* Stamp picker (readers only, not author) */}
       <StampPicker
         entryId={entryId}
         currentStamp={myStamp}

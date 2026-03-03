@@ -36,12 +36,22 @@ export const STAMP_CONFIG: Record<string, StampInfo> = {
     description: "I cannot",
     icon: "/stamps/i-cannot.svg",
   },
-  supporter: {
-    label: "From a Supporter",
-    description: "From a supporter",
-    icon: "/stamps/supporter.svg",
+  first_class: {
+    label: "First Class",
+    description: "First class delivery",
+    icon: "/stamps/first-class.svg",
     plusOnly: true,
   },
 };
 
 export const STAMP_TYPES = Object.keys(STAMP_CONFIG);
+
+/** Backward-compat mapping for renamed stamp types */
+const STAMP_ALIASES: Record<string, string> = {
+  supporter: "first_class",
+};
+
+/** Resolve a stamp type, handling old/renamed types */
+export function resolveStampType(type: string): string {
+  return STAMP_ALIASES[type] ?? type;
+}

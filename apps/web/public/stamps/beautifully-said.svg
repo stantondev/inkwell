@@ -1,18 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Ink stamp / chop seal: "Beautifully Said" — quill pen with flourish -->
-  <circle cx="32" cy="32" r="29" stroke="currentColor" stroke-width="2.5" opacity="0.85"/>
-  <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="0.75" opacity="0.3"/>
-  <!-- Quill / feather -->
-  <path d="M36 18 C36 18 28 26 26 34 C25 38 26 42 26 42"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.8"/>
-  <path d="M36 18 C38 17 42 18 42 22 C42 24 40 26 38 27 C36 28 34 28 33 29"
-        fill="currentColor" opacity="0.6"/>
-  <!-- Ink line / flourish -->
-  <path d="M26 42 C28 43 32 42 36 40 C40 38 42 36 43 35"
-        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
-  <!-- Sparkle dots -->
-  <circle cx="40" cy="22" r="1" fill="currentColor" opacity="0.5"/>
-  <circle cx="43" cy="33" r="0.8" fill="currentColor" opacity="0.4"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 88" fill="none">
+  <!-- Postage stamp interior: "Beautifully Said" — quill pen with ink flourish -->
+  <!-- Top denomination -->
+  <text x="36" y="10" text-anchor="middle" font-size="5" font-family="Georgia, serif" fill="currentColor" opacity="0.5" letter-spacing="2.5" font-variant="small-caps">INKWELL</text>
+  <!-- Decorative line -->
+  <line x1="12" y1="14" x2="60" y2="14" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
+  <!-- Quill pen -->
+  <path d="M28 56 L42 22 C43 19 46 18 48 20 C49 21 48.5 23 47 25 L34 52 Z"
+        fill="currentColor" opacity="0.75"/>
+  <!-- Quill feather detail -->
+  <path d="M42 22 C46 18 52 16 56 18 C52 20 48 24 46 28"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+  <path d="M44 20 C48 15 54 14 58 16"
+        stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.3"/>
+  <!-- Ink flourish -->
+  <path d="M28 56 C24 58 20 56 18 52 C16 48 19 46 22 48 C25 50 26 54 28 56"
+        fill="currentColor" opacity="0.5"/>
+  <!-- Sparkle accents -->
+  <circle cx="20" cy="42" r="1" fill="currentColor" opacity="0.3"/>
+  <circle cx="16" cy="48" r="0.8" fill="currentColor" opacity="0.25"/>
+  <path d="M50 32 L52 30 M51 30 L51 32" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" opacity="0.35"/>
+  <!-- Decorative line -->
+  <line x1="12" y1="66" x2="60" y2="66" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
   <!-- Label -->
-  <text x="32" y="55" text-anchor="middle" font-size="3.5" font-family="Georgia, serif" fill="currentColor" opacity="0.7" letter-spacing="0.6">BEAUTIFULLY SAID</text>
+  <text x="36" y="76" text-anchor="middle" font-size="5" font-family="Georgia, serif" fill="currentColor" opacity="0.7" letter-spacing="1" font-variant="small-caps">BEAUTIFULLY SAID</text>
+  <text x="36" y="84" text-anchor="middle" font-size="4" font-family="Georgia, serif" fill="currentColor" opacity="0.4" font-style="italic">Well written</text>
 </svg>

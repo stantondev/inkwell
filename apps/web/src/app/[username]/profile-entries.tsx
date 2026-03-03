@@ -248,7 +248,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
           )}
           {entry.stamps && entry.stamps.length > 0 && (
             <div className="ml-auto">
-              <StampDisplay stamps={entry.stamps} size={22} />
+              <StampDisplay stamps={entry.stamps} size="sm" showPopup={false} />
             </div>
           )}
         </div>
@@ -326,7 +326,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         {/* Stamps */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="flex justify-end mb-1">
-            <StampDisplay stamps={entry.stamps} size={18} />
+            <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
           </div>
         )}
 
@@ -433,7 +433,7 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
 
       <div className="flex items-center gap-2 shrink-0 text-xs" style={{ color: styles.muted }}>
         {entry.stamps && entry.stamps.length > 0 && (
-          <StampDisplay stamps={entry.stamps} size={14} />
+          <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
         )}
         {rt && <span className="hidden sm:inline">{rt}</span>}
         <span>{timeAgo(entry.published_at)}</span>

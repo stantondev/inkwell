@@ -156,21 +156,27 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 
 ### Stamps (Replacement for Likes)
 - One stamp per reader per entry — no counts shown, only which types are present
-- Cannot stamp own entries; "supporter" stamp requires Plus subscription
-- 7 stamp types: `felt`, `holding_space`, `beautifully_said`, `rooting`, `throwback`, `i_cannot`, `supporter`
-- Stamps display in top-right corner of entry cards (like a postage stamp on paper)
+- Cannot stamp own entries; "First Class" stamp requires Plus subscription
+- 7 stamp types: `felt`, `holding_space`, `beautifully_said`, `rooting`, `throwback`, `i_cannot`, `first_class`
+- **Postage stamp visual design** — stamps look like real postage stamps with scalloped/perforated borders, portrait rectangle shape (72x88 SVG viewBox), ink-pressed-on-paper effect (opacity 0.82, mix-blend-mode multiply), per-stamp rotation, and paper texture overlay. Each stamp has "INKWELL" denomination text, central icon, and label.
+- **Size variants**: xs (20x24px, timeline), sm (28x34px, profile cards), md (36x44px, feed cards), lg (52x64px, stamp picker/popup), xl (64x78px, entry detail page)
+- Stamps display in top-right corner of entry cards (like postage stamps on paper). On entry detail page, stamps are absolutely positioned top-right. On feed cards, stamps overlap via `.stamp-stack` CSS.
 - Stamping another user's entry creates a `:stamp` notification for the author
+- `STAMP_ALIASES` map provides backward compatibility: `supporter` → `first_class` (old API data, notifications)
 - **Backend**:
   - `apps/api/lib/inkwell/stamps.ex` — context (create/update/delete stamp, get stamp types for entries, get user stamps for entries)
   - `apps/api/lib/inkwell/stamps/stamp.ex` — Ecto schema with unique constraint `[:user_id, :entry_id]`
   - Stamp routes: `POST /api/entries/:id/stamp`, `DELETE /api/entries/:id/stamp`, `GET /api/entries/:id/stamps`
   - Feed and explore controllers both query and return `stamps` (array of types present) and `my_stamp` (viewer's stamp)
 - **Frontend**:
-  - `apps/web/src/components/stamp-config.tsx` — `STAMP_CONFIG` map and `STAMP_TYPES` array (single source of truth)
-  - `apps/web/src/components/stamp-display.tsx` — read-only stamp icons in card top-right
-  - `apps/web/src/components/stamp-picker.tsx` — interactive stamp chooser; compact mode for feed cards, full mode for entry detail page; uses `FloatingPopup`
+  - `apps/web/src/components/stamp-config.ts` — `STAMP_CONFIG` map, `STAMP_TYPES` array, `resolveStampType()` alias resolver, `STAMP_ALIASES` backward compat map
+  - `apps/web/src/components/stamp-frame.tsx` — core postage stamp visual component: scalloped SVG border, ink-pressed effect, size variants (xs/sm/md/lg/xl), per-stamp rotation via `data-stamp` CSS attribute
+  - `apps/web/src/components/stamp-display.tsx` — `"use client"` stacked overlapping mini-stamps on cards + hover/tap popup showing full-size stamps via `FloatingPopup`
+  - `apps/web/src/components/stamp-picker.tsx` — interactive stamp chooser; 2-column grid layout with `StampFrame` cards at lg size; compact mode for feed cards, full mode for entry detail page; uses `FloatingPopup`
+  - `apps/web/src/components/stamp-popover.tsx` — entry detail stamp display at xl size; author click-to-see-who popover; vertical stacking for multiple stamps
   - `apps/web/src/components/feed-card-actions.tsx` — `"use client"` footer for feed/explore cards: Read link + comment popup + stamp picker
-  - Stamp SVG assets at `apps/web/public/stamps/*.svg` — swappable for artist illustrations
+  - Stamp SVG assets at `apps/web/public/stamps/*.svg` — 7 redesigned portrait-rectangle stamps (72x88 viewBox, no border — border rendered by StampFrame)
+  - CSS: `.stamp-frame`, `.stamp-stack`, `.stamp-hover-detail`, per-stamp rotation via `[data-stamp]`, dark mode with `mix-blend-mode: screen`
 
 ### Inks (Community Discovery Signal)
 - One ink per reader per entry — binary toggle (ink/un-ink), countable
@@ -245,8 +251,8 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
 - **Free vs Plus tier feature gating**:
   - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image, 500 newsletter subscribers, 2 newsletter sends/month, API read-only access (100 req/15min per key)
-  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, supporter stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)
-  - **Backend enforcement**: `PATCH /api/me` silently strips Plus-only fields (`profile_music`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`) for free users. `POST /api/me/background` returns 403 for non-Plus. Draft limit (10), filter limit (5), image storage (100MB), custom HTML/CSS, and supporter stamp also enforced.
+  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, First Class stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)
+  - **Backend enforcement**: `PATCH /api/me` silently strips Plus-only fields (`profile_music`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`) for free users. `POST /api/me/background` returns 403 for non-Plus. Draft limit (10), filter limit (5), image storage (100MB), custom HTML/CSS, and First Class stamp also enforced.
   - **Frontend enforcement**: Settings customize editor shows `PlusGate` upgrade prompts for 8 sections (colors, background, font, layout, music, widgets, CSS, HTML). `handleSave()` only sends Plus fields when `isPlus`.
   - **Profile rendering**: `buildProfileStyles()` in `profile-styles.ts` accepts `subscription_tier` — ignores custom color/font overrides for non-Plus users, using theme defaults only. Profile page gates background image, music widget, non-classic layouts, custom HTML/CSS behind Plus.
   - **Downgrade behavior**: saved Plus customizations stay in DB; profile renders at theme-default level; Plus avatar frames fall back to "none" visually; re-subscribing restores everything
@@ -1041,7 +1047,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260303000049_add_last_verified_at_to_remote_entries.exs`
+- Latest migration: `20260304000050_rename_supporter_to_first_class.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -1097,6 +1103,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
 
 ### Recently Completed
+- **2026-03-04** — Stamp Overhaul: Real Postage Stamp Design. Complete visual redesign of stamps from small circular SVG icons into real postage stamps with scalloped/perforated borders, portrait rectangle shapes (72x88 viewBox), ink-pressed-on-paper effect, and per-stamp rotation. **New StampFrame component** — core building block wrapping any stamp in postage stamp visual treatment with 5 size variants (xs 20x24px through xl 64x78px), generated scalloped SVG border path, paper texture overlay via CSS `::before` pseudo-element. **7 redesigned SVG assets** with "INKWELL" denomination, central icon, and label text. **Stacked stamps on cards** — overlapping `StampFrame` components with hover/tap popup showing full-size stamps via `FloatingPopup`. **Grid stamp picker** — 2-column grid of `StampFrame` cards replacing old vertical list. **"Supporter" renamed to "First Class"** — fits postal theme: backend Ecto enum, controller validation, DB migration (`UPDATE stamps SET stamp_type = 'first_class' WHERE stamp_type = 'supporter'`), frontend config + content references. `STAMP_ALIASES` map provides backward compat for old API data. **Entry detail positioning** — stamps absolutely positioned top-right of entry content area (like postage on a letter), vertical stacking for multiple stamps on mobile. **~150 lines new CSS** — stamp frame sizes, stacking, rotation via `[data-stamp]` attributes, dark mode `mix-blend-mode: screen`, First Class gold shimmer animation. New files: `stamp-frame.tsx`, `first-class.svg`, migration `20260304000050`. Modified: all 7 stamp SVGs, `stamp-config.ts`, `stamp-display.tsx`, `stamp-picker.tsx`, `stamp-popover.tsx`, `journal-entry-card.tsx`, `profile-entries.tsx`, `entry-stamps.tsx`, `[slug]/page.tsx`, `stamp.ex`, `stamp_controller.ex`, `remote_entry_controller.ex`, `about/page.tsx`, `billing/page.tsx`, `globals.css`.
 - **2026-03-03** — Fix Profile Cards Empty Space Bug. When profile "Entry Display" is set to "Cards", entries without a title or cover image showed only 4 lines of body text with a large awkward gap of unused whitespace. Bug reported by @eve. Root cause: `line-clamp-4` was hardcoded on excerpt/body text regardless of whether cover image (~200px) or title (~40px) were present, while `h-full` + `flex-1` stretched cards to match their tallest sibling. Fix: dynamic `excerptClamp` computed from content presence — `line-clamp-4` (has both), `line-clamp-5` (image only), `line-clamp-[8]` (title only), `line-clamp-[12]` (neither). Cards now fill available space with text instead of leaving whitespace. Modified: `profile-entries.tsx` (CardEntry component).
 - **2026-03-03** — Redactions (Keyword-Based Content Muting). Users can configure a list of words in Settings → Redactions; entries containing any redacted word in title, body (HTML stripped to plain text), or tags are hidden completely from Feed, Explore, and profile entry listings. Authors always see their own entries. Branded as "Redactions" fitting Inkwell's literary aesthetic — word chips display with black background and strikethrough text like redacted text on paper. Substring matching (case-insensitive), max 100 words stored in existing `settings` JSONB field (`settings.redacted_words`). No migration, no new API endpoints, no new proxy routes — reuses `GET/PATCH /api/me`. Backend: new `Inkwell.Redactions` context module with `get_redacted_words/1`, `matches_redaction?/2`, `filter_entries/2`; post-query `Enum.reject` filtering in `feed_controller.ex`, `explore_controller.ex` (index + trending), `entry_controller.ex` (profile listings); `sanitize_redacted_words/1` validation in `user_controller.ex`. Frontend: `settings/redactions/page.tsx` client component. New file: `redactions.ex`, `settings/redactions/page.tsx`. Modified: `feed_controller.ex`, `explore_controller.ex`, `entry_controller.ex`, `user_controller.ex`, `settings/layout.tsx`.
 - **2026-03-03** — Purge Deleted Fediverse Posts. New `VerifyRemoteEntriesWorker` periodically checks that remote (fediverse) entries still exist at their source by making HTTP HEAD requests. Entries returning 404/410 are deleted locally (FK cascade removes stamps, comments, inks). Entries returning 5xx or network errors are skipped (server may be temporarily down). Worker runs every 4 hours via Oban cron on the `federation` queue, processing 50 entries per batch. Entries are prioritized by `last_verified_at` (NULL first, then oldest). Per-domain rate limiting (500ms delay between requests to same domain). Each entry re-verified every 24 hours. Full database coverage in ~2 days. Fixes bug reported by @eve where fediverse posts deleted days ago still appeared on Explore. Migration `20260303000049` adds `last_verified_at` to `remote_entries`. New file: `verify_remote_entries_worker.ex`. Modified: `remote_entry.ex` (schema field), `remote_entries.ex` (3 public + 2 private verification functions), `config.exs` (cron entry).

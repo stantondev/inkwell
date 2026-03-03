@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { STAMP_CONFIG } from "./stamp-config";
+import { STAMP_CONFIG, resolveStampType } from "./stamp-config";
+import { StampFrame } from "./stamp-frame";
 
 interface StampUser {
   id: string;
@@ -55,33 +56,27 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
 
   if (!stamps || stamps.length === 0) return null;
 
+  const resolvedStamps = stamps.map(resolveStampType);
+
   return (
-    <div ref={popoverRef} className="flex items-center gap-1.5 relative" aria-label="Stamps on this entry">
-      {stamps.map((stampType) => {
+    <div ref={popoverRef} className="flex flex-col items-end gap-1 relative" aria-label="Stamps on this entry">
+      {resolvedStamps.map((stampType) => {
         const config = STAMP_CONFIG[stampType];
         if (!config) return null;
-
-        const isSupporter = stampType === "supporter";
 
         return (
           <button
             key={stampType}
             onClick={() => isAuthor && setActiveStamp(activeStamp === stampType ? null : stampType)}
-            className={`flex-shrink-0 stamp-impression transition-transform hover:scale-110${isSupporter ? " stamp-supporter-shimmer" : ""}`}
-            style={{
-              cursor: isAuthor ? "pointer" : "default",
-              width: 36,
-              height: 36,
-            }}
+            style={{ cursor: isAuthor ? "pointer" : "default" }}
             title={isAuthor ? `${config.label} — click to see who` : config.description}
+            className="stamp-popover-stamp"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={config.icon}
-              alt={config.label}
-              width={36}
-              height={36}
-              style={{ width: 36, height: 36 }}
+            <StampFrame
+              stampType={stampType}
+              size="xl"
+              showLabel
+              interactive={isAuthor}
             />
           </button>
         );
@@ -98,15 +93,15 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
           }}
         >
           <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
-            {STAMP_CONFIG[activeStamp]?.label}
+            {STAMP_CONFIG[resolveStampType(activeStamp)]?.label}
           </p>
           {!stampedBy ? (
             <p className="text-xs" style={{ color: "var(--muted)" }}>Loading...</p>
-          ) : (stampedBy[activeStamp] ?? []).length === 0 ? (
+          ) : (stampedBy[activeStamp] ?? stampedBy[resolveStampType(activeStamp)] ?? []).length === 0 ? (
             <p className="text-xs" style={{ color: "var(--muted)" }}>No stamps yet</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {(stampedBy[activeStamp] ?? []).map((user) => (
+              {(stampedBy[activeStamp] ?? stampedBy[resolveStampType(activeStamp)] ?? []).map((user) => (
                 <a
                   key={user.id}
                   href={`/${user.username}`}

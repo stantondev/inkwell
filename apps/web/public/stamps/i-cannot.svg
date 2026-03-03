@@ -1,18 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Ink stamp / chop seal: "I Cannot" — overwhelmed, mind-blown spiral -->
-  <circle cx="32" cy="32" r="29" stroke="currentColor" stroke-width="2.5" opacity="0.85"/>
-  <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="0.75" opacity="0.3"/>
-  <!-- Spiral from center outward (overwhelm/speechless) -->
-  <path d="M32 30 C33 30 34 31 34 32 C34 34 32 35 30 35 C27 35 25 33 25 30 C25 26 28 23 32 23 C37 23 41 27 41 32 C41 38 36 43 30 43"
-        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.75"/>
-  <!-- Exclamation accents -->
-  <line x1="20" y1="20" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="44" y1="20" x2="42" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-  <line x1="20" y1="40" x2="22" y2="38" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 88" fill="none">
+  <!-- Postage stamp interior: "I Cannot" — spiral with burst accents (overwhelm/amazement) -->
+  <!-- Top denomination -->
+  <text x="36" y="10" text-anchor="middle" font-size="5" font-family="Georgia, serif" fill="currentColor" opacity="0.5" letter-spacing="2.5" font-variant="small-caps">INKWELL</text>
+  <!-- Decorative line -->
+  <line x1="12" y1="14" x2="60" y2="14" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
+  <!-- Spiral from center outward -->
+  <path d="M36 38 C36 36 38 35 39 36 C41 37 41 40 39 42 C36 44 33 43 32 40 C31 36 33 32 37 31 C42 30 46 33 47 38 C48 44 44 48 38 49 C31 50 27 45 26 38 C25 30 30 25 38 24"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <!-- Exclamation bursts -->
+  <path d="M52 22 L56 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <path d="M54 28 L58 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <path d="M16 24 L12 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <path d="M18 30 L14 28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
   <!-- Burst dots -->
-  <circle cx="18" cy="18" r="1" fill="currentColor" opacity="0.4"/>
-  <circle cx="46" cy="18" r="1" fill="currentColor" opacity="0.4"/>
-  <circle cx="18" cy="42" r="1" fill="currentColor" opacity="0.4"/>
+  <circle cx="58" cy="32" r="1.2" fill="currentColor" opacity="0.35"/>
+  <circle cx="14" cy="34" r="1.2" fill="currentColor" opacity="0.35"/>
+  <circle cx="50" cy="50" r="1" fill="currentColor" opacity="0.25"/>
+  <circle cx="22" cy="50" r="1" fill="currentColor" opacity="0.25"/>
+  <!-- Decorative line -->
+  <line x1="12" y1="66" x2="60" y2="66" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
   <!-- Label -->
-  <text x="32" y="55" text-anchor="middle" font-size="5" font-family="Georgia, serif" fill="currentColor" opacity="0.7" letter-spacing="1.2">I CANNOT</text>
+  <text x="36" y="77" text-anchor="middle" font-size="6.5" font-family="Georgia, serif" fill="currentColor" opacity="0.7" letter-spacing="1.5" font-variant="small-caps">I CANNOT</text>
+  <text x="36" y="84" text-anchor="middle" font-size="4" font-family="Georgia, serif" fill="currentColor" opacity="0.4" font-style="italic">I just can't</text>
 </svg>
