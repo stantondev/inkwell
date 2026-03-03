@@ -1,20 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 88" fill="none">
-  <!-- Postage stamp interior: "Holding Space" — cupped hands with warmth -->
+  <!-- Postage stamp interior: "Holding Space" — candle with gentle flame -->
   <!-- Top denomination -->
   <text x="36" y="10" text-anchor="middle" font-size="5" font-family="Georgia, serif" fill="currentColor" opacity="0.5" letter-spacing="2.5" font-variant="small-caps">INKWELL</text>
   <!-- Decorative line -->
   <line x1="12" y1="14" x2="60" y2="14" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
-  <!-- Cupped hands -->
-  <path d="M22 48 C22 48 20 42 22 38 C24 34 28 32 32 34 L36 36 L40 34 C44 32 48 34 50 38 C52 42 50 48 50 48 L42 54 C40 55.5 38 56 36 56 C34 56 32 55.5 30 54 Z"
-        fill="currentColor" opacity="0.75"/>
-  <!-- Warmth glow lines above hands -->
-  <path d="M30 30 L30 26" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.35"/>
-  <path d="M36 28 L36 22" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.45"/>
-  <path d="M42 30 L42 26" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.35"/>
-  <!-- Soft glow dots -->
-  <circle cx="33" cy="22" r="1" fill="currentColor" opacity="0.25"/>
-  <circle cx="39" cy="20" r="1" fill="currentColor" opacity="0.25"/>
-  <circle cx="36" cy="18" r="1.2" fill="currentColor" opacity="0.3"/>
+  <!-- Candle body -->
+  <rect x="30" y="38" width="12" height="20" rx="1.5" fill="currentColor" opacity="0.65"/>
+  <!-- Candle base/holder -->
+  <rect x="26" y="56" width="20" height="4" rx="2" fill="currentColor" opacity="0.5"/>
+  <!-- Wick -->
+  <line x1="36" y1="38" x2="36" y2="33" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <!-- Flame — outer glow -->
+  <path d="M36 18 C33 24 30 28 30 31 C30 34.5 32.8 37 36 37 C39.2 37 42 34.5 42 31 C42 28 39 24 36 18Z"
+        fill="currentColor" opacity="0.25"/>
+  <!-- Flame — inner -->
+  <path d="M36 23 C34.5 26 33 28.5 33 30.5 C33 32.8 34.3 34.5 36 34.5 C37.7 34.5 39 32.8 39 30.5 C39 28.5 37.5 26 36 23Z"
+        fill="currentColor" opacity="0.7"/>
+  <!-- Warm glow radiating -->
+  <circle cx="36" cy="30" r="18" fill="currentColor" opacity="0.04"/>
+  <circle cx="36" cy="30" r="12" fill="currentColor" opacity="0.05"/>
   <!-- Decorative line -->
   <line x1="12" y1="66" x2="60" y2="66" stroke="currentColor" stroke-width="0.5" opacity="0.25"/>
   <!-- Label -->
