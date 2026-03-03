@@ -294,6 +294,17 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
 function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
   const href = `/${username}/${entry.slug ?? entry.id}`;
   const rt = readingTime(entry.word_count);
+  const hasImage = !!entry.cover_image_id;
+  const hasTitle = !!entry.title;
+
+  // Show more body text when image/title are absent to fill the card
+  const excerptClamp = hasImage && hasTitle
+    ? "line-clamp-4"
+    : hasImage
+      ? "line-clamp-5"
+      : hasTitle
+        ? "line-clamp-[8]"
+        : "line-clamp-[12]";
 
   return (
     <article className={`profile-widget-card profile-entry-item ${styles.borderRadius} border overflow-hidden flex flex-col h-full`} style={styles.surface}>
@@ -345,12 +356,12 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         {/* Excerpt */}
         <div className="flex-1">
           {entry.excerpt ? (
-            <p className="text-sm leading-relaxed line-clamp-4" style={{ opacity: 0.85 }}>
+            <p className={`text-sm leading-relaxed ${excerptClamp}`} style={{ opacity: 0.85 }}>
               {decodeEntities(entry.excerpt)}
             </p>
           ) : (
             <EntryContent html={entry.body_html} entryId={entry.id}
-              className="prose-entry text-sm leading-relaxed line-clamp-4" />
+              className={`prose-entry text-sm leading-relaxed ${excerptClamp}`} />
           )}
         </div>
 
