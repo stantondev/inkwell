@@ -592,6 +592,7 @@ defmodule InkwellWeb.EntryController do
     auto =
       html
       |> String.replace(~r/<[^>]+>/, " ")
+      |> decode_html_entities()
       |> String.replace(~r/\s+/, " ")
       |> String.trim()
       |> String.slice(0, 280)
@@ -599,6 +600,48 @@ defmodule InkwellWeb.EntryController do
     if auto != "", do: Map.put(attrs, "excerpt", auto), else: attrs
   end
   defp maybe_auto_excerpt(attrs), do: attrs
+
+  # Decode HTML entities to their Unicode characters for plain-text excerpts
+  defp decode_html_entities(text) do
+    text
+    # Numeric decimal entities: &#8620; → ↬
+    |> then(fn t ->
+      Regex.replace(~r/&#(\d+);/, t, fn _full, code ->
+        try do
+          <<String.to_integer(code)::utf8>>
+        rescue
+          _ -> ""
+        end
+      end)
+    end)
+    # Numeric hex entities: &#x21AC; → ↬
+    |> then(fn t ->
+      Regex.replace(~r/&#x([0-9a-fA-F]+);/i, t, fn _full, hex ->
+        try do
+          <<String.to_integer(hex, 16)::utf8>>
+        rescue
+          _ -> ""
+        end
+      end)
+    end)
+    # Common named entities
+    |> String.replace("&amp;", "&")
+    |> String.replace("&lt;", "<")
+    |> String.replace("&gt;", ">")
+    |> String.replace("&quot;", "\"")
+    |> String.replace("&#39;", "'")
+    |> String.replace("&apos;", "'")
+    |> String.replace("&nbsp;", " ")
+    |> String.replace("&mdash;", "—")
+    |> String.replace("&ndash;", "–")
+    |> String.replace("&hellip;", "…")
+    |> String.replace("&lsquo;", "\u2018")
+    |> String.replace("&rsquo;", "\u2019")
+    |> String.replace("&ldquo;", "\u201C")
+    |> String.replace("&rdquo;", "\u201D")
+    # Strip any remaining named entities we don't handle
+    |> String.replace(~r/&[a-zA-Z]+;/, "")
+  end
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->

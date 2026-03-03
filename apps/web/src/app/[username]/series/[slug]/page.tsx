@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/session";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { decodeEntities } from "@/lib/decode-entities";
 
 interface SeriesPageParams {
   params: Promise<{ username: string; slug: string }>;
@@ -191,7 +192,7 @@ export default async function SeriesPage({ params }: SeriesPageParams) {
 
                       {entry.excerpt && (
                         <p className="text-sm line-clamp-2 mb-2" style={{ color: "var(--muted)" }}>
-                          {entry.excerpt}
+                          {decodeEntities(entry.excerpt)}
                         </p>
                       )}
 

@@ -13,6 +13,7 @@ import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
 import { InlineStatusEditor } from "./inline-status-editor";
+import { decodeEntities } from "@/lib/decode-entities";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
 import { ProfileSupportWidget } from "./profile-support-widget";
 import { ProfileEntries } from "./profile-entries";
@@ -176,7 +177,7 @@ function PinnedEntries({ entries, username, styles }: { entries: ProfileEntry[];
                   </h3>
                 )}
                 {entry.excerpt && (
-                  <p className="text-xs line-clamp-2" style={{ color: styles.muted }}>{entry.excerpt}</p>
+                  <p className="text-xs line-clamp-2" style={{ color: styles.muted }}>{decodeEntities(entry.excerpt)}</p>
                 )}
               </div>
             </article>

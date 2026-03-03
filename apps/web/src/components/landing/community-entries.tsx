@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
+import { decodeEntities } from "@/lib/decode-entities";
 
 interface CommunityEntry {
   id: string;
@@ -31,16 +32,6 @@ function formatCategory(cat: string): string {
 function getReadingTime(wordCount: number): string {
   const minutes = Math.max(1, Math.ceil(wordCount / 250));
   return `${minutes} min read`;
-}
-
-function decodeEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
 }
 
 function getExcerpt(entry: CommunityEntry): string {

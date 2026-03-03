@@ -7,6 +7,7 @@ import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
 import { getMusicLabel } from "@/lib/music";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { decodeEntities } from "@/lib/decode-entities";
 import type { ProfileStyles } from "@/lib/profile-styles";
 
 interface ProfileEntry {
@@ -345,7 +346,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         <div className="flex-1">
           {entry.excerpt ? (
             <p className="text-sm leading-relaxed line-clamp-4" style={{ opacity: 0.85 }}>
-              {entry.excerpt}
+              {decodeEntities(entry.excerpt)}
             </p>
           ) : (
             <EntryContent html={entry.body_html} entryId={entry.id}
@@ -386,9 +387,9 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
   const rt = readingTime(entry.word_count);
 
   // Build a 1-line excerpt
-  let oneLineExcerpt = entry.excerpt ?? "";
+  let oneLineExcerpt = entry.excerpt ? decodeEntities(entry.excerpt) : "";
   if (!oneLineExcerpt && entry.body_html) {
-    oneLineExcerpt = entry.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+    oneLineExcerpt = decodeEntities(entry.body_html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 120);
   }
 
   return (

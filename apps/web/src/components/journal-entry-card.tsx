@@ -7,6 +7,7 @@ import { StampDisplay } from "@/components/stamp-display";
 import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { getMusicLabel } from "@/lib/music";
+import { decodeEntities } from "@/lib/decode-entities";
 
 export interface JournalEntry {
   id: string;
@@ -272,7 +273,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
                 className="text-sm leading-relaxed line-clamp-8"
                 style={{ color: "var(--foreground)", opacity: 0.85 }}
               >
-                {entry.excerpt}
+                {decodeEntities(entry.excerpt)}
               </p>
               {isRemote ? (
                 <a
