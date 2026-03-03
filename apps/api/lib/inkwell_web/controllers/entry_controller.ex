@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, Polls, Repo, Social, Stamps, Tipping}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, Polls, Redactions, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias InkwellWeb.UserController
 
@@ -46,6 +46,14 @@ defmodule InkwellWeb.EntryController do
 
           true ->
             Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, :public))
+        end
+
+      # Apply viewer's redacted words filter (never redact own entries)
+      entries =
+        if viewer && viewer.id != user.id do
+          Redactions.filter_entries(entries, Redactions.get_redacted_words(viewer))
+        else
+          entries
         end
 
       entry_ids = Enum.map(entries, & &1.id)

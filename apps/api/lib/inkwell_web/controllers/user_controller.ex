@@ -108,6 +108,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
+          merged = sanitize_redacted_words(merged)
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -484,6 +485,25 @@ defmodule InkwellWeb.UserController do
     |> String.replace(~r/<iframe\b[^>]*\/?\s*>/is, "")
     |> String.replace(~r/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/is, "")
     |> String.replace(~r/<(object|embed|applet)\b[^>]*\/?\s*>/is, "")
+  end
+
+  defp sanitize_redacted_words(settings) do
+    case Map.get(settings, "redacted_words") do
+      nil -> settings
+      words when is_list(words) ->
+        cleaned =
+          words
+          |> Enum.map(fn
+            w when is_binary(w) -> w |> String.trim() |> String.downcase() |> String.slice(0, 100)
+            _ -> ""
+          end)
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.uniq()
+          |> Enum.take(100)
+        Map.put(settings, "redacted_words", cleaned)
+      _ ->
+        Map.delete(settings, "redacted_words")
+    end
   end
 
   defp format_errors(changeset) do

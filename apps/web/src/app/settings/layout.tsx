@@ -16,6 +16,7 @@ const tabs = [
   { href: "/settings/support", label: "Postage" },
   { href: "/settings/invite", label: "Invite" },
   { href: "/settings/blocked", label: "Blocked" },
+  { href: "/settings/redactions", label: "Redactions" },
   { href: "/settings/fediverse", label: "Fediverse" },
   { href: "/settings/api", label: "API" },
 ];

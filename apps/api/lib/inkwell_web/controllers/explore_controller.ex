@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps}
   alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
@@ -58,6 +58,12 @@ defmodule InkwellWeb.ExploreController do
       |> sort_items(sort)
       |> Enum.drop((page - 1) * per_page)
       |> Enum.take(per_page)
+
+    # Apply viewer's redacted words filter
+    redacted_words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
+    all_items =
+      if redacted_words == [], do: all_items,
+        else: Enum.reject(all_items, fn item -> Redactions.matches_redaction?(item.entry, redacted_words) end)
 
     # Build stamp maps for local entries
     local_entry_ids =
@@ -195,6 +201,10 @@ defmodule InkwellWeb.ExploreController do
       limit: 8,
       exclude_user_ids: blocked_ids
     )
+
+    # Apply viewer's redacted words filter
+    redacted_words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
+    entries = Redactions.filter_entries(entries, redacted_words)
 
     entry_ids = Enum.map(entries, & &1.id)
     stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)

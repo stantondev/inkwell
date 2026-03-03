@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps}
   alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
@@ -34,6 +34,12 @@ defmodule InkwellWeb.FeedController do
       |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
       |> Enum.drop((page - 1) * per_page)
       |> Enum.take(per_page)
+
+    # Apply user's redacted words filter
+    redacted_words = Redactions.get_redacted_words(user)
+    all_items =
+      if redacted_words == [], do: all_items,
+        else: Enum.reject(all_items, fn item -> Redactions.matches_redaction?(item.entry, redacted_words) end)
 
     # Build stamp/comment maps for local entries
     local_entry_ids =
