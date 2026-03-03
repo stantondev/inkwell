@@ -14,6 +14,7 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :published_at, :utc_datetime_usec
     field :sensitive, :boolean, default: false
     field :content_warning, :string
+    field :last_verified_at, :utc_datetime_usec
 
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
 
