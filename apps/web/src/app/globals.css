@@ -775,18 +775,17 @@ a.mention:hover,
 .stamp-frame-xl { width: 64px; height: 78px; }
 .stamp-frame-xl .stamp-frame-label { font-size: 10px; letter-spacing: 0.8px; }
 
-/* Stamp stacking (overlapping mini-stamps on cards) */
-.stamp-stack {
+/* Stamp row — stamps sit side-by-side, shrinking to fit */
+.stamp-row {
   display: flex;
   align-items: flex-start;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
-.stamp-stack .stamp-frame {
-  margin-left: -6px;
-  box-shadow: -1px 1px 3px rgba(0,0,0,0.06);
-  transition: transform 0.2s, opacity 0.2s, z-index 0s;
-}
-.stamp-stack .stamp-frame:first-child {
-  margin-left: 0;
+.stamp-row .stamp-frame {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: transform 0.2s, opacity 0.2s;
 }
 
 /* Hover popup for stamp detail (shown via FloatingPopup) */
@@ -881,8 +880,8 @@ a.mention:hover,
   .stamp-frame-interactive:hover {
     opacity: 0.95;
   }
-  .stamp-stack .stamp-frame {
-    box-shadow: -1px 1px 4px rgba(0,0,0,0.2);
+  .stamp-row .stamp-frame {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   }
 }
 

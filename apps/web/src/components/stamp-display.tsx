@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * StampDisplay — shows stamps as stacked mini postage stamps on entry cards.
- * Stamps overlap slightly for a collected-on-paper feel.
- * Hover/tap reveals a popup with all stamps at full size.
+ * StampDisplay — shows stamps as mini postage stamps on entry cards.
+ * Dynamically shrinks stamps as more are added so they all fit in a row.
+ * Hover/tap reveals a popup with all stamps at full size with labels.
  */
 
 import { useState, useRef } from "react";
@@ -13,10 +13,26 @@ import { FloatingPopup } from "./floating-popup";
 
 interface StampDisplayProps {
   stamps: string[];
-  /** Size of the stacked mini-stamps */
+  /** Maximum stamp size — actual size may shrink based on stamp count */
   size?: StampSize;
   /** Show hover popup with full-size stamps */
   showPopup?: boolean;
+}
+
+/** Pick the right stamp size so they all fit without overlapping */
+function getAdaptiveSize(count: number, maxSize: StampSize): StampSize {
+  const sizeOrder: StampSize[] = ["xs", "sm", "md", "lg", "xl"];
+  const maxIdx = sizeOrder.indexOf(maxSize);
+
+  // Based on count, determine the ideal size
+  let idealSize: StampSize;
+  if (count <= 1) idealSize = maxSize;
+  else if (count <= 3) idealSize = "sm";
+  else idealSize = "xs"; // 4-7 stamps
+
+  // Don't go larger than maxSize
+  const idealIdx = sizeOrder.indexOf(idealSize);
+  return sizeOrder[Math.min(idealIdx, maxIdx)];
 }
 
 export function StampDisplay({ stamps, size = "md", showPopup = true }: StampDisplayProps) {
@@ -26,11 +42,12 @@ export function StampDisplay({ stamps, size = "md", showPopup = true }: StampDis
   if (!stamps || stamps.length === 0) return null;
 
   const resolvedStamps = stamps.map(resolveStampType);
+  const adaptiveSize = getAdaptiveSize(resolvedStamps.length, size);
 
   return (
     <div
       ref={stackRef}
-      className="stamp-stack"
+      className="stamp-row"
       aria-label="Stamps on this entry"
       onMouseEnter={() => showPopup && setHovered(true)}
       onMouseLeave={() => showPopup && setHovered(false)}
@@ -43,12 +60,11 @@ export function StampDisplay({ stamps, size = "md", showPopup = true }: StampDis
       }}
       style={{ cursor: showPopup && resolvedStamps.length > 0 ? "pointer" : "default" }}
     >
-      {resolvedStamps.map((stampType, i) => (
+      {resolvedStamps.map((stampType) => (
         <StampFrame
           key={stampType}
           stampType={stampType}
-          size={size}
-          style={{ zIndex: resolvedStamps.length - i }}
+          size={adaptiveSize}
         />
       ))}
 
