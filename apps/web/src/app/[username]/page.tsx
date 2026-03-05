@@ -501,9 +501,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
     };
 
     return (
-      <div className={`min-h-screen relative ${styles.themeClass}`} style={{
-        ...styles.page,
-        ...(hasCustomBackground ? { background: "transparent" } : {}),
+      <div className="min-h-screen relative" style={{
+        background: "transparent",
       }}>
         {hasCustomBackground && (
           <div className="fixed inset-0 -z-10" style={{
@@ -515,7 +514,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           }} />
         )}
 
-        <div className={`mx-auto px-3 sm:px-4 py-8 overflow-hidden ${layout === "minimal" ? "max-w-2xl" : "max-w-7xl"}`}
+        <div className="mx-auto overflow-hidden"
           style={{ fontFamily: font?.family }}>
           <FullPageCustomProfile
             profileHtml={profile.profile_html}
