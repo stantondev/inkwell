@@ -117,24 +117,47 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Extract background color from custom CSS for full-page profile wrapper.
- * Looks for direct background declarations or CSS variable references.
+ * Parse a hex color string to RGB values.
  */
-function extractFullpageBgColor(css: string | null | undefined): string | null {
-  if (!css) return null;
+function parseHex(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.replace("#", "");
+  if (h.length === 3) {
+    return {
+      r: parseInt(h[0] + h[0], 16),
+      g: parseInt(h[1] + h[1], 16),
+      b: parseInt(h[2] + h[2], 16),
+    };
+  }
+  if (h.length >= 6) {
+    return {
+      r: parseInt(h.substring(0, 2), 16),
+      g: parseInt(h.substring(2, 4), 16),
+      b: parseInt(h.substring(4, 6), 16),
+    };
+  }
+  return null;
+}
 
-  // Try direct background/background-color with color value
-  const directBg = css.match(
-    /background(?:-color)?:\s*(#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\))/i
-  );
-  if (directBg) return directBg[1];
+function toHex(r: number, g: number, b: number): string {
+  return `#${Math.min(255, Math.max(0, r)).toString(16).padStart(2, "0")}${Math.min(255, Math.max(0, g)).toString(16).padStart(2, "0")}${Math.min(255, Math.max(0, b)).toString(16).padStart(2, "0")}`;
+}
 
-  // Try resolving CSS variable: background: var(--some-var) → find --some-var: #color
-  const varBg = css.match(
-    /background(?:-color)?:\s*var\(--([a-zA-Z0-9_-]+)\)/i
+/**
+ * Resolve a CSS color value from custom CSS — handles direct hex/rgb and CSS variable references.
+ */
+function resolveColorFromCss(css: string, property: string): string | null {
+  // Match property: #hex or rgb(...)
+  const directMatch = css.match(
+    new RegExp(`${property}:\\s*(#[0-9a-fA-F]{3,8}|rgb\\([^)]+\\)|rgba\\([^)]+\\))`, "i")
   );
-  if (varBg) {
-    const varName = varBg[1];
+  if (directMatch) return directMatch[1];
+
+  // Match property: var(--name) and resolve the variable
+  const varMatch = css.match(
+    new RegExp(`${property}:\\s*var\\(--([a-zA-Z0-9_-]+)\\)`, "i")
+  );
+  if (varMatch) {
+    const varName = varMatch[1];
     const varDef = css.match(
       new RegExp(`--${varName}:\\s*(#[0-9a-fA-F]{3,8}|rgb\\([^)]+\\)|rgba\\([^)]+\\))`, "i")
     );
@@ -142,6 +165,60 @@ function extractFullpageBgColor(css: string | null | undefined): string | null {
   }
 
   return null;
+}
+
+/**
+ * For full-page custom profiles, extract the background color and generate
+ * CSS variable overrides so hydrated widgets (entries, search, guestbook)
+ * match the user's dark/light color scheme instead of using site defaults.
+ */
+function extractFullpageCssOverrides(css: string | null | undefined): Record<string, string> {
+  if (!css) return {};
+
+  const overrides: Record<string, string> = {};
+
+  // 1. Extract background color
+  const bgColor = resolveColorFromCss(css, "background(?:-color)?");
+  if (bgColor) {
+    overrides["--fp-bg"] = bgColor;
+  }
+
+  // 2. Check if user explicitly defines standard Inkwell CSS variables
+  const standardVars = [
+    "--background", "--surface", "--surface-hover", "--foreground", "--ink",
+    "--muted", "--accent", "--accent-light", "--border",
+  ];
+  for (const varName of standardVars) {
+    const match = css.match(
+      new RegExp(`${varName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:\\s*(#[0-9a-fA-F]{3,8}|rgb\\([^)]+\\)|rgba\\([^)]+\\))`, "i")
+    );
+    if (match) {
+      overrides[varName] = match[1];
+    }
+  }
+
+  // 3. If background is dark and user hasn't set standard vars, auto-generate dark overrides
+  if (bgColor && !overrides["--surface"]) {
+    const rgb = parseHex(bgColor);
+    if (rgb) {
+      const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      if (luminance < 0.35) {
+        // Dark background detected — generate dark-mode CSS variable overrides
+        // so hydrated widgets (entry cards, search bar, etc.) render with dark styling
+        overrides["--background"] = bgColor;
+        overrides["--surface"] = toHex(rgb.r + 15, rgb.g + 15, rgb.b + 18);
+        overrides["--surface-hover"] = toHex(rgb.r + 28, rgb.g + 28, rgb.b + 35);
+        overrides["--foreground"] = "#e2e8f0";
+        overrides["--ink"] = "#e2e8f0";
+        overrides["--muted"] = "#94a3b8";
+        overrides["--accent"] = overrides["--accent"] || "#6b8ec9";
+        overrides["--accent-light"] = toHex(rgb.r + 20, rgb.g + 22, rgb.b + 30);
+        overrides["--border"] = toHex(rgb.r + 25, rgb.g + 25, rgb.b + 32);
+      }
+    }
+  }
+
+  return overrides;
 }
 
 function ensureUrl(url: string): string {
@@ -528,13 +605,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
       relationshipStatus,
     };
 
-    // Extract background color from custom CSS for the page wrapper
-    // so it fills edge-to-edge behind the centered custom content
-    const fullpageBg = extractFullpageBgColor(profile.profile_css);
+    // Extract CSS overrides from user's custom CSS so hydrated widgets
+    // (entries, search, guestbook) match the user's dark/light color scheme
+    const fpOverrides = extractFullpageCssOverrides(profile.profile_css);
+    const fpBg = fpOverrides["--fp-bg"] || fpOverrides["--background"];
 
     return (
-      <div className="min-h-screen relative" style={{
-        background: fullpageBg || styles.page.background || "var(--background)",
+      <div className={`min-h-screen relative ${styles.themeClass}`} style={{
+        ...styles.page,
+        // Spread dark-mode CSS variable overrides so hydrated widgets inherit them
+        ...fpOverrides,
+        // Override background to fill edge-to-edge behind centered custom content
+        background: fpBg || styles.page.background || "var(--background)",
       }}>
         {hasCustomBackground && (
           <div className="fixed inset-0 -z-10" style={{
