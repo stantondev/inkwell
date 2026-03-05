@@ -116,6 +116,34 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/**
+ * Extract background color from custom CSS for full-page profile wrapper.
+ * Looks for direct background declarations or CSS variable references.
+ */
+function extractFullpageBgColor(css: string | null | undefined): string | null {
+  if (!css) return null;
+
+  // Try direct background/background-color with color value
+  const directBg = css.match(
+    /background(?:-color)?:\s*(#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\))/i
+  );
+  if (directBg) return directBg[1];
+
+  // Try resolving CSS variable: background: var(--some-var) → find --some-var: #color
+  const varBg = css.match(
+    /background(?:-color)?:\s*var\(--([a-zA-Z0-9_-]+)\)/i
+  );
+  if (varBg) {
+    const varName = varBg[1];
+    const varDef = css.match(
+      new RegExp(`--${varName}:\\s*(#[0-9a-fA-F]{3,8}|rgb\\([^)]+\\)|rgba\\([^)]+\\))`, "i")
+    );
+    if (varDef) return varDef[1];
+  }
+
+  return null;
+}
+
 function ensureUrl(url: string): string {
   const trimmed = url.trim();
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
@@ -500,9 +528,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
       relationshipStatus,
     };
 
+    // Extract background color from custom CSS for the page wrapper
+    // so it fills edge-to-edge behind the centered custom content
+    const fullpageBg = extractFullpageBgColor(profile.profile_css);
+
     return (
       <div className="min-h-screen relative" style={{
-        background: "transparent",
+        background: fullpageBg || styles.page.background || "var(--background)",
       }}>
         {hasCustomBackground && (
           <div className="fixed inset-0 -z-10" style={{
