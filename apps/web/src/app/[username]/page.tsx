@@ -19,6 +19,7 @@ import { ProfileSupportWidget } from "./profile-support-widget";
 import { ProfileEntries } from "./profile-entries";
 import { ProfileSearchFilter } from "./profile-search-filter";
 import { TipButton } from "@/components/tip-button";
+import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
 import type { TemplateContext } from "@/lib/template-tags";
 
@@ -253,7 +254,44 @@ function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[
 
 export async function generateMetadata({ params }: ProfileParams): Promise<Metadata> {
   const { username } = await params;
-  return { title: `@${username}` };
+  try {
+    const data = await apiFetch<{ data: ProfileUser }>(`/api/users/${username}`);
+    const profile = data.data;
+    const displayName = profile.display_name || `@${username}`;
+    const bio = profile.bio
+      ? profile.bio.replace(/<[^>]+>/g, "").slice(0, 160)
+      : `@${username} on Inkwell`;
+    const profileUrl = `https://inkwell.social/${username}`;
+    const hasAvatar = !!profile.avatar_url;
+
+    return {
+      title: `@${username}`,
+      description: bio,
+      openGraph: {
+        title: displayName,
+        description: bio,
+        url: profileUrl,
+        type: "profile",
+        ...(hasAvatar
+          ? { images: [{ url: `/api/avatars/${username}`, alt: `${displayName}'s avatar` }] }
+          : {}),
+      },
+      twitter: {
+        site: "@inkwellsocial",
+        card: "summary",
+        title: displayName,
+        description: bio,
+        ...(hasAvatar
+          ? { images: [`/api/avatars/${username}`] }
+          : {}),
+      },
+      alternates: {
+        canonical: profileUrl,
+      },
+    };
+  } catch {
+    return { title: `@${username}` };
+  }
 }
 
 export default async function ProfilePage({ params }: ProfileParams) {
@@ -740,11 +778,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
               </div>
               {isOwnProfile ? (
-                <Link href="/settings"
-                  className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-                  style={{ borderColor: styles.border, color: styles.muted }}>
-                  Edit profile
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link href="/settings"
+                    className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                    style={{ borderColor: styles.border, color: styles.muted }}>
+                    Edit profile
+                  </Link>
+                  <ShareButton
+                    url={`https://inkwell.social/${username}`}
+                    title={profile.display_name || username}
+                    description={`@${username} on Inkwell`}
+                  />
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <FollowButton
@@ -762,6 +807,11 @@ export default async function ProfilePage({ params }: ProfileParams) {
                   {session && (
                     <BlockButton targetUsername={username} initialBlocked={false} />
                   )}
+                  <ShareButton
+                    url={`https://inkwell.social/${username}`}
+                    title={profile.display_name || username}
+                    description={`@${username} on Inkwell`}
+                  />
                 </div>
               )}
             </div>

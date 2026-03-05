@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   description: "A federated social journaling platform. Your journal, your friends, your space.",
   metadataBase: new URL("https://inkwell.social"),
   openGraph: { siteName: "Inkwell", type: "website" },
+  twitter: { site: "@inkwellsocial" },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
   },

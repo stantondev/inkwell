@@ -5450,3 +5450,31 @@ body[data-sidebar-collapsed] .settings-ledger-nav {
   background: var(--accent);
   color: #fff;
 }
+
+/* ── Share popup ─────────────────────────────────────────────── */
+.share-popup-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  text-align: left;
+}
+.share-popup-option:hover {
+  background: var(--surface-hover);
+}
+.share-popup-option svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.share-popup-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.25rem 0;
+}

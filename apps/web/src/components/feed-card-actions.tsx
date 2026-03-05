@@ -8,6 +8,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { InkButton } from "@/components/ink-button";
 import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
+import { ShareButton } from "@/components/share-button";
 
 interface FeedComment {
   id: string;
@@ -44,6 +45,10 @@ interface FeedCardActionsProps {
   inkApiPath?: string;
   /** Whether this is a federated/remote entry */
   isRemote?: boolean;
+  /** Entry title for share text */
+  entryTitle?: string | null;
+  /** Entry author username for share text */
+  entryAuthorUsername?: string;
   onStampsChange?: (stamps: string[]) => void;
   onBookmarkChange?: (bookmarked: boolean) => void;
 }
@@ -76,6 +81,8 @@ export function FeedCardActions({
   externalDomain,
   inkApiPath,
   isRemote = false,
+  entryTitle,
+  entryAuthorUsername,
   onStampsChange,
   onBookmarkChange,
 }: FeedCardActionsProps) {
@@ -382,6 +389,13 @@ export function FeedCardActions({
             onBookmarkChange={onBookmarkChange}
           />
         )}
+
+        {/* Share button */}
+        <ShareButton
+          url={externalUrl || `https://inkwell.social${entryHref}`}
+          title={entryTitle || "Entry"}
+          description={entryTitle ? `"${entryTitle}" on Inkwell` : "A journal entry on Inkwell"}
+        />
 
         {/* Report button — only for other users' non-remote entries */}
         {!isOwnEntry && !isRemote && isLoggedIn && (

@@ -96,6 +96,8 @@ export function JournalFeed({
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}
         isRemote={isRemote}
+        entryTitle={entry.title}
+        entryAuthorUsername={entry.author.username}
         {...(isRemote
           ? {
               stampApiPath: `/api/remote-entries/${entry.id}/stamp`,

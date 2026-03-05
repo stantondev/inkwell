@@ -19,6 +19,7 @@ import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
 import { InkButton } from "@/components/ink-button";
+import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
@@ -274,12 +275,37 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const entry = data.data;
     const description = entry.excerpt
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
+    const title = entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`;
+    const ogTitle = entry.title ?? `Entry by @${username}`;
+    const entryUrl = `https://inkwell.social/${username}/${slug}`;
+    const hasCover = !!entry.cover_image_id;
+
     return {
-      title: entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`,
+      title,
       description,
-      openGraph: entry.cover_image_id
-        ? { images: [`/api/images/${entry.cover_image_id}`] }
-        : undefined,
+      openGraph: {
+        title: ogTitle,
+        description,
+        url: entryUrl,
+        type: "article",
+        publishedTime: entry.published_at,
+        authors: [entry.author?.display_name ?? username],
+        ...(hasCover
+          ? { images: [{ url: `/api/images/${entry.cover_image_id}`, alt: ogTitle }] }
+          : {}),
+      },
+      twitter: {
+        site: "@inkwellsocial",
+        card: hasCover ? "summary_large_image" : "summary",
+        title: ogTitle,
+        description,
+        ...(hasCover
+          ? { images: [`/api/images/${entry.cover_image_id}`] }
+          : {}),
+      },
+      alternates: {
+        canonical: entryUrl,
+      },
     };
   } catch {
     return { title: `Entry · @${username}` };
@@ -384,6 +410,12 @@ export default async function EntryPage({ params }: EntryParams) {
                   size={18}
                 />
               )}
+              <ShareButton
+                url={`https://inkwell.social/${username}/${slug}`}
+                title={entry.title || "Entry"}
+                description={entry.excerpt || entry.title || ""}
+                size={18}
+              />
               {session && !isOwnEntry && (
                 <ReportButton entryId={entry.id} />
               )}

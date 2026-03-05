@@ -15,6 +15,7 @@ import { BlockButton } from "@/app/[username]/block-button";
 import { InlineStatusEditor } from "@/app/[username]/inline-status-editor";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { TipButton } from "@/components/tip-button";
+import { ShareButton } from "@/components/share-button";
 import { ProfileSupportWidget } from "@/app/[username]/profile-support-widget";
 import { ProfileEntries } from "@/app/[username]/profile-entries";
 import { ProfileSearchFilter } from "@/app/[username]/profile-search-filter";
@@ -172,13 +173,20 @@ export function CustomProfileHydrator({
                   />
                 </div>
                 {isOwnProfile ? (
-                  <Link
-                    href="/settings"
-                    className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-                    style={{ borderColor: styles.border, color: styles.muted }}
-                  >
-                    Edit profile
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/settings"
+                      className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                      style={{ borderColor: styles.border, color: styles.muted }}
+                    >
+                      Edit profile
+                    </Link>
+                    <ShareButton
+                      url={`https://inkwell.social/${username}`}
+                      title={profile.display_name || username}
+                      description={`@${username} on Inkwell`}
+                    />
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <FollowButton
@@ -197,6 +205,11 @@ export function CustomProfileHydrator({
                     {isLoggedIn && (
                       <BlockButton targetUsername={username} initialBlocked={false} />
                     )}
+                    <ShareButton
+                      url={`https://inkwell.social/${username}`}
+                      title={profile.display_name || username}
+                      description={`@${username} on Inkwell`}
+                    />
                   </div>
                 )}
               </div>
