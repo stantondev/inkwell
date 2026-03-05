@@ -72,6 +72,9 @@ defmodule InkwellWeb.Router do
     # Username availability check (public)
     get "/username-available", UserController, :username_available
 
+    # Profile view counter (public, fire-and-forget)
+    post "/users/:username/view", UserController, :increment_views
+
     # Invite link info (public)
     get "/invite-link/:code", InvitationController, :show_inviter
     get "/invite-token/:token", InvitationController, :show_invite

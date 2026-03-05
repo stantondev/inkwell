@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, SERVER_API } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { buildProfileStyles } from "@/lib/profile-styles";
 import { PROFILE_FONTS } from "@/lib/profile-themes";
@@ -64,6 +64,7 @@ interface ProfileUser {
   social_links?: Record<string, string> | null;
   ink_donor_status?: string | null;
   ink_donor_amount_cents?: number | null;
+  visitor_count?: number;
 }
 
 interface ProfileEntry {
@@ -446,6 +447,15 @@ export default async function ProfilePage({ params }: ProfileParams) {
     notFound();
   }
 
+  // Fire-and-forget: increment visitor count for non-owner views
+  if (!isOwnProfile) {
+    fetch(`${SERVER_API}/api/users/${username}/view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }).catch(() => {});
+  }
+
   // Handle blocked states — show limited profile
   if (relationshipStatus === "unavailable") {
     return (
@@ -600,6 +610,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
       penPalCount,
       readerCount,
       pinnedEntries,
+      visitorCount: profile.visitor_count ?? 0,
       isOwnProfile,
       isLoggedIn: !!session,
       relationshipStatus,

@@ -72,6 +72,9 @@ defmodule Inkwell.Accounts.User do
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}
 
+    # Profile view counter
+    field :visitor_count, :integer, default: 0
+
     # Invitations
     field :invite_code, :string
     field :invited_by_id, :binary_id

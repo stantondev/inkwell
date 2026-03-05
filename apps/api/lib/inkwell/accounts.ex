@@ -13,6 +13,11 @@ defmodule Inkwell.Accounts do
     Repo.get_by(User, email: email)
   end
 
+  def increment_visitor_count(user_id) do
+    from(u in User, where: u.id == ^user_id)
+    |> Repo.update_all(inc: [visitor_count: 1])
+  end
+
   def create_user(attrs) do
     %User{}
     |> User.registration_changeset(attrs)

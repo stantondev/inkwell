@@ -5,6 +5,18 @@ defmodule InkwellWeb.UserController do
   alias Inkwell.Journals
   alias Inkwell.Social
 
+  # POST /api/users/:username/view — increment visitor count
+  def increment_views(conn, %{"username" => username}) do
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      user ->
+        Accounts.increment_visitor_count(user.id)
+        json(conn, %{ok: true})
+    end
+  end
+
   # GET /api/users/:username — public profile
   def show(conn, %{"username" => username}) do
     case Accounts.get_user_by_username(username) do
@@ -444,7 +456,8 @@ defmodule InkwellWeb.UserController do
       pinned_entry_ids: user.pinned_entry_ids || [],
       social_links: user.social_links || %{},
       ink_donor_status: user.ink_donor_status,
-      ink_donor_amount_cents: user.ink_donor_amount_cents
+      ink_donor_amount_cents: user.ink_donor_amount_cents,
+      visitor_count: user.visitor_count || 0
     }
   end
 

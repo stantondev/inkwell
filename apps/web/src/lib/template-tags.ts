@@ -26,6 +26,7 @@ export const TEMPLATE_TAGS = [
   "bio",
   "stats",
   "avatar",
+  "visitor_count",
 ] as const;
 
 export type TemplateTags = (typeof TEMPLATE_TAGS)[number];
@@ -57,6 +58,7 @@ export const TEXT_TAGS = new Set<string>([
   "username",
   "bio",
   "stats",
+  "visitor_count",
 ]);
 
 export interface WidgetSlot {
@@ -118,6 +120,7 @@ export interface TemplateContext {
     excerpt?: string | null;
     cover_image_id?: string | null;
   }>;
+  visitorCount: number;
   isOwnProfile: boolean;
   isLoggedIn: boolean;
   relationshipStatus: string | null;
@@ -156,6 +159,8 @@ function renderTextTag(tag: string, ctx: TemplateContext): string {
       parts.push(`Joined ${joinDate}`);
       return `<span class="inkwell-stats">${parts.join(" &middot; ")}</span>`;
     }
+    case "visitor_count":
+      return ctx.visitorCount.toString();
     default:
       return "";
   }
@@ -323,4 +328,5 @@ export const TEMPLATE_TAG_DOCS: Array<{
   { tag: "username", label: "Username", description: "Your @username as text", category: "text" },
   { tag: "bio", label: "Bio", description: "Your bio content (HTML if rich bio, plain text otherwise)", category: "text" },
   { tag: "stats", label: "Stats", description: "Entry count, pen pals, readers, and join date", category: "text" },
+  { tag: "visitor_count", label: "Visitor Count", description: "Total profile page view count (increments for each visitor)", category: "text" },
 ];
