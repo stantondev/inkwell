@@ -101,6 +101,7 @@ export function FullPageCustomProfile({
       {/* Client-side hydrator mounts React components into placeholder divs */}
       {widgetSlots.length > 0 && (
         <CustomProfileHydrator
+          key={`hydrator-${Date.now()}`}
           containerId={scopeId}
           widgetSlots={widgetSlots}
           profile={templateContext.profile}
