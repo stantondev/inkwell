@@ -56,23 +56,39 @@ function PlusGate({ feature }: { feature: string }) {
   );
 }
 
-function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, children, defaultOpen = true, overriddenByFullPage }: { title: string; children: React.ReactNode; defaultOpen?: boolean; overriddenByFullPage?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border rounded-xl overflow-hidden" style={{ borderColor: "var(--border)" }}>
+    <div className="border rounded-xl overflow-hidden" style={{ borderColor: "var(--border)", opacity: overriddenByFullPage ? 0.5 : 1 }}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-left transition-colors hover:bg-[var(--surface-hover)]"
         style={{ background: "var(--surface)" }}>
-        {title}
+        <span className="flex items-center gap-2">
+          {title}
+          {overriddenByFullPage && (
+            <span className="text-[10px] font-normal uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "var(--border)", color: "var(--muted)" }}>
+              Full-page override
+            </span>
+          )}
+        </span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           className={`transition-transform ${open ? "rotate-180" : ""}`}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {open && <div className="px-4 py-4 border-t" style={{ borderColor: "var(--border)" }}>{children}</div>}
+      {open && (
+        <div className="px-4 py-4 border-t" style={{ borderColor: "var(--border)" }}>
+          {overriddenByFullPage && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-hover)", color: "var(--muted)", borderLeft: "3px solid var(--accent)" }}>
+              {overriddenByFullPage}
+            </div>
+          )}
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -476,7 +492,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Theme Presets */}
-      <Section title="Theme" defaultOpen={true}>
+      <Section title="Theme" defaultOpen={true} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls colors and styling in full-page mode. Theme settings are applied but may be overridden." : undefined}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {PROFILE_THEMES.map((t) => (
             <button
@@ -496,7 +512,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Entry Display */}
-      <Section title="Entry Display" defaultOpen={false}>
+      <Section title="Entry Display" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Entry display is controlled by the {{entries}} tag in your custom HTML." : undefined}>
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
           Choose how journal entries appear on your profile page.
         </p>
@@ -534,7 +550,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Pinned Entries */}
-      <Section title="Pinned Entries" defaultOpen={false}>
+      <Section title="Pinned Entries" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Pinned entries only appear if you include {{pinned}} in your custom HTML." : undefined}>
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
           Highlight up to 3 entries at the top of your profile. Search by title to find them.
         </p>
@@ -616,7 +632,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Colors */}
-      <Section title="Colors" defaultOpen={false}>
+      <Section title="Colors" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls colors in full-page mode. These settings are applied but may be overridden." : undefined}>
         {isPlus ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -774,7 +790,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Font */}
-      <Section title="Font" defaultOpen={false}>
+      <Section title="Font" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls fonts in full-page mode." : undefined}>
         {isPlus ? (
           <>
             <select
@@ -801,7 +817,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Layout */}
-      <Section title="Layout" defaultOpen={false}>
+      <Section title="Layout" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Layout is controlled by your custom HTML in full-page mode. This setting has no effect." : undefined}>
         {isPlus ? (
           <div className="grid grid-cols-2 gap-2">
             {PROFILE_LAYOUTS.map((l) => (
@@ -856,7 +872,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Widget Ordering */}
-      <Section title="Profile Sections Order" defaultOpen={false}>
+      <Section title="Profile Sections Order" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Widget order is controlled by {{tag}} placement in your custom HTML. This setting has no effect." : undefined}>
         {isPlus ? (
           <div className="flex flex-col gap-1">
             {widgetOrder.map((widget, i) => (
