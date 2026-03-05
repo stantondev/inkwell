@@ -2945,11 +2945,11 @@ body[data-focus-mode] .app-content {
 
 .settings-ledger-nav {
   width: 220px;
-  flex-shrink: 0;
-  position: sticky;
+  position: fixed;
   top: 0;
-  height: 100vh;
-  align-self: flex-start;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--surface);
@@ -2957,6 +2957,17 @@ body[data-focus-mode] .app-content {
   box-shadow: 4px 0 16px -4px rgba(0, 0, 0, 0.04);
   scrollbar-width: none;
   padding-bottom: 32px;
+}
+
+/* Push settings nav right when main sidebar is visible */
+@media (min-width: 1024px) {
+  .settings-ledger-nav {
+    left: var(--sidebar-width);
+  }
+}
+
+body[data-sidebar-collapsed] .settings-ledger-nav {
+  left: var(--sidebar-collapsed-width);
 }
 
 .settings-ledger-nav::-webkit-scrollbar {
@@ -3082,6 +3093,7 @@ body[data-focus-mode] .app-content {
   min-width: 0;
   padding: 32px 40px;
   max-width: 900px;
+  margin-left: 220px;
 }
 
 /* ─── Mobile Nav (<768px) ─── */
@@ -3097,6 +3109,7 @@ body[data-focus-mode] .app-content {
 
   .settings-ledger-content {
     padding: 0 16px 32px;
+    margin-left: 0;
   }
 
   .settings-ledger-mobile-header {
