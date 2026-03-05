@@ -19,6 +19,8 @@ import { ProfileSupportWidget } from "./profile-support-widget";
 import { ProfileEntries } from "./profile-entries";
 import { ProfileSearchFilter } from "./profile-search-filter";
 import { TipButton } from "@/components/tip-button";
+import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
+import type { TemplateContext } from "@/lib/template-tags";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -46,7 +48,7 @@ interface ProfileUser {
   profile_foreground_color?: string | null;
   profile_font?: string | null;
   profile_layout?: string | null;
-  profile_widgets?: { order?: string[]; hidden?: string[] } | null;
+  profile_widgets?: { order?: string[]; hidden?: string[]; html_mode?: string } | null;
   profile_status?: string | null;
   profile_theme?: string | null;
   newsletter_enabled?: boolean;
@@ -414,6 +416,86 @@ export default async function ProfilePage({ params }: ProfileParams) {
     ? [...savedOrder, ...defaultOrder.filter((w) => !savedOrder.includes(w))]
     : defaultOrder;
   const hiddenWidgets = new Set(isPlus ? (profile.profile_widgets?.hidden ?? []) : []);
+
+  // Full-page custom HTML mode — user's HTML replaces the entire profile layout
+  const htmlMode = isPlus && profile.profile_html
+    ? (profile.profile_widgets?.html_mode ?? "widget")
+    : "widget";
+
+  if (htmlMode === "fullpage" && profile.profile_html) {
+    const templateContext: TemplateContext = {
+      profile: {
+        id: profile.id,
+        username: profile.username,
+        display_name: profile.display_name,
+        bio: profile.bio,
+        bio_html: profile.bio_html,
+        pronouns: profile.pronouns,
+        avatar_url: profile.avatar_url,
+        avatar_frame: profile.avatar_frame,
+        subscription_tier: profile.subscription_tier,
+        created_at: profile.created_at,
+        profile_music: profile.profile_music,
+        profile_status: profile.profile_status,
+        profile_banner_url: profile.profile_banner_url,
+        newsletter_enabled: profile.newsletter_enabled,
+        newsletter_name: profile.newsletter_name,
+        newsletter_description: profile.newsletter_description,
+        subscriber_count: profile.subscriber_count,
+        support_url: profile.support_url,
+        support_label: profile.support_label,
+        stripe_connect_enabled: profile.stripe_connect_enabled,
+        ink_donor_status: profile.ink_donor_status,
+        ink_donor_amount_cents: profile.ink_donor_amount_cents,
+        social_links: profile.social_links,
+        pinned_entry_ids: profile.pinned_entry_ids,
+      },
+      topFriends,
+      seriesList,
+      entryTags,
+      entryCount,
+      penPalCount,
+      readerCount,
+      pinnedEntries,
+      isOwnProfile,
+      isLoggedIn: !!session,
+      relationshipStatus,
+    };
+
+    return (
+      <div className={`min-h-screen relative ${styles.themeClass}`} style={{
+        ...styles.page,
+        ...(hasCustomBackground ? { background: "transparent" } : {}),
+      }}>
+        {hasCustomBackground && (
+          <div className="fixed inset-0 -z-10" style={{
+            backgroundImage: `url(${profile.profile_background_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed",
+            backgroundColor: styles.page.background || "var(--background)",
+          }} />
+        )}
+
+        <div className={`mx-auto px-3 sm:px-4 py-8 overflow-hidden ${layout === "minimal" ? "max-w-2xl" : "max-w-7xl"}`}
+          style={{ fontFamily: font?.family }}>
+          <FullPageCustomProfile
+            profileHtml={profile.profile_html}
+            profileCss={profile.profile_css ?? null}
+            scopeId={profileScopeId}
+            templateContext={templateContext}
+            styles={styles}
+            entries={entries}
+            entryCount={entryCount}
+            displayMode={displayMode}
+            entryYears={entryYears}
+            entryTags={entryTags}
+            entryCategories={entryCategories}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Build sidebar widgets based on ordering
   function renderWidget(widgetId: string) {

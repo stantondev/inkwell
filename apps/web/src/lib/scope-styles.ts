@@ -119,7 +119,7 @@ function scopeCss(css: string, scopeId: string): string {
   return output.join("\n");
 }
 
-/** Strip dangerous HTML: <script>, on* event handlers, javascript: URLs */
+/** Strip dangerous HTML: <script>, on* event handlers, javascript: URLs, etc. */
 function sanitizeHtml(html: string): string {
   let safe = html;
 
@@ -142,7 +142,54 @@ function sanitizeHtml(html: string): string {
   safe = safe.replace(/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, "");
   safe = safe.replace(/<(object|embed|applet)\b[^>]*\/?\s*>/gi, "");
 
+  // Strip <meta>, <link>, <base> tags (prevent redirects, external stylesheets, URL hijacking)
+  safe = safe.replace(/<meta\b[^>]*\/?>/gi, "");
+  safe = safe.replace(/<link\b[^>]*\/?>/gi, "");
+  safe = safe.replace(/<base\b[^>]*\/?>/gi, "");
+
   return safe;
+}
+
+/**
+ * Strip CSS selectors that target site-level elements (body, html, #__next, nav, sidebar).
+ * Used for full-page custom profile mode to prevent user CSS from breaking the site chrome.
+ */
+export function stripSiteSelectors(css: string): string {
+  const siteSelectors = [
+    "body", "html", "#__next", ".app-content", ".sidebar",
+    ".sidebar-nav", ".nav", "nav", "header", "footer",
+    "[data-sidebar-collapsed]",
+  ];
+
+  return css
+    .split("\n")
+    .map((line) => {
+      // Check if this line has a selector targeting site elements
+      const selectorMatch = line.match(/^(\s*)((?:(?!@)[^{}])+?)\s*\{/);
+      if (!selectorMatch) return line;
+
+      const indent = selectorMatch[1];
+      const selectors = selectorMatch[2];
+      const filtered = selectors
+        .split(",")
+        .filter((s) => {
+          const trimmed = s.trim().toLowerCase();
+          // Remove selectors that are just a site element
+          return !siteSelectors.some(
+            (site) => trimmed === site || trimmed.startsWith(site + " ") || trimmed.startsWith(site + ".")
+          );
+        })
+        .join(", ");
+
+      if (!filtered.trim()) {
+        // All selectors were site-targeting — remove the entire rule
+        // We'll leave an empty line; the browser handles it fine
+        return "";
+      }
+
+      return `${indent}${filtered} {`;
+    })
+    .join("\n");
 }
 
 /**

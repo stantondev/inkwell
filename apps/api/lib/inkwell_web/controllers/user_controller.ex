@@ -485,6 +485,34 @@ defmodule InkwellWeb.UserController do
     |> String.replace(~r/<iframe\b[^>]*\/?\s*>/is, "")
     |> String.replace(~r/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/is, "")
     |> String.replace(~r/<(object|embed|applet)\b[^>]*\/?\s*>/is, "")
+    # Strip <meta>, <link>, <base> tags (prevent redirects, external stylesheets, URL hijacking)
+    |> String.replace(~r/<meta\b[^>]*\/?>/is, "")
+    |> String.replace(~r/<link\b[^>]*\/?>/is, "")
+    |> String.replace(~r/<base\b[^>]*\/?>/is, "")
+    # Strip <form> tags with external action URLs (prevent phishing)
+    |> strip_external_forms()
+  end
+
+  defp strip_external_forms(html) do
+    # Remove forms with action pointing to external domains
+    # Allow: no action, empty action, relative paths, same-domain
+    Regex.replace(
+      ~r/<form\b([^>]*)>/is,
+      html,
+      fn full_match, attrs ->
+        case Regex.run(~r/action\s*=\s*(?:"([^"]*)"|'([^']*)')/i, attrs) do
+          nil -> full_match  # No action attribute — keep
+          [_, url | _] ->
+            url = String.trim(url)
+            if url == "" or not String.starts_with?(url, ["http://", "https://"]) do
+              full_match  # Relative URL or empty — keep
+            else
+              # External URL — strip the form tag
+              ""
+            end
+        end
+      end
+    )
   end
 
   defp sanitize_redacted_words(settings) do

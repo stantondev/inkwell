@@ -178,7 +178,7 @@ defmodule Inkwell.Accounts.User do
     |> validate_length(:profile_status, max: 280)
     |> validate_length(:profile_music, max: 500)
     |> validate_length(:profile_html, max: 50_000)
-    |> validate_length(:profile_css, max: 50_000)
+    |> validate_length(:profile_css, max: 100_000)
     |> validate_length(:newsletter_name, max: 200)
     |> validate_length(:newsletter_description, max: 500)
     |> validate_length(:support_url, max: 500)

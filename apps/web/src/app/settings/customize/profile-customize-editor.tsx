@@ -8,6 +8,7 @@ import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { AVATAR_FRAMES } from "@/lib/avatar-frames";
+import { HtmlEditor } from "./html-editor";
 
 interface ProfileUser {
   id: string;
@@ -114,11 +115,16 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
   const [searchingPinned, setSearchingPinned] = useState(false);
 
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
-    const saved = (user.profile_widgets as { order?: string[] })?.order;
+    const saved = (user.profile_widgets as { order?: string[]; html_mode?: string })?.order;
     if (!saved) return DEFAULT_WIDGET_ORDER;
     // Merge any new widget types that weren't in the saved order
     const missing = DEFAULT_WIDGET_ORDER.filter((w) => !saved.includes(w));
     return [...saved, ...missing];
+  });
+
+  const [htmlMode, setHtmlMode] = useState<"widget" | "fullpage">(() => {
+    const saved = (user.profile_widgets as { html_mode?: string })?.html_mode;
+    return saved === "fullpage" ? "fullpage" : "widget";
   });
 
   const [saving, setSaving] = useState(false);
@@ -296,7 +302,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
           profile_font: form.profile_font || null,
           profile_layout: form.profile_layout || null,
           profile_music: form.profile_music || null,
-          profile_widgets: { order: widgetOrder },
+          profile_widgets: { order: widgetOrder, html_mode: htmlMode },
         });
       }
 
@@ -888,45 +894,29 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         )}
       </Section>
 
-      {/* Custom CSS */}
-      <Section title="Custom CSS" defaultOpen={false}>
+      {/* Custom HTML & CSS */}
+      <Section title={htmlMode === "fullpage" ? "Custom Profile (Full-Page)" : "Custom HTML & CSS"} defaultOpen={htmlMode === "fullpage"}>
         {isPlus ? (
-          <div className="flex flex-col gap-2">
-            <textarea
-              value={form.profile_css}
-              onChange={(e) => updateForm("profile_css", e.target.value)}
-              placeholder={`.profile-header {\n  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);\n}`}
-              rows={8}
-              className={`${inputClass} font-mono text-xs`}
-              style={inputStyle}
-            />
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              CSS is scoped to your profile — it won&apos;t affect the rest of the site
-            </p>
-          </div>
+          <HtmlEditor
+            html={form.profile_html}
+            css={form.profile_css}
+            htmlMode={htmlMode}
+            onHtmlChange={(v) => updateForm("profile_html", v)}
+            onCssChange={(v) => updateForm("profile_css", v)}
+            onModeChange={setHtmlMode}
+            theme={{
+              background: "var(--background, #fff)",
+              surface: "var(--surface, #fafafa)",
+              foreground: "var(--foreground, #1a1a1a)",
+              muted: "var(--muted, #888)",
+              accent: "var(--accent, #2d4a8a)",
+              border: "var(--border, #e5e5e5)",
+            }}
+            displayName={user.display_name}
+            username={user.username}
+          />
         ) : (
-          <PlusGate feature="Custom CSS" />
-        )}
-      </Section>
-
-      {/* Custom HTML */}
-      <Section title="Custom HTML" defaultOpen={false}>
-        {isPlus ? (
-          <div className="flex flex-col gap-2">
-            <textarea
-              value={form.profile_html}
-              onChange={(e) => updateForm("profile_html", e.target.value)}
-              placeholder={`<div class="custom-section">\n  <h3>About My Journal</h3>\n  <p>Welcome to my corner of the web!</p>\n</div>`}
-              rows={8}
-              className={`${inputClass} font-mono text-xs`}
-              style={inputStyle}
-            />
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Allowed: most HTML tags, CSS animations, custom classes. No scripts, iframes, or event handlers.
-            </p>
-          </div>
-        ) : (
-          <PlusGate feature="Custom HTML" />
+          <PlusGate feature="Custom HTML & CSS" />
         )}
       </Section>
 
