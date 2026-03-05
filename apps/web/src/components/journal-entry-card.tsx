@@ -137,8 +137,8 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           </h2>
         )}
 
-        {/* Author row + meta */}
-        <div className="flex items-center gap-3 mb-5">
+        {/* Author row */}
+        <div className="flex items-center gap-3 mb-3">
           {isRemote ? (
             <a
               href={authorHref}
@@ -195,60 +195,15 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               </div>
             </Link>
           )}
-
-          {/* Reading time + mood + music meta (desktop only) */}
-          <div className="hidden sm:flex items-center gap-2 ml-auto text-right">
-            {readingMins && (
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                {readingMins} min read
-              </span>
-            )}
-            {entry.category && (
-              <Link
-                href={`/category/${getCategorySlug(entry.category)}`}
-                className="text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80"
-                style={{
-                  borderColor: "var(--accent)",
-                  color: "var(--accent)",
-                  background: "var(--accent-light)",
-                }}
-              >
-                {getCategoryLabel(entry.category)}
-              </Link>
-            )}
-            {entry.series && (
-              <Link
-                href={`/${entry.series.username}/series/${entry.series.slug}`}
-                className="text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--muted)",
-                }}
-              >
-                Part {entry.series.series_order} of {entry.series.title}
-              </Link>
-            )}
-            {entry.mood && (
-              <span
-                className="text-xs px-2.5 py-1 rounded-full border"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--muted)",
-                }}
-              >
-                {entry.mood}
-              </span>
-            )}
-            {entry.music && (
-              <span
-                className="text-xs truncate max-w-[100px] sm:max-w-[160px]"
-                style={{ color: "var(--muted)" }}
-              >
-                ♪ {getMusicLabel(entry.music)}
-              </span>
-            )}
-          </div>
         </div>
+
+        {/* Entry meta — editorial byline strip */}
+        {(readingMins || entry.category || entry.series || entry.mood || entry.music) && (
+          <MetaStrip
+            readingMins={readingMins}
+            entry={entry}
+          />
+        )}
 
         {/* Sensitive content wrapper — hides body/cover/music/tags behind CW */}
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning} compact>
@@ -392,5 +347,83 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
         </div>
       )}
     </JournalPage>
+  );
+}
+
+function MetaStrip({
+  readingMins,
+  entry,
+}: {
+  readingMins: number | null;
+  entry: JournalEntry;
+}) {
+  const items: React.ReactNode[] = [];
+
+  if (readingMins) {
+    items.push(
+      <span key="read" className="entry-meta-item">
+        {readingMins} min read
+      </span>
+    );
+  }
+
+  if (entry.category) {
+    items.push(
+      <Link
+        key="cat"
+        href={`/category/${getCategorySlug(entry.category)}`}
+        className="entry-meta-item entry-meta-link"
+        style={{ color: "var(--accent)" }}
+      >
+        {getCategoryLabel(entry.category)}
+      </Link>
+    );
+  }
+
+  if (entry.series) {
+    items.push(
+      <Link
+        key="series"
+        href={`/${entry.series.username}/series/${entry.series.slug}`}
+        className="entry-meta-item entry-meta-link"
+      >
+        Part {entry.series.series_order} of{" "}
+        <em>{entry.series.title}</em>
+      </Link>
+    );
+  }
+
+  if (entry.mood) {
+    items.push(
+      <span key="mood" className="entry-meta-item">
+        {entry.mood}
+      </span>
+    );
+  }
+
+  if (entry.music) {
+    items.push(
+      <span key="music" className="entry-meta-item entry-meta-music">
+        ♪ {getMusicLabel(entry.music)}
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className="entry-meta-strip flex flex-wrap items-center gap-y-0.5 mb-4"
+      style={{ color: "var(--muted)" }}
+    >
+      {items.map((item, i) => (
+        <span key={i} className="inline-flex items-center">
+          {i > 0 && (
+            <span className="entry-meta-dot" aria-hidden="true">
+              &middot;
+            </span>
+          )}
+          {item}
+        </span>
+      ))}
+    </div>
   );
 }
