@@ -4,6 +4,12 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Inkwell Privacy Policy — how we collect, use, and protect your data.",
+  openGraph: {
+    title: "Privacy Policy — Inkwell",
+    description: "How Inkwell collects, uses, and protects your data.",
+    url: "https://inkwell.social/privacy",
+  },
+  alternates: { canonical: "https://inkwell.social/privacy" },
 };
 
 export default function PrivacyPage() {

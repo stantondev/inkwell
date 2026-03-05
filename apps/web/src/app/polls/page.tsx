@@ -4,7 +4,17 @@ import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { PollWidget, type PollData } from "@/components/poll-widget";
 
-export const metadata: Metadata = { title: "Community Voice · Inkwell" };
+export const metadata: Metadata = {
+  title: "Community Voice",
+  description:
+    "Vote in community polls and help shape the future of Inkwell.",
+  openGraph: {
+    title: "Community Voice — Inkwell",
+    description: "Community polls on Inkwell.",
+    url: "https://inkwell.social/polls",
+  },
+  alternates: { canonical: "https://inkwell.social/polls" },
+};
 
 interface PollsResponse {
   data: PollData[];

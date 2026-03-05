@@ -5,6 +5,13 @@ export const metadata: Metadata = {
   title: "How Inkwell Works — The Reader's Guide",
   description:
     "Everything you need to know about writing, reading, and connecting on Inkwell.",
+  openGraph: {
+    title: "How Inkwell Works — The Reader's Guide",
+    description:
+      "Everything you need to know about writing, reading, and connecting on Inkwell.",
+    url: "https://inkwell.social/guide",
+  },
+  alternates: { canonical: "https://inkwell.social/guide" },
 };
 
 /* ── section wrapper ──────────────────────────────────────────────── */

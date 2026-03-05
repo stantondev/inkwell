@@ -5,6 +5,12 @@ import { GUIDELINES_PAGES } from "@/lib/community-guidelines";
 export const metadata: Metadata = {
   title: "Community Guidelines",
   description: "Inkwell Community Guidelines — the standards that keep our community safe and welcoming.",
+  openGraph: {
+    title: "Community Guidelines — Inkwell",
+    description: "The standards that keep the Inkwell community safe and welcoming.",
+    url: "https://inkwell.social/guidelines",
+  },
+  alternates: { canonical: "https://inkwell.social/guidelines" },
 };
 
 export default function GuidelinesPage() {

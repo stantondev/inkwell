@@ -138,6 +138,52 @@ defmodule InkwellWeb.FeedController do
     })
   end
 
+  # GET /api/explore/feed.xml — global RSS feed of latest public entries
+  def explore_feed(conn, _params) do
+    entries =
+      Journals.list_public_explore_entries(per_page: 20)
+      |> Enum.reject(fn e -> e.sensitive || e.admin_sensitive end)
+
+    items =
+      entries
+      |> Enum.map(fn entry ->
+        author = entry.user
+        title = entry.title || "Entry by #{author.display_name}"
+        pub_date = format_rfc822(entry.published_at)
+        link = "#{base_url()}/#{author.username}/#{entry.slug}"
+        description = entry.excerpt || ""
+
+        """
+        <item>
+          <title><![CDATA[#{title}]]></title>
+          <link>#{link}</link>
+          <guid isPermaLink="true">#{link}</guid>
+          <pubDate>#{pub_date}</pubDate>
+          <dc:creator><![CDATA[#{author.display_name}]]></dc:creator>
+          <description><![CDATA[#{description}]]></description>
+        </item>
+        """
+      end)
+      |> Enum.join("\n")
+
+    xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <channel>
+        <title>Inkwell — Latest Entries</title>
+        <link>#{base_url()}/explore</link>
+        <description>Latest public journal entries on Inkwell</description>
+        <atom:link href="#{base_url()}/api/explore/feed.xml" rel="self" type="application/rss+xml"/>
+        #{items}
+      </channel>
+    </rss>
+    """
+
+    conn
+    |> put_resp_content_type("application/rss+xml")
+    |> send_resp(200, xml)
+  end
+
   # GET /api/users/:username/feed.xml — RSS feed for a user's public entries
   def user_feed(conn, %{"username" => username}) do
     case Accounts.get_user_by_username(username) do

@@ -4,6 +4,12 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Inkwell API",
   description: "Build integrations with Inkwell — API documentation for developers.",
+  openGraph: {
+    title: "Inkwell API — Developer Documentation",
+    description: "Build integrations with Inkwell using the public API.",
+    url: "https://inkwell.social/developers",
+  },
+  alternates: { canonical: "https://inkwell.social/developers" },
 };
 
 function CodeBlock({ children }: { children: string }) {

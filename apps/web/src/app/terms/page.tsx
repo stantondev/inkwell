@@ -4,6 +4,12 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: "Inkwell Terms of Service — the rules that govern your use of the platform.",
+  openGraph: {
+    title: "Terms of Service — Inkwell",
+    description: "The rules that govern your use of Inkwell.",
+    url: "https://inkwell.social/terms",
+  },
+  alternates: { canonical: "https://inkwell.social/terms" },
 };
 
 export default function TermsPage() {

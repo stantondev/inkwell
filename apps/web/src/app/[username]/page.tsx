@@ -393,6 +393,9 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
       },
       alternates: {
         canonical: profileUrl,
+        types: {
+          "application/rss+xml": `https://inkwell.social/api/users/${username}/feed.xml`,
+        },
       },
     };
   } catch {
@@ -543,6 +546,24 @@ export default async function ProfilePage({ params }: ProfileParams) {
   }
   if (seriesResult.status === "fulfilled") seriesList = seriesResult.value.data ?? [];
 
+  // JSON-LD structured data for profile
+  const profileJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    mainEntity: {
+      "@type": "Person",
+      name: profile.display_name,
+      alternateName: `@${username}`,
+      url: `https://inkwell.social/${username}`,
+      ...(profile.avatar_url
+        ? { image: `https://inkwell.social/api/avatars/${username}` }
+        : {}),
+      ...(profile.bio
+        ? { description: profile.bio.replace(/<[^>]+>/g, "").slice(0, 300) }
+        : {}),
+    },
+  };
+
   // Build profile customization styles (tier-aware)
   const isPlus = (profile.subscription_tier ?? "free") === "plus";
   const styles = buildProfileStyles(profile);
@@ -629,6 +650,12 @@ export default async function ProfilePage({ params }: ProfileParams) {
         // Override background to fill edge-to-edge behind centered custom content
         background: fpBg || styles.page.background || "var(--background)",
       }}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(profileJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
         {hasCustomBackground && (
           <div className="fixed inset-0 -z-10" style={{
             backgroundImage: `url(${profile.profile_background_url})`,
@@ -859,6 +886,12 @@ export default async function ProfilePage({ params }: ProfileParams) {
       ...styles.page,
       ...(hasCustomBackground ? { background: "transparent" } : {}),
     }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(profileJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       {/* Custom background image */}
       {hasCustomBackground && (
         <div className="fixed inset-0 -z-10" style={{

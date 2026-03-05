@@ -1,5 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Inkwell — A Federated Social Journaling Platform",
+  description:
+    "Your journal, your pen pals, your space. Write, connect, and customize — with no algorithms, no ads, and full ownership of your words. Free forever.",
+  openGraph: {
+    title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
+    description:
+      "A federated social journaling platform. The warmth of LiveJournal, the creativity of MySpace, rebuilt for the open web.",
+    url: "https://inkwell.social",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    site: "@inkwellsocial",
+    title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
+    description:
+      "A federated social journaling platform with no algorithms, no ads. Free forever.",
+  },
+  alternates: {
+    canonical: "https://inkwell.social",
+  },
+};
 import { HeroSection } from "@/components/landing/hero-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { CommunityEntries } from "@/components/landing/community-entries";

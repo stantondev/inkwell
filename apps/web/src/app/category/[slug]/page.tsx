@@ -14,7 +14,16 @@ interface CategoryPageProps {
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { slug } = await params;
   const label = getCategoryLabel(getCategoryFromSlug(slug));
-  return { title: `${label ?? slug} · Inkwell` };
+  return {
+    title: label ?? slug,
+    description: `Browse ${label ?? slug} journal entries on Inkwell.`,
+    openGraph: {
+      title: `${label ?? slug} — Inkwell`,
+      description: `Browse ${label ?? slug} journal entries on Inkwell.`,
+      url: `https://inkwell.social/category/${slug}`,
+    },
+    alternates: { canonical: `https://inkwell.social/category/${slug}` },
+  };
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {

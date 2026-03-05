@@ -6,6 +6,13 @@ export const metadata: Metadata = {
   title: "About Inkwell — Our Mission & Values",
   description:
     "Inkwell exists to give people a place to write, think, and connect — without algorithms, without ads, and without a corporation owning their words.",
+  openGraph: {
+    title: "About Inkwell — Our Mission & Values",
+    description:
+      "A place to write, think, and connect — without algorithms or ads.",
+    url: "https://inkwell.social/about",
+  },
+  alternates: { canonical: "https://inkwell.social/about" },
 };
 
 // ---------------------------------------------------------------------------

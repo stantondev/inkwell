@@ -7,7 +7,18 @@ import { EducationCard } from "@/components/education-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
-export const metadata: Metadata = { title: "Explore · Inkwell" };
+export const metadata: Metadata = {
+  title: "Explore",
+  description:
+    "Discover journal entries from the Inkwell community and the wider fediverse. Browse by category, find trending writing, and connect with new writers.",
+  openGraph: {
+    title: "Explore — Inkwell",
+    description:
+      "Discover journal entries from writers across the fediverse.",
+    url: "https://inkwell.social/explore",
+  },
+  alternates: { canonical: "https://inkwell.social/explore" },
+};
 
 interface TrendingEntry {
   id: string;

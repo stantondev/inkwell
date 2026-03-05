@@ -4,6 +4,12 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Trademark & Brand Policy",
   description: "Inkwell Trademark and Brand Usage Policy — guidelines for using the Inkwell name, logo, and brand assets.",
+  openGraph: {
+    title: "Trademark & Brand Policy — Inkwell",
+    description: "Guidelines for using the Inkwell name, logo, and brand assets.",
+    url: "https://inkwell.social/brand",
+  },
+  alternates: { canonical: "https://inkwell.social/brand" },
 };
 
 export default function BrandPage() {

@@ -283,6 +283,7 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     return {
       title,
       description,
+      authors: [{ name: entry.author?.display_name ?? username }],
       openGraph: {
         title: ogTitle,
         description,
@@ -361,6 +362,45 @@ export default async function EntryPage({ params }: EntryParams) {
         ...(moodHue !== null ? { "--mood-hue": String(moodHue) } as React.CSSProperties : {}),
       }}
     >
+      {/* JSON-LD Article structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: entry.title || `Entry by @${username}`,
+            author: {
+              "@type": "Person",
+              name: author.display_name,
+              url: `https://inkwell.social/${username}`,
+            },
+            datePublished: entry.published_at,
+            ...(entry.published_at !== entry.created_at
+              ? { dateModified: entry.created_at }
+              : {}),
+            description:
+              entry.excerpt ||
+              entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160),
+            ...(entry.word_count ? { wordCount: entry.word_count } : {}),
+            ...(entry.cover_image_id
+              ? {
+                  image: `https://inkwell.social/api/images/${entry.cover_image_id}`,
+                }
+              : {}),
+            publisher: {
+              "@type": "Organization",
+              name: "Inkwell",
+              url: "https://inkwell.social",
+            },
+            mainEntityOfPage: {
+              "@type": "WebPage",
+              "@id": `https://inkwell.social/${username}/${slug}`,
+            },
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+
       <ReadingProgress color={progressColor} />
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}

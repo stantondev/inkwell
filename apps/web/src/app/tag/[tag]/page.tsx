@@ -12,7 +12,17 @@ interface TagPageProps {
 
 export async function generateMetadata({ params }: TagPageProps): Promise<Metadata> {
   const { tag } = await params;
-  return { title: `#${tag} · Inkwell` };
+  const decoded = decodeURIComponent(tag);
+  return {
+    title: `#${decoded}`,
+    description: `Public journal entries tagged #${decoded} on Inkwell.`,
+    openGraph: {
+      title: `#${decoded} — Inkwell`,
+      description: `Browse journal entries tagged #${decoded} on Inkwell.`,
+      url: `https://inkwell.social/tag/${tag}`,
+    },
+    alternates: { canonical: `https://inkwell.social/tag/${tag}` },
+  };
 }
 
 export default async function TagPage({ params, searchParams }: TagPageProps) {

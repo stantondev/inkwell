@@ -6,7 +6,18 @@ import { Avatar } from "@/components/avatar";
 import { StatusBadge, CategoryBadge, ScoreBadge } from "./badges";
 import { UpvoteButton } from "./upvote-button";
 
-export const metadata: Metadata = { title: "Roadmap · Inkwell" };
+export const metadata: Metadata = {
+  title: "Roadmap",
+  description:
+    "See what's being built at Inkwell — community feedback, feature requests, and planned improvements. Vote on ideas and track progress.",
+  openGraph: {
+    title: "Roadmap — Inkwell",
+    description:
+      "Community feedback and feature roadmap for Inkwell.",
+    url: "https://inkwell.social/roadmap",
+  },
+  alternates: { canonical: "https://inkwell.social/roadmap" },
+};
 
 interface FeedbackPost {
   id: string;

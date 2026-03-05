@@ -55,8 +55,12 @@ defmodule InkwellWeb.Router do
     get "/users/:username/guestbook", GuestbookController, :index
 
     # RSS feeds
+    get "/explore/feed.xml", FeedController, :explore_feed
     get "/users/:username/feed.xml", FeedController, :user_feed
     get "/tags/:tag/feed.xml", FeedController, :tag_feed
+
+    # Sitemap data (public, for Next.js sitemap generation)
+    get "/sitemap-data", SitemapController, :index
 
     # Images (public serving)
     get "/images/:id", EntryImageController, :show

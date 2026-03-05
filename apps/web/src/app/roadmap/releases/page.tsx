@@ -8,6 +8,12 @@ import { CategoryBadge } from "../badges";
 export const metadata: Metadata = {
   title: "Release Notes",
   description: "What's new at Inkwell — a changelog of shipped features, fixes, and improvements.",
+  openGraph: {
+    title: "Release Notes — Inkwell",
+    description: "A changelog of shipped features, fixes, and improvements.",
+    url: "https://inkwell.social/roadmap/releases",
+  },
+  alternates: { canonical: "https://inkwell.social/roadmap/releases" },
 };
 
 interface ReleaseItem {

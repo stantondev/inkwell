@@ -26,6 +26,45 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="Inkwell — Latest Entries"
+          href="https://inkwell.social/api/explore/feed.xml"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Inkwell",
+              url: "https://inkwell.social",
+              description: "A federated social journaling platform.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://inkwell.social/search?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Inkwell",
+              url: "https://inkwell.social",
+              logo: "https://inkwell.social/inkwell-logo.svg",
+              sameAs: ["https://twitter.com/inkwellsocial"],
+            }),
+          }}
+        />
       </head>
       <body className={`${inter.variable} ${lora.variable} antialiased`}>
         <script
