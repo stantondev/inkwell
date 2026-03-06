@@ -26,6 +26,7 @@ import { parseMusicUrl } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
+import { CircleEmbed, type CircleEmbedAttrs } from "@/lib/tiptap-circle-embed";
 
 type Privacy = "public" | "friends_only" | "private" | "custom";
 
@@ -166,10 +167,11 @@ function DropdownItem({ onClick, active, children }: {
 
 // ─── Main Toolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, onInsertCircle }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
+  onInsertCircle: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
@@ -509,6 +511,11 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
             </svg>
           </Btn>
+          <Btn onClick={onInsertCircle} title="Embed circle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
+            </svg>
+          </Btn>
           <Sep />
 
           {/* ── Undo / Redo ── */}
@@ -658,7 +665,7 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
 
 // ─── Floating Menu (appears on empty lines) ──────────────────────────────────
 
-function EditorFloatingMenu({ editor, onUploadImage }: { editor: Editor; onUploadImage: () => void }) {
+function EditorFloatingMenu({ editor, onUploadImage, onInsertCircle }: { editor: Editor; onUploadImage: () => void; onInsertCircle: () => void }) {
   const floatingFileRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -744,6 +751,13 @@ function EditorFloatingMenu({ editor, onUploadImage }: { editor: Editor; onUploa
             <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
           </svg>
           <span>Table</span>
+        </button>
+        <button type="button" onClick={onInsertCircle}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
+          </svg>
+          <span>Circle embed</span>
         </button>
         <button type="button" onClick={() => editor.chain().focus().toggleCodeBlock().run()}
           className="editor-floating-menu-item">
@@ -893,6 +907,104 @@ function SaveStatus({ status }: { status: "idle" | "saving" | "saved" | "error" 
   return <span className="text-xs" style={{ color: s.color }}>{s.text}</span>;
 }
 
+// ─── Circle Picker Modal ──────────────────────────────────────────────────────
+
+interface CircleData {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  category: string;
+  member_count: number;
+}
+
+const CIRCLE_CATEGORY_LABELS: Record<string, string> = {
+  writing_craft: "Writing & Craft",
+  reading_books: "Reading & Books",
+  creative_arts: "Creative Arts",
+  lifestyle_interests: "Lifestyle",
+  tech_learning: "Tech & Learning",
+  community: "Community",
+};
+
+function CirclePickerModal({ onSelect, onClose }: {
+  onSelect: (attrs: CircleEmbedAttrs) => void;
+  onClose: () => void;
+}) {
+  const [circles, setCircles] = useState<CircleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch("/api/my-circles")
+      .then((r) => r.json())
+      .then((res) => {
+        setCircles(res.data || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = circles.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="circle-picker-overlay" onClick={onClose}>
+      <div className="circle-picker" onClick={(e) => e.stopPropagation()}>
+        <div className="circle-picker-header">
+          <h3 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600, fontSize: 16 }}>Embed a Circle</h3>
+          <button type="button" onClick={onClose} className="circle-picker-close" aria-label="Close">×</button>
+        </div>
+        {circles.length > 3 && (
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search your circles…"
+            className="circle-picker-search"
+            autoFocus
+          />
+        )}
+        <div className="circle-picker-list">
+          {loading ? (
+            <div className="circle-picker-empty">Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div className="circle-picker-empty">
+              {circles.length === 0
+                ? "You haven't joined any circles yet."
+                : "No circles match your search."}
+            </div>
+          ) : (
+            filtered.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="circle-picker-item"
+                onClick={() => onSelect({
+                  slug: c.slug,
+                  name: c.name,
+                  description: c.description,
+                  category: c.category,
+                  memberCount: c.member_count,
+                })}
+              >
+                <span className="circle-picker-item-name">{c.name}</span>
+                <span className="circle-picker-item-meta">
+                  <span className="circle-picker-item-category">{CIRCLE_CATEGORY_LABELS[c.category] || c.category}</span>
+                  <span style={{ color: "var(--muted)" }}>·</span>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>{c.member_count} {c.member_count === 1 ? "member" : "members"}</span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        <button type="button" onClick={onClose} className="circle-picker-cancel">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main editor ──────────────────────────────────────────────────────────────
 
 export function EditorClient() {
@@ -946,6 +1058,10 @@ export function EditorClient() {
   const [pollClosesAt, setPollClosesAt] = useState("");
   const [existingPollId, setExistingPollId] = useState<string | null>(null);
   const [pollLocked, setPollLocked] = useState(false); // locked after votes received
+
+  // Circle embed picker
+  const [circlePickerOpen, setCirclePickerOpen] = useState(false);
+
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
 
@@ -1016,6 +1132,7 @@ export function EditorClient() {
       TaskList,
       TaskItem.configure({ nested: true }),
       Spacing,
+      CircleEmbed,
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
@@ -1651,7 +1768,8 @@ export function EditorClient() {
             <div className="editor-toolbar-container">
               <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
-                focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)} />
+                focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
+                onInsertCircle={() => setCirclePickerOpen(true)} />
             </div>
 
             {/* ── Bubble menu (appears on text selection) ── */}
@@ -1661,7 +1779,7 @@ export function EditorClient() {
 
             {/* ── Floating menu (appears on empty lines) ── */}
             {editor && !htmlMode && (
-              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} />
+              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} onInsertCircle={() => setCirclePickerOpen(true)} />
             )}
             <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
               className="hidden" onChange={(e) => {
@@ -2070,6 +2188,17 @@ export function EditorClient() {
           </aside>
         )}
       </div>
+
+      {/* Circle embed picker modal */}
+      {circlePickerOpen && (
+        <CirclePickerModal
+          onSelect={(attrs) => {
+            editor?.commands.insertCircleEmbed(attrs);
+            setCirclePickerOpen(false);
+          }}
+          onClose={() => setCirclePickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

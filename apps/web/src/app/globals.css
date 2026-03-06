@@ -5769,3 +5769,229 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   color: var(--salon-muted);
   font-style: italic;
 }
+
+/* ── Circle Embed Card (in journal entries) ── */
+[data-circle-embed] {
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  border: 1px solid var(--salon-border, #ddd0be);
+  background: var(--salon-surface, #f5ede2);
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  max-width: 480px;
+}
+[data-circle-embed]:hover {
+  border-color: var(--salon-accent, #b8860b);
+  box-shadow: 0 2px 16px rgba(184, 134, 11, 0.12);
+}
+.circle-embed-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1rem 1.25rem;
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer;
+}
+.circle-embed-link:hover {
+  text-decoration: none !important;
+}
+.circle-embed-icon {
+  display: none; /* icon rendered via CSS below */
+}
+.circle-embed-icon::before {
+  content: "◎";
+  display: inline-block;
+  font-size: 1.25rem;
+  color: var(--salon-accent, #b8860b);
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+.circle-embed-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--salon-foreground, #3b2f1e);
+  line-height: 1.3;
+}
+.circle-embed-name::before {
+  content: "◎";
+  font-size: 1.125rem;
+  color: var(--salon-accent, #b8860b);
+  flex-shrink: 0;
+}
+.circle-embed-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--salon-muted, #8c7a62);
+}
+.circle-embed-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+}
+.circle-embed-category {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--salon-accent, #b8860b);
+  background: var(--salon-accent-light, #f5eedd);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+}
+.circle-embed-members {
+  font-size: 0.75rem;
+  color: var(--salon-muted, #8c7a62);
+}
+.circle-embed-cta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--salon-accent, #b8860b);
+  margin-top: 0.125rem;
+}
+[data-circle-embed]:hover .circle-embed-cta {
+  color: var(--salon-accent-warm, #d4a54a);
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  [data-circle-embed] {
+    border-color: var(--salon-border, #3d3425);
+    background: var(--salon-surface, #262015);
+  }
+  .circle-embed-name {
+    color: var(--salon-foreground, #e8dcc4);
+  }
+  .circle-embed-category {
+    background: rgba(212, 165, 74, 0.15);
+  }
+}
+
+/* In the editor, make it non-editable looking */
+.ProseMirror [data-circle-embed] {
+  user-select: none;
+  position: relative;
+}
+.ProseMirror [data-circle-embed].ProseMirror-selectednode {
+  outline: 2px solid var(--salon-accent, #b8860b);
+  outline-offset: 2px;
+}
+
+/* Circle picker modal */
+.circle-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.circle-picker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  width: 90vw;
+  max-width: 400px;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+.circle-picker-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--foreground);
+}
+.circle-picker-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+  padding: 0 4px;
+}
+.circle-picker-close:hover {
+  color: var(--foreground);
+}
+.circle-picker-search {
+  margin: 0.75rem 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  background: var(--surface);
+  color: var(--foreground);
+  outline: none;
+  width: calc(100% - 2.5rem);
+}
+.circle-picker-search:focus {
+  border-color: var(--accent);
+}
+.circle-picker-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.25rem 0;
+}
+.circle-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--foreground);
+}
+.circle-picker-item:hover {
+  background: var(--surface-hover);
+}
+.circle-picker-item-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.circle-picker-item-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.circle-picker-empty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.circle-picker-cancel {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  cursor: pointer;
+}
+.circle-picker-cancel:hover {
+  color: var(--foreground);
+}
