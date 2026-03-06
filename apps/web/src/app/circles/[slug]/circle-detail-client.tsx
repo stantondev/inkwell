@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MemberStrip from "./member-strip";
+import MembersSection from "./members-section";
 import DiscussionCard from "./discussion-card";
 import CreateDiscussionForm from "./create-discussion-form";
 
@@ -178,6 +179,16 @@ export default function CircleDetailClient({
         <div style={{ marginBottom: "1.5rem" }}>
           <MemberStrip members={circle.member_preview} totalCount={memberCount} circleId={circle.id} isMember={isMember} />
         </div>
+      )}
+
+      {/* Full member list (members only) */}
+      {isMember && (
+        <MembersSection
+          circleId={circle.id}
+          isOwner={isOwner}
+          memberCount={memberCount}
+          onMemberCountChange={setMemberCount}
+        />
       )}
 
       <div className="salon-divider" />

@@ -275,6 +275,54 @@ defmodule Inkwell.Circles do
 
   def get_user_membership_ids(_), do: MapSet.new()
 
+  def update_member_role(circle_id, target_user_id, new_role) when new_role in [:moderator, :member] do
+    case get_membership(circle_id, target_user_id) do
+      nil ->
+        {:error, :not_member}
+
+      %{role: :owner} ->
+        {:error, :cannot_change_owner}
+
+      %{role: ^new_role} ->
+        {:error, :already_that_role}
+
+      member ->
+        member
+        |> Ecto.Changeset.change(role: new_role)
+        |> Repo.update()
+    end
+  end
+
+  def update_member_role(_, _, _), do: {:error, :invalid_role}
+
+  def remove_member(circle_id, target_user_id) do
+    case get_membership(circle_id, target_user_id) do
+      nil ->
+        {:error, :not_member}
+
+      %{role: :owner} ->
+        {:error, :cannot_remove_owner}
+
+      member ->
+        multi =
+          Multi.new()
+          |> Multi.delete(:member, member)
+          |> Multi.run(:decrement, fn repo, _ ->
+            {_, _} =
+              Circle
+              |> where(id: ^circle_id)
+              |> repo.update_all(inc: [member_count: -1])
+
+            {:ok, :done}
+          end)
+
+        case Repo.transaction(multi) do
+          {:ok, _} -> {:ok, :removed}
+          {:error, _, reason, _} -> {:error, reason}
+        end
+    end
+  end
+
   # ── Discussions ──────────────────────────────────────────────────────────
 
   def create_discussion(attrs) do

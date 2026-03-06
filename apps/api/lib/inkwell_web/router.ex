@@ -316,6 +316,8 @@ defmodule InkwellWeb.Router do
     post "/circles/:id/join", CircleController, :join
     delete "/circles/:id/leave", CircleController, :leave
     get "/circles/:id/members", CircleController, :members
+    patch "/circles/:id/members/:user_id", CircleController, :update_member_role
+    delete "/circles/:id/members/:user_id", CircleController, :remove_member
     get "/circles/:id/discussions", CircleController, :list_discussions
     post "/circles/:id/discussions", CircleController, :create_discussion
     get "/circles/discussions/:discussion_id", CircleController, :show_discussion

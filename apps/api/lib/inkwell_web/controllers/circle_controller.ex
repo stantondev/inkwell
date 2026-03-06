@@ -1,6 +1,7 @@
 defmodule InkwellWeb.CircleController do
   use InkwellWeb, :controller
 
+  alias Inkwell.Repo
   alias Inkwell.Circles
   alias Inkwell.Accounts
   alias Inkwell.Social
@@ -472,6 +473,69 @@ defmodule InkwellWeb.CircleController do
         else
           conn |> put_status(:forbidden) |> json(%{error: "Not authorized to delete this response"})
         end
+    end
+  end
+
+  # ── Member management ────────────────────────────────────────────────────
+
+  def update_member_role(conn, %{"id" => circle_id, "user_id" => target_user_id} = params) do
+    user = conn.assigns.current_user
+    role = Circles.get_user_role(circle_id, user.id)
+
+    unless role == :owner do
+      conn |> put_status(:forbidden) |> json(%{error: "Only the circle owner can change roles"})
+    else
+      new_role =
+        case params["role"] do
+          "moderator" -> :moderator
+          "member" -> :member
+          _ -> nil
+        end
+
+      if is_nil(new_role) do
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Invalid role"})
+      else
+        case Circles.update_member_role(circle_id, target_user_id, new_role) do
+          {:ok, member} ->
+            member = Repo.preload(member, :user)
+            json(conn, %{data: render_member(member)})
+
+          {:error, :not_member} ->
+            conn |> put_status(:not_found) |> json(%{error: "Member not found"})
+
+          {:error, :cannot_change_owner} ->
+            conn |> put_status(:forbidden) |> json(%{error: "Cannot change the owner's role"})
+
+          {:error, :already_that_role} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Member already has that role"})
+
+          {:error, _} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to update role"})
+        end
+      end
+    end
+  end
+
+  def remove_member(conn, %{"id" => circle_id, "user_id" => target_user_id}) do
+    user = conn.assigns.current_user
+    role = Circles.get_user_role(circle_id, user.id)
+
+    unless role == :owner do
+      conn |> put_status(:forbidden) |> json(%{error: "Only the circle owner can remove members"})
+    else
+      case Circles.remove_member(circle_id, target_user_id) do
+        {:ok, :removed} ->
+          json(conn, %{ok: true})
+
+        {:error, :not_member} ->
+          conn |> put_status(:not_found) |> json(%{error: "Member not found"})
+
+        {:error, :cannot_remove_owner} ->
+          conn |> put_status(:forbidden) |> json(%{error: "Cannot remove the circle owner"})
+
+        {:error, _} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to remove member"})
+      end
     end
   end
 
