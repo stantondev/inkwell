@@ -6,6 +6,7 @@ import { useLiveNavCounts } from "./live-nav-counts";
 import { SignOutButton } from "./sign-out-button";
 import { AvatarWithFrame } from "./avatar-with-frame";
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { PollWidget } from "./poll-widget";
 
 interface SidebarNavProps {
@@ -49,8 +50,8 @@ function PollsIcon() { return <svg {...iconProps}><path d="M18 20V10" /><path d=
 function NotificationsIcon() { return <svg {...iconProps}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>; }
 function SettingsIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>; }
 function AdminIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
-function CollapseIcon() { return <svg {...iconProps} width="14" height="14"><path d="M11 19l-7-7 7-7" /></svg>; }
-function ExpandIcon() { return <svg {...iconProps} width="14" height="14"><path d="M9 18l6-6-6-6" /></svg>; }
+function HideIcon() { return <svg {...iconProps} width="14" height="14"><path d="M11 19l-7-7 7-7" /></svg>; }
+function RevealIcon() { return <svg {...iconProps} width="10" height="10"><path d="M9 18l6-6-6-6" /></svg>; }
 
 function NavItem({
   href,
@@ -58,21 +59,17 @@ function NavItem({
   label,
   badge,
   active,
-  collapsed,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   badge?: number;
   active: boolean;
-  collapsed: boolean;
 }) {
   return (
     <Link
       href={href}
       className={`sidebar-nav-link ${active ? "sidebar-nav-link--active" : ""}`}
-      title={collapsed ? label : undefined}
-      aria-label={collapsed ? label : undefined}
     >
       <span className="sidebar-nav-icon">{icon}</span>
       <span className="sidebar-nav-label">{label}</span>
@@ -107,41 +104,49 @@ export function SidebarNav({
     unreadLetterCount: initialLetterCount,
   });
 
-  // Collapse state — persisted in localStorage
-  const [collapsed, setCollapsed] = useState(false);
+  // Hidden state — persisted in localStorage
+  const [hidden, setHidden] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("inkwell-sidebar-collapsed");
+    setMounted(true);
+    // Migrate old localStorage key
+    const oldKey = localStorage.getItem("inkwell-sidebar-collapsed");
+    if (oldKey === "true") {
+      localStorage.removeItem("inkwell-sidebar-collapsed");
+      localStorage.setItem("inkwell-sidebar-hidden", "true");
+    }
+    const stored = localStorage.getItem("inkwell-sidebar-hidden");
     if (stored === "true") {
-      setCollapsed(true);
-      document.body.setAttribute("data-sidebar-collapsed", "");
+      setHidden(true);
+      document.body.setAttribute("data-sidebar-hidden", "");
     }
   }, []);
 
-  const toggleCollapse = useCallback(() => {
-    setCollapsed((prev) => {
+  const toggleHidden = useCallback(() => {
+    setHidden((prev) => {
       const next = !prev;
-      localStorage.setItem("inkwell-sidebar-collapsed", String(next));
+      localStorage.setItem("inkwell-sidebar-hidden", String(next));
       if (next) {
-        document.body.setAttribute("data-sidebar-collapsed", "");
+        document.body.setAttribute("data-sidebar-hidden", "");
       } else {
-        document.body.removeAttribute("data-sidebar-collapsed");
+        document.body.removeAttribute("data-sidebar-hidden");
       }
       return next;
     });
   }, []);
 
-  // Keyboard shortcut: Cmd/Ctrl + \ to toggle collapse
+  // Keyboard shortcut: Cmd/Ctrl + \ to toggle hidden
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
         e.preventDefault();
-        toggleCollapse();
+        toggleHidden();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [toggleCollapse]);
+  }, [toggleHidden]);
 
   const isActive = (href: string) => {
     if (href === "/feed") return pathname === "/feed";
@@ -150,6 +155,13 @@ export function SidebarNav({
     if (href === `/${username}`) return pathname === `/${username}`;
     return pathname.startsWith(href);
   };
+
+  const [shortcutHint, setShortcutHint] = useState("Ctrl+\\");
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) {
+      setShortcutHint("\u2318\\");
+    }
+  }, []);
 
   return (
     <>
@@ -161,7 +173,7 @@ export function SidebarNav({
             src="/inkwell-logo.svg"
             alt="Inkwell"
             className="dark:brightness-0 dark:invert"
-            style={{ height: collapsed ? 24 : 38, width: "auto", transition: "height 200ms ease" }}
+            style={{ height: 38, width: "auto" }}
           />
         </Link>
       </div>
@@ -172,12 +184,11 @@ export function SidebarNav({
           <span className="sidebar-section-numeral">I.</span>
           <span className="sidebar-section-title">Your Journal</span>
         </div>
-        <NavItem href="/feed" icon={<FeedIcon />} label="Feed" active={isActive("/feed")} collapsed={collapsed} />
-        <NavItem href="/explore" icon={<ExploreIcon />} label="Explore" active={isActive("/explore")} collapsed={collapsed} />
+        <NavItem href="/feed" icon={<FeedIcon />} label="Feed" active={isActive("/feed")} />
+        <NavItem href="/explore" icon={<ExploreIcon />} label="Explore" active={isActive("/explore")} />
         <Link
           href="/editor"
           className="sidebar-write-btn"
-          title={collapsed ? "Write" : undefined}
         >
           <WriteIcon />
           <span className="sidebar-nav-label">Write</span>
@@ -190,9 +201,9 @@ export function SidebarNav({
           <span className="sidebar-section-numeral">II.</span>
           <span className="sidebar-section-title">Connections</span>
         </div>
-        <NavItem href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" active={isActive("/pen-pals")} collapsed={collapsed} />
-        <NavItem href="/letters" icon={<LettersIcon />} label="Letterbox" badge={unreadLetterCount} active={isActive("/letters")} collapsed={collapsed} />
-        <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} collapsed={collapsed} />
+        <NavItem href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" active={isActive("/pen-pals")} />
+        <NavItem href="/letters" icon={<LettersIcon />} label="Letterbox" badge={unreadLetterCount} active={isActive("/letters")} />
+        <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} />
       </div>
 
       {/* ─── III. Library ─── */}
@@ -201,8 +212,8 @@ export function SidebarNav({
           <span className="sidebar-section-numeral">III.</span>
           <span className="sidebar-section-title">Library</span>
         </div>
-        <NavItem href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} collapsed={collapsed} />
-        <NavItem href="/drafts" icon={<DraftsIcon />} label="Drafts" badge={draftCount} active={isActive("/drafts")} collapsed={collapsed} />
+        <NavItem href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} />
+        <NavItem href="/drafts" icon={<DraftsIcon />} label="Drafts" badge={draftCount} active={isActive("/drafts")} />
       </div>
 
       {/* ─── IV. Community ─── */}
@@ -211,11 +222,11 @@ export function SidebarNav({
           <span className="sidebar-section-numeral">IV.</span>
           <span className="sidebar-section-title">Community</span>
         </div>
-        <NavItem href="/roadmap" icon={<RoadmapIcon />} label="Roadmap" active={isActive("/roadmap")} collapsed={collapsed} />
-        <NavItem href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} collapsed={collapsed} />
-        <NavItem href="/roadmap/new" icon={<SubmitFeedbackIcon />} label="Feedback" active={pathname === "/roadmap/new"} collapsed={collapsed} />
-        <NavItem href="/settings/invite" icon={<InviteIcon />} label="Invite friends" active={isActive("/settings/invite")} collapsed={collapsed} />
-        {activePoll && !activePoll.my_vote && !collapsed && (
+        <NavItem href="/roadmap" icon={<RoadmapIcon />} label="Roadmap" active={isActive("/roadmap")} />
+        <NavItem href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} />
+        <NavItem href="/roadmap/new" icon={<SubmitFeedbackIcon />} label="Feedback" active={pathname === "/roadmap/new"} />
+        <NavItem href="/settings/invite" icon={<InviteIcon />} label="Invite friends" active={isActive("/settings/invite")} />
+        {activePoll && !activePoll.my_vote && (
           <div style={{ padding: "4px 0 0" }}>
             <PollWidget poll={activePoll} compact isLoggedIn={true} />
           </div>
@@ -232,12 +243,11 @@ export function SidebarNav({
         <Link
           href={`/${username}`}
           className="sidebar-user-profile"
-          title={collapsed ? `@${username}` : undefined}
         >
           <AvatarWithFrame
             url={avatarUrl}
             name={displayName}
-            size={collapsed ? 28 : 32}
+            size={32}
             frame={avatarFrame}
             subscriptionTier={subscriptionTier}
           />
@@ -253,15 +263,13 @@ export function SidebarNav({
           label="Notifications"
           badge={unreadNotificationCount}
           active={isActive("/notifications")}
-          collapsed={collapsed}
         />
-        <NavItem href="/settings" icon={<SettingsIcon />} label="Settings" active={isActive("/settings")} collapsed={collapsed} />
+        <NavItem href="/settings" icon={<SettingsIcon />} label="Settings" active={isActive("/settings")} />
 
         {subscriptionTier !== "plus" && (
           <Link
             href="/settings/billing"
             className="sidebar-nav-link sidebar-plus-link"
-            title={collapsed ? "Upgrade to Plus" : undefined}
           >
             <span className="sidebar-nav-icon" style={{ color: "var(--accent)" }}>✦</span>
             <span className="sidebar-nav-label">Upgrade to Plus</span>
@@ -269,7 +277,7 @@ export function SidebarNav({
         )}
 
         {isAdmin && (
-          <NavItem href="/admin" icon={<AdminIcon />} label="Admin" active={isActive("/admin")} collapsed={collapsed} />
+          <NavItem href="/admin" icon={<AdminIcon />} label="Admin" active={isActive("/admin")} />
         )}
 
         <div className="sidebar-signout">
@@ -277,15 +285,29 @@ export function SidebarNav({
         </div>
       </div>
 
-      {/* ─── Collapse toggle ─── */}
+      {/* ─── Hide toggle ─── */}
       <button
         className="sidebar-collapse-btn"
-        onClick={toggleCollapse}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={collapsed ? "Expand (⌘\\)" : "Collapse (⌘\\)"}
+        onClick={toggleHidden}
+        aria-label={`Hide sidebar (${shortcutHint})`}
+        title={`Hide sidebar (${shortcutHint})`}
       >
-        {collapsed ? <ExpandIcon /> : <CollapseIcon />}
+        <HideIcon />
+        <span className="sidebar-collapse-label">Hide</span>
       </button>
+
+      {/* ─── Reveal tab (portal to body, outside sidebar overflow) ─── */}
+      {mounted && createPortal(
+        <button
+          className="sidebar-reveal-tab hidden lg:flex"
+          onClick={toggleHidden}
+          aria-label={`Show sidebar (${shortcutHint})`}
+          title={`Show sidebar (${shortcutHint})`}
+        >
+          <RevealIcon />
+        </button>,
+        document.body
+      )}
     </>
   );
 }

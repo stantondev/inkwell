@@ -66,10 +66,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body className={`${inter.variable} ${lora.variable} antialiased`}>
+      <body className={`${inter.variable} ${lora.variable} antialiased`} suppressHydrationWarning>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("inkwell-sidebar-collapsed")==="true")document.body.setAttribute("data-sidebar-collapsed","")}catch(e){}`,
+            __html: `try{var o=localStorage.getItem("inkwell-sidebar-collapsed");if(o==="true"){localStorage.removeItem("inkwell-sidebar-collapsed");localStorage.setItem("inkwell-sidebar-hidden","true")}if(localStorage.getItem("inkwell-sidebar-hidden")==="true")document.body.setAttribute("data-sidebar-hidden","")}catch(e){}`,
           }}
         />
         <AppShell user={session?.user ?? null}>

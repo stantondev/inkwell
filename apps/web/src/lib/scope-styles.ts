@@ -158,7 +158,7 @@ export function stripSiteSelectors(css: string): string {
   const siteSelectors = [
     "body", "html", "#__next", ".app-content", ".sidebar",
     ".sidebar-nav", ".nav", "nav", "header", "footer",
-    "[data-sidebar-collapsed]",
+    "[data-sidebar-hidden]",
   ];
 
   return css
