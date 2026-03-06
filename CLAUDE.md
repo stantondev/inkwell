@@ -1056,6 +1056,31 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - **All client-side API calls must use same-origin proxy routes** — never call the Phoenix API directly from `"use client"` components. Create a Next.js route handler at `apps/web/src/app/api/...` that proxies to `SERVER_API`. This avoids CORS issues since `inkwell.social` and `api.inkwell.social` are different origins. Every existing feature follows this pattern.
 - **Stripe is in LIVE mode** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID` are all production (live) keys. Test-mode Stripe customer/subscription IDs from development won't work and must be cleared from the database if found.
 
+### Federation URL Invariants (CRITICAL)
+
+ActivityPub federation depends on specific URLs being publicly reachable. **Breaking any of these URLs silently breaks federation for ALL users** — avatars disappear, entries can't be boosted, profiles can't be found. There will be NO error in Inkwell's logs because the failure happens on the remote server's side when it tries to fetch our URLs.
+
+**Every AP URL that appears in a Person or Article object MUST have a working public endpoint.** This means both a Phoenix API handler AND a Next.js proxy route (since AP IDs use `inkwell.social`, not `api.inkwell.social`).
+
+| AP property | URL pattern | Phoenix endpoint | Next.js proxy |
+|---|---|---|---|
+| Person `id` / `inbox` / `outbox` / `followers` / `following` | `/users/:username[/...]` | `FederationController` actions | `apps/web/src/app/users/[username]/route.ts` + `/inbox/route.ts` |
+| Person `icon.url` | `/api/avatars/:username` | `UserController.serve_avatar/2` | `apps/web/src/app/api/avatars/[username]/route.ts` |
+| Person `image.url` | `/api/banners/:username` | `UserController.serve_banner/2` | `apps/web/src/app/api/banners/[username]/route.ts` |
+| Article `id` | `/entries/:id` | `FederationController.entry_object/2` | `apps/web/src/app/entries/[id]/route.ts` |
+| Article `image.href` | `/api/images/:id` | `EntryImageController.show/2` | `apps/web/src/app/api/images/[id]/route.ts` |
+| WebFinger | `/.well-known/webfinger` | `FederationController.webfinger/2` | `apps/web/src/app/.well-known/webfinger/route.ts` |
+
+**Rules for any code change touching federation:**
+1. If you add a new URL to any AP object (`build_person`, `build_article`, etc.), you MUST verify both the Phoenix endpoint AND the Next.js proxy route exist and return 200.
+2. If you rename or move a Phoenix route that serves AP content, you MUST update the corresponding Next.js proxy route.
+3. After deploying federation changes, verify all URLs in the table above return 200 in production (use `curl`).
+4. The deep health check at `GET /health/deep` includes a `federation` section that validates all critical AP endpoints — check it after deploy.
+
+**How this broke before (2x):**
+- HTTP signatures: Next.js proxy didn't forward the original `Host` header, so signatures failed validation on all inbound activities. Fixed by adding `X-Original-Host` header.
+- Avatar/banner/entry 404s: `build_person` and `build_article` generated URLs pointing to `inkwell.social` but no Next.js proxy routes existed to forward those requests to the Phoenix API. Mastodon silently showed broken images and couldn't dereference entries.
+
 ## Workflow Preferences
 
 ### Development Process — Local First, Then Production

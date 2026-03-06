@@ -39,7 +39,8 @@ defmodule InkwellWeb.HealthController do
         database: check_database_deep(),
         oban: check_oban_deep(),
         email: check_email(),
-        memory: check_memory()
+        memory: check_memory(),
+        federation: check_federation()
       }
 
       overall =
@@ -164,6 +165,95 @@ defmodule InkwellWeb.HealthController do
       processes_mb: Float.round(memory[:processes] / 1_048_576, 1),
       ets_mb: Float.round(memory[:ets] / 1_048_576, 1)
     }
+  end
+
+  # Federation checks — verifies all critical AP endpoints are reachable
+  defp check_federation do
+    instance_host = Application.get_env(:inkwell, :federation, []) |> Keyword.get(:instance_host, "inkwell-api.fly.dev")
+    frontend_host = Application.get_env(:inkwell, :federation, []) |> Keyword.get(:frontend_host, "https://inkwell.social")
+
+    # Pick a real user to test with (most recent user with a public key)
+    test_user =
+      case Ecto.Adapters.SQL.query(
+             Inkwell.Repo,
+             "SELECT username FROM users WHERE public_key IS NOT NULL AND blocked_at IS NULL ORDER BY inserted_at ASC LIMIT 1",
+             []
+           ) do
+        {:ok, %{rows: [[username]]}} -> username
+        _ -> nil
+      end
+
+    # Pick a real published public entry
+    test_entry =
+      case Ecto.Adapters.SQL.query(
+             Inkwell.Repo,
+             "SELECT id::text FROM entries WHERE status = 'published' AND privacy = 'public' ORDER BY published_at DESC LIMIT 1",
+             []
+           ) do
+        {:ok, %{rows: [[id]]}} -> id
+        _ -> nil
+      end
+
+    if is_nil(test_user) do
+      # No users in DB (dev mode) — skip federation checks
+      %{status: "ok", note: "no_users_to_test"}
+    else
+      check_federation_endpoints(test_user, test_entry, instance_host, frontend_host)
+    end
+  rescue
+    e -> %{status: "error", error: Exception.message(e)}
+  end
+
+  defp check_federation_endpoints(test_user, test_entry, instance_host, frontend_host) do
+    endpoints =
+      [
+        {"webfinger", "#{frontend_host}/.well-known/webfinger?resource=acct:#{test_user}@#{instance_host}"},
+        {"actor", "#{frontend_host}/users/#{test_user}"},
+        {"avatar", "#{frontend_host}/api/avatars/#{test_user}"},
+        {"entry", if(test_entry, do: "#{frontend_host}/entries/#{test_entry}", else: nil)}
+      ]
+      |> Enum.reject(fn {_, url} -> is_nil(url) end)
+
+    results =
+      Enum.map(endpoints, fn {name, url} ->
+        {name, check_federation_endpoint(url, name)}
+      end)
+
+    failures = Enum.filter(results, fn {_, result} -> result.status != "ok" end)
+
+    overall = if failures == [], do: "ok", else: "degraded"
+
+    endpoint_results = Enum.into(results, %{}, fn {name, result} -> {name, result} end)
+
+    Map.merge(%{status: overall}, endpoint_results)
+  rescue
+    e -> %{status: "error", error: Exception.message(e)}
+  end
+
+  defp check_federation_endpoint(url, name) do
+    headers =
+      case name do
+        "actor" -> [{"accept", "application/activity+json"}]
+        "entry" -> [{"accept", "application/activity+json"}]
+        _ -> []
+      end
+
+    start = System.monotonic_time(:microsecond)
+
+    case :httpc.request(:get, {String.to_charlist(url), Enum.map(headers, fn {k, v} -> {String.to_charlist(k), String.to_charlist(v)} end)}, [timeout: 10_000, connect_timeout: 5_000], []) do
+      {:ok, {{_, status_code, _}, _, _body}} when status_code in 200..299 ->
+        latency_ms = (System.monotonic_time(:microsecond) - start) / 1000
+        %{status: "ok", url: url, status_code: status_code, latency_ms: Float.round(latency_ms, 1)}
+
+      {:ok, {{_, status_code, _}, _, _body}} ->
+        latency_ms = (System.monotonic_time(:microsecond) - start) / 1000
+        %{status: "error", url: url, status_code: status_code, latency_ms: Float.round(latency_ms, 1)}
+
+      {:error, reason} ->
+        %{status: "error", url: url, error: inspect(reason)}
+    end
+  rescue
+    e -> %{status: "error", url: url, error: Exception.message(e)}
   end
 
   # A check is healthy if its status is "ok" or "configured" or "not_configured"
