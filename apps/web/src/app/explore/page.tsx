@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
+import { SignupCta } from "@/components/signup-cta";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
@@ -217,6 +218,17 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           ))}
         </div>
       </div>
+
+      {/* Signup banner for logged-out visitors */}
+      {!session && (
+        <div className="mx-auto max-w-7xl px-4 mb-2">
+          <SignupCta
+            variant="banner"
+            heading="Discover writers. Start your journal."
+            subheading="No algorithms, no ads — just writing, community, and the open social web."
+          />
+        </div>
+      )}
 
       {/* Education card — shown once, dismissible */}
       <div className="mx-auto max-w-7xl px-4">

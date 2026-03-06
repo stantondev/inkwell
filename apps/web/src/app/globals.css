@@ -5452,6 +5452,46 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   color: #fff;
 }
 
+/* ─── Signup CTA ────────────────────────────────────────────────────── */
+.signup-cta-card,
+.signup-cta-banner {
+  position: relative;
+  border-color: var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+.signup-cta-card::before,
+.signup-cta-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.018;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+@media (prefers-color-scheme: dark) {
+  .signup-cta-card::before,
+  .signup-cta-banner::before {
+    opacity: 0.035;
+    mix-blend-mode: soft-light;
+  }
+}
+.signup-cta-icon {
+  color: var(--accent);
+}
+.signup-cta-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  color: var(--foreground);
+}
+.signup-cta-button {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* ── Share popup ─────────────────────────────────────────────── */
 .share-popup-option {
   display: flex;

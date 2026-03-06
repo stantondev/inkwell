@@ -22,6 +22,7 @@ import { TipButton } from "@/components/tip-button";
 import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
 import type { TemplateContext } from "@/lib/template-tags";
+import { SignupCta } from "@/components/signup-cta";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -1081,6 +1082,16 @@ export default async function ProfilePage({ params }: ProfileParams) {
               {sidebarWidgetIds.map((id) => renderWidget(id))}
               <RssWidget />
             </aside>
+          </div>
+        )}
+
+        {/* Signup CTA for logged-out visitors */}
+        {!session && (
+          <div className="mt-12 mb-4">
+            <SignupCta
+              heading="Start your own journal"
+              subheading="Customize your space, connect with readers, and join the open social web. No algorithms, no ads."
+            />
           </div>
         )}
       </div>

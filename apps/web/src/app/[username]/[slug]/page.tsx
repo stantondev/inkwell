@@ -23,6 +23,7 @@ import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
+import { SignupCta } from "@/components/signup-cta";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -745,6 +746,16 @@ export default async function EntryPage({ params }: EntryParams) {
 
         <CommentForm entryId={entry.id} isLoggedIn={!!session} />
       </section>
+
+      {/* Signup CTA for logged-out visitors */}
+      {!session && (
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
+          <SignupCta
+            heading="Enjoyed this entry?"
+            subheading="Inkwell is a social journaling platform where writers customize their space, connect with readers, and own their content. No algorithms, no ads."
+          />
+        </div>
+      )}
     </div>
   );
 }
