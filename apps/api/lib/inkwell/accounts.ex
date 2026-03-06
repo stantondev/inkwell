@@ -77,6 +77,7 @@ defmodule Inkwell.Accounts do
   end
 
   # Returns recently active public writers, excluding current user and anyone already followed/pending.
+  # Sorted by entry count + total ink count (quality proxy). Requires min 3 published entries.
   def list_suggested_users(current_user_id, limit \\ 12) do
     already_following =
       from r in Inkwell.Social.Relationship,
@@ -85,7 +86,7 @@ defmodule Inkwell.Accounts do
 
     blocked_ids = Inkwell.Social.get_blocked_user_ids(current_user_id)
 
-    # Primary: users with published public entries, ordered by most recent
+    # Primary: users with ≥3 published public entries, sorted by entry count + ink count
     writers =
       from u in User,
         join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
@@ -95,21 +96,47 @@ defmodule Inkwell.Accounts do
         where: u.id not in ^blocked_ids,
         where: is_nil(u.blocked_at),
         group_by: u.id,
-        order_by: [desc: max(e.inserted_at)],
+        having: count(e.id) >= 3,
+        order_by: [desc: count(e.id) + sum(coalesce(e.ink_count, 0))],
         limit: ^limit,
-        select: u
+        select: %{user: u, entry_count: count(e.id), total_ink_count: sum(coalesce(e.ink_count, 0))}
 
     results = Repo.all(writers)
 
-    # Fallback: if not enough writers with entries, pad with recently joined users
+    # Fallback: if not enough, relax to ≥1 entry
+    results =
+      if length(results) < limit do
+        existing_ids = Enum.map(results, & &1.user.id)
+        remaining = limit - length(results)
+
+        fallback =
+          from u in User,
+            join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
+            where: e.status == :published and e.privacy == :public,
+            where: u.id != ^current_user_id,
+            where: u.id not in ^existing_ids,
+            where: u.id not in subquery(already_following),
+            where: u.id not in ^blocked_ids,
+            where: is_nil(u.blocked_at),
+            group_by: u.id,
+            order_by: [desc: count(e.id)],
+            limit: ^remaining,
+            select: %{user: u, entry_count: count(e.id), total_ink_count: sum(coalesce(e.ink_count, 0))}
+
+        results ++ Repo.all(fallback)
+      else
+        results
+      end
+
+    # Final fallback: pad with recently joined users (no entries yet)
     if length(results) < limit do
-      writer_ids = Enum.map(results, & &1.id)
+      existing_ids = Enum.map(results, & &1.user.id)
       remaining = limit - length(results)
 
       fallback =
         from u in User,
           where: u.id != ^current_user_id,
-          where: u.id not in ^writer_ids,
+          where: u.id not in ^existing_ids,
           where: u.id not in subquery(already_following),
           where: u.id not in ^blocked_ids,
           where: is_nil(u.blocked_at),
@@ -118,7 +145,7 @@ defmodule Inkwell.Accounts do
           limit: ^remaining,
           select: u
 
-      results ++ Repo.all(fallback)
+      results ++ Enum.map(Repo.all(fallback), fn u -> %{user: u, entry_count: 0, total_ink_count: 0} end)
     else
       results
     end

@@ -22,6 +22,10 @@ type SuggestedUser = {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  avatar_frame: string | null;
+  subscription_tier: string;
+  entry_count: number;
+  ink_count: number;
 };
 
 function StepDots({ current, total }: { current: number; total: number }) {
@@ -997,46 +1001,39 @@ export default function WelcomePage() {
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
                     Follow writers to see their entries in your feed. You can always find more on Explore.
                   </p>
-                  <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
                     {suggestedUsers.map((u) => {
                       const followed = followedIds.has(u.id);
                       const inFlight = followingIds.has(u.id);
                       return (
                         <div
                           key={u.id}
-                          className="flex items-center gap-3 rounded-xl border p-3"
+                          className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center"
                           style={{ borderColor: "var(--border)", background: "var(--background)" }}
                         >
-                          {u.avatar_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={u.avatar_url}
-                              alt={u.display_name ?? u.username}
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover flex-shrink-0"
-                              style={{ width: 40, height: 40 }}
-                            />
-                          ) : (
-                            <div
-                              className="rounded-full flex items-center justify-center font-semibold flex-shrink-0 select-none"
-                              style={{
-                                width: 40, height: 40,
-                                background: "var(--accent-light)", color: "var(--accent)",
-                                fontSize: 14,
-                              }}
-                              aria-hidden="true"
-                            >
-                              {(u.display_name ?? u.username ?? "?")[0].toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
+                          <AvatarWithFrame
+                            url={u.avatar_url}
+                            name={u.display_name ?? u.username}
+                            size={56}
+                            frame={u.avatar_frame}
+                            subscriptionTier={u.subscription_tier}
+                          />
+                          <div className="min-w-0 w-full">
                             <p className="text-sm font-medium truncate">
                               {u.display_name ?? u.username}
                             </p>
+                            <p className="text-xs truncate" style={{ color: "var(--muted)" }}>
+                              @{u.username}
+                            </p>
                             {u.bio && (
-                              <p className="text-xs truncate" style={{ color: "var(--muted)" }}>
+                              <p className="text-xs mt-1" style={{ color: "var(--muted)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                                 {u.bio}
+                              </p>
+                            )}
+                            {u.entry_count > 0 && (
+                              <p className="text-xs mt-1.5" style={{ color: "var(--accent)" }}>
+                                {u.entry_count} {u.entry_count === 1 ? "entry" : "entries"}
+                                {u.ink_count > 0 && <> · {u.ink_count} {u.ink_count === 1 ? "ink" : "inks"}</>}
                               </p>
                             )}
                           </div>
@@ -1044,14 +1041,14 @@ export default function WelcomePage() {
                             type="button"
                             onClick={() => handleFollowToggle(u)}
                             disabled={followed || inFlight}
-                            className="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-all disabled:opacity-60"
+                            className="rounded-full px-4 py-1.5 text-xs font-medium border transition-all disabled:opacity-60 w-full"
                             style={
                               followed
                                 ? { borderColor: "var(--border)", color: "var(--muted)", background: "var(--background)" }
-                                : { borderColor: "var(--accent)", color: "var(--accent)", background: "transparent" }
+                                : { borderColor: "var(--accent)", color: "#fff", background: "var(--accent)" }
                             }
                           >
-                            {inFlight ? "…" : followed ? "Requested" : "Follow"}
+                            {inFlight ? "…" : followed ? "Following" : "Follow"}
                           </button>
                         </div>
                       );

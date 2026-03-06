@@ -154,17 +154,21 @@ defmodule InkwellWeb.UserController do
   # GET /api/discover/writers — recently active public writers (authenticated)
   def suggested(conn, _params) do
     user = conn.assigns.current_user
-    users = Accounts.list_suggested_users(user.id)
+    results = Accounts.list_suggested_users(user.id)
 
     data =
-      Enum.map(users, fn u ->
+      Enum.map(results, fn %{user: u, entry_count: ec, total_ink_count: ic} ->
         %{
           id: u.id,
           username: u.username,
           display_name: u.display_name,
           avatar_url: u.avatar_url,
           bio: u.bio,
-          bio_html: u.bio_html
+          bio_html: u.bio_html,
+          avatar_frame: u.avatar_frame,
+          subscription_tier: u.subscription_tier || "free",
+          entry_count: ec,
+          ink_count: ic || 0
         }
       end)
 
