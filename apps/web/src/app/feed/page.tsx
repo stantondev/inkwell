@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,15 @@ interface PageProps {
 // ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
-function EmptyFeed({ username }: { username: string }) {
+function EmptyFeed({
+  username,
+  featuredEntries,
+}: {
+  username: string;
+  featuredEntries: JournalEntry[];
+}) {
   return (
-    <div className="mx-auto" style={{ maxWidth: "540px" }}>
+    <div className="mx-auto" style={{ maxWidth: "640px" }}>
       <div
         className="rounded-2xl border p-8 text-center"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -53,7 +60,7 @@ function EmptyFeed({ username }: { username: string }) {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Explore the community</p>
+              <p className="text-sm font-semibold">Explore what others are writing</p>
               <p className="text-xs" style={{ color: "var(--muted)" }}>
                 Browse public entries from Inkwell writers and the fediverse
               </p>
@@ -83,7 +90,7 @@ function EmptyFeed({ username }: { username: string }) {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Find pen pals</p>
+              <p className="text-sm font-semibold">Find writers to follow</p>
               <p className="text-xs" style={{ color: "var(--muted)" }}>
                 Search for writers by name and send a follow request
               </p>
@@ -124,14 +131,147 @@ function EmptyFeed({ username }: { username: string }) {
         </div>
 
         {/* Fediverse hint */}
-        <p className="text-xs mt-5" style={{ color: "var(--muted)" }}>
-          Inkwell is part of the{" "}
-          <Link href="/guide#fediverse" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
-            fediverse
-          </Link>
-          {" "}— when you follow someone on Mastodon or another connected platform, their posts appear here too.
-        </p>
+        <div
+          className="mt-5 rounded-lg p-3 flex items-start gap-2.5 text-left"
+          style={{ background: "var(--background)", border: "1px dashed var(--border)" }}
+        >
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            className="flex-shrink-0 mt-0.5"
+            style={{ color: "var(--accent)" }}
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M2 12h20" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Inkwell connects to the{" "}
+            <Link href="/guide#fediverse" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
+              fediverse
+            </Link>
+            {" "}— follow anyone on Mastodon, Pixelfed, or other platforms and their posts appear in your feed.{" "}
+            <Link href="/search" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
+              Search for fediverse handles
+            </Link>
+          </p>
+        </div>
       </div>
+
+      {/* Featured on Inkwell */}
+      {featuredEntries.length > 0 && (
+        <div className="mt-6">
+          <p
+            className="text-sm font-semibold mb-3 text-center"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            Featured on Inkwell
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {featuredEntries.map((entry) => {
+              const readingTime = entry.word_count
+                ? Math.max(1, Math.round(entry.word_count / 250))
+                : null;
+              const entryHref =
+                entry.source === "remote" && entry.url
+                  ? entry.url
+                  : `/${entry.author.username}/${entry.slug}`;
+
+              return (
+                <Link
+                  key={entry.id}
+                  href={entryHref}
+                  {...(entry.source === "remote" ? { target: "_blank", rel: "noopener" } : {})}
+                  className="flex items-start gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                >
+                  {/* Cover image or avatar */}
+                  {entry.cover_image_id ? (
+                    <div
+                      className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden"
+                      style={{ background: "var(--background)" }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/images/${entry.cover_image_id}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0">
+                      <AvatarWithFrame
+                        url={entry.author.avatar_url}
+                        name={entry.author.display_name || entry.author.username}
+                        size={40}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-snug line-clamp-1">
+                      {entry.title || "Untitled"}
+                    </p>
+                    {entry.excerpt && (
+                      <p
+                        className="text-xs mt-0.5 line-clamp-2 leading-relaxed"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {entry.excerpt}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs" style={{ color: "var(--accent)" }}>
+                        {entry.author.display_name || entry.author.username}
+                      </span>
+                      {readingTime && (
+                        <>
+                          <span className="text-xs" style={{ color: "var(--border)" }}>·</span>
+                          <span className="text-xs" style={{ color: "var(--muted)" }}>
+                            {readingTime} min read
+                          </span>
+                        </>
+                      )}
+                      {(entry.ink_count ?? 0) > 0 && (
+                        <>
+                          <span className="text-xs" style={{ color: "var(--border)" }}>·</span>
+                          <span className="text-xs" style={{ color: "var(--muted)" }}>
+                            <svg
+                              width="10" height="10" viewBox="0 0 24 24"
+                              fill="currentColor" className="inline-block mr-0.5 -mt-px"
+                              style={{ color: "var(--accent)" }}
+                            >
+                              <path d="M12 2C12 2 4 12.5 4 16.5C4 20.09 7.58 22 12 22C16.42 22 20 20.09 20 16.5C20 12.5 12 2 12 2Z" />
+                            </svg>
+                            {entry.ink_count}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    className="flex-shrink-0 mt-1"
+                    style={{ color: "var(--muted)" }}>
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="text-center mt-3">
+            <Link
+              href="/explore"
+              className="text-xs font-medium hover:underline"
+              style={{ color: "var(--accent)" }}
+            >
+              See more on Explore →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -157,6 +297,32 @@ export default async function FeedPage({ searchParams }: PageProps) {
     entries = data.data ?? [];
   } catch {
     feedError = true;
+  }
+
+  // Fetch featured entries for the empty feed state
+  let featuredEntries: JournalEntry[] = [];
+  if (!feedError && entries.length === 0) {
+    try {
+      // Try trending first (most-inked recent entries)
+      const trendingData = await apiFetch<{ data: JournalEntry[] }>(
+        "/api/explore/trending",
+        {},
+        session.token
+      );
+      featuredEntries = (trendingData.data ?? []).slice(0, 5);
+
+      // Fall back to newest explore entries if no trending
+      if (featuredEntries.length === 0) {
+        const exploreData = await apiFetch<{ data: JournalEntry[] }>(
+          "/api/explore?page=1",
+          {},
+          session.token
+        );
+        featuredEntries = (exploreData.data ?? []).slice(0, 5);
+      }
+    } catch {
+      // Non-critical — empty feed still works without featured entries
+    }
   }
 
   return (
@@ -236,7 +402,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
               Something went wrong. Please try refreshing the page.
             </p>
           </div>
-        ) : <EmptyFeed username={session.user.username} />}
+        ) : <EmptyFeed username={session.user.username} featuredEntries={featuredEntries} />}
         session={{
           userId: session.user.id,
           isLoggedIn: true,
