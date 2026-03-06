@@ -1206,7 +1206,7 @@ export default function WelcomePage() {
 
                 <button
                   type="button"
-                  onClick={() => router.push("/editor")}
+                  onClick={() => router.push("/editor?prompt=welcome")}
                   className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
                   style={{ borderColor: "var(--border)", background: "var(--background)" }}
                 >
@@ -1220,7 +1220,7 @@ export default function WelcomePage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold">Write your first entry</p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      Open the editor and start journaling right away
+                      Start with a writing prompt to break the ice
                     </p>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

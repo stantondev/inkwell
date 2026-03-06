@@ -1007,10 +1007,30 @@ function CirclePickerModal({ onSelect, onClose }: {
 
 // ─── Main editor ──────────────────────────────────────────────────────────────
 
+const WELCOME_PROMPTS = [
+  {
+    title: "Hello, Inkwell",
+    body: "<p>This is your first entry — introduce yourself! What brings you here? What do you hope to write about?</p>",
+  },
+  {
+    title: "What I\u2019m reading right now",
+    body: "<p>Share what\u2019s on your nightstand, your screen, or stuck in your head. What are you reading, and why does it matter to you?</p>",
+  },
+  {
+    title: "A letter to my future self",
+    body: "<p>Write to the person you\u2019ll be in a year. What do you want to remember about today? What do you hope will be different?</p>",
+  },
+  {
+    title: "The story behind my username",
+    body: "<p>Every name has a story. What made you pick yours? Is there a memory, an inside joke, or a meaning behind it?</p>",
+  },
+];
+
 export function EditorClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const promptParam = searchParams.get("prompt");
 
   const [state, setState] = useState<EditorState>({
     title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "",
@@ -1348,6 +1368,16 @@ export function EditorClient() {
 
     return () => { cancelled = true; };
   }, [editId, editor]);
+
+  // Apply writing prompt for first-time users from onboarding
+  const promptApplied = useRef(false);
+  useEffect(() => {
+    if (promptParam !== "welcome" || editId || !editor || promptApplied.current) return;
+    promptApplied.current = true;
+    const prompt = WELCOME_PROMPTS[Math.floor(Math.random() * WELCOME_PROMPTS.length)];
+    setState((s) => ({ ...s, title: prompt.title }));
+    editor.commands.setContent(prompt.body);
+  }, [promptParam, editId, editor]);
 
   const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }));
 
