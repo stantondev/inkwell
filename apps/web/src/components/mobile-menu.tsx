@@ -146,6 +146,9 @@ export function MobileMenu({ username, subscriptionTier, isAdmin, unreadNotifica
             <MobileLink href="/polls" onClick={() => setOpen(false)}>
               <PollsIcon /> Polls
             </MobileLink>
+            <MobileLink href="/circles" onClick={() => setOpen(false)}>
+              <CirclesIcon /> Circles
+            </MobileLink>
             <MobileLink href="/roadmap/new" onClick={() => setOpen(false)}>
               <SubmitFeedbackIcon /> Submit Feedback
             </MobileLink>
@@ -204,6 +207,7 @@ function FeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2
 function SubmitFeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M10 10h4" /></svg>; }
 function InviteIcon() { return <svg {...iconProps}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>; }
 function PollsIcon() { return <svg {...iconProps}><rect x="4" y="14" width="4" height="6" rx="1" /><rect x="10" y="8" width="4" height="12" rx="1" /><rect x="16" y="4" width="4" height="16" rx="1" /></svg>; }
+function CirclesIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>; }
 function AdminIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
 function LettersIcon() { return <svg {...iconProps}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>; }
 function SavedIcon() { return <svg {...iconProps} fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>; }

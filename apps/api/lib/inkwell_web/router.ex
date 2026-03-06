@@ -110,6 +110,10 @@ defmodule InkwellWeb.Router do
     get "/feedback/releases", FeedbackController, :releases
     get "/feedback/:id", FeedbackController, :show
 
+    # Circles (optional auth for browse + detail with is_member)
+    get "/circles", CircleController, :index
+    get "/circles/:slug", CircleController, :show
+
     # Polls (optional auth for my_vote; /polls/active must precede /polls/:id)
     get "/polls", PollController, :index
     get "/polls/active", PollController, :active_widget
@@ -303,6 +307,22 @@ defmodule InkwellWeb.Router do
     get "/tips/received", TippingController, :tips_received
     get "/tips/sent", TippingController, :tips_sent
     get "/tips/stats", TippingController, :tip_stats
+
+    # Circles (authenticated)
+    get "/my-circles", CircleController, :my_circles
+    post "/circles", CircleController, :create
+    patch "/circles/:id", CircleController, :update
+    delete "/circles/:id", CircleController, :delete
+    post "/circles/:id/join", CircleController, :join
+    delete "/circles/:id/leave", CircleController, :leave
+    get "/circles/:id/members", CircleController, :members
+    get "/circles/:id/discussions", CircleController, :list_discussions
+    post "/circles/:id/discussions", CircleController, :create_discussion
+    get "/circles/discussions/:discussion_id", CircleController, :show_discussion
+    delete "/circles/discussions/:discussion_id", CircleController, :delete_discussion
+    get "/circles/discussions/:discussion_id/responses", CircleController, :list_responses
+    post "/circles/discussions/:discussion_id/responses", CircleController, :create_response
+    delete "/circles/responses/:response_id", CircleController, :delete_response
 
     # Polls (authenticated)
     post "/polls/:id/vote", PollController, :vote

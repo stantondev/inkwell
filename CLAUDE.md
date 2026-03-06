@@ -705,6 +705,48 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - 10 proxy routes under `apps/web/src/app/api/` (8 polls + 2 comments)
   - Sidebar: compact PollWidget + "Polls" NavItem in Section IV; Mobile: "Polls" link
 
+### Circles (Writing Circles / Writer's Salon)
+- Group discussion spaces with a **Writer's Salon** aesthetic — warm amber/gold/cream palette distinctly different from the ink-blue feed/explore
+- **No upvotes, no karma, no threading** — flat responses where every voice is equal
+- "Prompts" (owner/mod curated salon topics) give structure without hierarchy
+- Plus-only creation (up to 10 circles); free users browse, join, and fully participate
+- Language: "Circles" not groups, "Discussions" not threads, "Responses" not replies
+- 6 categories: Writing & Craft, Reading & Books, Creative Arts, Lifestyle & Interests, Tech & Learning, Community
+- **Visual design**: Writer's Salon CSS custom properties (`--salon-bg`, `--salon-surface`, `--salon-accent`, `--salon-accent-warm`, `--salon-foreground`, `--salon-muted`, `--salon-border`, `--salon-prompt-bg`) with warm cream/gold/amber palette in light mode, warm dark brown in dark mode. Key classes: `.salon-page`, `.salon-card`, `.salon-prompt`, `.salon-response`, `.salon-member-strip`, `.salon-join-btn`, `.salon-category-pill`, `.prose-discussion`
+- **Access model**: non-members see circle info + join CTA but cannot see discussions. Members can create discussions, post responses. Owners/moderators can create prompts (discussions with `is_prompt: true`)
+- **Member strip**: overlapping avatar stack (up to 12) with frames on circle detail page
+- **@Mentions in responses**: reuses `useMentionAutocomplete` hook + `MentionDropdown` component. Backend processes via `MentionHelper.plain_text_to_html/1` + `MentionHelper.process_mentions/1`
+- **3 notification types**: `:circle_response` ("responded to your discussion in {circle}"), `:circle_mention` ("mentioned you in {circle}"), `:circle_new_member` ("joined {circle}"). All store `circle_slug` and `circle_name` in notification `data` JSON
+- **Block enforcement**: circles owned by blocked users excluded from browse, blocked members excluded from member lists, responses from blocked users post-filtered
+- **Database**: 4 tables — `circles` (name, slug, description, category, owner_id, member_count, discussion_count, visibility, is_starter, last_activity_at), `circle_members` (circle_id, user_id, role: owner/moderator/member), `circle_discussions` (circle_id, author_id, title, body, is_prompt, is_pinned, is_locked, response_count, last_response_at), `circle_responses` (discussion_id, author_id, body, edited_at)
+- **Backend**:
+  - `apps/api/lib/inkwell/circles/circle.ex` — Circle schema with category Ecto.Enum, auto-generated slug
+  - `apps/api/lib/inkwell/circles/circle_member.ex` — CircleMember schema with role Ecto.Enum (owner/moderator/member)
+  - `apps/api/lib/inkwell/circles/circle_discussion.ex` — CircleDiscussion schema
+  - `apps/api/lib/inkwell/circles/circle_response.ex` — CircleResponse schema
+  - `apps/api/lib/inkwell/circles.ex` — context module: create/update/delete circle, join/leave, membership checks, discussions (with prompt support), responses (flat, chronological), atomic counter increments for member_count/discussion_count/response_count/last_activity_at
+  - `apps/api/lib/inkwell_web/controllers/circle_controller.ex` — 15 actions across optional_auth (browse, detail) and authenticated (CRUD, join/leave, discussions, responses) scopes
+  - Routes: `GET /api/circles`, `GET /api/circles/:slug`, `POST /api/circles`, `PATCH /api/circles/:id`, `DELETE /api/circles/:id`, `GET /api/my-circles`, `POST /api/circles/:id/join`, `DELETE /api/circles/:id/leave`, `GET /api/circles/:id/members`, `GET /api/circles/:id/discussions`, `POST /api/circles/:id/discussions`, `GET /api/circles/discussions/:did`, `DELETE /api/circles/discussions/:did`, `GET /api/circles/discussions/:did/responses`, `POST /api/circles/discussions/:did/responses`, `DELETE /api/circles/responses/:rid`
+  - Migration: `20260306000052_create_circles.exs`
+- **Frontend**:
+  - `apps/web/src/app/circles/page.tsx` — browse page (server component): hero with warm gradient, "My Circles" section, category filter pills, circle card grid
+  - `apps/web/src/app/circles/circle-browse-client.tsx` — client component for category filter + pagination
+  - `apps/web/src/app/circles/circle-card.tsx` — card with name, description, category pill, avatar stack, counts
+  - `apps/web/src/app/circles/[slug]/page.tsx` — circle detail (server component): header, member strip, discussion list
+  - `apps/web/src/app/circles/[slug]/circle-detail-client.tsx` — join/leave, discussions, create discussion form
+  - `apps/web/src/app/circles/[slug]/member-strip.tsx` — overlapping avatar row with frames
+  - `apps/web/src/app/circles/[slug]/discussion-card.tsx` — discussion list item
+  - `apps/web/src/app/circles/[slug]/create-discussion-form.tsx` — new discussion form with prompt toggle
+  - `apps/web/src/app/circles/[slug]/[discussionId]/page.tsx` — discussion detail (server component)
+  - `apps/web/src/app/circles/[slug]/[discussionId]/discussion-detail-client.tsx` — responses list + response form
+  - `apps/web/src/app/circles/[slug]/[discussionId]/response-card.tsx` — flat response card with avatar + body
+  - `apps/web/src/app/circles/[slug]/[discussionId]/circle-response-form.tsx` — response form with @mention autocomplete
+  - `apps/web/src/app/circles/new/page.tsx` — create circle (server component, Plus gate)
+  - `apps/web/src/app/circles/new/create-circle-form.tsx` — create form (client component)
+  - 11 proxy routes: `api/circles/route.ts`, `api/circles/[slug]/route.ts`, `api/circles/[id]/update/route.ts`, `api/circles/[id]/join/route.ts`, `api/circles/[id]/leave/route.ts`, `api/circles/[id]/members/route.ts`, `api/circles/[id]/discussions/route.ts`, `api/circles/discussions/[discussionId]/route.ts`, `api/circles/discussions/[discussionId]/responses/route.ts`, `api/circles/responses/[responseId]/route.ts`, `api/my-circles/route.ts`
+- **Navigation**: "Circles" in sidebar Section IV (Community, between Polls and Feedback) with concentric-circles icon; "Circles" in mobile menu
+- **Middleware**: `/circles` NOT protected — browse page is public (optional auth). Discussion access controlled at API level
+
 ### User-to-User Blocking
 - Users can block/unblock other users from profile pages (three-dot menu with confirmation dialog)
 - Blocked users can't see each other's entries, send messages, stamp, comment, sign guestbooks, or tip
@@ -842,6 +884,10 @@ Key files:
 - `poll_options` — poll options (label, position, vote_count, poll_id FK → polls delete_all)
 - `poll_votes` — poll votes (user_id FK → users delete_all, poll_id FK → polls delete_all, poll_option_id FK → poll_options delete_all; unique on [user_id, poll_id])
 - `poll_comments` — comments on polls (body text, user_id FK → users nilify_all, poll_id FK → polls delete_all)
+- `circles` — writing circles (name, slug unique, description text, category string Ecto.Enum, cover_image_id FK → entry_images nilify, owner_id FK → users nilify, member_count integer, discussion_count integer, visibility default "public", is_starter boolean, last_activity_at utc_datetime_usec)
+- `circle_members` — circle membership (circle_id FK → circles delete_all, user_id FK → users delete_all, role string Ecto.Enum: owner/moderator/member; unique on [circle_id, user_id])
+- `circle_discussions` — circle discussions (circle_id FK → circles delete_all, author_id FK → users nilify_all, title string max 300, body text, is_prompt boolean, is_pinned boolean, is_locked boolean, response_count integer, last_response_at utc_datetime_usec)
+- `circle_responses` — flat responses to discussions (discussion_id FK → circle_discussions delete_all, author_id FK → users nilify_all, body text max 6000, edited_at utc_datetime_usec)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -1116,7 +1162,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260304000050_rename_supporter_to_first_class.exs`
+- Latest migration: `20260306000052_create_circles.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -1158,7 +1204,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 42 | **Add Categories to Journal Posts** | Medium | 3 | 2–3 days | Done |
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | Done |
 | 70 | **Update Comments** (edit + @mentions) | High | 5 | 2–3 days | Done |
-| 66 | **Clubs** (group discussion spaces) | Medium | 5 | ~5 days | Under Review |
+| 66 | **Circles** (group discussion spaces) | Medium | 5 | ~5 days | Done |
 | 56 | **Custom Domains for Plus** | Medium | 4 | 5+ days | Under Review |
 | 54 | **Post by Email** | Medium | 4 | 3–4 days | Under Review |
 | 46 | **About Post Categories** (UX fix + books) | Medium | 3 | ~0.5 day | Done |
@@ -1169,9 +1215,10 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 15 | **Beta Participation** | Low | 2 | 2 days | Done |
 | 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
-**Recommended next**: Clubs (Plus-gated creation, ~5 day MVP), then Custom Domains for Plus.
+**Recommended next**: Custom Domains for Plus, then Post by Email.
 
 ### Recently Completed
+- **2026-03-06** — Circles (Writing Circles / Writer's Salon). Full group discussion feature with a distinct Writer's Salon visual identity (warm amber/gold/cream palette via `--salon-*` CSS custom properties). **No upvotes, no karma, no threading** — flat responses where every voice is equal. Plus-only creation (up to 10 circles); free users browse, join, and fully participate. 6 categories (Writing & Craft, Reading & Books, Creative Arts, Lifestyle & Interests, Tech & Learning, Community). "Prompts" (owner/mod curated salon topics) distinguished by amber left border + "SALON PROMPT" label. @mention autocomplete in responses via shared `useMentionAutocomplete` hook. 3 notification types: `:circle_response`, `:circle_mention`, `:circle_new_member`. Block enforcement throughout. Non-member view shows circle info + join CTA but hides discussions. Database: 4 new tables (`circles`, `circle_members`, `circle_discussions`, `circle_responses`) via migration `20260306000052`. Backend: `Inkwell.Circles` context module with atomic counter increments, `CircleController` with 15 actions across optional_auth and authenticated scopes. Frontend: browse page with hero + "My Circles" + category filter pills + card grid, circle detail page with member avatar strip (up to 12 overlapping), discussion list with prompt distinction, discussion detail with flat chronological responses, create circle form (Plus-gated), create discussion form with prompt toggle, response form with @mentions. 11 proxy routes. Sidebar "Circles" in Section IV (Community) with concentric-circles icon; mobile menu link. New files: 4 Ecto schemas, context module, controller, migration, 14 frontend page/component files, 11 proxy routes, ~200 lines salon CSS. Modified: `router.ex`, `notification.ex`, `sidebar-nav.tsx`, `mobile-menu.tsx`, `notification-list.tsx`, `globals.css`. Addresses roadmap item c130ddb4.
 - **2026-03-06** — Fully Collapsible Sidebar Navigation. Replaced the 3-state sidebar (expanded 260px / collapsed 60px icon-only / hidden) with a cleaner 2-state model (expanded 260px / fully hidden 0px). The old 60px icon-only collapse wasted space and had a nearly invisible toggle button (opacity:0, hover-only reveal) that most users never discovered. Now: always-visible "Hide" button at sidebar bottom (chevron icon + italic "Hide" label, opacity 0.5 → 1.0 on hover), and when hidden, a small reveal tab (14×48px book-page tab at left edge, semi-transparent, widens on hover) brings the sidebar back with one click. Reveal tab rendered via `createPortal` to `document.body` to escape sidebar's `overflow: hidden`. Keyboard shortcut `Cmd/Ctrl + \` unchanged. State persists in localStorage (`inkwell-sidebar-hidden`) with flash prevention inline script and `suppressHydrationWarning` on `<body>`. Old `inkwell-sidebar-collapsed` localStorage key auto-migrated. Focus mode hides both sidebar and reveal tab. Removed ~107 lines of icon-only collapsed CSS rules. Addresses roadmap item f321325d ("An Expandable Side Bar"). No backend changes. Modified: `sidebar-nav.tsx` (major rewrite: removed collapsed prop/logic, added portal reveal tab, hydration-safe shortcut hint), `globals.css` (removed collapsed rules, added hidden/reveal-tab styles), `layout.tsx` (flash prevention script + suppressHydrationWarning), `scope-styles.ts` (selector rename).
 - **2026-03-05** — Comprehensive SEO Infrastructure. Added robots.txt, dynamic sitemap.xml, JSON-LD structured data, and metadata across all public pages. Backend: new `SitemapController` (`GET /api/sitemap-data`) returning all public usernames, entry slugs, and tags for sitemap generation; `explore_feed` action (`GET /api/explore/feed.xml`) serving global RSS feed of 20 most recent public entries (excludes sensitive). Frontend: `robots.ts` allowing crawlers on `/`, disallowing private paths (admin, settings, editor, drafts, feed, letters, etc.), referencing sitemap.xml. Dynamic `sitemap.ts` fetching from API with 1-hour revalidation — generates entries for 12 static pages, 21 categories, all user profiles, all published entries, all tags with appropriate priority/changeFrequency. Landing page gained full metadata (title, description, OpenGraph type:website, Twitter card). JSON-LD `Article` schema on entry detail pages (author Person, dates, wordCount, image, publisher Organization, mainEntityOfPage). JSON-LD `ProfilePage` schema on profile pages (mainEntity Person with name, alternateName, url, image, description). JSON-LD `WebSite` + `Organization` schemas in root layout (SearchAction, logo, Twitter sameAs). RSS feed discovery `<link>` in root layout `<head>`. Per-user RSS alternate in profile `generateMetadata`. Description + OpenGraph + canonical URL added to 13 public pages (explore, tag, category, roadmap, polls, guide, guidelines, about, terms, privacy, brand, developers, releases). Content wrapper changed from `<div>` to semantic `<main>` in AppShell. XSS prevention in JSON-LD via `.replace(/</g, "\\u003c")`. New files: `sitemap_controller.ex`, `robots.ts`, `sitemap.ts`. Modified: `feed_controller.ex`, `router.ex`, `layout.tsx`, `page.tsx`, `[username]/[slug]/page.tsx`, `[username]/page.tsx`, `app-shell.tsx`, 13 public page files.
 - **2026-03-05** — External Sharing & OpenGraph Enhancement. Added share buttons across the platform (feed cards, entry detail, profile pages) with a reusable `ShareButton` component using `FloatingPopup`. Six share options: Copy link (clipboard + "Copied!" feedback), native Web Share API (auto-detected on mobile), Bluesky, Mastodon, Facebook, X. Enhanced OpenGraph metadata: entry pages now include `og:type: "article"`, `og:url`, `article:published_time`, `article:author`, Twitter Card tags (`summary_large_image` with cover image, `summary` without), `twitter:site: "@inkwellsocial"`, and canonical URL. Profile pages gained full OG metadata: `og:type: "profile"`, `og:description` (bio excerpt), `og:image` (avatar URL), Twitter Card, and canonical URL. Also added share button to `custom-profile-hydrator.tsx` for full-page custom HTML profiles. No backend changes — purely frontend + server-rendered metadata. New files: `share-button.tsx`. Modified: `feed-card-actions.tsx`, `journal-feed.tsx`, `[username]/[slug]/page.tsx`, `[username]/page.tsx`, `custom-profile-hydrator.tsx`, `layout.tsx`, `globals.css`.

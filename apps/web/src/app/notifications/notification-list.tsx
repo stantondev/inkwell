@@ -145,6 +145,18 @@ function notificationText(n: Notification): string {
       return "joined Inkwell from your invitation";
     case "fediverse_follow":
       return "followed you from the fediverse";
+    case "circle_response": {
+      const circleName = n.data?.circle_name as string | undefined;
+      return circleName ? `responded to your discussion in ${circleName}` : "responded to your discussion";
+    }
+    case "circle_mention": {
+      const circleName2 = n.data?.circle_name as string | undefined;
+      return circleName2 ? `mentioned you in ${circleName2}` : "mentioned you in a circle";
+    }
+    case "circle_new_member": {
+      const circleName3 = n.data?.circle_name as string | undefined;
+      return circleName3 ? `joined ${circleName3}` : "joined your circle";
+    }
     default:
       return "interacted with your content";
   }
@@ -376,6 +388,26 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "circle_response" || type === "circle_mention" || type === "circle_new_member") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "#b8860b" }}
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </svg>
+    );
+  }
   if (type === "poll_comment" || type === "poll_mention") {
     return (
       <svg
@@ -468,6 +500,13 @@ function getNotificationHref(n: Notification): string | null {
   // Letter notifications link to the conversation thread
   if (n.type === "letter" && n.data?.conversation_id) {
     return `/letters/${n.data.conversation_id}`;
+  }
+  // Circle notifications link to the circle or discussion
+  if ((n.type === "circle_response" || n.type === "circle_mention") && n.data?.circle_slug && n.data?.discussion_id) {
+    return `/circles/${n.data.circle_slug}/${n.data.discussion_id}`;
+  }
+  if (n.type === "circle_new_member" && n.data?.circle_slug) {
+    return `/circles/${n.data.circle_slug}`;
   }
   // Poll notifications link to the poll
   if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {
@@ -866,6 +905,24 @@ export function NotificationList({
                             {n.entry.title || "Untitled entry"} {"\u2192"}
                           </a>
                         )}
+                        {/* Circle discussion link */}
+                        {!!n.data?.circle_name &&
+                          (n.type === "circle_response" ||
+                            n.type === "circle_mention" ||
+                            n.type === "circle_new_member") && (
+                            <a
+                              href={
+                                n.data?.discussion_id
+                                  ? `/circles/${n.data.circle_slug}/${n.data.discussion_id}`
+                                  : `/circles/${n.data.circle_slug}`
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs mt-1 inline-block hover:underline truncate max-w-[200px] sm:max-w-[300px]"
+                              style={{ color: "#b8860b" }}
+                            >
+                              {String(n.data.circle_name)} {"\u2192"}
+                            </a>
+                          )}
                         {/* Feedback post link */}
                         {!!n.data?.post_title &&
                           (n.type === "feedback_status_change" ||
