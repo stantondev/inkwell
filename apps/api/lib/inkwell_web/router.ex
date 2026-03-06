@@ -385,6 +385,9 @@ defmodule InkwellWeb.Router do
     get "/.well-known/nodeinfo", FederationController, :nodeinfo
     get "/nodeinfo/2.1", FederationController, :nodeinfo_schema
 
+    # Entry AP object (Article)
+    get "/entries/:id", FederationController, :entry_object
+
     # Actor endpoint (content negotiation: AP JSON vs browser redirect)
     get "/users/:username", FederationController, :actor
     get "/users/:username/outbox", FederationController, :outbox

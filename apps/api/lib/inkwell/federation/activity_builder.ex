@@ -215,7 +215,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
         "id" => "#{actor_url}#main-key",
         "owner" => actor_url,
         "publicKeyPem" => user.public_key
-      }
+      },
+      "discoverable" => true
     }
 
     # Add optional fields

@@ -39,6 +39,28 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # ── Entry object endpoint ───────────────────────────────────────────────
+
+  # GET /entries/:id — AP Entry (Article) object
+  def entry_object(conn, %{"id" => id}) do
+    case Journals.get_entry(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      entry ->
+        if entry.status == :published and entry.privacy == :public do
+          user = Accounts.get_user!(entry.user_id)
+          article = ActivityBuilder.build_article(entry, user)
+
+          conn
+          |> put_resp_content_type("application/activity+json")
+          |> json(article)
+        else
+          conn |> put_status(:not_found) |> json(%{error: "Not found"})
+        end
+    end
+  end
+
   # ── WebFinger ───────────────────────────────────────────────────────────
 
   # GET /.well-known/webfinger?resource=acct:username@domain
