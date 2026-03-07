@@ -754,7 +754,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           />
         );
       case "support": {
-        const hasTips = profile.stripe_connect_enabled && !isOwnProfile && !!session;
+        const hasTips = profile.stripe_connect_enabled && !isOwnProfile;
         const hasTipsPreview = profile.stripe_connect_enabled && isOwnProfile;
         const hasExternalLink = !!profile.support_url;
         if (!hasTips && !hasTipsPreview && !hasExternalLink) return null;
@@ -778,11 +778,26 @@ export default async function ProfilePage({ params }: ProfileParams) {
                       Visitors will see this widget
                     </p>
                   </div>
-                ) : (
+                ) : session ? (
                   <TipButton
                     recipientId={profile.id}
                     recipientName={profile.display_name}
                   />
+                ) : (
+                  <div>
+                    <div
+                      className="flex items-center justify-center gap-2 w-full rounded-lg border px-4 py-2.5 text-sm font-medium opacity-60"
+                      style={{ borderColor: styles.accent, color: styles.accent }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      Send postage
+                    </div>
+                    <p className="text-xs mt-2 text-center" style={{ color: styles.muted }}>
+                      <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+                        Join Inkwell
+                      </a>{" "}to send postage to {profile.display_name}.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -952,6 +967,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 <div className="flex items-center gap-2">
                   <FollowButton
                     targetUsername={username}
+                    isLoggedIn={!!session}
                     initialState={
                       relationshipStatus === "accepted" ? "following" :
                       relationshipStatus === "pending" ? "pending" :
@@ -1028,10 +1044,10 @@ export default async function ProfilePage({ params }: ProfileParams) {
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm" style={{ color: styles.muted }}>
               <span><strong style={{ color: styles.foreground }}>{entryCount}</strong> entries</span>
               {penPalCount > 0 && (
-                <span><strong style={{ color: styles.foreground }}>{penPalCount}</strong> pen pals</span>
+                <span title="Pen pals are mutual follows — you follow each other"><strong style={{ color: styles.foreground }}>{penPalCount}</strong> pen pals <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 opacity-40" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
               )}
               {readerCount > 0 && (
-                <span><strong style={{ color: styles.foreground }}>{readerCount}</strong> readers</span>
+                <span title="People who follow this writer"><strong style={{ color: styles.foreground }}>{readerCount}</strong> readers</span>
               )}
               <span>Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
             </div>

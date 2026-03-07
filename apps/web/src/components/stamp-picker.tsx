@@ -45,7 +45,7 @@ export function StampPicker({
 
   function handleToggle() {
     if (!isLoggedIn) {
-      window.location.href = "/login";
+      window.location.href = "/get-started";
       return;
     }
     setOpen(!open);

@@ -195,6 +195,17 @@ export function PollWidget({ poll: initialPoll, compact = false, isLoggedIn }: P
         <p style={{ color: "var(--danger, #dc2626)", fontSize: "12px", margin: "8px 0 0" }}>{error}</p>
       )}
 
+      {/* Join CTA for logged-out visitors on open polls */}
+      {!isLoggedIn && isOpen && (
+        <p style={{ fontSize: "12px", textAlign: "center", marginTop: "10px", color: "var(--muted)" }}>
+          <a href="/get-started" style={{ fontWeight: 500, color: "var(--accent)", textDecoration: "none" }}
+            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
+            Join Inkwell
+          </a>{" "}to vote.
+        </p>
+      )}
+
       {/* Footer */}
       <div
         style={{

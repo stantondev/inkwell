@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
 import { MentionDropdown } from "@/components/mention-dropdown";
 
@@ -27,10 +26,10 @@ export function CommentForm({ entryId, isLoggedIn }: { entryId: string; isLogged
     return (
       <div className="rounded-xl border p-4 text-sm text-center"
         style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-        <Link href="/login" className="font-medium hover:underline"
+        <a href="/get-started" className="font-medium hover:underline"
           style={{ color: "var(--accent)" }}>
-          Sign in
-        </Link>{" "}
+          Join Inkwell
+        </a>{" "}
         to leave a comment.
       </div>
     );

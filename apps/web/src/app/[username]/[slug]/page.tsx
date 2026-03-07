@@ -609,12 +609,21 @@ export default async function EntryPage({ params }: EntryParams) {
         {/* Support CTA */}
         {(author.stripe_connect_enabled || author.support_url) && !isOwnEntry && (
           <div className="mt-8 pt-6 border-t flex flex-col items-center gap-3" style={{ borderColor: "var(--border)" }}>
-            {author.stripe_connect_enabled && session && (
-              <TipButton
-                recipientId={author.id}
-                recipientName={author.display_name}
-                entryId={entry.id}
-              />
+            {author.stripe_connect_enabled && (
+              session ? (
+                <TipButton
+                  recipientId={author.id}
+                  recipientName={author.display_name}
+                  entryId={entry.id}
+                />
+              ) : (
+                <a href="/get-started"
+                  className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
+                  style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Join Inkwell to send postage
+                </a>
+              )
             )}
             {author.support_url && (
               <a

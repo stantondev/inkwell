@@ -2856,7 +2856,8 @@ body[data-sidebar-hidden] .sidebar-nav {
 }
 
 @media (min-width: 1024px) {
-  body[data-sidebar-hidden] .app-content {
+  body[data-sidebar-hidden] .app-content,
+  .app-content.no-sidebar {
     margin-left: 0;
   }
 }

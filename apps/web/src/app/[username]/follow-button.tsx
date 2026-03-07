@@ -4,10 +4,14 @@ import { useState } from "react";
 
 type FollowState = "idle" | "following" | "pending" | "loading";
 
-export function FollowButton({ targetUsername, initialState = "idle" }: { targetUsername: string; initialState?: FollowState }) {
+export function FollowButton({ targetUsername, initialState = "idle", isLoggedIn = true }: { targetUsername: string; initialState?: FollowState; isLoggedIn?: boolean }) {
   const [state, setState] = useState<FollowState>(initialState);
 
   async function handleFollow() {
+    if (!isLoggedIn) {
+      window.location.href = "/get-started";
+      return;
+    }
     setState("loading");
     try {
       const res = await fetch(`/api/follow/${targetUsername}`, { method: "POST" });

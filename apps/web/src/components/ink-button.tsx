@@ -48,7 +48,7 @@ export function InkButton({
 
   async function handleToggle() {
     if (!isLoggedIn) {
-      router.push("/login");
+      router.push("/get-started");
       return;
     }
 

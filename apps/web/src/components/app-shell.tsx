@@ -28,7 +28,7 @@ export function AppShell({
       {user && <Sidebar user={user} />}
 
       {/* Main content area */}
-      <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0" : ""}`}>
+      <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0" : "no-sidebar"}`}>
         <div className="flex-1">
           {children}
         </div>

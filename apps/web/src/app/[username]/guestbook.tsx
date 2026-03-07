@@ -151,7 +151,15 @@ export function Guestbook({
       ) : entries.length === 0 ? (
         !isOwnProfile && (
           <p className="text-xs" style={{ color: styles.muted }}>
-            {isLoggedIn ? "Be the first to sign!" : "No entries yet."}
+            {isLoggedIn ? "Be the first to sign!" : (
+              <>
+                No entries yet.{" "}
+                <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+                  Join Inkwell
+                </a>{" "}
+                to sign the guestbook.
+              </>
+            )}
           </p>
         )
       ) : (
@@ -196,6 +204,16 @@ export function Guestbook({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Logged-out CTA to sign guestbook */}
+      {!isLoggedIn && !isOwnProfile && entries.length > 0 && (
+        <p className="text-xs mt-3 pt-2 border-t" style={{ color: styles.muted, borderColor: styles.border }}>
+          <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+            Join Inkwell
+          </a>{" "}
+          to sign {username}&apos;s guestbook.
+        </p>
       )}
     </div>
   );

@@ -84,7 +84,7 @@ export default function CircleDetailClient({
 
   const handleJoin = async () => {
     if (!isLoggedIn) {
-      router.push("/login");
+      router.push("/get-started");
       return;
     }
     setJoining(true);
@@ -239,9 +239,9 @@ export default function CircleDetailClient({
             Circle discussions are visible to members only
           </p>
           {!isLoggedIn && (
-            <Link href="/login" className="salon-join-btn" style={{ textDecoration: "none", marginTop: "1rem", display: "inline-flex" }}>
-              Sign in to join
-            </Link>
+            <a href="/get-started" className="salon-join-btn" style={{ textDecoration: "none", marginTop: "1rem", display: "inline-flex" }}>
+              Join Inkwell to participate
+            </a>
           )}
         </div>
       )}

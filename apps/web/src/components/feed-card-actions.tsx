@@ -317,7 +317,7 @@ export function FeedCardActions({
             </div>
 
             {/* Quick comment input */}
-            {isLoggedIn && (
+            {isLoggedIn ? (
               <div className="border-t" style={{ borderColor: "var(--border)" }}>
                 {commentError && (
                   <p className="text-xs px-4 pt-2" style={{ color: "var(--danger)" }}>{commentError}</p>
@@ -352,6 +352,13 @@ export function FeedCardActions({
                     Post
                   </button>
                 </form>
+              </div>
+            ) : (
+              <div className="border-t px-4 py-3 text-center" style={{ borderColor: "var(--border)" }}>
+                <a href="/get-started" className="text-xs font-medium hover:underline" style={{ color: "var(--accent)" }}>
+                  Join Inkwell
+                </a>{" "}
+                <span className="text-xs" style={{ color: "var(--muted)" }}>to leave a comment.</span>
               </div>
             )}
           </FloatingPopup>

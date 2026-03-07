@@ -30,7 +30,7 @@ export function BookmarkButton({
 
   async function handleToggle() {
     if (!isLoggedIn) {
-      router.push("/login");
+      router.push("/get-started");
       return;
     }
 
