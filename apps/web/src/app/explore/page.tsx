@@ -43,7 +43,11 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   const { page: pageParam, category, sort, source } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
   const activeSort = sort === "most_inked" ? "most_inked" : "newest";
-  const activeSource = source === "inkwell" || source === "fediverse" ? source : null;
+  // Default to Inkwell-only — users opt into fediverse content via "All" or "Fediverse" pills
+  const activeSource: string | null =
+    source === "all" ? null :
+    source === "fediverse" ? "fediverse" :
+    "inkwell";  // default when no source param or source=inkwell
 
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
   const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
@@ -144,18 +148,22 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
             <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
 
-            {/* Source filter */}
+            {/* Source filter — Inkwell is default, "All" adds fediverse, "Fediverse" shows only fediverse */}
             {([
-              { label: "All", value: null },
               { label: "Inkwell", value: "inkwell" },
+              { label: "All", value: "all" },
               { label: "Fediverse", value: "fediverse" },
             ] as const).map((s) => {
               const p = new URLSearchParams();
               if (category) p.set("category", category);
               if (activeSort !== "newest") p.set("sort", activeSort);
-              if (s.value) p.set("source", s.value);
+              // "inkwell" is default (no param), others need explicit source
+              if (s.value !== "inkwell") p.set("source", s.value);
               const qs = p.toString();
-              const isActive = activeSource === s.value;
+              const isActive =
+                (s.value === "inkwell" && activeSource === "inkwell") ||
+                (s.value === "all" && activeSource === null) ||
+                (s.value === "fediverse" && activeSource === "fediverse");
               return (
                 <Link
                   key={s.label}
