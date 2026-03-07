@@ -75,6 +75,33 @@ defmodule Inkwell.Federation.RemoteEntries do
     |> Repo.all()
   end
 
+  @doc """
+  Deletes remote entries with garbled (mojibake) content.
+  These are entries stored before the UTF-8 encoding fix.
+  Returns the count of deleted entries.
+  """
+  def cleanup_mojibake_entries do
+    all_entries = Repo.all(RemoteEntry)
+
+    mojibake_entries =
+      Enum.filter(all_entries, fn re ->
+        Inkwell.Federation.ContentQuality.has_mojibake?(re.body_html)
+      end)
+
+    {count, _} =
+      if mojibake_entries == [] do
+        {0, nil}
+      else
+        ids = Enum.map(mojibake_entries, & &1.id)
+
+        RemoteEntry
+        |> where([e], e.id in ^ids)
+        |> Repo.delete_all()
+      end
+
+    {:ok, count}
+  end
+
   def cleanup_old_entries(days \\ 90) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 

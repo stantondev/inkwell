@@ -213,6 +213,14 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
         Logger.debug("RelayContentWorker: skipping bot actor #{remote_actor.username}@#{remote_actor.domain}")
         false
 
+      has_bot_username?(remote_actor) ->
+        Logger.debug("RelayContentWorker: skipping bot-pattern username #{remote_actor.username}@#{remote_actor.domain}")
+        false
+
+      has_mojibake?(object) ->
+        Logger.debug("RelayContentWorker: skipping mojibake content")
+        false
+
       # Articles and Pages bypass word count — they're long-form by definition
       object["type"] in ~w[Article Page] ->
         true
@@ -239,6 +247,71 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
       end
 
     actor_type in ~w[Service Application]
+  end
+
+  # Common bot username patterns (RSS bridges, news aggregators, etc.)
+  @bot_username_patterns ~w[
+    rssbot fanbot newsbot feedbot mirrorbot
+    rss_bot feed_bot news_bot mirror_bot
+    bot@ relay activityrelay
+  ]
+
+  defp has_bot_username?(remote_actor) do
+    username = String.downcase(remote_actor.username || "")
+    display_name = String.downcase(remote_actor.display_name || "")
+
+    # Check if username matches known bot patterns
+    Enum.any?(@bot_username_patterns, fn pattern ->
+      String.contains?(username, pattern)
+    end) ||
+    # Check if display name ends with "bot" or "[bot]"
+    String.ends_with?(display_name, "bot") ||
+    String.ends_with?(display_name, "[bot]") ||
+    # Check AP actor data for bot flag
+    get_in(remote_actor.raw_data || %{}, ["discoverable"]) == false &&
+      get_in(remote_actor.raw_data || %{}, ["memorial"]) != true &&
+      (String.contains?(username, "bot") || String.contains?(username, "feed"))
+  end
+
+  # Detect garbled text (mojibake) from bad encoding — lots of Ã, Ð, â€ sequences
+  defp has_mojibake?(object) do
+    content = object["content"] || ""
+    plain = strip_html(content)
+    len = String.length(plain)
+
+    # Skip very short content (let other filters handle it)
+    if len < 20 do
+      false
+    else
+      # Count mojibake indicator characters/sequences
+      mojibake_count =
+        # Latin-1 mojibake markers (UTF-8 bytes misinterpreted as codepoints)
+        (count_occurrences(plain, "Ã") +
+         count_occurrences(plain, "â€") +
+         count_occurrences(plain, "Â") +
+         # Cyrillic/other script mojibake (Ð sequences mixed with Ñ)
+         count_cyrillic_mojibake(plain))
+
+      # If >15% of the text length is mojibake markers, it's garbled
+      mojibake_count * 3 > len
+    end
+  end
+
+  defp count_occurrences(string, pattern) do
+    string
+    |> String.split(pattern)
+    |> length()
+    |> Kernel.-(1)
+    |> max(0)
+  end
+
+  # Detect Cyrillic text that was double-encoded: shows as scattered Ð and Ñ
+  # with single Latin chars between them (real Cyrillic text has connected words)
+  defp count_cyrillic_mojibake(text) do
+    # Pattern: Ð or Ñ followed by a single non-Cyrillic char then another Ð/Ñ
+    # This is characteristic of UTF-8 Cyrillic bytes being read as Latin-1
+    matches = Regex.scan(~r/[ÐÑ][^\s]{0,2}[ÐÑ]/, text)
+    length(matches)
   end
 
   # Minimum content length: 30 words of actual text (not HTML/links)

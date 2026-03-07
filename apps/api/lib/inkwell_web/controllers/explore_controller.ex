@@ -2,7 +2,7 @@ defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps}
-  alias Inkwell.Federation.RemoteEntries
+  alias Inkwell.Federation.{ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/explore — public discovery feed with local + federated entries
@@ -46,11 +46,15 @@ defmodule InkwellWeb.ExploreController do
       else
         all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
 
-        if include_sensitive do
-          all_remote
-        else
-          Enum.reject(all_remote, fn re -> re.sensitive end)
-        end
+        all_remote =
+          if include_sensitive do
+            all_remote
+          else
+            Enum.reject(all_remote, fn re -> re.sensitive end)
+          end
+
+        # Filter out mojibake, bot content, and low-quality posts at read time
+        ContentQuality.filter_remote_entries(all_remote)
       end
 
     # Normalize into a common shape
