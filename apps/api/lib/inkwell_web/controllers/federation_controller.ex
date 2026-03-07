@@ -2,8 +2,8 @@ defmodule InkwellWeb.FederationController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals}
-  alias Inkwell.Federation.{ActivityBuilder, HttpSignature, RemoteActor, RemoteEntries}
-  alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchOutboxWorker}
+  alias Inkwell.Federation.{ActivityBuilder, HttpSignature, Relays, RemoteActor, RemoteEntries}
+  alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchOutboxWorker, RelayContentWorker}
   alias Inkwell.Repo
 
   import Ecto.Query
@@ -532,6 +532,10 @@ defmodule InkwellWeb.FederationController do
 
         # Extract our local username from the actor URL
         case Regex.run(~r|/users/([^/]+)$|, local_actor_url) do
+          [_, "relay"] ->
+            # Relay Accept — update subscription status to active
+            Relays.handle_relay_accept(remote_actor_uri)
+
           [_, username] ->
             case {Accounts.get_user_by_username(username), RemoteActor.get_by_ap_id(remote_actor_uri)} do
               {%{id: user_id}, %{id: remote_actor_id}} ->
@@ -767,7 +771,14 @@ defmodule InkwellWeb.FederationController do
     if is_binary(object_uri) do
       case find_entry_by_ap_url(object_uri) do
         nil ->
-          :ok
+          # Not a local entry — check if this is a relay-sourced Announce
+          if Relays.is_relay_actor?(actor_uri) do
+            %{object_uri: object_uri, relay_actor_uri: actor_uri}
+            |> RelayContentWorker.new()
+            |> Oban.insert()
+
+            Logger.info("Enqueued relay content fetch for #{object_uri} from #{actor_uri}")
+          end
 
         entry ->
           case RemoteActor.fetch(actor_uri) do

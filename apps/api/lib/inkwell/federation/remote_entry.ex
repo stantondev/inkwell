@@ -15,15 +15,17 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :sensitive, :boolean, default: false
     field :content_warning, :string
     field :last_verified_at, :utc_datetime_usec
+    field :source, :string
 
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
+    belongs_to :relay_subscription, Inkwell.Federation.RelaySubscription
 
     timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning])
+    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id])
     |> validate_required([:ap_id, :body_html, :remote_actor_id])
     |> unique_constraint(:ap_id)
   end

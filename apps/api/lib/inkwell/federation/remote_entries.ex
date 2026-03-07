@@ -22,6 +22,10 @@ defmodule Inkwell.Federation.RemoteEntries do
 
   def get_remote_entry(id), do: Repo.get(RemoteEntry, id)
 
+  def get_by_ap_id(ap_id) do
+    Repo.get_by(RemoteEntry, ap_id: ap_id)
+  end
+
   def delete_by_ap_id(ap_id) do
     case Repo.get_by(RemoteEntry, ap_id: ap_id) do
       nil -> {:ok, nil}
@@ -77,6 +81,22 @@ defmodule Inkwell.Federation.RemoteEntries do
     {count, _} =
       RemoteEntry
       |> where([e], e.inserted_at < ^cutoff)
+      |> where([e], is_nil(e.source) or e.source != "relay")
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
+  @doc """
+  Deletes relay-sourced remote entries older than the given number of days.
+  Relay content has a shorter TTL (default 14 days) than follow-sourced content.
+  """
+  def cleanup_relay_entries(days \\ 14) do
+    cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
+
+    {count, _} =
+      RemoteEntry
+      |> where([e], e.source == "relay" and e.inserted_at < ^cutoff)
       |> Repo.delete_all()
 
     {:ok, count}

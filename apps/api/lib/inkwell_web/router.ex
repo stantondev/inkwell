@@ -394,6 +394,13 @@ defmodule InkwellWeb.Router do
     # Content reports (admin)
     get "/reports", ReportController, :index
     patch "/reports/:id", ReportController, :update
+
+    # Relay management (admin)
+    get "/relays", RelayController, :index
+    post "/relays", RelayController, :create
+    post "/relays/:id/pause", RelayController, :pause
+    post "/relays/:id/resume", RelayController, :resume
+    delete "/relays/:id", RelayController, :delete
   end
 
   # Health check — used by Fly.io and external monitors

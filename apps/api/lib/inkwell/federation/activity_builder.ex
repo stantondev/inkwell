@@ -338,6 +338,43 @@ defmodule Inkwell.Federation.ActivityBuilder do
     }
   end
 
+  # ── Follow / Undo Follow (relay subscriptions) ─────────────────────────
+
+  @doc """
+  Builds a Follow activity for subscribing to a relay or remote actor.
+  """
+  def build_follow(target_actor_url, local_user) do
+    actor_url = actor_url(local_user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Follow",
+      "id" => "#{actor_url}#follow-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "object" => target_actor_url
+    }
+  end
+
+  @doc """
+  Builds an Undo { Follow } activity for unsubscribing from a relay or remote actor.
+  """
+  def build_undo_follow(target_actor_url, local_user) do
+    actor_url = actor_url(local_user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Undo",
+      "id" => "#{actor_url}#undo-follow-#{System.system_time(:second)}",
+      "actor" => actor_url,
+      "object" => %{
+        "type" => "Follow",
+        "id" => "#{actor_url}#follow-#{target_actor_url}",
+        "actor" => actor_url,
+        "object" => target_actor_url
+      }
+    }
+  end
+
   @doc """
   Builds a Create { Note } activity as a reply to a remote entry.
   """
