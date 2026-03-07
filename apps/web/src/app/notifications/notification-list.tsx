@@ -557,7 +557,7 @@ function AcceptRejectInline({
   onAction: (id: string) => void;
 }) {
   const [state, setState] = useState<
-    "idle" | "loading" | "accepted" | "declined"
+    "idle" | "loading" | "accepted" | "declined" | "expired"
   >("idle");
 
   async function handleAccept(e: React.MouseEvent) {
@@ -569,6 +569,10 @@ function AcceptRejectInline({
       });
       if (res.ok) {
         setState("accepted");
+        onAction(notificationId);
+      } else if (res.status === 404) {
+        // Follow request was cancelled by the sender
+        setState("expired");
         onAction(notificationId);
       } else {
         setState("idle");
@@ -587,6 +591,10 @@ function AcceptRejectInline({
       });
       if (res.ok) {
         setState("declined");
+        onAction(notificationId);
+      } else if (res.status === 404) {
+        // Follow request was already cancelled
+        setState("expired");
         onAction(notificationId);
       } else {
         setState("idle");
@@ -626,6 +634,16 @@ function AcceptRejectInline({
         style={{ color: "var(--muted)" }}
       >
         Declined
+      </span>
+    );
+  }
+  if (state === "expired") {
+    return (
+      <span
+        className="text-xs mt-2 inline-block italic"
+        style={{ color: "var(--muted)" }}
+      >
+        This request is no longer active
       </span>
     );
   }

@@ -216,6 +216,17 @@ defmodule Inkwell.Accounts do
     |> Repo.update_all(set: [read: true])
   end
 
+  @doc """
+  Delete follow_request notifications for a specific user+actor pair.
+  Called when a follow request is cancelled (unfollowed) so the notification
+  disappears entirely instead of showing stale Accept/Decline buttons.
+  """
+  def delete_follow_request_notifications(user_id, actor_id) do
+    Notification
+    |> where([n], n.user_id == ^user_id and n.actor_id == ^actor_id and n.type == :follow_request)
+    |> Repo.delete_all()
+  end
+
   def count_unread_notifications(user_id) do
     Notification
     |> where(user_id: ^user_id, read: false)

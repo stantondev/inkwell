@@ -120,6 +120,10 @@ defmodule InkwellWeb.RelationshipController do
     with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
       case Social.unfollow(user.id, target.id) do
         {:ok, _} ->
+          # Delete the follow_request notification so it doesn't show
+          # stale Accept/Decline buttons after the requester cancels
+          Accounts.delete_follow_request_notifications(target.id, user.id)
+
           json(conn, %{ok: true})
 
         {:error, :not_found} ->
@@ -165,7 +169,13 @@ defmodule InkwellWeb.RelationshipController do
         conn |> put_status(:unprocessable_entity) |> json(%{error: "Cannot block yourself"})
       else
         case Social.block(user.id, target.id) do
-          {:ok, _} -> json(conn, %{ok: true})
+          {:ok, _} ->
+            # Delete any pending follow_request notifications (both directions)
+            Accounts.delete_follow_request_notifications(user.id, target.id)
+            Accounts.delete_follow_request_notifications(target.id, user.id)
+
+            json(conn, %{ok: true})
+
           {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not block"})
         end
       end
