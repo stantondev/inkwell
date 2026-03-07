@@ -53,10 +53,10 @@ defmodule Inkwell.Muse.ClaudeClient do
            []
          ) do
       {:ok, {{_, status, _}, _, resp_body}} when status in 200..299 ->
-        parse_response(to_string(resp_body))
+        parse_response(:erlang.list_to_binary(resp_body))
 
       {:ok, {{_, status, _}, _, resp_body}} ->
-        Logger.warning("[Muse] Claude API error #{status}: #{to_string(resp_body)}")
+        Logger.warning("[Muse] Claude API error #{status}: #{:erlang.list_to_binary(resp_body)}")
         {:error, {:api_error, status}}
 
       {:error, reason} ->
