@@ -119,4 +119,9 @@ if config_env() == :prod do
   config :inkwell, :federation,
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
     frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell.social"
+
+  # Muse — AI content bot (optional, disabled by default)
+  config :inkwell, :anthropic_api_key, System.get_env("ANTHROPIC_API_KEY")
+  config :inkwell, :muse_enabled, System.get_env("MUSE_ENABLED") == "true"
+  config :inkwell, :muse_username, System.get_env("MUSE_ACCOUNT_USERNAME") || "muse"
 end

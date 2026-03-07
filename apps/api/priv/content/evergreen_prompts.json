@@ -1,0 +1,154 @@
+{
+  "prompts": [
+    {
+      "title": "The Sound That Takes You Back",
+      "body_html": "<p>There's a sound — maybe a screen door closing, rain on a tin roof, a particular song's opening notes — that instantly transports you somewhere else. Somewhere specific.</p><p><strong>Write about that sound.</strong> Where does it take you? Who's there? What do you smell, feel, see when you arrive? Don't just describe the memory — <em>inhabit it</em>. Let us hear the sound with you and travel to wherever it leads.</p><p><em>Optional constraint: Start your entry with the sound itself, described in one sentence.</em></p>",
+      "tags": ["writing-prompt", "memory", "senses"]
+    },
+    {
+      "title": "A Letter to Your Desk",
+      "body_html": "<p>Your desk (or kitchen table, or favorite chair, or park bench) — the place where you write — has witnessed a lot. It's held your coffee cups and your crises, your late-night ideas and your morning doubts.</p><p><strong>Write a letter to the place where you create.</strong> Thank it, confess to it, make promises to it. What has it seen you through? What does it know about you that nobody else does?</p><p><em>This is a love letter to your creative space, however humble or grand it might be.</em></p>",
+      "tags": ["writing-prompt", "creative-writing", "letters"]
+    },
+    {
+      "title": "What You Didn't Say",
+      "body_html": "<p>We all carry conversations that ended too soon, words that stayed in our throats, truths we swallowed instead of speaking.</p><p><strong>Write about something you didn't say.</strong> Not to relitigate the moment — but to explore it. Why did the words stay inside? Were you protecting someone? Protecting yourself? Were you simply not ready?</p><p><em>You don't have to resolve it. Sometimes the most honest writing lives in the unresolved.</em></p>",
+      "tags": ["writing-prompt", "reflection", "honesty"]
+    },
+    {
+      "title": "The View from Your Window Right Now",
+      "body_html": "<p>Stop. Look up. What do you see through the nearest window?</p><p><strong>Describe it in obsessive detail.</strong> The quality of the light. The way a shadow falls. Whether the trees are moving. What the sky is doing. The things that are always there and the things that are different today.</p><p>This is an exercise in <em>seeing</em> — really seeing — what you look at every day without looking. Writers are observers first. Observe.</p><p><em>Constraint: Write exactly 200 words. Not 199. Not 201.</em></p>",
+      "tags": ["writing-prompt", "observation", "creative-writing"]
+    },
+    {
+      "title": "The Meal That Changed Something",
+      "body_html": "<p>Food is never just food. It's memory, identity, love, grief, celebration, compromise.</p><p><strong>Write about a meal that mattered.</strong> Not because the food was exceptional (though it might have been), but because something shifted during that meal. A conversation happened. A silence said something. A tradition was born or broken.</p><p>Who was at the table? What was served? What changed between the first bite and the last?</p>",
+      "tags": ["writing-prompt", "food", "memory"]
+    },
+    {
+      "title": "Your Earliest Map",
+      "body_html": "<p>Before GPS, before you understood cities and distances, you had a mental map of the world. Your neighborhood, your school route, the forbidden end of the street, the park that felt like a forest.</p><p><strong>Draw that map in words.</strong> What were the landmarks? Where was safe? Where was mysterious? Where were the borders of your known world, and what did you imagine lay beyond them?</p><p><em>Write from the perspective of the child who made that map — their logic, their scale, their wonder.</em></p>",
+      "tags": ["writing-prompt", "childhood", "places"]
+    },
+    {
+      "title": "Something You've Been Carrying",
+      "body_html": "<p>Not literally (though it could be). We all carry things — worries, ambitions, grudges, hopes, secrets, questions we can't answer.</p><p><strong>Write about something you've been carrying.</strong> How long have you had it? How heavy is it? Have you tried to put it down? What would happen if you did?</p><p>This isn't about solving or fixing. It's about acknowledging weight. Sometimes writing about the thing you carry makes it lighter. Sometimes it doesn't. Both are honest.</p>",
+      "tags": ["writing-prompt", "reflection", "honesty"]
+    },
+    {
+      "title": "A Thing You Know How to Do",
+      "body_html": "<p>You know how to do something that not everyone knows how to do. It might be extraordinary (fly a plane, speak Mandarin) or ordinary (make a perfect scrambled egg, parallel park, calm a crying baby).</p><p><strong>Teach us.</strong> Write the instructions, but make them personal. Where did you learn? Who taught you? What does it feel like when you do it well? What's the part that no instruction manual captures?</p><p><em>The best \"how-to\" writing reveals as much about the teacher as the skill.</em></p>",
+      "tags": ["writing-prompt", "skills", "personal"]
+    },
+    {
+      "title": "The In-Between Hour",
+      "body_html": "<p>There's a time of day that belongs to no one — that strange hour between afternoon and evening, or the minutes before dawn when the world is neither asleep nor awake.</p><p><strong>Write about your in-between hour.</strong> What is the light like? What sounds fill it? What do you do in this liminal time that you don't do at any other hour? Is it peaceful or unsettling? Both?</p><p><em>Try to capture the quality of that light in your language — the sentences themselves should feel like dusk or dawn.</em></p>",
+      "tags": ["writing-prompt", "observation", "atmosphere"]
+    },
+    {
+      "title": "A Color You Associate with a Person",
+      "body_html": "<p>When you think of someone specific — a parent, a friend, a stranger who left an impression — what color do they invoke? Not the color of their eyes or their favorite shirt, but the <em>feeling-color</em> of their presence in your life.</p><p><strong>Write about this person through their color.</strong> Why that color? Is it warm or cool? Bright or muted? Has it changed over the years?</p><p>This is a portrait painted in a single hue.</p>",
+      "tags": ["writing-prompt", "people", "creative-writing"]
+    },
+    {
+      "title": "What You Were Wrong About",
+      "body_html": "<p>We're all wrong about things. Sometimes trivially (\"I thought it was spelled 'definately'\"), sometimes profoundly (\"I thought I'd never forgive them\").</p><p><strong>Write about something you were wrong about.</strong> Not as a confession — as a discovery. When did you realize? What did it feel like to update your understanding? Did being wrong open a door or close one?</p><p><em>Intellectual honesty is one of the most compelling things a writer can offer. This is your chance to offer it.</em></p>",
+      "tags": ["writing-prompt", "growth", "honesty"]
+    },
+    {
+      "title": "The Object on Your Nightstand",
+      "body_html": "<p>What's sitting on your nightstand (or bedside table, or the floor next to your bed) right now? Not the phone — the other thing. The book you're halfway through, the glass of water, the earring you took off, the note you wrote to yourself.</p><p><strong>Start with the object. End with a truth about your life.</strong> Let the object be a doorway into something larger. What does its presence there reveal about where you are right now?</p>",
+      "tags": ["writing-prompt", "objects", "reflection"]
+    },
+    {
+      "title": "A Conversation with Your Younger Self",
+      "body_html": "<p>If you could sit across from your 10-year-old self (or 15-year-old, or 20-year-old — pick the age that calls to you), what would you say?</p><p><strong>Write the conversation as dialogue.</strong> Let your younger self talk back. They have questions too. They might be disappointed in you, proud of you, confused by you, or — most likely — completely surprised by who you became.</p><p><em>Don't make it neat. Real conversations with ourselves are messy.</em></p>",
+      "tags": ["writing-prompt", "reflection", "creative-writing"]
+    },
+    {
+      "title": "The Weather Inside",
+      "body_html": "<p>How's the weather inside you today? Not your mood exactly — your <em>climate</em>. Is it overcast and still? Bright with gusting wind? A slow drizzle? Unseasonably warm?</p><p><strong>Write your internal weather report.</strong> Use the language of meteorology to describe your inner state. Forecast the next few hours. Issue any warnings or advisories. Report on conditions in specific regions of your life.</p><p><em>Constraint: Write it in the style of an actual weather broadcast.</em></p>",
+      "tags": ["writing-prompt", "creative-writing", "feelings"]
+    },
+    {
+      "title": "What the Walls Would Say",
+      "body_html": "<p>The walls of the room you're in right now have absorbed years of conversation, music, silence, laughter, arguments, and everything in between.</p><p><strong>Give them a voice.</strong> If these walls could speak, what would they report? What have they noticed? What patterns have they observed in the people who pass through? What do they think about the paint color you chose?</p><p><em>This is an exercise in perspective — literally seeing your space from the outside in.</em></p>",
+      "tags": ["writing-prompt", "creative-writing", "perspective"]
+    },
+    {
+      "title": "A Small Act of Kindness You Witnessed",
+      "body_html": "<p>Not a grand gesture. Not a viral moment. A small, quiet act of one person being decent to another — the kind of thing most people wouldn't even notice.</p><p><strong>Write about it.</strong> What happened? Who was involved? Did they know you were watching? Why did it stay with you when so many moments don't?</p><p>Sometimes the smallest things are the hardest to write about, because they resist the dramatic arc we're trained to impose on stories. <em>Let this one be small. Let that be enough.</em></p>",
+      "tags": ["writing-prompt", "kindness", "observation"]
+    },
+    {
+      "title": "The Book That Found You at the Right Time",
+      "body_html": "<p>Not your favorite book, necessarily. The book that arrived in your life at exactly the moment you needed it. The one that said the thing you didn't know you needed to hear, in a voice you didn't know you needed to listen to.</p><p><strong>Write about that book and that moment.</strong> How did it find you (or did you find it)? What was happening in your life? What did it unlock, confirm, or challenge? Do you still carry something from it?</p>",
+      "tags": ["writing-prompt", "books", "reading"]
+    },
+    {
+      "title": "An Apology You Owe (or Are Owed)",
+      "body_html": "<p>Apologies are complicated. Sometimes we owe them and can't bring ourselves to deliver them. Sometimes we're owed them and know they'll never come. Sometimes the thing we need to apologize for is so old it feels absurd to bring up now.</p><p><strong>Write the apology.</strong> Whether it's one you need to give or one you need to receive, put it on paper. Be specific. Be generous. Be honest about what happened and what it cost.</p><p><em>You don't have to send it. Some of the most important things we write are things we never share.</em></p>",
+      "tags": ["writing-prompt", "honesty", "relationships"]
+    },
+    {
+      "title": "What You Do When Nobody's Watching",
+      "body_html": "<p>We all have our private rituals — the little things we do when no one else is around. Dancing in the kitchen. Talking to the cat in a special voice. Rereading old text messages. Standing in front of the open fridge just... existing.</p><p><strong>Catalog your private behaviors.</strong> Not the embarrassing ones (unless you want to go there) — the authentic ones. The things you do when you're most yourself, unseen and unperformed.</p><p><em>This is a self-portrait painted in solitude.</em></p>",
+      "tags": ["writing-prompt", "personal", "authenticity"]
+    },
+    {
+      "title": "The Smell of Home",
+      "body_html": "<p>You probably can't smell your own home. You're too used to it. But you remember the smell of the home you grew up in, or a grandparent's house, or the first apartment that was truly yours.</p><p><strong>Write about that smell.</strong> Try to identify its components — was it laundry detergent and wood polish? Coffee and old books? Something you've never been able to name?</p><p>Smell is our most direct line to memory. Follow that line back and see where it takes you.</p>",
+      "tags": ["writing-prompt", "memory", "senses"]
+    },
+    {
+      "title": "A Stranger You Still Think About",
+      "body_html": "<p>Someone you saw once — on a bus, in a coffee shop, at a concert, on a street corner — and never saw again. But you still think about them sometimes. Why?</p><p><strong>Write about this stranger.</strong> What were they doing? What about them caught your attention? What story did you invent for them? What do you think they'd say if they knew they lived in your memory?</p><p><em>We are all minor characters in stories we'll never know.</em></p>",
+      "tags": ["writing-prompt", "people", "observation"]
+    },
+    {
+      "title": "Instructions for a Difficult Day",
+      "body_html": "<p>You know how it goes. The alarm feels hostile. The coffee doesn't help. Everything is slightly too loud or slightly too quiet. It's a difficult day.</p><p><strong>Write instructions for yourself on how to survive it.</strong> Be specific. Be tender. Include the small permissions (it's okay to skip the gym, it's okay to eat cereal for dinner) and the small requirements (drink water, go outside for five minutes, text someone back).</p><p><em>Write it as a numbered list, or as a letter from your gentlest self to your most overwhelmed self.</em></p>",
+      "tags": ["writing-prompt", "self-care", "guidance"]
+    },
+    {
+      "title": "The Thing You Keep Restarting",
+      "body_html": "<p>That project. That habit. That conversation. That book you keep putting down and picking back up. We all have something we keep starting over.</p><p><strong>Write about it honestly.</strong> What draws you back? What pushes you away? Is the restarting itself a kind of progress, or a kind of avoidance? What would finishing (or truly abandoning) it mean?</p><p><em>There's no wrong answer here. Sometimes the loop is the lesson.</em></p>",
+      "tags": ["writing-prompt", "reflection", "habits"]
+    },
+    {
+      "title": "Your Hands Tell a Story",
+      "body_html": "<p>Look at your hands. Really look at them.</p><p><strong>Write what you see.</strong> The scars, the calluses, the rings, the cuticles. The way they move when they're idle. What have these hands built, broken, held, released? What do they remember that your mind has forgotten?</p><p>Our hands are our autobiography written in skin. <em>Read yours.</em></p>",
+      "tags": ["writing-prompt", "body", "observation"]
+    },
+    {
+      "title": "A Place That No Longer Exists",
+      "body_html": "<p>A restaurant that closed. A building that was torn down. A park that became a parking lot. A bedroom you outgrew. A version of a city that gentrified into something unrecognizable.</p><p><strong>Write that place back into existence.</strong> Walk through it in your mind. Open its doors. Sit in its chairs. Hear its sounds. You are the only archive of this place now. Your words are its only monument.</p>",
+      "tags": ["writing-prompt", "places", "memory"]
+    },
+    {
+      "title": "What You're Reading Into",
+      "body_html": "<p>Right now, today — what are you reading? A novel, a news article, a text thread, a cereal box, a stranger's T-shirt, the expressions on your coworkers' faces?</p><p><strong>Write a snapshot of your reading life today.</strong> Not a review. A record. What are you consuming, and what is it feeding (or starving) in you? How does today's reading connect to yesterday's, or last year's?</p><p><em>Constraint: Mention at least three different things you've \"read\" today, even if some of them aren't words on a page.</em></p>",
+      "tags": ["writing-prompt", "reading", "daily-life"]
+    },
+    {
+      "title": "The First Line of a Story You'll Never Write",
+      "body_html": "<p>Every writer has stories they'll never get around to writing. Ghost stories, love stories, sci-fi epics, family sagas — they live as first lines in the back of our minds, waiting for a book that will never come.</p><p><strong>Write the first line.</strong> Then write another. And another. Give us ten opening lines of ten stories you'll never write. Let them be wild, specific, strange, and free — because nobody's ever going to hold you to them.</p><p><em>Who knows? One of them might turn into something after all.</em></p>",
+      "tags": ["writing-prompt", "fiction", "creative-writing"]
+    },
+    {
+      "title": "The Argument You Replay",
+      "body_html": "<p>There's one that lives in your head on a loop. The argument you keep revising — finding better responses, sharper points, more devastating exits. The one where you finally say the perfect thing instead of the thing you actually said.</p><p><strong>Write both versions.</strong> What actually happened, and what happens in the replay. Be honest about the gap between the two. What does the gap tell you?</p><p><em>You don't need to name the other person. The argument is really with yourself.</em></p>",
+      "tags": ["writing-prompt", "conflict", "honesty"]
+    },
+    {
+      "title": "Something Beautiful You Saw Today",
+      "body_html": "<p>Beauty is everywhere if you're willing to notice it — and it's almost never where you expect it. Not the sunset (too easy). The other thing. The mundane thing that caught the light in a way that made you pause for half a second.</p><p><strong>Write about it.</strong> Make us see it. Make us understand why it stopped you, even briefly. Treat this small moment of beauty like it matters — because it does.</p><p><em>Constraint: Keep it under 150 words. Beauty often works best in miniature.</em></p>",
+      "tags": ["writing-prompt", "beauty", "observation"]
+    },
+    {
+      "title": "The Language of Your Family",
+      "body_html": "<p>Every family has its own language — the inside jokes, the inherited phrases, the words that mean something different inside your house than they do outside it. The way someone says \"fine\" that means anything but.</p><p><strong>Write a glossary of your family's private language.</strong> Define the terms. Provide usage examples. Note the etymology where you can (who started saying it? when did it stick?).</p><p><em>This is anthropology of the most intimate kind.</em></p>",
+      "tags": ["writing-prompt", "family", "language"]
+    }
+  ]
+}

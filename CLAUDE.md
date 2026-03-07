@@ -56,6 +56,9 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 - `STRIPE_INK_DONOR_PRICE_2` — Stripe price ID for Ink Donor $2/mo
 - `STRIPE_INK_DONOR_PRICE_3` — Stripe price ID for Ink Donor $3/mo
 - `SLACK_WEBHOOK_URL` — Slack incoming webhook for admin event notifications (Plus/Donor signups, cancellations, payment failures, new feedback)
+- `ANTHROPIC_API_KEY` — Claude API key for Muse writing prompt generation (optional — falls back to evergreen prompts)
+- `MUSE_ENABLED` — set to `"true"` to enable the Muse content bot (default: disabled)
+- `MUSE_ACCOUNT_USERNAME` — username for the Muse bot account (default: `"muse"`)
 
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
@@ -811,6 +814,25 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 - Dev mode: messages logged to Phoenix console as `[Slack] (dev mode, not sent) ...`
 - Key file: `apps/api/lib/inkwell/slack.ex`
 
+### The Inkwell Muse (AI Content Bot)
+- Official `@muse` account that posts thoughtful writing prompts to keep the platform lively
+- **3 content types**: daily writing prompts (Claude-generated), weekly roundups (auto-generated from DB), monthly community updates (Claude-assisted with real stats)
+- **Claude API integration**: `Inkwell.Muse.ClaudeClient` calls Claude Haiku via `:httpc` (same pattern as `email.ex` and `slack.ex`). System prompt establishes the Muse's voice: literary, warm, thoughtful, occasionally playful. Context injected: date, season, trending tags, active circles.
+- **Evergreen fallback**: if Claude API is down or not configured, falls back to 30 curated prompts at `apps/api/priv/content/evergreen_prompts.json`
+- **Schedule** (Oban cron, 3 entries in `config.exs`):
+  - Daily at 9am UTC: writing prompt (`"daily_prompt"` type)
+  - Sunday at 10am UTC: weekly roundup (`"weekly_roundup"` type)
+  - 1st of month at 11am UTC: monthly update (`"monthly_update"` type)
+- **Config**: `ANTHROPIC_API_KEY` (Claude API key), `MUSE_ENABLED` (default `"false"` — opt-in), `MUSE_ACCOUNT_USERNAME` (default `"muse"`) — all Fly secrets on `inkwell-api`
+- **Activation**: requires creating a user with the muse username AND setting `MUSE_ENABLED=true`
+- **Dev mode**: if `ANTHROPIC_API_KEY` not set, logs `[Muse] Claude API not configured` and uses evergreen prompts
+- **Federation**: entries are fanned out to fediverse followers via `FanOutWorker`, so the Muse's prompts appear in followers' Mastodon timelines
+- **Key files**:
+  - `apps/api/lib/inkwell/muse.ex` — main context module: `create_daily_prompt/0`, `create_weekly_roundup/0`, `create_monthly_update/0`, platform stats queries
+  - `apps/api/lib/inkwell/muse/claude_client.ex` — Claude API client: `generate_prompt/2`, JSON response parsing with fallback
+  - `apps/api/lib/inkwell/workers/muse_worker.ex` — Oban cron worker, dispatches by `type` arg
+  - `apps/api/priv/content/evergreen_prompts.json` — 30 curated writing prompts (fallback library)
+
 ## Navigation Structure
 
 ### Desktop Sidebar (≥1024px, logged-in)
@@ -906,6 +928,7 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 | `CleanupUnconfirmedSubscribersWorker` | Daily 7am UTC | Deletes pending newsletter subscribers older than 7 days |
 | `NewsletterScheduleWorker` | Every 5 min | Enqueues delivery for scheduled newsletter sends whose time has arrived |
 | `VerifyRemoteEntriesWorker` | Every 4 hours | HTTP HEAD checks remote entry URLs; deletes entries returning 404/410 (source deleted); skips on 5xx/network errors; 50 entries per batch with per-domain rate limiting |
+| `MuseWorker` | Daily 9am, Sun 10am, 1st 11am UTC | AI content bot: generates daily writing prompts (Claude Haiku), weekly roundups (DB stats), monthly community updates. Disabled unless `MUSE_ENABLED=true`. Falls back to evergreen prompts if Claude API unavailable |
 
 ### Account Deletion (self-serve from Settings)
 - **Immediately deleted** (FK cascade `delete_all`): entries, comments (on owned entries), auth tokens, API keys, relationships, top friends, notifications (as recipient), stamps, friend filters, entry images, profile icons, feedback votes, guestbook entries (where user is profile owner)
@@ -1220,6 +1243,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 **Recommended next**: Custom Domains for Plus, then Post by Email.
 
 ### Recently Completed
+- **2026-03-07** — The Inkwell Muse (Growth Strategy 1E). AI-powered content bot that posts thoughtful writing prompts to an official `@muse` account. Three content types: daily writing prompts (Claude Haiku-generated with platform context — trending tags, active circles, season), weekly roundups (auto-generated from DB stats — most-inked entries, new writers, trending tags), and monthly community updates (Claude-assisted "State of the Inkwell" with real platform metrics). Claude API integration via `Inkwell.Muse.ClaudeClient` using `:httpc` (same pattern as `email.ex`/`slack.ex`). System prompt establishes literary, warm, thoughtful voice. Evergreen fallback library of 30 hand-curated prompts at `priv/content/evergreen_prompts.json` used when Claude API is unavailable. Three Oban cron entries: daily 9am UTC, Sunday 10am UTC, 1st of month 11am UTC — each passes `type` arg to `MuseWorker`. Published entries automatically federated to fediverse followers via `FanOutWorker`. Feature is opt-in: requires `MUSE_ENABLED=true` + `ANTHROPIC_API_KEY` Fly secrets + creating a user with the muse username. Dev mode: logs and uses evergreen prompts. No migration needed. No frontend changes. New files: `muse.ex` (context), `muse/claude_client.ex` (API client), `workers/muse_worker.ex` (Oban worker), `priv/content/evergreen_prompts.json` (fallback library). Modified: `config.exs` (3 cron entries), `runtime.exs` (3 env vars).
 - **2026-03-06** — Suggested Writers in Onboarding (Growth Strategy 1D). Enhanced onboarding Step 6 "Discover Writers" with quality-sorted writer suggestions and richer cards. Backend: `list_suggested_users/2` now returns `entry_count` and `total_ink_count`, prioritizes users with ≥3 published entries sorted by entry count + ink count (quality proxy), falls back to ≥1 entry, then pads with recent signups. Controller response includes `avatar_frame`, `subscription_tier`, `entry_count`, `ink_count`. Frontend: replaced single-column list with responsive 2-column grid of centered cards showing AvatarWithFrame (56px), display name, @username, 2-line bio excerpt, entry/ink counts in accent color, and full-width accent Follow button. Modified: `accounts.ex` (enhanced query), `user_controller.ex` (richer response), `welcome/page.tsx` (grid layout + richer cards + updated SuggestedUser type). No migration needed.
 - **2026-03-06** — Circle Member Management (Promote, Demote, Remove). Circle owners can now manage members directly from the circle detail page. Expandable "Members" section shows paginated member list with role badges (Owner, Mod). Owner actions: Promote member → moderator, Demote moderator → member, Remove member (with confirmation dialog). Owner role cannot be changed or removed. Member count updates atomically on removal (Ecto.Multi). Role indicator dots on member strip avatars (accent for owner, gray for moderator). Backend: 2 new context functions (`update_member_role/3` with validation, `remove_member/2` with atomic Multi), 2 new controller actions, 2 new routes (`PATCH/DELETE /api/circles/:id/members/:user_id`). Frontend: new `MembersSection` client component with expand/collapse toggle, paginated member cards, role badges, action buttons (owner-only). New proxy route at `api/circles/[id]/members/[userId]/route.ts`. ~150 lines member management CSS. No migration needed. New files: `members-section.tsx`, `api/circles/[id]/members/[userId]/route.ts`. Modified: `circles.ex` (2 functions), `circle_controller.ex` (2 actions + Repo alias), `router.ex` (2 routes), `circle-detail-client.tsx` (MembersSection integration), `member-strip.tsx` (role dots), `globals.css`.
 - **2026-03-06** — Circle Embed Cards in Journal Entries. Writers can now embed rich preview cards for circles directly in journal entries. Custom TipTap `CircleEmbed` node extension (`atom: true` block node) stores circle metadata as data attributes on a `<div data-circle-embed>`. Editor shows live preview card; published entries render via pure CSS (no hydration). Circle data baked into HTML at editor insert time. Editor integration: concentric-circles icon button in both toolbar and FloatingMenu opens `CirclePickerModal` — fetches user's circles from `/api/my-circles`, shows searchable list, inserts embed node on selection. Reader CSS: salon-themed card with warm cream border, serif name with ◎ icon, 2-line clamped description, category pill, member count, "Visit Circle →" CTA, gold hover glow. Dark mode variants. No backend changes — HTML sanitizer already allows `<div>` with data attributes. New files: `tiptap-circle-embed.ts`. Modified: `editor-client.tsx` (CircleEmbed extension + CirclePickerModal component + toolbar/FloatingMenu buttons), `globals.css` (~170 lines circle embed card + picker modal CSS).

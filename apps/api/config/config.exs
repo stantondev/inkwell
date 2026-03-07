@@ -40,7 +40,10 @@ config :inkwell, Oban,
        {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
        {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
        {"*/5 * * * *", Inkwell.Workers.NewsletterScheduleWorker},
-       {"0 */4 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker}
+       {"0 */4 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
+       {"0 9 * * *", Inkwell.Workers.MuseWorker, args: %{"type" => "daily_prompt"}},
+       {"0 10 * * 0", Inkwell.Workers.MuseWorker, args: %{"type" => "weekly_roundup"}},
+       {"0 11 1 * *", Inkwell.Workers.MuseWorker, args: %{"type" => "monthly_update"}}
      ]}
   ]
 
