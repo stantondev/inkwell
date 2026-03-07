@@ -231,6 +231,8 @@ defmodule InkwellWeb.Router do
     delete "/relationships/:username/block", RelationshipController, :unblock
     delete "/relationships/:username/reject", RelationshipController, :reject
     get "/blocked-users", RelationshipController, :blocked_users
+    get "/fediverse-followers", RelationshipController, :fediverse_followers
+    get "/fediverse-following", RelationshipController, :fediverse_following
 
     # Username
     patch "/me/username", UserController, :update_username

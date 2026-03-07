@@ -49,6 +49,9 @@ defmodule InkwellWeb.UserController do
         entry_categories = Journals.list_entry_categories(user.id)
         pen_pal_count = Social.count_pen_pals(user.id)
         reader_count = Social.count_readers(user.id)
+        follower_count = Social.count_followers(user.id)
+        following_count = Social.count_following(user.id)
+        fediverse_follower_count = Social.count_fediverse_followers(user.id)
 
         conn |> json(%{
           data: render_user(user),
@@ -56,6 +59,9 @@ defmodule InkwellWeb.UserController do
             entry_count: entry_count,
             pen_pal_count: pen_pal_count,
             reader_count: reader_count,
+            follower_count: follower_count,
+            following_count: following_count,
+            fediverse_follower_count: fediverse_follower_count,
             relationship_status: relationship_status,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}

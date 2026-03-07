@@ -88,8 +88,9 @@ interface HydratorProps {
   relationshipStatus: string | null;
   styles: ProfileStyles;
   // Counts
-  penPalCount: number;
-  readerCount: number;
+  followerCount: number;
+  followingCount: number;
+  fediverseFollowerCount: number;
 }
 
 function escapeHtml(str: string): string {
@@ -115,8 +116,9 @@ export function CustomProfileHydrator({
   isLoggedIn,
   relationshipStatus,
   styles,
-  penPalCount,
-  readerCount,
+  followerCount,
+  followingCount,
+  fediverseFollowerCount,
 }: HydratorProps) {
   const [portals, setPortals] = useState<React.ReactPortal[]>([]);
 
@@ -271,14 +273,16 @@ export function CustomProfileHydrator({
                 <span>
                   <strong style={{ color: styles.foreground }}>{entryCount}</strong> entries
                 </span>
-                {penPalCount > 0 && (
-                  <span>
-                    <strong style={{ color: styles.foreground }}>{penPalCount}</strong> pen pals
-                  </span>
-                )}
-                {readerCount > 0 && (
-                  <span>
-                    <strong style={{ color: styles.foreground }}>{readerCount}</strong> readers
+                <span title="Total followers (including fediverse)">
+                  <strong style={{ color: styles.foreground }}>{followerCount}</strong> followers
+                </span>
+                <span title="Total following (including fediverse)">
+                  <strong style={{ color: styles.foreground }}>{followingCount}</strong> following
+                </span>
+                {fediverseFollowerCount > 0 && (
+                  <span title="Followers from the fediverse (Mastodon, etc.)" className="inline-flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <strong style={{ color: styles.foreground }}>{fediverseFollowerCount}</strong> from fediverse
                   </span>
                 )}
                 <span>

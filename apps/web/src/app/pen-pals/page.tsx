@@ -14,6 +14,16 @@ interface PenPal {
   avatar_url: string | null;
 }
 
+interface FediverseActor {
+  id: string;
+  username: string;
+  domain: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  ap_id: string;
+  profile_url: string;
+}
+
 export default async function PenPalsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -21,19 +31,27 @@ export default async function PenPalsPage() {
   let penPals: PenPal[] = [];
   let readers: PenPal[] = [];
   let reading: PenPal[] = [];
+  let fediverseFollowers: FediverseActor[] = [];
+  let fediverseFollowing: FediverseActor[] = [];
 
   try {
-    const [ppData, rdData, rgData] = await Promise.all([
+    const [ppData, rdData, rgData, ffData, fgData] = await Promise.all([
       apiFetch<{ data: PenPal[] }>("/api/pen-pals", {}, session.token),
       apiFetch<{ data: PenPal[] }>("/api/readers", {}, session.token),
       apiFetch<{ data: PenPal[] }>("/api/reading", {}, session.token),
+      apiFetch<{ data: FediverseActor[] }>("/api/fediverse-followers", {}, session.token),
+      apiFetch<{ data: FediverseActor[] }>("/api/fediverse-following", {}, session.token),
     ]);
     penPals = ppData.data ?? [];
     readers = rdData.data ?? [];
     reading = rgData.data ?? [];
+    fediverseFollowers = ffData.data ?? [];
+    fediverseFollowing = fgData.data ?? [];
   } catch {
     // show empty
   }
+
+  const hasFediverseConnections = fediverseFollowers.length > 0 || fediverseFollowing.length > 0;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
@@ -133,6 +151,73 @@ export default async function PenPalsPage() {
                 </Link>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* Fediverse Connections */}
+        {hasFediverseConnections && (
+          <section className="mb-8">
+            <h2 className="text-xs font-medium uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Fediverse · {fediverseFollowers.length + fediverseFollowing.length}
+            </h2>
+            <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+              Connections from Mastodon and other fediverse platforms.
+            </p>
+
+            {/* Fediverse Followers */}
+            {fediverseFollowers.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
+                  Fediverse Followers · {fediverseFollowers.length}
+                </h3>
+                <div className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  {fediverseFollowers.map((actor, i) => (
+                    <a key={actor.id} href={actor.profile_url} target="_blank" rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)] ${i < fediverseFollowers.length - 1 ? "border-b" : ""}`}
+                      style={{ borderColor: "var(--border)" }}>
+                      <Avatar url={actor.avatar_url} name={actor.display_name || actor.username} size={40} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{actor.display_name || actor.username}</p>
+                        <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{actor.username}@{actor.domain}</p>
+                      </div>
+                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--muted)" }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        {actor.domain}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fediverse Following */}
+            {fediverseFollowing.length > 0 && (
+              <div>
+                <h3 className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
+                  Fediverse Following · {fediverseFollowing.length}
+                </h3>
+                <div className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  {fediverseFollowing.map((actor, i) => (
+                    <a key={actor.id} href={actor.profile_url} target="_blank" rel="noopener noreferrer"
+                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)] ${i < fediverseFollowing.length - 1 ? "border-b" : ""}`}
+                      style={{ borderColor: "var(--border)" }}>
+                      <Avatar url={actor.avatar_url} name={actor.display_name || actor.username} size={40} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{actor.display_name || actor.username}</p>
+                        <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{actor.username}@{actor.domain}</p>
+                      </div>
+                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--muted)" }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        {actor.domain}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         )}
 

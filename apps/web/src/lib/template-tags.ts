@@ -113,6 +113,9 @@ export interface TemplateContext {
   entryCount: number;
   penPalCount: number;
   readerCount: number;
+  followerCount: number;
+  followingCount: number;
+  fediverseFollowerCount: number;
   pinnedEntries: Array<{
     id: string;
     slug: string;
@@ -150,8 +153,8 @@ function renderTextTag(tag: string, ctx: TemplateContext): string {
     case "stats": {
       const parts: string[] = [];
       parts.push(`<strong>${ctx.entryCount}</strong> entries`);
-      if (ctx.penPalCount > 0) parts.push(`<strong>${ctx.penPalCount}</strong> pen pals`);
-      if (ctx.readerCount > 0) parts.push(`<strong>${ctx.readerCount}</strong> readers`);
+      parts.push(`<strong>${ctx.followerCount}</strong> followers`);
+      parts.push(`<strong>${ctx.followingCount}</strong> following`);
       const joinDate = new Date(ctx.profile.created_at).toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",

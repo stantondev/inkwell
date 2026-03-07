@@ -23,6 +23,7 @@ import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
 import type { TemplateContext } from "@/lib/template-tags";
 import { SignupCta } from "@/components/signup-cta";
+import { FediverseHandle } from "./fediverse-handle";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -417,6 +418,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let entryCount = 0;
   let penPalCount = 0;
   let readerCount = 0;
+  let followerCount = 0;
+  let followingCount = 0;
+  let fediverseFollowerCount = 0;
   let relationshipStatus: string | null = null;
 
   let entryYears: number[] = [];
@@ -430,6 +434,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
         entry_count: number;
         pen_pal_count?: number;
         reader_count?: number;
+        follower_count?: number;
+        following_count?: number;
+        fediverse_follower_count?: number;
         top_friends: TopFriendSlot[];
         relationship_status?: string | null;
         entry_years?: number[];
@@ -442,6 +449,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
     entryCount = data.meta.entry_count;
     penPalCount = data.meta.pen_pal_count ?? 0;
     readerCount = data.meta.reader_count ?? 0;
+    followerCount = data.meta.follower_count ?? 0;
+    followingCount = data.meta.following_count ?? 0;
+    fediverseFollowerCount = data.meta.fediverse_follower_count ?? 0;
     topFriends = data.meta.top_friends ?? [];
     relationshipStatus = data.meta.relationship_status ?? null;
     entryYears = data.meta.entry_years ?? [];
@@ -631,6 +641,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
       entryCount,
       penPalCount,
       readerCount,
+      followerCount,
+      followingCount,
+      fediverseFollowerCount,
       pinnedEntries,
       visitorCount: profile.visitor_count ?? 0,
       isOwnProfile,
@@ -1015,6 +1028,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 )}
               </h1>
               <p className="text-sm" style={{ color: styles.muted }}>@{profile.username}</p>
+              <FediverseHandle username={profile.username} mutedColor={styles.muted} accentColor={styles.accent} />
             </div>
 
             {/* Status message — inline editable on own profile */}
@@ -1043,11 +1057,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm" style={{ color: styles.muted }}>
               <span><strong style={{ color: styles.foreground }}>{entryCount}</strong> entries</span>
-              {penPalCount > 0 && (
-                <span title="Pen pals are mutual follows — you follow each other"><strong style={{ color: styles.foreground }}>{penPalCount}</strong> pen pals <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 opacity-40" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
-              )}
-              {readerCount > 0 && (
-                <span title="People who follow this writer"><strong style={{ color: styles.foreground }}>{readerCount}</strong> readers</span>
+              <span title="Total followers (including fediverse)"><strong style={{ color: styles.foreground }}>{followerCount}</strong> followers</span>
+              <span title="Total following (including fediverse)"><strong style={{ color: styles.foreground }}>{followingCount}</strong> following</span>
+              {fediverseFollowerCount > 0 && (
+                <span title="Followers from the fediverse (Mastodon, etc.)" className="inline-flex items-center gap-1">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <strong style={{ color: styles.foreground }}>{fediverseFollowerCount}</strong> from fediverse
+                </span>
               )}
               <span>Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
             </div>

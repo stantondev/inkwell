@@ -199,6 +199,32 @@ defmodule InkwellWeb.RelationshipController do
     end
   end
 
+  # GET /api/fediverse-followers — remote actors following the current user
+  def fediverse_followers(conn, _params) do
+    user = conn.assigns.current_user
+    actors = Social.list_fediverse_followers(user.id)
+    json(conn, %{data: Enum.map(actors, &render_remote_actor/1)})
+  end
+
+  # GET /api/fediverse-following — remote actors the current user follows
+  def fediverse_following(conn, _params) do
+    user = conn.assigns.current_user
+    actors = Social.list_fediverse_following(user.id)
+    json(conn, %{data: Enum.map(actors, &render_remote_actor/1)})
+  end
+
+  defp render_remote_actor(actor) do
+    %{
+      id: actor.id,
+      username: actor.username,
+      domain: actor.domain,
+      display_name: actor.display_name,
+      avatar_url: actor.avatar_url,
+      ap_id: actor.ap_id,
+      profile_url: actor.ap_id
+    }
+  end
+
   # GET /api/blocked-users
   def blocked_users(conn, _params) do
     user = conn.assigns.current_user

@@ -2,6 +2,7 @@ defmodule Inkwell.Social do
   import Ecto.Query
   alias Inkwell.Repo
   alias Inkwell.Social.{Relationship, FriendFilter, TopFriend}
+  alias Inkwell.Federation.RemoteActorSchema
 
   # Relationships
 
@@ -272,6 +273,38 @@ defmodule Inkwell.Social do
   def count_readers(user_id) do
     Relationship
     |> where([r], r.following_id == ^user_id and r.status == :accepted and r.is_mutual == false)
+    |> Repo.aggregate(:count)
+  end
+
+  # Fediverse followers = remote actors that follow this user
+  def list_fediverse_followers(user_id) do
+    Relationship
+    |> where([r], r.following_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
+    |> join(:inner, [r], ra in RemoteActorSchema, on: r.remote_actor_id == ra.id)
+    |> select([r, ra], ra)
+    |> order_by([r, ra], asc: ra.domain, asc: ra.username)
+    |> Repo.all()
+  end
+
+  # Fediverse following = remote actors that this user follows
+  def list_fediverse_following(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
+    |> join(:inner, [r], ra in RemoteActorSchema, on: r.remote_actor_id == ra.id)
+    |> select([r, ra], ra)
+    |> order_by([r, ra], asc: ra.domain, asc: ra.username)
+    |> Repo.all()
+  end
+
+  def count_fediverse_followers(user_id) do
+    Relationship
+    |> where([r], r.following_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
+    |> Repo.aggregate(:count)
+  end
+
+  def count_fediverse_following(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
     |> Repo.aggregate(:count)
   end
 
