@@ -47,6 +47,9 @@ defmodule Inkwell.Journals.Entry do
     field :content_warning, :string
     field :admin_sensitive, :boolean, default: false
 
+    # Cross-posting
+    field :crosspost_results, :map, default: %{}
+
     timestamps(type: :utc_datetime_usec)
   end
 

@@ -1079,6 +1079,19 @@ export function EditorClient() {
   const [existingPollId, setExistingPollId] = useState<string | null>(null);
   const [pollLocked, setPollLocked] = useState(false); // locked after votes received
 
+  // Cross-post state
+  interface FediverseAccountForCrosspost {
+    id: string;
+    domain: string;
+    remote_username: string;
+    remote_acct: string;
+    remote_display_name: string | null;
+    remote_avatar_url: string | null;
+    token_scope: string | null;
+  }
+  const [fediverseAccounts, setFediverseAccounts] = useState<FediverseAccountForCrosspost[]>([]);
+  const [crosspostTo, setCrosspostTo] = useState<Set<string>>(new Set());
+
   // Circle embed picker
   const [circlePickerOpen, setCirclePickerOpen] = useState(false);
 
@@ -1281,6 +1294,21 @@ export function EditorClient() {
     })();
   }, []);
 
+  // Fetch linked fediverse accounts for cross-posting
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/fediverse/accounts");
+        if (res.ok) {
+          const { data } = await res.json();
+          setFediverseAccounts(data ?? []);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   // Fetch series options eagerly on mount
   useEffect(() => {
     if (seriesLoaded) return;
@@ -1440,8 +1468,12 @@ export function EditorClient() {
         payload.newsletter_scheduled_at = scheduledAt;
       }
     }
+    // Cross-post fields — only include when accounts are selected
+    if (crosspostTo.size > 0 && state.privacy === "public") {
+      payload.crosspost_to = Array.from(crosspostTo);
+    }
     return payload;
-  }, [state, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt]);
+  }, [state, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -2136,6 +2168,85 @@ export function EditorClient() {
                   )}
                 </div>
               )}
+
+              {/* Cross-post section — shown when user has fediverse accounts with write scope */}
+              {(() => {
+                const writeAccounts = fediverseAccounts.filter(a => {
+                  const scope = a.token_scope || "";
+                  return scope.includes("write:statuses") || scope.includes("write");
+                });
+                const readOnlyAccounts = fediverseAccounts.filter(a => {
+                  const scope = a.token_scope || "";
+                  return !(scope.includes("write:statuses") || scope.includes("write"));
+                });
+                if (fediverseAccounts.length === 0) return null;
+                return (
+                  <div className="editor-settings-section">
+                    <div className="editor-settings-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                      Cross-post
+                    </div>
+                    {state.privacy !== "public" ? (
+                      <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                        Cross-posting is only available for public entries.
+                      </div>
+                    ) : writeAccounts.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {writeAccounts.map(account => (
+                          <label key={account.id} className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                            <input
+                              type="checkbox"
+                              checked={crosspostTo.has(account.id)}
+                              onChange={(e) => {
+                                const next = new Set(crosspostTo);
+                                if (e.target.checked) next.add(account.id);
+                                else next.delete(account.id);
+                                setCrosspostTo(next);
+                              }}
+                              className="rounded"
+                            />
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              {account.remote_avatar_url && (
+                                <img src={account.remote_avatar_url} alt="" className="w-4 h-4 rounded-full flex-shrink-0" />
+                              )}
+                              <span className="truncate">@{account.remote_acct}</span>
+                            </span>
+                          </label>
+                        ))}
+                        <div className="editor-settings-hint">
+                          A preview with link will be posted to your Mastodon timeline
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                          Your linked accounts need upgraded permissions for cross-posting.
+                        </div>
+                        {readOnlyAccounts.length > 0 && (
+                          <NextLink
+                            href="/settings/fediverse"
+                            className="text-xs font-medium"
+                            style={{ color: "var(--accent)" }}
+                          >
+                            Upgrade permissions &rarr;
+                          </NextLink>
+                        )}
+                      </div>
+                    )}
+                    {fediverseAccounts.length === 0 && (
+                      <NextLink
+                        href="/settings/fediverse"
+                        className="text-xs font-medium"
+                        style={{ color: "var(--accent)" }}
+                      >
+                        Link a Mastodon account &rarr;
+                      </NextLink>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Newsletter section — only when enabled + public */}
               {newsletterEnabled && state.privacy === "public" && (

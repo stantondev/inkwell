@@ -16,6 +16,7 @@ defmodule Inkwell.OAuth do
   @state_ttl_seconds 900
   @app_name "Inkwell"
   @app_website "https://inkwell.social"
+  @desired_scopes "read write:statuses write:media"
 
   # ── Instance Discovery ────────────────────────────────────────────
 
@@ -75,10 +76,27 @@ defmodule Inkwell.OAuth do
   """
   def get_or_register_app(domain, redirect_uri) do
     case Repo.get_by(OAuthAppRegistration, domain: domain) do
-      nil -> register_app(domain, redirect_uri)
-      registration -> {:ok, registration}
+      nil ->
+        register_app(domain, redirect_uri)
+
+      registration ->
+        # Re-register if cached app has outdated scopes (e.g., "read" but we now need write)
+        if scopes_sufficient?(registration.scopes) do
+          {:ok, registration}
+        else
+          Logger.info("Re-registering OAuth app on #{domain} — upgrading scopes from #{inspect(registration.scopes)} to #{inspect(@desired_scopes)}")
+          Repo.delete(registration)
+          register_app(domain, redirect_uri)
+        end
     end
   end
+
+  defp scopes_sufficient?(scopes) when is_binary(scopes) do
+    scope_set = scopes |> String.split() |> MapSet.new()
+    desired_set = @desired_scopes |> String.split() |> MapSet.new()
+    MapSet.subset?(desired_set, scope_set)
+  end
+  defp scopes_sufficient?(_), do: false
 
   defp register_app(domain, redirect_uri) do
     url = "https://#{domain}/api/v1/apps"
@@ -87,7 +105,7 @@ defmodule Inkwell.OAuth do
       Jason.encode!(%{
         client_name: @app_name,
         redirect_uris: redirect_uri,
-        scopes: "read",
+        scopes: @desired_scopes,
         website: @app_website
       })
 
@@ -99,7 +117,7 @@ defmodule Inkwell.OAuth do
           client_id: client_id,
           client_secret: client_secret,
           redirect_uri: redirect_uri,
-          scopes: "read"
+          scopes: @desired_scopes
         })
         |> Repo.insert()
 
@@ -179,7 +197,7 @@ defmodule Inkwell.OAuth do
         client_id: client_id,
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        scope: "read"
+        scope: @desired_scopes
       })
 
     case http_post_json(url, body) do

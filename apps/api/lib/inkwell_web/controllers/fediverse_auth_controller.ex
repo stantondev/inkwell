@@ -174,6 +174,7 @@ defmodule InkwellWeb.FediverseAuthController do
             remote_acct: a.remote_acct,
             remote_display_name: a.remote_display_name,
             remote_avatar_url: a.remote_avatar_url,
+            token_scope: a.token_scope,
             linked_at: a.inserted_at
           }
         end)
@@ -320,7 +321,7 @@ defmodule InkwellWeb.FediverseAuthController do
         "client_id" => client_id,
         "redirect_uri" => redirect_uri,
         "response_type" => "code",
-        "scope" => "read",
+        "scope" => "read write:statuses write:media",
         "state" => state
       })
 

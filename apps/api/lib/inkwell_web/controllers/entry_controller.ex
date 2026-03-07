@@ -1,8 +1,9 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, Polls, Redactions, Repo, Social, Stamps, Tipping}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
+  alias Inkwell.Workers.CrosspostWorker
   alias InkwellWeb.UserController
 
   @free_draft_limit 10
@@ -278,6 +279,9 @@ defmodule InkwellWeb.EntryController do
             # Send as newsletter if requested
             maybe_send_newsletter(entry, user, params)
 
+            # Cross-post to linked Mastodon accounts if requested
+            maybe_enqueue_crossposts(entry, user, params)
+
             conn
             |> put_status(:created)
             |> json(%{data: render_entry_full(entry, user)})
@@ -378,6 +382,9 @@ defmodule InkwellWeb.EntryController do
 
               # Send as newsletter if requested
               maybe_send_newsletter(published, user, params)
+
+              # Cross-post to linked Mastodon accounts if requested
+              maybe_enqueue_crossposts(published, user, params)
 
               json(conn, %{data: render_entry_full(published, user)})
 
@@ -482,6 +489,24 @@ defmodule InkwellWeb.EntryController do
     Map.put(attrs, "custom_filter_id", nil)
   end
   defp maybe_clear_custom_filter_id(attrs), do: attrs
+
+  # Cross-post to linked Mastodon accounts if the writer opted in
+  defp maybe_enqueue_crossposts(entry, user, params) do
+    crosspost_to = params["crosspost_to"]
+
+    if is_list(crosspost_to) and entry.privacy == :public do
+      accounts = OAuth.list_fediverse_accounts(user.id)
+      account_ids = Enum.map(accounts, & &1.id) |> MapSet.new()
+
+      Enum.each(crosspost_to, fn account_id ->
+        if MapSet.member?(account_ids, account_id) do
+          %{entry_id: entry.id, fediverse_account_id: account_id}
+          |> CrosspostWorker.new()
+          |> Oban.insert()
+        end
+      end)
+    end
+  end
 
   # Trigger newsletter send if the writer opted in for this entry
   defp maybe_send_newsletter(entry, user, params) do
