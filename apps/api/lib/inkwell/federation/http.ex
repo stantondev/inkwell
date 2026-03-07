@@ -42,7 +42,7 @@ defmodule Inkwell.Federation.Http do
 
     case :httpc.request(:get, {url_cl, headers}, http_opts(), []) do
       {:ok, {{_, status, _}, _resp_headers, body}} ->
-        {:ok, {status, to_string(body)}}
+        {:ok, {status, :erlang.list_to_binary(body)}}
 
       {:error, reason} ->
         Logger.warning("Federation HTTP GET failed for #{url}: #{inspect(reason)}")

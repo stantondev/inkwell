@@ -109,6 +109,11 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
       # 6. Fetch/cache remote actor
       case RemoteActor.fetch(actor_uri) do
         {:ok, remote_actor} ->
+          # 6b. Quality check — skip bots, short posts, link-only posts
+          unless passes_quality_check?(object, remote_actor) do
+            Logger.debug("RelayContentWorker: failed quality check, skipping")
+            :ok
+          else
           tags = extract_hashtags(object["tag"])
 
           url =
@@ -146,6 +151,7 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
               Logger.warning("RelayContentWorker: failed to store entry: #{inspect(reason)}")
               :ok
           end
+          end  # end unless quality check
 
         {:error, reason} ->
           Logger.warning("RelayContentWorker: failed to fetch actor #{actor_uri}: #{inspect(reason)}")
@@ -198,4 +204,82 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
       _ -> nil
     end
   end
+
+  # ── Quality Checks ──────────────────────────────────────────────────
+
+  defp passes_quality_check?(object, remote_actor) do
+    cond do
+      is_bot_actor?(remote_actor) ->
+        Logger.debug("RelayContentWorker: skipping bot actor #{remote_actor.username}@#{remote_actor.domain}")
+        false
+
+      # Articles and Pages bypass word count — they're long-form by definition
+      object["type"] in ~w[Article Page] ->
+        true
+
+      too_short?(object) ->
+        Logger.debug("RelayContentWorker: skipping short post (< 30 words)")
+        false
+
+      link_only?(object) ->
+        Logger.debug("RelayContentWorker: skipping link-only post")
+        false
+
+      true ->
+        true
+    end
+  end
+
+  # Bot detection: AP convention is type "Service" or "Application" for bots
+  defp is_bot_actor?(remote_actor) do
+    actor_type =
+      case remote_actor.raw_data do
+        %{"type" => t} when is_binary(t) -> t
+        _ -> "Person"
+      end
+
+    actor_type in ~w[Service Application]
+  end
+
+  # Minimum content length: 30 words of actual text (not HTML/links)
+  defp too_short?(object) do
+    plain = strip_html(object["content"] || "")
+    word_count = plain |> String.split(~r/\s+/, trim: true) |> length()
+    word_count < 30
+  end
+
+  # Link-only: if stripping <a> tags leaves < 20% of the content
+  defp link_only?(object) do
+    content = object["content"] || ""
+    # Strip all HTML tags to get full text (including link text)
+    full_text = strip_html(content) |> String.trim()
+    # Strip <a> tags and their content, then strip remaining HTML
+    without_links = Regex.replace(~r/<a[^>]*>.*?<\/a>/s, content, "") |> strip_html() |> String.trim()
+
+    full_len = String.length(full_text)
+
+    if full_len < 10 do
+      # Very short content — let too_short? handle it
+      false
+    else
+      # If removing links leaves less than 20% of the text, it's a link dump
+      String.length(without_links) / full_len < 0.2
+    end
+  end
+
+  defp strip_html(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<br\s*\/?>/, " ")
+    |> String.replace(~r/<[^>]+>/, "")
+    |> String.replace("&amp;", "&")
+    |> String.replace("&lt;", "<")
+    |> String.replace("&gt;", ">")
+    |> String.replace("&quot;", "\"")
+    |> String.replace("&#39;", "'")
+    |> String.replace("&nbsp;", " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+  end
+
+  defp strip_html(_), do: ""
 end

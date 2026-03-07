@@ -14,6 +14,7 @@ defmodule InkwellWeb.ExploreController do
     tag = params["tag"]
     category = params["category"]
     sort = params["sort"] || "newest"
+    source_filter = params["source"]
     viewer = conn.assigns[:current_user]
 
     # Check if the viewer has opted in to see sensitive content
@@ -28,19 +29,28 @@ defmodule InkwellWeb.ExploreController do
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    local_entries = Journals.list_public_explore_entries(
-      page: 1, per_page: fetch_count, tag: tag, category: category,
-      include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
-      sort: sort
-    )
-    all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
-
-    # Filter out sensitive remote entries unless viewer has opted in
-    remote_entries =
-      if include_sensitive do
-        all_remote
+    local_entries =
+      if source_filter == "fediverse" do
+        []
       else
-        Enum.reject(all_remote, fn re -> re.sensitive end)
+        Journals.list_public_explore_entries(
+          page: 1, per_page: fetch_count, tag: tag, category: category,
+          include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
+          sort: sort
+        )
+      end
+
+    remote_entries =
+      if source_filter == "inkwell" do
+        []
+      else
+        all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
+
+        if include_sensitive do
+          all_remote
+        else
+          Enum.reject(all_remote, fn re -> re.sensitive end)
+        end
       end
 
     # Normalize into a common shape
@@ -154,6 +164,7 @@ defmodule InkwellWeb.ExploreController do
         %{
           id: re.id,
           source: "remote",
+          relay_source: re.source,
           ap_id: re.ap_id,
           url: re.url,
           title: re.title,
@@ -186,7 +197,7 @@ defmodule InkwellWeb.ExploreController do
 
     json(conn, %{
       data: data,
-      pagination: %{page: page, per_page: per_page, tag: tag, category: category, sort: sort}
+      pagination: %{page: page, per_page: per_page, tag: tag, category: category, sort: sort, source: source_filter}
     })
   end
 

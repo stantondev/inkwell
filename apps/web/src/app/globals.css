@@ -989,6 +989,38 @@ a.mention:hover,
   pointer-events: none;
 }
 
+/* ─── Fediverse Entry Cards ──────────────────────────────────────────── */
+
+:root {
+  --fediverse-accent: #569e85;
+}
+
+.journal-page-fediverse {
+  border-left: 3px solid var(--fediverse-accent) !important;
+}
+
+.fediverse-compact .journal-body-clamp {
+  max-height: none;
+}
+.fediverse-compact .journal-body-clamp::after {
+  display: none;
+}
+
+.fediverse-view-link:hover {
+  color: var(--fediverse-accent) !important;
+  opacity: 0.8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fediverse-accent: #6db89f;
+  }
+}
+
+[data-theme="dark"] {
+  --fediverse-accent: #6db89f;
+}
+
 /* ─── Journal Page System ────────────────────────────────────────────── */
 
 /* Paper texture via subtle CSS noise pattern */

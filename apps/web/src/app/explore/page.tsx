@@ -35,22 +35,24 @@ interface TrendingEntry {
 }
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; category?: string; sort?: string }>;
+  searchParams: Promise<{ page?: string; category?: string; sort?: string; source?: string }>;
 }
 
 export default async function ExplorePage({ searchParams }: PageProps) {
   const session = await getSession();
-  const { page: pageParam, category, sort } = await searchParams;
+  const { page: pageParam, category, sort, source } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
   const activeSort = sort === "most_inked" ? "most_inked" : "newest";
+  const activeSource = source === "inkwell" || source === "fediverse" ? source : null;
 
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
   const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
+  const sourceParam = activeSource ? `&source=${activeSource}` : "";
 
   let entries: JournalEntry[] = [];
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?page=${page}${categoryParam}${sortParam}`,
+      `/api/explore?page=${page}${categoryParam}${sortParam}${sourceParam}`,
       {},
       session?.token
     );
@@ -142,37 +144,75 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
             <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
 
+            {/* Source filter */}
+            {([
+              { label: "All", value: null },
+              { label: "Inkwell", value: "inkwell" },
+              { label: "Fediverse", value: "fediverse" },
+            ] as const).map((s) => {
+              const p = new URLSearchParams();
+              if (category) p.set("category", category);
+              if (activeSort !== "newest") p.set("sort", activeSort);
+              if (s.value) p.set("source", s.value);
+              const qs = p.toString();
+              const isActive = activeSource === s.value;
+              return (
+                <Link
+                  key={s.label}
+                  href={`/explore${qs ? `?${qs}` : ""}`}
+                  className="text-xs px-3 py-1 rounded-full border transition-colors"
+                  style={isActive ? {
+                    borderColor: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
+                    background: s.value === "fediverse" ? "rgba(86,158,133,0.1)" : "var(--accent-light)",
+                    color: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
+                    fontWeight: 500,
+                  } : {
+                    borderColor: "var(--border)",
+                    color: "var(--muted)",
+                  }}
+                >
+                  {s.value === "fediverse" && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-px" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                  )}
+                  {s.label}
+                </Link>
+              );
+            })}
+
+            <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
+
             {/* Sort toggle */}
-            <Link
-              href={`/explore${category ? `?category=${encodeURIComponent(category)}` : ""}`}
-              className="text-xs px-3 py-1 rounded-full border transition-colors"
-              style={activeSort === "newest" ? {
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
-                fontWeight: 500,
-              } : {
-                borderColor: "var(--border)",
-                color: "var(--muted)",
-              }}
-            >
-              Newest
-            </Link>
-            <Link
-              href={`/explore?sort=most_inked${category ? `&category=${encodeURIComponent(category)}` : ""}`}
-              className="text-xs px-3 py-1 rounded-full border transition-colors"
-              style={activeSort === "most_inked" ? {
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
-                fontWeight: 500,
-              } : {
-                borderColor: "var(--border)",
-                color: "var(--muted)",
-              }}
-            >
-              Most Inked
-            </Link>
+            {([
+              { label: "Newest", value: "newest" },
+              { label: "Most Inked", value: "most_inked" },
+            ] as const).map((s) => {
+              const p = new URLSearchParams();
+              if (category) p.set("category", category);
+              if (s.value !== "newest") p.set("sort", s.value);
+              if (activeSource) p.set("source", activeSource);
+              const qs = p.toString();
+              const isActive = activeSort === s.value;
+              return (
+                <Link
+                  key={s.label}
+                  href={`/explore${qs ? `?${qs}` : ""}`}
+                  className="text-xs px-3 py-1 rounded-full border transition-colors"
+                  style={isActive ? {
+                    borderColor: "var(--accent)",
+                    background: "var(--accent-light)",
+                    color: "var(--accent)",
+                    fontWeight: 500,
+                  } : {
+                    borderColor: "var(--border)",
+                    color: "var(--muted)",
+                  }}
+                >
+                  {s.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -184,7 +224,13 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
         <div className="flex items-center gap-1.5 py-2" style={{ minWidth: "max-content" }}>
           <Link
-            href="/explore"
+            href={(() => {
+              const p = new URLSearchParams();
+              if (activeSort !== "newest") p.set("sort", activeSort);
+              if (activeSource) p.set("source", activeSource);
+              const qs = p.toString();
+              return `/explore${qs ? `?${qs}` : ""}`;
+            })()}
             className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
             style={!category ? {
               borderColor: "var(--accent)",
@@ -198,24 +244,30 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           >
             All
           </Link>
-          {CATEGORIES.map((cat) => (
-            <Link
-              key={cat.value}
-              href={`/explore?category=${cat.value}`}
-              className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
-              style={category === cat.value ? {
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
-                fontWeight: 500,
-              } : {
-                borderColor: "var(--border)",
-                color: "var(--muted)",
-              }}
-            >
-              {cat.label}
-            </Link>
-          ))}
+          {CATEGORIES.map((cat) => {
+            const p = new URLSearchParams();
+            p.set("category", cat.value);
+            if (activeSort !== "newest") p.set("sort", activeSort);
+            if (activeSource) p.set("source", activeSource);
+            return (
+              <Link
+                key={cat.value}
+                href={`/explore?${p.toString()}`}
+                className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
+                style={category === cat.value ? {
+                  borderColor: "var(--accent)",
+                  background: "var(--accent-light)",
+                  color: "var(--accent)",
+                  fontWeight: 500,
+                } : {
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                {cat.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -310,10 +362,11 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           const p = new URLSearchParams();
           if (category) p.set("category", category);
           if (activeSort !== "newest") p.set("sort", activeSort);
+          if (activeSource) p.set("source", activeSource);
           const qs = p.toString();
           return `/api/explore${qs ? `?${qs}` : ""}`;
         })()}
-        extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}`}
+        extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}${activeSource ? `&source=${activeSource}` : ""}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,

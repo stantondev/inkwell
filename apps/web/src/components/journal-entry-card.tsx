@@ -95,10 +95,13 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
     ? Math.max(1, Math.round(entry.word_count / 200))
     : null;
 
+  // Compact mode for short fediverse posts (no title, short body)
+  const isCompact = isRemote && !entry.title && entry.body_html && entry.body_html.replace(/<[^>]+>/g, "").length < 280;
+
   return (
-    <JournalPage corner edge className="flex flex-col">
+    <JournalPage corner edge className={`flex flex-col${isRemote ? " journal-page-fediverse" : ""}${isCompact ? " fediverse-compact" : ""}`}>
       {/* Top section */}
-      <div className="p-4 sm:p-5 lg:p-6 flex flex-col relative">
+      <div className={`${isCompact ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6"} flex flex-col relative`}>
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
@@ -106,18 +109,20 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           </div>
         )}
 
-        {/* Date */}
-        <time
-          className="block text-xs mb-4 tracking-wide uppercase"
-          style={{
-            color: "var(--muted)",
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            letterSpacing: "0.06em",
-          }}
-          dateTime={entry.published_at}
-        >
-          {formatDate(entry.published_at)}
-        </time>
+        {/* Date — compact fediverse posts use inline relative time */}
+        {!isCompact && (
+          <time
+            className="block text-xs mb-4 tracking-wide uppercase"
+            style={{
+              color: "var(--muted)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              letterSpacing: "0.06em",
+            }}
+            dateTime={entry.published_at}
+          >
+            {formatDate(entry.published_at)}
+          </time>
+        )}
 
         {/* Title */}
         {entry.title && (
@@ -140,26 +145,44 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
         {/* Author row */}
         <div className="flex items-center gap-3 mb-3">
           {isRemote ? (
-            <a
-              href={authorHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 group"
-            >
-              <Avatar
-                url={entry.author.avatar_url}
-                name={entry.author.display_name}
-                size={28}
-              />
-              <div className="flex flex-col leading-tight">
-                <span className="text-sm font-medium group-hover:underline">
-                  {entry.author.display_name}
+            <div className="flex items-center gap-2 flex-wrap">
+              <a
+                href={authorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 group"
+              >
+                <Avatar
+                  url={entry.author.avatar_url}
+                  name={entry.author.display_name}
+                  size={28}
+                />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-sm font-medium group-hover:underline">
+                    {entry.author.display_name}
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    @{entry.author.username}@{entry.author.domain} &middot; {ago}
+                  </span>
+                </div>
+              </a>
+              {/* Fediverse instance pill */}
+              {entry.author.domain && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: "rgba(86,158,133,0.1)",
+                    color: "var(--fediverse-accent, #569e85)",
+                    border: "1px solid rgba(86,158,133,0.25)",
+                  }}
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  {entry.author.domain}
                 </span>
-                <span className="text-xs" style={{ color: "var(--muted)" }}>
-                  @{entry.author.username}@{entry.author.domain} &middot; {ago}
-                </span>
-              </div>
-            </a>
+              )}
+            </div>
           ) : (
             <Link
               href={authorHref}
@@ -221,8 +244,16 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
             </div>
           )}
 
-          {/* Body preview — excerpt (plain text) or HTML clamp */}
-          {entry.excerpt ? (
+          {/* Body preview — compact fediverse posts show full content, others use excerpt/clamp */}
+          {isCompact ? (
+            <div>
+              <EntryContent
+                html={entry.body_html}
+                entryId={entry.id}
+                className="prose-entry text-sm leading-relaxed"
+              />
+            </div>
+          ) : entry.excerpt ? (
             <div>
               <p
                 className="text-sm leading-relaxed line-clamp-8"
@@ -308,7 +339,7 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
       {/* Footer — either custom actions or static default */}
       {actions ?? (
         <div
-          className="flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t"
+          className={`flex items-center justify-between ${isCompact ? "px-3 sm:px-4" : "px-4 sm:px-5 lg:px-6"} py-2.5 border-t`}
           style={{ borderColor: "var(--border)" }}
         >
           {isRemote ? (
@@ -316,9 +347,12 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium transition-colors hover:underline"
-              style={{ color: "var(--accent)" }}
+              className="fediverse-view-link flex items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
+              style={{ color: "var(--fediverse-accent, #569e85)" }}
             >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
               {entry.author.domain ? `View on ${entry.author.domain}` : "View original"} &rarr;
             </a>
           ) : (
