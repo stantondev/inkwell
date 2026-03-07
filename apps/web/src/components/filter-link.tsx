@@ -1,34 +1,20 @@
-"use client";
-
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { ComponentProps } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
 
 /**
- * A Link that forces a fresh server render on click.
- * Next.js's client-side router cache can serve stale content when navigating
- * between the same page with different search params (e.g., filter toggles).
- * This component intercepts the click, pushes the new URL, and refreshes
- * the server component tree to ensure fresh data.
+ * A plain <a> tag for filter navigation on Explore.
+ * Next.js <Link> uses client-side routing with an aggressive router cache
+ * that serves stale server component output when navigating between the
+ * same page with different search params. Plain <a> forces a full server
+ * navigation, guaranteeing fresh content on every filter click.
  */
 export function FilterLink({
   href,
   children,
   ...props
-}: ComponentProps<typeof Link>) {
-  const router = useRouter();
-
+}: AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode }) {
   return (
-    <Link
-      href={href}
-      onClick={(e) => {
-        e.preventDefault();
-        router.push(href as string);
-        router.refresh();
-      }}
-      {...props}
-    >
+    <a href={href} {...props}>
       {children}
-    </Link>
+    </a>
   );
 }
