@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { SignupCta } from "@/components/signup-cta";
+import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
@@ -165,7 +166,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                 (s.value === "all" && activeSource === null) ||
                 (s.value === "fediverse" && activeSource === "fediverse");
               return (
-                <Link
+                <FilterLink
                   key={s.label}
                   href={`/explore${qs ? `?${qs}` : ""}`}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
@@ -185,7 +186,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                     </svg>
                   )}
                   {s.label}
-                </Link>
+                </FilterLink>
               );
             })}
 
@@ -203,7 +204,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
               const qs = p.toString();
               const isActive = activeSort === s.value;
               return (
-                <Link
+                <FilterLink
                   key={s.label}
                   href={`/explore${qs ? `?${qs}` : ""}`}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
@@ -218,7 +219,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                   }}
                 >
                   {s.label}
-                </Link>
+                </FilterLink>
               );
             })}
           </div>
@@ -231,7 +232,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       {/* Category filter bar */}
       <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
         <div className="flex items-center gap-1.5 py-2" style={{ minWidth: "max-content" }}>
-          <Link
+          <FilterLink
             href={(() => {
               const p = new URLSearchParams();
               if (activeSort !== "newest") p.set("sort", activeSort);
@@ -251,14 +252,14 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             }}
           >
             All
-          </Link>
+          </FilterLink>
           {CATEGORIES.map((cat) => {
             const p = new URLSearchParams();
             p.set("category", cat.value);
             if (activeSort !== "newest") p.set("sort", activeSort);
             if (activeSource) p.set("source", activeSource);
             return (
-              <Link
+              <FilterLink
                 key={cat.value}
                 href={`/explore?${p.toString()}`}
                 className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
@@ -273,7 +274,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                 }}
               >
                 {cat.label}
-              </Link>
+              </FilterLink>
             );
           })}
         </div>
