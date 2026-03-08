@@ -292,9 +292,14 @@ export default function CustomDomainSettingsPage() {
                   fill="none" strokeDasharray="40" strokeDashoffset="10" />
               </svg>
               <span className="text-sm" style={{ color: "var(--muted)" }}>
-                SSL certificate being issued... This usually takes a few minutes.
+                SSL certificate being issued... This usually takes 1&ndash;5 minutes.
               </span>
             </div>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              If this takes longer than 10 minutes, make sure your DNS proxy is turned off
+              (Cloudflare users: use &ldquo;DNS only&rdquo; / gray cloud mode). The certificate
+              can&apos;t be issued while traffic is proxied through another service.
+            </p>
             <button
               onClick={handleRemove}
               disabled={removing}
@@ -386,6 +391,16 @@ export default function CustomDomainSettingsPage() {
           <li>Your fediverse identity stays <strong>@username@inkwell.social</strong></li>
           <li>SSL certificates are provisioned and renewed automatically</li>
           <li>App features (Feed, Editor, Settings) always use inkwell.social</li>
+          <li>Visitors to your custom domain see your public profile (they manage their own accounts at inkwell.social)</li>
+        </ul>
+
+        <p className="font-medium mt-4 mb-2" style={{ color: "var(--foreground)" }}>
+          Troubleshooting
+        </p>
+        <ul className="space-y-1.5 list-disc list-inside">
+          <li><strong>Certificate stuck?</strong> Turn off any DNS proxy (Cloudflare orange cloud &rarr; gray cloud). The cert can&apos;t be verified through a proxy.</li>
+          <li><strong>DNS not detected?</strong> Wait a few minutes and click &ldquo;Check DNS&rdquo; again. Some providers take longer to propagate.</li>
+          <li><strong>Using a subdomain?</strong> (e.g., blog.yoursite.com) — add a CNAME record. Using a root domain? (e.g., yoursite.com) — use CNAME flattening if your provider supports it, otherwise use A/AAAA records.</li>
         </ul>
       </div>
     </div>
@@ -438,7 +453,7 @@ function DnsInstructionsSubdomain({ domain }: { domain: string }) {
       style={{ borderColor: "var(--border)", background: "var(--background)" }}
     >
       <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-        DNS Record (Subdomain)
+        Step 1 — Point your subdomain to Inkwell
       </p>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
@@ -458,6 +473,24 @@ function DnsInstructionsSubdomain({ domain }: { domain: string }) {
           </tbody>
         </table>
       </div>
+
+      <div
+        className="rounded-lg p-3 text-xs space-y-1.5"
+        style={{ background: "color-mix(in srgb, var(--accent) 8%, transparent)", color: "var(--muted)" }}
+      >
+        <p className="font-medium" style={{ color: "var(--foreground)" }}>
+          ⚡ Using Cloudflare?
+        </p>
+        <p>
+          Make sure the <strong>proxy is turned OFF</strong> (gray cloud / &ldquo;DNS only&rdquo;) for this
+          record. Orange cloud (proxied) prevents the SSL certificate from being issued.
+        </p>
+      </div>
+
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        DNS changes usually propagate within a few minutes, but can take up to 48 hours in rare cases.
+        Once we detect the record, we&apos;ll automatically issue an SSL certificate.
+      </p>
     </div>
   );
 }
@@ -469,7 +502,7 @@ function DnsInstructionsApex({ domain }: { domain: string }) {
       style={{ borderColor: "var(--border)", background: "var(--background)" }}
     >
       <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-        DNS Records (Apex Domain)
+        Step 1 — Point your domain to Inkwell
       </p>
       <p className="text-xs" style={{ color: "var(--muted)" }}>
         If your DNS provider supports CNAME flattening, ANAME, or ALIAS records (Cloudflare, DNSimple, etc.):
@@ -492,7 +525,7 @@ function DnsInstructionsApex({ domain }: { domain: string }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
         Otherwise, use A/AAAA records pointing to Fly.io&apos;s anycast IPs. Check{" "}
         <a
           href="https://fly.io/docs/networking/custom-domains/"
@@ -504,6 +537,25 @@ function DnsInstructionsApex({ domain }: { domain: string }) {
           Fly.io docs
         </a>{" "}
         for current IP addresses.
+      </p>
+
+      <div
+        className="rounded-lg p-3 text-xs space-y-1.5"
+        style={{ background: "color-mix(in srgb, var(--accent) 8%, transparent)", color: "var(--muted)" }}
+      >
+        <p className="font-medium" style={{ color: "var(--foreground)" }}>
+          ⚡ Using Cloudflare?
+        </p>
+        <p>
+          Make sure the <strong>proxy is turned OFF</strong> (gray cloud / &ldquo;DNS only&rdquo;) for this
+          record. Orange cloud (proxied) prevents the SSL certificate from being issued. You can turn the
+          proxy back on after the certificate is active.
+        </p>
+      </div>
+
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        DNS changes usually propagate within a few minutes, but can take up to 48 hours in rare cases.
+        Once we detect the record, we&apos;ll automatically issue an SSL certificate.
       </p>
     </div>
   );
