@@ -26,22 +26,12 @@ export async function AppShell({
 
   // Custom domain mode — no header, no sidebar, no app nav
   // The author's site is THEIR brand — we stay out of the way
+  // "Powered by Inkwell" footer is rendered INSIDE the profile page's theme wrapper
+  // (in [username]/page.tsx) so it inherits the author's color scheme
   if (customDomain && customDomainUsername) {
     return (
       <main className="flex flex-col min-h-screen no-sidebar">
-        <div className="flex-1">{children}</div>
-        <footer
-          className="text-center py-4 text-xs"
-          style={{ color: "var(--muted)" }}
-        >
-          <a
-            href="https://inkwell.social"
-            className="hover:underline opacity-60 hover:opacity-100 transition-opacity"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
-          >
-            Powered by Inkwell
-          </a>
-        </footer>
+        {children}
       </main>
     );
   }

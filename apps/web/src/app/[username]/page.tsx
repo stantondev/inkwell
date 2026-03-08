@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { apiFetch, SERVER_API } from "@/lib/api";
 import { getSession } from "@/lib/session";
@@ -417,10 +418,32 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
   }
 }
 
+/**
+ * Subtle "Powered by Inkwell" footer for custom domain pages.
+ * Rendered INSIDE the profile's theme wrapper so it inherits the author's colors.
+ */
+function PoweredByInkwell() {
+  return (
+    <div className="text-center py-6 text-xs" style={{ color: "var(--muted)" }}>
+      <a
+        href="https://inkwell.social"
+        className="hover:underline opacity-40 hover:opacity-70 transition-opacity"
+        style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+      >
+        Powered by Inkwell
+      </a>
+    </div>
+  );
+}
+
 export default async function ProfilePage({ params }: ProfileParams) {
   const { username } = await params;
   const session = await getSession();
   const isOwnProfile = session?.user.username === username;
+
+  // Detect custom domain context (for rendering "Powered by Inkwell" inside theme wrapper)
+  const reqHeaders = await headers();
+  const isOnCustomDomain = !!reqHeaders.get("x-custom-domain");
 
   // Fetch user profile
   let profile: ProfileUser;
@@ -738,6 +761,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             entryCategories={entryCategories}
           />
         </div>
+        {isOnCustomDomain && <PoweredByInkwell />}
       </div>
     );
   }
@@ -1185,8 +1209,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
           </div>
         )}
 
-        {/* Signup CTA for logged-out visitors */}
-        {!session && (
+        {/* Signup CTA for logged-out visitors (not on custom domain — it's their site) */}
+        {!session && !isOnCustomDomain && (
           <div className="mt-12 mb-4">
             <SignupCta
               heading="Start your own journal"
@@ -1194,6 +1218,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
             />
           </div>
         )}
+
+        {isOnCustomDomain && <PoweredByInkwell />}
       </div>
     </div>
   );

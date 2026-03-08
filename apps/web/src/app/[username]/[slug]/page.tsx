@@ -795,13 +795,26 @@ export default async function EntryPage({ params }: EntryParams) {
         <CommentForm entryId={entry.id} isLoggedIn={!!session} />
       </section>
 
-      {/* Signup CTA for logged-out visitors */}
-      {!session && (
+      {/* Signup CTA for logged-out visitors (not on custom domain) */}
+      {!session && !customDomain && (
         <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
           <SignupCta
             heading="Enjoyed this entry?"
             subheading="Inkwell is a social journaling platform where writers customize their space, connect with readers, and own their content. No algorithms, no ads."
           />
+        </div>
+      )}
+
+      {/* Subtle attribution footer on custom domain — inside theme wrapper so colors match */}
+      {customDomain && (
+        <div className="text-center py-6 text-xs" style={{ color: "var(--muted)" }}>
+          <a
+            href="https://inkwell.social"
+            className="hover:underline opacity-40 hover:opacity-70 transition-opacity"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+          >
+            Powered by Inkwell
+          </a>
         </div>
       )}
     </div>
