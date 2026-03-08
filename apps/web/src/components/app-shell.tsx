@@ -24,57 +24,25 @@ export async function AppShell({
   const customDomain = headersList.get("x-custom-domain");
   const customDomainUsername = headersList.get("x-custom-domain-username");
 
-  // Custom domain mode — minimal chrome, no sidebar, no app nav
+  // Custom domain mode — no header, no sidebar, no app nav
+  // The author's site is THEIR brand — we stay out of the way
   if (customDomain && customDomainUsername) {
     return (
-      <>
-        <header
-          className="flex items-center justify-between px-4 sm:px-6 py-3 border-b"
-          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      <main className="flex flex-col min-h-screen no-sidebar">
+        <div className="flex-1">{children}</div>
+        <footer
+          className="text-center py-4 text-xs"
+          style={{ color: "var(--muted)" }}
         >
           <a
-            href={`https://inkwell.social/${customDomainUsername}`}
-            className="text-sm font-medium hover:underline"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+            href="https://inkwell.social"
+            className="hover:underline opacity-60 hover:opacity-100 transition-opacity"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
           >
-            @{customDomainUsername} on Inkwell
+            Powered by Inkwell
           </a>
-          <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted)" }}>
-            <a
-              href={`https://inkwell.social/${customDomainUsername}/subscribe`}
-              className="hover:underline"
-            >
-              Subscribe
-            </a>
-            <a href="https://inkwell.social" className="hover:underline">
-              Inkwell
-            </a>
-          </div>
-        </header>
-        <main className="flex flex-col min-h-screen no-sidebar">
-          <div className="flex-1">{children}</div>
-          <footer
-            className="text-center py-6 text-xs border-t"
-            style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-          >
-            <a
-              href="https://inkwell.social"
-              className="hover:underline"
-              style={{ color: "var(--accent)" }}
-            >
-              Powered by Inkwell
-            </a>
-            {" · "}
-            <a href="https://inkwell.social/terms" className="hover:underline">
-              Terms
-            </a>
-            {" · "}
-            <a href="https://inkwell.social/privacy" className="hover:underline">
-              Privacy
-            </a>
-          </footer>
-        </main>
-      </>
+        </footer>
+      </main>
     );
   }
 

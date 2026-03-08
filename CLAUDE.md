@@ -831,7 +831,7 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - Passthrough for `/api/`, `/_next/`, static assets
 - **Frontend — Layout** (`apps/web/src/components/app-shell.tsx`):
   - Reads `x-custom-domain` headers via `headers()` (async server component)
-  - Custom domain mode: simplified header (author link + Subscribe/Inkwell) + "Powered by Inkwell" footer
+  - Custom domain mode: no header — author's site is their brand; subtle italic "Powered by Inkwell" footer only
   - Standard mode unchanged
 - **Frontend — Pages**:
   - `apps/web/src/app/[username]/page.tsx` — custom domain canonical URL, OG metadata, RSS alternate, "Visit your site" link on own profile
