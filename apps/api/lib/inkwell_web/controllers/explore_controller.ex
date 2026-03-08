@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
   alias Inkwell.Federation.{ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
@@ -136,31 +136,60 @@ defmodule InkwellWeb.ExploreController do
         MapSet.new()
       end
 
+    # Build set of subscribed writer IDs for paywall checks
+    subscribed_writer_ids_set =
+      if viewer do
+        WriterSubscriptions.get_subscribed_writer_ids(viewer.id) |> MapSet.new()
+      else
+        MapSet.new()
+      end
+
     data = Enum.map(all_items, fn
       %{type: :local, entry: entry} ->
         author = entry.user || Accounts.get_user!(entry.user_id)
+        is_paid = entry.privacy == :paid
+        is_own = viewer != nil && viewer.id == entry.user_id
+        is_subscribed = MapSet.member?(subscribed_writer_ids_set, entry.user_id)
+        is_paywalled = is_paid && !is_own && !is_subscribed
 
-        entry
-        |> EntryController.render_entry()
-        |> Map.merge(%{
-          source: "local",
-          author: %{
-            id: author.id,
-            username: author.username,
-            display_name: author.display_name,
-            avatar_url: author.avatar_url,
-            subscription_tier: author.subscription_tier,
-            ink_donor_status: author.ink_donor_status
-          },
-          user_icon: entry.user_icon,
-          comment_count: Map.get(local_comment_counts, entry.id, 0),
-          stamps: Map.get(stamp_types_map, entry.id, []),
-          my_stamp: Map.get(my_stamps_map, entry.id),
-          bookmarked: MapSet.member?(bookmarks_set, entry.id),
-          ink_count: entry.ink_count || 0,
-          my_ink: MapSet.member?(inks_set, entry.id),
-          series: Map.get(series_map, entry.id)
-        })
+        rendered =
+          entry
+          |> EntryController.render_entry()
+          |> Map.merge(%{
+            source: "local",
+            author: %{
+              id: author.id,
+              username: author.username,
+              display_name: author.display_name,
+              avatar_url: author.avatar_url,
+              subscription_tier: author.subscription_tier,
+              ink_donor_status: author.ink_donor_status
+            },
+            user_icon: entry.user_icon,
+            comment_count: Map.get(local_comment_counts, entry.id, 0),
+            stamps: Map.get(stamp_types_map, entry.id, []),
+            my_stamp: Map.get(my_stamps_map, entry.id),
+            bookmarked: MapSet.member?(bookmarks_set, entry.id),
+            ink_count: entry.ink_count || 0,
+            my_ink: MapSet.member?(inks_set, entry.id),
+            series: Map.get(series_map, entry.id),
+            is_paid: is_paid,
+            is_paywalled: is_paywalled
+          })
+
+        if is_paywalled do
+          plan = WriterSubscriptions.get_active_plan_for_writer(entry.user_id)
+          rendered
+          |> Map.put(:body_html, nil)
+          |> Map.put(:writer_plan, if(plan, do: %{
+            id: plan.id,
+            name: plan.name,
+            price_cents: plan.price_cents,
+            subscriber_count: plan.subscriber_count
+          }, else: nil))
+        else
+          rendered
+        end
 
       %{type: :remote, entry: re} ->
         actor = re.remote_actor

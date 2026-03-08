@@ -169,6 +169,7 @@ export default async function LandingPage() {
                   "1 GB image storage",
                   "Unlimited drafts",
                   "Integrated Postage (reader support payments)",
+                  "Paid subscription plans (earn from your writing)",
                   "API read + write access (300 req/15 min)",
                   "Custom colors, fonts & layouts",
                   "Background images & profile music",

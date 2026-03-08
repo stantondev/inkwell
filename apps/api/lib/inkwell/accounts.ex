@@ -258,6 +258,10 @@ defmodule Inkwell.Accounts do
       Inkwell.Billing.cancel_donor_subscription(user.ink_donor_stripe_subscription_id)
     end
 
+    # Cancel writer plan subscriptions (both as writer and subscriber)
+    Inkwell.WriterSubscriptions.cancel_all_for_writer(user.id)
+    Inkwell.WriterSubscriptions.cancel_all_for_subscriber(user.id)
+
     # DB cascading foreign keys handle all associated data
     Repo.delete(user)
   end

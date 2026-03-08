@@ -39,6 +39,8 @@ export interface JournalEntry {
   sensitive?: boolean;
   content_warning?: string | null;
   is_sensitive?: boolean;
+  is_paywalled?: boolean;
+  is_paid?: boolean;
   /** "local" (default) or "remote" for federated entries */
   source?: "local" | "remote";
   /** Original URL for remote entries */
@@ -138,6 +140,24 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
               <Link href={href} className="hover:underline">
                 {entry.title}
               </Link>
+            )}
+            {(entry.is_paywalled || entry.is_paid) && (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="inline-block ml-2 align-middle"
+                style={{ color: "var(--muted)", verticalAlign: "middle" }}
+                aria-label="Paid subscribers only"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             )}
           </h2>
         )}

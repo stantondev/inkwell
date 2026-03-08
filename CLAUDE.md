@@ -252,6 +252,20 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - No features unlocked — badge only
 - **Onboarding checkout** — `POST /api/billing/onboarding-checkout` creates Stripe Checkout sessions that redirect back to `/welcome?checkout=success&type={plus|donor}&step=5` instead of `/settings/billing`. Accepts `%{"type" => "plus"}` or `%{"type" => "donor", "amount_cents" => 100|200|300}`. Frontend proxy: `apps/web/src/app/api/billing/onboarding-checkout/route.ts`
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
+- **Writer Subscription Plans** — Plus-only recurring subscriptions. Writers create a monthly plan ($1–$100), publish `:paid` privacy entries visible only to subscribers. Inkwell takes 8% via `application_fee_percent` on Stripe Connect destination charges. One active plan per writer (UI-enforced). Requires Plus + Stripe Connect onboarded.
+  - **Backend**: `Inkwell.WriterSubscriptions` context module — plan CRUD (create with Stripe Product+Price, archive, update name/desc), subscription management (Stripe Checkout, cancel via Stripe API, is_subscribed? query), webhook handlers (checkout.session.completed, subscription.updated/deleted), stats aggregation, account deletion hooks
+  - `apps/api/lib/inkwell/writer_subscriptions/writer_plan.ex` — WriterPlan Ecto schema (belongs_to :writer, status active/archived)
+  - `apps/api/lib/inkwell/writer_subscriptions/plan_subscription.ex` — PlanSubscription Ecto schema (subscriber_id, writer_id, stripe_subscription_id)
+  - `apps/api/lib/inkwell_web/controllers/writer_subscription_controller.ex` — 11 actions (get_writer_plan, get_my_plan, create/update/archive plan, checkout, cancel, subscriptions, subscribers, stats, check)
+  - 11 routes in `router.ex` (1 optional_auth + 10 authenticated)
+  - Entry visibility: `:paid` privacy enum value, feed includes paid entries from subscribed writers, explore includes paid entries with body stripped, entry show returns `is_paywalled` + `writer_plan` data for non-subscribers
+  - Webhook routing in `billing.ex`: `"writer_plan"` metadata type check in checkout, `get_subscription_by_stripe_id` routing in subscription events
+  - `:writer_plan_subscribe` notification type with dollar icon
+  - `has_writer_plan` in session (`render_user/1`, `SessionUser`)
+  - Slack notification on new subscription
+  - Migrations: `20260309000055` (add `:paid` enum value), `20260309000056` (writer_plans + writer_plan_subscriptions tables)
+  - **Frontend**: editor shows "Paid subscribers only" privacy when Plus+Connect+Plan, `PaywallCard` component on entry detail (gradient overlay, subscribe CTA), `WriterSubscribeCard` profile sidebar widget, `/settings/subscriptions` writer dashboard (create/manage plan, stats, subscriber list), `/for-writers` marketing page, lock icon on feed cards for paid entries
+  - 10 proxy routes under `apps/web/src/app/api/writer-plans/`
 - **Free vs Plus tier feature gating**:
   - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image, 500 newsletter subscribers, 2 newsletter sends/month, API read-only access (100 req/15min per key)
   - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, First Class stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)

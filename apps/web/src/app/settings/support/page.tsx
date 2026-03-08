@@ -30,6 +30,7 @@ interface UserData {
   stripe_connect_account_id?: string | null;
   stripe_connect_enabled?: boolean;
   stripe_connect_onboarded?: boolean;
+  has_writer_plan?: boolean;
 }
 
 export default function SupportSettingsPage() {
@@ -509,6 +510,26 @@ export default function SupportSettingsPage() {
           <p className="text-sm mt-3" style={{ color: "var(--danger)" }}>{error}</p>
         )}
       </div>
+
+      {/* Writer subscriptions prompt (when Connect is live but no plan yet) */}
+      {isPlus && isFullyOnboarded && !user?.has_writer_plan && (
+        <div className="rounded-xl border p-6" style={{ borderColor: "var(--accent)", background: "var(--surface)" }}>
+          <h2 className="text-base font-semibold mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Ready to earn from your writing?
+          </h2>
+          <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
+            Your Stripe account is connected. Create a subscription plan so readers can subscribe
+            for access to your paid entries.
+          </p>
+          <a
+            href="/settings/subscriptions"
+            className="inline-flex rounded-full px-5 py-2 text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            Create a subscription plan &rarr;
+          </a>
+        </div>
+      )}
 
       {/* Fee info */}
       <div className="text-xs space-y-1" style={{ color: "var(--muted)" }}>
