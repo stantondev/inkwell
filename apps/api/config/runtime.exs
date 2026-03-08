@@ -124,4 +124,7 @@ if config_env() == :prod do
   config :inkwell, :anthropic_api_key, System.get_env("ANTHROPIC_API_KEY")
   config :inkwell, :muse_enabled, System.get_env("MUSE_ENABLED") == "true"
   config :inkwell, :muse_username, System.get_env("MUSE_ACCOUNT_USERNAME") || "muse"
+
+  # Fly.io API token (for custom domain certificate management)
+  config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 end

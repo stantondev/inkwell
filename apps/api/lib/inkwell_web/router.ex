@@ -83,6 +83,9 @@ defmodule InkwellWeb.Router do
     get "/invite-link/:code", InvitationController, :show_inviter
     get "/invite-token/:token", InvitationController, :show_invite
 
+    # Custom domain resolution (public, called by Next.js middleware)
+    get "/custom-domain/resolve", CustomDomainController, :resolve
+
     # Stripe webhook (public, verified by signature)
     post "/billing/webhook", BillingController, :webhook
 
@@ -359,6 +362,12 @@ defmodule InkwellWeb.Router do
     get "/invitations", InvitationController, :index
     get "/invitations/stats", InvitationController, :stats
     post "/invitations", InvitationController, :create
+
+    # Custom domains (authenticated)
+    get "/custom-domain", CustomDomainController, :show
+    post "/custom-domain", CustomDomainController, :create
+    post "/custom-domain/check", CustomDomainController, :check
+    delete "/custom-domain", CustomDomainController, :delete
 
     # Newsletter (authenticated endpoints)
     get "/newsletter/settings", NewsletterController, :get_settings

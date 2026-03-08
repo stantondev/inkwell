@@ -262,6 +262,17 @@ defmodule Inkwell.Accounts do
     Inkwell.WriterSubscriptions.cancel_all_for_writer(user.id)
     Inkwell.WriterSubscriptions.cancel_all_for_subscriber(user.id)
 
+    # Clean up Fly certificate for custom domain (if any) before DB cascade
+    if domain = Inkwell.CustomDomains.get_domain_by_user(user.id) do
+      if domain.status in ["active", "pending_cert"] do
+        Inkwell.Workers.CustomDomainCertWorker.new(%{
+          "action" => "delete",
+          "hostname" => domain.domain
+        })
+        |> Oban.insert()
+      end
+    end
+
     # DB cascading foreign keys handle all associated data
     Repo.delete(user)
   end

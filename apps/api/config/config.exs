@@ -44,7 +44,8 @@ config :inkwell, Oban,
        {"0 */4 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
        {"0 9 * * *", Inkwell.Workers.MuseWorker, args: %{"type" => "daily_prompt"}},
        {"0 10 * * 0", Inkwell.Workers.MuseWorker, args: %{"type" => "weekly_roundup"}},
-       {"0 11 1 * *", Inkwell.Workers.MuseWorker, args: %{"type" => "monthly_update"}}
+       {"0 11 1 * *", Inkwell.Workers.MuseWorker, args: %{"type" => "monthly_update"}},
+       {"*/5 * * * *", Inkwell.Workers.CustomDomainCheckWorker}
      ]}
   ]
 

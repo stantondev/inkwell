@@ -4,8 +4,107 @@ import { TOKEN_COOKIE } from "@/lib/session";
 const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings"];
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
-export function middleware(request: NextRequest) {
+// ── Custom domain detection ─────────────────────────────────────────────────
+
+const KNOWN_HOSTS = new Set([
+  "inkwell.social",
+  "www.inkwell.social",
+  "inkwell-web.fly.dev",
+  "localhost",
+  "127.0.0.1",
+]);
+
+// App routes that should redirect to inkwell.social (not served on custom domains)
+const APP_ROUTES = [
+  "/feed", "/editor", "/drafts", "/admin", "/letters", "/saved",
+  "/settings", "/login", "/get-started", "/welcome", "/explore",
+  "/search", "/notifications", "/roadmap", "/polls", "/circles",
+  "/pen-pals", "/developers", "/category", "/tag",
+];
+
+// In-memory cache for custom domain resolution (60-second TTL)
+const domainCache = new Map<string, { username: string | null; expiry: number }>();
+const CACHE_TTL = 60_000; // 60 seconds
+
+const API_URL = process.env.API_URL ?? "http://localhost:4000";
+
+async function resolveCustomDomain(hostname: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = domainCache.get(hostname);
+  if (cached && cached.expiry > now) return cached.username;
+
+  try {
+    const res = await fetch(
+      `${API_URL}/api/custom-domain/resolve?hostname=${encodeURIComponent(hostname)}`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const username = data.found ? data.username : null;
+      domainCache.set(hostname, { username, expiry: now + CACHE_TTL });
+      return username;
+    }
+  } catch {
+    // API unreachable — don't cache failure
+  }
+  return null;
+}
+
+// ── Middleware ───────────────────────────────────────────────────────────────
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Custom domain detection (before auth logic) ───────────────────────
+  const host = request.headers.get("host")?.replace(/:\d+$/, "") ?? "";
+
+  if (host && !KNOWN_HOSTS.has(host)) {
+    const username = await resolveCustomDomain(host);
+
+    if (!username) {
+      // Domain points to us but isn't configured — show not-found page
+      const url = request.nextUrl.clone();
+      url.pathname = "/custom-domain-not-found";
+      const response = NextResponse.rewrite(url);
+      response.headers.set("x-custom-domain", host);
+      return response;
+    }
+
+    // Passthrough routes: API proxies, Next.js internals, static assets
+    if (
+      pathname.startsWith("/api/") ||
+      pathname.startsWith("/_next/") ||
+      pathname.startsWith("/stamps/") ||
+      pathname.startsWith("/frames/") ||
+      pathname === "/favicon.svg" ||
+      pathname === "/favicon.ico" ||
+      pathname === "/inkwell-logo.svg"
+    ) {
+      return NextResponse.next();
+    }
+
+    // App routes → redirect to inkwell.social
+    if (APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+      return NextResponse.redirect(new URL(pathname, "https://inkwell.social"));
+    }
+
+    // Rewrite: / → /[username] (profile page)
+    // Rewrite: /some-slug → /[username]/some-slug (entry page)
+    // Rewrite: /subscribe → /[username]/subscribe
+    const url = request.nextUrl.clone();
+    if (pathname === "/" || pathname === "") {
+      url.pathname = `/${username}`;
+    } else {
+      url.pathname = `/${username}${pathname}`;
+    }
+
+    const response = NextResponse.rewrite(url);
+    response.headers.set("x-custom-domain", host);
+    response.headers.set("x-custom-domain-username", username);
+    return response;
+  }
+
+  // ── Standard inkwell.social logic ─────────────────────────────────────
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 
   if (PROTECTED.some((p) => pathname.startsWith(p)) && !token) {

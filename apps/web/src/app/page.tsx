@@ -176,6 +176,7 @@ export default async function LandingPage() {
                   "Custom colors, fonts & layouts",
                   "Background images & profile music",
                   "Custom HTML & CSS",
+                  "Custom domain (your-site.com)",
                   "Plus badge on your profile",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">

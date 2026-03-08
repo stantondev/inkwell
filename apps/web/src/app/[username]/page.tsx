@@ -363,6 +363,11 @@ function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[
 
 export async function generateMetadata({ params }: ProfileParams): Promise<Metadata> {
   const { username } = await params;
+
+  // Detect custom domain context
+  const headersList = await import("next/headers").then(m => m.headers());
+  const customDomain = headersList.get("x-custom-domain");
+
   try {
     const data = await apiFetch<{ data: ProfileUser }>(`/api/users/${username}`);
     const profile = data.data;
@@ -370,12 +375,18 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const bio = profile.bio
       ? profile.bio.replace(/<[^>]+>/g, "").slice(0, 160)
       : `@${username} on Inkwell`;
-    const profileUrl = `https://inkwell.social/${username}`;
+    const profileUrl = customDomain
+      ? `https://${customDomain}`
+      : `https://inkwell.social/${username}`;
+    const rssUrl = customDomain
+      ? `https://${customDomain}/api/users/${username}/feed.xml`
+      : `https://inkwell.social/api/users/${username}/feed.xml`;
     const hasAvatar = !!profile.avatar_url;
 
     return {
-      title: `@${username}`,
+      title: customDomain ? displayName : `@${username}`,
       description: bio,
+      ...(customDomain ? { metadataBase: new URL(`https://${customDomain}`) } : {}),
       openGraph: {
         title: displayName,
         description: bio,
@@ -397,7 +408,7 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
       alternates: {
         canonical: profileUrl,
         types: {
-          "application/rss+xml": `https://inkwell.social/api/users/${username}/feed.xml`,
+          "application/rss+xml": rssUrl,
         },
       },
     };
@@ -473,6 +484,23 @@ export default async function ProfilePage({ params }: ProfileParams) {
     writerPlan = planData.data;
   } catch {
     // no plan or fetch failed — ignore
+  }
+
+  // Fetch custom domain for own profile (to show "Visit your site" link)
+  let customDomainName: string | null = null;
+  if (isOwnProfile && session?.token) {
+    try {
+      const domainRes = await apiFetch<{ data: { domain: string; status: string } | null }>(
+        "/api/custom-domain",
+        {},
+        session.token
+      );
+      if (domainRes.data && domainRes.data.status === "active") {
+        customDomainName = domainRes.data.domain;
+      }
+    } catch {
+      // no domain — ignore
+    }
   }
 
   // Fire-and-forget: increment visitor count for non-owner views
@@ -989,7 +1017,22 @@ export default async function ProfilePage({ params }: ProfileParams) {
                 <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
               </div>
               {isOwnProfile ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {customDomainName && (
+                    <a
+                      href={`https://${customDomainName}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors hover:opacity-80 inline-flex items-center gap-1.5"
+                      style={{ borderColor: styles.accent, color: styles.accent }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                      {customDomainName}
+                    </a>
+                  )}
                   <Link href="/settings"
                     className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
                     style={{ borderColor: styles.border, color: styles.muted }}>

@@ -515,6 +515,9 @@ defmodule Inkwell.Billing do
 
           Logger.info("Subscription canceled for #{user.username} — reverted to Free")
           Inkwell.Slack.notify_plus_cancellation(user.username)
+
+          # Deactivate custom domain on downgrade
+          maybe_deactivate_custom_domain(user.id)
         end
 
         :ok
@@ -628,5 +631,26 @@ defmodule Inkwell.Billing do
 
   defp stripe_config do
     Application.get_env(:inkwell, :stripe, [])
+  end
+
+  defp maybe_deactivate_custom_domain(user_id) do
+    case Inkwell.CustomDomains.get_domain_by_user(user_id) do
+      nil ->
+        :ok
+
+      domain when domain.status in ["active", "pending_cert", "pending_dns"] ->
+        Inkwell.CustomDomains.update_status(domain, "removed")
+
+        if domain.status in ["active", "pending_cert"] do
+          Inkwell.Workers.CustomDomainCertWorker.new(%{
+            "action" => "delete",
+            "hostname" => domain.domain
+          })
+          |> Oban.insert()
+        end
+
+      _domain ->
+        :ok
+    end
   end
 end

@@ -59,6 +59,7 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 - `ANTHROPIC_API_KEY` — Claude API key for Muse writing prompt generation (optional — falls back to evergreen prompts)
 - `MUSE_ENABLED` — set to `"true"` to enable the Muse content bot (default: disabled)
 - `MUSE_ACCOUNT_USERNAME` — username for the Muse bot account (default: `"muse"`)
+- `FLY_API_TOKEN` — Fly.io deploy token for the `inkwell-web` app; used by Fly Certificates API for custom domain TLS provisioning (generated via `fly tokens deploy -a inkwell-web`)
 
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
@@ -268,7 +269,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - 10 proxy routes under `apps/web/src/app/api/writer-plans/`
 - **Free vs Plus tier feature gating**:
   - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image, 500 newsletter subscribers, 2 newsletter sends/month, API read-only access (100 req/15min per key)
-  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, First Class stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)
+  - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, custom domain, First Class stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)
   - **Backend enforcement**: `PATCH /api/me` silently strips Plus-only fields (`profile_music`, `profile_background_color`, `profile_accent_color`, `profile_foreground_color`, `profile_font`, `profile_layout`, `profile_widgets`) for free users. `POST /api/me/background` returns 403 for non-Plus. Draft limit (10), filter limit (5), image storage (100MB), custom HTML/CSS, and First Class stamp also enforced.
   - **Frontend enforcement**: Settings customize editor shows `PlusGate` upgrade prompts for 8 sections (colors, background, font, layout, music, widgets, CSS, HTML). `handleSave()` only sends Plus fields when `isPlus`.
   - **Profile rendering**: `buildProfileStyles()` in `profile-styles.ts` accepts `subscription_tier` — ignores custom color/font overrides for non-Plus users, using theme defaults only. Profile page gates background image, music widget, non-classic layouts, custom HTML/CSS behind Plus.
@@ -802,6 +803,48 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 - **CSS**: `.share-popup-option`, `.share-popup-divider` classes in `globals.css`
 - **No backend changes** — purely frontend + server-rendered metadata
 
+### Custom Domains (Plus Feature)
+- Plus subscribers can point their own domain (e.g., `alice-writes.com`) at Inkwell so their profile, entries, and subscribe page render at that domain
+- **ActivityPub identity unchanged**: AP IDs stay `@username@inkwell.social` — custom domains are purely cosmetic/vanity URLs
+- **Auth cookies scoped to `inkwell.social`** — custom domain visitors are unauthenticated by design (correct: custom domain is for readers)
+- **Status state machine**: `pending_dns` → `pending_cert` → `active` | `error` | `removed`
+- **DNS verification**: Oban cron worker (every 5 min) checks DNS via Erlang `:inet_res.getbyname/2` (A, then CNAME fallback)
+- **TLS provisioning**: Fly Certificates API (`POST /v1/apps/inkwell-web/certificates/acme`) for automated cert issuance
+- **Downgrade handling**: Plus downgrade sets domain status to `removed`, enqueues cert deletion. Record stays in DB for reactivation on re-subscribe
+- **Account deletion**: cert cleanup via `CustomDomainCertWorker` before DB cascade
+- **Backend**:
+  - `apps/api/lib/inkwell/custom_domains/custom_domain.ex` — Ecto schema with domain format validation, blocks `.fly.dev`/`.inkwell.social`, max 253 chars
+  - `apps/api/lib/inkwell/custom_domains.ex` — context: `create_domain/2`, `get_domain_by_user/1`, `get_domain_by_hostname/1`, `resolve_hostname/1` (joins user, returns `%{username, user_id}`), `update_status/3`, `remove_domain/1`
+  - `apps/api/lib/inkwell_web/controllers/custom_domain_controller.ex` — 5 actions: `resolve` (public, called by middleware), `show` (auth), `create` (auth, Plus-only), `check` (auth, triggers immediate DNS check), `delete` (auth, removes domain + enqueues cert cleanup)
+  - `apps/api/lib/inkwell/fly_certs.ex` — Fly.io Certificates API client using `:httpc` (request/check/get/delete certificate)
+  - `apps/api/lib/inkwell/workers/custom_domain_check_worker.ex` — Oban cron worker (every 5 min): DNS verification phase + cert status polling phase
+  - `apps/api/lib/inkwell/workers/custom_domain_cert_worker.ex` — Oban worker for async cert deletion
+  - Routes: `GET /api/custom-domain/resolve` (public), `GET/POST/DELETE /api/custom-domain` (auth), `POST /api/custom-domain/check` (auth)
+  - Migration: `20260310000057`
+- **Frontend — Middleware** (`apps/web/src/middleware.ts`):
+  - Detects custom domains via `Host` header before existing auth logic
+  - In-memory cache (`domainCache` Map) with 60-second TTL for domain resolution
+  - Known hosts bypass: `inkwell.social`, `www.inkwell.social`, `inkwell-web.fly.dev`, `localhost`
+  - URL rewriting: `/` → `/[username]`, `/some-slug` → `/[username]/some-slug`, `/subscribe` → `/[username]/subscribe`
+  - App routes (`/feed`, `/editor`, `/settings`, etc.) redirect to `https://inkwell.social{path}`
+  - Sets `x-custom-domain` and `x-custom-domain-username` response headers for server components
+  - Passthrough for `/api/`, `/_next/`, static assets
+- **Frontend — Layout** (`apps/web/src/components/app-shell.tsx`):
+  - Reads `x-custom-domain` headers via `headers()` (async server component)
+  - Custom domain mode: simplified header (author link + Subscribe/Inkwell) + "Powered by Inkwell" footer
+  - Standard mode unchanged
+- **Frontend — Pages**:
+  - `apps/web/src/app/[username]/page.tsx` — custom domain canonical URL, OG metadata, RSS alternate, "Visit your site" link on own profile
+  - `apps/web/src/app/[username]/[slug]/page.tsx` — custom domain canonical URL, OG metadata, JSON-LD URLs
+  - `apps/web/src/app/custom-domain-not-found/page.tsx` — shown when domain points to Inkwell but isn't configured
+- **Frontend — Settings** (`apps/web/src/app/settings/domain/page.tsx`):
+  - Client component with 5 states: no Plus gate, no domain, pending_dns, pending_cert, active, error
+  - DNS instructions differentiate subdomain (CNAME) vs apex (A/AAAA/CNAME flattening)
+  - Auto-polls every 10 seconds while status is `pending_dns` or `pending_cert`
+  - Connect, Check DNS, Remove actions with loading states
+- **Proxy routes**: `apps/web/src/app/api/custom-domain/route.ts` (GET/POST/DELETE), `apps/web/src/app/api/custom-domain/check/route.ts` (POST)
+- **Settings nav**: "Custom Domain" with LinkIcon in Section II (Appearance), after Customize
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments**: threaded on entries with inline editing (24h edit window) and @mention autocomplete; feed cards have inline comment popup via `FeedCardActions`. Mentions are parsed server-side into profile links (`<a class="mention">`), and mentioned users receive `:mention` notifications. Edit/Delete text links appear on own comments within 24 hours; "(edited)" indicator with tooltip shown after edits.
@@ -881,7 +924,7 @@ Key files:
 Two-panel layout matching the main sidebar's book aesthetic. Desktop: 220px sticky left nav with paper texture, spine shadow, Roman numeral sections. Mobile: compact breadcrumb header with accordion dropdown of pill-style links.
 
 **I. Profile & Identity** — Profile, Avatar, Top 6 Pen Pals
-**II. Appearance** — Customize
+**II. Appearance** — Customize, Custom Domain
 **III. Writing & Content** — Series, Filters, Import, Redactions, Content Safety
 **IV. Community & Social** — Newsletter, Invite Friends, Blocked Users, Fediverse
 **V. Billing & Developer** — Subscription, Postage, API Keys
@@ -927,6 +970,7 @@ Key files:
 - `circle_discussions` — circle discussions (circle_id FK → circles delete_all, author_id FK → users nilify_all, title string max 300, body text, is_prompt boolean, is_pinned boolean, is_locked boolean, response_count integer, last_response_at utc_datetime_usec)
 - `circle_responses` — flat responses to discussions (discussion_id FK → circle_discussions delete_all, author_id FK → users nilify_all, body text max 6000, edited_at utc_datetime_usec)
 - `relay_subscriptions` — fediverse relay subscriptions (relay_url unique, relay_inbox, relay_domain, status: pending/active/paused/error, content_filter JSONB, entry_count, last_activity_at, error_message, instance_actor_id FK → users)
+- `custom_domains` — custom domain mappings (user_id FK unique, domain string unique, status: pending_dns/pending_cert/active/error/removed, dns_verified_at, cert_issued_at, last_check_at, error_message, fly_cert_id)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -943,6 +987,7 @@ All automated cleanup runs via Oban cron workers in `apps/api/lib/inkwell/worker
 | `CleanupRelayContentWorker` | Daily 5:15am UTC | Deletes relay-sourced remote entries older than 14 days |
 | `CleanupUnconfirmedSubscribersWorker` | Daily 7am UTC | Deletes pending newsletter subscribers older than 7 days |
 | `NewsletterScheduleWorker` | Every 5 min | Enqueues delivery for scheduled newsletter sends whose time has arrived |
+| `CustomDomainCheckWorker` | Every 5 min | DNS verification for `pending_dns` domains (A then CNAME fallback via `:inet_res`), then cert status polling for `pending_cert` domains via Fly Certificates API. On-demand checks when user clicks "Check DNS" |
 | `VerifyRemoteEntriesWorker` | Every 4 hours | HTTP HEAD checks remote entry URLs; deletes entries returning 404/410 (source deleted); skips on 5xx/network errors; 50 entries per batch with per-domain rate limiting |
 | `MuseWorker` | Daily 9am, Sun 10am, 1st 11am UTC | AI content bot: generates daily writing prompts (Claude Haiku), weekly roundups (DB stats), monthly community updates. Disabled unless `MUSE_ENABLED=true`. Falls back to evergreen prompts if Claude API unavailable |
 
@@ -1203,7 +1248,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260308000054_add_crosspost_results_to_entries.exs`
+- Latest migration: `20260310000057_create_custom_domains.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -1246,19 +1291,20 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 32 | **Newsletter Email Delivery** | Low | 4 | 5+ days | Done |
 | 70 | **Update Comments** (edit + @mentions) | High | 5 | 2–3 days | Done |
 | 66 | **Circles** (group discussion spaces) | Medium | 5 | ~5 days | Done |
-| 56 | **Custom Domains for Plus** | Medium | 4 | 5+ days | Under Review |
+| 56 | **Custom Domains for Plus** | Medium | 4 | 5+ days | Done |
 | 54 | **Post by Email** | Medium | 4 | 3–4 days | Under Review |
 | 46 | **About Post Categories** (UX fix + books) | Medium | 3 | ~0.5 day | Done |
 | 46 | **Public API** | Medium | 3 | 3–5 days | Done |
 | 26 | **Move Search in Nav** | Low | 2 | ~15 min | Done |
-| 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | New |
+| 22 | **Custom Domains for Plus** | Low | 3 | 5+ days | Done |
 | 15 | **Author Page Layout** | Low | 2 | ~1 day | Done |
 | 15 | **Beta Participation** | Low | 2 | 2 days | Done |
 | 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
-**Recommended next**: Custom Domains for Plus, then Post by Email.
+**Recommended next**: Post by Email.
 
 ### Recently Completed
+- **2026-03-10** — Custom Domains for Plus. Plus subscribers can now point their own domain (e.g., `alice-writes.com`) at Inkwell so their profile, entries, and subscribe page render at that custom domain. ActivityPub identity stays `@username@inkwell.social` (custom domains are purely cosmetic). **Architecture**: User enters domain in Settings → Custom Domain → backend validates + stores with status `pending_dns` → Oban worker (every 5 min) checks DNS via `:inet_res.getbyname/2` → on success, calls Fly Certificates API for TLS cert → status becomes `active` → Next.js middleware detects custom domain via `Host` header, resolves username via cached API lookup, rewrites URL to profile page. **Backend**: new `custom_domains` table (user_id unique, domain unique, status state machine), `CustomDomain` Ecto schema with domain format validation (blocks `.fly.dev`/`.inkwell.social`), `CustomDomains` context with CRUD + `resolve_hostname/1`, `CustomDomainController` (5 actions: resolve/show/create/check/delete), `FlyCerts` API client using `:httpc`, `CustomDomainCheckWorker` (Oban cron, DNS + cert polling), `CustomDomainCertWorker` (async cert deletion). Plus downgrade sets status to `removed` + enqueues cert cleanup. Account deletion cleans up cert before cascade. **Frontend middleware**: async domain detection before auth logic, in-memory 60s TTL cache, rewrites `/` → `/[username]`, `/slug` → `/[username]/slug`, app routes redirect to `inkwell.social`, sets `x-custom-domain` headers. **AppShell**: simplified custom domain chrome (author header + "Powered by Inkwell" footer, no sidebar). **Pages**: canonical URL, OG metadata, RSS alternate use custom domain when present; "Visit your site" link on own profile; "Domain Not Connected" page for unconfigured domains. **Settings**: client component with 5 states (no Plus, no domain, pending_dns with DNS instructions, pending_cert, active, error), 10s auto-poll, subdomain vs apex DNS instructions. Marketing: "Custom domain" added to Plus feature lists on landing + billing pages. Migration `20260310000057`. New Fly secret: `FLY_API_TOKEN` on `inkwell-api`. New files: `custom_domain.ex`, `custom_domains.ex`, `custom_domain_controller.ex`, `fly_certs.ex`, `custom_domain_check_worker.ex`, `custom_domain_cert_worker.ex`, `settings/domain/page.tsx`, `custom-domain-not-found/page.tsx`, 2 proxy routes. Modified: `router.ex`, `config.exs`, `runtime.exs`, `billing.ex`, `accounts.ex`, `middleware.ts`, `app-shell.tsx`, `[username]/page.tsx`, `[username]/[slug]/page.tsx`, `settings-ledger-nav.tsx`, `page.tsx`, `billing/page.tsx`.
 - **2026-03-08** — Cross-Posting to Mastodon (Growth Strategy 2B). Writers can now cross-post a preview of their published entries to linked Mastodon/fediverse accounts directly from the editor. When publishing a public entry, the editor shows a "Cross-post" section with checkboxes for each linked fediverse account that has write permissions. Selected accounts get a preview status posted to their Mastodon timeline containing the entry title, excerpt, link back to Inkwell, and hashtags (up to 5 tags, within 500-char Mastodon limit). Cover images are uploaded as media attachments. Content warnings are forwarded as spoiler text. **OAuth scope upgrade**: OAuth app registrations upgraded from `"read"` to `"read write:statuses write:media"`. Cached app registrations with insufficient scopes are automatically re-registered on next use. Existing accounts with read-only tokens show "Upgrade for cross-posting" button in Settings → Fediverse that re-initiates the OAuth flow with new scopes. **Async processing**: Cross-posts are handled by `CrosspostWorker` (Oban, default queue, max 3 attempts). Results stored in `crosspost_results` JSONB on entries (maps account_id → `{status_id, url, domain, posted_at}`). Graceful error handling: 401 = token expired (retry), 422 = validation rejection (no retry), missing entry/account/scope = skip silently. **Editor UI**: cross-post section in settings panel (after tags, before newsletter) with account avatars + @handles, "only available for public entries" hint, and "Upgrade permissions" link for read-only accounts. **Settings UI**: each linked account shows scope status badge — green "Cross-posting enabled" or amber "Read-only" with upgrade button. Database: migration `20260308000054` adds `crosspost_results` map to entries. New files: `mastodon_client.ex` (Mastodon API client: post_status, upload_media, delete_status, build_crosspost_text), `crosspost_worker.ex` (Oban worker). Modified: `oauth.ex` (scope upgrade + cache invalidation), `entry.ex` (crosspost_results field), `entry_controller.ex` (accept crosspost_to param, enqueue workers), `fediverse_auth_controller.ex` (token_scope in response + authorize URL scopes), `editor-client.tsx` (cross-post section), `settings/fediverse/page.tsx` (scope status + upgrade).
 - **2026-03-07** — Fediverse Relay Content Polish (Growth Strategy 2B). Three improvements to fediverse relay content quality and UX on Explore. **(1) UTF-8 encoding fix**: `Http.get/2` was using `to_string(body)` on Erlang `:httpc` charlist responses, which treats each integer as a Unicode codepoint — mangling multi-byte UTF-8 sequences (é → Ã©, emoji → mojibake). Fixed by replacing with `:erlang.list_to_binary(body)` which preserves raw UTF-8 bytes. Affects all federation GET requests (actor fetches, object fetches, relay content). **(2) Content quality filters**: New `passes_quality_check?/2` function in `RelayContentWorker` filters out low-quality relay content before storing. Three checks: bot detection (skips actors with `type: "Service"` or `"Application"` in raw AP data), minimum word count (skips posts < 30 words of plain text after HTML stripping, except Article/Page types), and link-only detection (skips posts where < 20% of content is non-link text). All skips logged at debug level. **(3) Source filter toggle + fediverse visual identity**: Explore page gains 3 pill-style source filter toggles (All / Inkwell / Fediverse) that filter entries by origin. Backend: `ExploreController` conditionally skips local or remote entry fetches based on `?source=inkwell|fediverse` param; adds `relay_source` field to response. Frontend: source pills in header bar, all navigation links (category pills, sort toggles, pagination) preserve source param via `URLSearchParams`. Fediverse entries visually distinguished: teal left border (`--fediverse-accent: #569e85`), globe icon + instance domain pill in author row, teal "View on [domain] →" footer link. Short-form posts (no title, < 280 chars after HTML stripping) render in compact mode: reduced padding, no large date header, full body content without gradient clamp or "Continue reading →". Dark mode: lighter teal `#6db89f`. No migration needed. New CSS: `--fediverse-accent`, `.journal-page-fediverse`, `.fediverse-compact`, `.fediverse-view-link`. Modified: `http.ex` (UTF-8 fix), `relay_content_worker.ex` (quality filters), `explore_controller.ex` (source param + relay_source field), `api/explore/route.ts` (forward source param), `explore/page.tsx` (source pills + param preservation), `journal-entry-card.tsx` (fediverse visual identity + compact rendering), `globals.css` (fediverse styles).
 - **2026-03-07** — Fediverse Relay Support (Growth Strategy 2A). Admin-managed ActivityPub relay subscriptions to solve the cold-start content problem — connecting to relays means Explore always has fresh fediverse content. **How it works**: admin subscribes to a relay actor URL, Inkwell sends a Follow activity, relay sends Accept back, then relay broadcasts Announce activities containing posts from across the fediverse. Each Announce is processed asynchronously via `RelayContentWorker` (Oban, federation queue) — fetches the object, validates (Note/Article/Page, public, not a reply), caches the remote actor, stores as a `remote_entry` with `source: "relay"`. Relay entries naturally appear in Explore alongside follow-sourced and local entries. **Instance actor**: lazy-created user row with reserved username `"relay"`, reuses existing RSA signing and `DeliverActivityWorker` infrastructure. **Content lifecycle**: relay entries have a 14-day TTL (vs 90 days for follow-sourced), cleaned up by `CleanupRelayContentWorker` (daily 5:15am UTC). General cleanup excludes relay-sourced entries. **Admin UI**: new "Relays" tab in admin panel with subscribe form (relay actor URL input), subscription list (domain, status badge, entry count, last activity), pause/resume/remove actions per subscription. **Federation controller changes**: `handle_announce/3` now checks `Relays.is_relay_actor?/1` when announced object is not a local entry — enqueues `RelayContentWorker` if yes. `handle_accept/3` detects `"relay"` username and calls `Relays.handle_relay_accept/1` to activate the subscription. Database: `relay_subscriptions` table (relay_url unique, relay_inbox, relay_domain, status pending/active/paused/error, content_filter JSONB, entry_count, last_activity_at, error_message, instance_actor_id FK), `remote_entries` gains `source` string + `relay_subscription_id` FK. Migration `20260307000053`. New files: `relay_subscription.ex`, `relays.ex`, `instance_actor.ex`, `relay_content_worker.ex`, `cleanup_relay_content_worker.ex`, `relay_controller.ex`, `admin/relays/page.tsx`, 4 proxy routes. Modified: `activity_builder.ex` (build_follow/build_undo_follow), `remote_entry.ex` (source + relay_subscription_id fields), `remote_entries.ex` (get_by_ap_id, cleanup_relay_entries, exclude relay from general cleanup), `federation_controller.ex` (handle_announce relay detection, handle_accept relay branch), `router.ex` (5 admin relay routes), `config.exs` (cron entry), `admin-nav.tsx` (Relays tab).

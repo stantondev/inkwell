@@ -277,6 +277,11 @@ function EntryMusicEmbed({ embed, music }: { embed: MusicEmbed; music: string })
 
 export async function generateMetadata({ params }: EntryParams): Promise<Metadata> {
   const { username, slug } = await params;
+
+  // Detect custom domain context
+  const headersList = await import("next/headers").then(m => m.headers());
+  const customDomain = headersList.get("x-custom-domain");
+
   try {
     const token = await getToken();
     const data = await apiFetch<{ data: EntryData }>(
@@ -287,13 +292,16 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const title = entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`;
     const ogTitle = entry.title ?? `Entry by @${username}`;
-    const entryUrl = `https://inkwell.social/${username}/${slug}`;
+    const entryUrl = customDomain
+      ? `https://${customDomain}/${slug}`
+      : `https://inkwell.social/${username}/${slug}`;
     const hasCover = !!entry.cover_image_id;
 
     return {
       title,
       description,
       authors: [{ name: entry.author?.display_name ?? username }],
+      ...(customDomain ? { metadataBase: new URL(`https://${customDomain}`) } : {}),
       openGraph: {
         title: ogTitle,
         description,
@@ -327,6 +335,11 @@ export default async function EntryPage({ params }: EntryParams) {
   const { username, slug } = await params;
   const token = await getToken();
   const session = await getSession();
+
+  // Detect custom domain context
+  const headersList = await import("next/headers").then(m => m.headers());
+  const customDomain = headersList.get("x-custom-domain");
+  const baseUrl = customDomain ? `https://${customDomain}` : `https://inkwell.social`;
 
   let entry: EntryData;
   try {
@@ -383,7 +396,7 @@ export default async function EntryPage({ params }: EntryParams) {
             author: {
               "@type": "Person",
               name: author.display_name,
-              url: `https://inkwell.social/${username}`,
+              url: customDomain ? baseUrl : `https://inkwell.social/${username}`,
             },
             datePublished: entry.published_at,
             ...(entry.published_at !== entry.created_at
@@ -395,7 +408,7 @@ export default async function EntryPage({ params }: EntryParams) {
             ...(entry.word_count ? { wordCount: entry.word_count } : {}),
             ...(entry.cover_image_id
               ? {
-                  image: `https://inkwell.social/api/images/${entry.cover_image_id}`,
+                  image: `${baseUrl}/api/images/${entry.cover_image_id}`,
                 }
               : {}),
             publisher: {
@@ -405,7 +418,7 @@ export default async function EntryPage({ params }: EntryParams) {
             },
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": `https://inkwell.social/${username}/${slug}`,
+              "@id": customDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`,
             },
           }).replace(/</g, "\\u003c"),
         }}
@@ -461,7 +474,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 />
               )}
               <ShareButton
-                url={`https://inkwell.social/${username}/${slug}`}
+                url={customDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
                 title={entry.title || "Entry"}
                 description={entry.excerpt || entry.title || ""}
                 size={18}
