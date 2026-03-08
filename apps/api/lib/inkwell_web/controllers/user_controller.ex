@@ -467,8 +467,7 @@ defmodule InkwellWeb.UserController do
       social_links: user.social_links || %{},
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
-      visitor_count: user.visitor_count || 0,
-      has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id)
+      visitor_count: user.visitor_count || 0
     }
   end
 

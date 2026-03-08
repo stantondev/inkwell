@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.CrosspostWorker
   alias InkwellWeb.UserController
@@ -39,17 +39,11 @@ defmodule InkwellWeb.EntryController do
             Journals.list_entries(user.id, filter_opts)
 
           viewer && Social.is_friend?(viewer.id, user.id) ->
-            # Friends: public + friends_only + custom + paid (if subscribed) entries
-            privacies = [:public, :friends_only, :custom]
-            privacies = if WriterSubscriptions.is_subscribed?(viewer.id, user.id), do: privacies ++ [:paid], else: privacies
-            all = Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, privacies))
+            # Friends: public + friends_only + custom entries where viewer is in the filter
+            all = Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, [:public, :friends_only, :custom]))
             Enum.filter(all, fn entry ->
               entry.privacy != :custom || viewer_in_custom_filter?(entry, viewer.id)
             end)
-
-          viewer && WriterSubscriptions.is_subscribed?(viewer.id, user.id) ->
-            # Subscribers (not friends): public + paid
-            Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, [:public, :paid]))
 
           true ->
             Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, :public))
@@ -167,35 +161,6 @@ defmodule InkwellWeb.EntryController do
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
           end
 
-        entry.privacy == :paid ->
-          if viewer && (viewer.id == user.id || WriterSubscriptions.is_subscribed?(viewer.id, user.id)) do
-            json(conn, %{data: render_with_stamps.()})
-          else
-            # Return paywall teaser — title, excerpt, cover, author info, but no body
-            plan = WriterSubscriptions.get_active_plan_for_writer(user.id)
-
-            teaser =
-              render_entry(entry)
-              |> Map.put(:body_html, nil)
-              |> Map.put(:is_paywalled, true)
-              |> Map.put(:writer_plan, if(plan, do: %{
-                id: plan.id,
-                name: plan.name,
-                price_cents: plan.price_cents,
-                subscriber_count: plan.subscriber_count
-              }, else: nil))
-              |> Map.put(:author, %{
-                id: user.id,
-                username: user.username,
-                display_name: user.display_name,
-                avatar_url: user.avatar_url,
-                avatar_frame: user.avatar_frame,
-                subscription_tier: user.subscription_tier
-              })
-
-            json(conn, %{data: teaser})
-          end
-
         true ->
           conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
       end
@@ -300,8 +265,7 @@ defmodule InkwellWeb.EntryController do
         |> put_word_count()
         |> maybe_auto_excerpt()
 
-      with :ok <- validate_custom_filter_ownership(attrs, user.id),
-           :ok <- validate_paid_privacy(attrs, user) do
+      with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         case Journals.create_entry(attrs) do
           {:ok, entry} ->
             record_entry_creation(user.id)
@@ -330,15 +294,6 @@ defmodule InkwellWeb.EntryController do
       else
         {:error, :filter_not_found} ->
           conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
-
-        {:error, :paid_requires_plus} ->
-          conn |> put_status(:unprocessable_entity) |> json(%{error: "Paid entries require a Plus subscription"})
-
-        {:error, :paid_requires_connect} ->
-          conn |> put_status(:unprocessable_entity) |> json(%{error: "Paid entries require Stripe Connect to be enabled"})
-
-        {:error, :paid_requires_plan} ->
-          conn |> put_status(:unprocessable_entity) |> json(%{error: "Paid entries require an active subscription plan"})
       end
     end
   end
@@ -528,17 +483,6 @@ defmodule InkwellWeb.EntryController do
         end
     end
   end
-
-  defp validate_paid_privacy(%{"privacy" => "paid"}, user) do
-    cond do
-      (user.subscription_tier || "free") != "plus" -> {:error, :paid_requires_plus}
-      !user.stripe_connect_enabled -> {:error, :paid_requires_connect}
-      !WriterSubscriptions.has_active_plan?(user.id) -> {:error, :paid_requires_plan}
-      true -> :ok
-    end
-  end
-
-  defp validate_paid_privacy(_attrs, _user), do: :ok
 
   # Clear custom_filter_id when privacy is not :custom
   defp maybe_clear_custom_filter_id(%{"privacy" => privacy} = attrs) when privacy != "custom" do

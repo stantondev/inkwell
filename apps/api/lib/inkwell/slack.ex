@@ -66,9 +66,4 @@ defmodule Inkwell.Slack do
   def notify_new_feedback(username, category, title) do
     notify(":memo: *New feedback!* @#{username} posted a #{category}: \"#{title}\"")
   end
-
-  def notify_writer_plan_subscription(writer_username, subscriber_username, amount_cents) do
-    dollars = trunc((amount_cents || 0) / 100)
-    notify(":moneybag: *New plan subscriber!* @#{subscriber_username} subscribed to @#{writer_username}'s plan ($#{dollars}/mo)")
-  end
 end

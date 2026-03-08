@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps}
   alias Inkwell.Federation.RemoteEntries
   alias InkwellWeb.EntryController
 
@@ -17,9 +17,7 @@ defmodule InkwellWeb.FeedController do
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
-    subscribed_writer_ids = WriterSubscriptions.get_subscribed_writer_ids(user.id)
-
-    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids, subscribed_writer_ids: subscribed_writer_ids)
+    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids)
     remote_entries = RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
 
     # Normalize into a common shape and merge chronologically
@@ -89,8 +87,7 @@ defmodule InkwellWeb.FeedController do
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
           ink_count: entry.ink_count || 0,
           my_ink: MapSet.member?(inks_set, entry.id),
-          series: Map.get(series_map, entry.id),
-          is_paid: entry.privacy == :paid
+          series: Map.get(series_map, entry.id)
         })
 
       %{type: :remote, entry: re} ->

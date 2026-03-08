@@ -12,7 +12,7 @@ defmodule Inkwell.Journals.Entry do
     field :mood, :string
     field :music, :string
     field :music_metadata, :map
-    field :privacy, Ecto.Enum, values: [:public, :friends_only, :private, :custom, :paid]
+    field :privacy, Ecto.Enum, values: [:public, :friends_only, :private, :custom]
     field :slug, :string
     field :tags, {:array, :string}, default: []
     field :published_at, :utc_datetime_usec
@@ -68,7 +68,7 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
-    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
+    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom])
     |> generate_slug()
     |> generate_ap_id()
     |> set_published_at()
@@ -107,7 +107,7 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
-    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
+    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom])
     |> put_change(:status, :published)
     |> force_generate_slug()
     |> generate_ap_id()

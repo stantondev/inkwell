@@ -114,9 +114,6 @@ defmodule InkwellWeb.Router do
     get "/circles", CircleController, :index
     get "/circles/:slug", CircleController, :show
 
-    # Writer plans (public/optional-auth)
-    get "/writer-plans/by-writer/:username", WriterSubscriptionController, :get_writer_plan
-
     # Polls (optional auth for my_vote; /polls/active must precede /polls/:id)
     get "/polls", PollController, :index
     get "/polls/active", PollController, :active_widget
@@ -312,19 +309,6 @@ defmodule InkwellWeb.Router do
     get "/tips/received", TippingController, :tips_received
     get "/tips/sent", TippingController, :tips_sent
     get "/tips/stats", TippingController, :tip_stats
-
-    # Writer subscription plans (authenticated)
-    # Static routes MUST come before parameterized :id routes
-    get "/writer-plans/mine", WriterSubscriptionController, :get_my_plan
-    get "/writer-plans/subscriptions", WriterSubscriptionController, :my_subscriptions
-    get "/writer-plans/subscribers", WriterSubscriptionController, :list_subscribers
-    get "/writer-plans/stats", WriterSubscriptionController, :stats
-    get "/writer-plans/check/:writer_id", WriterSubscriptionController, :check_subscription
-    post "/writer-plans", WriterSubscriptionController, :create_plan
-    patch "/writer-plans/:id", WriterSubscriptionController, :update_plan
-    delete "/writer-plans/:id", WriterSubscriptionController, :archive_plan
-    post "/writer-plans/:id/checkout", WriterSubscriptionController, :create_checkout
-    delete "/writer-plans/subscriptions/:writer_id", WriterSubscriptionController, :cancel_subscription
 
     # Circles (authenticated)
     get "/my-circles", CircleController, :my_circles

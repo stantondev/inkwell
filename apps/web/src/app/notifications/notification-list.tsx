@@ -157,11 +157,6 @@ function notificationText(n: Notification): string {
       const circleName3 = n.data?.circle_name as string | undefined;
       return circleName3 ? `joined ${circleName3}` : "joined your circle";
     }
-    case "writer_plan_subscribe": {
-      const subAmountCents = n.data?.amount_cents as number | undefined;
-      const subAmt = subAmountCents ? `$${(subAmountCents / 100).toFixed(2)}/mo` : "";
-      return `subscribed to your plan${subAmt ? ` (${subAmt})` : ""}`;
-    }
     default:
       return "interacted with your content";
   }
@@ -433,25 +428,6 @@ function NotificationIcon({
       </svg>
     );
   }
-  if (type === "writer_plan_subscribe") {
-    return (
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ color: "var(--accent)" }}
-        aria-hidden="true"
-      >
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    );
-  }
   if (
     type === "feedback_status_change" ||
     type === "feedback_comment" ||
@@ -524,10 +500,6 @@ function getNotificationHref(n: Notification): string | null {
   // Letter notifications link to the conversation thread
   if (n.type === "letter" && n.data?.conversation_id) {
     return `/letters/${n.data.conversation_id}`;
-  }
-  // Writer plan subscribe notifications link to the subscriptions settings
-  if (n.type === "writer_plan_subscribe") {
-    return "/settings/subscriptions";
   }
   // Circle notifications link to the circle or discussion
   if ((n.type === "circle_response" || n.type === "circle_mention") && n.data?.circle_slug && n.data?.discussion_id) {

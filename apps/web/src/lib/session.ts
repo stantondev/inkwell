@@ -24,7 +24,6 @@ export interface SessionUser {
   terms_accepted_at?: string | null;
   ink_donor_status?: string | null;
   ink_donor_amount_cents?: number | null;
-  has_writer_plan?: boolean;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 

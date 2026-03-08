@@ -141,8 +141,6 @@ defmodule Inkwell.Journals do
     # Get IDs of custom-privacy filters that include this user
     custom_filter_ids = get_filters_containing_user(user_id)
 
-    subscribed_writer_ids = Keyword.get(opts, :subscribed_writer_ids, [])
-
     query =
       Entry
       |> where([e], e.status == :published)
@@ -153,9 +151,7 @@ defmodule Inkwell.Journals do
           # Friends' public/friends-only entries
           (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only]) or
           # Custom-privacy entries where viewer is in the filter
-          (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids) or
-          # Paid entries from writers the viewer subscribes to
-          (e.privacy == :paid and e.user_id in ^subscribed_writer_ids)
+          (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids)
         )
 
     query =
@@ -558,7 +554,7 @@ defmodule Inkwell.Journals do
 
     query =
       Entry
-      |> where([e], e.privacy in [:public, :paid])
+      |> where([e], e.privacy == :public)
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
 

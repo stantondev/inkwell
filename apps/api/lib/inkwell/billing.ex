@@ -364,51 +364,44 @@ defmodule Inkwell.Billing do
         :error
 
       user ->
-        metadata_type = get_in(object, ["metadata", "type"])
+        if get_in(object, ["metadata", "type"]) == "ink_donor" do
+          amount_cents = case get_in(object, ["metadata", "amount_cents"]) do
+            s when is_binary(s) ->
+              case Integer.parse(s) do
+                {n, _} -> n
+                :error -> nil
+              end
+            i when is_integer(i) -> i
+            _ -> nil
+          end
 
-        cond do
-          metadata_type == "writer_plan" ->
-            Inkwell.WriterSubscriptions.handle_checkout_completed(object)
+          # Ensure stripe_customer_id is set
+          if is_nil(user.stripe_customer_id) do
+            user |> User.subscription_changeset(%{stripe_customer_id: customer_id}) |> Repo.update()
+          end
 
-          metadata_type == "ink_donor" ->
-            amount_cents = case get_in(object, ["metadata", "amount_cents"]) do
-              s when is_binary(s) ->
-                case Integer.parse(s) do
-                  {n, _} -> n
-                  :error -> nil
-                end
-              i when is_integer(i) -> i
-              _ -> nil
-            end
+          user
+          |> User.ink_donor_changeset(%{
+            ink_donor_stripe_subscription_id: sub_id,
+            ink_donor_status: "active",
+            ink_donor_amount_cents: amount_cents
+          })
+          |> Repo.update()
 
-            # Ensure stripe_customer_id is set
-            if is_nil(user.stripe_customer_id) do
-              user |> User.subscription_changeset(%{stripe_customer_id: customer_id}) |> Repo.update()
-            end
+          Logger.info("User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo, sub: #{sub_id})")
+          Inkwell.Slack.notify_ink_donor(user.username, amount_cents)
+        else
+          user
+          |> User.subscription_changeset(%{
+            stripe_customer_id: customer_id,
+            stripe_subscription_id: sub_id,
+            subscription_tier: "plus",
+            subscription_status: "active"
+          })
+          |> Repo.update()
 
-            user
-            |> User.ink_donor_changeset(%{
-              ink_donor_stripe_subscription_id: sub_id,
-              ink_donor_status: "active",
-              ink_donor_amount_cents: amount_cents
-            })
-            |> Repo.update()
-
-            Logger.info("User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo, sub: #{sub_id})")
-            Inkwell.Slack.notify_ink_donor(user.username, amount_cents)
-
-          true ->
-            user
-            |> User.subscription_changeset(%{
-              stripe_customer_id: customer_id,
-              stripe_subscription_id: sub_id,
-              subscription_tier: "plus",
-              subscription_status: "active"
-            })
-            |> Repo.update()
-
-            Logger.info("User #{user.username} upgraded to Plus (sub: #{sub_id})")
-            Inkwell.Slack.notify_plus_subscription(user.username)
+          Logger.info("User #{user.username} upgraded to Plus (sub: #{sub_id})")
+          Inkwell.Slack.notify_plus_subscription(user.username)
         end
 
         :ok
@@ -418,16 +411,6 @@ defmodule Inkwell.Billing do
   defp handle_checkout_completed(_), do: :ok
 
   defp handle_subscription_updated(%{"id" => sub_id, "status" => status, "customer" => customer_id} = object) do
-    # Check if this is a writer plan subscription first
-    case Inkwell.WriterSubscriptions.handle_subscription_updated(sub_id, status, get_in(object, ["current_period_end"])) do
-      :ok -> :ok
-      nil ->
-        # Not a writer plan — fall through to Plus/Donor handling
-        handle_subscription_updated_billing(sub_id, status, customer_id, object)
-    end
-  end
-
-  defp handle_subscription_updated_billing(sub_id, status, customer_id, object) do
     user = find_user_by_customer(customer_id)
 
     case user do
@@ -476,15 +459,6 @@ defmodule Inkwell.Billing do
   end
 
   defp handle_subscription_deleted(%{"id" => sub_id, "customer" => customer_id} = object) do
-    # Check if this is a writer plan subscription first
-    case Inkwell.WriterSubscriptions.handle_subscription_deleted(sub_id) do
-      :ok -> :ok
-      nil ->
-        handle_subscription_deleted_billing(sub_id, customer_id, object)
-    end
-  end
-
-  defp handle_subscription_deleted_billing(sub_id, customer_id, object) do
     user = find_user_by_customer(customer_id)
 
     case user do
