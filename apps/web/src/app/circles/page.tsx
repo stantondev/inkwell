@@ -75,13 +75,18 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
   }
 
   return (
-    <div className="salon-page">
-      <div className="salon-hero">
+    <div className="circle-page">
+      <div className="circle-hero">
         <h1>Writing Circles</h1>
-        <p>Intimate spaces for writers to gather, share, and grow together</p>
+        <p>No algorithms, no upvotes — just writers talking about what matters</p>
+        {total > 0 && (
+          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.5rem" }}>
+            {total} circle{total !== 1 ? "s" : ""} · {circles.reduce((acc, c) => acc + c.discussion_count, 0)} discussion{circles.reduce((acc, c) => acc + c.discussion_count, 0) !== 1 ? "s" : ""}
+          </p>
+        )}
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem" }}>
+      <div className="max-w-5xl mx-auto" style={{ padding: "1.5rem 1rem" }}>
         <CircleBrowseClient
           initialCircles={circles}
           initialTotal={total}

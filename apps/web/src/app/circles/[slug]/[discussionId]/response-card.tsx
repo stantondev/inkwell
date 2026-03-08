@@ -32,26 +32,26 @@ export default function ResponseCard({
   const isOwn = r.author?.id === currentUserId;
 
   return (
-    <div className="salon-response">
+    <div className="circle-response">
       {r.author?.avatar_url ? (
         <Link href={`/${r.author.username}`}>
-          <img src={r.author.avatar_url} alt="" className="salon-response-avatar" />
+          <img src={r.author.avatar_url} alt="" className="circle-response-avatar" />
         </Link>
       ) : (
-        <div className="salon-response-avatar" style={{ background: "var(--salon-border)" }} />
+        <div className="circle-response-avatar" style={{ background: "var(--border)" }} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
           {r.author && (
-            <Link href={`/${r.author.username}`} style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--salon-foreground)", textDecoration: "none" }}>
+            <Link href={`/${r.author.username}`} style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", textDecoration: "none" }}>
               {r.author.display_name || r.author.username}
             </Link>
           )}
-          <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+          <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
             {timeAgo(r.inserted_at)}
           </span>
           {r.edited_at && (
-            <span style={{ fontSize: "0.6875rem", color: "var(--salon-muted)", fontStyle: "italic" }} title={`Edited ${new Date(r.edited_at).toLocaleString()}`}>
+            <span style={{ fontSize: "0.6875rem", color: "var(--muted)", fontStyle: "italic" }} title={`Edited ${new Date(r.edited_at).toLocaleString()}`}>
               (edited)
             </span>
           )}
@@ -67,7 +67,7 @@ export default function ResponseCard({
             onClick={onDelete}
             style={{
               fontSize: "0.75rem",
-              color: "var(--salon-muted)",
+              color: "var(--muted)",
               background: "none",
               border: "none",
               cursor: "pointer",

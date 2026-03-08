@@ -44,7 +44,7 @@ export default function CreateDiscussionForm({ circleId, circleSlug, canCreatePr
   };
 
   return (
-    <form onSubmit={handleSubmit} className="salon-card" style={{ marginBottom: "1.5rem" }}>
+    <form onSubmit={handleSubmit} className="circle-card" style={{ marginBottom: "1.5rem" }}>
       <input
         type="text"
         value={title}
@@ -57,16 +57,16 @@ export default function CreateDiscussionForm({ circleId, circleSlug, canCreatePr
           fontSize: "0.9375rem",
           fontFamily: "var(--font-lora, Georgia, serif)",
           fontWeight: 600,
-          border: "1px solid var(--salon-border)",
+          border: "1px solid var(--border)",
           borderRadius: "0.5rem",
-          background: "var(--salon-surface)",
-          color: "var(--salon-foreground)",
+          background: "var(--surface)",
+          color: "var(--foreground)",
           marginBottom: "0.75rem",
           outline: "none",
         }}
       />
 
-      <div className="salon-response-form">
+      <div className="circle-response-form">
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -78,18 +78,18 @@ export default function CreateDiscussionForm({ circleId, circleSlug, canCreatePr
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.75rem" }}>
         <div>
           {canCreatePrompt && (
-            <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", color: "var(--salon-muted)", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", color: "var(--muted)", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={isPrompt}
                 onChange={(e) => setIsPrompt(e.target.checked)}
-                style={{ accentColor: "var(--salon-accent)" }}
+                style={{ accentColor: "var(--accent)" }}
               />
-              Mark as Salon Prompt
+              Mark as Circle Prompt
             </label>
           )}
         </div>
-        <button type="submit" disabled={submitting || !title.trim() || !body.trim()} className="salon-join-btn" style={{ fontSize: "0.8125rem" }}>
+        <button type="submit" disabled={submitting || !title.trim() || !body.trim()} className="circle-btn" style={{ fontSize: "0.8125rem" }}>
           {submitting ? "Creating..." : "Start Discussion"}
         </button>
       </div>

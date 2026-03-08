@@ -124,7 +124,7 @@ export default function MembersSection({
       {expanded && (
         <div className="circle-members-list">
           {loading && members.length === 0 ? (
-            <p style={{ color: "var(--salon-muted)", fontStyle: "italic", fontSize: "0.875rem", padding: "0.75rem 0" }}>
+            <p style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.875rem", padding: "0.75rem 0" }}>
               Loading members...
             </p>
           ) : (
@@ -160,7 +160,7 @@ export default function MembersSection({
                       <div className="circle-member-actions">
                         {confirmRemove === m.user.id ? (
                           <div style={{ display: "flex", gap: "0.375rem", alignItems: "center" }}>
-                            <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>Remove?</span>
+                            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Remove?</span>
                             <button
                               onClick={() => handleRemove(m.user!.id)}
                               disabled={isTarget}

@@ -63,8 +63,8 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ s
   }
 
   return (
-    <div className="salon-page">
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem 1rem" }}>
+    <div className="circle-page">
+      <div className="max-w-4xl mx-auto" style={{ padding: "1.5rem 1rem" }}>
         <CircleDetailClient
           circle={circle}
           isLoggedIn={!!session}

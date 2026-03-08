@@ -25,12 +25,12 @@ export default function MemberStrip({
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-      <div className="salon-member-strip">
+      <div className="circle-member-strip">
         {members.map((m) =>
           m.user ? (
-            <Link key={m.id} href={`/${m.user.username}`} title={`${m.user.display_name || m.user.username}${m.role === "owner" ? " (Owner)" : m.role === "moderator" ? " (Mod)" : ""}`} className="salon-member-avatar-wrap">
+            <Link key={m.id} href={`/${m.user.username}`} title={`${m.user.display_name || m.user.username}${m.role === "owner" ? " (Owner)" : m.role === "moderator" ? " (Mod)" : ""}`} className="circle-member-avatar-wrap">
               <img
-                className="salon-member-avatar"
+                className="circle-member-avatar"
                 src={m.user.avatar_url || `/api/avatars/${m.user.username}`}
                 alt={m.user.display_name || m.user.username}
               />
@@ -40,7 +40,7 @@ export default function MemberStrip({
           ) : null
         )}
       </div>
-      <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+      <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
         {totalCount} member{totalCount !== 1 ? "s" : ""}
       </span>
     </div>

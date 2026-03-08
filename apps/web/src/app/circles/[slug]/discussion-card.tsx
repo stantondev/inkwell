@@ -28,7 +28,7 @@ function timeAgo(dateStr: string | null): string {
 export default function DiscussionCard({ discussion: d, circleSlug }: { discussion: Discussion; circleSlug: string }) {
   return (
     <Link href={`/circles/${circleSlug}/${d.id}`} style={{ textDecoration: "none" }}>
-      <div className={`salon-discussion-card ${d.is_prompt ? "salon-prompt" : ""}`}>
+      <div className={`circle-discussion-card ${d.is_prompt ? "circle-prompt" : ""}`}>
         {d.author?.avatar_url && (
           <img
             src={d.author.avatar_url}
@@ -38,21 +38,21 @@ export default function DiscussionCard({ discussion: d, circleSlug }: { discussi
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap" }}>
-            {d.is_prompt && <span className="salon-prompt-label">Salon Prompt</span>}
-            {d.is_pinned && <span style={{ fontSize: "0.6875rem", color: "var(--salon-muted)" }}>📌</span>}
-            {d.is_locked && <span className="salon-locked-badge">🔒 Locked</span>}
+            {d.is_prompt && <span className="circle-prompt-label">Circle Prompt</span>}
+            {d.is_pinned && <span style={{ fontSize: "0.6875rem", color: "var(--muted)" }}>📌</span>}
+            {d.is_locked && <span className="circle-locked-badge">🔒 Locked</span>}
           </div>
           <h3 style={{
             fontFamily: "var(--font-lora, Georgia, serif)",
             fontSize: "0.9375rem",
             fontWeight: 600,
-            color: "var(--salon-foreground)",
+            color: "var(--foreground)",
             margin: "0.125rem 0",
             lineHeight: 1.4,
           }}>
             {d.title}
           </h3>
-          <div style={{ display: "flex", gap: "0.625rem", fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+          <div style={{ display: "flex", gap: "0.625rem", fontSize: "0.75rem", color: "var(--muted)" }}>
             {d.author && <span>{d.author.display_name || d.author.username}</span>}
             <span>{d.response_count} response{d.response_count !== 1 ? "s" : ""}</span>
             <span>{timeAgo(d.last_response_at || d.inserted_at)}</span>

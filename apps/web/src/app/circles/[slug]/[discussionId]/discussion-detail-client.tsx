@@ -75,23 +75,23 @@ export default function DiscussionDetailClient({
   return (
     <>
       {/* Back link */}
-      <Link href={`/circles/${circleSlug}`} style={{ fontSize: "0.8125rem", color: "var(--salon-accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", marginBottom: "1rem" }}>
+      <Link href={`/circles/${circleSlug}`} style={{ fontSize: "0.8125rem", color: "var(--accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", marginBottom: "1rem" }}>
         ← Back to Circle
       </Link>
 
       {/* Discussion header */}
-      <div className={d.is_prompt ? "salon-prompt" : ""} style={{ marginBottom: "1.5rem", ...(!d.is_prompt ? {} : {}) }}>
+      <div className={d.is_prompt ? "circle-prompt" : ""} style={{ marginBottom: "1.5rem", ...(!d.is_prompt ? {} : {}) }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginBottom: "0.25rem", flexWrap: "wrap" }}>
-          {d.is_prompt && <span className="salon-prompt-label">Salon Prompt</span>}
-          {d.is_pinned && <span style={{ fontSize: "0.6875rem", color: "var(--salon-muted)" }}>📌 Pinned</span>}
-          {d.is_locked && <span className="salon-locked-badge">🔒 Locked</span>}
+          {d.is_prompt && <span className="circle-prompt-label">Circle Prompt</span>}
+          {d.is_pinned && <span style={{ fontSize: "0.6875rem", color: "var(--muted)" }}>📌 Pinned</span>}
+          {d.is_locked && <span className="circle-locked-badge">🔒 Locked</span>}
         </div>
 
         <h1 style={{
           fontFamily: "var(--font-lora, Georgia, serif)",
           fontSize: "1.5rem",
           fontWeight: 600,
-          color: "var(--salon-foreground)",
+          color: "var(--foreground)",
           lineHeight: 1.3,
           margin: "0.25rem 0 0.75rem",
         }}>
@@ -104,10 +104,10 @@ export default function DiscussionDetailClient({
               <img src={d.author.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
             )}
             <div>
-              <Link href={`/${d.author.username}`} style={{ fontSize: "0.8125rem", color: "var(--salon-foreground)", fontWeight: 500, textDecoration: "none" }}>
+              <Link href={`/${d.author.username}`} style={{ fontSize: "0.8125rem", color: "var(--foreground)", fontWeight: 500, textDecoration: "none" }}>
                 {d.author.display_name || d.author.username}
               </Link>
-              <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)", marginLeft: "0.5rem" }}>{date}</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "0.5rem" }}>{date}</span>
             </div>
           </div>
         )}
@@ -115,17 +115,17 @@ export default function DiscussionDetailClient({
         <div className="prose-discussion" dangerouslySetInnerHTML={{ __html: d.body }} />
       </div>
 
-      <div className="salon-divider" />
+      <div className="circle-divider" />
 
       {/* Responses */}
-      <h2 className="salon-section-heading">
+      <h2 className="circle-section-heading">
         {responses.length} Response{responses.length !== 1 ? "s" : ""}
       </h2>
 
       {loading ? (
-        <p style={{ color: "var(--salon-muted)", fontStyle: "italic", fontSize: "0.875rem" }}>Loading responses...</p>
+        <p style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.875rem" }}>Loading responses...</p>
       ) : responses.length === 0 ? (
-        <p style={{ color: "var(--salon-muted)", fontStyle: "italic", fontSize: "0.875rem", fontFamily: "var(--font-lora, Georgia, serif)" }}>
+        <p style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.875rem", fontFamily: "var(--font-lora, Georgia, serif)" }}>
           {d.is_locked ? "This discussion is locked" : "Be the first to respond"}
         </p>
       ) : (
@@ -143,7 +143,7 @@ export default function DiscussionDetailClient({
 
       {/* Response form */}
       {d.is_locked ? (
-        <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--salon-muted)", fontSize: "0.875rem", fontStyle: "italic", marginTop: "1rem" }}>
+        <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--muted)", fontSize: "0.875rem", fontStyle: "italic", marginTop: "1rem" }}>
           This discussion is locked — no new responses
         </div>
       ) : (

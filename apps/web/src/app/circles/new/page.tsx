@@ -13,19 +13,19 @@ export default async function CreateCirclePage() {
   if (session.user.subscription_tier !== "plus") redirect("/settings/billing");
 
   return (
-    <div className="salon-page">
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "2rem 1rem" }}>
+    <div className="circle-page">
+      <div className="max-w-2xl mx-auto" style={{ padding: "2rem 1rem" }}>
         <h1 style={{
           fontFamily: "var(--font-lora, Georgia, serif)",
           fontSize: "1.75rem",
           fontWeight: 600,
-          color: "var(--salon-foreground)",
+          color: "var(--foreground)",
           textAlign: "center",
           marginBottom: "0.5rem",
         }}>
           Found a Circle
         </h1>
-        <p style={{ textAlign: "center", color: "var(--salon-muted)", fontSize: "0.9375rem", fontStyle: "italic", marginBottom: "2rem" }}>
+        <p style={{ textAlign: "center", color: "var(--muted)", fontSize: "0.9375rem", fontStyle: "italic", marginBottom: "2rem" }}>
           Create a space for writers to gather
         </p>
 

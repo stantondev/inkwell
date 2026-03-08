@@ -76,8 +76,8 @@ export default function CircleBrowseClient({
       {/* My Circles */}
       {myCircles.length > 0 && (
         <div style={{ marginBottom: "2rem" }}>
-          <h2 className="salon-section-heading">My Circles</h2>
-          <div className="salon-my-circles-scroll">
+          <h2 className="circle-section-heading">My Circles</h2>
+          <div className="circle-my-circles-scroll">
             {myCircles.map((circle) => (
               <Link
                 key={circle.id}
@@ -87,11 +87,11 @@ export default function CircleBrowseClient({
                   textDecoration: "none",
                 }}
               >
-                <div className="salon-card" style={{ padding: "0.875rem" }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--salon-foreground)", marginBottom: "0.25rem" }}>
+                <div className="circle-card" style={{ padding: "0.875rem" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--foreground)", marginBottom: "0.25rem" }}>
                     {circle.name}
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                     {circle.member_count} member{circle.member_count !== 1 ? "s" : ""}
                   </div>
                 </div>
@@ -113,10 +113,10 @@ export default function CircleBrowseClient({
               flex: 1,
               padding: "0.375rem 0.75rem",
               fontSize: "0.8125rem",
-              border: "1px solid var(--salon-border)",
+              border: "1px solid var(--border)",
               borderRadius: "9999px",
-              background: "var(--salon-surface)",
-              color: "var(--salon-foreground)",
+              background: "var(--surface)",
+              color: "var(--foreground)",
               outline: "none",
             }}
           />
@@ -125,7 +125,7 @@ export default function CircleBrowseClient({
         {isLoggedIn && (
           <Link
             href={isPlus ? "/circles/new" : "/settings/billing"}
-            className="salon-join-btn"
+            className="circle-btn"
             style={{ textDecoration: "none", fontSize: "0.8125rem" }}
           >
             {isPlus ? "+ Found a Circle" : "✦ Plus to Create"}
@@ -137,12 +137,12 @@ export default function CircleBrowseClient({
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", marginBottom: "1.5rem" }}>
         <button
           onClick={() => navigate({ search, category: "" })}
-          className="salon-category-pill"
+          className="circle-category-pill"
           style={{
             cursor: "pointer",
             border: "none",
-            background: !currentCategory ? "var(--salon-accent)" : "var(--salon-accent-light)",
-            color: !currentCategory ? "#fff" : "var(--salon-accent)",
+            background: !currentCategory ? "var(--accent)" : "color-mix(in srgb, var(--accent) 10%, var(--surface))",
+            color: !currentCategory ? "#fff" : "var(--accent)",
           }}
         >
           All
@@ -151,12 +151,12 @@ export default function CircleBrowseClient({
           <button
             key={cat.value}
             onClick={() => navigate({ search, category: cat.value })}
-            className="salon-category-pill"
+            className="circle-category-pill"
             style={{
               cursor: "pointer",
               border: "none",
-              background: currentCategory === cat.value ? "var(--salon-accent)" : "var(--salon-accent-light)",
-              color: currentCategory === cat.value ? "#fff" : "var(--salon-accent)",
+              background: currentCategory === cat.value ? "var(--accent)" : "color-mix(in srgb, var(--accent) 10%, var(--surface))",
+              color: currentCategory === cat.value ? "#fff" : "var(--accent)",
             }}
           >
             {cat.label}
@@ -166,7 +166,7 @@ export default function CircleBrowseClient({
 
       {/* Circle grid */}
       {initialCircles.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--salon-muted)" }}>
+        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--muted)" }}>
           <p style={{ fontSize: "1.125rem", fontStyle: "italic", fontFamily: "var(--font-lora, Georgia, serif)" }}>
             No circles found
           </p>
@@ -193,9 +193,9 @@ export default function CircleBrowseClient({
                 padding: "0.25rem 0.75rem",
                 fontSize: "0.8125rem",
                 borderRadius: "0.375rem",
-                border: "1px solid var(--salon-border)",
-                background: p === initialPage ? "var(--salon-accent)" : "var(--salon-surface)",
-                color: p === initialPage ? "#fff" : "var(--salon-foreground)",
+                border: "1px solid var(--border)",
+                background: p === initialPage ? "var(--accent)" : "var(--surface)",
+                color: p === initialPage ? "#fff" : "var(--foreground)",
                 cursor: "pointer",
               }}
             >

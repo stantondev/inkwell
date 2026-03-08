@@ -359,6 +359,19 @@ defmodule Inkwell.Circles do
     end
   end
 
+  @doc """
+  Returns up to 3 most recent discussions (title, author name, response_count, date)
+  for non-member preview. No body content exposed.
+  """
+  def get_discussion_preview(circle_id) do
+    CircleDiscussion
+    |> where(circle_id: ^circle_id)
+    |> preload(:author)
+    |> order_by([d], [desc_nulls_last: d.last_response_at, desc: d.inserted_at])
+    |> limit(3)
+    |> Repo.all()
+  end
+
   def list_discussions(circle_id, opts \\ %{}) do
     page = parse_int(opts["page"], 1)
     per_page = parse_int(opts["per_page"], 20)

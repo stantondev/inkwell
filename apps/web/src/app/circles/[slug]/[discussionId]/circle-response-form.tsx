@@ -52,7 +52,7 @@ export default function CircleResponseForm({ discussionId, onSubmitted }: Props)
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ position: "relative" }}>
-        <div className="salon-response-form">
+        <div className="circle-response-form">
           <textarea
             ref={textareaRef}
             value={body}
@@ -78,10 +78,10 @@ export default function CircleResponseForm({ discussionId, onSubmitted }: Props)
         )}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.5rem" }}>
-        <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
           {body.length > 0 ? `${body.length}/6000` : ""}
         </span>
-        <button type="submit" disabled={submitting || !body.trim()} className="salon-join-btn" style={{ fontSize: "0.8125rem" }}>
+        <button type="submit" disabled={submitting || !body.trim()} className="circle-btn" style={{ fontSize: "0.8125rem" }}>
           {submitting ? "Posting..." : "Add Your Voice"}
         </button>
       </div>

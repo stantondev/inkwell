@@ -49,9 +49,9 @@ export default function CreateCircleForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="salon-card">
+    <form onSubmit={handleSubmit} className="circle-card">
       <div style={{ marginBottom: "1.25rem" }}>
-        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--salon-muted)", marginBottom: "0.375rem" }}>
+        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "0.375rem" }}>
           Circle Name
         </label>
         <input
@@ -65,17 +65,17 @@ export default function CreateCircleForm() {
             width: "100%",
             padding: "0.625rem 0.75rem",
             fontSize: "0.9375rem",
-            border: "1px solid var(--salon-border)",
+            border: "1px solid var(--border)",
             borderRadius: "0.5rem",
-            background: "var(--salon-bg)",
-            color: "var(--salon-foreground)",
+            background: "var(--background)",
+            color: "var(--foreground)",
             outline: "none",
           }}
         />
       </div>
 
       <div style={{ marginBottom: "1.25rem" }}>
-        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--salon-muted)", marginBottom: "0.375rem" }}>
+        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "0.375rem" }}>
           Category
         </label>
         <select
@@ -86,10 +86,10 @@ export default function CreateCircleForm() {
             width: "100%",
             padding: "0.625rem 0.75rem",
             fontSize: "0.9375rem",
-            border: "1px solid var(--salon-border)",
+            border: "1px solid var(--border)",
             borderRadius: "0.5rem",
-            background: "var(--salon-bg)",
-            color: "var(--salon-foreground)",
+            background: "var(--background)",
+            color: "var(--foreground)",
             outline: "none",
             appearance: "none",
           }}
@@ -102,7 +102,7 @@ export default function CreateCircleForm() {
       </div>
 
       <div style={{ marginBottom: "1.5rem" }}>
-        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--salon-muted)", marginBottom: "0.375rem" }}>
+        <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "0.375rem" }}>
           Description
         </label>
         <textarea
@@ -115,10 +115,10 @@ export default function CreateCircleForm() {
             width: "100%",
             padding: "0.625rem 0.75rem",
             fontSize: "0.9375rem",
-            border: "1px solid var(--salon-border)",
+            border: "1px solid var(--border)",
             borderRadius: "0.5rem",
-            background: "var(--salon-bg)",
-            color: "var(--salon-foreground)",
+            background: "var(--background)",
+            color: "var(--foreground)",
             outline: "none",
             resize: "vertical",
             fontFamily: "inherit",
@@ -130,7 +130,7 @@ export default function CreateCircleForm() {
       <button
         type="submit"
         disabled={submitting || !name.trim() || !category}
-        className="salon-join-btn"
+        className="circle-btn"
         style={{ width: "100%", padding: "0.625rem", fontSize: "0.9375rem" }}
       >
         {submitting ? "Creating..." : "Found Your Circle"}

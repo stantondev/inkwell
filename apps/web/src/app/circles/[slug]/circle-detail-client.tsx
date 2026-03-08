@@ -30,6 +30,7 @@ interface Circle {
   viewer_role: string | null;
   member_preview: { id: string; role: string; user: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_frame: string | null } | null }[];
   owner: { id: string; username: string; display_name: string; avatar_url: string | null } | null;
+  discussion_preview?: { id: string; title: string; is_prompt: boolean; response_count: number; inserted_at: string; author_name: string | null }[];
 }
 
 interface Discussion {
@@ -121,7 +122,7 @@ export default function CircleDetailClient({
   return (
     <>
       {/* Back link */}
-      <Link href="/circles" style={{ fontSize: "0.8125rem", color: "var(--salon-accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", marginBottom: "1rem" }}>
+      <Link href="/circles" style={{ fontSize: "0.8125rem", color: "var(--accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", marginBottom: "1rem" }}>
         ← All Circles
       </Link>
 
@@ -129,21 +130,21 @@ export default function CircleDetailClient({
       <div style={{ marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.75rem", fontWeight: 600, color: "var(--salon-foreground)", margin: 0, lineHeight: 1.3 }}>
+            <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.75rem", fontWeight: 600, color: "var(--foreground)", margin: 0, lineHeight: 1.3 }}>
               {circle.name}
             </h1>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-              <span className="salon-category-pill">
+              <span className="circle-category-pill">
                 {CATEGORY_LABELS[circle.category] || circle.category}
               </span>
-              <span style={{ fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
                 {memberCount} member{memberCount !== 1 ? "s" : ""} · {circle.discussion_count} discussion{circle.discussion_count !== 1 ? "s" : ""}
               </span>
             </div>
             {circle.owner && (
-              <div style={{ fontSize: "0.8125rem", color: "var(--salon-muted)", marginTop: "0.375rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.375rem" }}>
                 Founded by{" "}
-                <Link href={`/${circle.owner.username}`} style={{ color: "var(--salon-accent)", textDecoration: "none" }}>
+                <Link href={`/${circle.owner.username}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
                   @{circle.owner.username}
                 </Link>
               </div>
@@ -152,13 +153,13 @@ export default function CircleDetailClient({
 
           <div>
             {isOwner ? (
-              <span style={{ fontSize: "0.8125rem", color: "var(--salon-accent)", fontWeight: 500, fontStyle: "italic" }}>Owner</span>
+              <span style={{ fontSize: "0.8125rem", color: "var(--accent)", fontWeight: 500, fontStyle: "italic" }}>Owner</span>
             ) : isMember ? (
-              <button onClick={handleLeave} disabled={joining} className="salon-join-btn salon-join-btn--outline">
+              <button onClick={handleLeave} disabled={joining} className="circle-btn circle-btn--outline">
                 {joining ? "..." : "Leave Circle"}
               </button>
             ) : (
-              <button onClick={handleJoin} disabled={joining} className="salon-join-btn">
+              <button onClick={handleJoin} disabled={joining} className="circle-btn">
                 {joining ? "Joining..." : "Join Circle"}
               </button>
             )}
@@ -191,14 +192,14 @@ export default function CircleDetailClient({
         />
       )}
 
-      <div className="salon-divider" />
+      <div className="circle-divider" />
 
       {/* Discussions */}
       {isMember ? (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2 className="salon-section-heading" style={{ marginBottom: 0 }}>Discussions</h2>
-            <button onClick={() => setShowNewDiscussion(!showNewDiscussion)} className="salon-join-btn" style={{ fontSize: "0.8125rem", padding: "0.3rem 0.875rem" }}>
+            <h2 className="circle-section-heading" style={{ marginBottom: 0 }}>Discussions</h2>
+            <button onClick={() => setShowNewDiscussion(!showNewDiscussion)} className="circle-btn" style={{ fontSize: "0.8125rem", padding: "0.3rem 0.875rem" }}>
               {showNewDiscussion ? "Cancel" : "+ New Discussion"}
             </button>
           </div>
@@ -216,11 +217,21 @@ export default function CircleDetailClient({
           )}
 
           {loadingDiscussions ? (
-            <p style={{ color: "var(--salon-muted)", fontStyle: "italic", fontSize: "0.875rem" }}>Loading discussions...</p>
+            <p style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.875rem" }}>Loading discussions...</p>
           ) : discussions.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--salon-muted)" }}>
-              <p style={{ fontStyle: "italic", fontFamily: "var(--font-lora, Georgia, serif)" }}>No discussions yet</p>
-              <p style={{ fontSize: "0.8125rem", marginTop: "0.25rem" }}>Start the conversation</p>
+            <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+              <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.0625rem", fontStyle: "italic", color: "var(--foreground)", marginBottom: "0.5rem" }}>
+                This circle is waiting for its first voice
+              </p>
+              <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.25rem" }}>
+                {circle.category === "writing_craft" ? "Try: \"What are you working on right now?\"" :
+                 circle.category === "reading_books" ? "Try: \"What are you reading this month?\"" :
+                 circle.category === "creative_arts" ? "Try: \"Share something you created recently\"" :
+                 "Try: \"Introduce yourself to the circle\""}
+              </p>
+              <button onClick={() => setShowNewDiscussion(true)} className="circle-btn" style={{ fontSize: "0.8125rem" }}>
+                Start the First Discussion
+              </button>
             </div>
           ) : (
             <div>
@@ -231,18 +242,52 @@ export default function CircleDetailClient({
           )}
         </>
       ) : (
-        <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--salon-muted)" }}>
-          <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.125rem", fontStyle: "italic", marginBottom: "0.5rem" }}>
-            Join to see discussions
-          </p>
-          <p style={{ fontSize: "0.8125rem" }}>
-            Circle discussions are visible to members only
-          </p>
-          {!isLoggedIn && (
-            <a href="/get-started" className="salon-join-btn" style={{ textDecoration: "none", marginTop: "1rem", display: "inline-flex" }}>
-              Join Inkwell to participate
-            </a>
+        <div style={{ padding: "1.5rem 0" }}>
+          {circle.discussion_preview && circle.discussion_preview.length > 0 ? (
+            <>
+              <h2 className="circle-section-heading">Recent Discussions</h2>
+              <div style={{ marginBottom: "1.5rem" }}>
+                {circle.discussion_preview.map((d) => (
+                  <div key={d.id} className="circle-preview-item">
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap" }}>
+                      {d.is_prompt && <span className="circle-prompt-label">Circle Prompt</span>}
+                      <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                        {d.title}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.25rem" }}>
+                      {d.author_name && <span>{d.author_name} · </span>}
+                      {d.response_count} response{d.response_count !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", padding: "1rem 0", marginBottom: "1rem" }}>
+              <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1rem", fontStyle: "italic", color: "var(--muted)" }}>
+                Be one of the first to start a conversation
+              </p>
+            </div>
           )}
+
+          <div style={{ textAlign: "center", padding: "1rem 0", borderTop: "1px solid var(--border)" }}>
+            <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.0625rem", fontStyle: "italic", color: "var(--foreground)", marginBottom: "0.375rem" }}>
+              Join to discuss, share feedback, and connect with fellow writers
+            </p>
+            <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1rem" }}>
+              All voices are equal — no upvotes, no karma, just conversation
+            </p>
+            {isLoggedIn ? (
+              <button onClick={handleJoin} disabled={joining} className="circle-btn" style={{ fontSize: "0.9375rem", padding: "0.5rem 1.5rem" }}>
+                {joining ? "Joining..." : "Join This Circle"}
+              </button>
+            ) : (
+              <a href="/get-started" className="circle-btn" style={{ textDecoration: "none", display: "inline-flex", fontSize: "0.9375rem", padding: "0.5rem 1.5rem" }}>
+                Join Inkwell to participate
+              </a>
+            )}
+          </div>
         </div>
       )}
     </>

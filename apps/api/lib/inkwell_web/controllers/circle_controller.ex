@@ -65,12 +65,23 @@ defmodule InkwellWeb.CircleController do
             Circles.get_member_preview(circle.id)
             |> Enum.reject(fn m -> m.user_id in blocked_ids end)
 
+          is_member = viewer_role != nil
+
+          # For non-members, include a preview of recent discussions
+          discussion_preview =
+            if !is_member do
+              Circles.get_discussion_preview(circle.id)
+              |> Enum.reject(fn d -> d.author_id in blocked_ids end)
+              |> Enum.map(&render_discussion_preview/1)
+            end
+
           json(conn, %{
             data:
               render_circle(circle, %{
-                is_member: viewer_role != nil,
+                is_member: is_member,
                 viewer_role: viewer_role,
-                member_preview: Enum.map(member_preview, &render_member/1)
+                member_preview: Enum.map(member_preview, &render_member/1),
+                discussion_preview: discussion_preview
               })
           })
         end
@@ -573,6 +584,20 @@ defmodule InkwellWeb.CircleController do
     |> maybe_put(:is_member, meta[:is_member])
     |> maybe_put(:viewer_role, meta[:viewer_role])
     |> maybe_put(:member_preview, meta[:member_preview])
+    |> maybe_put(:discussion_preview, meta[:discussion_preview])
+  end
+
+  defp render_discussion_preview(discussion) do
+    author = if Ecto.assoc_loaded?(discussion.author) && discussion.author, do: discussion.author, else: nil
+
+    %{
+      id: discussion.id,
+      title: discussion.title,
+      is_prompt: discussion.is_prompt,
+      response_count: discussion.response_count,
+      inserted_at: discussion.inserted_at,
+      author_name: if(author, do: author.display_name || author.username, else: nil)
+    }
   end
 
   defp render_member(member) do

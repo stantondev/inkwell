@@ -38,16 +38,21 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+function isRecentlyActive(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
+}
+
 export default function CircleCard({ circle }: { circle: Circle }) {
   return (
     <Link href={`/circles/${circle.slug}`} style={{ textDecoration: "none" }}>
-      <div className="salon-card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div className="circle-card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
           <h3 style={{
             fontFamily: "var(--font-lora, Georgia, serif)",
             fontSize: "1.0625rem",
             fontWeight: 600,
-            color: "var(--salon-foreground)",
+            color: "var(--foreground)",
             margin: 0,
             lineHeight: 1.3,
             flex: 1,
@@ -55,20 +60,20 @@ export default function CircleCard({ circle }: { circle: Circle }) {
             {circle.name}
           </h3>
           {circle.is_starter && (
-            <span style={{ fontSize: "0.625rem", color: "var(--salon-accent)", fontWeight: 600, whiteSpace: "nowrap", marginLeft: "0.5rem" }}>
+            <span style={{ fontSize: "0.625rem", color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap", marginLeft: "0.5rem" }}>
               STARTER
             </span>
           )}
         </div>
 
-        <span className="salon-category-pill" style={{ alignSelf: "flex-start", marginBottom: "0.5rem" }}>
+        <span className="circle-category-pill" style={{ alignSelf: "flex-start", marginBottom: "0.5rem" }}>
           {CATEGORY_LABELS[circle.category] || circle.category}
         </span>
 
         {circle.description && (
           <p style={{
             fontSize: "0.8125rem",
-            color: "var(--salon-muted)",
+            color: "var(--muted)",
             lineHeight: 1.5,
             marginBottom: "0.75rem",
             flex: 1,
@@ -81,18 +86,21 @@ export default function CircleCard({ circle }: { circle: Circle }) {
           </p>
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--salon-muted)", marginTop: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--muted)", marginTop: "auto" }}>
           <div style={{ display: "flex", gap: "0.75rem" }}>
             <span>{circle.member_count} member{circle.member_count !== 1 ? "s" : ""}</span>
             <span>{circle.discussion_count} discussion{circle.discussion_count !== 1 ? "s" : ""}</span>
           </div>
           {circle.last_activity_at && (
-            <span>{timeAgo(circle.last_activity_at)}</span>
+            <span style={isRecentlyActive(circle.last_activity_at) ? { color: "var(--accent)", fontWeight: 500 } : undefined}>
+              {isRecentlyActive(circle.last_activity_at) && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", marginRight: "0.25rem", verticalAlign: "middle" }} />}
+              {timeAgo(circle.last_activity_at)}
+            </span>
           )}
         </div>
 
         {circle.owner && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--salon-muted)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--muted)" }}>
             {circle.owner.avatar_url && (
               <img
                 src={circle.owner.avatar_url}

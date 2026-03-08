@@ -46,8 +46,8 @@ export default async function DiscussionPage({
   }
 
   return (
-    <div className="salon-page">
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "1.5rem 1rem" }}>
+    <div className="circle-page">
+      <div className="max-w-3xl mx-auto" style={{ padding: "1.5rem 1rem" }}>
         <DiscussionDetailClient
           discussion={discussion}
           circleSlug={slug}

@@ -5622,92 +5622,47 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   margin: 0.25rem 0;
 }
 
-/* ── Writer's Salon (Circles) ──────────────────────────────── */
+/* ── Writing Circles ──────────────────────────────────────── */
 
-/* Light mode salon palette */
-:root {
-  --salon-bg: #faf6f0;
-  --salon-surface: #f5ede2;
-  --salon-surface-hover: #efe5d6;
-  --salon-accent: #b8860b;
-  --salon-accent-warm: #d4a54a;
-  --salon-accent-light: #f5eedd;
-  --salon-foreground: #3b2f1e;
-  --salon-muted: #8c7a62;
-  --salon-border: #ddd0be;
-  --salon-prompt-bg: #fdf6e8;
-}
-
-/* Dark mode salon palette */
-.dark {
-  --salon-bg: #1a1510;
-  --salon-surface: #262015;
-  --salon-surface-hover: #312919;
-  --salon-accent: #d4a54a;
-  --salon-accent-warm: #e0b864;
-  --salon-accent-light: #3d3425;
-  --salon-foreground: #e8dcc4;
-  --salon-muted: #a99878;
-  --salon-border: #3d3425;
-  --salon-prompt-bg: #2a2318;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --salon-bg: #1a1510;
-    --salon-surface: #262015;
-    --salon-surface-hover: #312919;
-    --salon-accent: #d4a54a;
-    --salon-accent-warm: #e0b864;
-    --salon-accent-light: #3d3425;
-    --salon-foreground: #e8dcc4;
-    --salon-muted: #a99878;
-    --salon-border: #3d3425;
-    --salon-prompt-bg: #2a2318;
-  }
-}
-
-/* Salon page wrapper — warm background, scopes all children */
-.salon-page {
-  background: var(--salon-bg);
-  color: var(--salon-foreground);
+/* Circle page wrapper */
+.circle-page {
+  background: var(--background);
+  color: var(--foreground);
   min-height: 100vh;
 }
 
-/* Salon hero gradient */
-.salon-hero {
-  background: linear-gradient(135deg, var(--salon-accent-light) 0%, var(--salon-bg) 50%, var(--salon-surface) 100%);
+/* Circle hero */
+.circle-hero {
   padding: 2.5rem 1.5rem 2rem;
   text-align: center;
 }
-.salon-hero h1 {
+.circle-hero h1 {
   font-family: var(--font-lora, Georgia, serif);
   font-size: 2rem;
   font-weight: 600;
-  color: var(--salon-foreground);
+  color: var(--foreground);
   margin-bottom: 0.5rem;
 }
-.salon-hero p {
-  color: var(--salon-muted);
+.circle-hero p {
+  color: var(--muted);
   font-size: 0.9375rem;
   font-style: italic;
 }
 
 /* Circle card */
-.salon-card {
-  background: var(--salon-surface);
-  border: 1px solid var(--salon-border);
+.circle-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
   padding: 1.25rem;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: border-color 0.2s;
 }
-.salon-card:hover {
-  box-shadow: 0 2px 12px rgba(184, 134, 11, 0.08);
-  border-color: var(--salon-accent);
+.circle-card:hover {
+  border-color: var(--accent);
 }
 
 /* Category pill */
-.salon-category-pill {
+.circle-category-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -5717,12 +5672,12 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: 9999px;
-  background: var(--salon-accent-light);
-  color: var(--salon-accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
 }
 
-/* Join/leave button */
-.salon-join-btn {
+/* Circle button (pill-shaped, ink-blue) */
+.circle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5731,53 +5686,52 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   font-size: 0.8125rem;
   font-weight: 500;
   border-radius: 9999px;
-  border: 1px solid var(--salon-accent);
-  background: var(--salon-accent);
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: #fff;
   cursor: pointer;
   transition: background-color 0.15s, opacity 0.15s;
 }
-.salon-join-btn:hover {
-  background: var(--salon-accent-warm);
-  border-color: var(--salon-accent-warm);
+.circle-btn:hover {
+  filter: brightness(1.15);
 }
-.salon-join-btn.salon-join-btn--outline {
+.circle-btn.circle-btn--outline {
   background: transparent;
-  color: var(--salon-accent);
+  color: var(--accent);
 }
-.salon-join-btn.salon-join-btn--outline:hover {
-  background: var(--salon-accent-light);
+.circle-btn.circle-btn--outline:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.salon-join-btn:disabled {
+.circle-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* Member avatar strip (overlapping) */
-.salon-member-strip {
+.circle-member-strip {
   display: flex;
   align-items: center;
 }
-.salon-member-strip .salon-member-avatar {
+.circle-member-strip .circle-member-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid var(--salon-surface);
+  border: 2px solid var(--surface);
   object-fit: cover;
   margin-left: -8px;
 }
-.salon-member-strip .salon-member-avatar:first-child {
+.circle-member-strip .circle-member-avatar:first-child {
   margin-left: 0;
 }
-.salon-member-avatar-wrap {
+.circle-member-avatar-wrap {
   position: relative;
   display: inline-block;
   margin-left: -8px;
 }
-.salon-member-avatar-wrap:first-child {
+.circle-member-avatar-wrap:first-child {
   margin-left: 0;
 }
-.salon-member-avatar-wrap .salon-member-avatar {
+.circle-member-avatar-wrap .circle-member-avatar {
   margin-left: 0;
 }
 .circle-role-dot {
@@ -5787,10 +5741,10 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 1.5px solid var(--salon-surface, #fff);
+  border: 1.5px solid var(--surface);
 }
 .circle-role-dot--owner {
-  background: var(--salon-accent);
+  background: var(--accent);
 }
 .circle-role-dot--mod {
   background: #6b7280;
@@ -5802,25 +5756,25 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   align-items: center;
   gap: 0.375rem;
   background: none;
-  border: 1px solid var(--salon-border);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 0.4rem 0.75rem;
   font-size: 0.8125rem;
-  color: var(--salon-muted);
+  color: var(--muted);
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
   font-family: var(--font-lora, Georgia, serif);
 }
 .circle-members-toggle:hover {
-  color: var(--salon-foreground);
-  border-color: var(--salon-accent);
+  color: var(--foreground);
+  border-color: var(--accent);
 }
 .circle-members-list {
-  border: 1px solid var(--salon-border);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   margin-top: 0.5rem;
   padding: 0.25rem 0;
-  background: var(--salon-surface);
+  background: var(--surface);
 }
 .circle-member-card {
   display: flex;
@@ -5830,7 +5784,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   gap: 0.5rem;
 }
 .circle-member-card:not(:last-child) {
-  border-bottom: 1px solid var(--salon-border);
+  border-bottom: 1px solid var(--border);
 }
 .circle-member-info {
   display: flex;
@@ -5842,7 +5796,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   flex: 1;
 }
 .circle-member-info:hover .circle-member-name {
-  color: var(--salon-accent);
+  color: var(--accent);
 }
 .circle-member-avatar {
   width: 32px;
@@ -5854,12 +5808,12 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 .circle-member-name {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--salon-foreground);
+  color: var(--foreground);
   transition: color 0.15s;
 }
 .circle-member-username {
   font-size: 0.75rem;
-  color: var(--salon-muted);
+  color: var(--muted);
 }
 .circle-role-badge {
   font-size: 0.625rem;
@@ -5872,12 +5826,12 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   white-space: nowrap;
 }
 .circle-role-badge--owner {
-  background: var(--salon-accent);
+  background: var(--accent);
   color: #fff;
 }
 .circle-role-badge--mod {
-  background: var(--salon-border);
-  color: var(--salon-foreground);
+  background: var(--border);
+  color: var(--foreground);
 }
 .circle-member-actions {
   display: flex;
@@ -5889,24 +5843,24 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   font-size: 0.6875rem;
   padding: 0.2rem 0.5rem;
   border-radius: 0.25rem;
-  border: 1px solid var(--salon-border);
+  border: 1px solid var(--border);
   background: transparent;
-  color: var(--salon-muted);
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
 .circle-member-btn:hover {
-  color: var(--salon-foreground);
-  border-color: var(--salon-foreground);
+  color: var(--foreground);
+  border-color: var(--foreground);
 }
 .circle-member-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .circle-member-btn--promote:hover {
-  color: var(--salon-accent);
-  border-color: var(--salon-accent);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .circle-member-btn--demote:hover {
   color: #b45309;
@@ -5926,49 +5880,58 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   width: 24px;
   height: 24px;
   border-radius: 0.25rem;
-  border: 1px solid var(--salon-border);
+  border: 1px solid var(--border);
   background: transparent;
-  color: var(--salon-muted);
+  color: var(--muted);
   cursor: pointer;
 }
 .circle-member-page-btn:hover {
-  border-color: var(--salon-accent);
-  color: var(--salon-accent);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .circle-member-page-btn--active {
-  background: var(--salon-accent);
+  background: var(--accent);
   color: #fff;
-  border-color: var(--salon-accent);
+  border-color: var(--accent);
 }
 
-/* Prompt card (salon topic) */
-.salon-prompt {
-  border-left: 3px solid var(--salon-accent);
-  background: var(--salon-prompt-bg);
+/* Prompt card (circle topic) */
+.circle-prompt {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--background));
   border-radius: 0 0.5rem 0.5rem 0;
   padding: 1rem 1.25rem;
 }
-.salon-prompt-label {
+.circle-prompt-label {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--salon-accent);
+  color: var(--accent);
   font-style: italic;
   font-family: var(--font-lora, Georgia, serif);
 }
 
+/* Discussion preview for non-members */
+.circle-preview-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.circle-preview-item:last-child {
+  border-bottom: none;
+}
+
 /* Response card (flat, equal weight) */
-.salon-response {
+.circle-response {
   display: flex;
   gap: 0.75rem;
   padding: 1rem 0;
-  border-bottom: 1px solid var(--salon-border);
+  border-bottom: 1px solid var(--border);
 }
-.salon-response:last-child {
+.circle-response:last-child {
   border-bottom: none;
 }
-.salon-response-avatar {
+.circle-response-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -5980,19 +5943,19 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 .prose-discussion {
   font-size: 0.9375rem;
   line-height: 1.7;
-  color: var(--salon-foreground);
+  color: var(--foreground);
 }
 .prose-discussion p { margin-bottom: 0.75rem; }
 .prose-discussion a {
-  color: var(--salon-accent);
+  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .prose-discussion a:hover {
-  color: var(--salon-accent-warm);
+  filter: brightness(1.2);
 }
 .prose-discussion .mention {
-  color: var(--salon-accent);
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -6001,7 +5964,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 }
 
 /* Discussion card in list */
-.salon-discussion-card {
+.circle-discussion-card {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
@@ -6010,76 +5973,76 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   transition: background-color 0.15s;
   cursor: pointer;
 }
-.salon-discussion-card:hover {
-  background: var(--salon-surface-hover);
+.circle-discussion-card:hover {
+  background: var(--surface-hover);
 }
 
 /* Locked discussion badge */
-.salon-locked-badge {
+.circle-locked-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   font-size: 0.6875rem;
-  color: var(--salon-muted);
+  color: var(--muted);
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
-  background: var(--salon-border);
+  background: var(--border);
 }
 
 /* Section divider */
-.salon-divider {
+.circle-divider {
   height: 1px;
-  background: var(--salon-border);
+  background: var(--border);
   margin: 1.5rem 0;
 }
 
 /* My Circles horizontal scroll */
-.salon-my-circles-scroll {
+.circle-my-circles-scroll {
   display: flex;
   gap: 0.75rem;
   overflow-x: auto;
   padding-bottom: 0.5rem;
   scrollbar-width: thin;
-  scrollbar-color: var(--salon-border) transparent;
+  scrollbar-color: var(--border) transparent;
 }
-.salon-my-circles-scroll::-webkit-scrollbar {
+.circle-my-circles-scroll::-webkit-scrollbar {
   height: 4px;
 }
-.salon-my-circles-scroll::-webkit-scrollbar-thumb {
-  background: var(--salon-border);
+.circle-my-circles-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
   border-radius: 2px;
 }
 
-/* Salon section heading */
-.salon-section-heading {
+/* Circle section heading */
+.circle-section-heading {
   font-family: var(--font-lora, Georgia, serif);
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--salon-foreground);
+  color: var(--foreground);
   margin-bottom: 1rem;
 }
 
 /* Response form */
-.salon-response-form textarea {
+.circle-response-form textarea {
   width: 100%;
   min-height: 100px;
   padding: 0.75rem;
-  border: 1px solid var(--salon-border);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
-  background: var(--salon-surface);
-  color: var(--salon-foreground);
+  background: var(--surface);
+  color: var(--foreground);
   font-size: 0.9375rem;
   line-height: 1.6;
   resize: vertical;
   font-family: inherit;
 }
-.salon-response-form textarea:focus {
+.circle-response-form textarea:focus {
   outline: none;
-  border-color: var(--salon-accent);
-  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.salon-response-form textarea::placeholder {
-  color: var(--salon-muted);
+.circle-response-form textarea::placeholder {
+  color: var(--muted);
   font-style: italic;
 }
 
@@ -6087,15 +6050,14 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 [data-circle-embed] {
   margin: 1.5rem 0;
   border-radius: 0.75rem;
-  border: 1px solid var(--salon-border, #ddd0be);
-  background: var(--salon-surface, #f5ede2);
+  border: 1px solid var(--border);
+  background: var(--surface);
   overflow: hidden;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: border-color 0.2s;
   max-width: 480px;
 }
 [data-circle-embed]:hover {
-  border-color: var(--salon-accent, #b8860b);
-  box-shadow: 0 2px 16px rgba(184, 134, 11, 0.12);
+  border-color: var(--accent);
 }
 .circle-embed-link {
   display: flex;
@@ -6110,13 +6072,13 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   text-decoration: none !important;
 }
 .circle-embed-icon {
-  display: none; /* icon rendered via CSS below */
+  display: none;
 }
 .circle-embed-icon::before {
   content: "◎";
   display: inline-block;
   font-size: 1.25rem;
-  color: var(--salon-accent, #b8860b);
+  color: var(--accent);
   margin-right: 0.25rem;
   vertical-align: middle;
 }
@@ -6127,13 +6089,13 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   font-family: var(--font-lora, Georgia, serif);
   font-weight: 700;
   font-size: 1.0625rem;
-  color: var(--salon-foreground, #3b2f1e);
+  color: var(--foreground);
   line-height: 1.3;
 }
 .circle-embed-name::before {
   content: "◎";
   font-size: 1.125rem;
-  color: var(--salon-accent, #b8860b);
+  color: var(--accent);
   flex-shrink: 0;
 }
 .circle-embed-desc {
@@ -6143,7 +6105,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   overflow: hidden;
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: var(--salon-muted, #8c7a62);
+  color: var(--muted);
 }
 .circle-embed-meta {
   display: flex;
@@ -6156,37 +6118,23 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--salon-accent, #b8860b);
-  background: var(--salon-accent-light, #f5eedd);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
 }
 .circle-embed-members {
   font-size: 0.75rem;
-  color: var(--salon-muted, #8c7a62);
+  color: var(--muted);
 }
 .circle-embed-cta {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--salon-accent, #b8860b);
+  color: var(--accent);
   margin-top: 0.125rem;
 }
 [data-circle-embed]:hover .circle-embed-cta {
-  color: var(--salon-accent-warm, #d4a54a);
-}
-
-/* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  [data-circle-embed] {
-    border-color: var(--salon-border, #3d3425);
-    background: var(--salon-surface, #262015);
-  }
-  .circle-embed-name {
-    color: var(--salon-foreground, #e8dcc4);
-  }
-  .circle-embed-category {
-    background: rgba(212, 165, 74, 0.15);
-  }
+  filter: brightness(1.2);
 }
 
 /* In the editor, make it non-editable looking */
@@ -6195,7 +6143,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   position: relative;
 }
 .ProseMirror [data-circle-embed].ProseMirror-selectednode {
-  outline: 2px solid var(--salon-accent, #b8860b);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
