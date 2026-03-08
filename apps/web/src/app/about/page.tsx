@@ -227,11 +227,23 @@ export default function AboutPage() {
             <strong style={{ color: "var(--accent)" }}>$5/month</strong>{" "}
             unlocks custom themes, HTML/CSS, the First Class stamp, and more.
           </p>
-          <p className="text-base leading-relaxed mb-8">
+          <p className="text-base leading-relaxed mb-4">
             Subscriptions align our success with user value. When you pay for
             Plus, it&apos;s because Inkwell is worth it — not because we
             engineered an addiction or locked away features you need to
             function.
+          </p>
+          <p className="text-base leading-relaxed mb-8">
+            Writers can also earn directly from their work through{" "}
+            <Link
+              href="/for-writers"
+              className="underline underline-offset-2"
+              style={{ color: "var(--accent)" }}
+            >
+              paid subscription plans
+            </Link>
+            , one-time Postage tips, and email newsletters — all with 92%
+            payouts. We take 8% to keep the platform running.
           </p>
 
           <p

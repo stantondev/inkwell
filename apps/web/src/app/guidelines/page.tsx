@@ -26,7 +26,7 @@ export default function GuidelinesPage() {
         Community Guidelines
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: February 27, 2026
+        Last Updated: March 9, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">

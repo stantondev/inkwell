@@ -77,6 +77,17 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
     ],
   },
   {
+    id: "paid-content",
+    title: "Paid Content & Subscriptions",
+    body: [
+      "Writers on Inkwell can create paid subscription plans and publish entries exclusively for their subscribers. This is a privilege, not a right \u2014 it comes with responsibility.",
+      "Be honest about what subscribers will get. Don\u2019t promise daily updates and deliver once a month. Don\u2019t gate content that was previously free without telling your readers.",
+      "Paid entries should represent your genuine best work \u2014 not a paywall thrown in front of content that doesn\u2019t warrant it. Your subscribers are supporting you because they value your writing.",
+      "Refund disputes are handled through Stripe. If a subscriber cancels, they keep access until the end of their billing period. No hard feelings.",
+      "The same content standards apply to paid entries as to free ones. A paywall does not make prohibited content acceptable.",
+    ],
+  },
+  {
     id: "enforcement",
     title: "When Things Go Wrong",
     body: [

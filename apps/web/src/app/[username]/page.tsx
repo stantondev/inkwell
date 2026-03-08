@@ -23,6 +23,7 @@ import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
 import type { TemplateContext } from "@/lib/template-tags";
 import { SignupCta } from "@/components/signup-cta";
+import { WriterSubscribeCard } from "@/components/writer-subscribe-card";
 import { FediverseHandle } from "./fediverse-handle";
 
 interface ProfileParams {
@@ -426,6 +427,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let entryYears: number[] = [];
   let entryTags: { tag: string; count: number }[] = [];
   let entryCategories: { category: string; count: number }[] = [];
+  let writerPlan: { id: string; name: string; description: string | null; price_cents: number; subscriber_count: number; is_subscribed: boolean } | null = null;
 
   try {
     const data = await apiFetch<{
@@ -459,6 +461,18 @@ export default async function ProfilePage({ params }: ProfileParams) {
     entryCategories = data.meta.entry_categories ?? [];
   } catch {
     notFound();
+  }
+
+  // Fetch writer subscription plan (if any)
+  try {
+    const planData = await apiFetch<{ data: typeof writerPlan }>(
+      `/api/writer-plans/by-writer/${username}`,
+      {},
+      session?.token
+    );
+    writerPlan = planData.data;
+  } catch {
+    // no plan or fetch failed — ignore
   }
 
   // Fire-and-forget: increment visitor count for non-owner views
@@ -595,7 +609,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Widget ordering (Plus only — free users get default order)
   // Merge any new widget types that aren't in the user's saved order (e.g., newsletter/series added after they customized)
-  const defaultOrder = ["about", "entries", "top_pals", "tags", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
+  const defaultOrder = ["about", "entries", "top_pals", "tags", "support", "subscription", "newsletter", "series", "guestbook", "music", "custom_html"];
   const savedOrder = isPlus ? (profile.profile_widgets?.order ?? null) : null;
   const widgetOrder = savedOrder
     ? [...savedOrder, ...defaultOrder.filter((w) => !savedOrder.includes(w))]
@@ -826,6 +840,17 @@ export default async function ProfilePage({ params }: ProfileParams) {
           </div>
         );
       }
+      case "subscription":
+        if (!writerPlan) return null;
+        return (
+          <WriterSubscribeCard
+            key="subscription"
+            plan={writerPlan}
+            writerId={profile.id}
+            isOwnProfile={isOwnProfile}
+            isLoggedIn={!!session}
+          />
+        );
       case "newsletter":
         if (!profile.newsletter_enabled) return null;
         return (

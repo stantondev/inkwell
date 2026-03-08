@@ -24,6 +24,7 @@ import { TipButton } from "@/components/tip-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
 import { SignupCta } from "@/components/signup-cta";
+import { PaywallCard } from "@/components/paywall-card";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -80,6 +81,14 @@ interface EntryData {
   tip_total_cents?: number;
   tip_count?: number;
   poll?: PollData | null;
+  is_paywalled?: boolean;
+  writer_plan?: {
+    id: string;
+    name: string;
+    price_cents: number;
+    subscriber_count: number;
+  } | null;
+  is_paid?: boolean;
   author: EntryAuthor;
 }
 
@@ -573,6 +582,22 @@ export default async function EntryPage({ params }: EntryParams) {
 
       {/* ── Entry body ──────────────────────────────────────────────── */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
+        {entry.is_paywalled && entry.writer_plan ? (
+          <div>
+            {entry.excerpt && (
+              <JournalPage corner className="p-6 lg:p-10">
+                <div className="prose-entry" style={{ color: "var(--foreground)" }}>
+                  <p>{entry.excerpt}</p>
+                </div>
+              </JournalPage>
+            )}
+            <PaywallCard
+              writerPlan={entry.writer_plan}
+              author={entry.author}
+              isLoggedIn={!!session}
+            />
+          </div>
+        ) : (
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
           <JournalPage corner className="p-6 lg:p-10">
             <EntryContent
@@ -598,6 +623,7 @@ export default async function EntryPage({ params }: EntryParams) {
             </div>
           )}
         </ContentWarning>
+        )}
 
         {/* Entry Poll */}
         {entry.poll && (

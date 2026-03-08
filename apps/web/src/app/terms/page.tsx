@@ -371,6 +371,38 @@ export default function TermsPage() {
             Automated content creation via the API must comply with all applicable content policies. Rate limits are enforced
             per key and may be adjusted with notice.
           </p>
+
+          <h3 className="font-semibold mt-4 mb-2">8.10 Writer Subscription Plans (Paid Content)</h3>
+          <p>
+            Inkwell Plus subscribers with Stripe Connect enabled may create a paid subscription plan, allowing readers
+            to subscribe for a monthly fee to access exclusive entries marked as &ldquo;Paid subscribers only.&rdquo;
+          </p>
+          <p className="mt-3">
+            <strong>Plan creation:</strong> Writers may create one active subscription plan at a time, priced between
+            $1.00 and $100.00 USD per month. To change the price of a plan, writers must archive the existing plan and
+            create a new one. Archiving a plan does not cancel existing subscribers&apos; access &mdash; they retain
+            access until they cancel or their billing period ends.
+          </p>
+          <p className="mt-3">
+            <strong>Fee structure:</strong> Inkwell retains an 8% platform commission on all writer subscription
+            payments. The writer receives 92% of each subscription payment. Standard payment processing fees
+            (Stripe) are deducted separately.
+          </p>
+          <p className="mt-3">
+            <strong>Subscriber access:</strong> Subscribers retain access to paid entries for the duration of their
+            active subscription. If a subscriber cancels, they keep access until the end of their current billing
+            period. Writers may not retroactively remove access from subscribers with active billing periods.
+          </p>
+          <p className="mt-3">
+            <strong>Content standards:</strong> Paid entries are subject to the same content policies as free entries.
+            A paywall does not make prohibited content acceptable. Writers must honestly represent what subscribers
+            will receive and should not gate previously free content behind a paywall without notice.
+          </p>
+          <p className="mt-3">
+            <strong>Refunds:</strong> Subscription refund disputes are handled through Stripe. Inkwell is not
+            responsible for disputes between writers and their subscribers regarding the quality or frequency of
+            paid content.
+          </p>
         </section>
 
         {/* 9. Copyright and DMCA Policy */}

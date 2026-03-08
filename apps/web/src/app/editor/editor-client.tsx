@@ -28,7 +28,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
 import { CircleEmbed, type CircleEmbedAttrs } from "@/lib/tiptap-circle-embed";
 
-type Privacy = "public" | "friends_only" | "private" | "custom";
+type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
 
 interface FriendFilter {
   id: string;
@@ -1061,6 +1061,8 @@ export function EditorClient() {
   const [newsletterSubject, setNewsletterSubject] = useState("");
   const [alreadySent, setAlreadySent] = useState(false);
   const [isPlus, setIsPlus] = useState(false);
+  const [hasWriterPlan, setHasWriterPlan] = useState(false);
+  const [hasStripeConnect, setHasStripeConnect] = useState(false);
   const [scheduleSend, setScheduleSend] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
   const [sendsThisMonth, setSendsThisMonth] = useState(0);
@@ -1285,6 +1287,8 @@ export function EditorClient() {
           setNewsletterEnabled(!!data?.newsletter_enabled);
           setSubscriberCount(data?.subscriber_count ?? 0);
           setIsPlus((data?.subscription_tier ?? "free") === "plus");
+          setHasWriterPlan(!!data?.has_writer_plan);
+          setHasStripeConnect(!!data?.stripe_connect_enabled);
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
         }
@@ -1935,7 +1939,15 @@ export function EditorClient() {
                   {PRIVACY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
                   ))}
+                  {isPlus && hasStripeConnect && hasWriterPlan && (
+                    <option value="paid">💰 Paid subscribers only</option>
+                  )}
                 </select>
+                {state.privacy === "paid" && (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    Only your paid subscribers can read this entry.
+                  </div>
+                )}
                 {state.privacy === "custom" && (
                   <div style={{ marginTop: 8 }}>
                     {!filtersLoaded ? (

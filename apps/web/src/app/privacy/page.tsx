@@ -128,7 +128,7 @@ export default function PrivacyPage() {
                 <tbody>
                   {[
                     ["Provide the Service", "To operate, maintain, and deliver Inkwell\u2019s features, including hosting and displaying your journal entries, managing your account, and facilitating federation."],
-                    ["Process payments", "To process your Inkwell Plus subscription through our payment processor."],
+                    ["Process payments", "To process your Inkwell Plus subscription, writer subscription plans, and Postage payments through our payment processor."],
                     ["Communicate with you", "To send service-related notifications (e.g., account verification, security alerts, billing confirmations) and respond to support inquiries."],
                     ["Improve the Service", "To analyze usage patterns, troubleshoot issues, and improve the performance and reliability of the platform."],
                     ["Enforce our Terms", "To detect and prevent abuse, spam, fraud, and violations of our Terms of Service and Acceptable Use Policy."],
@@ -172,7 +172,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Payment processor:</strong> We share necessary billing information with our payment processor Stripe
-              to process subscription transactions.
+              to process subscription transactions, writer subscription plans, and Postage payments.
             </li>
             <li>
               <strong>Hosting and infrastructure providers:</strong> Your data is stored on and processed by servers

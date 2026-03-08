@@ -126,6 +126,10 @@ export default function GuidePage() {
               <strong>Custom</strong> — choose specific people using a friend
               filter
             </li>
+            <li>
+              <strong>Paid subscribers only</strong> — only readers who
+              subscribe to your plan can read the full entry (Plus feature)
+            </li>
           </ul>
           <p>
             Not ready to publish? Save your work as a <strong>draft</strong> and
@@ -269,6 +273,51 @@ export default function GuidePage() {
           </p>
         </Section>
       </div>
+
+        {/* VII. Earning From Your Writing */}
+        <Section id="earning" number="VII" title="Earning From Your Writing">
+          <p>
+            Inkwell offers several ways for writers to earn from their work,
+            all available to{" "}
+            <Link href="/settings/billing" className="underline" style={{ color: "var(--accent)" }}>
+              Plus members
+            </Link>{" "}
+            with Stripe Connect enabled:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Paid subscriptions</strong> — create a monthly plan and
+              publish entries that only your subscribers can read. You keep 92%
+              of every subscription; Inkwell takes 8% to keep the platform
+              running.
+            </li>
+            <li>
+              <strong>Postage</strong> — readers can send you one-time payments
+              as a thank-you for your writing, right from your profile or any
+              entry.
+            </li>
+            <li>
+              <strong>Newsletter</strong> — build an email subscriber list and
+              send your published entries directly to readers&rsquo; inboxes.
+            </li>
+          </ul>
+          <p>
+            To get started, visit{" "}
+            <Link href="/settings/support" className="underline" style={{ color: "var(--accent)" }}>
+              Settings &rarr; Support
+            </Link>{" "}
+            to connect your Stripe account, then create your subscription plan
+            in{" "}
+            <Link href="/settings/subscriptions" className="underline" style={{ color: "var(--accent)" }}>
+              Settings &rarr; Subscriptions
+            </Link>
+            . Learn more on the{" "}
+            <Link href="/for-writers" className="underline" style={{ color: "var(--accent)" }}>
+              For Writers
+            </Link>{" "}
+            page.
+          </p>
+        </Section>
 
       {/* Bottom links */}
       <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--border)" }}>
