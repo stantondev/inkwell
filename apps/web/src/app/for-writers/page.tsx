@@ -249,6 +249,7 @@ export default function ForWritersPage() {
                   ["Fediverse federation", "\u2713", "\u2717"],
                   ["One-time tips", "\u2713 (Postage)", "\u2717"],
                   ["Open source", "Coming soon", "\u2717"],
+                  ["Custom domains", "\u2713", "\u2717"],
                   ["No algorithms", "\u2713", "\u2717"],
                 ].map(([label, inkwell, substack], i) => (
                   <tr key={label} style={{ borderTop: "1px solid var(--border)", background: i % 2 === 0 ? "var(--background)" : "var(--surface)" }}>

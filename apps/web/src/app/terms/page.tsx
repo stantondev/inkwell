@@ -405,6 +405,52 @@ export default function TermsPage() {
           </p>
         </section>
 
+        {/* 8.11. Custom Domains */}
+        <section>
+          <h3 className="font-semibold mt-4 mb-2">8.11 Custom Domains (Plus Feature)</h3>
+          <p>
+            Plus subscribers may configure a custom domain (e.g., <code className="text-sm">alice-writes.com</code>)
+            to serve as a vanity URL for their Inkwell profile, published entries, and subscriber page. Custom domains
+            are a cosmetic feature &mdash; they provide a branded URL but do not alter your identity on the platform
+            or the fediverse.
+          </p>
+          <p className="mt-3">
+            <strong>DNS configuration:</strong> You are responsible for configuring DNS records at your domain registrar
+            to point to Inkwell&apos;s servers (via CNAME or A/AAAA records). Inkwell provides instructions in
+            Settings &rarr; Custom Domain but does not manage your DNS.
+          </p>
+          <p className="mt-3">
+            <strong>TLS certificates:</strong> Inkwell automatically provisions TLS (HTTPS) certificates for active
+            custom domains via Fly.io. Certificates are issued, renewed, and revoked by Inkwell without action on your
+            part.
+          </p>
+          <p className="mt-3">
+            <strong>ActivityPub identity:</strong> Your federated identity remains{" "}
+            <code className="text-sm">@username@inkwell.social</code> regardless of any custom domain. Federation
+            endpoints, WebFinger, and all ActivityPub addressing are unaffected.
+          </p>
+          <p className="mt-3">
+            <strong>Authentication:</strong> Authentication cookies are scoped to{" "}
+            <code className="text-sm">inkwell.social</code>. Visitors to your custom domain view your profile as
+            unauthenticated readers. You manage your account and content at{" "}
+            <code className="text-sm">inkwell.social</code>.
+          </p>
+          <p className="mt-3">
+            <strong>Downgrade and removal:</strong> If your Plus subscription is cancelled or expires, your custom
+            domain is deactivated and its TLS certificate is removed. The domain record is retained so that
+            re-subscribing to Plus restores it without reconfiguration. You may also remove your custom domain at any
+            time from Settings.
+          </p>
+          <p className="mt-3">
+            <strong>Account deletion:</strong> When you delete your account, any associated custom domain record and
+            TLS certificate are permanently removed.
+          </p>
+          <p className="mt-3">
+            <strong>Limits and enforcement:</strong> Each account may have one custom domain. Inkwell reserves the
+            right to disable a custom domain that violates these Terms or points to harmful content.
+          </p>
+        </section>
+
         {/* 9. Copyright and DMCA Policy */}
         <section>
           <h2

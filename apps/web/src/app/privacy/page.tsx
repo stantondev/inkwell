@@ -80,6 +80,11 @@ export default function PrivacyPage() {
               each key along with a short prefix for identification, usage metadata (last used timestamp), and the
               permissions you selected. The full API key is shown only once at creation and is not stored by Inkwell.
             </li>
+            <li>
+              <strong>Custom domain configuration:</strong> If you connect a custom domain to your profile (Plus
+              feature), we store the domain name you provide, its verification status, and timestamps related to DNS
+              verification and TLS certificate provisioning.
+            </li>
           </ul>
 
           <h3 className="font-semibold mt-4 mb-2">1.2 Information Collected Automatically</h3>
@@ -176,9 +181,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Hosting and infrastructure providers:</strong> Your data is stored on and processed by servers
-              operated by Fly.io (application hosting and database), Cloudflare (DNS, content delivery, and email
-              routing), and Resend (transactional email delivery). These providers process data on our behalf in
-              accordance with their respective data processing terms.
+              operated by Fly.io (application hosting, database, and TLS certificate provisioning for custom domains),
+              Cloudflare (DNS, content delivery, and email routing), and Resend (transactional email delivery). These
+              providers process data on our behalf in accordance with their respective data processing terms.
             </li>
             <li>
               <strong>Legal requirements:</strong> We will only disclose your information to law enforcement or government

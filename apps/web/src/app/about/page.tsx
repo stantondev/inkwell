@@ -225,7 +225,7 @@ export default function AboutPage() {
             </Link>{" "}
             at{" "}
             <strong style={{ color: "var(--accent)" }}>$5/month</strong>{" "}
-            unlocks custom themes, HTML/CSS, the First Class stamp, and more.
+            unlocks custom themes, HTML/CSS, custom domains, the First Class stamp, and more.
           </p>
           <p className="text-base leading-relaxed mb-4">
             Subscriptions align our success with user value. When you pay for

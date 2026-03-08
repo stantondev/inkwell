@@ -268,8 +268,9 @@ export default function GuidePage() {
               Plus members
             </Link>{" "}
             ($5/mo) also get custom colors, backgrounds, fonts, layouts, a music
-            player, avatar frames, widget ordering, and custom HTML/CSS — full
-            creative control, like the early days of the web.
+            player, avatar frames, widget ordering, custom HTML/CSS, and a custom
+            domain for your profile — full creative control, like the early days
+            of the web.
           </p>
         </Section>
       </div>
