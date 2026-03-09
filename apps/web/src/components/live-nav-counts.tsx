@@ -9,7 +9,8 @@ interface NavCounts {
   unreadLetterCount: number;
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 30_000; // 30 seconds when tab is visible
+const BACKGROUND_POLL_INTERVAL = 60_000; // 60 seconds when tab is hidden
 const BLINK_INTERVAL = 1500; // title blink speed (ms)
 
 // --- Favicon badge helpers ---
@@ -77,7 +78,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
 
   // Refs for polling + sound
   const prevCountsRef = useRef(initial);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const audioUnlockedRef = useRef(false);
   const soundsMutedRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -105,13 +106,11 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
       .catch(() => {});
   }, []);
 
-  // Unlock audio on first user interaction (browser autoplay policy)
+  // Unlock AudioContext on first user interaction (browser autoplay policy)
   useEffect(() => {
     const unlock = () => {
       if (!audioUnlockedRef.current) {
-        audioRef.current = new Audio("/sounds/notification.wav");
-        audioRef.current.volume = 0.4;
-        audioRef.current.load();
+        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
         audioUnlockedRef.current = true;
       }
       document.removeEventListener("click", unlock);
@@ -213,13 +212,40 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     return () => stopTitleBlink();
   }, [stopTitleBlink]);
 
+  // Synthesize a gentle two-note chime via Web Audio API
+  // No external file needed — produces a soft, pleasant "ding-ding"
   const playSound = useCallback(() => {
-    if (soundsMutedRef.current || !audioUnlockedRef.current || !audioRef.current)
-      return;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play().catch(() => {
-      // Autoplay blocked — ignore silently
-    });
+    if (soundsMutedRef.current || !audioUnlockedRef.current) return;
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    // Resume context if it was suspended (browser policy)
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime;
+    const volume = 0.15; // gentle volume
+
+    // Helper: play one soft tone
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      // Soft attack, gentle decay
+      gain.gain.setValueAtTime(0, now + start);
+      gain.gain.linearRampToValueAtTime(volume, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration);
+    };
+
+    // Two ascending notes: E5 (659 Hz) then A5 (880 Hz) — pleasant major fourth
+    playTone(659, 0, 0.25);
+    playTone(880, 0.15, 0.3);
   }, []);
 
   const refetch = useCallback(() => {
@@ -278,39 +304,31 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     return () => window.removeEventListener("inkwell-nav-refresh", handler);
   }, [refetch]);
 
-  // Periodic polling with Page Visibility API
+  // Periodic polling — faster when visible, slower in background
   useEffect(() => {
-    const startPolling = () => {
-      if (intervalRef.current) return;
-      intervalRef.current = setInterval(refetch, POLL_INTERVAL);
-    };
-
-    const stopPolling = () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+    const startPolling = (interval: number) => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(refetch, interval);
     };
 
     const handleVisibility = () => {
       if (document.hidden) {
-        stopPolling();
+        // Switch to slower background polling (sound + title blink still fire)
+        startPolling(BACKGROUND_POLL_INTERVAL);
       } else {
-        // Tab became visible — refetch immediately, then resume interval
+        // Tab became visible — refetch immediately, switch to fast polling
         refetch();
-        startPolling();
+        startPolling(POLL_INTERVAL);
       }
     };
 
-    // Start polling if tab is currently visible
-    if (!document.hidden) {
-      startPolling();
-    }
+    // Start with appropriate interval
+    startPolling(document.hidden ? BACKGROUND_POLL_INTERVAL : POLL_INTERVAL);
 
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      stopPolling();
+      if (intervalRef.current) clearInterval(intervalRef.current);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refetch]);
