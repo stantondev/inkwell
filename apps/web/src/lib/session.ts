@@ -26,6 +26,8 @@ export interface SessionUser {
   ink_donor_amount_cents?: number | null;
   has_writer_plan?: boolean;
   preferred_language?: string | null;
+  post_email_enabled?: boolean;
+  post_email_address?: string | null;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 

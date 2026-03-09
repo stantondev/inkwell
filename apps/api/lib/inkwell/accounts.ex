@@ -151,6 +151,43 @@ defmodule Inkwell.Accounts do
     end
   end
 
+  # Post by Email
+
+  @doc "Enable post by email — generates a unique token."
+  def enable_post_by_email(%User{} = user) do
+    token = generate_post_email_token()
+
+    user
+    |> Ecto.Changeset.change(%{post_email_token: token})
+    |> Repo.update()
+  end
+
+  @doc "Disable post by email — clears the token."
+  def disable_post_by_email(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{post_email_token: nil})
+    |> Repo.update()
+  end
+
+  @doc "Regenerate the post email token (invalidates old address)."
+  def regenerate_post_email_token(%User{} = user) do
+    token = generate_post_email_token()
+
+    user
+    |> Ecto.Changeset.change(%{post_email_token: token})
+    |> Repo.update()
+  end
+
+  @doc "Look up a user by their post email token."
+  def get_user_by_post_email_token(token) when is_binary(token) do
+    Repo.get_by(User, post_email_token: token)
+  end
+  def get_user_by_post_email_token(_), do: nil
+
+  defp generate_post_email_token do
+    :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
+  end
+
   # User Icons
 
   def list_user_icons(user_id) do

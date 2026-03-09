@@ -175,7 +175,8 @@ defmodule InkwellWeb.AuthController do
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id),
-      preferred_language: user.preferred_language
+      preferred_language: user.preferred_language,
+      post_email_enabled: not is_nil(user.post_email_token)
     }
   end
 

@@ -128,6 +128,10 @@ if config_env() == :prod do
   # Fly.io API token (for custom domain certificate management)
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 
+  # Post by Email (Postmark inbound webhook)
+  config :inkwell, :postmark_inbound_token, System.get_env("POSTMARK_INBOUND_TOKEN")
+  config :inkwell, :post_email_domain, System.get_env("POST_EMAIL_DOMAIN") || "post.inkwell.social"
+
   # DeepL API (for content translation — free tier: 500K chars/mo)
   config :inkwell, :deepl_api_key, System.get_env("DEEPL_API_KEY")
 end

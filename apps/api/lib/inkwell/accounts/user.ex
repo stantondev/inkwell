@@ -78,6 +78,9 @@ defmodule Inkwell.Accounts.User do
     # Language preference (for content translation)
     field :preferred_language, :string
 
+    # Post by Email
+    field :post_email_token, :string
+
     # Invitations
     field :invite_code, :string
     field :invited_by_id, :binary_id

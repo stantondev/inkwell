@@ -284,6 +284,10 @@ defmodule InkwellWeb.UserController do
     end
   end
 
+  def upload_background(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
+  end
+
   defp upload_background_impl(conn, user, image_data) do
     case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
       [_, _type, base64] ->
@@ -309,10 +313,6 @@ defmodule InkwellWeb.UserController do
         |> put_status(:unprocessable_entity)
         |> json(%{error: "Invalid image format — must be a data:image/... URI"})
     end
-  end
-
-  def upload_background(conn, _params) do
-    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
   end
 
   # POST /api/me/banner — upload profile banner/header image (free for all users)
@@ -427,6 +427,55 @@ defmodule InkwellWeb.UserController do
     |> json(%{error: "Username confirmation is required."})
   end
 
+  # POST /api/me/post-email/enable — generate a post-by-email address (Plus only)
+  def enable_post_email(conn, _params) do
+    user = conn.assigns.current_user
+
+    if (user.subscription_tier || "free") != "plus" do
+      conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
+    else
+      case Accounts.enable_post_by_email(user) do
+        {:ok, updated} ->
+          domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
+          json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{domain}"})
+
+        {:error, _changeset} ->
+          conn |> put_status(:internal_server_error) |> json(%{error: "Could not enable post by email"})
+      end
+    end
+  end
+
+  # POST /api/me/post-email/disable — remove post-by-email address
+  def disable_post_email(conn, _params) do
+    user = conn.assigns.current_user
+
+    case Accounts.disable_post_by_email(user) do
+      {:ok, _updated} ->
+        json(conn, %{ok: true})
+
+      {:error, _changeset} ->
+        conn |> put_status(:internal_server_error) |> json(%{error: "Could not disable post by email"})
+    end
+  end
+
+  # POST /api/me/post-email/regenerate — get a new post-by-email address
+  def regenerate_post_email(conn, _params) do
+    user = conn.assigns.current_user
+
+    if (user.subscription_tier || "free") != "plus" do
+      conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
+    else
+      case Accounts.regenerate_post_email_token(user) do
+        {:ok, updated} ->
+          domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
+          json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{domain}"})
+
+        {:error, _changeset} ->
+          conn |> put_status(:internal_server_error) |> json(%{error: "Could not regenerate address"})
+      end
+    end
+  end
+
   # ── Renderers ────────────────────────────────────────────────────────────
 
   def render_user(user) do
@@ -485,6 +534,9 @@ defmodule InkwellWeb.UserController do
   end
 
   defp render_user_full(user) do
+    domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
+    post_email_enabled = not is_nil(user.post_email_token)
+
     user
     |> render_user()
     |> Map.merge(%{
@@ -497,7 +549,9 @@ defmodule InkwellWeb.UserController do
       stripe_connect_account_id: user.stripe_connect_account_id,
       stripe_connect_onboarded: user.stripe_connect_onboarded || false,
       sends_this_month: Inkwell.Newsletter.count_sends_this_month(user.id),
-      send_limit: Inkwell.Newsletter.send_limit(user.subscription_tier)
+      send_limit: Inkwell.Newsletter.send_limit(user.subscription_tier),
+      post_email_enabled: post_email_enabled,
+      post_email_address: if(post_email_enabled, do: "post+#{user.post_email_token}@#{domain}", else: nil)
     })
   end
 

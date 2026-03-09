@@ -47,6 +47,9 @@ defmodule Inkwell.Journals.Entry do
     field :content_warning, :string
     field :admin_sensitive, :boolean, default: false
 
+    # Source tracking (nil = web, "email" = post by email)
+    field :source, :string
+
     # Cross-posting
     field :crosspost_results, :map, default: %{}
 
@@ -60,7 +63,7 @@ defmodule Inkwell.Journals.Entry do
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
       :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category,
-      :series_id, :series_order, :sensitive, :content_warning
+      :series_id, :series_order, :sensitive, :content_warning, :source
     ])
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)

@@ -223,6 +223,7 @@ export default function BillingPage() {
                 "Widget reordering",
                 "Custom HTML & CSS theming",
                 "Custom domain (your-site.com)",
+                "Post by Email (publish from any email client)",
                 "First Class stamp",
                 "Plus badge on your profile",
                 "Priority support",

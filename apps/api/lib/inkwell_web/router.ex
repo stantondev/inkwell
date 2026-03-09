@@ -89,6 +89,9 @@ defmodule InkwellWeb.Router do
     # Stripe webhook (public, verified by signature)
     post "/billing/webhook", BillingController, :webhook
 
+    # Inbound email webhook (Postmark, verified by query param token)
+    post "/email/inbound", InboundEmailController, :inbound
+
     # Newsletter (public fixed routes — must come before :username param routes)
     get "/newsletter/confirm", NewsletterController, :confirm
     get "/newsletter/unsubscribe", NewsletterController, :unsubscribe
@@ -365,6 +368,11 @@ defmodule InkwellWeb.Router do
     get "/invitations", InvitationController, :index
     get "/invitations/stats", InvitationController, :stats
     post "/invitations", InvitationController, :create
+
+    # Post by Email (authenticated, Plus-only)
+    post "/me/post-email/enable", UserController, :enable_post_email
+    post "/me/post-email/disable", UserController, :disable_post_email
+    post "/me/post-email/regenerate", UserController, :regenerate_post_email
 
     # Custom domains (authenticated)
     get "/custom-domain", CustomDomainController, :show
