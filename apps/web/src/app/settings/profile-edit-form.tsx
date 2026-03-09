@@ -18,7 +18,27 @@ interface FullUser {
   avatar_url: string | null;
   support_url?: string | null;
   support_label?: string | null;
+  preferred_language?: string | null;
 }
+
+const TRANSLATION_LANGUAGES = [
+  { code: "", label: "None (show original)" },
+  { code: "EN-US", label: "English" },
+  { code: "ES", label: "Spanish" },
+  { code: "FR", label: "French" },
+  { code: "DE", label: "German" },
+  { code: "PT-BR", label: "Portuguese (BR)" },
+  { code: "JA", label: "Japanese" },
+  { code: "ZH", label: "Chinese" },
+  { code: "KO", label: "Korean" },
+  { code: "IT", label: "Italian" },
+  { code: "RU", label: "Russian" },
+  { code: "NL", label: "Dutch" },
+  { code: "PL", label: "Polish" },
+  { code: "TR", label: "Turkish" },
+  { code: "UK", label: "Ukrainian" },
+  { code: "SV", label: "Swedish" },
+];
 
 export function ProfileEditForm({ user }: { user: FullUser }) {
   const router = useRouter();
@@ -30,6 +50,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
     avatar_url: user.avatar_url ?? "",
     support_url: user.support_url ?? "",
     support_label: user.support_label ?? "",
+    preferred_language: user.preferred_language ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -173,6 +194,7 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           avatar_url: form.avatar_url || null,
           support_url: form.support_url || null,
           support_label: form.support_label || null,
+          preferred_language: form.preferred_language || null,
         }),
       });
       const data = await res.json();
@@ -343,6 +365,24 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           onChange={e => setForm(f => ({ ...f, pronouns: e.target.value }))}
           placeholder="e.g. she/her, they/them"
           className={inputClass} style={inputStyle} />
+      </div>
+
+      {/* Translation Language */}
+      <div>
+        <label className="block text-sm font-medium mb-1.5">Preferred translation language</label>
+        <select
+          value={form.preferred_language}
+          onChange={e => setForm(f => ({ ...f, preferred_language: e.target.value }))}
+          className={inputClass}
+          style={inputStyle}
+        >
+          {TRANSLATION_LANGUAGES.map(lang => (
+            <option key={lang.code} value={lang.code}>{lang.label}</option>
+          ))}
+        </select>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          When set, clicking the translate button on entries will automatically translate to this language.
+        </p>
       </div>
 
       {/* Writer Support Link */}

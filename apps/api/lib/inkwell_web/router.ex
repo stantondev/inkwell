@@ -354,6 +354,9 @@ defmodule InkwellWeb.Router do
     post "/polls/:id/comments", PollController, :create_comment
     delete "/polls/comments/:comment_id", PollController, :delete_comment
 
+    # Translation (authenticated, rate-limited to 20 req / 5 min per user)
+    post "/translate", TranslationController, :translate
+
     # Content reports (authenticated)
     post "/entries/:entry_id/report", ReportController, :create
 

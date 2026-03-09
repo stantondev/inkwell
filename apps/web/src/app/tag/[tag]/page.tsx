@@ -128,6 +128,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
           userId: session.user.id,
           isLoggedIn: true,
           isPlus: session.user.subscription_tier === "plus",
+          preferredLanguage: session.user.preferred_language,
         } : null}
       />
 

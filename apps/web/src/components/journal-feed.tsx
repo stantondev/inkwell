@@ -12,6 +12,7 @@ export interface FeedSession {
   userId: string;
   isLoggedIn: boolean;
   isPlus: boolean;
+  preferredLanguage?: string | null;
 }
 
 interface JournalFeedProps {
@@ -98,6 +99,7 @@ export function JournalFeed({
         isRemote={isRemote}
         entryTitle={entry.title}
         entryAuthorUsername={entry.author.username}
+        preferredLanguage={session?.preferredLanguage}
         {...(isRemote
           ? {
               stampApiPath: `/api/remote-entries/${entry.id}/stamp`,

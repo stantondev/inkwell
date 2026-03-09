@@ -224,12 +224,22 @@ defmodule Inkwell.Journals do
       end
     end
 
-    entry
-    |> Entry.changeset(attrs)
-    |> Repo.update()
+    result =
+      entry
+      |> Entry.changeset(attrs)
+      |> Repo.update()
+
+    # Clear cached translations when content changes
+    case result do
+      {:ok, _} -> Inkwell.Translations.delete_translations_for("entry", entry.id)
+      _ -> :ok
+    end
+
+    result
   end
 
   def delete_entry(%Entry{} = entry) do
+    Inkwell.Translations.delete_translations_for("entry", entry.id)
     Repo.delete(entry)
   end
 
@@ -827,17 +837,26 @@ defmodule Inkwell.Journals do
     if DateTime.compare(DateTime.utc_now(), deadline) == :gt do
       {:error, :edit_window_expired}
     else
-      comment
-      |> Comment.edit_changeset(attrs)
-      |> Repo.update()
-      |> case do
-        {:ok, comment} -> {:ok, Repo.preload(comment, [:user])}
-        error -> error
+      result =
+        comment
+        |> Comment.edit_changeset(attrs)
+        |> Repo.update()
+        |> case do
+          {:ok, comment} -> {:ok, Repo.preload(comment, [:user])}
+          error -> error
+        end
+
+      case result do
+        {:ok, _} -> Inkwell.Translations.delete_translations_for("comment", comment.id)
+        _ -> :ok
       end
+
+      result
     end
   end
 
   def delete_comment(%Comment{} = comment) do
+    Inkwell.Translations.delete_translations_for("comment", comment.id)
     Repo.delete(comment)
   end
 

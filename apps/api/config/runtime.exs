@@ -127,4 +127,7 @@ if config_env() == :prod do
 
   # Fly.io API token (for custom domain certificate management)
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
+
+  # DeepL API (for content translation — free tier: 500K chars/mo)
+  config :inkwell, :deepl_api_key, System.get_env("DEEPL_API_KEY")
 end

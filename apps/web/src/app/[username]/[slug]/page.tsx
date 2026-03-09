@@ -25,6 +25,7 @@ import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
 import { SignupCta } from "@/components/signup-cta";
 import { PaywallCard } from "@/components/paywall-card";
+import { TranslatableEntry } from "@/components/translatable-entry";
 
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
@@ -613,11 +614,19 @@ export default async function EntryPage({ params }: EntryParams) {
         ) : (
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
           <JournalPage corner className="p-6 lg:p-10">
-            <EntryContent
-              html={entry.body_html}
-              entryId={entry.id}
-              className={`prose-entry${entry.title ? " drop-cap" : ""}`}
-            />
+            <TranslatableEntry
+              type="entry"
+              id={entry.id}
+              originalBodyHtml={entry.body_html}
+              preferredLanguage={session?.user.preferred_language}
+              isLoggedIn={!!session}
+            >
+              <EntryContent
+                html={entry.body_html}
+                entryId={entry.id}
+                className={`prose-entry${entry.title ? " drop-cap" : ""}`}
+              />
+            </TranslatableEntry>
           </JournalPage>
 
           {/* Tags */}

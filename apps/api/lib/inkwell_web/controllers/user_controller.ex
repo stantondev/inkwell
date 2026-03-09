@@ -91,7 +91,8 @@ defmodule InkwellWeb.UserController do
       "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
       "support_url", "support_label",
-      "pinned_entry_ids", "social_links"
+      "pinned_entry_ids", "social_links",
+      "preferred_language"
     ]
 
     # Plus-only profile customization fields (silently stripped for free users)
@@ -468,7 +469,8 @@ defmodule InkwellWeb.UserController do
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       visitor_count: user.visitor_count || 0,
-      has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id)
+      has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id),
+      preferred_language: user.preferred_language
     }
   end
 

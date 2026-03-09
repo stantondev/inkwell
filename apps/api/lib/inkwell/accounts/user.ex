@@ -75,6 +75,9 @@ defmodule Inkwell.Accounts.User do
     # Profile view counter
     field :visitor_count, :integer, default: 0
 
+    # Language preference (for content translation)
+    field :preferred_language, :string
+
     # Invitations
     field :invite_code, :string
     field :invited_by_id, :binary_id
@@ -173,7 +176,8 @@ defmodule Inkwell.Accounts.User do
       :profile_widgets, :profile_status, :profile_theme, :profile_entry_display, :avatar_frame,
       :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
       :support_url, :support_label,
-      :pinned_entry_ids, :social_links
+      :pinned_entry_ids, :social_links,
+      :preferred_language
     ])
     |> validate_length(:bio, max: 2000)
     |> validate_length(:bio_html, max: 10_000)

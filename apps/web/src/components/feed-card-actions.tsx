@@ -9,6 +9,7 @@ import { InkButton } from "@/components/ink-button";
 import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
 import { ShareButton } from "@/components/share-button";
+import { TranslateButton } from "@/components/translate-button";
 
 interface FeedComment {
   id: string;
@@ -49,6 +50,8 @@ interface FeedCardActionsProps {
   entryTitle?: string | null;
   /** Entry author username for share text */
   entryAuthorUsername?: string;
+  /** User's preferred translation language */
+  preferredLanguage?: string | null;
   onStampsChange?: (stamps: string[]) => void;
   onBookmarkChange?: (bookmarked: boolean) => void;
 }
@@ -83,6 +86,7 @@ export function FeedCardActions({
   isRemote = false,
   entryTitle,
   entryAuthorUsername,
+  preferredLanguage,
   onStampsChange,
   onBookmarkChange,
 }: FeedCardActionsProps) {
@@ -394,6 +398,16 @@ export function FeedCardActions({
             isLoggedIn={isLoggedIn}
             bookmarkApiPath={bookmarkApiPath}
             onBookmarkChange={onBookmarkChange}
+          />
+        )}
+
+        {/* Translate button */}
+        {isLoggedIn && (
+          <TranslateButton
+            type={isRemote ? "remote_entry" : "entry"}
+            id={entryId}
+            preferredLanguage={preferredLanguage}
+            size={14}
           />
         )}
 

@@ -12,6 +12,7 @@ interface FullUser {
   bio_html: string | null;
   pronouns: string | null;
   avatar_url: string | null;
+  preferred_language?: string | null;
 }
 
 export default async function SettingsPage() {
