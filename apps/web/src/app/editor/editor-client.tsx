@@ -1111,16 +1111,13 @@ export function EditorClient() {
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
 
-  // Desktop: open settings panel by default (persisted in localStorage)
+  // Open settings panel by default on all screen sizes (persisted in localStorage)
   useEffect(() => {
     if (settingsInitialized.current) return;
     settingsInitialized.current = true;
-    if (window.innerWidth >= 768) {
-      const stored = localStorage.getItem("inkwell-editor-panel");
-      // Default to open on desktop unless explicitly collapsed
-      if (stored !== "collapsed") {
-        setShowSettings(true);
-      }
+    const stored = localStorage.getItem("inkwell-editor-panel");
+    if (stored !== "collapsed") {
+      setShowSettings(true);
     }
   }, []);
 

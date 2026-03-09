@@ -1653,12 +1653,11 @@ body[data-focus-mode] footer {
 /* ─── Journal Editor — high-design writing experience ─────────────── */
 
 .editor-shell {
-  height: 100vh;
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .editor-topbar {
@@ -1763,16 +1762,16 @@ body[data-focus-mode] footer {
   cursor: not-allowed;
 }
 
-/* Body wrapper — flex row on desktop for settings sidebar */
+/* Body wrapper — flex column on mobile, flex row on desktop */
 .editor-body-wrapper {
   display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: 0;
 }
 
 .editor-main {
-  flex: 1;
   min-width: 0;
+  min-height: 60vh;
   padding: 24px 16px 80px;
 }
 
@@ -2341,11 +2340,20 @@ div:has(> div > .editor-floating-menu) {
 
 /* Desktop: fixed-height flex layout — panel fills wrapper via stretch */
 @media (min-width: 768px) {
+  .editor-shell {
+    height: 100vh;
+    overflow: hidden;
+  }
+
   .editor-body-wrapper {
+    flex-direction: row;
+    min-height: 0;
     overflow: hidden;
   }
 
   .editor-main {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -2357,11 +2365,6 @@ div:has(> div > .editor-floating-menu) {
 
 /* Mobile: settings panel goes full-width below the editor */
 @media (max-width: 767px) {
-  .editor-body-wrapper {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
   .editor-settings-panel {
     border-left: none;
     border-top: 1px solid var(--border);
