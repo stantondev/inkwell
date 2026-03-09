@@ -104,6 +104,31 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // ── ActivityPub content negotiation for entry slug URLs ──────────────
+  // Mastodon sends Accept: application/activity+json when searching by URL.
+  // Rewrite /:username/:slug AP requests to the proxy route since route.ts
+  // and page.tsx can't coexist in Next.js.
+  const accept = request.headers.get("accept") ?? "";
+  const isApRequest =
+    accept.includes("application/activity+json") ||
+    accept.includes("application/ld+json");
+
+  if (isApRequest) {
+    const segments = pathname.split("/").filter(Boolean);
+    if (
+      segments.length === 2 &&
+      !pathname.startsWith("/api/") &&
+      !pathname.startsWith("/_next/") &&
+      !pathname.startsWith("/stamps/") &&
+      !pathname.startsWith("/frames/")
+    ) {
+      const [username, slug] = segments;
+      const url = request.nextUrl.clone();
+      url.pathname = `/api/ap/entry/${username}/${slug}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
   // ── Standard inkwell.social logic ─────────────────────────────────────
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 

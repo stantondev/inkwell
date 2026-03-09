@@ -454,7 +454,8 @@ defmodule InkwellWeb.Router do
     get "/.well-known/nodeinfo", FederationController, :nodeinfo
     get "/nodeinfo/2.1", FederationController, :nodeinfo_schema
 
-    # Entry AP object (Article)
+    # Entry AP object (Article) — by slug (for Mastodon URL search) and by UUID
+    get "/entries/by-slug/:username/:slug", FederationController, :entry_object_by_slug
     get "/entries/:id", FederationController, :entry_object
 
     # Actor endpoint (content negotiation: AP JSON vs browser redirect)

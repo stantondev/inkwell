@@ -62,6 +62,21 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # GET /entries/by-slug/:username/:slug — AP Entry (Article) object via slug URL
+  def entry_object_by_slug(conn, %{"username" => username, "slug" => slug}) do
+    with user when not is_nil(user) <- Accounts.get_user_by_username(username),
+         entry when not is_nil(entry) <- Journals.get_entry_by_slug(user.id, slug),
+         true <- entry.status == :published and entry.privacy == :public do
+      article = ActivityBuilder.build_article(entry, user)
+
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> json(article)
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
+    end
+  end
+
   # ── WebFinger ───────────────────────────────────────────────────────────
 
   # GET /.well-known/webfinger?resource=acct:username@domain
@@ -174,7 +189,7 @@ defmodule InkwellWeb.FederationController do
             "orderedItems" => items
           })
         else
-          total = Journals.count_entries(user.id)
+          total = Journals.count_public_entries(user.id)
 
           conn
           |> put_resp_content_type("application/activity+json")
