@@ -9,8 +9,8 @@ interface NavCounts {
   unreadLetterCount: number;
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds when tab is visible
-const BACKGROUND_POLL_INTERVAL = 60_000; // 60 seconds when tab is hidden
+const POLL_INTERVAL = 15_000; // 15 seconds — fast enough to feel near-instant
+const BACKGROUND_POLL_INTERVAL = 15_000; // same in background so sounds fire promptly
 const BLINK_INTERVAL = 1500; // title blink speed (ms)
 
 // --- Favicon badge helpers ---
