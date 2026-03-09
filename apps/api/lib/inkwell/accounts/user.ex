@@ -94,7 +94,7 @@ defmodule Inkwell.Accounts.User do
 
   # Usernames that could cause brand confusion or conflict with routes
   @reserved_usernames ~w(
-    inkwell inkwellsocial inkwell_social admin administrator
+    inkwellsocial inkwell_social admin administrator
     moderator mod support help system root superuser
     api auth login signup register settings notifications
     feed explore search admin inbox outbox users

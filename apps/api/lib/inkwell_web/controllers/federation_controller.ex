@@ -2,6 +2,7 @@ defmodule InkwellWeb.FederationController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals}
+  alias Inkwell.Journals.Comment
   alias Inkwell.Federation.{ActivityBuilder, HttpSignature, Relays, RemoteActor, RemoteEntries}
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchOutboxWorker, RelayContentWorker}
   alias Inkwell.Repo
@@ -590,6 +591,10 @@ defmodule InkwellWeb.FederationController do
 
   defp handle_update(conn, activity, _target_user) do
     case activity["object"] do
+      %{"type" => type, "inReplyTo" => _} = object when type in ["Note", "Article", "Page"] ->
+        # This is an edited comment — find and update it
+        handle_updated_comment(object)
+
       %{"type" => type} = object when type in ["Note", "Article", "Page"] ->
         # Re-use ingestion path; upsert will update existing
         handle_incoming_note(object, activity["actor"])
@@ -601,7 +606,40 @@ defmodule InkwellWeb.FederationController do
     conn |> put_status(:accepted) |> json(%{ok: true})
   end
 
+  defp handle_updated_comment(note) do
+    ap_id = note["id"]
+
+    case Repo.get_by(Comment, ap_id: ap_id) do
+      nil ->
+        Logger.debug("Update: comment not found by ap_id #{ap_id}, ignoring")
+
+      comment ->
+        # Bypass the 24-hour edit window — federated edits come from the author's server
+        case comment |> Comment.edit_changeset(%{body_html: note["content"] || ""}) |> Repo.update() do
+          {:ok, _} ->
+            Logger.info("Updated federated comment #{ap_id}")
+
+          {:error, reason} ->
+            Logger.warning("Failed to update federated comment #{ap_id}: #{inspect(reason)}")
+        end
+    end
+  end
+
   defp handle_incoming_reply(note, actor_uri) do
+    # Only accept public comments — respect ActivityPub visibility scopes
+    to = note["to"] || []
+    cc = note["cc"] || []
+    public_uri = "https://www.w3.org/ns/activitystreams#Public"
+    is_public = public_uri in to || public_uri in cc
+
+    if not is_public do
+      Logger.debug("Ignoring non-public federated comment from #{actor_uri}")
+    else
+      handle_incoming_reply_public(note, actor_uri)
+    end
+  end
+
+  defp handle_incoming_reply_public(note, actor_uri) do
     in_reply_to = note["inReplyTo"]
 
     case find_entry_by_ap_url(in_reply_to) do
