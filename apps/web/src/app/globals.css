@@ -70,6 +70,63 @@ img, video, iframe, embed, object {
   max-width: 100%;
 }
 
+/* ─── Mobile / Touch Device Foundations ──────────────────────────────── */
+
+/* Eliminate 300ms tap delay on touch devices */
+@media (pointer: coarse) {
+  a, button, input, select, textarea, [role="button"], label {
+    touch-action: manipulation;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .app-content {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Minimum touch targets on touch devices (Apple HIG: 44px) */
+@media (pointer: coarse) {
+  .mention-dropdown-item {
+    min-height: 44px;
+  }
+
+  .stamp-picker-grid button {
+    min-height: 44px;
+  }
+}
+
+/* Editor toolbar: horizontal scroll on mobile instead of wrapping to 3-4 rows */
+@media (max-width: 767px) {
+  .editor-toolbar-wrap {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE/Edge */
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  }
+  .editor-toolbar-wrap::-webkit-scrollbar { display: none; }
+
+  .letter-editor-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  }
+  .letter-editor-toolbar::-webkit-scrollbar { display: none; }
+}
+
+/* Prevent iOS rubber-band scroll from leaking through modal overlays */
+.fixed.inset-0 {
+  overscroll-behavior: none;
+}
+
 /* ─── Prose styles for journal entries ─────────────────────────────────── */
 
 .prose-entry {

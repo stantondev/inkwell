@@ -66,11 +66,19 @@ function LetterNote({
   onCancelEdit: () => void;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const editHtmlRef = useRef(message.body_html || message.body || "");
   const rotation = prefersReducedMotion ? 0 : seedRotation(message.id);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // On touch devices, always show actions for own messages (no hover available)
+  const actionsVisible = isTouchDevice ? message.is_mine : showActions;
 
   const handleDelete = async () => {
     if (!confirm("Remove this letter from your side?")) return;
@@ -137,8 +145,8 @@ function LetterNote({
         alignItems: message.is_mine ? "flex-end" : "flex-start",
         marginBottom: "20px",
       }}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onMouseEnter={isTouchDevice ? undefined : () => setShowActions(true)}
+      onMouseLeave={isTouchDevice ? undefined : () => setShowActions(false)}
     >
       {/* Sender label */}
       {!message.is_mine && (
@@ -313,7 +321,7 @@ function LetterNote({
               {/* Edit + Delete buttons (own messages only) */}
               {message.is_mine && (
                 <AnimatePresence>
-                  {showActions && (
+                  {actionsVisible && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}

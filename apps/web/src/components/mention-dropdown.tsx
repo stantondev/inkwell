@@ -1,3 +1,4 @@
+import { useRef, useEffect, useState } from "react";
 import type { MentionUser } from "@/hooks/use-mention-autocomplete";
 
 interface MentionDropdownProps {
@@ -13,17 +14,39 @@ export function MentionDropdown({
   onSelect,
   position = "above",
 }: MentionDropdownProps) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
+
+  // Flip position if dropdown would be clipped by viewport (especially with virtual keyboard)
+  useEffect(() => {
+    const el = dropdownRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+
+    if (position === "above" && rect.top < 0) {
+      setAdjustedPosition("below");
+    } else if (position === "below" && rect.bottom > vh) {
+      setAdjustedPosition("above");
+    } else {
+      setAdjustedPosition(position);
+    }
+  }, [users, position]);
+
   const posStyle =
-    position === "above"
+    adjustedPosition === "above"
       ? { bottom: "100%", marginBottom: "4px" }
       : { top: "100%", marginTop: "4px" };
 
   return (
     <div
-      className="absolute left-0 right-0 z-50 rounded-lg border shadow-lg overflow-hidden"
+      ref={dropdownRef}
+      className="mention-dropdown absolute left-0 right-0 z-50 rounded-lg border shadow-lg overflow-hidden"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
+        maxHeight: "min(200px, 40dvh)",
+        overflowY: "auto",
         ...posStyle,
       }}
     >
@@ -32,7 +55,7 @@ export function MentionDropdown({
           key={user.id}
           type="button"
           onClick={() => onSelect(user)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors"
+          className="mention-dropdown-item w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors"
           style={{
             background:
               i === activeIndex

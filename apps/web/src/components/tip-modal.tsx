@@ -57,13 +57,29 @@ export function TipModal({ recipientId, recipientName, entryId, onClose }: TipMo
     setMounted(true);
   }, []);
 
-  // Lock body scroll while modal is open
+  // Lock body scroll while modal is open (iOS-safe)
   useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = original;
-    };
+    const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    if (isTouchDevice) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.width = "";
+        document.body.style.overflow = "";
+        window.scrollTo(0, scrollY);
+      };
+    } else {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
   }, []);
 
   // Close on Escape
@@ -163,7 +179,7 @@ export function TipModal({ recipientId, recipientName, entryId, onClose }: TipMo
           position: "relative",
           width: "100%",
           maxWidth: "28rem",
-          maxHeight: "calc(100vh - 32px)",
+          maxHeight: "calc(100dvh - 32px)",
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
           borderRadius: "1rem",

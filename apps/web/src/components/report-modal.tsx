@@ -56,7 +56,7 @@ export function ReportModal({ entryId, onClose }: ReportModalProps) {
       <div className="absolute inset-0 bg-black/40" />
       <div
         className="relative w-full max-w-md rounded-xl border p-6"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        style={{ background: "var(--surface)", borderColor: "var(--border)", maxHeight: "calc(100dvh - 32px)", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         {success ? (

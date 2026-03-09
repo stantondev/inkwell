@@ -125,14 +125,25 @@ function ToolbarDropdown({ label, active, renderContent, title }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [open]);
+
+  // Clamp dropdown to viewport on mobile — flip to right-aligned if overflowing
+  useEffect(() => {
+    if (!open || !menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 8) {
+      menuRef.current.style.left = "auto";
+      menuRef.current.style.right = "0";
+    }
   }, [open]);
 
   return (
@@ -141,7 +152,7 @@ function ToolbarDropdown({ label, active, renderContent, title }: {
         {label}
       </Btn>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[140px]"
+        <div ref={menuRef} className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[140px]"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           {renderContent(() => setOpen(false))}
         </div>
@@ -211,7 +222,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
     : "P";
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Text formatting">
+    <div className="editor-toolbar-wrap flex flex-wrap items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Text formatting">
       {!htmlMode && (
         <>
           {/* ── Block type dropdown ── */}
