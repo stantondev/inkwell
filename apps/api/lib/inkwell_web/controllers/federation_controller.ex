@@ -51,7 +51,9 @@ defmodule InkwellWeb.FederationController do
       entry ->
         if entry.status == :published and entry.privacy == :public do
           user = Accounts.get_user!(entry.user_id)
-          article = ActivityBuilder.build_article(entry, user)
+          article =
+            ActivityBuilder.build_article(entry, user)
+            |> Map.put("@context", ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"])
 
           conn
           |> put_resp_content_type("application/activity+json")
@@ -67,7 +69,9 @@ defmodule InkwellWeb.FederationController do
     with user when not is_nil(user) <- Accounts.get_user_by_username(username),
          entry when not is_nil(entry) <- Journals.get_entry_by_slug(user.id, slug),
          true <- entry.status == :published and entry.privacy == :public do
-      article = ActivityBuilder.build_article(entry, user)
+      article =
+        ActivityBuilder.build_article(entry, user)
+        |> Map.put("@context", ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"])
 
       conn
       |> put_resp_content_type("application/activity+json")

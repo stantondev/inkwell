@@ -117,6 +117,7 @@ export async function middleware(request: NextRequest) {
     const segments = pathname.split("/").filter(Boolean);
     if (
       segments.length === 2 &&
+      segments[0] !== "entries" &&
       !pathname.startsWith("/api/") &&
       !pathname.startsWith("/_next/") &&
       !pathname.startsWith("/stamps/") &&
