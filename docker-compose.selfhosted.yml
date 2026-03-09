@@ -1,12 +1,12 @@
 # ──────────────────────────────────────────────────────────────
 # Inkwell — Self-Hosted Docker Compose
-# Phase 1 / Alpha
 #
 # Quick start:
 #   1. cp .env.example .env
-#   2. Fill in required values (SECRET_KEY_BASE, DOMAIN, email config)
+#   2. Fill in SECRET_KEY_BASE, DOMAIN, and email config
 #   3. docker compose -f docker-compose.selfhosted.yml up -d
 #
+# Caddy handles HTTPS automatically via Let's Encrypt.
 # See SELF_HOSTING.md for full documentation.
 # ──────────────────────────────────────────────────────────────
 
@@ -27,6 +27,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Caddy (automatic HTTPS) ────────────────────────────────
+  # Handles TLS certificates via Let's Encrypt automatically.
+  # Set DOMAIN and API_HOST in .env for production.
+  #
+  # If you already have a reverse proxy (Nginx, Traefik, etc.):
+  #   1. Remove or comment out this caddy service
+  #   2. Uncomment the "ports:" lines on the api and web services
+  #   3. Point your proxy at localhost:4000 (API) and localhost:3000 (web)
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      API_HOST: ${API_HOST:-api.localhost}
+    depends_on:
+      - web
+      - api
+
   # ── Meilisearch (optional — search works without it) ────────
   meilisearch:
     image: getmeili/meilisearch:latest
@@ -41,17 +67,18 @@ services:
 
   # ── Phoenix API ─────────────────────────────────────────────
   api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    # Uncomment below (and comment out build:) to use a pre-built image:
-    # image: ghcr.io/stantondev/inkwell-api:latest
+    image: ghcr.io/stantondev/inkwell-api:latest
+    # To build from source instead, comment out "image:" and uncomment:
+    # build:
+    #   context: .
+    #   dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "${API_PORT:-4000}:4000"
+    # Uncomment to expose the API directly (when not using Caddy):
+    # ports:
+    #   - "${API_PORT:-4000}:4000"
     environment:
       # Core
       DATABASE_URL: ecto://inkwell:${POSTGRES_PASSWORD:-inkwell}@db/inkwell
@@ -95,18 +122,19 @@ services:
 
   # ── Next.js Frontend ────────────────────────────────────────
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:4000}
-    # Uncomment below (and comment out build:) to use a pre-built image:
-    # image: ghcr.io/stantondev/inkwell-web:latest
+    image: ghcr.io/stantondev/inkwell-web:latest
+    # To build from source instead, comment out "image:" and uncomment:
+    # build:
+    #   context: .
+    #   dockerfile: apps/web/Dockerfile
+    #   args:
+    #     NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:4000}
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "${WEB_PORT:-3000}:3000"
+    # Uncomment to expose the frontend directly (when not using Caddy):
+    # ports:
+    #   - "${WEB_PORT:-3000}:3000"
     environment:
       API_URL: http://api:4000
       PORT: "3000"
@@ -115,3 +143,5 @@ services:
 volumes:
   pgdata:
   meili_data:
+  caddy_data:
+  caddy_config:

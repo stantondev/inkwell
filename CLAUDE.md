@@ -11,7 +11,7 @@ A federated social journaling platform — LiveJournal meets MySpace, reimagined
 - **Federation**: ActivityPub handled natively in Phoenix API — live and confirmed working. `services/federation/` (Fedify/Node.js stub) is unused.
 - **Database**: PostgreSQL 16 (Fly Postgres, `inkwell-db`)
 - **Search**: Meilisearch — NOT yet deployed to production
-- **Email**: Resend API for transactional emails (magic link auth) + newsletter delivery (batch API). Postmark for inbound email processing (Post by Email feature)
+- **Email**: SMTP (via `gen_smtp`) or Resend API for transactional emails (magic link auth) + newsletter delivery. SMTP recommended for self-hosted instances. Postmark for inbound email processing (Post by Email feature)
 
 ## Monorepo Structure
 
@@ -102,6 +102,46 @@ The Postage feature (reader support payments) requires these steps to go live:
 - Web Dockerfile at `apps/web/Dockerfile` — build context is **project root**, uses `npm ci --workspace=apps/web`
 - Next.js standalone output nests server.js at `apps/web/server.js` inside standalone dir (workspace monorepo behavior)
 - Docker entrypoint runs Ecto migrations automatically on deploy
+- **Pre-built images** published to GitHub Container Registry: `ghcr.io/stantondev/inkwell-api:latest` and `ghcr.io/stantondev/inkwell-web:latest`
+- **CI**: `.github/workflows/docker-publish.yml` builds and pushes images on every push to `main` (parallel build-api + build-web jobs)
+
+## Self-Hosting
+
+Inkwell can run on any server with Docker Compose. See `SELF_HOSTING.md` for full documentation.
+
+### Self-Hosted Mode (`INKWELL_SELF_HOSTED=true`)
+- All Plus features unlocked for every user — no Stripe subscription required
+- `Inkwell.SelfHosted.enabled?/0` reads `Application.get_env(:inkwell, :self_hosted, false)`
+- `Inkwell.SelfHosted.effective_tier/1` returns `"plus"` when self-hosted, else user's actual tier
+- `InkwellWeb.Plugs.SelfHostedTier` plug runs after auth in both `:authenticated` and `:optional_auth` pipelines — overrides `conn.assigns.current_user.subscription_tier` to `"plus"` when self-hosted
+- `render_user/1` in auth and user controllers uses `effective_tier/1` for `subscription_tier` field
+- `self_hosted` boolean exposed in session response — frontend detects it for billing UI changes
+- Billing page shows "Self-Hosted Instance — All Plus features included" when `self_hosted` is true
+- Footer shows "Self-Hosted Instance" instead of "Inkwell" when self-hosted
+
+### Self-Hosted Docker Compose Stack
+`docker-compose.selfhosted.yml` — 4 services:
+- **db**: PostgreSQL 16 Alpine with healthcheck
+- **caddy**: Caddy 2 reverse proxy — automatic HTTPS via Let's Encrypt (ports 80, 443)
+- **api**: Phoenix backend (pre-built image from GHCR), `INKWELL_SELF_HOSTED=true` hardcoded
+- **web**: Next.js frontend (pre-built image from GHCR)
+- **meilisearch**: Optional, behind `--profile search` flag
+
+`Caddyfile` — uses `{$DOMAIN:localhost}` and `{$API_HOST:api.localhost}` env var substitution. Caddy automatically serves HTTP for localhost and HTTPS with Let's Encrypt for real domains.
+
+`.env.example` — grouped config sections: Required, Email (SMTP/Resend), Sender, Admin, Search, Optional Integrations, Ports, Stripe, Postmark.
+
+### Key Self-Hosting Files
+| File | Purpose |
+|------|---------|
+| `apps/api/lib/inkwell/self_hosted.ex` | `enabled?/0` and `effective_tier/1` helpers |
+| `apps/api/lib/inkwell_web/plugs/self_hosted_tier.ex` | Plug overriding subscription tier in pipelines |
+| `apps/api/lib/inkwell/email/smtp_adapter.ex` | SMTP email sending via gen_smtp |
+| `docker-compose.selfhosted.yml` | Full self-hosted Docker stack |
+| `Caddyfile` | Caddy reverse proxy config |
+| `.env.example` | Environment variable documentation |
+| `SELF_HOSTING.md` | Self-hosting guide |
+| `.github/workflows/docker-publish.yml` | CI to build/push Docker images to GHCR |
 
 ## Authentication System
 
@@ -127,7 +167,8 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Key files
 - `apps/api/lib/inkwell/auth.ex` — token CRUD (create, verify, revoke, sliding window refresh via `maybe_refresh_token/2`)
 - `apps/api/lib/inkwell/auth/auth_token.ex` — Ecto schema for `auth_tokens` table
-- `apps/api/lib/inkwell/email.ex` — Resend API email sending via :httpc (also handles feedback emails); reads `FROM_EMAIL` env var, falls back to `Inkwell <onboarding@resend.dev>` if not set
+- `apps/api/lib/inkwell/email.ex` — Email sending dispatcher: routes to SMTP (if `SMTP_HOST` set), Resend API (if `RESEND_API_KEY` set), or dev mode (shows magic link on screen). Also handles feedback emails. Reads `FROM_EMAIL` env var, falls back to `Inkwell <onboarding@resend.dev>` if not set
+- `apps/api/lib/inkwell/email/smtp_adapter.ex` — SMTP adapter via `gen_smtp`: RFC 2822 MIME multipart (text + HTML), STARTTLS/SSL support, UTF-8 subject encoding, auto-generated plain text fallback from HTML
 - `apps/api/lib/inkwell_web/controllers/auth_controller.ex` — login/verify/signout/me endpoints; `render_user/1` returns session data including `subscription_tier`, `unread_notification_count`, and `preferred_language`
 - `apps/api/lib/inkwell_web/plugs/require_auth.ex` — Bearer token + session auth plug; detects `ink_` prefix for API key routing
 - `apps/api/lib/inkwell_web/plugs/optional_auth.ex` — same `ink_` prefix detection for optional auth routes
@@ -1360,6 +1401,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
 ### Recently Completed
+- **2026-03-11** — Self-Hosting Support (Phase 1). Inkwell can now run on any server with Docker Compose. **SMTP email adapter**: new `gen_smtp`-based adapter (`SmtpAdapter`) sends RFC 2822 MIME multipart emails with STARTTLS/SSL support, UTF-8 subject encoding, and auto-generated plain text fallback. `email.ex` refactored with dispatcher: SMTP (if `SMTP_HOST` set) → Resend (if `RESEND_API_KEY` set) → dev mode. SMTP takes priority when both configured. **Self-hosted mode flag**: `INKWELL_SELF_HOSTED=true` unlocks all Plus features without Stripe. `SelfHostedTier` plug overrides `subscription_tier` to `"plus"` in both auth pipelines. `SelfHosted.effective_tier/1` used in `render_user/1` (auth + user controllers). `self_hosted` boolean in session response. Billing page shows "All Plus features included" UI. Footer shows "Self-Hosted Instance". **Docker Compose stack**: `docker-compose.selfhosted.yml` with 4 services (PostgreSQL 16, Caddy reverse proxy, Phoenix API, Next.js frontend) + optional Meilisearch behind `--profile search`. Pre-built Docker images pulled from `ghcr.io/stantondev/inkwell-api` and `ghcr.io/stantondev/inkwell-web`. **Caddy automatic HTTPS**: `Caddyfile` with env var substitution for domain/API host — auto-provisions Let's Encrypt certificates for production domains, serves HTTP for localhost. Comments explain how to disable Caddy for users with their own reverse proxy. **GitHub Actions CI**: `.github/workflows/docker-publish.yml` builds and pushes both Docker images on every push to main (parallel jobs, tagged with `latest` + commit SHA). **Documentation**: `SELF_HOSTING.md` with Quick Start (5-step setup), service overview, SMTP config examples (Gmail, Fastmail, Mailgun, Postfix), Resend alternative, federation requirements, Nginx reverse proxy example, admin setup, backup/restore, upgrade instructions, known limitations. `.env.example` with grouped config sections. Zero impact on production Fly.io deployment — all changes are additive. New files: `self_hosted.ex`, `plugs/self_hosted_tier.ex`, `email/smtp_adapter.ex`, `docker-compose.selfhosted.yml`, `Caddyfile`, `.env.example`, `SELF_HOSTING.md`, `.github/workflows/docker-publish.yml`. Modified: `email.ex` (dispatcher refactor), `mix.exs` (gen_smtp dep), `runtime.exs` (SMTP + self_hosted config), `router.ex` (SelfHostedTier plug), `auth_controller.ex` (effective_tier + self_hosted), `user_controller.ex` (effective_tier), `billing_controller.ex` (self_hosted status), `session.ts` (self_hosted field), `billing/page.tsx` (self-hosted UI), `footer.tsx` (self-hosted branding), `app-shell.tsx` (pass selfHosted to Footer).
 - **2026-03-10** — Post by Email (Plus Feature). Plus subscribers can now publish journal entries by sending an email to a unique address (`post+TOKEN@post.inkwell.social`). **Architecture**: Postmark receives inbound email via MX record → POSTs JSON webhook to `POST /api/email/inbound?token=SECRET` → Phoenix verifies token, parses email (subject → title, HTML/text body → sanitized body_html, attachments → cover/inline images), creates published entry via `Journals.create_entry/1`. **Security**: webhook token verified with `Plug.Crypto.secure_compare`, spam filtering (rejects X-Spam-Score > 5.0), rate limiting (20 emails/day per user), Plus-only gate. **Email parsing**: HTML body sanitized (strips scripts, iframes, event handlers, javascript: URLs), text-only fallback wraps in `<p>` tags, signature stripping (-- separator, "On ... wrote:" blocks, "Sent from my iPhone"). **Attachments**: first image becomes cover image, rest appended inline to body via existing `EntryImage` system. **Settings UI**: client component with Plus gate, enable/disable toggle, email address display with copy button, "Regenerate address" with confirmation dialog, "How it works" instructions, "Disable Post by Email" button. Migration `20260310000058` adds `post_email_token` (unique) to users and `source` to entries. New files: `post_by_email.ex`, `inbound_email_controller.ex`, `settings/post-by-email/page.tsx`, 3 proxy routes. Modified: `user.ex`, `entry.ex`, `accounts.ex`, `user_controller.ex`, `auth_controller.ex`, `router.ex`, `runtime.exs`, `session.ts`, `settings-ledger-nav.tsx`, `page.tsx`, `billing/page.tsx`. **Infrastructure required**: Postmark account, MX record for `post.inkwell.social`, webhook config, Fly secrets `POSTMARK_INBOUND_TOKEN` + `POST_EMAIL_DOMAIN`. Addresses roadmap item 06fc16a7.
 - **2026-03-11** — Content Translation (DeepL API). On-demand content translation for entries, fediverse posts, comments, guestbook entries, and circle responses. **Provider**: DeepL API Free tier (500K chars/mo, best translation quality). **Architecture**: `POST /api/translate` (authenticated, rate-limited 20/5min) → checks PostgreSQL cache (`content_translations` table, unique on type+id+lang) → if miss, calls DeepL API with `tag_handling: "html"` for HTML-aware translation → caches result → returns translated content. Plain text content uses `strip_html_for_translation/1` + `reapply_html_structure/2` to preserve paragraph structure. 15 supported target languages. User `preferred_language` field enables one-click translate (no language picker). **Feed card translation**: `JournalFeed` manages `Record<string, TranslationData>` state; `TranslateButton` → `FeedCardActions` → `JournalFeed` (callback) → `JournalEntryCard` (props) for inline content swap. **Entry detail page**: `TranslatableEntry` wrapper swaps server-rendered children with translated HTML. **Settings**: language preference dropdown in Profile section, saved via `PATCH /api/me`. Cache invalidation: `delete_translations_for/2` called when source content is edited. Dev mode: returns "Translation not available" when `DEEPL_API_KEY` not set. Migration `20260311000058` (content_translations table + preferred_language on users). New Fly secret: `DEEPL_API_KEY` on `inkwell-api`. New files: `content_translation.ex`, `translations.ex`, `deepl.ex`, `translation_controller.ex`, `translate-button.tsx`, `translatable-entry.tsx`, `api/translate/route.ts`. Modified: `router.ex`, `runtime.exs`, `user.ex`, `user_controller.ex`, `auth_controller.ex`, `session.ts`, `feed-card-actions.tsx`, `journal-feed.tsx`, `journal-entry-card.tsx`, `[username]/[slug]/page.tsx`, `settings/page.tsx`.
 - **2026-03-10** — Custom Domains for Plus. Plus subscribers can now point their own domain (e.g., `alice-writes.com`) at Inkwell so their profile, entries, and subscribe page render at that custom domain. ActivityPub identity stays `@username@inkwell.social` (custom domains are purely cosmetic). **Architecture**: User enters domain in Settings → Custom Domain → backend validates + stores with status `pending_dns` → Oban worker (every 5 min) checks DNS via `:inet_res.getbyname/2` → on success, calls Fly Certificates API for TLS cert → status becomes `active` → Next.js middleware detects custom domain via `Host` header, resolves username via cached API lookup, rewrites URL to profile page. **Backend**: new `custom_domains` table (user_id unique, domain unique, status state machine), `CustomDomain` Ecto schema with domain format validation (blocks `.fly.dev`/`.inkwell.social`), `CustomDomains` context with CRUD + `resolve_hostname/1`, `CustomDomainController` (5 actions: resolve/show/create/check/delete), `FlyCerts` API client using `:httpc`, `CustomDomainCheckWorker` (Oban cron, DNS + cert polling), `CustomDomainCertWorker` (async cert deletion). Plus downgrade sets status to `removed` + enqueues cert cleanup. Account deletion cleans up cert before cascade. **Frontend middleware**: async domain detection before auth logic, in-memory 60s TTL cache, rewrites `/` → `/[username]`, `/slug` → `/[username]/slug`, app routes redirect to `inkwell.social`, sets `x-custom-domain` headers. **AppShell**: simplified custom domain chrome (author header + "Powered by Inkwell" footer, no sidebar). **Pages**: canonical URL, OG metadata, RSS alternate use custom domain when present; "Visit your site" link on own profile; "Domain Not Connected" page for unconfigured domains. **Settings**: client component with 5 states (no Plus, no domain, pending_dns with DNS instructions, pending_cert, active, error), 10s auto-poll, subdomain vs apex DNS instructions. Marketing: "Custom domain" added to Plus feature lists on landing + billing pages. Migration `20260310000057`. New Fly secret: `FLY_API_TOKEN` on `inkwell-api`. New files: `custom_domain.ex`, `custom_domains.ex`, `custom_domain_controller.ex`, `fly_certs.ex`, `custom_domain_check_worker.ex`, `custom_domain_cert_worker.ex`, `settings/domain/page.tsx`, `custom-domain-not-found/page.tsx`, 2 proxy routes. Modified: `router.ex`, `config.exs`, `runtime.exs`, `billing.ex`, `accounts.ex`, `middleware.ts`, `app-shell.tsx`, `[username]/page.tsx`, `[username]/[slug]/page.tsx`, `settings-ledger-nav.tsx`, `page.tsx`, `billing/page.tsx`.

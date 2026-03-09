@@ -1,6 +1,6 @@
 # Self-Hosting Inkwell
 
-> **Phase 1 / Alpha** — Self-hosting support is new. Please report issues at [github.com/stantondev/inkwell/issues](https://github.com/stantondev/inkwell/issues).
+> **Alpha** — Self-hosting support is new. Please report issues at [github.com/stantondev/inkwell/issues](https://github.com/stantondev/inkwell/issues).
 
 ## Overview
 
@@ -11,9 +11,10 @@ Self-hosted instances participate in the fediverse via ActivityPub. Your users g
 ## Prerequisites
 
 - Docker and Docker Compose v2
-- A domain name (for federation and email)
+- A domain name with DNS pointing to your server (for HTTPS and federation)
 - SMTP access (Gmail, Fastmail, Mailgun, Postfix, etc.)
 - 1 GB RAM minimum, 2 GB recommended
+- Ports 80 and 443 open
 
 ## Quick Start
 
@@ -24,25 +25,47 @@ cd inkwell
 
 # 2. Copy and edit environment variables
 cp .env.example .env
-# Edit .env — fill in SECRET_KEY_BASE, DOMAIN, and email config
 
-# 3. Generate a secret key
+# 3. Generate a secret key and paste it as SECRET_KEY_BASE in .env
 openssl rand -base64 64
-# Paste the output as SECRET_KEY_BASE in .env
 
-# 4. Start everything
+# 4. Edit .env — set your domain and email config:
+#    DOMAIN=inkwell.example.com
+#    API_HOST=api.inkwell.example.com
+#    FRONTEND_URL=https://inkwell.example.com
+#    API_URL=https://api.inkwell.example.com
+#    SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, FROM_EMAIL
+
+# 5. Point DNS to your server
+#    A record: inkwell.example.com → your server IP
+#    A record: api.inkwell.example.com → your server IP
+
+# 6. Start everything
 docker compose -f docker-compose.selfhosted.yml up -d
-
-# 5. Wait for builds to finish (first time takes a few minutes)
-docker compose -f docker-compose.selfhosted.yml logs -f
 ```
 
-Once running:
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:4000
-- **Health check**: http://localhost:4000/health
+That's it. Caddy automatically provisions HTTPS certificates via Let's Encrypt. Give it a minute for certs, then visit `https://yourdomain.com`.
 
-Create your first account, then add your username to `ADMIN_USERNAMES` in `.env` and restart the API container.
+Create your first account, then add your username to `ADMIN_USERNAMES` in `.env` and restart:
+
+```bash
+docker compose -f docker-compose.selfhosted.yml restart api
+```
+
+## How It Works
+
+The Docker Compose stack includes 4 services:
+
+| Service | What it does |
+|---------|-------------|
+| **db** | PostgreSQL 16 — stores everything |
+| **api** | Elixir/Phoenix backend — handles auth, federation, email |
+| **web** | Next.js frontend — serves the UI |
+| **caddy** | Reverse proxy — automatic HTTPS via Let's Encrypt |
+
+Pre-built Docker images are pulled from GitHub Container Registry (`ghcr.io/stantondev/inkwell-api` and `ghcr.io/stantondev/inkwell-web`). No compilation needed.
+
+To build from source instead, edit `docker-compose.selfhosted.yml` — comment out the `image:` lines and uncomment the `build:` blocks.
 
 ## Email Configuration
 
@@ -110,9 +133,9 @@ If both SMTP and Resend are configured, SMTP takes priority.
 Self-hosted instances federate automatically via ActivityPub. Users get `@username@yourdomain.com` identities.
 
 Requirements for federation:
-- HTTPS (required by ActivityPub spec)
+- HTTPS (required by ActivityPub spec — Caddy handles this automatically)
 - A public domain name
-- Ports 443 (HTTPS) accessible from the internet
+- Port 443 accessible from the internet
 
 Set your domain in `.env`:
 
@@ -123,23 +146,16 @@ API_URL=https://api.inkwell.example.com
 API_HOST=api.inkwell.example.com
 ```
 
-## Reverse Proxy
+## Using Your Own Reverse Proxy
 
-For production, put a reverse proxy in front of Inkwell for HTTPS termination.
+Caddy is included by default for automatic HTTPS. If you already run Nginx, Traefik, or another reverse proxy:
 
-### Caddy (Recommended — automatic HTTPS)
+1. Edit `docker-compose.selfhosted.yml`:
+   - Remove or comment out the `caddy` service
+   - Uncomment the `ports:` lines on `api` and `web` services
+2. Point your proxy at `localhost:4000` (API) and `localhost:3000` (web)
 
-```
-inkwell.example.com {
-    reverse_proxy web:3000
-}
-
-api.inkwell.example.com {
-    reverse_proxy api:4000
-}
-```
-
-### Nginx
+### Nginx Example
 
 ```nginx
 server {
@@ -234,17 +250,24 @@ docker run --rm \
 ## Upgrading
 
 ```bash
-git pull
-docker compose -f docker-compose.selfhosted.yml up -d --build
+docker compose -f docker-compose.selfhosted.yml pull
+docker compose -f docker-compose.selfhosted.yml up -d
 ```
 
 Database migrations run automatically on API container startup.
+
+To build from source instead of pulling images:
+```bash
+git pull
+docker compose -f docker-compose.selfhosted.yml up -d --build
+```
 
 ## Known Limitations
 
 - **Custom domains** feature requires Fly.io Certificates API and won't work on self-hosted instances
 - **Postage/tipping** requires Stripe Connect and needs additional configuration
 - **Post by Email** requires Postmark for inbound email processing
+- **Images stored in PostgreSQL** — works well for small instances; S3-compatible storage planned for a future release
 
 ## Branding
 

@@ -1,0 +1,18 @@
+# ──────────────────────────────────────────────────────────────
+# Inkwell — Caddy Reverse Proxy
+#
+# Automatic HTTPS via Let's Encrypt for production domains.
+# When DOMAIN is "localhost", Caddy serves HTTP only (no certs).
+#
+# Set DOMAIN and API_HOST in your .env file:
+#   DOMAIN=inkwell.example.com
+#   API_HOST=api.inkwell.example.com
+# ──────────────────────────────────────────────────────────────
+
+{$DOMAIN:localhost} {
+	reverse_proxy web:3000
+}
+
+{$API_HOST:api.localhost} {
+	reverse_proxy api:4000
+}
