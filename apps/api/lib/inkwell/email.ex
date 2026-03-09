@@ -1,245 +1,100 @@
 defmodule Inkwell.Email do
   @moduledoc """
-  Sends transactional emails via the Resend API.
-  Requires RESEND_API_KEY to be set in the environment.
+  Sends transactional emails via SMTP or the Resend API.
+
+  Provider selection:
+  - If SMTP_HOST is configured → uses SMTP (via gen_smtp)
+  - If RESEND_API_KEY is configured → uses Resend HTTP API
+  - If neither → dev mode (logs links to console, no email sent)
   """
+  require Logger
 
   @resend_url "https://api.resend.com/emails"
   @resend_batch_url "https://api.resend.com/emails/batch"
 
+  # ── Public API ──
+
   @doc "Send a magic link email to the given address."
   def send_magic_link(to_email, magic_link_url) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+    case do_send_email(to_email, "Sign in to Inkwell", magic_link_html(magic_link_url)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — magic link: #{magic_link_url}")
+        {:ok, :no_email_configured, magic_link_url}
 
-    if is_nil(api_key) or api_key == "" do
-      # No API key configured — log and return the link for dev/testing
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — magic link: #{magic_link_url}")
-      {:ok, :no_email_configured, magic_link_url}
-    else
-      body = Jason.encode!(%{
-        from: from_email,
-        to: [to_email],
-        subject: "Sign in to Inkwell",
-        html: magic_link_html(magic_link_url)
-      })
-
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
-
-      # Ensure ssl/inets are started for :httpc
-      :ssl.start()
-      :inets.start()
-
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, :sent}
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
-          {:error, {:resend_error, status, to_string(resp_body)}}
-
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend HTTP error: #{inspect(reason)}")
-          {:error, :send_failed}
-      end
+      result ->
+        result
     end
   end
 
   @doc "Send a feedback email from a user to the Inkwell team."
   def send_feedback(user, category, message) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
     feedback_to = Application.get_env(:inkwell, :feedback_email, "stanton@inkwell.social")
+    subject = "[Inkwell Feedback] #{String.capitalize(category)} from @#{user.username}"
 
-    if is_nil(api_key) or api_key == "" do
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — feedback from #{user.username}: [#{category}] #{message}")
-      {:ok, :no_email_configured}
-    else
-      body = Jason.encode!(%{
-        from: from_email,
-        to: [feedback_to],
-        subject: "[Inkwell Feedback] #{String.capitalize(category)} from @#{user.username}",
-        html: feedback_html(user, category, message)
-      })
+    case do_send_email(feedback_to, subject, feedback_html(user, category, message)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — feedback from #{user.username}: [#{category}] #{message}")
+        {:ok, :no_email_configured}
 
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
-
-      :ssl.start()
-      :inets.start()
-
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, :sent}
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
-          {:error, {:resend_error, status, to_string(resp_body)}}
-
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend HTTP error: #{inspect(reason)}")
-          {:error, :send_failed}
-      end
+      result ->
+        result
     end
   end
 
   @doc "Send an email notifying the user their data export is ready for download."
   def send_export_ready(to_email, settings_url) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+    case do_send_email(to_email, "Your Inkwell data export is ready", export_ready_html(settings_url)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — export ready notification for #{to_email}")
+        {:ok, :no_email_configured}
 
-    if is_nil(api_key) or api_key == "" do
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — export ready notification for #{to_email}")
-      {:ok, :no_email_configured}
-    else
-      body = Jason.encode!(%{
-        from: from_email,
-        to: [to_email],
-        subject: "Your Inkwell data export is ready",
-        html: export_ready_html(settings_url)
-      })
-
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
-
-      :ssl.start()
-      :inets.start()
-
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, :sent}
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
-          {:error, {:resend_error, status, to_string(resp_body)}}
-
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend HTTP error: #{inspect(reason)}")
-          {:error, :send_failed}
-      end
-    end
-  end
-
-  # ── Newsletter Email Functions ──
-
-  @doc "Send a batch of emails via Resend's batch API. Max 100 per call."
-  def send_batch(emails) when is_list(emails) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-
-    if is_nil(api_key) or api_key == "" do
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — skipping batch of #{length(emails)} emails")
-      {:ok, length(emails)}
-    else
-      body = Jason.encode!(emails)
-
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
-
-      :ssl.start()
-      :inets.start()
-
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_batch_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, length(emails)}
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend batch API error #{status}: #{to_string(resp_body)}")
-          {:error, 0, length(emails)}
-
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend batch HTTP error: #{inspect(reason)}")
-          {:error, 0, length(emails)}
-      end
+      result ->
+        result
     end
   end
 
   @doc "Send a newsletter subscription confirmation email (double opt-in)."
   def send_newsletter_confirmation(to_email, writer, confirm_url) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
-
     writer_name = writer.display_name || writer.username
+    subject = "Confirm your subscription to #{writer_name}'s newsletter"
 
-    if is_nil(api_key) or api_key == "" do
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — newsletter confirm link: #{confirm_url}")
-      {:ok, :no_email_configured, confirm_url}
-    else
-      body = Jason.encode!(%{
-        from: from_email,
-        to: [to_email],
-        subject: "Confirm your subscription to #{writer_name}'s newsletter",
-        html: newsletter_confirmation_html(writer_name, confirm_url)
-      })
+    case do_send_email(to_email, subject, newsletter_confirmation_html(writer_name, confirm_url)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — newsletter confirm link: #{confirm_url}")
+        {:ok, :no_email_configured, confirm_url}
 
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
+      result ->
+        result
+    end
+  end
 
-      :ssl.start()
-      :inets.start()
+  @doc "Send an invite 'sealed letter' email to a friend."
+  def send_invite_email(to_email, inviter, invite_url, message) do
+    inviter_name = inviter.display_name || inviter.username
+    subject = "You've received a letter from @#{inviter.username} on Inkwell"
 
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, :sent}
+    case do_send_email(to_email, subject, invite_html(inviter, inviter_name, invite_url, message)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — invite email for #{to_email}: #{invite_url}")
+        {:ok, :no_email_configured}
 
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
-          {:error, {:resend_error, status, to_string(resp_body)}}
+      result ->
+        result
+    end
+  end
 
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend HTTP error: #{inspect(reason)}")
-          {:error, :send_failed}
-      end
+  @doc "Send a batch of emails. Max 100 per call for Resend; SMTP sends sequentially."
+  def send_batch(emails) when is_list(emails) do
+    case email_provider() do
+      :smtp ->
+        Inkwell.Email.SmtpAdapter.send_batch(emails)
+
+      :resend ->
+        send_batch_via_resend(emails)
+
+      :none ->
+        Logger.warning("No email configured — skipping batch of #{length(emails)} emails")
+        {:ok, length(emails)}
     end
   end
 
@@ -343,6 +198,107 @@ defmodule Inkwell.Email do
     """
   end
 
+  # ── Email Provider Dispatch ──
+
+  defp email_provider do
+    cond do
+      Application.get_env(:inkwell, :smtp) != nil -> :smtp
+      has_resend_key?() -> :resend
+      true -> :none
+    end
+  end
+
+  defp has_resend_key? do
+    key = Application.get_env(:inkwell, :resend_api_key)
+    not is_nil(key) and key != ""
+  end
+
+  defp do_send_email(to, subject, html, opts \\ []) do
+    from = opts[:from] || Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+
+    case email_provider() do
+      :smtp ->
+        Inkwell.Email.SmtpAdapter.send_email(to, subject, html, Keyword.put(opts, :from, from))
+
+      :resend ->
+        send_via_resend(to, subject, html, from)
+
+      :none ->
+        {:ok, :no_email_configured}
+    end
+  end
+
+  defp send_via_resend(to, subject, html, from) do
+    api_key = Application.get_env(:inkwell, :resend_api_key)
+
+    body = Jason.encode!(%{
+      from: from,
+      to: [to],
+      subject: subject,
+      html: html
+    })
+
+    headers = [
+      {~c"authorization", ~c"Bearer #{api_key}"},
+      {~c"content-type", ~c"application/json"}
+    ]
+
+    :ssl.start()
+    :inets.start()
+
+    case :httpc.request(
+           :post,
+           {~c"#{@resend_url}", headers, ~c"application/json", body},
+           [ssl: [verify: :verify_none]],
+           []
+         ) do
+      {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
+        {:ok, :sent}
+
+      {:ok, {{_, status, _}, _headers, resp_body}} ->
+        Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
+        {:error, {:resend_error, status, to_string(resp_body)}}
+
+      {:error, reason} ->
+        Logger.error("Resend HTTP error: #{inspect(reason)}")
+        {:error, :send_failed}
+    end
+  end
+
+  defp send_batch_via_resend(emails) do
+    api_key = Application.get_env(:inkwell, :resend_api_key)
+
+    body = Jason.encode!(emails)
+
+    headers = [
+      {~c"authorization", ~c"Bearer #{api_key}"},
+      {~c"content-type", ~c"application/json"}
+    ]
+
+    :ssl.start()
+    :inets.start()
+
+    case :httpc.request(
+           :post,
+           {~c"#{@resend_batch_url}", headers, ~c"application/json", body},
+           [ssl: [verify: :verify_none]],
+           []
+         ) do
+      {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
+        {:ok, length(emails)}
+
+      {:ok, {{_, status, _}, _headers, resp_body}} ->
+        Logger.error("Resend batch API error #{status}: #{to_string(resp_body)}")
+        {:error, 0, length(emails)}
+
+      {:error, reason} ->
+        Logger.error("Resend batch HTTP error: #{inspect(reason)}")
+        {:error, 0, length(emails)}
+    end
+  end
+
+  # ── HTML Templates ──
+
   defp escape_html(nil), do: ""
   defp escape_html(text) do
     text
@@ -432,55 +388,6 @@ defmodule Inkwell.Email do
     </body>
     </html>
     """
-  end
-
-  @doc "Send an invite 'sealed letter' email to a friend."
-  def send_invite_email(to_email, inviter, invite_url, message) do
-    api_key = Application.get_env(:inkwell, :resend_api_key)
-    from_email = Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
-
-    inviter_name = inviter.display_name || inviter.username
-
-    if is_nil(api_key) or api_key == "" do
-      require Logger
-      Logger.warning("RESEND_API_KEY not set — invite email for #{to_email}: #{invite_url}")
-      {:ok, :no_email_configured}
-    else
-      body = Jason.encode!(%{
-        from: from_email,
-        to: [to_email],
-        subject: "You've received a letter from @#{inviter.username} on Inkwell",
-        html: invite_html(inviter, inviter_name, invite_url, message)
-      })
-
-      headers = [
-        {~c"authorization", ~c"Bearer #{api_key}"},
-        {~c"content-type", ~c"application/json"}
-      ]
-
-      :ssl.start()
-      :inets.start()
-
-      case :httpc.request(
-             :post,
-             {~c"#{@resend_url}", headers, ~c"application/json", body},
-             [ssl: [verify: :verify_none]],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
-          {:ok, :sent}
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          require Logger
-          Logger.error("Resend API error #{status}: #{to_string(resp_body)}")
-          {:error, {:resend_error, status, to_string(resp_body)}}
-
-        {:error, reason} ->
-          require Logger
-          Logger.error("Resend HTTP error: #{inspect(reason)}")
-          {:error, :send_failed}
-      end
-    end
   end
 
   defp export_ready_html(settings_url) do

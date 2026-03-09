@@ -9,6 +9,7 @@ defmodule InkwellWeb.Router do
 
   pipeline :authenticated do
     plug InkwellWeb.Plugs.RequireAuth
+    plug InkwellWeb.Plugs.SelfHostedTier
   end
 
   pipeline :admin do
@@ -17,6 +18,7 @@ defmodule InkwellWeb.Router do
 
   pipeline :optional_auth do
     plug InkwellWeb.Plugs.OptionalAuth
+    plug InkwellWeb.Plugs.SelfHostedTier
   end
 
   pipeline :rate_limited do

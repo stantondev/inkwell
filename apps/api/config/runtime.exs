@@ -46,9 +46,25 @@ if config_env() == :prod do
   # API URL (used for absolute image URLs in newsletter emails)
   config :inkwell, :api_url, System.get_env("API_URL") || "https://api.inkwell.social"
 
+  # Self-hosted mode (unlocks all Plus features, disables billing)
+  config :inkwell, :self_hosted, System.get_env("INKWELL_SELF_HOSTED") == "true"
+
   # Email via Resend
   config :inkwell, :resend_api_key, System.get_env("RESEND_API_KEY")
   config :inkwell, :from_email, System.get_env("FROM_EMAIL") || "Inkwell <onboarding@resend.dev>"
+
+  # Email via SMTP (takes priority over Resend when SMTP_HOST is set)
+  smtp_host = System.get_env("SMTP_HOST")
+
+  if smtp_host do
+    config :inkwell, :smtp,
+      host: smtp_host,
+      port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
+      username: System.get_env("SMTP_USERNAME"),
+      password: System.get_env("SMTP_PASSWORD"),
+      ssl: System.get_env("SMTP_SSL") == "true",
+      auth: System.get_env("SMTP_AUTH") != "false"
+  end
 
   # Search (optional — disabled if MEILI_URL not set)
   config :inkwell, Inkwell.Search,

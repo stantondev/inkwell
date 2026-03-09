@@ -52,7 +52,7 @@ export async function AppShell({
         <div className="flex-1">
           {children}
         </div>
-        <Footer />
+        <Footer selfHosted={user?.self_hosted} />
       </main>
     </>
   );

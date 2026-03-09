@@ -489,7 +489,7 @@ defmodule InkwellWeb.UserController do
       avatar_url: user.avatar_url,
       avatar_config: user.avatar_config,
       ap_id: user.ap_id,
-      subscription_tier: user.subscription_tier || "free",
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user),
       created_at: user.inserted_at,
       profile_html: user.profile_html,
       profile_css: user.profile_css,
@@ -549,7 +549,7 @@ defmodule InkwellWeb.UserController do
       stripe_connect_account_id: user.stripe_connect_account_id,
       stripe_connect_onboarded: user.stripe_connect_onboarded || false,
       sends_this_month: Inkwell.Newsletter.count_sends_this_month(user.id),
-      send_limit: Inkwell.Newsletter.send_limit(user.subscription_tier),
+      send_limit: Inkwell.Newsletter.send_limit(Inkwell.SelfHosted.effective_tier(user)),
       post_email_enabled: post_email_enabled,
       post_email_address: if(post_email_enabled, do: "post+#{user.post_email_token}@#{domain}", else: nil)
     })

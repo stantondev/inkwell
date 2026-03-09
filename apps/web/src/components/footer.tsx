@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function Footer() {
+export function Footer({ selfHosted }: { selfHosted?: boolean }) {
   return (
     <footer
       className="border-t py-8 mt-auto"
@@ -24,7 +24,7 @@ export function Footer() {
           <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
           <Link href="/developers" className="hover:underline">API</Link>
         </div>
-        <span>&copy; 2026 Inkwell</span>
+        <span>{selfHosted ? "Self-Hosted Instance" : "\u00A9 2026 Inkwell"}</span>
       </div>
     </footer>
   );

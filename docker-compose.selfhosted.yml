@@ -1,0 +1,117 @@
+# ──────────────────────────────────────────────────────────────
+# Inkwell — Self-Hosted Docker Compose
+# Phase 1 / Alpha
+#
+# Quick start:
+#   1. cp .env.example .env
+#   2. Fill in required values (SECRET_KEY_BASE, DOMAIN, email config)
+#   3. docker compose -f docker-compose.selfhosted.yml up -d
+#
+# See SELF_HOSTING.md for full documentation.
+# ──────────────────────────────────────────────────────────────
+
+services:
+  # ── PostgreSQL 16 ───────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inkwell
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inkwell}
+      POSTGRES_DB: inkwell
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inkwell"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Meilisearch (optional — search works without it) ────────
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
+    volumes:
+      - meili_data:/meili_data
+    profiles:
+      - search
+
+  # ── Phoenix API ─────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    # Uncomment below (and comment out build:) to use a pre-built image:
+    # image: ghcr.io/stantondev/inkwell-api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4000}:4000"
+    environment:
+      # Core
+      DATABASE_URL: ecto://inkwell:${POSTGRES_PASSWORD:-inkwell}@db/inkwell
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
+      PHX_HOST: ${API_HOST:-localhost}
+      PORT: "4000"
+
+      # Self-hosted mode — unlocks all Plus features
+      INKWELL_SELF_HOSTED: "true"
+
+      # Frontend URL (for magic link redirects, CORS, etc.)
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      API_URL: ${API_URL:-http://localhost:4000}
+
+      # Email — SMTP (recommended) or Resend
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_AUTH: ${SMTP_AUTH:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      FROM_EMAIL: ${FROM_EMAIL:-Inkwell <noreply@localhost>}
+
+      # Admin
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+
+      # Federation
+      INSTANCE_HOST: ${API_HOST:-localhost}
+      HOSTNAME: ${DOMAIN:-localhost}
+
+      # Search (optional)
+      MEILI_URL: ${MEILI_URL:-}
+      MEILI_API_KEY: ${MEILI_MASTER_KEY:-}
+
+      # Optional integrations
+      DEEPL_API_KEY: ${DEEPL_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MUSE_ENABLED: ${MUSE_ENABLED:-false}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+
+  # ── Next.js Frontend ────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:4000}
+    # Uncomment below (and comment out build:) to use a pre-built image:
+    # image: ghcr.io/stantondev/inkwell-web:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      API_URL: http://api:4000
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+
+volumes:
+  pgdata:
+  meili_data:

@@ -137,7 +137,7 @@ defmodule InkwellWeb.AuthController do
         |> Map.put(:newsletter_enabled, user.newsletter_enabled || false)
         |> Map.put(:subscriber_count, subscriber_count)
         |> Map.put(:sends_this_month, Inkwell.Newsletter.count_sends_this_month(user.id))
-        |> Map.put(:send_limit, Inkwell.Newsletter.send_limit(user.subscription_tier))
+        |> Map.put(:send_limit, Inkwell.Newsletter.send_limit(Inkwell.SelfHosted.effective_tier(user)))
     })
   end
 
@@ -169,7 +169,8 @@ defmodule InkwellWeb.AuthController do
       created_at: user.inserted_at,
       is_admin: Accounts.is_admin?(user),
       settings: user.settings || %{},
-      subscription_tier: user.subscription_tier || "free",
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user),
+      self_hosted: Inkwell.SelfHosted.enabled?(),
       terms_accepted_at: user.terms_accepted_at,
       invite_count: Invitations.count_accepted(user.id),
       ink_donor_status: user.ink_donor_status,

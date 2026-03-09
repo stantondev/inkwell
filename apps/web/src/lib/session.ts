@@ -28,6 +28,7 @@ export interface SessionUser {
   preferred_language?: string | null;
   post_email_enabled?: boolean;
   post_email_address?: string | null;
+  self_hosted?: boolean;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 

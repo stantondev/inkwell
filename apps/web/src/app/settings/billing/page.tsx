@@ -9,6 +9,7 @@ interface BillingStatus {
   subscription_expires_at: string | null;
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
+  self_hosted?: boolean;
 }
 
 function InkDropIcon({ size = 10 }: { size?: number }) {
@@ -119,6 +120,31 @@ export default function BillingPage() {
       <div className="flex justify-center py-12">
         <div className="animate-pulse text-sm" style={{ color: "var(--muted)" }}>
           Loading billing info...
+        </div>
+      </div>
+    );
+  }
+
+  // Self-hosted mode — all features included, no billing needed
+  if (status?.self_hosted) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="rounded-xl border p-6"
+          style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-lg font-semibold"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+              Self-Hosted Instance
+            </h2>
+            <span className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+              style={{ background: "var(--accent)", color: "#fff" }}>
+              Plus
+            </span>
+          </div>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            All Plus features are included with your self-hosted instance.
+            No subscription required.
+          </p>
         </div>
       </div>
     );

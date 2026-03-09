@@ -41,7 +41,8 @@ defmodule Inkwell.MixProject do
       {:slugify, "~> 1.3"},
       {:bcrypt_elixir, "~> 3.0"},
       {:nimble_csv, "~> 1.2"},
-      {:saxy, "~> 1.5"}
+      {:saxy, "~> 1.5"},
+      {:gen_smtp, "~> 1.2"}
     ]
   end
 

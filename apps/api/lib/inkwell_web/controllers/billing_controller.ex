@@ -134,11 +134,12 @@ defmodule InkwellWeb.BillingController do
 
     json(conn, %{
       data: %{
-        subscription_tier: user.subscription_tier || "free",
+        subscription_tier: Inkwell.SelfHosted.effective_tier(user),
         subscription_status: user.subscription_status || "none",
         subscription_expires_at: user.subscription_expires_at,
         ink_donor_status: user.ink_donor_status,
-        ink_donor_amount_cents: user.ink_donor_amount_cents
+        ink_donor_amount_cents: user.ink_donor_amount_cents,
+        self_hosted: Inkwell.SelfHosted.enabled?()
       }
     })
   end
