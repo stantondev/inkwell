@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 export function ContentSafety() {
   const [showSensitive, setShowSensitive] = useState(false);
+  const [soundsMuted, setSoundsMuted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -14,6 +15,7 @@ export function ContentSafety() {
         if (!res.ok) return;
         const { data } = await res.json();
         setShowSensitive(!!data.settings?.show_sensitive_content);
+        setSoundsMuted(!!data.settings?.notification_sounds_muted);
       } catch {
         // ignore
       } finally {
@@ -22,7 +24,7 @@ export function ContentSafety() {
     })();
   }, []);
 
-  const toggle = async (value: boolean) => {
+  const toggleSensitive = async (value: boolean) => {
     setShowSensitive(value);
     setSaving(true);
     try {
@@ -35,6 +37,24 @@ export function ContentSafety() {
       });
     } catch {
       setShowSensitive(!value);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleSounds = async (value: boolean) => {
+    setSoundsMuted(value);
+    setSaving(true);
+    try {
+      await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: { notification_sounds_muted: value },
+        }),
+      });
+    } catch {
+      setSoundsMuted(!value);
     } finally {
       setSaving(false);
     }
@@ -60,7 +80,7 @@ export function ContentSafety() {
         <input
           type="checkbox"
           checked={showSensitive}
-          onChange={(e) => toggle(e.target.checked)}
+          onChange={(e) => toggleSensitive(e.target.checked)}
           disabled={saving}
           className="mt-0.5"
         />
@@ -72,6 +92,30 @@ export function ContentSafety() {
           </p>
         </div>
       </label>
+
+      <div
+        className="border-t mt-4 pt-4"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <label
+          className="flex items-start gap-3 cursor-pointer"
+          style={{ opacity: saving ? 0.6 : 1 }}
+        >
+          <input
+            type="checkbox"
+            checked={soundsMuted}
+            onChange={(e) => toggleSounds(e.target.checked)}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Mute notification sounds</span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              When enabled, Inkwell won&apos;t play a sound when new notifications or letters arrive.
+            </p>
+          </div>
+        </label>
+      </div>
     </div>
   );
 }
