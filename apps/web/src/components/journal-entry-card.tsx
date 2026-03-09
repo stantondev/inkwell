@@ -81,9 +81,13 @@ interface JournalEntryCardProps {
   entry: JournalEntry;
   /** Optional custom footer actions (replaces default static footer) */
   actions?: React.ReactNode;
+  /** Translated body HTML — when set, replaces the original body content */
+  translatedBody?: string | null;
+  /** Translated title — when set, replaces the original title */
+  translatedTitle?: string | null;
 }
 
-export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle }: JournalEntryCardProps) {
   const isRemote = entry.source === "remote";
   const href = isRemote
     ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
@@ -134,11 +138,11 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           >
             {isRemote ? (
               <a href={href} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                {entry.title}
+                {translatedTitle || entry.title}
               </a>
             ) : (
               <Link href={href} className="hover:underline">
-                {entry.title}
+                {translatedTitle || entry.title}
               </Link>
             )}
             {(entry.is_paywalled || entry.is_paid) && (
@@ -268,10 +272,39 @@ export function JournalEntryCard({ entry, actions }: JournalEntryCardProps) {
           {isCompact ? (
             <div>
               <EntryContent
-                html={entry.body_html}
+                html={translatedBody || entry.body_html}
                 entryId={entry.id}
                 className="prose-entry text-sm leading-relaxed"
               />
+            </div>
+          ) : translatedBody ? (
+            <div>
+              <div className="journal-body-clamp">
+                <EntryContent
+                  html={translatedBody}
+                  entryId={entry.id}
+                  className="prose-entry text-sm leading-relaxed"
+                />
+              </div>
+              {isRemote ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </a>
+              ) : (
+                <Link
+                  href={href}
+                  className="inline-block mt-3 text-sm font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  Continue reading &rarr;
+                </Link>
+              )}
             </div>
           ) : entry.excerpt ? (
             <div>

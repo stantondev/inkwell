@@ -54,6 +54,7 @@ interface FeedCardActionsProps {
   preferredLanguage?: string | null;
   onStampsChange?: (stamps: string[]) => void;
   onBookmarkChange?: (bookmarked: boolean) => void;
+  onTranslation?: (translation: { translated_title: string | null; translated_body: string; source_language: string } | null) => void;
 }
 
 function timeAgo(isoString: string): string {
@@ -89,6 +90,7 @@ export function FeedCardActions({
   preferredLanguage,
   onStampsChange,
   onBookmarkChange,
+  onTranslation,
 }: FeedCardActionsProps) {
   const [commentPopupOpen, setCommentPopupOpen] = useState(false);
   const [comments, setComments] = useState<FeedComment[]>([]);
@@ -407,6 +409,7 @@ export function FeedCardActions({
             type={isRemote ? "remote_entry" : "entry"}
             id={entryId}
             preferredLanguage={preferredLanguage}
+            onTranslation={onTranslation}
             size={14}
           />
         )}

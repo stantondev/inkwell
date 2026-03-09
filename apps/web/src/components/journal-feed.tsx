@@ -7,6 +7,12 @@ import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
 
+interface TranslationData {
+  translated_title: string | null;
+  translated_body: string;
+  source_language: string;
+}
+
 /** Session info passed from server to enable interactive features */
 export interface FeedSession {
   userId: string;
@@ -42,6 +48,8 @@ export function JournalFeed({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialEntries.length === 20);
   const prefersReducedMotion = usePrefersReducedMotion();
+  // Track active translations per entry ID
+  const [translations, setTranslations] = useState<Record<string, TranslationData>>({});
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore || !loadMorePath) return;
@@ -75,6 +83,19 @@ export function JournalFeed({
     return <>{emptyState}</>;
   }
 
+  // Handle translation callback from feed card actions
+  function handleTranslation(entryId: string, translation: TranslationData | null) {
+    setTranslations((prev) => {
+      if (translation) {
+        return { ...prev, [entryId]: translation };
+      } else {
+        const next = { ...prev };
+        delete next[entryId];
+        return next;
+      }
+    });
+  }
+
   // Build actions footer for an entry (if session is available)
   function renderActions(entry: JournalEntry) {
     const isRemote = entry.source === "remote";
@@ -100,6 +121,7 @@ export function JournalFeed({
         entryTitle={entry.title}
         entryAuthorUsername={entry.author.username}
         preferredLanguage={session?.preferredLanguage}
+        onTranslation={(t) => handleTranslation(entry.id, t)}
         {...(isRemote
           ? {
               stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
@@ -128,6 +150,8 @@ export function JournalFeed({
               <JournalEntryCard
                 entry={entry}
                 actions={session ? renderActions(entry) : undefined}
+                translatedBody={translations[entry.id]?.translated_body ?? null}
+                translatedTitle={translations[entry.id]?.translated_title ?? null}
               />
             </motion.div>
           </div>
