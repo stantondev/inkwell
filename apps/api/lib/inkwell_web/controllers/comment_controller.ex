@@ -104,8 +104,30 @@ defmodule InkwellWeb.CommentController do
                 })
               end
 
-              # Notify mentioned users (skip self and entry author who already got notified)
-              skip_ids = MapSet.new([user.id, entry.user_id])
+              # Notify parent comment author when replying
+              parent_comment =
+                if comment.parent_comment_id,
+                  do: Repo.get(Journals.Comment, comment.parent_comment_id),
+                  else: nil
+
+              if parent_comment && parent_comment.user_id &&
+                 parent_comment.user_id != user.id &&
+                 parent_comment.user_id != entry.user_id do
+                Accounts.create_notification(%{
+                  user_id: parent_comment.user_id,
+                  type: :reply,
+                  actor_id: user.id,
+                  target_type: "entry",
+                  target_id: entry_id,
+                  data: %{comment_id: comment.id, parent_comment_id: comment.parent_comment_id}
+                })
+              end
+
+              # Notify mentioned users (skip self, entry author, and parent comment author)
+              skip_ids = MapSet.new(
+                [user.id, entry.user_id, parent_comment && parent_comment.user_id]
+                |> Enum.reject(&is_nil/1)
+              )
               for mentioned <- mentioned_users, mentioned.id not in skip_ids do
                 Accounts.create_notification(%{
                   user_id: mentioned.id,
@@ -189,7 +211,9 @@ defmodule InkwellWeb.CommentController do
           id: comment.user.id,
           username: comment.user.username,
           display_name: comment.user.display_name,
-          avatar_url: comment.user.avatar_url
+          avatar_url: comment.user.avatar_url,
+          avatar_frame: comment.user.avatar_frame,
+          subscription_tier: comment.user.subscription_tier
         }
       end
 

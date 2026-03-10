@@ -405,8 +405,10 @@ export default async function FeedPage({ searchParams }: PageProps) {
         ) : <EmptyFeed username={session.user.username} featuredEntries={featuredEntries} />}
         session={{
           userId: session.user.id,
+          username: session.user.username,
           isLoggedIn: true,
           isPlus: session.user.subscription_tier === "plus",
+          isAdmin: !!session.user.is_admin,
           preferredLanguage: session.user.preferred_language,
         }}
       />

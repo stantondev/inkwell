@@ -8,8 +8,7 @@ import { Avatar } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { JournalPage } from "@/components/journal-page";
-import { CommentForm } from "./comment-form";
-import { EditableComment } from "./editable-comment";
+import { CommentSection } from "./comment-section";
 import { EntryActions } from "./entry-actions";
 import { ReportButton } from "./report-button";
 import { ReadingProgress } from "./reading-progress";
@@ -93,26 +92,8 @@ interface EntryData {
   author: EntryAuthor;
 }
 
-interface Comment {
-  id: string;
-  body_html: string;
-  created_at: string;
-  edited_at: string | null;
-  author: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  } | null;
-  remote_author?: {
-    username: string;
-    domain: string;
-    display_name: string;
-    avatar_url: string | null;
-    profile_url: string | null;
-    ap_id: string | null;
-  } | null;
-}
+// Comment type imported from shared utils
+import type { Comment } from "@/lib/comment-utils";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -120,15 +101,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 function readingTime(html: string): number {
@@ -712,97 +684,12 @@ export default async function EntryPage({ params }: EntryParams) {
         </div>
       </article>
 
-      {/* ── Comments ────────────────────────────────────────────────── */}
-      <section
-        id="comments"
-        className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-20 border-t"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <h2 className="text-xs font-semibold uppercase tracking-widest mt-10 mb-8" style={{ color: "var(--muted)" }}>
-          {comments.length > 0
-            ? `${comments.length} ${comments.length === 1 ? "comment" : "comments"}`
-            : "Comments"}
-        </h2>
-
-        {comments.length > 0 && (
-          <div className="flex flex-col gap-7 mb-10">
-            {comments.map((comment) => {
-              const isLocal = !!comment.author;
-              const isRemote = !isLocal && !!comment.remote_author;
-              const displayName = isLocal
-                ? comment.author!.display_name
-                : isRemote
-                  ? (comment.remote_author!.display_name || comment.remote_author!.username)
-                  : "Anonymous";
-              const avatarUrl = isLocal
-                ? comment.author!.avatar_url
-                : isRemote
-                  ? comment.remote_author!.avatar_url
-                  : null;
-              const profileHref = isLocal
-                ? `/${comment.author!.username}`
-                : isRemote && comment.remote_author!.profile_url
-                  ? comment.remote_author!.profile_url
-                  : null;
-
-              return (
-                <div key={comment.id} className="flex gap-3">
-                  {profileHref ? (
-                    <a
-                      href={profileHref}
-                      className="flex-shrink-0 mt-0.5"
-                      {...(isRemote ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                    >
-                      <Avatar url={avatarUrl} name={displayName} size={30} />
-                    </a>
-                  ) : (
-                    <div className="w-8 h-8 rounded-full flex-shrink-0 mt-0.5"
-                      style={{ background: "var(--surface-hover)" }} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 mb-2 flex-wrap">
-                      {profileHref ? (
-                        <a
-                          href={profileHref}
-                          className="text-sm font-semibold hover:underline"
-                          {...(isRemote ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                        >
-                          {displayName}
-                        </a>
-                      ) : (
-                        <span className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
-                          {displayName}
-                        </span>
-                      )}
-                      {isRemote && comment.remote_author && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-full border"
-                          style={{ borderColor: "var(--border)", color: "var(--muted)", fontSize: "0.65rem" }}>
-                          @{comment.remote_author.username}@{comment.remote_author.domain}
-                        </span>
-                      )}
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>
-                        {timeAgo(comment.created_at)}
-                      </span>
-                      {comment.edited_at && (
-                        <span className="text-xs italic" style={{ color: "var(--muted)" }} title={`Edited ${new Date(comment.edited_at).toLocaleString()}`}>
-                          (edited)
-                        </span>
-                      )}
-                    </div>
-                    <EditableComment
-                      comment={comment}
-                      canEdit={!!session && session.user.id === comment.author?.id && !isRemote}
-                      canDelete={session?.user.username === comment.author?.username || isAdmin}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <CommentForm entryId={entry.id} isLoggedIn={!!session} />
-      </section>
+      {/* ── Marginalia (Comments) ───────────────────────────────────── */}
+      <CommentSection
+        comments={comments}
+        entryId={entry.id}
+        session={session}
+      />
 
       {/* Signup CTA for logged-out visitors (not on custom domain) */}
       {!session && !customDomain && (

@@ -126,8 +126,10 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,
+          username: session.user.username,
           isLoggedIn: true,
           isPlus: session.user.subscription_tier === "plus",
+          isAdmin: !!session.user.is_admin,
           preferredLanguage: session.user.preferred_language,
         } : null}
       />

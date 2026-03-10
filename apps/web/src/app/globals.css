@@ -6316,3 +6316,578 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 .circle-picker-cancel:hover {
   color: var(--foreground);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Marginalia — Threaded Comment System
+   Comments styled as marginalia: handwritten notes in book margins.
+   Serif typography, ink-blue thread connectors, intimate spacing.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Section wrapper */
+.comment-section {
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+/* Section header — decorative divider with italic serif title */
+.comment-section-header {
+  text-align: center;
+  padding-top: 2.5rem;
+  padding-bottom: 2rem;
+}
+
+.comment-section-ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  opacity: 0.4;
+  font-size: 0.75rem;
+  letter-spacing: 0.5em;
+}
+
+.comment-section-ornament::before,
+.comment-section-ornament::after {
+  content: "";
+  width: 40px;
+  height: 1px;
+  background: var(--border);
+}
+
+.comment-section-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.1rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.comment-section-count {
+  display: inline-block;
+  margin-left: 0.5em;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--muted);
+  opacity: 0.6;
+  vertical-align: baseline;
+}
+
+/* Thread list */
+.comment-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 2rem;
+}
+
+/* Thread container */
+.comment-thread {
+  position: relative;
+}
+
+.comment-thread-nested {
+  margin-left: 36px;
+}
+
+@media (max-width: 639px) {
+  .comment-thread-nested {
+    margin-left: 24px;
+  }
+}
+
+/* Comment node — flex layout with avatar */
+.comment-node {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding: 12px 0;
+}
+
+/* Thread connector — vertical ink-blue line */
+.comment-connector {
+  position: absolute;
+  left: 13px; /* center of 28px avatar = 14px, minus half of 1.5px line */
+  top: 44px; /* below avatar */
+  bottom: 0;
+  width: 1.5px;
+  background: var(--accent);
+  opacity: 0.15;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  z-index: 1;
+  transition: opacity 0.15s;
+}
+
+.comment-connector:hover {
+  opacity: 0.35;
+}
+
+@media (prefers-color-scheme: dark) {
+  .comment-connector {
+    opacity: 0.12;
+  }
+  .comment-connector:hover {
+    opacity: 0.25;
+  }
+}
+
+.dark .comment-connector {
+  opacity: 0.12;
+}
+.dark .comment-connector:hover {
+  opacity: 0.25;
+}
+
+/* Avatar */
+.comment-avatar {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Comment content */
+.comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Meta line: author + timestamp */
+.comment-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.comment-author-name {
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+a.comment-author-name:hover {
+  text-decoration: underline;
+}
+
+.comment-author-anonymous {
+  color: var(--muted);
+}
+
+.comment-fediverse-badge {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.comment-timestamp {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.comment-edited {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: help;
+}
+
+/* Comment body prose */
+.prose-comment {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+
+.prose-comment p {
+  margin: 0;
+}
+
+.prose-comment p + p {
+  margin-top: 0.5em;
+}
+
+.prose-comment a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(45, 74, 138, 0.3);
+  text-underline-offset: 2px;
+}
+
+.prose-comment a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.prose-comment a.mention {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.prose-comment a.mention:hover {
+  text-decoration: underline;
+}
+
+.prose-comment strong {
+  font-weight: 700;
+}
+
+.prose-comment em {
+  font-style: italic;
+}
+
+/* Actions row — italic serif links */
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.comment-action-link {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.comment-action-link:hover {
+  opacity: 1;
+}
+
+.comment-action-delete:hover {
+  color: var(--danger, #ef4444);
+}
+
+/* Reply form */
+.comment-reply-form {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+/* Edit form */
+.comment-edit-form {
+  margin-top: 2px;
+}
+
+.comment-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.comment-edit-error {
+  font-size: 0.75rem;
+  color: var(--danger, #ef4444);
+}
+
+/* Show more link */
+.comment-show-more {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 8px 0 8px 48px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+@media (max-width: 639px) {
+  .comment-show-more {
+    padding-left: 36px;
+  }
+}
+
+.comment-show-more:hover {
+  opacity: 1;
+}
+
+/* Root editor at bottom */
+.comment-root-editor {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Login prompt */
+.comment-login-prompt {
+  text-align: center;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.comment-login-prompt a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Replies container */
+.comment-replies {
+  position: relative;
+}
+
+/* ─── Comment Editor (TipTap) ─────────────────────────────────────────────── */
+
+.comment-editor-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: visible;
+  transition: border-color 0.15s;
+}
+
+.comment-editor-focused {
+  border-color: var(--accent);
+}
+
+.comment-editor-compact {
+  border-radius: 8px;
+}
+
+/* Toolbar */
+.comment-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comment-editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.comment-editor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background 0.1s, color 0.1s;
+}
+
+.comment-editor-btn:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+  color: var(--foreground);
+}
+
+.comment-editor-btn-active {
+  color: var(--accent);
+  background: var(--accent-light, rgba(45, 74, 138, 0.08));
+}
+
+.comment-editor-char-count {
+  font-size: 0.6875rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+}
+
+/* Editor content area */
+.comment-editor-content {
+  padding: 10px 14px;
+  min-height: 60px;
+}
+
+.comment-editor-compact .comment-editor-content {
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+.comment-editor-tiptap {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--foreground);
+  outline: none;
+}
+
+.comment-editor-tiptap p {
+  margin: 0;
+}
+
+.comment-editor-tiptap p + p {
+  margin-top: 0.4em;
+}
+
+.comment-editor-compact-tiptap {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Placeholder */
+.comment-editor-tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted);
+  opacity: 0.5;
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+/* Footer with submit */
+.comment-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 12px 10px;
+}
+
+.comment-editor-submit {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 5px 16px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.comment-editor-submit:hover {
+  opacity: 0.9;
+}
+
+.comment-editor-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Comment Popup (Feed Card) ─────────────────────────────────── */
+.comment-popup {
+  border-top: 2px solid var(--accent);
+}
+
+.comment-popup-header {
+  background: var(--surface);
+}
+
+/* Scale CommentNode inside popup/sheet for compact display */
+.comment-popup-threads .comment-thread,
+.comment-popup-threads .comment-node {
+  font-size: 12px;
+}
+.comment-popup-threads .comment-avatar {
+  margin-top: 1px;
+}
+.comment-popup-threads .prose-comment {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.comment-popup-threads .comment-meta {
+  font-size: 11px;
+}
+.comment-popup-threads .comment-actions {
+  font-size: 10px;
+  gap: 8px;
+}
+.comment-popup-threads .comment-fediverse-badge {
+  font-size: 9px;
+}
+.comment-popup-threads .comment-thread-nested {
+  margin-left: 20px;
+}
+.comment-popup-threads .comment-connector {
+  left: 13px;
+}
+.comment-popup-threads .comment-reply-form,
+.comment-popup-threads .comment-edit-form {
+  margin-top: 4px;
+}
+
+/* ── Comment Bottom Sheet (Mobile) ─────────────────────────────── */
+.comment-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  animation: comment-sheet-fade-in 0.2s ease;
+}
+
+.comment-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  border-top: 2px solid var(--accent);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  animation: comment-sheet-slide-up 0.25s ease;
+  /* Safe area for notched phones */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.comment-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.comment-sheet-handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+@keyframes comment-sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes comment-sheet-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .comment-sheet-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+}
+
+[data-theme="dark"] .comment-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}

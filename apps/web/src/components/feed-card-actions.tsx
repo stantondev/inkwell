@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Avatar } from "@/components/avatar";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { StampPicker } from "@/components/stamp-picker";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { InkButton } from "@/components/ink-button";
@@ -10,16 +11,35 @@ import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
 import { ShareButton } from "@/components/share-button";
 import { TranslateButton } from "@/components/translate-button";
+import { CommentEditor } from "@/components/comment-editor";
+import { CommentNode } from "@/app/[username]/[slug]/comment-node";
+import { buildThreadTree, countThreadComments, timeAgo } from "@/lib/comment-utils";
+import type { Comment, CommentThread } from "@/lib/comment-utils";
 
 interface FeedComment {
   id: string;
+  entry_id: string;
+  user_id: string | null;
   body_html: string;
   created_at: string;
+  edited_at: string | null;
+  parent_comment_id: string | null;
+  depth: number;
   author: {
     id: string;
     username: string;
     display_name: string;
     avatar_url: string | null;
+    avatar_frame?: string | null;
+    subscription_tier?: string | null;
+  } | null;
+  remote_author?: {
+    username: string;
+    domain: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    profile_url: string | null;
+    ap_id: string;
   } | null;
 }
 
@@ -52,18 +72,221 @@ interface FeedCardActionsProps {
   entryAuthorUsername?: string;
   /** User's preferred translation language */
   preferredLanguage?: string | null;
+  /** Session user info for comment interactions (reply/edit/delete) */
+  sessionUser?: { id: string; username: string; is_admin?: boolean } | null;
   onStampsChange?: (stamps: string[]) => void;
   onBookmarkChange?: (bookmarked: boolean) => void;
   onTranslation?: (translation: { translated_title: string | null; translated_body: string; source_language: string } | null) => void;
 }
 
-function timeAgo(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+/* Shared popup/sheet content for both desktop and mobile */
+function CommentPopupContent({
+  commentsLoaded,
+  comments,
+  isRemote,
+  isLoggedIn,
+  entryHref,
+  entryId,
+  commentsPath,
+  submitting,
+  sessionUser,
+  onSubmit,
+  onReloadComments,
+  onClose,
+}: {
+  commentsLoaded: boolean;
+  comments: FeedComment[];
+  isRemote: boolean;
+  isLoggedIn: boolean;
+  entryHref: string;
+  entryId: string;
+  commentsPath: string;
+  submitting: boolean;
+  sessionUser?: { id: string; username: string; is_admin?: boolean } | null;
+  onSubmit: (html: string, parentCommentId?: string) => void;
+  onReloadComments: () => void;
+  onClose: () => void;
+}) {
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
+
+  const threads = buildThreadTree(comments as Comment[]);
+  const totalCount = countThreadComments(threads);
+
+  const session = sessionUser ? { user: { id: sessionUser.id, username: sessionUser.username, is_admin: sessionUser.is_admin } } : null;
+
+  const handleReply = useCallback((commentId: string | null) => {
+    setReplyingTo((prev) => (prev === commentId ? null : commentId));
+  }, []);
+
+  const toggleCollapse = useCallback((commentId: string) => {
+    setCollapsedThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
+      return next;
+    });
+  }, []);
+
+  const handleEdit = useCallback(async (commentId: string, html: string) => {
+    const res = await fetch(`/api/comments/${commentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body_html: html }),
+    });
+    if (res.ok) {
+      onReloadComments();
+      return true;
+    }
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to save");
+  }, [onReloadComments]);
+
+  const handleDelete = useCallback(async (commentId: string) => {
+    if (!confirm("Delete this comment?")) return;
+    await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+    onReloadComments();
+  }, [onReloadComments]);
+
+  return (
+    <>
+      {/* Header */}
+      <div
+        className="comment-popup-header flex items-center justify-between px-4 py-2.5 border-b"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <span
+          className="text-xs"
+          style={{
+            color: "var(--foreground)",
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontStyle: "italic",
+            fontWeight: 600,
+          }}
+        >
+          Marginalia
+          {isRemote && (
+            <span
+              className="ml-1.5 font-normal text-[10px]"
+              style={{ color: "var(--muted)", fontStyle: "normal" }}
+            >
+              federated
+            </span>
+          )}
+        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+            {totalCount} {totalCount === 1 ? "note" : "notes"}
+          </span>
+          {!isRemote && (
+            <Link
+              href={`${entryHref}#comments`}
+              className="text-[11px] hover:underline"
+              style={{
+                color: "var(--accent)",
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                fontStyle: "italic",
+              }}
+              onClick={onClose}
+            >
+              View all →
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Comments list */}
+      <div
+        className="comment-popup-threads overflow-y-auto px-3 py-2.5"
+        style={{ maxHeight: "min(320px, 50vh)" }}
+      >
+        {!commentsLoaded ? (
+          <p
+            className="text-xs py-6 text-center"
+            style={{
+              color: "var(--muted)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              fontStyle: "italic",
+            }}
+          >
+            Loading…
+          </p>
+        ) : threads.length === 0 ? (
+          <p
+            className="text-xs py-6 text-center"
+            style={{
+              color: "var(--muted)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              fontStyle: "italic",
+            }}
+          >
+            No marginalia yet. Be the first to annotate.
+          </p>
+        ) : (
+          <div className="comment-thread-list">
+            {threads.map((thread) => (
+              <CommentNode
+                key={thread.comment.id}
+                thread={thread}
+                depth={0}
+                session={session}
+                replyingTo={replyingTo}
+                collapsedThreads={collapsedThreads}
+                onReply={handleReply}
+                onToggleCollapse={toggleCollapse}
+                onSubmitReply={(html, parentId) => {
+                  onSubmit(html, parentId);
+                  setReplyingTo(null);
+                }}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Root comment editor */}
+      {isLoggedIn ? (
+        <div className="border-t px-3 py-2" style={{ borderColor: "var(--border)" }}>
+          <CommentEditor
+            onSubmit={(html) => onSubmit(html)}
+            placeholder="Write in the margins…"
+            compact
+            maxLength={2000}
+            disabled={submitting}
+          />
+        </div>
+      ) : (
+        <div
+          className="border-t px-4 py-3 text-center"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <a
+            href="/get-started"
+            className="text-xs hover:underline"
+            style={{
+              color: "var(--accent)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              fontStyle: "italic",
+            }}
+          >
+            Join Inkwell
+          </a>{" "}
+          <span
+            className="text-xs"
+            style={{
+              color: "var(--muted)",
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              fontStyle: "italic",
+            }}
+          >
+            to leave a note.
+          </span>
+        </div>
+      )}
+    </>
+  );
 }
 
 export function FeedCardActions({
@@ -88,6 +311,7 @@ export function FeedCardActions({
   entryTitle,
   entryAuthorUsername,
   preferredLanguage,
+  sessionUser,
   onStampsChange,
   onBookmarkChange,
   onTranslation,
@@ -95,16 +319,23 @@ export function FeedCardActions({
   const [commentPopupOpen, setCommentPopupOpen] = useState(false);
   const [comments, setComments] = useState<FeedComment[]>([]);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
-  const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [commentError, setCommentError] = useState("");
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [stamps, setStamps] = useState(initialStamps);
   const [reportOpen, setReportOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const commentBtnRef = useRef<HTMLButtonElement>(null);
   const submittingRef = useRef(false);
 
   const commentsPath = commentApiPath ?? `/api/entries/${entryId}/comments`;
+
+  // Detect mobile for bottom sheet
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const loadComments = useCallback(async () => {
     try {
@@ -126,34 +357,23 @@ export function FeedCardActions({
     setCommentPopupOpen(!commentPopupOpen);
   }
 
-  async function handleSubmitComment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!commentText.trim() || submittingRef.current || !isLoggedIn) return;
-
+  async function handleSubmitComment(html: string, parentCommentId?: string) {
+    if (submittingRef.current || !isLoggedIn) return;
     submittingRef.current = true;
     setSubmitting(true);
-    setCommentError("");
     try {
+      const body: Record<string, string> = { body_html: html };
+      if (parentCommentId) body.parent_comment_id = parentCommentId;
+
       const res = await fetch(commentsPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body_html: `<p>${commentText}</p>` }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
-        setCommentText("");
         setCommentCount((c) => c + 1);
-        // Reload comments to show the new one
         await loadComments();
-      } else {
-        try {
-          const data = await res.json();
-          setCommentError(data.error ?? "Failed to post comment");
-        } catch {
-          setCommentError("Failed to post comment");
-        }
       }
-    } catch {
-      setCommentError("Network error — please try again");
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -164,9 +384,6 @@ export function FeedCardActions({
     setStamps(newStamps);
     onStampsChange?.(newStamps);
   }
-
-  // Show last 3 comments
-  const recentComments = comments.slice(-3);
 
   return (
     <div
@@ -215,159 +432,70 @@ export function FeedCardActions({
             <span>{commentCount}</span>
           </button>
 
-          {/* Comment popup — rendered via portal to escape overflow containers */}
-          <FloatingPopup
-            anchorRef={commentBtnRef}
-            open={commentPopupOpen}
-            onClose={() => setCommentPopupOpen(false)}
-            placement="top"
-            className="rounded-xl border shadow-lg overflow-hidden"
-            style={{
-              background: "var(--surface)",
-              borderColor: "var(--border)",
-              width: "min(320px, calc(100vw - 32px))",
-              maxHeight: 400,
-            }}
-          >
-            {/* Header */}
-            <div
-              className="flex items-center justify-between px-4 py-2.5 border-b"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
-                Comments
-                {isRemote && (
-                  <span className="ml-1.5 font-normal" style={{ color: "var(--muted)" }}>
-                    (federated)
-                  </span>
-                )}
-              </span>
-              {!isRemote && (
-                <Link
-                  href={`${entryHref}#comments`}
-                  className="text-xs hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  View all →
-                </Link>
-              )}
-            </div>
-
-            {/* Comments list */}
-            <div
-              className="overflow-y-auto px-4 py-2"
-              style={{ maxHeight: 240 }}
-            >
-              {!commentsLoaded ? (
-                <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
-                  Loading...
-                </p>
-              ) : recentComments.length === 0 ? (
-                <p className="text-xs py-4 text-center" style={{ color: "var(--muted)" }}>
-                  No comments yet. Be the first!
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {recentComments.map((c) => (
-                    <div key={c.id} className="flex gap-2">
-                      {c.author && (
-                        <Link href={`/${c.author.username}`} className="flex-shrink-0">
-                          <Avatar
-                            url={c.author.avatar_url}
-                            name={c.author.display_name}
-                            size={24}
-                          />
-                        </Link>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1.5">
-                          {c.author && (
-                            <Link
-                              href={`/${c.author.username}`}
-                              className="text-xs font-medium hover:underline"
-                            >
-                              {c.author.display_name}
-                            </Link>
-                          )}
-                          <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                            {timeAgo(c.created_at)}
-                          </span>
-                        </div>
-                        <div
-                          className="text-xs leading-relaxed mt-0.5 prose-entry"
-                          style={{ color: "var(--foreground)" }}
-                          dangerouslySetInnerHTML={{ __html: c.body_html }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {comments.length > 3 && !isRemote && (
-                    <Link
-                      href={`${entryHref}#comments`}
-                      className="text-xs text-center py-1 hover:underline"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      +{comments.length - 3} more
-                    </Link>
-                  )}
-                  {comments.length > 3 && isRemote && (
-                    <p
-                      className="text-xs text-center py-1"
-                      style={{ color: "var(--muted)" }}
-                    >
-                      +{comments.length - 3} more
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Quick comment input */}
-            {isLoggedIn ? (
-              <div className="border-t" style={{ borderColor: "var(--border)" }}>
-                {commentError && (
-                  <p className="text-xs px-4 pt-2" style={{ color: "var(--danger)" }}>{commentError}</p>
-                )}
-                <form
-                  onSubmit={handleSubmitComment}
-                  className="flex gap-2 px-4 py-2.5"
-                >
-                  <input
-                    type="text"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="flex-1 text-xs rounded-full border px-3 py-1.5 outline-none"
-                    style={{
-                      borderColor: "var(--border)",
-                      background: "var(--background)",
-                      color: "var(--foreground)",
-                    }}
-                    disabled={submitting}
+          {/* Comment popup/sheet — Marginalia design */}
+          {commentPopupOpen && isMobile
+            ? /* Mobile: bottom sheet via portal */
+              createPortal(
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="comment-sheet-backdrop"
+                    onClick={() => setCommentPopupOpen(false)}
                   />
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || submitting}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full transition-opacity"
-                    style={{
-                      background: "var(--accent)",
-                      color: "#fff",
-                      opacity: !commentText.trim() || submitting ? 0.5 : 1,
-                    }}
-                  >
-                    Post
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="border-t px-4 py-3 text-center" style={{ borderColor: "var(--border)" }}>
-                <a href="/get-started" className="text-xs font-medium hover:underline" style={{ color: "var(--accent)" }}>
-                  Join Inkwell
-                </a>{" "}
-                <span className="text-xs" style={{ color: "var(--muted)" }}>to leave a comment.</span>
-              </div>
-            )}
-          </FloatingPopup>
+                  {/* Sheet */}
+                  <div className="comment-sheet">
+                    {/* Drag handle */}
+                    <div className="comment-sheet-handle">
+                      <div className="comment-sheet-handle-bar" />
+                    </div>
+                    <CommentPopupContent
+                      commentsLoaded={commentsLoaded}
+                      comments={comments}
+                      isRemote={isRemote}
+                      isLoggedIn={isLoggedIn}
+                      entryHref={entryHref}
+                      entryId={entryId}
+                      commentsPath={commentsPath}
+                      submitting={submitting}
+                      sessionUser={sessionUser}
+                      onSubmit={handleSubmitComment}
+                      onReloadComments={loadComments}
+                      onClose={() => setCommentPopupOpen(false)}
+                    />
+                  </div>
+                </>,
+                document.body
+              )
+            : /* Desktop: FloatingPopup */
+              <FloatingPopup
+                anchorRef={commentBtnRef}
+                open={commentPopupOpen}
+                onClose={() => setCommentPopupOpen(false)}
+                placement="top"
+                className="comment-popup rounded-xl border shadow-lg overflow-hidden"
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--border)",
+                  width: "min(360px, calc(100vw - 24px))",
+                  maxHeight: 480,
+                }}
+              >
+                <CommentPopupContent
+                  commentsLoaded={commentsLoaded}
+                  comments={comments}
+                  isRemote={isRemote}
+                  isLoggedIn={isLoggedIn}
+                  entryHref={entryHref}
+                  entryId={entryId}
+                  commentsPath={commentsPath}
+                  submitting={submitting}
+                  sessionUser={sessionUser}
+                  onSubmit={handleSubmitComment}
+                  onReloadComments={loadComments}
+                  onClose={() => setCommentPopupOpen(false)}
+                />
+              </FloatingPopup>
+          }
         </div>
 
         {/* Ink button */}

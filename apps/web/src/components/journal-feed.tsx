@@ -16,8 +16,10 @@ interface TranslationData {
 /** Session info passed from server to enable interactive features */
 export interface FeedSession {
   userId: string;
+  username: string;
   isLoggedIn: boolean;
   isPlus: boolean;
+  isAdmin?: boolean;
   preferredLanguage?: string | null;
 }
 
@@ -121,6 +123,7 @@ export function JournalFeed({
         entryTitle={entry.title}
         entryAuthorUsername={entry.author.username}
         preferredLanguage={session?.preferredLanguage}
+        sessionUser={session ? { id: session.userId, username: session.username, is_admin: session.isAdmin } : null}
         onTranslation={(t) => handleTranslation(entry.id, t)}
         {...(isRemote
           ? {

@@ -97,6 +97,8 @@ function notificationText(n: Notification): string {
     case "comment_added":
     case "comment":
       return "commented on your entry";
+    case "reply":
+      return "replied to your comment";
     case "mention":
       return "mentioned you in a comment";
     case "like":
@@ -238,6 +240,25 @@ function NotificationIcon({
         aria-hidden="true"
       >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    );
+  }
+  if (type === "reply") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <polyline points="9 17 4 12 9 7" />
+        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
       </svg>
     );
   }
@@ -535,6 +556,11 @@ function getNotificationHref(n: Notification): string | null {
   }
   if (n.type === "circle_new_member" && n.data?.circle_slug) {
     return `/circles/${n.data.circle_slug}`;
+  }
+  // Reply notifications link to entry comments
+  if (n.type === "reply") {
+    const entryHref = getEntryHref(n);
+    if (entryHref) return `${entryHref}#comments`;
   }
   // Poll notifications link to the poll
   if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {

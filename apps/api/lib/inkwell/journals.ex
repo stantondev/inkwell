@@ -819,12 +819,46 @@ defmodule Inkwell.Journals do
   end
 
   def create_comment(attrs) do
+    attrs = compute_and_enforce_depth(attrs)
+
     %Comment{}
     |> Comment.changeset(attrs)
     |> Repo.insert()
     |> case do
       {:ok, comment} -> {:ok, Repo.preload(comment, [:user])}
       error -> error
+    end
+  end
+
+  @max_comment_depth 2
+
+  defp compute_and_enforce_depth(attrs) do
+    parent_id = attrs["parent_comment_id"] || attrs[:parent_comment_id]
+
+    case parent_id do
+      nil ->
+        Map.put(attrs, "depth", 0)
+
+      parent_id ->
+        case Repo.get(Comment, parent_id) do
+          nil ->
+            attrs
+            |> Map.put("depth", 0)
+            |> Map.delete("parent_comment_id")
+            |> Map.delete(:parent_comment_id)
+
+          parent ->
+            if parent.depth >= @max_comment_depth do
+              # Re-parent to the depth-1 ancestor to keep max 2 levels
+              attrs
+              |> Map.put("depth", @max_comment_depth)
+              |> Map.put("parent_comment_id", parent.parent_comment_id || parent_id)
+            else
+              attrs
+              |> Map.put("depth", parent.depth + 1)
+              |> Map.put("parent_comment_id", parent_id)
+            end
+        end
     end
   end
 
