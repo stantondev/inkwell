@@ -220,10 +220,14 @@ defmodule Inkwell.Federation.MastodonClient do
   defp http_opts do
     [
       {:ssl, ssl_opts()},
-      {:timeout, 30_000},
+      {:timeout, 60_000},
       {:connect_timeout, 15_000}
     ]
   end
+
+  # :httpc with body_format: :binary should return binary, but handle both cases
+  defp ensure_binary(body) when is_binary(body), do: body
+  defp ensure_binary(body) when is_list(body), do: :erlang.list_to_binary(body)
 
   defp http_post(url, headers, body) do
     :ssl.start()
@@ -236,7 +240,7 @@ defmodule Inkwell.Federation.MastodonClient do
            [{:body_format, :binary}]
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
-        {:ok, {status, :erlang.list_to_binary(resp_body)}}
+        {:ok, {status, ensure_binary(resp_body)}}
 
       {:error, reason} ->
         {:error, reason}
@@ -254,7 +258,7 @@ defmodule Inkwell.Federation.MastodonClient do
            [{:body_format, :binary}]
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
-        {:ok, {status, :erlang.list_to_binary(resp_body)}}
+        {:ok, {status, ensure_binary(resp_body)}}
 
       {:error, reason} ->
         {:error, reason}
@@ -272,7 +276,7 @@ defmodule Inkwell.Federation.MastodonClient do
            [{:body_format, :binary}]
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
-        {:ok, {status, :erlang.list_to_binary(resp_body)}}
+        {:ok, {status, ensure_binary(resp_body)}}
 
       {:error, reason} ->
         {:error, reason}
