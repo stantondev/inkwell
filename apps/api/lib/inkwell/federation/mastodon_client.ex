@@ -233,11 +233,17 @@ defmodule Inkwell.Federation.MastodonClient do
     :ssl.start()
     :inets.start()
 
+    # Use :erlang.binary_to_list/1, NOT String.to_charlist/1 for body.
+    # String.to_charlist converts UTF-8 to Unicode codepoints (integers > 255),
+    # which :httpc can't send as raw bytes, causing silent timeouts.
+    # Same fix as in http.ex for federation POST delivery.
+    all_headers = [{~c"connection", ~c"close"} | headers]
+
     case :httpc.request(
            :post,
-           {String.to_charlist(url), headers, ~c"application/json", String.to_charlist(body)},
+           {String.to_charlist(url), all_headers, ~c"application/json", :erlang.binary_to_list(body)},
            http_opts(),
-           [{:body_format, :binary}]
+           []
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
         {:ok, {status, ensure_binary(resp_body)}}
@@ -251,11 +257,13 @@ defmodule Inkwell.Federation.MastodonClient do
     :ssl.start()
     :inets.start()
 
+    all_headers = [{~c"connection", ~c"close"} | headers]
+
     case :httpc.request(
            :post,
-           {String.to_charlist(url), headers, content_type, body},
+           {String.to_charlist(url), all_headers, content_type, :erlang.binary_to_list(body)},
            http_opts(),
-           [{:body_format, :binary}]
+           []
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
         {:ok, {status, ensure_binary(resp_body)}}
@@ -269,11 +277,13 @@ defmodule Inkwell.Federation.MastodonClient do
     :ssl.start()
     :inets.start()
 
+    all_headers = [{~c"connection", ~c"close"} | headers]
+
     case :httpc.request(
            :delete,
-           {String.to_charlist(url), headers},
+           {String.to_charlist(url), all_headers},
            http_opts(),
-           [{:body_format, :binary}]
+           []
          ) do
       {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
         {:ok, {status, ensure_binary(resp_body)}}
