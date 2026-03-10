@@ -58,20 +58,29 @@ defmodule Inkwell.Muse do
 
   defp daily_prompt_system do
     """
-    You are the Inkwell Muse, a warm and thoughtful writing companion for a social journaling platform called Inkwell. Your voice is literary, inviting, and occasionally playful — like a well-read friend encouraging someone to pick up their pen.
+    You are the Inkwell Muse, a writing prompt bot for a social journaling platform. You post short, punchy prompts that spark journal entries and community conversation.
 
-    Your job is to create a single writing prompt that inspires journal entries. The prompt should be:
-    - Specific enough to spark ideas, but open enough for personal interpretation
-    - Evocative and sensory — invite writers to explore feelings, memories, and observations
-    - Occasionally include a creative constraint (word limit, format, starting phrase)
-    - Varied in theme: personal reflection, creative writing, observation, memory, imagination, gratitude, curiosity
+    CRITICAL RULES:
+    - Keep it SHORT. The body should be 1-2 sentences max. Under 50 words total.
+    - Be direct. Ask a question or make a provocation. No preamble, no context paragraphs, no flowery setup.
+    - Sound like a friend asking a question, not an AI writing a blog post about writing.
+    - No "creative constraints" or "optional challenges" — just the prompt itself.
+    - Prompts should invite personal stories people actually want to share and read.
 
     Respond with ONLY a JSON object (no markdown, no code blocks) with these keys:
-    - "title": A compelling title for the prompt entry (max 100 chars)
-    - "body_html": Rich HTML body (2-3 paragraphs of prompt text using <p>, <em>, <strong>, <blockquote> tags). Include the actual prompt/question, some context or inspiration to get writers thinking, and optionally a creative constraint.
-    - "tags": Array of 2-4 relevant tags (lowercase, hyphenated)
+    - "title": Short hook, under 50 chars. Think tweet, not headline.
+    - "body_html": One <p> tag with 1-2 sentences. That's it. No <em>, <strong>, <blockquote> — just the question.
+    - "tags": Array of 2-3 relevant tags (lowercase, hyphenated)
 
-    Do NOT use generic prompts like "write about your day" or "what are you grateful for". Be specific, evocative, and original.
+    GOOD examples of body_html:
+    - "<p>What's a sound that instantly takes you somewhere else? Where does it take you?</p>"
+    - "<p>Describe a meal where something changed between the first bite and the last.</p>"
+    - "<p>What's something you were completely wrong about? When did you realize?</p>"
+
+    BAD examples (too long, too literary):
+    - "There's a sound — maybe a screen door closing, rain on a tin roof..." (too much setup)
+    - "We all carry conversations that ended too soon..." (preamble before the actual prompt)
+    - "Food is never just food. It's memory, identity, love..." (editorializing)
     """
   end
 
@@ -101,8 +110,7 @@ defmodule Inkwell.Muse do
       parts ++
         [
           "",
-          "Generate a fresh, original writing prompt. Avoid repeating themes from recent prompts.",
-          "Make it something that would inspire a thoughtful 300-1000 word journal entry."
+          "Generate a short, original writing prompt. 1-2 sentences max. Just the question, no setup."
         ]
 
     Enum.join(parts, "\n")
@@ -135,18 +143,11 @@ defmodule Inkwell.Muse do
     now = DateTime.utc_now()
     week_ending = Calendar.strftime(now, "%B %d, %Y")
 
-    body_parts = ["<p><em>A look back at what the Inkwell community has been writing this week.</em></p>"]
+    new_writers_text = if stats.new_writers > 0, do: ", #{stats.new_writers} new writers", else: ""
 
-    # Stats overview
-    body_parts =
-      body_parts ++
-        [
-          "<p>This week, <strong>#{stats.total_entries} entries</strong> were published" <>
-            if(stats.new_writers > 0,
-              do: " and <strong>#{stats.new_writers} new writers</strong> joined the community.",
-              else: "."
-            ) <> "</p>"
-        ]
+    body_parts = [
+      "<p>#{stats.total_entries} entries published this week#{new_writers_text}.</p>"
+    ]
 
     # Top entries
     body_parts =
@@ -155,39 +156,23 @@ defmodule Inkwell.Muse do
           stats.top_entries
           |> Enum.map(fn entry ->
             author = if entry.user, do: entry.user.display_name || entry.user.username, else: "Anonymous"
-            ink_text = if entry.ink_count > 0, do: " (#{entry.ink_count} inks)", else: ""
-            "<li><strong>#{escape_html(entry.title || "Untitled")}</strong> by #{escape_html(author)}#{ink_text}</li>"
+            "<li>#{escape_html(entry.title || "Untitled")} by #{escape_html(author)}</li>"
           end)
           |> Enum.join("\n")
 
-        body_parts ++ ["<p><strong>Most inked entries this week:</strong></p>", "<ul>#{entries_html}</ul>"]
+        body_parts ++ ["<p>Most inked this week:</p>", "<ul>#{entries_html}</ul>"]
       else
-        body_parts ++ ["<p>Check out <a href=\"/explore\">Explore</a> to discover this week's entries.</p>"]
+        body_parts
       end
 
     # Trending tags
     body_parts =
       if stats.trending_tags != [] do
         tags_text = stats.trending_tags |> Enum.map(&"##{&1}") |> Enum.join(", ")
-        body_parts ++ ["<p><strong>Trending tags:</strong> #{tags_text}</p>"]
+        body_parts ++ ["<p>Trending: #{tags_text}</p>"]
       else
         body_parts
       end
-
-    # Active circles
-    body_parts =
-      if stats.active_circles != [] do
-        circles_text = Enum.join(stats.active_circles, ", ")
-
-        body_parts ++
-          ["<p><strong>Active circles:</strong> #{circles_text}. <a href=\"/circles\">Browse all circles →</a></p>"]
-      else
-        body_parts
-      end
-
-    body_parts =
-      body_parts ++
-        ["<p><em>Keep writing. Every entry adds something to the world. See you next week.</em></p>"]
 
     %{
       title: "This Week on Inkwell — #{week_ending}",
@@ -228,26 +213,28 @@ defmodule Inkwell.Muse do
     month_name = Calendar.strftime(now, "%B %Y")
 
     system_prompt = """
-    You are the Inkwell Muse, writing the monthly "State of the Inkwell" community update. Your voice is warm, celebratory, and forward-looking. This is a brief, uplifting update about how the community is growing.
+    You are the Inkwell Muse, writing a brief monthly community update for a social journaling platform.
+
+    RULES:
+    - Keep it short. 2 short paragraphs max.
+    - Lead with the key stats as a quick summary line, then one paragraph of genuine reflection.
+    - Sound casual and human, not like a press release or corporate blog.
+    - No hype, no superlatives, no "incredible" or "amazing." Just honest.
 
     Respond with ONLY a JSON object (no markdown, no code blocks) with these keys:
     - "title": e.g. "State of the Inkwell — March 2026"
-    - "body_html": 3-4 paragraphs in HTML (<p>, <strong>, <em> tags). Include the stats naturally woven into prose (not just a bullet list). End with encouragement and a look ahead.
+    - "body_html": 2 short paragraphs in HTML (<p> tags). Stats summary + brief reflection.
     - "tags": ["community-update", "state-of-the-inkwell"]
     """
 
     user_prompt = """
-    Write the State of the Inkwell for #{month_name}.
+    Write a brief State of the Inkwell for #{month_name}.
 
-    Stats:
-    - Total community members: #{stats.total_users}
-    - Total entries published: #{stats.total_entries}
-    - New writers this month: #{stats.new_writers}
-    - Entries published this month: #{stats.entries_this_month}
-    - Trending tags: #{Enum.join(stats.trending_tags, ", ")}
-    - Active circles: #{Enum.join(stats.active_circles, ", ")}
+    Stats: #{stats.total_users} members, #{stats.total_entries} total entries, #{stats.new_writers} new writers this month, #{stats.entries_this_month} entries this month.
+    Trending tags: #{Enum.join(stats.trending_tags, ", ")}.
+    Active circles: #{Enum.join(stats.active_circles, ", ")}.
 
-    Keep it brief (3-4 paragraphs), celebratory, and genuine. Don't exaggerate or hype — be honest and warm.
+    2 short paragraphs. Stats first, then a brief reflection. Keep it casual.
     """
 
     case ClaudeClient.generate_prompt(system_prompt, user_prompt) do
@@ -259,14 +246,10 @@ defmodule Inkwell.Muse do
   end
 
   defp build_simple_monthly_update(stats, month_name) do
+    new_writers_text = if stats.new_writers > 0, do: " #{stats.new_writers} new writers joined.", else: ""
     %{
       title: "State of the Inkwell — #{month_name}",
-      body_html: """
-      <p><em>A monthly look at how our community of writers is growing.</em></p>
-      <p>This month, the Inkwell community grew to <strong>#{stats.total_users} writers</strong>, with <strong>#{stats.entries_this_month} new entries</strong> published. #{if stats.new_writers > 0, do: "We welcomed <strong>#{stats.new_writers} new writers</strong> to the community.", else: ""}</p>
-      <p>Across the platform, <strong>#{stats.total_entries} entries</strong> have been shared — each one a piece of someone's story, perspective, or imagination.</p>
-      <p><em>Thank you for being part of this. Keep writing.</em></p>
-      """,
+      body_html: "<p>#{stats.total_users} writers, #{stats.total_entries} entries total. #{stats.entries_this_month} new entries this month.#{new_writers_text}</p><p>Thanks for writing. See you next month.</p>",
       tags: ["community-update", "state-of-the-inkwell"]
     }
   end

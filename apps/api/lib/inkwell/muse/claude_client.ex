@@ -9,7 +9,7 @@ defmodule Inkwell.Muse.ClaudeClient do
 
   @api_url "https://api.anthropic.com/v1/messages"
   @model "claude-haiku-4-5-20251001"
-  @max_tokens 1500
+  @max_tokens 500
 
   @doc """
   Generate a writing prompt via Claude API.
