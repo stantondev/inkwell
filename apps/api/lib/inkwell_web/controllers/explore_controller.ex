@@ -2,7 +2,7 @@ defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
-  alias Inkwell.Federation.{ContentQuality, RemoteEntries}
+  alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/explore — public discovery feed with local + federated entries
@@ -40,14 +40,26 @@ defmodule InkwellWeb.ExploreController do
         )
       end
 
-    # Skip remote entries when filtering by category or tag (fediverse has no equivalent)
-    has_content_filter = (category != nil && category != "") || (tag != nil && tag != "")
+    # Build remote entry filter options based on category/tag
+    remote_filter_opts =
+      cond do
+        category != nil && category != "" ->
+          hashtags = CategoryHashtags.hashtags_for_category(category)
+          if hashtags == [], do: :skip, else: [tags: hashtags]
+
+        tag != nil && tag != "" ->
+          [tag: tag]
+
+        true ->
+          []
+      end
 
     remote_entries =
-      if source_filter == "inkwell" || has_content_filter do
+      if source_filter == "inkwell" || remote_filter_opts == :skip do
         []
       else
-        all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)
+        filter_opts = if is_list(remote_filter_opts), do: remote_filter_opts, else: []
+        all_remote = RemoteEntries.list_public_remote_entries([page: 1, per_page: fetch_count] ++ filter_opts)
 
         all_remote =
           if include_sensitive do

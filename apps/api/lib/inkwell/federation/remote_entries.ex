@@ -65,14 +65,45 @@ defmodule Inkwell.Federation.RemoteEntries do
   def list_public_remote_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
+    filter_tags = Keyword.get(opts, :tags, nil)
+    filter_tag = Keyword.get(opts, :tag, nil)
 
-    RemoteEntry
-    |> where([e], not is_nil(e.published_at))
-    |> order_by(desc: :published_at)
-    |> limit(^per_page)
-    |> offset(^((page - 1) * per_page))
-    |> preload(:remote_actor)
-    |> Repo.all()
+    query =
+      RemoteEntry
+      |> where([e], not is_nil(e.published_at))
+      |> order_by(desc: :published_at)
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> preload(:remote_actor)
+
+    query =
+      cond do
+        is_list(filter_tags) && filter_tags != [] ->
+          # Category filter: match if any of the entry's tags overlap with the hashtag list
+          where(query, [e],
+            fragment(
+              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ANY(?))",
+              e.tags,
+              ^filter_tags
+            )
+          )
+
+        is_binary(filter_tag) && filter_tag != "" ->
+          # Single tag filter: match if the entry's tags contain this tag
+          lower_tag = String.downcase(filter_tag)
+          where(query, [e],
+            fragment(
+              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ?)",
+              e.tags,
+              ^lower_tag
+            )
+          )
+
+        true ->
+          query
+      end
+
+    Repo.all(query)
   end
 
   @doc """

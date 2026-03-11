@@ -134,7 +134,7 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
   defp extract_hashtags(tags) when is_list(tags) do
     tags
     |> Enum.filter(fn t -> is_map(t) && t["type"] == "Hashtag" end)
-    |> Enum.map(fn t -> (t["name"] || "") |> String.trim_leading("#") end)
+    |> Enum.map(fn t -> (t["name"] || "") |> String.trim_leading("#") |> String.downcase() end)
     |> Enum.reject(&(&1 == ""))
   end
 
