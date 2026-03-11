@@ -46,10 +46,12 @@ export default async function NotificationsPage() {
     // show empty state
   }
 
+  const autoMarkRead = !!session.user.settings?.auto_mark_notifications_read;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <NotificationList initialNotifications={notifications} />
+        <NotificationList initialNotifications={notifications} autoMarkRead={autoMarkRead} />
       </div>
     </div>
   );

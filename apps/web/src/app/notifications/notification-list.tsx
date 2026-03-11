@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { STAMP_CONFIG } from "@/components/stamp-config";
@@ -725,15 +725,36 @@ function AcceptRejectInline({
 // ─── Main component ────────────────────────────────────────────
 export function NotificationList({
   initialNotifications,
+  autoMarkRead = false,
 }: {
   initialNotifications: Notification[];
+  autoMarkRead?: boolean;
 }) {
   const router = useRouter();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [markingAll, setMarkingAll] = useState(false);
+  const autoMarkDoneRef = useRef(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const groups = useMemo(() => groupByDate(notifications), [notifications]);
+
+  // Auto-mark all notifications as read on mount when setting is enabled
+  useEffect(() => {
+    if (!autoMarkRead || autoMarkDoneRef.current) return;
+    const unreadIds = initialNotifications.filter((n) => !n.read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    autoMarkDoneRef.current = true;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: unreadIds }),
+    })
+      .then(() => {
+        window.dispatchEvent(new Event("inkwell-nav-refresh"));
+      })
+      .catch(() => {});
+  }, [autoMarkRead, initialNotifications]);
 
   const markOneRead = useCallback((id: string) => {
     setNotifications((prev) =>

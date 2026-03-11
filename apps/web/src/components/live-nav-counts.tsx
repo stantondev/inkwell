@@ -81,6 +81,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioUnlockedRef = useRef(false);
   const soundsMutedRef = useRef(false);
+  const hideBadgesRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
@@ -260,19 +261,27 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
           unreadLetterCount: data.data.unread_letter_count ?? 0,
         };
 
-        // Read mute preference from server settings
+        // Read preferences from server settings
         soundsMutedRef.current =
           !!data.data.settings?.notification_sounds_muted;
+        hideBadgesRef.current =
+          !!data.data.settings?.hide_notification_badges;
 
-        // Detect new arrivals
+        // Detect new arrivals (only trigger alerts if badges aren't hidden)
         const prev = prevCountsRef.current;
         const hasNewNotification =
           newCounts.unreadNotificationCount > prev.unreadNotificationCount ||
           newCounts.unreadLetterCount > prev.unreadLetterCount;
 
-        if (hasNewNotification) {
+        if (hasNewNotification && !hideBadgesRef.current) {
           playSound();
           startTitleBlink();
+        }
+
+        // When badges are hidden, suppress displayed counts
+        if (hideBadgesRef.current) {
+          newCounts.unreadNotificationCount = 0;
+          newCounts.unreadLetterCount = 0;
         }
 
         // Update tab title with total unread count
