@@ -27,6 +27,7 @@ import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
 import { CircleEmbed, type CircleEmbedAttrs } from "@/lib/tiptap-circle-embed";
+import { LinkEmbed, type LinkEmbedAttrs } from "@/lib/tiptap-link-embed";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
 
@@ -178,11 +179,12 @@ function DropdownItem({ onClick, active, children }: {
 
 // ─── Main Toolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, onInsertCircle }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, onInsertCircle, onInsertLinkEmbed }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
   onInsertCircle: () => void;
+  onInsertLinkEmbed: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
@@ -527,6 +529,12 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
             </svg>
           </Btn>
+          <Btn onClick={onInsertLinkEmbed} title="Embed link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </Btn>
           <Sep />
 
           {/* ── Undo / Redo ── */}
@@ -676,7 +684,7 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
 
 // ─── Floating Menu (appears on empty lines) ──────────────────────────────────
 
-function EditorFloatingMenu({ editor, onUploadImage, onInsertCircle }: { editor: Editor; onUploadImage: () => void; onInsertCircle: () => void }) {
+function EditorFloatingMenu({ editor, onUploadImage, onInsertCircle, onInsertLinkEmbed }: { editor: Editor; onUploadImage: () => void; onInsertCircle: () => void; onInsertLinkEmbed: () => void }) {
   const floatingFileRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -769,6 +777,14 @@ function EditorFloatingMenu({ editor, onUploadImage, onInsertCircle }: { editor:
             <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
           </svg>
           <span>Circle embed</span>
+        </button>
+        <button type="button" onClick={onInsertLinkEmbed}
+          className="editor-floating-menu-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span>Link embed</span>
         </button>
         <button type="button" onClick={() => editor.chain().focus().toggleCodeBlock().run()}
           className="editor-floating-menu-item">
@@ -937,6 +953,209 @@ const CIRCLE_CATEGORY_LABELS: Record<string, string> = {
   tech_learning: "Tech & Learning",
   community: "Community",
 };
+
+function LinkEmbedModal({ onSelect, onClose }: {
+  onSelect: (attrs: LinkEmbedAttrs) => void;
+  onClose: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<LinkEmbedAttrs | null>(null);
+
+  const fetchEmbed = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    setError("");
+    setPreview(null);
+    try {
+      const res = await fetch("/api/embeds/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Failed to fetch link metadata");
+        return;
+      }
+      const d = json.data;
+      setPreview({
+        url: d.url || trimmed,
+        title: d.title || null,
+        description: d.description || null,
+        thumbnailUrl: d.thumbnail_url || null,
+        authorName: d.author_name || null,
+        providerName: d.provider_name || null,
+        siteName: d.site_name || null,
+        publishedAt: d.published_at || null,
+        embedType: d.embed_type || "link",
+      });
+    } catch {
+      setError("Network error — could not fetch link");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (preview) {
+        onSelect(preview);
+      } else {
+        fetchEmbed();
+      }
+    }
+  };
+
+  const getDomain = (u: string) => {
+    try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+  };
+
+  return (
+    <div className="circle-picker-overlay" onClick={onClose}>
+      <div className="circle-picker" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <div className="circle-picker-header">
+          <h3 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600, fontSize: 16 }}>Embed a Link</h3>
+          <button type="button" onClick={onClose} className="circle-picker-close" aria-label="Close">×</button>
+        </div>
+
+        <div style={{ padding: "0 16px" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => { setUrl(e.target.value); setPreview(null); setError(""); }}
+              onKeyDown={handleKeyDown}
+              placeholder="https://example.com/article"
+              className="circle-picker-search"
+              style={{ flex: 1, margin: 0 }}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={fetchEmbed}
+              disabled={loading || !url.trim()}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 8,
+                background: "var(--accent)",
+                color: "white",
+                fontSize: 13,
+                fontWeight: 500,
+                border: "none",
+                cursor: loading || !url.trim() ? "not-allowed" : "pointer",
+                opacity: loading || !url.trim() ? 0.5 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {loading ? "Fetching…" : "Fetch"}
+            </button>
+          </div>
+
+          {error && (
+            <p style={{ color: "var(--danger, #c53030)", fontSize: 13, margin: "8px 0 0" }}>{error}</p>
+          )}
+
+          {/* Preview card */}
+          {preview && (
+            <div style={{
+              marginTop: 12,
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              overflow: "hidden",
+              background: "var(--surface)",
+            }}>
+              <div style={{ display: "flex", flexDirection: preview.thumbnailUrl ? "row" : "column" }}>
+                {preview.thumbnailUrl && (
+                  <div style={{
+                    width: 120,
+                    minHeight: 100,
+                    backgroundImage: `url(${preview.thumbnailUrl})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    flexShrink: 0,
+                  }} />
+                )}
+                <div style={{ padding: "10px 14px", flex: 1, minWidth: 0 }}>
+                  {(preview.providerName || preview.siteName) && (
+                    <div style={{
+                      fontSize: 11,
+                      fontVariant: "small-caps",
+                      letterSpacing: "0.08em",
+                      color: "var(--muted)",
+                      fontFamily: "var(--font-lora, Georgia, serif)",
+                      marginBottom: 2,
+                    }}>
+                      {preview.providerName || preview.siteName}
+                    </div>
+                  )}
+                  {preview.title && (
+                    <div style={{
+                      fontFamily: "var(--font-lora, Georgia, serif)",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      lineHeight: 1.3,
+                      color: "var(--foreground)",
+                      marginBottom: 4,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}>
+                      {preview.title}
+                    </div>
+                  )}
+                  {preview.description && (
+                    <div style={{
+                      fontSize: 13,
+                      color: "var(--muted)",
+                      lineHeight: 1.4,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}>
+                      {preview.description}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+                    {getDomain(preview.url)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", padding: "12px 16px 16px" }}>
+          <button type="button" onClick={onClose} className="circle-picker-cancel" style={{ margin: 0 }}>Cancel</button>
+          {preview && (
+            <button
+              type="button"
+              onClick={() => onSelect(preview)}
+              style={{
+                padding: "8px 20px",
+                borderRadius: 8,
+                background: "var(--accent)",
+                color: "white",
+                fontSize: 14,
+                fontWeight: 600,
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "var(--font-lora, Georgia, serif)",
+              }}
+            >
+              Insert
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CirclePickerModal({ onSelect, onClose }: {
   onSelect: (attrs: CircleEmbedAttrs) => void;
@@ -1107,6 +1326,8 @@ export function EditorClient() {
 
   // Circle embed picker
   const [circlePickerOpen, setCirclePickerOpen] = useState(false);
+  // Link embed picker
+  const [linkEmbedOpen, setLinkEmbedOpen] = useState(false);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
@@ -1176,6 +1397,7 @@ export function EditorClient() {
       TaskItem.configure({ nested: true }),
       Spacing,
       CircleEmbed,
+      LinkEmbed,
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
@@ -1843,7 +2065,8 @@ export function EditorClient() {
               <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
-                onInsertCircle={() => setCirclePickerOpen(true)} />
+                onInsertCircle={() => setCirclePickerOpen(true)}
+                onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
             </div>
 
             {/* ── Bubble menu (appears on text selection) ── */}
@@ -1853,7 +2076,7 @@ export function EditorClient() {
 
             {/* ── Floating menu (appears on empty lines) ── */}
             {editor && !htmlMode && (
-              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} onInsertCircle={() => setCirclePickerOpen(true)} />
+              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} onInsertCircle={() => setCirclePickerOpen(true)} onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
             )}
             <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
               className="hidden" onChange={(e) => {
@@ -2354,10 +2577,21 @@ export function EditorClient() {
       {circlePickerOpen && (
         <CirclePickerModal
           onSelect={(attrs) => {
-            editor?.commands.insertCircleEmbed(attrs);
+            editor?.chain().focus().insertCircleEmbed(attrs).run();
             setCirclePickerOpen(false);
           }}
           onClose={() => setCirclePickerOpen(false)}
+        />
+      )}
+
+      {/* Link embed picker modal */}
+      {linkEmbedOpen && (
+        <LinkEmbedModal
+          onSelect={(attrs) => {
+            editor?.chain().focus().insertLinkEmbed(attrs).run();
+            setLinkEmbedOpen(false);
+          }}
+          onClose={() => setLinkEmbedOpen(false)}
         />
       )}
     </div>

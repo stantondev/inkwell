@@ -34,6 +34,12 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{invites_count} expired invitation(s)")
     end
 
+    {:ok, embeds_count} = Inkwell.Embeds.cleanup_old_embeds()
+
+    if embeds_count > 0 do
+      Logger.info("Cleaned up #{embeds_count} old URL embed cache(s)")
+    end
+
     Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end

@@ -6321,6 +6321,180 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   outline-offset: 2px;
 }
 
+/* ─── Link Embed Card — "The Clipping" ──────────────────────────────────── */
+
+/* Reader styles: the card looks like a newspaper clipping taped into a journal */
+.prose-entry [data-link-embed],
+[data-link-embed] {
+  max-width: 560px;
+  margin: 1.5rem auto;
+  transform: rotate(-0.5deg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+[data-link-embed]:hover {
+  transform: rotate(0deg) translateY(-1px);
+}
+
+/* Tape accent — washi tape strip across top-left corner */
+[data-link-embed]::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 16px;
+  width: 44px;
+  height: 14px;
+  background: var(--accent, #2d4a8a);
+  opacity: 0.15;
+  border-radius: 1px;
+  transform: rotate(-2deg);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.link-embed-card {
+  display: flex;
+  flex-direction: row;
+  text-decoration: none !important;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  min-height: 120px;
+}
+
+.link-embed-card:hover {
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.link-embed-thumbnail {
+  display: block;
+  width: 140px;
+  min-height: 120px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  filter: saturate(0.85);
+}
+
+.link-embed-content {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
+.link-embed-provider {
+  display: block;
+  font-family: var(--font-lora, Georgia, serif);
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.link-embed-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.link-embed-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.link-embed-byline {
+  display: block;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.link-embed-domain {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-embed-card:hover .link-embed-domain {
+  text-decoration: underline;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 639px) {
+  .link-embed-card {
+    flex-direction: column;
+  }
+  .link-embed-thumbnail {
+    width: 100%;
+    min-height: 160px;
+    height: 160px;
+  }
+  .prose-entry [data-link-embed],
+  [data-link-embed] {
+    max-width: 100%;
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  [data-link-embed]::before {
+    opacity: 0.2;
+  }
+  .link-embed-thumbnail {
+    filter: saturate(0.85) brightness(0.9);
+  }
+}
+.dark [data-link-embed]::before {
+  opacity: 0.2;
+}
+.dark .link-embed-thumbnail {
+  filter: saturate(0.85) brightness(0.9);
+}
+
+/* Editor state */
+.ProseMirror [data-link-embed] {
+  user-select: none;
+  cursor: grab;
+  position: relative;
+}
+.ProseMirror [data-link-embed].ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Circle picker modal */
 .circle-picker-overlay {
   position: fixed;
