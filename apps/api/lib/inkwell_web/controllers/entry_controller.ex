@@ -269,7 +269,6 @@ defmodule InkwellWeb.EntryController do
                       "sensitive", "content_warning"])
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
-        |> maybe_auto_series_order()
         |> put_word_count()
         |> maybe_auto_excerpt()
 
@@ -355,9 +354,11 @@ defmodule InkwellWeb.EntryController do
                        "excerpt", "cover_image_id", "category", "series_id",
                        "sensitive", "content_warning"])
         |> maybe_clear_custom_filter_id()
-        |> maybe_auto_series_order()
         |> put_word_count()
         |> maybe_auto_excerpt()
+
+      # Only auto-assign series_order for published entries, not drafts
+      attrs = if entry.status == :published, do: maybe_auto_series_order(attrs), else: attrs
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         result =
@@ -411,9 +412,18 @@ defmodule InkwellWeb.EntryController do
                         "sensitive", "content_warning"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
-          |> maybe_auto_series_order()
           |> put_word_count()
           |> maybe_auto_excerpt()
+
+        # Inherit series_id from the existing entry if not in publish params,
+        # then auto-assign series_order for the newly published entry
+        attrs =
+          if not Map.has_key?(attrs, "series_id") and entry.series_id != nil do
+            Map.put(attrs, "series_id", entry.series_id)
+          else
+            attrs
+          end
+          |> maybe_auto_series_order()
 
         with :ok <- validate_custom_filter_ownership(attrs, user.id) do
           case Journals.publish_draft(entry, attrs) do

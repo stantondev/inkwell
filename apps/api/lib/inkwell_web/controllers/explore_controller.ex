@@ -40,8 +40,11 @@ defmodule InkwellWeb.ExploreController do
         )
       end
 
+    # Skip remote entries when filtering by category or tag (fediverse has no equivalent)
+    has_content_filter = (category != nil && category != "") || (tag != nil && tag != "")
+
     remote_entries =
-      if source_filter == "inkwell" do
+      if source_filter == "inkwell" || has_content_filter do
         []
       else
         all_remote = RemoteEntries.list_public_remote_entries(page: 1, per_page: fetch_count)

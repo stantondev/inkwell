@@ -470,6 +470,7 @@ defmodule Inkwell.Journals do
     max_order =
       Entry
       |> where(series_id: ^series_id)
+      |> where([e], e.status == :published)
       |> where([e], not is_nil(e.series_order))
       |> Repo.aggregate(:max, :series_order)
 

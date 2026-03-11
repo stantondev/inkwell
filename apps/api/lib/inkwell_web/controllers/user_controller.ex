@@ -363,7 +363,7 @@ defmodule InkwellWeb.UserController do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Not found"})
 
-      %{avatar_url: nil} ->
+      %{avatar_url: url} when url in [nil, ""] ->
         conn |> put_status(:not_found) |> json(%{error: "No avatar"})
 
       %{avatar_url: avatar_url, updated_at: updated_at} ->
@@ -377,7 +377,7 @@ defmodule InkwellWeb.UserController do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Not found"})
 
-      %{profile_banner_url: nil} ->
+      %{profile_banner_url: url} when url in [nil, ""] ->
         conn |> put_status(:not_found) |> json(%{error: "No banner"})
 
       user ->
@@ -404,7 +404,7 @@ defmodule InkwellWeb.UserController do
         end
 
       _ ->
-        conn |> put_status(:internal_server_error) |> json(%{error: "Invalid image data"})
+        conn |> put_status(:not_found) |> json(%{error: "No image"})
     end
   end
 
