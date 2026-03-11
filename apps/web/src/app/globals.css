@@ -6006,6 +6006,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   color: var(--foreground);
 }
 .prose-discussion p { margin-bottom: 0.75rem; }
+.prose-discussion p:last-child { margin-bottom: 0; }
 .prose-discussion a {
   color: var(--accent);
   text-decoration: underline;
@@ -6022,6 +6023,30 @@ body[data-sidebar-hidden] .settings-ledger-nav {
 .prose-discussion .mention:hover {
   text-decoration: underline;
 }
+.prose-discussion strong { font-weight: 700; }
+.prose-discussion em { font-style: italic; }
+.prose-discussion u { text-decoration: underline; text-underline-offset: 2px; }
+.prose-discussion s { text-decoration: line-through; }
+.prose-discussion ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.prose-discussion ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.prose-discussion li { margin-bottom: 0.25rem; }
+.prose-discussion li p { margin-bottom: 0.25rem; }
+.prose-discussion blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  font-style: italic;
+  color: var(--muted);
+}
+.prose-discussion blockquote p:last-child { margin-bottom: 0; }
 
 /* Discussion card in list */
 .circle-discussion-card {
@@ -6082,28 +6107,104 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   margin-bottom: 1rem;
 }
 
-/* Response form */
-.circle-response-form textarea {
-  width: 100%;
-  min-height: 100px;
-  padding: 0.75rem;
+/* ── Circle Editor (TipTap rich text) ── */
+.circle-editor-wrap {
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: var(--surface);
-  color: var(--foreground);
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  resize: vertical;
-  font-family: inherit;
+  overflow: hidden;
 }
-.circle-response-form textarea:focus {
-  outline: none;
+.circle-editor-wrap:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.circle-response-form textarea::placeholder {
+.circle-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 95%, var(--border));
+  flex-wrap: wrap;
+}
+.circle-editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+.circle-editor-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 0.25rem;
+}
+.circle-editor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background 0.15s;
+}
+.circle-editor-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.circle-editor-btn-active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+.circle-editor-char-count {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+.circle-editor-tiptap {
+  padding: 0.75rem;
+  min-height: 120px;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--foreground);
+  outline: none;
+}
+.circle-editor-tiptap p { margin-bottom: 0.5rem; }
+.circle-editor-tiptap p:last-child { margin-bottom: 0; }
+.circle-editor-tiptap ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.circle-editor-tiptap ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.5rem; }
+.circle-editor-tiptap li { margin-bottom: 0.125rem; }
+.circle-editor-tiptap li p { margin-bottom: 0.125rem; }
+.circle-editor-tiptap blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  font-style: italic;
+  color: var(--muted);
+}
+.circle-editor-tiptap a { color: var(--accent); text-decoration: underline; }
+.circle-editor-tiptap .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
   color: var(--muted);
   font-style: italic;
+  pointer-events: none;
+  height: 0;
+}
+.circle-editor-compact-tiptap {
+  min-height: 80px;
+  padding: 0.5rem 0.75rem;
+}
+.circle-editor-compact {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+.circle-editor-compact:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 /* ── Circle Embed Card (in journal entries) ── */

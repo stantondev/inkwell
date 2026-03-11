@@ -348,9 +348,11 @@ defmodule InkwellWeb.Router do
     get "/circles/:id/discussions", CircleController, :list_discussions
     post "/circles/:id/discussions", CircleController, :create_discussion
     get "/circles/discussions/:discussion_id", CircleController, :show_discussion
+    patch "/circles/discussions/:discussion_id", CircleController, :update_discussion
     delete "/circles/discussions/:discussion_id", CircleController, :delete_discussion
     get "/circles/discussions/:discussion_id/responses", CircleController, :list_responses
     post "/circles/discussions/:discussion_id/responses", CircleController, :create_response
+    patch "/circles/responses/:response_id", CircleController, :update_response
     delete "/circles/responses/:response_id", CircleController, :delete_response
 
     # Polls (authenticated)

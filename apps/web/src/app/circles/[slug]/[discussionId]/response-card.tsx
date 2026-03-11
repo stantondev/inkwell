@@ -1,8 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { CircleEditor } from "@/components/circle-editor";
 
 interface Response {
   id: string;
   body: string;
+  body_html?: string;
   edited_at: string | null;
   inserted_at: string;
   author: { id: string; username: string; display_name: string; avatar_url: string | null } | null;
@@ -24,12 +29,24 @@ export default function ResponseCard({
   response: r,
   currentUserId,
   onDelete,
+  onEdit,
 }: {
   response: Response;
   currentUserId: string;
   onDelete: () => void;
+  onEdit: (responseId: string, bodyHtml: string) => Promise<boolean>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const isOwn = r.author?.id === currentUserId;
+  const displayBody = r.body_html || r.body;
+
+  const handleSave = async (html: string) => {
+    setSaving(true);
+    const ok = await onEdit(r.id, html);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
 
   return (
     <div className="circle-response">
@@ -57,26 +74,49 @@ export default function ResponseCard({
           )}
         </div>
 
-        <div
-          className="prose-discussion"
-          dangerouslySetInnerHTML={{ __html: r.body }}
-        />
+        {editing ? (
+          <div style={{ marginTop: "0.25rem" }}>
+            <CircleEditor
+              onSubmit={handleSave}
+              initialContent={displayBody}
+              placeholder="Edit your response…"
+              compact
+              maxLength={6000}
+              submitLabel={saving ? "Saving..." : "Save"}
+              disabled={saving}
+              autoFocus
+            />
+            <button
+              onClick={() => setEditing(false)}
+              style={{ fontSize: "0.75rem", color: "var(--muted)", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: "0.25rem" }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <div
+              className="prose-discussion"
+              dangerouslySetInnerHTML={{ __html: displayBody }}
+            />
 
-        {isOwn && (
-          <button
-            onClick={onDelete}
-            style={{
-              fontSize: "0.75rem",
-              color: "var(--muted)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              marginTop: "0.25rem",
-            }}
-          >
-            Delete
-          </button>
+            {isOwn && (
+              <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.25rem" }}>
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{ fontSize: "0.75rem", color: "var(--muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={onDelete}
+                  style={{ fontSize: "0.75rem", color: "var(--muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

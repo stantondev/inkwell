@@ -291,14 +291,38 @@ defmodule InkwellWeb.CircleController do
       if is_prompt && role not in [:owner, :moderator] do
         conn |> put_status(:forbidden) |> json(%{error: "Only owners and moderators can create prompts"})
       else
+        {processed_body, body_html, mentioned_users} = process_circle_body(params)
+
         attrs =
           params
           |> Map.put("circle_id", circle_id)
           |> Map.put("author_id", user.id)
           |> Map.put("is_prompt", is_prompt)
+          |> Map.put("body", processed_body)
+          |> Map.put("body_html", body_html)
 
         case Circles.create_discussion(attrs) do
           {:ok, discussion} ->
+            # Notify mentioned users (BUG FIX — was missing for discussions)
+            circle = Circles.get_circle(circle_id)
+
+            Enum.each(mentioned_users, fn mentioned ->
+              if mentioned.id != user.id do
+                Accounts.create_notification(%{
+                  type: :circle_mention,
+                  user_id: mentioned.id,
+                  actor_id: user.id,
+                  target_type: "circle_discussion",
+                  target_id: discussion.id,
+                  data: %{
+                    circle_slug: circle.slug,
+                    circle_name: circle.name,
+                    discussion_title: discussion.title
+                  }
+                })
+              end
+            end)
+
             conn |> put_status(:created) |> json(%{data: render_discussion(discussion)})
 
           {:error, %Ecto.Changeset{} = changeset} ->
@@ -320,6 +344,65 @@ defmodule InkwellWeb.CircleController do
           conn |> put_status(:forbidden) |> json(%{error: "Members only"})
         else
           json(conn, %{data: render_discussion(discussion)})
+        end
+    end
+  end
+
+  def update_discussion(conn, %{"discussion_id" => did} = params) do
+    user = conn.assigns.current_user
+
+    case Circles.get_discussion(did) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Discussion not found"})
+
+      discussion ->
+        role = Circles.get_user_role(discussion.circle_id, user.id)
+
+        can_edit =
+          discussion.author_id == user.id ||
+            role in [:owner, :moderator]
+
+        if can_edit do
+          {processed_body, body_html, mentioned_users} = process_circle_body(params)
+
+          attrs =
+            params
+            |> Map.put("body", processed_body)
+            |> Map.put("body_html", body_html)
+
+          case Circles.update_discussion(discussion, attrs) do
+            {:ok, updated} ->
+              # Invalidate translation cache
+              Inkwell.Translations.delete_translations_for("circle_discussion", updated.id)
+
+              # Notify newly mentioned users
+              circle = Circles.get_circle(discussion.circle_id)
+
+              Enum.each(mentioned_users, fn mentioned ->
+                if mentioned.id != user.id do
+                  Accounts.create_notification(%{
+                    type: :circle_mention,
+                    user_id: mentioned.id,
+                    actor_id: user.id,
+                    target_type: "circle_discussion",
+                    target_id: discussion.id,
+                    data: %{
+                      circle_slug: circle.slug,
+                      circle_name: circle.name,
+                      discussion_title: updated.title || discussion.title
+                    }
+                  })
+                end
+              end)
+
+              updated = Repo.preload(updated, [:author, :circle])
+              json(conn, %{data: render_discussion(updated)})
+
+            {:error, changeset} ->
+              conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+          end
+        else
+          conn |> put_status(:forbidden) |> json(%{error: "Not authorized to edit this discussion"})
         end
     end
   end
@@ -399,13 +482,11 @@ defmodule InkwellWeb.CircleController do
           if discussion.is_locked do
             conn |> put_status(:forbidden) |> json(%{error: "This discussion is locked"})
           else
-            # Process mentions
-            body_text = params["body"] || ""
-            body_html = MentionHelper.plain_text_to_html(body_text)
-            {processed_body, mentioned_users} = MentionHelper.process_mentions(body_html)
+            {processed_body, body_html, mentioned_users} = process_circle_body(params)
 
             attrs = %{
               "body" => processed_body,
+              "body_html" => body_html,
               "discussion_id" => did,
               "author_id" => user.id
             }
@@ -457,6 +538,37 @@ defmodule InkwellWeb.CircleController do
               {:error, :discussion_not_found} ->
                 conn |> put_status(:not_found) |> json(%{error: "Discussion not found"})
             end
+          end
+        end
+    end
+  end
+
+  def update_response(conn, %{"response_id" => rid} = params) do
+    user = conn.assigns.current_user
+
+    case Circles.get_response(rid) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Response not found"})
+
+      response ->
+        if response.author_id != user.id do
+          conn |> put_status(:forbidden) |> json(%{error: "You can only edit your own responses"})
+        else
+          {processed_body, body_html, _mentioned_users} = process_circle_body(params)
+
+          attrs = %{
+            "body" => processed_body,
+            "body_html" => body_html
+          }
+
+          case Circles.update_response(response, attrs) do
+            {:ok, updated} ->
+              Inkwell.Translations.delete_translations_for("circle_response", updated.id)
+              updated = Repo.preload(updated, :author)
+              json(conn, %{data: render_response(updated)})
+
+            {:error, changeset} ->
+              conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
           end
         end
     end
@@ -625,15 +737,27 @@ defmodule InkwellWeb.CircleController do
     author = if Ecto.assoc_loaded?(discussion.author) && discussion.author, do: discussion.author, else: nil
     circle = if Ecto.assoc_loaded?(discussion.circle) && discussion.circle, do: discussion.circle, else: nil
 
+    # For backward compat: if body_html is nil (pre-migration), generate on-the-fly
+    body_html =
+      if discussion.body_html do
+        discussion.body_html
+      else
+        html = MentionHelper.plain_text_to_html(discussion.body || "")
+        {processed, _} = MentionHelper.process_mentions(html)
+        processed
+      end
+
     base = %{
       id: discussion.id,
       title: discussion.title,
       body: discussion.body,
+      body_html: body_html,
       is_prompt: discussion.is_prompt,
       is_pinned: discussion.is_pinned,
       is_locked: discussion.is_locked,
       response_count: discussion.response_count,
       last_response_at: discussion.last_response_at,
+      edited_at: discussion.edited_at,
       inserted_at: discussion.inserted_at,
       circle_id: discussion.circle_id,
       author:
@@ -658,9 +782,13 @@ defmodule InkwellWeb.CircleController do
   defp render_response(response) do
     author = if Ecto.assoc_loaded?(response.author) && response.author, do: response.author, else: nil
 
+    # body_html should always exist for responses (old ones had mention-processed HTML in body)
+    body_html = response.body_html || response.body
+
     %{
       id: response.id,
       body: response.body,
+      body_html: body_html,
       edited_at: response.edited_at,
       inserted_at: response.inserted_at,
       discussion_id: response.discussion_id,
@@ -698,6 +826,53 @@ defmodule InkwellWeb.CircleController do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
+  end
+
+  # Processes body_html or plain text body into {plain_text_body, processed_html, mentioned_users}
+  defp process_circle_body(params) do
+    case params["body_html"] do
+      html when is_binary(html) and html != "" ->
+        sanitized = sanitize_circle_html(html)
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(sanitized)
+        plain_text = derive_plain_text(processed_html)
+        {plain_text, processed_html, mentioned_users}
+
+      _ ->
+        # Fallback: plain text body (backward compat for clients without rich text)
+        body_text = params["body"] || ""
+        html = MentionHelper.plain_text_to_html(body_text)
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(html)
+        {body_text, processed_html, mentioned_users}
+    end
+  end
+
+  defp sanitize_circle_html(html) do
+    html
+    |> String.replace(~r/<script\b[^>]*>.*?<\/script>/is, "")
+    |> String.replace(~r/<iframe\b[^>]*>.*?<\/iframe>/is, "")
+    |> String.replace(~r/<object\b[^>]*>.*?<\/object>/is, "")
+    |> String.replace(~r/<embed\b[^>]*\/?>/is, "")
+    |> String.replace(~r/<applet\b[^>]*>.*?<\/applet>/is, "")
+    |> String.replace(~r/\s+on\w+\s*=\s*"[^"]*"/i, "")
+    |> String.replace(~r/\s+on\w+\s*=\s*'[^']*'/i, "")
+    |> String.replace(~r/javascript\s*:/i, "")
+  end
+
+  defp derive_plain_text(html) do
+    html
+    |> String.replace(~r/<br\s*\/?>/, "\n")
+    |> String.replace(~r/<\/p>/, "\n")
+    |> String.replace(~r/<\/li>/, "\n")
+    |> String.replace(~r/<\/blockquote>/, "\n")
+    |> String.replace(~r/<[^>]+>/, "")
+    |> String.replace(~r/&amp;/, "&")
+    |> String.replace(~r/&lt;/, "<")
+    |> String.replace(~r/&gt;/, ">")
+    |> String.replace(~r/&quot;/, "\"")
+    |> String.replace(~r/&#39;/, "'")
+    |> String.replace(~r/&nbsp;/, " ")
+    |> String.replace(~r/\n{3,}/, "\n\n")
+    |> String.trim()
   end
 
   defp has_unique_error?(%Ecto.Changeset{} = changeset) do

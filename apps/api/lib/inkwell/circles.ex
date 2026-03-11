@@ -409,6 +409,12 @@ defmodule Inkwell.Circles do
     {discussions, total}
   end
 
+  def update_discussion(%CircleDiscussion{} = discussion, attrs) do
+    discussion
+    |> CircleDiscussion.edit_changeset(attrs)
+    |> Repo.update()
+  end
+
   def delete_discussion(%CircleDiscussion{} = discussion) do
     multi =
       Multi.new()
