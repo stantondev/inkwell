@@ -533,7 +533,7 @@ export default function WelcomePage() {
             {step === 3 && "Pick your vibe"}
             {step === 4 && "Our community standards"}
             {step === 5 && "Every writer\u2019s journey is different"}
-            {step === 6 && "Find some writers to follow"}
+            {step === 6 && "Find some writers"}
             {step === 7 && "Bring your friends along"}
             {step === 8 && "You\u2019re all set!"}
           </p>
@@ -999,7 +999,7 @@ export default function WelcomePage() {
               ) : (
                 <>
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    Follow writers to see their entries in your feed. You can always find more on Explore.
+                    Send pen pal requests to see their entries in your feed. You can always find more on Explore.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
                     {suggestedUsers.map((u) => {
@@ -1048,7 +1048,7 @@ export default function WelcomePage() {
                                 : { borderColor: "var(--accent)", color: "#fff", background: "var(--accent)" }
                             }
                           >
-                            {inFlight ? "…" : followed ? "Following" : "Follow"}
+                            {inFlight ? "…" : followed ? "Requested" : "Send Request"}
                           </button>
                         </div>
                       );

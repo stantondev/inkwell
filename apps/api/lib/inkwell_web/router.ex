@@ -235,6 +235,7 @@ defmodule InkwellWeb.Router do
     get "/pen-pals", RelationshipController, :pen_pals
     get "/readers", RelationshipController, :readers
     get "/reading", RelationshipController, :reading
+    get "/pending-requests", RelationshipController, :pending_requests
     post "/relationships/:username/follow", RelationshipController, :follow
     post "/relationships/:username/accept", RelationshipController, :accept
     delete "/relationships/:username/unfollow", RelationshipController, :unfollow

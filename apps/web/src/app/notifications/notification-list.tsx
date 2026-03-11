@@ -89,11 +89,9 @@ function groupByDate(
 function notificationText(n: Notification): string {
   switch (n.type) {
     case "follow_request":
-      return n.read
-        ? "requested to be your pen pal"
-        : "wants to be your pen pal";
+      return "sent you a pen pal request";
     case "follow_accepted":
-      return "accepted your pen pal request";
+      return "is now your pen pal!";
     case "comment_added":
     case "comment":
       return "commented on your entry";

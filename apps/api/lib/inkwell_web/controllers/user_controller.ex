@@ -27,19 +27,26 @@ defmodule InkwellWeb.UserController do
         entry_count = Journals.count_entries(user.id)
         top_friends = Social.list_top_friends(user.id)
 
-        relationship_status =
+        {relationship_status, incoming_request} =
           case conn.assigns[:current_user] do
-            nil -> nil
-            %{id: id} when id == user.id -> nil
+            nil -> {nil, false}
+            %{id: id} when id == user.id -> {nil, false}
             current_user ->
               case Social.get_block_status(current_user.id, user.id) do
-                :blocked_by_me -> "blocked_by_me"
-                :mutual_block -> "blocked_by_me"
-                :blocked_by_them -> "unavailable"
+                :blocked_by_me -> {"blocked_by_me", false}
+                :mutual_block -> {"blocked_by_me", false}
+                :blocked_by_them -> {"unavailable", false}
                 nil ->
                   case Social.get_relationship(current_user.id, user.id) do
-                    {:ok, rel} -> to_string(rel.status)
-                    {:error, :not_found} -> nil
+                    {:ok, rel} -> {to_string(rel.status), false}
+                    {:error, :not_found} ->
+                      # No outgoing relationship — check if they sent us a request
+                      has_incoming =
+                        case Social.get_relationship(user.id, current_user.id) do
+                          {:ok, %{status: :pending}} -> true
+                          _ -> false
+                        end
+                      {nil, has_incoming}
                   end
               end
           end
@@ -63,6 +70,7 @@ defmodule InkwellWeb.UserController do
             following_count: following_count,
             fediverse_follower_count: fediverse_follower_count,
             relationship_status: relationship_status,
+            incoming_request: incoming_request,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
             end),

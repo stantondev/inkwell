@@ -86,6 +86,7 @@ interface HydratorProps {
   isOwnProfile: boolean;
   isLoggedIn: boolean;
   relationshipStatus: string | null;
+  incomingRequest: boolean;
   styles: ProfileStyles;
   // Counts
   followerCount: number;
@@ -115,6 +116,7 @@ export function CustomProfileHydrator({
   isOwnProfile,
   isLoggedIn,
   relationshipStatus,
+  incomingRequest,
   styles,
   followerCount,
   followingCount,
@@ -195,10 +197,12 @@ export function CustomProfileHydrator({
                       targetUsername={username}
                       initialState={
                         relationshipStatus === "accepted"
-                          ? "following"
+                          ? "pen_pals"
                           : relationshipStatus === "pending"
                             ? "pending"
-                            : "idle"
+                            : incomingRequest
+                              ? "incoming"
+                              : "idle"
                       }
                     />
                     {relationshipStatus === "accepted" && isLoggedIn && (
@@ -425,10 +429,12 @@ export function CustomProfileHydrator({
             targetUsername={username}
             initialState={
               relationshipStatus === "accepted"
-                ? "following"
+                ? "pen_pals"
                 : relationshipStatus === "pending"
                   ? "pending"
-                  : "idle"
+                  : incomingRequest
+                    ? "incoming"
+                    : "idle"
             }
           />
         );

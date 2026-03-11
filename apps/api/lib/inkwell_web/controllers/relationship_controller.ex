@@ -59,21 +59,47 @@ defmodule InkwellWeb.RelationshipController do
           conn |> put_status(:forbidden) |> json(%{error: "Cannot follow this user"})
 
         true ->
-          case Social.follow(user.id, target.id) do
-            {:ok, _rel} ->
-              # Notify the target
-              Accounts.create_notification(%{
-                user_id: target.id,
-                type: :follow_request,
-                actor_id: user.id,
-                target_type: "user",
-                target_id: target.id
-              })
+          # Check if target already sent us a pending request — auto-accept if so
+          case Social.get_relationship(target.id, user.id) do
+            {:ok, %{status: :pending}} ->
+              # They already requested us — accept their request (instant pen pals)
+              case Social.accept_follow(target.id, user.id) do
+                {:ok, _rel} ->
+                  # Notify them that their request was accepted
+                  Accounts.create_notification(%{
+                    user_id: target.id,
+                    type: :follow_accepted,
+                    actor_id: user.id,
+                    target_type: "user",
+                    target_id: user.id
+                  })
 
-              json(conn, %{ok: true, status: "pending"})
+                  # Mark the incoming follow_request notification as read for us
+                  Accounts.mark_follow_request_notifications_read(user.id, target.id)
 
-            {:error, _changeset} ->
-              conn |> put_status(:unprocessable_entity) |> json(%{error: "Already following"})
+                  json(conn, %{ok: true, status: "accepted"})
+
+                {:error, _} ->
+                  conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not accept"})
+              end
+
+            _ ->
+              # Normal flow: create new pending request
+              case Social.follow(user.id, target.id) do
+                {:ok, _rel} ->
+                  Accounts.create_notification(%{
+                    user_id: target.id,
+                    type: :follow_request,
+                    actor_id: user.id,
+                    target_type: "user",
+                    target_id: target.id
+                  })
+
+                  json(conn, %{ok: true, status: "pending"})
+
+                {:error, _changeset} ->
+                  conn |> put_status(:unprocessable_entity) |> json(%{error: "Already following"})
+              end
           end
       end
     else
@@ -197,6 +223,20 @@ defmodule InkwellWeb.RelationshipController do
     else
       nil -> conn |> put_status(:not_found) |> json(%{error: "User not found"})
     end
+  end
+
+  # GET /api/pending-requests — incoming and outgoing pending pen pal requests
+  def pending_requests(conn, _params) do
+    user = conn.assigns.current_user
+    incoming = Social.list_pending_follow_requests(user.id)
+    outgoing = Social.list_pending_following(user.id)
+
+    json(conn, %{
+      data: %{
+        incoming: Enum.map(incoming, &UserController.render_user_brief/1),
+        outgoing: Enum.map(outgoing, &UserController.render_user_brief/1)
+      }
+    })
   end
 
   # GET /api/fediverse-followers — remote actors following the current user

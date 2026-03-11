@@ -215,6 +215,16 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  # Outgoing pending requests (people you've requested but haven't accepted yet)
+  def list_pending_following(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :pending)
+    |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.following_id == u.id)
+    |> select([r, u], u)
+    |> order_by([r], desc: r.inserted_at)
+    |> Repo.all()
+  end
+
   def reject_follow(follower_id, following_id) do
     case get_relationship(follower_id, following_id) do
       {:ok, %{status: :pending} = rel} -> Repo.delete(rel)

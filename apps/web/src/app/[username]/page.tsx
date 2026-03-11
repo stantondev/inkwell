@@ -457,6 +457,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let followingCount = 0;
   let fediverseFollowerCount = 0;
   let relationshipStatus: string | null = null;
+  let incomingRequest = false;
 
   let entryYears: number[] = [];
   let entryTags: { tag: string; count: number }[] = [];
@@ -478,6 +479,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         entry_years?: number[];
         entry_tags?: { tag: string; count: number }[];
         entry_categories?: { category: string; count: number }[];
+        incoming_request?: boolean;
       };
     }>(`/api/users/${username}`, {}, session?.token);
 
@@ -490,6 +492,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
     fediverseFollowerCount = data.meta.fediverse_follower_count ?? 0;
     topFriends = data.meta.top_friends ?? [];
     relationshipStatus = data.meta.relationship_status ?? null;
+    incomingRequest = data.meta.incoming_request ?? false;
     entryYears = data.meta.entry_years ?? [];
     entryTags = data.meta.entry_tags ?? [];
     entryCategories = data.meta.entry_categories ?? [];
@@ -714,6 +717,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
       isOwnProfile,
       isLoggedIn: !!session,
       relationshipStatus,
+      incomingRequest,
     };
 
     // Extract CSS overrides from user's custom CSS so hydrated widgets
@@ -1074,8 +1078,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
                     targetUsername={username}
                     isLoggedIn={!!session}
                     initialState={
-                      relationshipStatus === "accepted" ? "following" :
+                      relationshipStatus === "accepted" ? "pen_pals" :
                       relationshipStatus === "pending" ? "pending" :
+                      incomingRequest ? "incoming" :
                       "idle"
                     }
                   />

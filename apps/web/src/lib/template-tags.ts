@@ -127,6 +127,7 @@ export interface TemplateContext {
   isOwnProfile: boolean;
   isLoggedIn: boolean;
   relationshipStatus: string | null;
+  incomingRequest: boolean;
 }
 
 function escapeHtml(str: string): string {
@@ -320,7 +321,7 @@ export const TEMPLATE_TAG_DOCS: Array<{
   { tag: "newsletter", label: "Newsletter", description: "Newsletter subscribe form for email subscribers", category: "interactive" },
   { tag: "music", label: "Now Playing", description: "Music player embed (Spotify, YouTube, SoundCloud)", category: "interactive" },
   { tag: "support", label: "Support / Postage", description: "Postage button and external support links", category: "interactive" },
-  { tag: "follow_button", label: "Follow Button", description: "Follow/unfollow button for visitors", category: "interactive" },
+  { tag: "follow_button", label: "Pen Pal Button", description: "Pen pal request button for visitors", category: "interactive" },
   { tag: "top_pals", label: "Top Pen Pals", description: "Grid of your top 6 pen pals with avatars", category: "content" },
   { tag: "tags", label: "Tag Cloud", description: "Size-weighted cloud of your most-used tags", category: "content" },
   { tag: "series", label: "Series List", description: "List of your entry series with counts", category: "content" },

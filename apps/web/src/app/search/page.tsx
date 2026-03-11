@@ -54,7 +54,7 @@ function FollowButton({ username }: { username: string }) {
   }
 
   if (state === "following") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Reading</span>;
+    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Pen Pal</span>;
   }
   if (state === "pending") {
     return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Requested</span>;
@@ -63,7 +63,7 @@ function FollowButton({ username }: { username: string }) {
     <button onClick={handleFollow} disabled={state === "loading"}
       className="text-xs px-3 py-1 rounded-full border font-medium transition-colors disabled:opacity-50"
       style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-      {state === "loading" ? "..." : "Follow"}
+      {state === "loading" ? "..." : "Send Request"}
     </button>
   );
 }

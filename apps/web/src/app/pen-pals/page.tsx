@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
+import { AcceptDeclineButtons, CancelRequestButton } from "./pending-request-actions";
 
 export const metadata: Metadata = { title: "Pen Pals · Inkwell" };
 
@@ -33,20 +34,25 @@ export default async function PenPalsPage() {
   let reading: PenPal[] = [];
   let fediverseFollowers: FediverseActor[] = [];
   let fediverseFollowing: FediverseActor[] = [];
+  let incomingRequests: PenPal[] = [];
+  let outgoingRequests: PenPal[] = [];
 
   try {
-    const [ppData, rdData, rgData, ffData, fgData] = await Promise.all([
+    const [ppData, rdData, rgData, ffData, fgData, prData] = await Promise.all([
       apiFetch<{ data: PenPal[] }>("/api/pen-pals", {}, session.token),
       apiFetch<{ data: PenPal[] }>("/api/readers", {}, session.token),
       apiFetch<{ data: PenPal[] }>("/api/reading", {}, session.token),
       apiFetch<{ data: FediverseActor[] }>("/api/fediverse-followers", {}, session.token),
       apiFetch<{ data: FediverseActor[] }>("/api/fediverse-following", {}, session.token),
+      apiFetch<{ data: { incoming: PenPal[]; outgoing: PenPal[] } }>("/api/pending-requests", {}, session.token),
     ]);
     penPals = ppData.data ?? [];
     readers = rdData.data ?? [];
     reading = rgData.data ?? [];
     fediverseFollowers = ffData.data ?? [];
     fediverseFollowing = fgData.data ?? [];
+    incomingRequests = prData.data?.incoming ?? [];
+    outgoingRequests = prData.data?.outgoing ?? [];
   } catch {
     // show empty
   }
@@ -63,6 +69,67 @@ export default async function PenPalsPage() {
           </Link>
         </div>
 
+        {/* Pending Requests */}
+        {(incomingRequests.length > 0 || outgoingRequests.length > 0) && (
+          <section className="mb-8">
+            <h2 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
+              Pending Requests · {incomingRequests.length + outgoingRequests.length}
+            </h2>
+
+            {/* Incoming requests */}
+            {incomingRequests.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+                  People who want to be your pen pal
+                </p>
+                <div className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  {incomingRequests.map((person, i) => (
+                    <div key={person.id}
+                      className={`flex items-center gap-3 px-5 py-3.5 ${i < incomingRequests.length - 1 ? "border-b" : ""}`}
+                      style={{ borderColor: "var(--border)" }}>
+                      <Link href={`/${person.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar url={person.avatar_url} name={person.display_name} size={40} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{person.display_name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{person.username}</p>
+                        </div>
+                      </Link>
+                      <AcceptDeclineButtons username={person.username} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Outgoing requests */}
+            {outgoingRequests.length > 0 && (
+              <div>
+                <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+                  Your pending pen pal requests
+                </p>
+                <div className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  {outgoingRequests.map((person, i) => (
+                    <div key={person.id}
+                      className={`flex items-center gap-3 px-5 py-3.5 ${i < outgoingRequests.length - 1 ? "border-b" : ""}`}
+                      style={{ borderColor: "var(--border)" }}>
+                      <Link href={`/${person.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar url={person.avatar_url} name={person.display_name} size={40} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{person.display_name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{person.username}</p>
+                        </div>
+                      </Link>
+                      <CancelRequestButton username={person.username} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Pen Pals (mutual) */}
         <section className="mb-8">
           <h2 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
@@ -72,7 +139,7 @@ export default async function PenPalsPage() {
             <div className="rounded-2xl border p-8 text-center"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
               <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-                No pen pals yet. When you and someone both follow each other, they&apos;ll appear here.
+                No pen pals yet. Send a pen pal request and once they accept, they&apos;ll appear here.
               </p>
               <Link href="/search" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
                 Search for people
@@ -107,7 +174,7 @@ export default async function PenPalsPage() {
               Readers · {readers.length}
             </h2>
             <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-              People reading your journal who you haven&apos;t followed back yet.
+              People who follow you that you haven&apos;t sent a pen pal request to yet.
             </p>
             <div className="rounded-2xl border overflow-hidden"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -134,7 +201,7 @@ export default async function PenPalsPage() {
               Reading · {reading.length}
             </h2>
             <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-              People whose journals you read who haven&apos;t followed you back yet.
+              People you follow who haven&apos;t accepted your pen pal request yet.
             </p>
             <div className="rounded-2xl border overflow-hidden"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
