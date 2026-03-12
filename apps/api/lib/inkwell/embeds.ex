@@ -398,7 +398,28 @@ defmodule Inkwell.Embeds do
     |> String.replace("&lt;", "<")
     |> String.replace("&gt;", ">")
     |> String.replace("&quot;", "\"")
+    |> String.replace("&apos;", "'")
     |> String.replace("&#39;", "'")
+    |> decode_numeric_entities()
+  end
+
+  # Decode hex entities like &#x27; &#x2019; etc.
+  defp decode_numeric_entities(str) do
+    str
+    |> Regex.replace(~r/&#x([0-9a-fA-F]+);/, fn _, hex ->
+      case Integer.parse(hex, 16) do
+        {codepoint, ""} when codepoint > 0 and codepoint <= 0x10FFFF ->
+          <<codepoint::utf8>>
+        _ -> "&#x#{hex};"
+      end
+    end)
+    |> Regex.replace(~r/&#(\d+);/, fn _, dec ->
+      case Integer.parse(dec) do
+        {codepoint, ""} when codepoint > 0 and codepoint <= 0x10FFFF ->
+          <<codepoint::utf8>>
+        _ -> "&##{dec};"
+      end
+    end)
   end
 
   defp fetch_oembed_json(endpoint_url) do
@@ -446,6 +467,7 @@ defmodule Inkwell.Embeds do
     metadata
     |> Map.update(:title, nil, &sanitize_string(&1, 300))
     |> Map.update(:description, nil, &sanitize_string(&1, 500))
+    |> Map.update(:description, nil, &reject_garbage_description/1)
     |> Map.update(:thumbnail_url, nil, &sanitize_url(&1, 2048))
     |> Map.update(:author_name, nil, &sanitize_string(&1, 200))
     |> Map.update(:provider_name, nil, &sanitize_string(&1, 200))
@@ -458,6 +480,7 @@ defmodule Inkwell.Embeds do
   defp sanitize_string(str, max) when is_binary(str) do
     str
     |> strip_tags()
+    |> decode_html_entities()
     |> String.trim()
     |> String.slice(0, max)
     |> case do
@@ -466,6 +489,16 @@ defmodule Inkwell.Embeds do
     end
   end
   defp sanitize_string(_, _), do: nil
+
+  # Filter out garbage description values from poorly-coded sites
+  defp reject_garbage_description(nil), do: nil
+  defp reject_garbage_description(desc) when is_binary(desc) do
+    if String.downcase(String.trim(desc)) in ["none", "null", "undefined", "n/a", "na"] do
+      nil
+    else
+      desc
+    end
+  end
 
   defp sanitize_url(nil, _max), do: nil
   defp sanitize_url(url, max) when is_binary(url) do

@@ -101,11 +101,13 @@ export const LinkEmbed = Node.create({
     const provider = providerName || siteName || domain;
     const date = formatDate(publishedAt);
     const byline = [authorName, date].filter(Boolean).join(" · ");
-    const desc = description
-      ? description.length > 160
-        ? description.slice(0, 160) + "..."
-        : description
-      : "";
+    const GARBAGE_DESCS = ["none", "null", "undefined", "n/a", "na", ""];
+    const rawDesc = description?.trim() || "";
+    const desc = GARBAGE_DESCS.includes(rawDesc.toLowerCase())
+      ? ""
+      : rawDesc.length > 160
+        ? rawDesc.slice(0, 160) + "..."
+        : rawDesc;
 
     // Build children array
     const children: Array<
