@@ -405,15 +405,15 @@ defmodule Inkwell.Embeds do
 
   # Decode hex entities like &#x27; &#x2019; etc.
   defp decode_numeric_entities(str) do
-    str
-    |> Regex.replace(~r/&#x([0-9a-fA-F]+);/, fn _, hex ->
+    str = Regex.replace(~r/&#x([0-9a-fA-F]+);/, str, fn _, hex ->
       case Integer.parse(hex, 16) do
         {codepoint, ""} when codepoint > 0 and codepoint <= 0x10FFFF ->
           <<codepoint::utf8>>
         _ -> "&#x#{hex};"
       end
     end)
-    |> Regex.replace(~r/&#(\d+);/, fn _, dec ->
+
+    Regex.replace(~r/&#(\d+);/, str, fn _, dec ->
       case Integer.parse(dec) do
         {codepoint, ""} when codepoint > 0 and codepoint <= 0x10FFFF ->
           <<codepoint::utf8>>
