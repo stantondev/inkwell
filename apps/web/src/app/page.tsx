@@ -50,10 +50,10 @@ interface ExploreEntry {
 async function getRecentEntries(): Promise<ExploreEntry[]> {
   try {
     const data = await apiFetch<{ data: ExploreEntry[] }>(
-      "/api/explore?per_page=6"
+      "/api/explore?per_page=18&source=inkwell"
     );
     return data.data
-      .filter((e) => e.source === "local" && e.title)
+      .filter((e) => e.title)
       .slice(0, 6);
   } catch {
     return [];
