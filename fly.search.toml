@@ -12,18 +12,18 @@ primary_region = "ord"
 [env]
   MEILI_ENV = "production"
   MEILI_DB_PATH = "/meili_data/data.ms"
-  MEILI_HTTP_ADDR = "0.0.0.0:7700"
+  MEILI_HTTP_ADDR = "[::]:7700"
 
 [mounts]
   source = "meili_data"
   destination = "/meili_data"
 
-[[services]]
-  protocol = "tcp"
+[http_service]
   internal_port = 7700
-
-  # Internal-only — no public HTTP service
-  # Access via inkwell-search.internal:7700 from inkwell-api
+  force_https = false
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
 
 [[vm]]
   size = "shared-cpu-1x"
