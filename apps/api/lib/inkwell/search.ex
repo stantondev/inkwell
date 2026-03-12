@@ -280,7 +280,8 @@ defmodule Inkwell.Search do
           case :inet.getaddr(String.to_charlist(host), :inet6) do
             {:ok, ip} ->
               ip_str = :inet.ntoa(ip) |> to_string()
-              resolved = %{uri | host: "[#{ip_str}]"} |> URI.to_string()
+              # URI.to_string/1 adds brackets around IPv6 hosts automatically
+              resolved = %{uri | host: ip_str} |> URI.to_string()
               String.to_charlist(resolved)
 
             {:error, _} ->
