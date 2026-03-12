@@ -52,8 +52,8 @@ defmodule InkwellWeb.SearchController do
                 conn |> put_status(:not_found) |> json(%{error: "Could not fetch actor profile"})
             end
 
-          {:error, :connection_failed} ->
-            conn |> put_status(:service_unavailable) |> json(%{error: "Could not reach #{domain} — the server may be down or unreachable"})
+          {:error, :connection_failed, detail} ->
+            conn |> put_status(:service_unavailable) |> json(%{error: detail})
 
           {:error, _reason} ->
             conn |> put_status(:not_found) |> json(%{error: "User not found on #{domain}"})
@@ -107,6 +107,53 @@ defmodule InkwellWeb.SearchController do
     conn |> put_status(:bad_request) |> json(%{error: "remote_actor_id is required"})
   end
 
+  # POST /api/fediverse/follow
+  # Follow a remote actor by their AP ID (for follow-back from notifications/pen pals)
+  def fediverse_follow_by_ap_id(conn, %{"ap_id" => ap_id}) when is_binary(ap_id) do
+    user = conn.assigns.current_user
+
+    case RemoteActor.get_by_ap_id(ap_id) do
+      nil ->
+        # Actor not in our cache — try fetching them
+        case RemoteActor.fetch(ap_id) do
+          {:ok, remote_actor} ->
+            do_follow_remote(conn, user, remote_actor)
+
+          {:error, _} ->
+            conn |> put_status(:not_found) |> json(%{error: "Could not find remote actor"})
+        end
+
+      remote_actor ->
+        do_follow_remote(conn, user, remote_actor)
+    end
+  end
+
+  def fediverse_follow_by_ap_id(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "ap_id is required"})
+  end
+
+  defp do_follow_remote(conn, user, remote_actor) do
+    import Ecto.Query
+
+    existing =
+      Inkwell.Social.Relationship
+      |> where([r], r.follower_id == ^user.id and r.remote_actor_id == ^remote_actor.id)
+      |> Inkwell.Repo.one()
+
+    if existing do
+      json(conn, %{data: %{status: existing.status, already_following: true}})
+    else
+      case create_remote_follow(user, remote_actor) do
+        {:ok, relationship} ->
+          json(conn, %{data: %{status: relationship.status, already_following: false}})
+
+        {:error, reason} ->
+          Logger.error("Failed to follow remote actor: #{inspect(reason)}")
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to send follow request"})
+      end
+    end
+  end
+
   # ── Fediverse helpers ──────────────────────────────────────────────────
 
   defp parse_fediverse_handle(handle) do
@@ -158,7 +205,30 @@ defmodule InkwellWeb.SearchController do
 
       {:error, reason} ->
         Logger.warning("WebFinger lookup for #{username}@#{domain} connection failed: #{inspect(reason)}")
-        {:error, :connection_failed}
+        detail = classify_connection_error(reason, domain)
+        {:error, :connection_failed, detail}
+    end
+  end
+
+  defp classify_connection_error(reason, domain) do
+    case reason do
+      {:failed_connect, [{:to_address, _, _}, {_, _, :timeout}]} ->
+        "Connection to #{domain} timed out — the server may be slow or unreachable"
+
+      {:failed_connect, [{:to_address, _, _}, {_, _, :nxdomain}]} ->
+        "Could not find server #{domain} — check the domain name"
+
+      {:failed_connect, [{:to_address, _, _}, {_, _, :econnrefused}]} ->
+        "#{domain} refused the connection — the server may be down"
+
+      {:failed_connect, _details} ->
+        "Could not connect to #{domain} — the server may be down or unreachable"
+
+      :timeout ->
+        "Request to #{domain} timed out"
+
+      _ ->
+        "Could not reach #{domain} — the server may be down or unreachable"
     end
   end
 

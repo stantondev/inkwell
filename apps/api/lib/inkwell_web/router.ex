@@ -294,6 +294,7 @@ defmodule InkwellWeb.Router do
 
     # Fediverse follow (requires auth)
     post "/search/fediverse/follow", SearchController, :fediverse_follow
+    post "/fediverse/follow", SearchController, :fediverse_follow_by_ap_id
 
     # Guestbook (authenticated actions)
     post "/users/:username/guestbook", GuestbookController, :create

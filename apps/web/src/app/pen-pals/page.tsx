@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
 import { AcceptDeclineButtons, CancelRequestButton } from "./pending-request-actions";
+import { FediverseFollowBackButton } from "./fediverse-follow-back-button";
 
 export const metadata: Metadata = { title: "Pen Pals · Inkwell" };
 
@@ -23,6 +24,7 @@ interface FediverseActor {
   avatar_url: string | null;
   ap_id: string;
   profile_url: string;
+  is_following_back?: boolean;
 }
 
 export default async function PenPalsPage() {
@@ -241,19 +243,25 @@ export default async function PenPalsPage() {
                 <div className="rounded-2xl border overflow-hidden"
                   style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
                   {fediverseFollowers.map((actor, i) => (
-                    <a key={actor.id} href={actor.profile_url} target="_blank" rel="noopener noreferrer"
-                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)] ${i < fediverseFollowers.length - 1 ? "border-b" : ""}`}
+                    <div key={actor.id}
+                      className={`flex items-center gap-3 px-5 py-3.5 ${i < fediverseFollowers.length - 1 ? "border-b" : ""}`}
                       style={{ borderColor: "var(--border)" }}>
-                      <Avatar url={actor.avatar_url} name={actor.display_name || actor.username} size={40} />
+                      <a href={actor.profile_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                        <Avatar url={actor.avatar_url} name={actor.display_name || actor.username} size={40} />
+                      </a>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{actor.display_name || actor.username}</p>
+                        <a href={actor.profile_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          <p className="text-sm font-medium truncate">{actor.display_name || actor.username}</p>
+                        </a>
                         <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{actor.username}@{actor.domain}</p>
                       </div>
-                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--muted)" }}>
+                      <FediverseFollowBackButton apId={actor.ap_id} isFollowingBack={actor.is_following_back === true} />
+                      <a href={actor.profile_url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs flex items-center gap-1 flex-shrink-0" style={{ color: "var(--muted)" }}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                         {actor.domain}
-                      </span>
-                    </a>
+                      </a>
+                    </div>
                   ))}
                 </div>
               </div>

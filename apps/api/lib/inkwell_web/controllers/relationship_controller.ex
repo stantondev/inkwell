@@ -243,7 +243,15 @@ defmodule InkwellWeb.RelationshipController do
   def fediverse_followers(conn, _params) do
     user = conn.assigns.current_user
     actors = Social.list_fediverse_followers(user.id)
-    json(conn, %{data: Enum.map(actors, &render_remote_actor/1)})
+    following_back_ids = Social.get_fediverse_following_back_ids(user.id, actors)
+
+    json(conn, %{
+      data:
+        Enum.map(actors, fn actor ->
+          render_remote_actor(actor)
+          |> Map.put(:is_following_back, MapSet.member?(following_back_ids, actor.id))
+        end)
+    })
   end
 
   # GET /api/fediverse-following — remote actors the current user follows

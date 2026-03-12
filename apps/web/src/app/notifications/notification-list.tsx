@@ -722,6 +722,96 @@ function AcceptRejectInline({
   );
 }
 
+// ─── Fediverse Follow Back ─────────────────────────────────────
+function FediverseFollowBackButton({ apId }: { apId: string }) {
+  const [state, setState] = useState<
+    "idle" | "loading" | "pending" | "following" | "error"
+  >("idle");
+
+  async function handleFollow(e: React.MouseEvent) {
+    e.stopPropagation();
+    setState("loading");
+    try {
+      const res = await fetch("/api/fediverse/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ap_id: apId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data?.already_following) {
+          setState("following");
+        } else {
+          setState(
+            data.data?.status === "accepted" ? "following" : "pending"
+          );
+        }
+      } else if (res.status === 401) {
+        setState("error");
+      } else {
+        setState("idle");
+      }
+    } catch {
+      setState("idle");
+    }
+  }
+
+  if (state === "following") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs font-medium mt-2 px-3 py-1 rounded-full"
+        style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Following
+      </span>
+    );
+  }
+  if (state === "pending") {
+    return (
+      <span
+        className="text-xs mt-2 inline-block px-3 py-1 rounded-full border"
+        style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+      >
+        Requested
+      </span>
+    );
+  }
+  if (state === "error") {
+    return (
+      <span
+        className="text-xs mt-2 inline-block"
+        style={{ color: "var(--muted)" }}
+      >
+        Could not follow
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleFollow}
+      disabled={state === "loading"}
+      className="text-xs mt-2 px-4 py-1.5 rounded-full font-medium border transition-colors disabled:opacity-50"
+      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+    >
+      {state === "loading" ? "..." : "Follow Back"}
+    </button>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────
 export function NotificationList({
   initialNotifications,
@@ -1045,6 +1135,14 @@ export function NotificationList({
                             onAction={handleFollowAction}
                           />
                         )}
+
+                        {/* Fediverse follow-back button */}
+                        {n.type === "fediverse_follow" &&
+                          n.remote_actor?.ap_id && (
+                            <FediverseFollowBackButton
+                              apId={n.remote_actor.ap_id}
+                            />
+                          )}
                       </div>
 
                       {/* Unread dot */}

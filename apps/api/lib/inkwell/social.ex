@@ -306,6 +306,18 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  def get_fediverse_following_back_ids(user_id, actors) do
+    actor_ids = Enum.map(actors, & &1.id)
+
+    following_ids =
+      Relationship
+      |> where([r], r.follower_id == ^user_id and r.remote_actor_id in ^actor_ids and r.status in [:pending, :accepted])
+      |> select([r], r.remote_actor_id)
+      |> Repo.all()
+
+    MapSet.new(following_ids)
+  end
+
   def count_fediverse_followers(user_id) do
     Relationship
     |> where([r], r.following_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))

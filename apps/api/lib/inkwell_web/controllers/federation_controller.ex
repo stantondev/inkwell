@@ -459,6 +459,7 @@ defmodule InkwellWeb.FederationController do
       target_id: target_user.id,
       data: %{
         remote_actor: %{
+          id: remote_actor.id,
           display_name: remote_actor.display_name || remote_actor.username,
           username: remote_actor.username,
           domain: remote_actor.domain,
