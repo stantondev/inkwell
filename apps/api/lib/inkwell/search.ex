@@ -268,8 +268,35 @@ defmodule Inkwell.Search do
     :ok
   end
 
+  # Fly.io internal networking uses IPv6. :httpc defaults to IPv4, so
+  # .internal hostnames fail with :nxdomain. Resolve to IPv6 address and
+  # use bracket notation in the URL so :httpc connects over IPv6.
+  defp resolve_url(url_string) do
+    uri = URI.parse(url_string)
+
+    case uri.host do
+      host when is_binary(host) ->
+        if String.ends_with?(host, ".internal") do
+          case :inet.getaddr(String.to_charlist(host), :inet6) do
+            {:ok, ip} ->
+              ip_str = :inet.ntoa(ip) |> to_string()
+              resolved = %{uri | host: "[#{ip_str}]"} |> URI.to_string()
+              String.to_charlist(resolved)
+
+            {:error, _} ->
+              String.to_charlist(url_string)
+          end
+        else
+          String.to_charlist(url_string)
+        end
+
+      _ ->
+        String.to_charlist(url_string)
+    end
+  end
+
   defp http_request(method, path, body) do
-    full_url = ~c"#{url()}#{path}"
+    full_url = resolve_url("#{url()}#{path}")
     headers = [
       {~c"content-type", ~c"application/json"},
       {~c"authorization", ~c"Bearer #{api_key()}"}
@@ -287,7 +314,7 @@ defmodule Inkwell.Search do
 
     http_method = if method == :patch, do: :patch, else: if(body == nil, do: :delete, else: :post)
 
-    case :httpc.request(http_method, request, [{:timeout, 10_000}], []) do
+    case :httpc.request(http_method, request, [{:timeout, 10_000}], [{:ipv6_host_with_brackets, true}]) do
       {:ok, {{_, status, _}, _, resp_body}} when status in 200..299 ->
         case Jason.decode(:erlang.list_to_binary(resp_body)) do
           {:ok, parsed} -> {:ok, parsed}
