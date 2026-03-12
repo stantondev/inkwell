@@ -23,6 +23,7 @@ export function Footer({ selfHosted }: { selfHosted?: boolean }) {
           <Link href="/roadmap" className="hover:underline">Roadmap</Link>
           <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
           <Link href="/developers" className="hover:underline">API</Link>
+          <Link href="/open-source" className="hover:underline">Open Source</Link>
         </div>
         <span>{selfHosted ? "Self-Hosted Instance" : "\u00A9 2026 Inkwell"}</span>
       </div>

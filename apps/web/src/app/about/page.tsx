@@ -131,7 +131,7 @@ export default function AboutPage() {
             own or control your presence on it.
           </p>
           <div className="flex flex-wrap gap-2">
-            {["Federated", "Ad-free", "Algorithm-free"].map((label) => (
+            {["Open-source", "Federated", "Ad-free", "Algorithm-free"].map((label) => (
               <span
                 key={label}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border"

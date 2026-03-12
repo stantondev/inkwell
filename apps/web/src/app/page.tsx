@@ -317,7 +317,16 @@ export default async function LandingPage() {
           </div>
 
           <p className="landing-colophon-techstack">
-            Built with Elixir, React, and ActivityPub
+            Open source (AGPL-3.0) &middot; Built with Elixir, React, and ActivityPub &middot;{" "}
+            <a
+              href="https://github.com/stantondev/inkwell"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+              style={{ color: "var(--accent)" }}
+            >
+              View source on GitHub &rarr;
+            </a>
           </p>
         </div>
       </section>
