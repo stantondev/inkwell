@@ -445,6 +445,9 @@ defmodule InkwellWeb.Router do
     post "/relays/:id/pause", RelayController, :pause
     post "/relays/:id/resume", RelayController, :resume
     delete "/relays/:id", RelayController, :delete
+
+    # Search reindex (admin)
+    post "/reindex-search", AdminController, :reindex_search
   end
 
   # Health check — used by Fly.io and external monitors

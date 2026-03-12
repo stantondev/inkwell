@@ -158,7 +158,7 @@ export default function SearchPage() {
           if (res.ok) {
             const data = await res.json();
             if (tab === "users") setUsers(data.data ?? []);
-            else setEntries(data.data ?? []);
+            else setEntries((data.data ?? []).filter((e: SearchEntry) => e.author));
           }
         }
       } catch {

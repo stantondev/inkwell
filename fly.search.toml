@@ -1,0 +1,30 @@
+# ──────────────────────────────────────────────────────────────
+# Fly.io config for Inkwell Meilisearch
+# Deploy with: fly deploy --config fly.search.toml
+# ──────────────────────────────────────────────────────────────
+
+app = "inkwell-search"
+primary_region = "ord"
+
+[build]
+  image = "getmeili/meilisearch:latest"
+
+[env]
+  MEILI_ENV = "production"
+  MEILI_DB_PATH = "/meili_data/data.ms"
+  MEILI_HTTP_ADDR = "0.0.0.0:7700"
+
+[mounts]
+  source = "meili_data"
+  destination = "/meili_data"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 7700
+
+  # Internal-only — no public HTTP service
+  # Access via inkwell-search.internal:7700 from inkwell-api
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = 512

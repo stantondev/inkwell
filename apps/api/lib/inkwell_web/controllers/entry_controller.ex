@@ -3,7 +3,7 @@ defmodule InkwellWeb.EntryController do
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
-  alias Inkwell.Workers.CrosspostWorker
+  alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
   alias InkwellWeb.UserController
 
   @free_draft_limit 10
@@ -317,6 +317,9 @@ defmodule InkwellWeb.EntryController do
             # Cross-post to linked Mastodon accounts if requested
             maybe_enqueue_crossposts(entry, user, params)
 
+            # Index in Meilisearch
+            enqueue_search_index(entry.id)
+
             conn
             |> put_status(:created)
             |> json(%{data: render_entry_full(entry, user)})
@@ -376,6 +379,9 @@ defmodule InkwellWeb.EntryController do
               |> FanOutWorker.new()
               |> Oban.insert()
             end
+
+            # Re-index in Meilisearch (published entries only)
+            if updated.status == :published, do: enqueue_search_index(updated.id)
 
             json(conn, %{data: render_entry_full(updated, user)})
 
@@ -441,6 +447,9 @@ defmodule InkwellWeb.EntryController do
               # Cross-post to linked Mastodon accounts if requested
               maybe_enqueue_crossposts(published, user, params)
 
+              # Index in Meilisearch
+              enqueue_search_index(published.id)
+
               json(conn, %{data: render_entry_full(published, user)})
 
             {:error, changeset} ->
@@ -504,6 +513,9 @@ defmodule InkwellWeb.EntryController do
         |> FanOutWorker.new()
         |> Oban.insert()
       end
+
+      # Remove from Meilisearch
+      enqueue_search_delete(entry.id)
 
       send_resp(conn, :no_content, "")
     else
@@ -804,5 +816,19 @@ defmodule InkwellWeb.EntryController do
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
     end)
+  end
+
+  # ── Search indexing helpers ───────────────────────────────────────────
+
+  defp enqueue_search_index(entry_id) do
+    %{action: "index_entry", entry_id: entry_id}
+    |> SearchIndexWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_search_delete(entry_id) do
+    %{action: "delete_entry", entry_id: entry_id}
+    |> SearchIndexWorker.new()
+    |> Oban.insert()
   end
 end

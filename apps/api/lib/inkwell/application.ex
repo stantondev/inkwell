@@ -21,7 +21,12 @@ defmodule Inkwell.Application do
     ]
 
     opts = [strategy: :one_for_one, name: Inkwell.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Set up Meilisearch indexes after Repo + Oban are started
+    Task.start(fn -> Inkwell.Search.setup_indexes!() end)
+
+    result
   end
 
   @impl true

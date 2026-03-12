@@ -227,6 +227,15 @@ defmodule InkwellWeb.AdminController do
     }
   end
 
+  # POST /api/admin/reindex-search — trigger full Meilisearch reindex
+  def reindex_search(conn, _params) do
+    %{}
+    |> Inkwell.Workers.SearchReindexWorker.new()
+    |> Oban.insert()
+
+    json(conn, %{ok: true, message: "Full search reindex enqueued"})
+  end
+
   defp parse_int(nil, default), do: default
   defp parse_int(val, _) when is_integer(val), do: val
   defp parse_int(val, default) when is_binary(val) do

@@ -10,7 +10,7 @@ A federated social journaling platform — LiveJournal meets MySpace, reimagined
 - **Frontend**: Next.js 16 + React (`apps/web/`) — standalone output deployed to Fly.io
 - **Federation**: ActivityPub handled natively in Phoenix API — live and confirmed working. `services/federation/` (Fedify/Node.js stub) is unused.
 - **Database**: PostgreSQL 16 (Fly Postgres, `inkwell-db`)
-- **Search**: Meilisearch — NOT yet deployed to production
+- **Search**: Meilisearch (Fly.io internal app `inkwell-search`, accessed via `inkwell-search.internal:7700`)
 - **Email**: SMTP (via `gen_smtp`) or Resend API for transactional emails (magic link auth) + newsletter delivery. SMTP recommended for self-hosted instances. Postmark for inbound email processing (Post by Email feature)
 
 ## Monorepo Structure
@@ -37,9 +37,10 @@ inkwell/
 
 ### Deploy commands
 ```bash
-fly deploy --config fly.api.toml --wait-timeout 600   # API only
-fly deploy --config fly.web.toml --wait-timeout 600   # Web only
-./deploy.sh                                            # Full deploy (first-time)
+fly deploy --config fly.api.toml --wait-timeout 600     # API only
+fly deploy --config fly.web.toml --wait-timeout 600     # Web only
+fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
+./deploy.sh                                              # Full deploy (first-time)
 ```
 
 ### Fly secrets (inkwell-api)
@@ -63,6 +64,12 @@ fly deploy --config fly.web.toml --wait-timeout 600   # Web only
 - `FLY_API_TOKEN` — Fly.io deploy token for the `inkwell-web` app; used by Fly Certificates API for custom domain TLS provisioning (generated via `fly tokens deploy -a inkwell-web`)
 - `POSTMARK_INBOUND_TOKEN` — shared secret for verifying Postmark inbound email webhook (`POST /api/email/inbound?token=SECRET`)
 - `POST_EMAIL_DOMAIN` — domain for Post by Email addresses (default: `post.inkwell.social`)
+- `MEILI_URL` — Meilisearch internal URL (`http://inkwell-search.internal:7700`)
+- `MEILI_API_KEY` — Meilisearch master key (shared with `inkwell-search` as `MEILI_MASTER_KEY`)
+
+### Fly secrets (inkwell-search)
+- `MEILI_MASTER_KEY` — master API key (same value as `MEILI_API_KEY` on `inkwell-api`)
+- `MEILI_ENV` — set to `production` in `fly.search.toml` env section
 
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
@@ -960,6 +967,30 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
   - Settings nav: "Post by Email" in Section III (Writing & Content) with mail icon
 - **Infrastructure setup required** (manual): Postmark account, DNS MX record for `post.inkwell.social` → `inbound.postmarkapp.com`, Postmark inbound webhook config pointing to `https://api.inkwell.social/api/email/inbound?token=SECRET`, Fly secrets `POSTMARK_INBOUND_TOKEN` and `POST_EMAIL_DOMAIN`
 
+### Search Infrastructure (Meilisearch)
+- Full-text search with Meilisearch as primary engine and Postgres ILIKE as fallback (graceful degradation when Meilisearch is unavailable)
+- **Deployment**: Fly.io internal app `inkwell-search` on `ord` region, `shared-cpu-1x` / 512MB, 1GB persistent volume at `/meili_data`, internal-only networking (`inkwell-search.internal:7700`)
+- **Two indexes**: `entries` (published journal entries with denormalized author data) and `users` (non-blocked users)
+- **Entries index schema**:
+  - Searchable (priority): `title`, `tags`, `excerpt`, `author_username`, `author_display_name`, `body_text`, `category`, `mood`
+  - Filterable: `privacy`, `category`, `tags`, `user_id`, `sensitive`, `series_id`, `published_at`
+  - Sortable: `published_at`, `ink_count`, `word_count`
+  - Custom ranking: `["words", "typo", "proximity", "attribute", "sort", "exactness", "desc(ink_count)", "desc(published_at)"]`
+- **Users index schema**:
+  - Searchable: `username`, `display_name`, `bio`, `profile_status`
+  - Filterable: `subscription_tier`
+  - Sortable: `entry_count`
+- **Indexing pipeline**: Oban workers on `search_indexing` queue (concurrency 5). Lifecycle hooks enqueue `SearchIndexWorker` on entry create/update/publish/delete, user profile update/username change/delete/block, and ink toggle. `SearchReindexWorker` streams all entries + users in batches of 500 for full reindex.
+- **Index setup on startup**: `Inkwell.Search.setup_indexes!/0` called via `Task.start` in `application.ex` after Repo + Oban start. Creates indexes, configures searchable/filterable/sortable attributes and custom ranking rules. Idempotent.
+- **Admin reindex**: `POST /api/admin/reindex-search` enqueues a full `SearchReindexWorker` (unique period 300s prevents overlapping runs)
+- **Config**: `MEILI_URL` + `MEILI_API_KEY` env vars on `inkwell-api`. When not set, `Search.configured?/0` returns false and all indexing/search is silently skipped
+- **Backend**:
+  - `apps/api/lib/inkwell/search.ex` — Meilisearch client context: `configured?/0`, `setup_indexes!/0`, `index_entry/1`, `index_user/1`, `delete_entry/1`, `delete_user/1`, `index_entries_batch/1`, `index_users_batch/1`, `delete_entries_by_user/1`, `search/3`, `build_entry_document/1`, `build_user_document/1`, `strip_html/1`
+  - `apps/api/lib/inkwell/workers/search_index_worker.ex` — per-document Oban worker: `index_entry`, `index_user`, `delete_entry`, `delete_user`, `delete_user_entries`, `reindex_user_entries`
+  - `apps/api/lib/inkwell/workers/search_reindex_worker.ex` — full batch reindex worker (500/batch, unique period 300s)
+  - `apps/api/lib/inkwell_web/controllers/search_controller.ex` — delegates to `Search.search/3`, falls back to Postgres ILIKE
+  - `fly.search.toml` — Meilisearch Fly.io deployment config
+
 ### Other Features
 - **Journal entries**: CRUD with title, body (TipTap rich text editor with 17+ extensions: spacing control, text alignment, highlight, text color, underline, sub/superscript, task lists, tables, smart typography, BubbleMenu, FloatingMenu), mood, music, tags, visibility (public/friends_only/private/custom)
 - **Comments ("Marginalia")**: fully threaded comment system styled as marginalia — handwritten notes in book margins. Lora italic serif "Marginalia" heading with ornamental divider, comment count badge. TipTap-powered `CommentEditor` with bold/italic/link toolbar, @mention autocomplete, 2000-char limit, `Typography` extension for smart quotes/em-dashes. Compact mode (no toolbar, Enter to submit) for feed card popups and inline reply editors. Threaded display via recursive `CommentNode` component (max reply depth 1, 0-indexed). Thread connector lines (ink-blue at 15% opacity) double as collapse toggle buttons. Threads with 5+ replies auto-collapse to first 3 with "Show N more" link. Inline reply editor appears below comment when Reply clicked. Edit mode (own comments, 24h window) replaces body with compact CommentEditor pre-filled with existing content. Delete with browser confirm dialog. Federated comments show `@user@domain` badge, no Reply/Edit buttons. `AvatarWithFrame` component with profile links. `buildThreadTree()` handles orphaned replies (deleted parent → root-level). Server-side: mentions parsed into profile links (`<a class="mention">`), `:mention` notifications. Feed cards: desktop `FloatingPopup` (360px, shows last 3 root comments with first reply each, compact CommentEditor, "View all →" link to entry `#comments`). Mobile (<640px): bottom sheet via `createPortal` to `document.body` (fixed bottom, 16px border-radius top, 60vh max-height, backdrop overlay, slide-up transition, drag handle bar).
@@ -968,7 +999,7 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 - **Relationships**: follow/accept/reject/block with pending state
 - **Tag pages**: `/tag/[tag]` — public entries filtered by tag
 - **Explore**: public discovery feed; optional auth for personalized `my_stamp` data
-- **Search**: text search (requires Meilisearch — not deployed to prod yet)
+- **Search**: full-text search via Meilisearch with Postgres ILIKE fallback. See "Search Infrastructure (Meilisearch)" section below
 - **RSS feeds**: per-user, per-tag, and global explore RSS XML feeds. Global feed at `/api/explore/feed.xml` (20 most recent public entries, excludes sensitive). RSS discovery `<link>` in root layout `<head>` and per-user RSS in profile `generateMetadata` alternates
 - **SEO infrastructure**: `robots.ts` (allows crawlers, disallows private paths, references sitemap), dynamic `sitemap.ts` (fetches `/api/sitemap-data` for all profiles, entries, tags, categories, static pages with 1-hour revalidation), JSON-LD structured data (`Article` on entry pages, `ProfilePage` on profiles, `WebSite` + `Organization` in root layout), OpenGraph + Twitter Card + canonical URL metadata on all 13+ public pages, semantic `<main>` element in AppShell. Backend: `SitemapController` at `GET /api/sitemap-data`, `explore_feed` action at `GET /api/explore/feed.xml`
 - **Music player**: embedded music links on entries
@@ -1191,7 +1222,6 @@ Completed 2026-02-23. Replaced old pencil mark + text logo with brand logo from 
 ## Known Issues & TODO
 
 ### Critical
-- **Meilisearch not deployed** — search falls back to Postgres ILIKE (works, but slower). Config key mismatch is now fixed; deploying Meilisearch requires a new Fly app + persistent volume + `MEILI_URL`/`MEILI_API_KEY` secrets.
 - **HTTP Signature verification** — hard-rejects invalid/missing signatures with 401 Unauthorized. Next.js federation proxy passes original Host via `X-Original-Host` custom header (Node.js `fetch()` overrides `Host` with the target URL's hostname). API's `build_signing_string_from_list` checks `X-Original-Host` first when constructing the signing string. This is critical because actor documents advertise inbox URLs on `inkwell.social` (frontend), so Mastodon signs with `host: inkwell.social`, but the proxy forwards to `api.inkwell.social`.
 
 ### Nice to Have

@@ -10,33 +10,42 @@ defmodule Inkwell.Inks do
   Returns {:ok, {:created, ink}} or {:ok, {:removed, nil}}.
   """
   def toggle_ink(user_id, entry_id) do
-    case Repo.get_by(Ink, user_id: user_id, entry_id: entry_id) do
-      nil ->
-        Repo.transaction(fn ->
-          case %Ink{} |> Ink.changeset(%{user_id: user_id, entry_id: entry_id}) |> Repo.insert() do
-            {:ok, ink} ->
-              Entry
-              |> where(id: ^entry_id)
-              |> Repo.update_all(inc: [ink_count: 1])
+    result =
+      case Repo.get_by(Ink, user_id: user_id, entry_id: entry_id) do
+        nil ->
+          Repo.transaction(fn ->
+            case %Ink{} |> Ink.changeset(%{user_id: user_id, entry_id: entry_id}) |> Repo.insert() do
+              {:ok, ink} ->
+                Entry
+                |> where(id: ^entry_id)
+                |> Repo.update_all(inc: [ink_count: 1])
 
-              {:created, ink}
+                {:created, ink}
 
-            {:error, changeset} ->
-              Repo.rollback(changeset)
-          end
-        end)
+              {:error, changeset} ->
+                Repo.rollback(changeset)
+            end
+          end)
 
-      existing ->
-        Repo.transaction(fn ->
-          Repo.delete!(existing)
+        existing ->
+          Repo.transaction(fn ->
+            Repo.delete!(existing)
 
-          Entry
-          |> where(id: ^entry_id)
-          |> Repo.update_all(inc: [ink_count: -1])
+            Entry
+            |> where(id: ^entry_id)
+            |> Repo.update_all(inc: [ink_count: -1])
 
-          {:removed, nil}
-        end)
+            {:removed, nil}
+          end)
+      end
+
+    # Re-index entry for updated ink_count (used in sort ranking)
+    case result do
+      {:ok, _} -> enqueue_search_index_entry(entry_id)
+      _ -> :ok
     end
+
+    result
   end
 
   @doc "Check if a user has inked a specific entry."
@@ -225,5 +234,13 @@ defmodule Inkwell.Inks do
     query
     |> preload([:user, :user_icon])
     |> Repo.all()
+  end
+
+  # ── Search indexing helper ───────────────────────────────────────────
+
+  defp enqueue_search_index_entry(entry_id) do
+    %{action: "index_entry", entry_id: entry_id}
+    |> Inkwell.Workers.SearchIndexWorker.new()
+    |> Oban.insert()
   end
 end

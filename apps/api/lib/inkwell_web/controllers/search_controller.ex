@@ -215,33 +215,27 @@ defmodule InkwellWeb.SearchController do
   # ── Meilisearch ──────────────────────────────────────────────────────────
 
   defp search_meilisearch(q, type, page) do
-    index = if type == "users", do: "users", else: "entries"
-    search_cfg = Application.get_env(:inkwell, Inkwell.Search, [])
-    url = Keyword.get(search_cfg, :url, "http://localhost:7700")
-    api_key = Keyword.get(search_cfg, :api_key, "") || ""
+    if not Inkwell.Search.configured?() do
+      {:error, :not_configured}
+    else
+      index = if type == "users", do: "users", else: "entries"
 
-    body = Jason.encode!(%{
-      q: q,
-      limit: 20,
-      offset: (page - 1) * 20
-    })
+      opts = [
+        limit: 20,
+        offset: (page - 1) * 20,
+        highlight: if(type == "entries", do: ["title", "body_text"], else: ["username", "display_name"]),
+        crop: if(type == "entries", do: ["body_text"], else: nil),
+        crop_length: 200
+      ]
 
-    headers = [
-      {"Content-Type", "application/json"},
-      {"Authorization", "Bearer #{api_key}"}
-    ]
+      # For entries, only show public content
+      opts = if type == "entries" do
+        Keyword.put(opts, :filter, "privacy = public")
+      else
+        opts
+      end
 
-    case :httpc.request(:post,
-           {~c"#{url}/indexes/#{index}/search", headers, ~c"application/json", body},
-           [], []) do
-      {:ok, {{_, 200, _}, _, resp_body}} ->
-        case Jason.decode(to_string(resp_body)) do
-          {:ok, %{"hits" => hits}} -> {:ok, hits}
-          _ -> {:error, :parse_error}
-        end
-
-      _ ->
-        {:error, :unavailable}
+      Inkwell.Search.search(index, q, opts)
     end
   end
 
@@ -254,10 +248,12 @@ defmodule InkwellWeb.SearchController do
 
     Inkwell.Accounts.User
     |> where([u], ilike(u.username, ^pattern) or ilike(u.display_name, ^pattern))
+    |> where([u], is_nil(u.blocked_at))
     |> limit(20)
     |> Inkwell.Repo.all()
     |> Enum.map(fn u ->
-      %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url}
+      %{id: u.id, username: u.username, display_name: u.display_name,
+        avatar_url: u.avatar_url, bio: u.bio}
     end)
   end
 
@@ -267,13 +263,34 @@ defmodule InkwellWeb.SearchController do
     pattern = "%#{q}%"
 
     Inkwell.Journals.Entry
-    |> where([e], e.privacy == :public)
+    |> where([e], e.privacy == :public and e.status == :published)
     |> where([e], ilike(e.title, ^pattern) or ilike(e.body_html, ^pattern))
     |> order_by(desc: :published_at)
     |> limit(20)
+    |> preload(:user)
     |> Inkwell.Repo.all()
+    |> Enum.filter(fn e -> e.user != nil end)
     |> Enum.map(fn e ->
-      %{id: e.id, title: e.title, slug: e.slug, user_id: e.user_id, published_at: e.published_at}
+      %{
+        id: e.id,
+        title: e.title,
+        slug: e.slug,
+        user_id: e.user_id,
+        published_at: e.published_at,
+        excerpt: e.excerpt,
+        category: e.category,
+        tags: e.tags,
+        ink_count: e.ink_count,
+        cover_image_id: e.cover_image_id,
+        author: %{
+          username: e.user.username,
+          display_name: e.user.display_name,
+          avatar_url: e.user.avatar_url,
+          avatar_frame: e.user.avatar_frame,
+          subscription_tier: e.user.subscription_tier,
+          ink_donor_status: e.user.ink_donor_status
+        }
+      }
     end)
   end
 

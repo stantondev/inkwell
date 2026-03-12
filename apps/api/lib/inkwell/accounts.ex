@@ -34,12 +34,18 @@ defmodule Inkwell.Accounts do
     user
     |> User.profile_changeset(attrs)
     |> Repo.update()
+    |> tap_ok(&enqueue_search_index_user/1)
   end
 
   def update_username(%User{} = user, attrs) do
     user
     |> User.username_changeset(attrs)
     |> Repo.update()
+    |> tap_ok(fn updated ->
+      enqueue_search_index_user(updated)
+      # Re-index all user's entries (author_username changed)
+      enqueue_search_reindex_user_entries(updated.id)
+    end)
   end
 
   def username_available?(username) do
@@ -310,6 +316,10 @@ defmodule Inkwell.Accounts do
       end
     end
 
+    # Remove from Meilisearch before DB cascade deletes the entries
+    enqueue_search_delete_user(user.id)
+    enqueue_search_delete_user_entries(user.id)
+
     # DB cascading foreign keys handle all associated data
     Repo.delete(user)
   end
@@ -403,6 +413,8 @@ defmodule Inkwell.Accounts do
         # Revoke all auth tokens and API keys to force sign out
         Inkwell.Auth.revoke_all_user_tokens(user.id)
         Inkwell.ApiKeys.revoke_all_user_keys(user.id)
+        # Remove from search
+        enqueue_search_delete_user(user.id)
         {:ok, user}
       error -> error
     end
@@ -456,5 +468,37 @@ defmodule Inkwell.Accounts do
     |> order_by(desc: :inserted_at)
     |> limit(^limit)
     |> Repo.all()
+  end
+
+  # ── Search indexing helpers ───────────────────────────────────────────
+
+  defp tap_ok({:ok, record} = result, fun) do
+    fun.(record)
+    result
+  end
+  defp tap_ok(result, _fun), do: result
+
+  defp enqueue_search_index_user(%User{} = user) do
+    %{action: "index_user", user_id: user.id}
+    |> Inkwell.Workers.SearchIndexWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_search_delete_user(user_id) do
+    %{action: "delete_user", user_id: user_id}
+    |> Inkwell.Workers.SearchIndexWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_search_delete_user_entries(user_id) do
+    %{action: "delete_user_entries", user_id: user_id}
+    |> Inkwell.Workers.SearchIndexWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_search_reindex_user_entries(user_id) do
+    %{action: "reindex_user_entries", user_id: user_id}
+    |> Inkwell.Workers.SearchIndexWorker.new()
+    |> Oban.insert()
   end
 end
