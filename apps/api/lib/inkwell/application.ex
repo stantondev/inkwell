@@ -23,6 +23,9 @@ defmodule Inkwell.Application do
     opts = [strategy: :one_for_one, name: Inkwell.Supervisor]
     result = Supervisor.start_link(children, opts)
 
+    # Start IPv6-capable :httpc profile for Meilisearch (Fly.io internal networking)
+    Inkwell.Search.start_httpc_profile()
+
     # Set up Meilisearch indexes after Repo + Oban are started
     Task.start(fn -> Inkwell.Search.setup_indexes!() end)
 
