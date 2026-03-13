@@ -1330,6 +1330,14 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - If a needed FEP isn't in `/FEPs/`, ask the user to download it before proceeding
 - Stored FEPs: b2b8, 7888, 7458, 76ea, f228, 2931, c0e0, 521a, d556, 8fcf, 4ccd, f1d5, 67ff
 
+### vibefed Plugin (Fediverse Knowledge)
+- **Installed**: Claude Code plugin `vibefed@vibefed` (v0.0.1) by @reiver (reiver@mastodon.social)
+- Provides background knowledge on HTTP signatures, WebFinger, relays, group federation, JSON-LD, NodeInfo, and 28+ FEPs
+- Active commands: `/detect-webfinger`, `/detect-nodeinfo` (read-only codebase scanning)
+- **Our `/FEPs/` directory and CLAUDE.md remain authoritative** — vibefed is supplementary context
+- If vibefed suggests a pattern that conflicts with our working federation implementation, our code wins
+- To update: `cd ~/.claude/plugins/marketplaces/vibefed && git pull`
+
 ### Important patterns
 - Phoenix uses runtime.exs for all production config (env vars read at boot, not compile time)
 - CORS origins configured at runtime via custom plug (`InkwellWeb.Plugs.CORS`)
