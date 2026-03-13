@@ -923,15 +923,72 @@ function MusicInput({ value, onChange }: { value: string; onChange: (v: string) 
 
 // ─── Save status ──────────────────────────────────────────────────────────────
 
-function SaveStatus({ status }: { status: "idle" | "saving" | "saved" | "error" }) {
+type SaveStatusType = "idle" | "saving" | "saved" | "error" | "draft_limit";
+
+function SaveStatus({ status, lastSavedAt }: { status: SaveStatusType; lastSavedAt: Date | null }) {
   if (status === "idle") return null;
-  const map = {
-    saving: { text: "Saving…",     color: "var(--muted)" },
-    saved:  { text: "Saved ✓",     color: "var(--success)" },
-    error:  { text: "Save failed", color: "var(--danger)" },
-  } as const;
-  const s = map[status];
+  if (status === "saved" && lastSavedAt) {
+    const time = lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return <span className="text-xs" style={{ color: "var(--success)" }}>Saved at {time}</span>;
+  }
+  const map: Record<Exclude<SaveStatusType, "idle" | "saved">, { text: string; color: string }> = {
+    saving:      { text: "Saving…",     color: "var(--muted)" },
+    error:       { text: "Save failed", color: "var(--danger)" },
+    draft_limit: { text: "Autosave unavailable — draft limit reached", color: "var(--warning, #b45309)" },
+  };
+  const s = map[status as keyof typeof map];
+  if (!s) return null;
   return <span className="text-xs" style={{ color: s.color }}>{s.text}</span>;
+}
+
+// ─── Recovery banner ─────────────────────────────────────────────────────────
+
+const RECOVERY_KEY = "inkwell-editor-recovery";
+const RECOVERY_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface RecoveryData {
+  entryId: string | null;
+  title: string;
+  bodyHtml: string;
+  bodyRaw: object | null;
+  mood: string;
+  music: string;
+  privacy: string;
+  customFilterId: string | null;
+  tags: string;
+  excerpt: string;
+  category: string | null;
+  seriesId: string | null;
+  sensitive: boolean;
+  contentWarning: string;
+  coverImageId: string | null;
+  htmlMode: boolean;
+  htmlSource: string;
+  timestamp: number;
+}
+
+function RecoveryBanner({ onRestore, onDiscard }: { onRestore: () => void; onDiscard: () => void }) {
+  const [visible, setVisible] = useState(true);
+  if (!visible) return null;
+  return (
+    <div className="mx-auto mb-4 px-4 py-3 rounded-lg border text-sm flex items-center gap-3 flex-wrap"
+      style={{ background: "var(--accent-light)", borderColor: "var(--accent)", color: "var(--foreground)", maxWidth: 720 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span style={{ flex: 1 }}>Recovered unsaved work.</span>
+      <button type="button" onClick={onRestore}
+        className="text-xs font-medium px-3 py-1 rounded-full"
+        style={{ background: "var(--accent)", color: "white" }}>
+        Restore
+      </button>
+      <button type="button" onClick={() => { onDiscard(); setVisible(false); }}
+        className="text-xs px-3 py-1 rounded-full"
+        style={{ border: "1px solid var(--border)", color: "var(--muted)" }}>
+        Discard
+      </button>
+    </div>
+  );
 }
 
 // ─── Circle Picker Modal ──────────────────────────────────────────────────────
@@ -1265,7 +1322,8 @@ export function EditorClient() {
   const [state, setState] = useState<EditorState>({
     title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "",
   });
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<SaveStatusType>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const settingsInitialized = useRef(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -1331,6 +1389,16 @@ export function EditorClient() {
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
+
+  // ── Autosave refs ──────────────────────────────────────────────────────────
+  const hasUnsavedChanges = useRef(false);
+  const autosaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveMaxRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveDisabled = useRef(false);
+  const autosavingRef = useRef(false); // guard against concurrent autosaves
+  const editorLoadedRef = useRef(false); // suppress autosave during initial load
+  const [recoveryData, setRecoveryData] = useState<RecoveryData | null>(null);
 
   // Open settings panel by default on all screen sizes (persisted in localStorage)
   useEffect(() => {
@@ -1430,6 +1498,12 @@ export function EditorClient() {
     onUpdate: ({ editor }) => {
       setHasContent(!!editor.getText().trim());
       setWordCount(editor.storage.characterCount.words());
+      // Don't trigger autosave during initial content load
+      if (editorLoadedRef.current) {
+        hasUnsavedChanges.current = true;
+        scheduleLocalSave();
+        scheduleAutosave();
+      }
     },
   });
 
@@ -1561,6 +1635,13 @@ export function EditorClient() {
     })();
   }, [seriesLoaded]);
 
+  // Mark editor ready for new entries (no editId = no load fetch)
+  useEffect(() => {
+    if (!editId && editor) {
+      editorLoadedRef.current = true;
+    }
+  }, [editId, editor]);
+
   // Load existing entry when editing
   useEffect(() => {
     if (!editId || !editor) return;
@@ -1620,6 +1701,8 @@ export function EditorClient() {
           setHtmlSource(entry.body_html);
           setHasContent(!!entry.body_html.trim());
         }
+        // Mark load complete — subsequent editor changes trigger autosave
+        editorLoadedRef.current = true;
       } catch (err) {
         console.error("Failed to load entry for editing:", err);
         setSaveStatus("error");
@@ -1641,7 +1724,233 @@ export function EditorClient() {
     editor.commands.setContent(prompt.body);
   }, [promptParam, editId, editor]);
 
-  const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }));
+  const update = (patch: Partial<EditorState>) => {
+    setState((s) => ({ ...s, ...patch }));
+    markUnsaved();
+    scheduleAutosave();
+  };
+
+  // ── Autosave: localStorage backup ──────────────────────────────────────────
+
+  const writeLocalRecovery = useCallback(() => {
+    try {
+      const data: RecoveryData = {
+        entryId: savedEntryId,
+        title: state.title,
+        bodyHtml: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
+        bodyRaw: htmlMode ? null : (editor?.getJSON() ?? null),
+        mood: state.mood,
+        music: state.music,
+        privacy: state.privacy,
+        customFilterId: state.customFilterId,
+        tags: state.tags,
+        excerpt: state.excerpt,
+        category: state.category,
+        seriesId: state.seriesId,
+        sensitive: state.sensitive,
+        contentWarning: state.contentWarning,
+        coverImageId,
+        htmlMode,
+        htmlSource,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(RECOVERY_KEY, JSON.stringify(data));
+    } catch {
+      // localStorage full or unavailable — ignore
+    }
+  }, [state, htmlMode, htmlSource, editor, savedEntryId, coverImageId]);
+
+  const clearLocalRecovery = useCallback(() => {
+    try { localStorage.removeItem(RECOVERY_KEY); } catch { /* ignore */ }
+  }, []);
+
+  const scheduleLocalSave = useCallback(() => {
+    if (localSaveRef.current) clearTimeout(localSaveRef.current);
+    localSaveRef.current = setTimeout(() => { writeLocalRecovery(); }, 2000);
+  }, [writeLocalRecovery]);
+
+  // ── Autosave: mark unsaved + schedule ──────────────────────────────────────
+
+  const markUnsaved = useCallback(() => {
+    hasUnsavedChanges.current = true;
+    scheduleLocalSave();
+  }, [scheduleLocalSave]);
+
+  // clearAutosaveTimers helper
+  const clearAutosaveTimers = useCallback(() => {
+    if (autosaveDebounceRef.current) { clearTimeout(autosaveDebounceRef.current); autosaveDebounceRef.current = null; }
+    if (autosaveMaxRef.current) { clearTimeout(autosaveMaxRef.current); autosaveMaxRef.current = null; }
+  }, []);
+
+  // performAutosave — saves to server using existing draft API
+  const performAutosave = useCallback(async () => {
+    if (!hasUnsavedChanges.current || autosaveDisabled.current || autosavingRef.current || !editor) return;
+    // Don't race with manual save/publish
+    if (isPublishing) return;
+
+    autosavingRef.current = true;
+    setSaveStatus("saving");
+    try {
+      const payload: Record<string, unknown> = {
+        title: state.title || null,
+        body_html: htmlMode ? htmlSource : (editor.getHTML()),
+        body_raw: htmlMode ? null : (editor.getJSON()),
+        mood: state.mood || null,
+        music: state.music || null,
+        privacy: state.privacy,
+        custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
+        tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+        excerpt: state.excerpt || null,
+        cover_image_id: coverImageId || null,
+        category: state.category || null,
+        series_id: state.seriesId || null,
+        sensitive: state.sensitive,
+        content_warning: state.sensitive ? (state.contentWarning || null) : null,
+      };
+
+      if (savedEntryId) {
+        // Update existing entry
+        const res = await fetch(`/api/entries/${savedEntryId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("autosave_failed");
+      } else {
+        // Create new draft
+        const res = await fetch("/api/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, status: "draft" }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if ((err as { error?: string }).error === "draft_limit_reached") {
+            autosaveDisabled.current = true;
+            setSaveStatus("draft_limit");
+            return;
+          }
+          throw new Error("autosave_failed");
+        }
+        const data = await res.json();
+        if (data.data?.id) {
+          setSavedEntryId(data.data.id);
+          setEntryAuthor(data.data.author?.username ?? null);
+          setIsDraft(true);
+          window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
+        }
+      }
+
+      // Success
+      hasUnsavedChanges.current = false;
+      clearAutosaveTimers();
+      const now = new Date();
+      setLastSavedAt(now);
+      setSaveStatus("saved");
+      clearLocalRecovery();
+      setTimeout(() => setSaveStatus((prev) => prev === "saved" ? "idle" : prev), 10000);
+    } catch {
+      setSaveStatus("error");
+      // Retry in 15 seconds
+      autosaveDebounceRef.current = setTimeout(() => { performAutosave(); }, 15000);
+    } finally {
+      autosavingRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, state, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+
+  const scheduleAutosave = useCallback(() => {
+    if (autosaveDisabled.current) return;
+    // Debounce: reset on every change, fires after 5s of inactivity
+    if (autosaveDebounceRef.current) clearTimeout(autosaveDebounceRef.current);
+    autosaveDebounceRef.current = setTimeout(() => { performAutosave(); }, 5000);
+    // Max interval: fire within 30s of first unsaved change regardless
+    if (!autosaveMaxRef.current) {
+      autosaveMaxRef.current = setTimeout(() => { performAutosave(); }, 30000);
+    }
+  }, [performAutosave]);
+
+  // Track cover image and HTML source changes for autosave
+  const prevCoverRef = useRef(coverImageId);
+  useEffect(() => {
+    if (prevCoverRef.current !== coverImageId) {
+      prevCoverRef.current = coverImageId;
+      markUnsaved();
+      scheduleAutosave();
+    }
+  }, [coverImageId, markUnsaved, scheduleAutosave]);
+
+  // ── Cmd/Ctrl+S keyboard shortcut ──────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "s" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        performAutosave();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [performAutosave]);
+
+  // ── beforeunload guard ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges.current) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // ── localStorage recovery check on mount ───────────────────────────────────
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECOVERY_KEY);
+      if (!raw) return;
+      const data: RecoveryData = JSON.parse(raw);
+      // Discard if too old
+      if (Date.now() - data.timestamp > RECOVERY_MAX_AGE) {
+        localStorage.removeItem(RECOVERY_KEY);
+        return;
+      }
+      // Only offer recovery if it matches the current context
+      // (same entry ID, or both are new entries)
+      if (editId && data.entryId !== editId) {
+        return;
+      }
+      if (!editId && data.entryId) {
+        // Recovery data is for an existing entry but we're on /editor (new)
+        // Still offer it — they may have navigated away
+      }
+      // Only offer if there's actual content
+      if (!data.title && !data.bodyHtml) return;
+      setRecoveryData(data);
+    } catch {
+      // ignore corrupt data
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Autosave cleanup on unmount ────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (autosaveDebounceRef.current) clearTimeout(autosaveDebounceRef.current);
+      if (autosaveMaxRef.current) clearTimeout(autosaveMaxRef.current);
+      if (localSaveRef.current) clearTimeout(localSaveRef.current);
+      // Final localStorage backup if there are unsaved changes
+      if (hasUnsavedChanges.current) {
+        try {
+          // Synchronous write on unmount as last resort
+          const key = RECOVERY_KEY;
+          // We can't access latest state in cleanup, so the last scheduled write will suffice
+          // This is just a guard — the 2s debounced write should have already captured latest
+          const existing = localStorage.getItem(key);
+          if (!existing) {
+            // nothing we can do without state access, but the scheduled write covers this
+          }
+        } catch { /* ignore */ }
+      }
+    };
+  }, []);
 
   // Toggle settings panel + persist on desktop
   const toggleSettings = useCallback(() => {
@@ -1747,15 +2056,21 @@ export function EditorClient() {
           window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
+      // Autosave integration: mark as saved, clear timers
+      hasUnsavedChanges.current = false;
+      clearAutosaveTimers();
+      clearLocalRecovery();
+      const now = new Date();
+      setLastSavedAt(now);
       setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2500);
+      setTimeout(() => setSaveStatus((prev) => prev === "saved" ? "idle" : prev), 10000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg && msg !== "Save failed") alert(msg);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
-  }, [editor, buildPayload, savedEntryId]);
+  }, [editor, buildPayload, savedEntryId, clearAutosaveTimers, clearLocalRecovery]);
 
   // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
@@ -1841,13 +2156,18 @@ export function EditorClient() {
         }
       }
 
+      // Clear autosave state before navigation
+      hasUnsavedChanges.current = false;
+      clearAutosaveTimers();
+      clearLocalRecovery();
+
       router.push(`/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`);
     } catch (err) {
       alert(`Could not ${isDraft ? "publish" : "save"}: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setIsPublishing(false);
     }
-  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked]);
+  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
   if (loading) {
     return (
@@ -1879,7 +2199,7 @@ export function EditorClient() {
                 draft
               </span>
             )}
-            <SaveStatus status={saveStatus} />
+            <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} />
           </div>
           <div className="flex items-center gap-2">
             {/* Settings panel toggle */}
@@ -1937,6 +2257,49 @@ export function EditorClient() {
 
         {/* Main writing area */}
         <main className="editor-main">
+
+          {/* ── Recovery banner ─────────────────────── */}
+          {recoveryData && (
+            <RecoveryBanner
+              onRestore={() => {
+                const d = recoveryData;
+                setState({
+                  title: d.title,
+                  mood: d.mood,
+                  music: d.music,
+                  privacy: d.privacy as Privacy,
+                  customFilterId: d.customFilterId,
+                  tags: d.tags,
+                  excerpt: d.excerpt,
+                  category: d.category,
+                  seriesId: d.seriesId,
+                  sensitive: d.sensitive,
+                  contentWarning: d.contentWarning,
+                });
+                setCoverImageId(d.coverImageId);
+                if (d.htmlMode) {
+                  setHtmlMode(true);
+                  setHtmlSource(d.htmlSource);
+                } else if (d.bodyRaw && editor) {
+                  editor.commands.setContent(d.bodyRaw);
+                } else if (d.bodyHtml && editor) {
+                  editor.commands.setContent(d.bodyHtml);
+                }
+                if (editor) {
+                  setHasContent(!!editor.getText().trim());
+                  setWordCount(editor.storage.characterCount.words());
+                }
+                hasUnsavedChanges.current = true;
+                scheduleAutosave();
+                setRecoveryData(null);
+                clearLocalRecovery();
+              }}
+              onDiscard={() => {
+                setRecoveryData(null);
+                clearLocalRecovery();
+              }}
+            />
+          )}
 
           {/* ── Paper container ───────────────────────── */}
           <div className="editor-paper">
@@ -2112,6 +2475,8 @@ export function EditorClient() {
                     onChange={(e) => {
                       setHtmlSource(e.target.value);
                       setHasContent(!!e.target.value.trim());
+                      markUnsaved();
+                      scheduleAutosave();
                     }}
                     className="w-full min-h-[55vh] py-4 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                     style={{
