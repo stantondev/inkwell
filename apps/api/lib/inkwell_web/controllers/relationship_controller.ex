@@ -273,6 +273,20 @@ defmodule InkwellWeb.RelationshipController do
     }
   end
 
+  # GET /api/fediverse-connections — unified fediverse connections with relationship status
+  def fediverse_connections(conn, _params) do
+    user = conn.assigns.current_user
+    connections = Social.list_fediverse_connections(user.id)
+
+    json(conn, %{
+      data:
+        Enum.map(connections, fn {actor, relationship} ->
+          render_remote_actor(actor)
+          |> Map.put(:relationship, relationship)
+        end)
+    })
+  end
+
   # GET /api/blocked-users
   def blocked_users(conn, _params) do
     user = conn.assigns.current_user

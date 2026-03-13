@@ -5,13 +5,23 @@ import { useState } from "react";
 export function FediverseFollowBackButton({
   apId,
   isFollowingBack,
+  initialRelationship,
 }: {
   apId: string;
-  isFollowingBack: boolean;
+  isFollowingBack?: boolean;
+  initialRelationship?: string;
 }) {
+  // Derive initial state from relationship or legacy isFollowingBack
+  const getInitialState = () => {
+    if (initialRelationship === "mutual") return "mutual";
+    if (initialRelationship === "follower_following_pending") return "pending";
+    if (isFollowingBack) return "following";
+    return "idle";
+  };
+
   const [state, setState] = useState<
-    "idle" | "loading" | "pending" | "following"
-  >(isFollowingBack ? "following" : "idle");
+    "idle" | "loading" | "pending" | "following" | "mutual"
+  >(getInitialState);
 
   async function handleFollow(e: React.MouseEvent) {
     e.preventDefault();
@@ -26,11 +36,12 @@ export function FediverseFollowBackButton({
       if (res.ok) {
         const data = await res.json();
         if (data.data?.already_following) {
-          setState("following");
+          // Already following + they follow us = mutual
+          setState("mutual");
+        } else if (data.data?.status === "accepted") {
+          setState("mutual");
         } else {
-          setState(
-            data.data?.status === "accepted" ? "following" : "pending"
-          );
+          setState("pending");
         }
       } else {
         setState("idle");
@@ -40,6 +51,16 @@ export function FediverseFollowBackButton({
     }
   }
 
+  if (state === "mutual") {
+    return (
+      <span
+        className="text-xs px-3 py-1 rounded-full font-medium flex-shrink-0"
+        style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+      >
+        Pen Pals
+      </span>
+    );
+  }
   if (state === "following") {
     return (
       <span

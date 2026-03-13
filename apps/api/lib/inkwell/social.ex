@@ -330,6 +330,81 @@ defmodule Inkwell.Social do
     |> Repo.aggregate(:count)
   end
 
+  @doc """
+  Returns a unified list of fediverse connections with relationship status.
+  Each connection is a remote actor with a computed `relationship` field:
+  - "mutual" — they follow you AND you follow them (both accepted)
+  - "follower" — they follow you but you don't follow them back
+  - "following" — you follow them (accepted)
+  - "following_pending" — you follow them (pending)
+  """
+  def list_fediverse_connections(user_id) do
+    # Get all relationships involving remote actors for this user
+    inbound_query =
+      Relationship
+      |> where([r], r.following_id == ^user_id and not is_nil(r.remote_actor_id) and r.status == :accepted)
+      |> select([r], %{remote_actor_id: r.remote_actor_id, direction: "inbound", status: r.status})
+
+    outbound_query =
+      Relationship
+      |> where([r], r.follower_id == ^user_id and not is_nil(r.remote_actor_id) and r.status in [:pending, :accepted])
+      |> select([r], %{remote_actor_id: r.remote_actor_id, direction: "outbound", status: r.status})
+
+    inbound = Repo.all(inbound_query)
+    outbound = Repo.all(outbound_query)
+
+    # Collect all unique remote_actor_ids
+    all_actor_ids =
+      (Enum.map(inbound, & &1.remote_actor_id) ++ Enum.map(outbound, & &1.remote_actor_id))
+      |> Enum.uniq()
+
+    # Fetch all remote actors in one query
+    actors =
+      RemoteActorSchema
+      |> where([ra], ra.id in ^all_actor_ids)
+      |> Repo.all()
+      |> Map.new(fn a -> {a.id, a} end)
+
+    # Build lookup maps
+    inbound_set = MapSet.new(Enum.map(inbound, & &1.remote_actor_id))
+
+    outbound_map =
+      Map.new(outbound, fn r -> {r.remote_actor_id, r.status} end)
+
+    # Compute relationship for each actor
+    all_actor_ids
+    |> Enum.map(fn actor_id ->
+      actor = Map.get(actors, actor_id)
+      is_follower = MapSet.member?(inbound_set, actor_id)
+      outbound_status = Map.get(outbound_map, actor_id)
+
+      relationship =
+        cond do
+          is_follower && outbound_status == :accepted -> "mutual"
+          is_follower && outbound_status == :pending -> "follower_following_pending"
+          is_follower -> "follower"
+          outbound_status == :accepted -> "following"
+          outbound_status == :pending -> "following_pending"
+          true -> "unknown"
+        end
+
+      {actor, relationship}
+    end)
+    |> Enum.reject(fn {actor, _} -> is_nil(actor) end)
+    |> Enum.sort_by(fn {actor, rel} ->
+      # Sort: mutual first, then followers (actionable), then following
+      priority = case rel do
+        "mutual" -> 0
+        "follower" -> 1
+        "follower_following_pending" -> 1
+        "following" -> 2
+        "following_pending" -> 2
+        _ -> 3
+      end
+      {priority, String.downcase(actor.display_name || actor.username || "")}
+    end)
+  end
+
   def is_friend?(user_id, other_id) do
     Relationship
     |> where([r], r.follower_id == ^user_id and r.following_id == ^other_id and r.status == :accepted)

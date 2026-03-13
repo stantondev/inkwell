@@ -245,6 +245,7 @@ defmodule InkwellWeb.Router do
     get "/blocked-users", RelationshipController, :blocked_users
     get "/fediverse-followers", RelationshipController, :fediverse_followers
     get "/fediverse-following", RelationshipController, :fediverse_following
+    get "/fediverse-connections", RelationshipController, :fediverse_connections
 
     # Username
     patch "/me/username", UserController, :update_username
