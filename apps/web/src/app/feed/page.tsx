@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
+import { PushPrompt } from "@/components/push-prompt";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
@@ -364,6 +365,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
           Journal entries from your pen pals
         </p>
       </div>
+
+      {/* Push notification prompt — shown once, dismissible */}
+      <PushPrompt />
 
       {/* Education card — shown once, dismissible */}
       <div className="mx-auto max-w-7xl px-4">

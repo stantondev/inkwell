@@ -376,8 +376,36 @@ defmodule Inkwell.Letters do
     end
   end
 
-  defp maybe_notify_recipient(_conv, _message, _sender_id, _recipient_id) do
-    # Letter indicator badge in nav is sufficient — no separate notification needed
+  defp maybe_notify_recipient(_conv, message, sender_id, recipient_id) do
+    # Don't create a database notification — the unread letter badge handles in-app state.
+    # But DO send a web push notification so users get alerted when not on the site.
+    if Inkwell.Push.configured?() do
+      try do
+        recipient = Repo.get(Inkwell.Accounts.User, recipient_id)
+        push_disabled = match?(%{settings: %{"push_notifications_disabled" => true}}, recipient)
+
+        unless push_disabled do
+          sender = Repo.get(Inkwell.Accounts.User, sender_id)
+          actor_name = (sender && (sender.display_name || sender.username)) || "Someone"
+
+          payload = %{
+            title: "New letter",
+            body: "#{actor_name} sent you a letter",
+            icon: "/favicon.svg",
+            badge: "/favicon.svg",
+            tag: "inkwell-letter-#{message.id}",
+            data: %{url: "/letters"}
+          }
+
+          Inkwell.Push.deliver(recipient_id, payload)
+        end
+      rescue
+        e ->
+          require Logger
+          Logger.warning("[Push] Failed to send letter push: #{inspect(e)}")
+      end
+    end
+
     :ok
   end
 end
