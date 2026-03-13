@@ -227,6 +227,9 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "outbox" => "#{actor_url}/outbox",
       "followers" => "#{actor_url}/followers",
       "following" => "#{actor_url}/following",
+      "endpoints" => %{
+        "sharedInbox" => "#{frontend_host}/inbox"
+      },
       "publicKey" => %{
         "id" => "#{actor_url}#main-key",
         "owner" => actor_url,

@@ -300,12 +300,18 @@ defmodule InkwellWeb.CommentController do
             # Override addressing for broadcast to followers (not a reply to a specific remote actor)
             actor_url = activity["actor"]
             followers_url = "#{actor_url}/followers"
-            activity = put_in(activity, ["to"], ["https://www.w3.org/ns/activitystreams#Public"])
-            activity = put_in(activity, ["cc"], [followers_url])
-            activity = put_in(activity["object"], ["to"], ["https://www.w3.org/ns/activitystreams#Public"])
-            activity = put_in(activity["object"], ["cc"], [followers_url])
-            # Remove the Mention tag since there's no specific remote actor to mention
-            activity = put_in(activity["object"], ["tag"], [])
+            public = "https://www.w3.org/ns/activitystreams#Public"
+
+            activity =
+              activity
+              |> Map.put("to", [public])
+              |> Map.put("cc", [followers_url])
+              |> Map.update("object", %{}, fn obj ->
+                obj
+                |> Map.put("to", [public])
+                |> Map.put("cc", [followers_url])
+                |> Map.put("tag", [])
+              end)
 
             Logger.info("Federating comment #{comment.id} to #{length(inboxes)} inboxes")
 
