@@ -140,7 +140,7 @@ export function PenPalsClient({
               <button
                 key={tab.value}
                 onClick={() => setActiveSource(tab.value)}
-                className="text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap"
+                className="text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap flex items-center gap-1"
                 style={isActive ? {
                   borderColor: isFediverse ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
                   background: isFediverse ? "rgba(86,158,133,0.1)" : "var(--accent-light)",
@@ -152,7 +152,6 @@ export function PenPalsClient({
                 }}
               >
                 {isFediverse && <GlobeIcon size={10} />}
-                {isFediverse && " "}
                 {tab.label}
                 {tab.count > 0 && (
                   <span className="ml-1 opacity-70">{tab.count}</span>
