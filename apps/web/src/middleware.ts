@@ -94,9 +94,14 @@ export async function middleware(request: NextRequest) {
     // Rewrite: / → /[username] (profile page)
     // Rewrite: /some-slug → /[username]/some-slug (entry page)
     // Rewrite: /subscribe → /[username]/subscribe
+    // If pathname already starts with /[username]/, pass through as-is
+    // (links on profile pages are absolute like /username/slug)
     const url = request.nextUrl.clone();
     if (pathname === "/" || pathname === "") {
       url.pathname = `/${username}`;
+    } else if (pathname === `/${username}` || pathname.startsWith(`/${username}/`)) {
+      // Already has the username prefix — don't double it
+      url.pathname = pathname;
     } else {
       url.pathname = `/${username}${pathname}`;
     }
