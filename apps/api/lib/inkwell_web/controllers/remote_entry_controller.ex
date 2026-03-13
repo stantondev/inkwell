@@ -207,7 +207,8 @@ defmodule InkwellWeb.RemoteEntryController do
         comment.body_html,
         remote_entry.ap_id,
         user,
-        comment.id
+        comment.id,
+        actor.ap_id
       )
       inbox = actor.shared_inbox || actor.inbox
 

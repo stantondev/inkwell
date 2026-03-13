@@ -1325,6 +1325,11 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - **Never modify `next.config.ts`** to "fix" dev server issues without asking the user first.
 - **Turbopack SST warnings** ("Persisting failed") are usually non-fatal. Check if pages actually return 200 before panicking.
 
+### FEP Reference Policy
+- All FEP documents are stored in `/FEPs/` — always reference local files, never web search
+- If a needed FEP isn't in `/FEPs/`, ask the user to download it before proceeding
+- Stored FEPs: b2b8, 7888, 7458, 76ea, f228, 2931, c0e0, 521a, d556, 8fcf, 4ccd, f1d5, 67ff
+
 ### Important patterns
 - Phoenix uses runtime.exs for all production config (env vars read at boot, not compile time)
 - CORS origins configured at runtime via custom plug (`InkwellWeb.Plugs.CORS`)

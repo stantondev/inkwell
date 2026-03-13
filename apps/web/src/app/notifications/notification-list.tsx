@@ -984,9 +984,10 @@ export function NotificationList({
                   const actor = getActorInfo(n);
                   const entryHref = getEntryHref(n);
                   const isClickable = !!getNotificationHref(n);
-                  // Only show accept/reject for UNREAD follow requests
+                  // Show accept/reject for follow requests (even if read —
+                  // auto-mark-read setting shouldn't hide action buttons)
                   const isPendingFollowRequest =
-                    n.type === "follow_request" && !!n.actor && !n.read;
+                    n.type === "follow_request" && !!n.actor;
 
                   return (
                     <div

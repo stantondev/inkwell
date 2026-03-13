@@ -560,10 +560,15 @@ defmodule InkwellWeb.FederationController do
           [_, username] ->
             case {Accounts.get_user_by_username(username), RemoteActor.get_by_ap_id(remote_actor_uri)} do
               {%{id: user_id}, %{id: remote_actor_id}} ->
-                # Update the relationship from pending to accepted
+                # Update the outbound relationship from pending to accepted + mutual
                 Inkwell.Social.Relationship
                 |> where([r], r.follower_id == ^user_id and r.remote_actor_id == ^remote_actor_id)
-                |> Repo.update_all(set: [status: :accepted, updated_at: DateTime.utc_now()])
+                |> Repo.update_all(set: [status: :accepted, is_mutual: true, updated_at: DateTime.utc_now()])
+
+                # Also mark the inbound relationship (them → us) as mutual
+                Inkwell.Social.Relationship
+                |> where([r], r.remote_actor_id == ^remote_actor_id and r.following_id == ^user_id and r.status == :accepted)
+                |> Repo.update_all(set: [is_mutual: true, updated_at: DateTime.utc_now()])
 
                 # Backfill the remote actor's recent posts
                 %{remote_actor_id: remote_actor_id}
@@ -646,17 +651,11 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp handle_incoming_reply(note, actor_uri) do
-    # Only accept public comments — respect ActivityPub visibility scopes
-    to = note["to"] || []
-    cc = note["cc"] || []
-    public_uri = "https://www.w3.org/ns/activitystreams#Public"
-    is_public = public_uri in to || public_uri in cc
-
-    if not is_public do
-      Logger.debug("Ignoring non-public federated comment from #{actor_uri}")
-    else
-      handle_incoming_reply_public(note, actor_uri)
-    end
+    # Accept all replies to known local entries regardless of visibility scope.
+    # Many Mastodon replies are "unlisted" (addressed to author + followers, no Public URI).
+    # Per FEP-7458: inReplyTo indicates the relationship — if they're replying
+    # to our content, we should accept it.
+    handle_incoming_reply_public(note, actor_uri)
   end
 
   defp handle_incoming_reply_public(note, actor_uri) do

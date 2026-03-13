@@ -377,11 +377,20 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds a Create { Note } activity as a reply to a remote entry.
+  Includes proper `to`/`cc` addressing and Mention tags so the reply
+  appears in the remote author's thread and triggers a notification.
   """
-  def build_reply_note(body_html, in_reply_to_ap_id, user, comment_id) do
+  def build_reply_note(body_html, in_reply_to_ap_id, user, comment_id, remote_author_ap_id) do
     actor_url = actor_url(user)
     instance_host = federation_config(:instance_host)
     comment_url = "https://#{instance_host}/comments/#{comment_id}"
+    followers_url = "#{actor_url}/followers"
+
+    mention_tag = %{
+      "type" => "Mention",
+      "href" => remote_author_ap_id,
+      "name" => extract_mention_name(remote_author_ap_id)
+    }
 
     %{
       "@context" => ap_context(),
@@ -389,8 +398,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "id" => "#{comment_url}/activity",
       "actor" => actor_url,
       "published" => format_datetime(DateTime.utc_now()),
-      "to" => [@public],
-      "cc" => ["#{actor_url}/followers"],
+      "to" => [remote_author_ap_id],
+      "cc" => [@public, followers_url],
       "object" => %{
         "type" => "Note",
         "id" => comment_url,
@@ -398,10 +407,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
         "content" => body_html,
         "inReplyTo" => in_reply_to_ap_id,
         "published" => format_datetime(DateTime.utc_now()),
-        "to" => [@public],
-        "cc" => ["#{actor_url}/followers"]
+        "to" => [remote_author_ap_id],
+        "cc" => [@public, followers_url],
+        "tag" => [mention_tag]
       }
     }
+  end
+
+  @doc """
+  Derives `@user@domain` mention name from an AP actor URL.
+  e.g. "https://mastodon.social/users/strypey" → "@strypey@mastodon.social"
+  """
+  def extract_mention_name(ap_url) do
+    uri = URI.parse(ap_url)
+    username = ap_url |> String.split("/") |> List.last()
+    "@#{username}@#{uri.host}"
   end
 
   # ── URL Helpers ──────────────────────────────────────────────────────────
