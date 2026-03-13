@@ -61,8 +61,8 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
 
       {:ok, {status, _}} ->
         Logger.warning("RelayContentWorker: HTTP #{status} fetching #{object_uri}")
-        # Retry on 5xx, discard on 4xx
-        if status >= 500, do: {:error, "HTTP #{status}"}, else: :ok
+        # Retry on 5xx and 429 (rate limited), discard on other 4xx (permanent failures)
+        if status >= 500 || status == 429, do: {:error, "HTTP #{status}"}, else: :ok
 
       {:error, reason} ->
         Logger.warning("RelayContentWorker: failed to fetch #{object_uri}: #{inspect(reason)}")
@@ -221,7 +221,8 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
         Logger.debug("RelayContentWorker: skipping mojibake content")
         false
 
-      # Articles and Pages bypass word count — they're long-form by definition
+      # Articles and Pages bypass word count and link-only checks — they're long-form by definition
+      # but bot and mojibake checks above still apply
       object["type"] in ~w[Article Page] ->
         true
 

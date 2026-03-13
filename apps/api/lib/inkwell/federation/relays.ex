@@ -55,12 +55,8 @@ defmodule Inkwell.Federation.Relays do
             :ok
         end
 
-        # Delete associated relay remote entries
-        from(re in Inkwell.Federation.RemoteEntry,
-          where: re.relay_subscription_id == ^subscription.id
-        )
-        |> Repo.delete_all()
-
+        # FK cascade (on_delete: :delete_all) automatically deletes
+        # associated remote entries when the subscription is deleted
         Repo.delete(subscription)
     end
   end
