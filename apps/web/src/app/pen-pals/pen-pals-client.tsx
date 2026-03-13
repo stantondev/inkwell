@@ -109,9 +109,22 @@ export function PenPalsClient({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold">Pen Pals</h1>
-          <Link href="/search" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-            Find people →
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/settings/top-friends"
+              className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:opacity-80"
+              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+            >
+              Top 6 Pen Pals
+            </Link>
+            <Link
+              href="/search"
+              className="text-xs px-3 py-1.5 rounded-full transition-colors hover:opacity-80"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              Find people
+            </Link>
+          </div>
         </div>
 
         {/* Source filter tabs */}
@@ -127,7 +140,7 @@ export function PenPalsClient({
               <button
                 key={tab.value}
                 onClick={() => setActiveSource(tab.value)}
-                className="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                className="text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap"
                 style={isActive ? {
                   borderColor: isFediverse ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
                   background: isFediverse ? "rgba(86,158,133,0.1)" : "var(--accent-light)",
@@ -375,14 +388,6 @@ export function PenPalsClient({
           </div>
         )}
 
-        {/* Management links */}
-        <div className="rounded-xl border p-4 flex items-center justify-between"
-          style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <span className="text-sm" style={{ color: "var(--muted)" }}>Manage your Top 6 Pen Pals</span>
-          <Link href="/settings/top-friends" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-            Edit Top 6 →
-          </Link>
-        </div>
       </div>
     </div>
   );
