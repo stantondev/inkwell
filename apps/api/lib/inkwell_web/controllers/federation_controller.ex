@@ -144,6 +144,26 @@ defmodule InkwellWeb.FederationController do
   def nodeinfo_schema(conn, _params) do
     user_count = Repo.aggregate(Inkwell.Accounts.User, :count)
     post_count = Repo.aggregate(Inkwell.Journals.Entry, :count)
+    comment_count = Repo.aggregate(Inkwell.Journals.Comment, :count)
+
+    now = DateTime.utc_now()
+    six_months_ago = DateTime.add(now, -180, :day)
+    one_month_ago = DateTime.add(now, -30, :day)
+
+    # Active users = distinct authors who published entries in the period
+    active_halfyear =
+      from(e in Inkwell.Journals.Entry,
+        where: e.status == :published and e.inserted_at >= ^six_months_ago,
+        select: count(e.user_id, :distinct)
+      )
+      |> Repo.one()
+
+    active_month =
+      from(e in Inkwell.Journals.Entry,
+        where: e.status == :published and e.inserted_at >= ^one_month_ago,
+        select: count(e.user_id, :distinct)
+      )
+      |> Repo.one()
 
     conn
     |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.1\"")
@@ -151,14 +171,22 @@ defmodule InkwellWeb.FederationController do
       version: "2.1",
       software: %{
         name: "inkwell",
-        version: "0.1.0"
+        version: "0.1.0",
+        repository: "https://github.com/stantondev/inkwell",
+        homepage: "https://inkwell.social"
       },
       protocols: ["activitypub"],
       usage: %{
-        users: %{total: user_count},
-        localPosts: post_count
+        users: %{
+          total: user_count,
+          activeHalfyear: active_halfyear,
+          activeMonth: active_month
+        },
+        localPosts: post_count,
+        localComments: comment_count
       },
-      openRegistrations: true
+      openRegistrations: true,
+      metadata: %{}
     })
   end
 
