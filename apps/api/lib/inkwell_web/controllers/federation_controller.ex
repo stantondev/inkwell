@@ -1042,17 +1042,25 @@ defmodule InkwellWeb.FederationController do
 
   # ── Entry lookup helper ──────────────────────────────────────────────────
 
-  # Find an entry by AP URL, handling both legacy (inkwell.social) and current
-  # (inkwell-api.fly.dev) domains. Also handles the /entries/{uuid} path pattern.
+  # Find an entry by AP URL, handling multiple URL patterns:
+  # 1. Direct ap_id match (e.g. https://inkwell-api.fly.dev/entries/{uuid})
+  # 2. /entries/{uuid} path pattern
+  # 3. Slug-based URLs (e.g. https://inkwell.social/username/slug) — this is what
+  #    Mastodon uses for inReplyTo when replying to entries it discovered via slug URL
   defp find_entry_by_ap_url(url) when is_binary(url) do
-    # First: try direct ap_id match (legacy domain)
+    # First: try direct ap_id match
     case Repo.get_by(Inkwell.Journals.Entry, ap_id: url) do
       nil ->
         # Try extracting the entry UUID from the URL path
         # Pattern: https://host/entries/{uuid}
         case Regex.run(~r|/entries/([0-9a-f-]{36})|, url) do
-          [_, id] -> Repo.get(Inkwell.Journals.Entry, id)
-          _ -> nil
+          [_, id] ->
+            Repo.get(Inkwell.Journals.Entry, id)
+
+          _ ->
+            # Try slug-based URL pattern: https://host/username/slug
+            # Mastodon stores the Article's `url` field as inReplyTo
+            find_entry_by_slug_url(url)
         end
 
       entry ->
@@ -1061,6 +1069,28 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp find_entry_by_ap_url(_), do: nil
+
+  # Match slug URLs like https://inkwell.social/username/slug
+  # The path has exactly 2 segments: /{username}/{slug}
+  defp find_entry_by_slug_url(url) do
+    uri = URI.parse(url)
+
+    case uri.path do
+      nil -> nil
+      path ->
+        segments = path |> String.trim_leading("/") |> String.split("/")
+
+        case segments do
+          [username, slug] when username != "" and slug != "" ->
+            case Accounts.get_user_by_username(username) do
+              nil -> nil
+              user -> Journals.get_entry_by_slug(user.id, slug)
+            end
+
+          _ -> nil
+        end
+    end
+  end
 
   # ── Config helper ───────────────────────────────────────────────────────
 

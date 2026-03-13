@@ -4,7 +4,10 @@ defmodule InkwellWeb.CommentController do
   alias Inkwell.{Accounts, Journals, Social}
   alias Inkwell.Repo
   alias Inkwell.Journals.Comment
+  alias Inkwell.Federation.{ActivityBuilder, Workers.DeliverActivityWorker}
   alias InkwellWeb.Helpers.MentionHelper
+
+  require Logger
 
   # GET /api/users/:username/entries/:slug/comments
   def index(conn, %{"username" => username, "slug" => slug}) do
@@ -139,6 +142,9 @@ defmodule InkwellWeb.CommentController do
                 })
               end
 
+              # Fan out comment to fediverse followers of the entry author
+              maybe_federate_comment(entry, comment, user)
+
               conn |> put_status(:created) |> json(%{data: render_comment(comment)})
 
             {:error, changeset} ->
@@ -264,5 +270,57 @@ defmodule InkwellWeb.CommentController do
     end
   end
   defp parse_int(val, _) when is_integer(val), do: val
+
+  # ── Federation: fan out local comments to fediverse ──────────────────────
+
+  # When a user comments on a public local entry, deliver the comment as a
+  # Create{Note} with inReplyTo to all fediverse followers of the entry author.
+  # This makes Inkwell comments appear in Mastodon threads.
+  defp maybe_federate_comment(entry, comment, user) do
+    # Only federate comments on public entries (fediverse can't see private content)
+    if entry.privacy == :public do
+      Task.start(fn ->
+        try do
+          entry_author = Accounts.get_user!(entry.user_id)
+          inboxes = Inkwell.Federation.Workers.FanOutWorker.collect_remote_inboxes(entry_author.id)
+
+          if inboxes != [] do
+            # Build a Create{Note} reply activity
+            # The inReplyTo should be the entry's AP ID so Mastodon threads it correctly
+            activity = ActivityBuilder.build_reply_note(
+              comment.body_html,
+              entry.ap_id,
+              user,
+              comment.id,
+              # For local entries, address to Public (no single remote author to mention)
+              # We override the to/cc below for broadcast
+              "https://www.w3.org/ns/activitystreams#Public"
+            )
+
+            # Override addressing for broadcast to followers (not a reply to a specific remote actor)
+            actor_url = activity["actor"]
+            followers_url = "#{actor_url}/followers"
+            activity = put_in(activity, ["to"], ["https://www.w3.org/ns/activitystreams#Public"])
+            activity = put_in(activity, ["cc"], [followers_url])
+            activity = put_in(activity["object"], ["to"], ["https://www.w3.org/ns/activitystreams#Public"])
+            activity = put_in(activity["object"], ["cc"], [followers_url])
+            # Remove the Mention tag since there's no specific remote actor to mention
+            activity = put_in(activity["object"], ["tag"], [])
+
+            Logger.info("Federating comment #{comment.id} to #{length(inboxes)} inboxes")
+
+            Enum.each(inboxes, fn inbox_url ->
+              %{activity: activity, inbox_url: inbox_url, user_id: user.id}
+              |> DeliverActivityWorker.new()
+              |> Oban.insert()
+            end)
+          end
+        rescue
+          e ->
+            Logger.warning("Failed to federate comment #{comment.id}: #{inspect(e)}")
+        end
+      end)
+    end
+  end
 
 end
