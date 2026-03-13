@@ -264,20 +264,31 @@ Accepted domains: `inkwell.social`, `api.inkwell.social`, `inkwell-api.fly.dev`.
 
 ## HTTP Signatures
 
-**Algorithm**: `rsa-sha256` (Cavage draft)
+**Algorithm**: `hs2019` (forward-compatible; actual algorithm is RSA-SHA256 / RSASSA-PKCS1-v1_5 with SHA-256)
 
-**Outbound signing**:
-- Headers signed: `(request-target)`, `host`, `date`, `digest`
-- Digest: SHA-256 of the request body, Base64-encoded
+**Outbound POST signing** (inbox delivery):
+- Signed headers: `(request-target)`, `host`, `date`, `digest`, `content-type`
+- Digest: `SHA-256=` + Base64 of SHA-256 hash of the request body
+- Standard Base64 with padding (not URL-safe)
 - Key ID format: `{actor_url}#main-key`
 
+**Outbound GET signing** (authorized fetch):
+- Signed headers: `(request-target)`, `host`, `date`, `accept`
+- Signed with the instance actor's key (reserved username `"relay"`)
+- Enables fetching from GoToSocial (always requires signed GETs) and Mastodon secure mode
+
 **Inbound verification**:
-1. Parse `Signature` header to extract `keyId`, `headers`, `signature`
-2. Derive actor URI from `keyId` (strip `#` fragment)
+1. Parse `Signature` header to extract `keyId`, `headers`, `algorithm`, `signature`
+2. Resolve actor URI from `keyId`:
+   - **Fragment URI** (Mastodon style, e.g. `…/users/alice#main-key`): strip fragment
+   - **Path URI** (GoToSocial style, e.g. `…/users/alice/main-key`): fetch the key URL; if the response is a `Key`/`CryptographicKey` document with an `owner` property, follow it to the actor
 3. Fetch remote actor document (cached 24 hours)
 4. Extract `publicKeyPem` from actor's `publicKey` object
-5. Reconstruct signing string from the headers listed in the signature
-6. Verify via RSA public key
+5. **Date skew check**: reject if `Date` header is more than ±12 hours from server time (replay prevention). Missing `Date` headers are allowed (some implementations use `(created)` instead)
+6. **Digest validation** (CVE-2023-49079 prevention): if `digest` is in the signed headers, compute SHA-256 of the actual request body and compare using constant-time comparison (`Plug.Crypto.secure_compare`). Reject on mismatch
+7. Reconstruct signing string from the headers listed in the signature
+8. Verify the cryptographic signature against the public key
+9. **Key rotation retry**: on signature failure, re-fetch the actor document (bypassing cache) and retry verification once. This handles key rotation without breaking federation
 
 **Hard reject**: All inbound inbox activities without a valid signature are rejected with `401 Unauthorized`. There is no permissive/soft-fail mode.
 
@@ -349,6 +360,8 @@ Inkwell periodically verifies that remote (fediverse) entries still exist at the
 - **Follow auto-accept**: All Follow requests are automatically accepted. There is no manual approval / locked account mode.
 - **Client-to-Server**: Not implemented. Inkwell uses a custom REST API for client interactions, not the ActivityPub C2S protocol.
 - **Sensitive content summary conflict**: When an entry is sensitive, the `summary` field contains the content warning text (Mastodon convention). When an entry is not sensitive, `summary` contains the excerpt (FEP-b2b8 convention). Consumers should check the `sensitive` flag to determine which interpretation applies.
+- **GoToSocial keyId format**: Inkwell handles both fragment-style (`…#main-key`) and path-style (`…/main-key`) key IDs. Path-style keyIds are fetched directly and the `owner` property is followed to resolve the actor.
+- **Authorized fetch**: Outbound GET requests (actor/object fetches) are signed with the instance actor's key, compatible with GoToSocial and Mastodon secure mode. Falls back to unsigned GETs if no instance actor exists yet.
 
 ---
 

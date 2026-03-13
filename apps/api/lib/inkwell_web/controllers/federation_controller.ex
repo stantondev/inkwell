@@ -359,6 +359,12 @@ defmodule InkwellWeb.FederationController do
 
   # Verifies the HTTP Signature on inbound ActivityPub requests.
   # Returns :ok on success, {:error, reason} on failure (hard reject).
+  #
+  # Handles two keyId formats:
+  #   - Fragment URI (Mastodon): "https://example.com/users/alice#main-key"
+  #   - Path URI (GoToSocial):  "https://example.com/users/alice/main-key"
+  #
+  # On signature failure, retries once with a fresh actor fetch (key rotation).
   defp verify_inbox_signature(conn) do
     case HttpSignature.parse_signature(conn) do
       {:error, :no_signature} ->
@@ -371,8 +377,7 @@ defmodule InkwellWeb.FederationController do
 
       {:ok, sig_parts} ->
         key_id = sig_parts["keyId"] || ""
-        # Derive actor URI by stripping the key fragment (e.g. #main-key)
-        actor_uri = Regex.replace(~r/#.*$/, key_id, "")
+        actor_uri = resolve_actor_uri_from_key_id(key_id)
 
         case RemoteActor.fetch(actor_uri) do
           {:ok, actor} ->
@@ -381,15 +386,73 @@ defmodule InkwellWeb.FederationController do
                 Logger.debug("Inbox: signature verified for #{actor_uri}")
                 :ok
 
-              {:error, reason} ->
-                Logger.warning("Inbox: signature FAILED for #{actor_uri} — #{inspect(reason)}")
-                {:error, reason}
+              {:error, _reason} ->
+                # Key rotation retry: re-fetch actor bypassing cache and try once more.
+                # The remote actor may have rotated their keypair since we last cached it.
+                Logger.info("Inbox: signature failed for #{actor_uri}, retrying with fresh key fetch")
+
+                case RemoteActor.fetch(actor_uri, force: true) do
+                  {:ok, fresh_actor} ->
+                    case HttpSignature.verify_signature(conn, sig_parts, fresh_actor.public_key_pem) do
+                      :ok ->
+                        Logger.info("Inbox: signature verified for #{actor_uri} after key refresh")
+                        :ok
+
+                      {:error, reason} ->
+                        Logger.warning("Inbox: signature FAILED for #{actor_uri} after retry — #{inspect(reason)}")
+                        {:error, reason}
+                    end
+
+                  {:error, reason} ->
+                    Logger.warning("Inbox: REJECTED — could not re-fetch actor #{actor_uri} — #{inspect(reason)}")
+                    {:error, reason}
+                end
             end
 
           {:error, reason} ->
             Logger.warning("Inbox: REJECTED — could not fetch actor #{actor_uri} — #{inspect(reason)}")
             {:error, reason}
         end
+    end
+  end
+
+  # Resolves the actor URI from a keyId.
+  # Fragment-style (Mastodon): "https://example.com/users/alice#main-key" → strip fragment
+  # Path-style (GoToSocial): "https://example.com/users/alice/main-key" → fetch key doc, follow owner
+  defp resolve_actor_uri_from_key_id(key_id) do
+    uri = URI.parse(key_id)
+
+    if uri.fragment do
+      # Fragment URI — strip the fragment to get the actor URI
+      %{uri | fragment: nil} |> URI.to_string()
+    else
+      # Could be a path-style keyId (GoToSocial) or a direct actor URI.
+      # Try fetching the keyId URL to see if it returns a Key document with an owner.
+      case fetch_key_owner(key_id) do
+        {:ok, owner_uri} -> owner_uri
+        :not_a_key -> key_id
+      end
+    end
+  end
+
+  # Fetches a keyId URL and checks if it returns a Key/CryptographicKey document
+  # with an "owner" or "controller" property pointing to the actual actor.
+  defp fetch_key_owner(key_id) do
+    headers = [{~c"accept", ~c"application/activity+json, application/ld+json"}]
+
+    case Inkwell.Federation.Http.get(key_id, headers) do
+      {:ok, {status, body}} when status in 200..299 ->
+        case Jason.decode(body) do
+          {:ok, %{"type" => type} = data} when type in ["Key", "CryptographicKey"] ->
+            owner = data["owner"] || data["controller"]
+            if is_binary(owner), do: {:ok, owner}, else: :not_a_key
+
+          _ ->
+            :not_a_key
+        end
+
+      _ ->
+        :not_a_key
     end
   end
 
