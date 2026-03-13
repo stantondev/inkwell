@@ -62,7 +62,7 @@ defmodule InkwellWeb.NotificationController do
     else
       # Find remote_actor IDs by ap_id
       actor_rows =
-        Inkwell.Federation.RemoteActor
+        Inkwell.Federation.RemoteActorSchema
         |> where([a], a.ap_id in ^remote_actor_ap_ids)
         |> select([a], {a.id, a.ap_id})
         |> Repo.all()
