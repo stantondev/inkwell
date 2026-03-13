@@ -26,7 +26,7 @@ export function FollowButton({
       const res = await fetch(`/api/follow/${targetUsername}`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        setState(data.data?.status === "accepted" ? "pen_pals" : "pending");
+        setState(data.status === "accepted" ? "pen_pals" : "pending");
       } else {
         setState("idle");
       }

@@ -39,6 +39,23 @@ defmodule InkwellWeb.Endpoint do
     {:ok, body, conn}
   end
 
+  # Cache raw body for federation inboxes — needed for HTTP Signature digest validation
+  def cache_body_reader(%Plug.Conn{request_path: "/api/inbox"} = conn, opts) do
+    {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
+    conn = Plug.Conn.put_private(conn, :raw_body, body)
+    {:ok, body, conn}
+  end
+
+  def cache_body_reader(%Plug.Conn{request_path: "/api/users/" <> rest} = conn, opts) when rest != "" do
+    if String.ends_with?(rest, "/inbox") do
+      {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
+      conn = Plug.Conn.put_private(conn, :raw_body, body)
+      {:ok, body, conn}
+    else
+      Plug.Conn.read_body(conn, opts)
+    end
+  end
+
   def cache_body_reader(conn, opts) do
     Plug.Conn.read_body(conn, opts)
   end

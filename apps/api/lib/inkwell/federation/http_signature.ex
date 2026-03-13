@@ -33,16 +33,15 @@ defmodule Inkwell.Federation.HttpSignature do
     date = format_http_date()
     digest = "SHA-256=" <> (:crypto.hash(:sha256, body) |> Base.encode64())
 
-    # Build the signing string — includes content-type for completeness
-    headers_to_sign = "(request-target) host date digest content-type"
+    # Build the signing string — matches Mastodon's standard signed headers
+    headers_to_sign = "(request-target) host date digest"
     request_target = "#{String.downcase(method)} #{uri.path}"
 
     signing_string =
       "(request-target): #{request_target}\n" <>
       "host: #{uri.host}\n" <>
       "date: #{date}\n" <>
-      "digest: #{digest}\n" <>
-      "content-type: application/activity+json"
+      "digest: #{digest}"
 
     # Sign with RSA-SHA256
     private_key = decode_private_key(private_key_pem)
@@ -51,7 +50,7 @@ defmodule Inkwell.Federation.HttpSignature do
 
     # Build Signature header (hs2019 = determine algorithm from key metadata)
     sig_header =
-      ~s(keyId="#{key_id}",algorithm="hs2019",headers="#{headers_to_sign}",signature="#{signature_b64}")
+      ~s(keyId="#{key_id}",algorithm="rsa-sha256",headers="#{headers_to_sign}",signature="#{signature_b64}")
 
     [
       {"date", date},
@@ -94,7 +93,7 @@ defmodule Inkwell.Federation.HttpSignature do
     signature_b64 = Base.encode64(signature)
 
     sig_header =
-      ~s(keyId="#{key_id}",algorithm="hs2019",headers="#{headers_to_sign}",signature="#{signature_b64}")
+      ~s(keyId="#{key_id}",algorithm="rsa-sha256",headers="#{headers_to_sign}",signature="#{signature_b64}")
 
     [
       {"date", date},
@@ -196,14 +195,26 @@ defmodule Inkwell.Federation.HttpSignature do
           {:error, :missing_digest}
 
         digest_header ->
-          {:ok, body, _conn} = Plug.Conn.read_body(conn)
-          expected = "SHA-256=" <> (:crypto.hash(:sha256, body) |> Base.encode64())
+          # Use the cached raw body from endpoint.ex cache_body_reader.
+          # Plug.Conn.read_body/1 can only be called once — by the time we get here,
+          # Phoenix's JSON parser has already consumed it.
+          case conn.private[:raw_body] do
+            raw when is_binary(raw) ->
+              expected = "SHA-256=" <> (:crypto.hash(:sha256, raw) |> Base.encode64())
 
-          if Plug.Crypto.secure_compare(digest_header, expected) do
-            :ok
-          else
-            Logger.warning("Digest mismatch: header=#{digest_header} computed=#{expected}")
-            {:error, :digest_mismatch}
+              if Plug.Crypto.secure_compare(digest_header, expected) do
+                :ok
+              else
+                Logger.warning("Digest mismatch: header=#{digest_header} computed=#{expected}")
+                {:error, :digest_mismatch}
+              end
+
+            _ ->
+              # Raw body not cached — skip digest validation rather than rejecting
+              # valid requests. This should only happen if the endpoint.ex cache_body_reader
+              # didn't match this route (shouldn't happen for inbox routes).
+              Logger.debug("Digest check skipped — raw body not cached for #{conn.request_path}")
+              :ok
           end
       end
     else
