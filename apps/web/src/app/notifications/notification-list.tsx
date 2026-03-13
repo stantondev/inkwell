@@ -22,6 +22,7 @@ interface Notification {
   inserted_at: string;
   target_type: string | null;
   target_id: string | null;
+  follow_accepted?: boolean;
   actor: {
     username: string;
     display_name: string;
@@ -991,10 +992,10 @@ export function NotificationList({
                   const actor = getActorInfo(n);
                   const entryHref = getEntryHref(n);
                   const isClickable = !!getNotificationHref(n);
-                  // Show accept/reject for follow requests (even if read —
-                  // auto-mark-read setting shouldn't hide action buttons)
+                  // Show accept/reject for follow requests that haven't been accepted yet
+                  // (even if read — auto-mark-read setting shouldn't hide action buttons)
                   const isPendingFollowRequest =
-                    n.type === "follow_request" && !!n.actor;
+                    n.type === "follow_request" && !!n.actor && !n.follow_accepted;
 
                   return (
                     <div
@@ -1135,13 +1136,23 @@ export function NotificationList({
                           {timeAgo(n.inserted_at)}
                         </p>
 
-                        {/* Follow request actions — only for unread requests */}
+                        {/* Follow request actions — pending requests only */}
                         {isPendingFollowRequest && (
                           <AcceptRejectInline
                             username={n.actor!.username}
                             notificationId={n.id}
                             onAction={handleFollowAction}
                           />
+                        )}
+                        {/* Already-accepted follow request */}
+                        {n.type === "follow_request" && n.follow_accepted && (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-medium mt-2 px-3 py-1 rounded-full"
+                            style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                            Pen pals
+                          </span>
                         )}
 
                         {/* Fediverse follow-back button */}

@@ -25,7 +25,10 @@ defmodule InkwellWeb.NotificationController do
     # Batch check if user is already following back fediverse followers
     follow_back_set = build_follow_back_set(user.id, notifications)
 
-    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set) end)})
+    # Batch check which follow_request notifications have already been accepted
+    accepted_follow_set = build_accepted_follow_set(user.id, notifications)
+
+    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set, accepted_follow_set) end)})
   end
 
   # POST /api/notifications/read
@@ -85,7 +88,33 @@ defmodule InkwellWeb.NotificationController do
     end
   end
 
-  defp render_notification(n, entries_map, follow_back_set) do
+  # Build a MapSet of actor_ids whose follow_request has already been accepted
+  defp build_accepted_follow_set(user_id, notifications) do
+    import Ecto.Query
+
+    # Get actor IDs from follow_request notifications
+    follow_request_actor_ids =
+      notifications
+      |> Enum.filter(fn n -> n.type == :follow_request && n.actor_id != nil end)
+      |> Enum.map(& &1.actor_id)
+      |> Enum.uniq()
+
+    if follow_request_actor_ids == [] do
+      MapSet.new()
+    else
+      # Check which of these actors have an accepted relationship where they follow the current user
+      accepted_ids =
+        Inkwell.Social.Relationship
+        |> where([r], r.follower_id in ^follow_request_actor_ids and r.following_id == ^user_id)
+        |> where([r], r.status == :accepted)
+        |> select([r], r.follower_id)
+        |> Repo.all()
+
+      MapSet.new(accepted_ids)
+    end
+  end
+
+  defp render_notification(n, entries_map, follow_back_set, accepted_follow_set) do
     # For federated notifications, remote actor info lives in the `data` field
     remote_actor =
       case n.data do
@@ -119,6 +148,11 @@ defmodule InkwellWeb.NotificationController do
         nil
       end
 
+    # For follow_request notifications, check if already accepted
+    follow_accepted =
+      n.type == :follow_request && n.actor_id != nil &&
+        MapSet.member?(accepted_follow_set, n.actor_id)
+
     %{
       id: n.id,
       type: n.type,
@@ -130,6 +164,7 @@ defmodule InkwellWeb.NotificationController do
       read: n.read,
       data: render_data(n.data),
       entry: entry,
+      follow_accepted: follow_accepted,
       inserted_at: n.inserted_at
     }
   end
