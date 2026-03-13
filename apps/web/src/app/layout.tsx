@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 import { getSession } from "@/lib/session";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
@@ -11,6 +12,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2d4a8a" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1a2e" },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -21,6 +26,12 @@ export const metadata: Metadata = {
   twitter: { site: "@inkwellsocial" },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Inkwell",
   },
 };
 
@@ -81,6 +92,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AppShell user={session?.user ?? null}>
           {children}
         </AppShell>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
