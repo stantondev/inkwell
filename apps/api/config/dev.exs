@@ -31,6 +31,18 @@ config :inkwell, :federation,
   instance_host: "localhost:4000",
   frontend_host: "http://localhost:3000"
 
+# Web Push (dev VAPID keys — NOT for production use)
+# Generated via: mix run -e "IO.inspect(WebPushEncryption.generate_vapid_key())"
+config :inkwell, :vapid,
+  public_key: "BDe8lVBO1VEn9iChSFOolmGKSBFA7gEnb5HbSAHtz6MR-JCxqf6ZQfgOD0YpKLpHOkEiYZxzKRPMqi9UmY0WCaw",
+  private_key: "4-k3fQIJ2S-B39_KE01hV9a6rXjYxoQel53BtEzMdQM",
+  subject: "mailto:dev@inkwell.local"
+
+config :web_push_encryption, :vapid_details,
+  subject: "mailto:dev@inkwell.local",
+  public_key: "BDe8lVBO1VEn9iChSFOolmGKSBFA7gEnb5HbSAHtz6MR-JCxqf6ZQfgOD0YpKLpHOkEiYZxzKRPMqi9UmY0WCaw",
+  private_key: "4-k3fQIJ2S-B39_KE01hV9a6rXjYxoQel53BtEzMdQM"
+
 config :logger, :console, format: "[$level] $message\n"
 
 config :phoenix, :stacktrace_depth, 20

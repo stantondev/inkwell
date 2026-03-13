@@ -136,6 +136,30 @@ if config_env() == :prod do
     instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
     frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell.social"
 
+  # Web Push (VAPID keys for browser push notifications)
+  vapid_public = System.get_env("VAPID_PUBLIC_KEY")
+  vapid_private = System.get_env("VAPID_PRIVATE_KEY")
+
+  if is_binary(vapid_public) and vapid_public != "" do
+    from_email = System.get_env("FROM_EMAIL") || "noreply@inkwell.social"
+    # Extract just the email address if it's in "Name <email>" format
+    vapid_subject =
+      case Regex.run(~r/<(.+?)>/, from_email) do
+        [_, email] -> "mailto:#{email}"
+        _ -> "mailto:#{from_email}"
+      end
+
+    config :inkwell, :vapid,
+      public_key: vapid_public,
+      private_key: vapid_private,
+      subject: vapid_subject
+
+    config :web_push_encryption, :vapid_details,
+      subject: vapid_subject,
+      public_key: vapid_public,
+      private_key: vapid_private
+  end
+
   # Muse — AI content bot (optional, disabled by default)
   config :inkwell, :anthropic_api_key, System.get_env("ANTHROPIC_API_KEY")
   config :inkwell, :muse_enabled, System.get_env("MUSE_ENABLED") == "true"

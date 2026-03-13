@@ -1,5 +1,5 @@
-// Inkwell Service Worker — asset caching + offline fallback
-const CACHE_NAME = "inkwell-v1";
+// Inkwell Service Worker — asset caching + offline fallback + push notifications
+const CACHE_NAME = "inkwell-v2";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [OFFLINE_URL, "/favicon.svg", "/inkwell-logo.svg"];
@@ -69,4 +69,48 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+});
+
+// --- Push Notifications ---
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "Inkwell", body: event.data.text() };
+  }
+
+  const options = {
+    body: payload.body || "",
+    icon: payload.icon || "/favicon.svg",
+    badge: payload.badge || "/favicon.svg",
+    tag: payload.tag || "inkwell-notification",
+    data: payload.data || {},
+    renotify: true,
+  };
+
+  event.waitUntil(self.registration.showNotification(payload.title || "Inkwell", options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || "/notifications";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Focus an existing Inkwell tab if open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(url);
+    })
+  );
 });

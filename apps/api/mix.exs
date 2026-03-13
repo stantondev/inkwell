@@ -42,7 +42,8 @@ defmodule Inkwell.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:nimble_csv, "~> 1.2"},
       {:saxy, "~> 1.5"},
-      {:gen_smtp, "~> 1.2"}
+      {:gen_smtp, "~> 1.2"},
+      {:web_push_encryption, "~> 0.3"}
     ]
   end
 

@@ -236,9 +236,61 @@ defmodule Inkwell.Accounts do
     if actor_id && Inkwell.Social.is_blocked_between?(user_id, actor_id) do
       {:ok, :blocked_skipped}
     else
-      %Notification{}
-      |> Notification.changeset(attrs)
-      |> Repo.insert()
+      result =
+        %Notification{}
+        |> Notification.changeset(attrs)
+        |> Repo.insert()
+
+      case result do
+        {:ok, notification} ->
+          maybe_send_push(notification, attrs)
+          {:ok, notification}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  defp maybe_send_push(notification, _attrs) do
+    alias Inkwell.Push
+
+    if Push.configured?() and Push.pushable_type?(notification.type) do
+      user = Repo.get(Inkwell.Accounts.User, notification.user_id)
+
+      push_disabled =
+        case user do
+          %{settings: %{"push_notifications_disabled" => true}} -> true
+          _ -> false
+        end
+
+      unless push_disabled do
+        actor_name = resolve_push_actor_name(notification)
+        payload = Push.build_payload(notification, actor_name)
+        Push.deliver(notification.user_id, payload)
+      end
+    end
+  rescue
+    e ->
+      require Logger
+      Logger.warning("[Push] Failed to send push: #{inspect(e)}")
+  end
+
+  defp resolve_push_actor_name(notification) do
+    cond do
+      notification.actor_id == nil and is_map(notification.data) ->
+        get_in(notification.data, ["remote_actor", "display_name"]) ||
+          get_in(notification.data, ["remote_actor", "username"]) ||
+          "Someone"
+
+      notification.actor_id != nil ->
+        case Repo.get(Inkwell.Accounts.User, notification.actor_id) do
+          nil -> "Someone"
+          user -> user.display_name || user.username || "Someone"
+        end
+
+      true ->
+        "Someone"
     end
   end
 

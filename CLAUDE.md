@@ -61,6 +61,8 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 - `MUSE_ENABLED` — set to `"true"` to enable the Muse content bot (default: disabled)
 - `MUSE_ACCOUNT_USERNAME` — username for the Muse bot account (default: `"muse"`)
 - `DEEPL_API_KEY` — DeepL API key for content translation (Free tier: 500K chars/mo, optional — UI shows "Translation not available" if not set)
+- `VAPID_PUBLIC_KEY` — Base64url-encoded P-256 public key for web push notifications (generated via `:crypto.generate_key(:ecdh, :prime256v1)`)
+- `VAPID_PRIVATE_KEY` — Base64url-encoded P-256 private key for web push notifications
 - `FLY_API_TOKEN` — Fly.io deploy token for the `inkwell-web` app; used by Fly Certificates API for custom domain TLS provisioning (generated via `fly tokens deploy -a inkwell-web`)
 - `POSTMARK_INBOUND_TOKEN` — shared secret for verifying Postmark inbound email webhook (`POST /api/email/inbound?token=SECRET`)
 - `POST_EMAIL_DOMAIN` — domain for Post by Email addresses (default: `post.inkwell.social`)
@@ -297,9 +299,33 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **No backend changes** — purely frontend; uses existing `/api/session` endpoint (proxies to `GET /api/auth/me`)
 - **Key files**:
   - `apps/web/src/components/live-nav-counts.tsx` — core hook: polling, sound synthesis, title management, favicon badge, visibility handling, badge suppression
-  - `apps/web/src/app/settings/content-safety.tsx` — notification toggles (mute sounds, auto-mark read, hide badges) alongside "Show sensitive content" toggle
+  - `apps/web/src/app/settings/content-safety.tsx` — "Show sensitive content" toggle
+  - `apps/web/src/app/settings/notification-settings.tsx` — push notification + in-app notification toggles (mute sounds, auto-mark read, hide badges, push enable/disable, pause push)
   - `apps/web/src/app/notifications/notification-list.tsx` — auto-mark-all on mount when `autoMarkRead` prop is true
   - `apps/web/src/app/notifications/page.tsx` — reads `auto_mark_notifications_read` from session, passes as prop
+
+### Web Push Notifications (VAPID)
+- **Self-hosted VAPID** — no third-party services (OneSignal, etc.). Works in both PWA and regular browser
+- **Opt-in only** — users enable push from Settings → Notifications. No auto-prompt. Browser permission prompt triggered only when user clicks "Enable"
+- **Curated notification types** (high-signal only): `comment`, `reply`, `mention`, `follow_request`, `follow_accepted`, `fediverse_follow`, `letter`, `stamp`, `ink`, `circle_response`, `circle_mention`, `feedback_mention`, `poll_mention`, `writer_plan_subscribe`
+- **Excluded** (low-signal): `feedback_vote`, `feedback_comment`, `feedback_status_change`, `circle_new_member`, `invite_accepted`, `report`, `tip`, `poll_comment`
+- **Server-side pause** — `push_notifications_disabled` in user `settings` JSONB stops all push across all devices without unsubscribing (no migration needed)
+- **Stale subscription cleanup** — subscriptions not updated in 90 days deleted by `CleanupExpiredTokensWorker`
+- **Backend**:
+  - `apps/api/lib/inkwell/push.ex` — context module: `configured?/0`, `subscribe/2` (upsert), `unsubscribe/2`, `delete_by_endpoint/1`, `deliver/2` (fan-out via Oban), `build_payload/2`, `pushable_type?/1`, `cleanup_stale_subscriptions/0`
+  - `apps/api/lib/inkwell/push/push_subscription.ex` — Ecto schema (endpoint unique, p256dh, auth, user_agent)
+  - `apps/api/lib/inkwell_web/controllers/push_controller.ex` — 3 actions: `vapid_key` (public), `subscribe` (auth), `unsubscribe` (auth)
+  - `apps/api/lib/inkwell/workers/web_push_worker.ex` — Oban worker: per-subscription delivery via `WebPushEncryption.send_web_push/2`, handles 410 Gone (delete stale sub), 429 (retry), 5xx (retry)
+  - `apps/api/lib/inkwell/accounts.ex` — `maybe_send_push/2` hooked into `create_notification/1`
+  - Routes: `GET /api/push/vapid-key` (public), `POST /api/push/subscribe` (auth), `POST /api/push/unsubscribe` (auth)
+  - Migration: `20260314000063_create_push_subscriptions.exs`
+  - Dependency: `web_push_encryption ~> 0.3` in `mix.exs`
+- **Frontend**:
+  - `apps/web/src/hooks/use-push-subscription.ts` — React hook: `{ supported, permission, subscribed, loading, subscribe, unsubscribe }`
+  - `apps/web/src/app/settings/notification-settings.tsx` — Push Notifications card (enable/disable, browser permission hints, pause toggle) + In-App Notifications card
+  - `apps/web/public/sw.js` — `push` event (showNotification with title/body/icon/badge/tag) + `notificationclick` event (navigate to payload URL, focus existing tab or open new)
+  - Proxy routes: `apps/web/src/app/api/push/vapid-key/route.ts` (GET), `apps/web/src/app/api/push/subscribe/route.ts` (POST), `apps/web/src/app/api/push/unsubscribe/route.ts` (POST)
+- **Config**: `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` Fly secrets on `inkwell-api`. Dev keys hardcoded in `dev.exs`. When VAPID not configured, `GET /api/push/vapid-key` returns `{enabled: false}` and UI hides toggle
 
 ### Subscription / Billing (Stripe)
 - Plus tier at $5/mo via Stripe Checkout
@@ -1073,7 +1099,7 @@ Two-panel layout matching the main sidebar's book aesthetic. Desktop: 220px stic
 
 **I. Profile & Identity** — Profile, Avatar, Top 6 Pen Pals
 **II. Appearance** — Customize, Custom Domain
-**III. Writing & Content** — Series, Filters, Import, Redactions, Content Safety
+**III. Writing & Content** — Series, Filters, Import, Redactions, Content Safety, Notifications, Post by Email
 **IV. Community & Social** — Newsletter, Invite Friends, Blocked Users, Fediverse
 **V. Billing & Developer** — Subscription, Postage, API Keys
 **VI. Account & Data** — Data Export, Delete Account
@@ -1120,6 +1146,7 @@ Key files:
 - `relay_subscriptions` — fediverse relay subscriptions (relay_url unique, relay_inbox, relay_domain, status: pending/active/paused/error, content_filter JSONB, entry_count, last_activity_at, error_message, instance_actor_id FK → users)
 - `content_translations` — cached content translations (translatable_type string, translatable_id binary_id, source_language string, target_language string, translated_title text nullable, translated_body text, provider string default "deepl"; unique on [translatable_type, translatable_id, target_language])
 - `custom_domains` — custom domain mappings (user_id FK unique, domain string unique, status: pending_dns/pending_cert/active/error/removed, dns_verified_at, cert_issued_at, last_check_at, error_message, fly_cert_id)
+- `push_subscriptions` — web push notification subscriptions (user_id FK → users delete_all, endpoint text unique NOT NULL, p256dh text NOT NULL, auth text NOT NULL, user_agent string 500 nullable)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
@@ -1411,7 +1438,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260313000062_fix_relay_fk_constraints_and_index.exs`
+- Latest migration: `20260314000063_create_push_subscriptions.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)
@@ -1465,6 +1492,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 15 | **Writer Support / Postage** | Low | 2 | 5+ days | Done |
 
 ### Recently Completed
+- **2026-03-14** — Web Push Notifications (VAPID). Self-hosted browser push notifications via VAPID — no third-party services. Users opt in from Settings → Notifications (no auto-prompt). Curated high-signal notification types only (comments, mentions, follows, letters, stamps, inks, circles). Server-side "Pause all push" toggle stops delivery across all devices without unsubscribing. **Backend**: `push_subscriptions` table (endpoint unique, p256dh, auth, user_agent), `Inkwell.Push` context module (subscribe/unsubscribe upsert, fan-out delivery via Oban, payload builder, pushable type filter), `PushController` (3 actions: vapid_key public, subscribe/unsubscribe auth), `WebPushWorker` (per-subscription Oban delivery with 410 Gone cleanup, 429 retry, 5xx retry), `maybe_send_push/2` hooked into `create_notification/1` with push_notifications_disabled check. Stale subscriptions (90 days) cleaned by existing `CleanupExpiredTokensWorker`. Dependency: `web_push_encryption ~> 0.3`. **Frontend**: `usePushSubscription` React hook (VAPID key fetch, Notification.requestPermission, pushManager.subscribe/unsubscribe, server sync), service worker push + notificationclick handlers (showNotification with title/body/icon/badge/tag, click navigates to payload URL with existing tab focus), Settings → Notifications page with Push card (enable/disable button, browser permission hints, pause toggle) and In-App card (mute sounds, auto-mark read, hide badges — moved from Content Safety). 3 Next.js proxy routes. Content Safety page reverted to sensitive content toggle only. Migration `20260314000063`. Fly secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`. New files: `push.ex`, `push_subscription.ex`, `push_controller.ex`, `web_push_worker.ex`, `use-push-subscription.ts`, `notification-settings.tsx`, 3 proxy routes. Modified: `mix.exs`, `runtime.exs`, `dev.exs`, `router.ex`, `accounts.ex`, `cleanup_expired_tokens_worker.ex`, `sw.js`, `content-safety.tsx`, `.env.example`.
 - **2026-03-13** — Fix Like/Stamp Federation: Activity ID Collisions and Undo ID Mismatches. Audit of outbound Like (stamp) and Announce (ink boost) federation identified two systemic issues in `activity_builder.ex`. **(1) Undo ID mismatch**: Like/Announce/Follow activities generated IDs with second-precision timestamps (`#like-1710000000`), but their corresponding Undo activities reconstructed a completely different inner ID (e.g., `#like-https://remote.example/post/123` — the raw object URL). The inner object ID in an Undo should match the original activity's ID so remote servers can correlate them. Fix: Like, Announce, and Follow IDs are now **deterministic** using a 12-char SHA-256 hash of the object URL (`#like-dKj7mX9pQ2vL`). Since each actor can only have one Like/Announce/Follow per object, this is guaranteed unique per actor-object pair. Undo activities reconstruct the exact same ID. **(2) Timestamp collision risk**: one-off activities (Update, Delete, Accept, Undo wrappers) used `System.system_time(:second)` — two activities within the same second would collide. Switched to `:nanosecond`. **Stamp type loss is expected** — AP Like is binary by design; there's no standard mechanism to convey which stamp type was used, and Mastodon will always display a generic "favorited" regardless. Modified: `activity_builder.ex` (deterministic IDs for Like/Announce/Follow via new `object_hash/1` helper, nanosecond timestamps for one-off activities, matching inner IDs in all Undo wrappers).
 - **2026-03-13** — Fix Relay Subscription Data Integrity. Audit of relay subscription system identified and fixed three issues. **(1) FK constraint alignment**: `instance_actor_id` on `relay_subscriptions` changed from `on_delete: :nothing` to `:delete_all` (relay user deletion now cascades to subscriptions). `relay_subscription_id` on `remote_entries` changed from `on_delete: :nilify_all` to `:delete_all` (unsubscribing now cascades to relay-sourced entries, matching the manual deletion that was already in code). **(2) 429 rate limit retry**: `RelayContentWorker.fetch_and_store/2` was treating HTTP 429 (rate limited) as a permanent failure (returned `:ok`), silently discarding content that could succeed on retry. Now returns `{:error, ...}` for 429 alongside 5xx, triggering Oban's 3-attempt retry. **(3) Cleanup query performance**: added composite index on `remote_entries(source, inserted_at)` for `CleanupRelayContentWorker` which queries `WHERE source = 'relay' AND inserted_at < cutoff`. Also simplified `Relays.unsubscribe/1` to rely on the now-correct FK cascade instead of manual `Repo.delete_all`. Migration `20260313000062`. Modified: `relays.ex` (simplified unsubscribe), `relay_content_worker.ex` (429 retry + clarified Article quality check comment). New: `20260313000062_fix_relay_fk_constraints_and_index.exs`.
 - **2026-03-13** — Fix Fediverse Comment Federation + Follow-Back + Notification Buttons. Four federation fixes addressing confirmed bugs from production testing. **(1) Outbound comments (confirmed broken)**: `build_reply_note/4` → `build_reply_note/5` — remote post author now included in `to` (was Public-only), Public URI moved to `cc`, `Mention` tag added in `tag` array, new `extract_mention_name/1` helper derives `@user@domain` from AP URL. Without these, Mastodon received the Create activity but didn't display the reply in the thread or notify the author. **(2) Inbound comments (likely broken)**: removed public-only filter in `handle_incoming_reply` that silently dropped unlisted replies (addressed to author + followers, no Public URI). Now accepts all replies to known local entries regardless of visibility scope per FEP-7458. **(3) Follow-back persistence**: `handle_accept/3` now sets `is_mutual: true` on both the outbound relationship (follower → remote) and the inbound relationship (remote → following) when an Accept activity is received. Previously only updated `status: :accepted` on the outbound side. **(4) Follow request notification buttons**: removed `!n.read` condition from `isPendingFollowRequest` check in `notification-list.tsx` — Accept/Reject buttons now render regardless of read status, fixing the case where auto-mark-read setting hid action buttons before the user could interact with them. Also added FEP Reference Policy to CLAUDE.md Development Notes. No migration needed. Modified: `activity_builder.ex` (build_reply_note signature + Mention tag + extract_mention_name), `federation_controller.ex` (remove public filter + is_mutual in handle_accept), `remote_entry_controller.ex` (pass actor.ap_id to build_reply_note/5), `notification-list.tsx` (remove read check on follow request buttons), `CLAUDE.md` (FEP policy).

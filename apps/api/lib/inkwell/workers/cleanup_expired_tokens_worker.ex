@@ -40,6 +40,12 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{embeds_count} old URL embed cache(s)")
     end
 
+    {push_count, _} = Inkwell.Push.cleanup_stale_subscriptions()
+
+    if push_count > 0 do
+      Logger.info("Cleaned up #{push_count} stale push subscription(s)")
+    end
+
     Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end

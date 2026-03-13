@@ -97,6 +97,9 @@ defmodule InkwellWeb.Router do
     # Newsletter (public fixed routes — must come before :username param routes)
     get "/newsletter/confirm", NewsletterController, :confirm
     get "/newsletter/unsubscribe", NewsletterController, :unsubscribe
+
+    # Push notifications (VAPID public key — no auth needed)
+    get "/push/vapid-key", PushController, :vapid_key
   end
 
   # Public endpoints with optional auth (for personalized data)
@@ -186,6 +189,10 @@ defmodule InkwellWeb.Router do
     post "/me/import", ImportController, :create
     get "/me/import", ImportController, :status
     post "/me/import/cancel", ImportController, :cancel
+
+    # Push notification subscriptions
+    post "/push/subscribe", PushController, :subscribe
+    post "/push/unsubscribe", PushController, :unsubscribe
 
     # User icons
     get "/me/icons", UserIconController, :index
