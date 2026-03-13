@@ -12,6 +12,7 @@ interface RemoteActor {
   avatar_url: string | null;
   profile_url: string | null;
   ap_id: string | null;
+  is_following_back?: boolean;
 }
 
 interface Notification {
@@ -723,10 +724,16 @@ function AcceptRejectInline({
 }
 
 // ─── Fediverse Follow Back ─────────────────────────────────────
-function FediverseFollowBackButton({ apId }: { apId: string }) {
+function FediverseFollowBackButton({
+  apId,
+  isFollowingBack,
+}: {
+  apId: string;
+  isFollowingBack?: boolean;
+}) {
   const [state, setState] = useState<
     "idle" | "loading" | "pending" | "following" | "error"
-  >("idle");
+  >(isFollowingBack ? "following" : "idle");
 
   async function handleFollow(e: React.MouseEvent) {
     e.stopPropagation();
@@ -1142,6 +1149,7 @@ export function NotificationList({
                           n.remote_actor?.ap_id && (
                             <FediverseFollowBackButton
                               apId={n.remote_actor.ap_id}
+                              isFollowingBack={n.remote_actor.is_following_back}
                             />
                           )}
                       </div>

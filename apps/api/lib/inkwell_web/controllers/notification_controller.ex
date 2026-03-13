@@ -1,7 +1,7 @@
 defmodule InkwellWeb.NotificationController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Journals}
+  alias Inkwell.{Accounts, Journals, Repo}
 
   # GET /api/notifications
   def index(conn, params) do
@@ -22,7 +22,10 @@ defmodule InkwellWeb.NotificationController do
       |> Journals.get_entries_by_ids()
       |> Map.new(fn entry -> {entry.id, entry} end)
 
-    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map) end)})
+    # Batch check if user is already following back fediverse followers
+    follow_back_set = build_follow_back_set(user.id, notifications)
+
+    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set) end)})
   end
 
   # POST /api/notifications/read
@@ -43,18 +46,59 @@ defmodule InkwellWeb.NotificationController do
     json(conn, %{ok: true})
   end
 
-  defp render_notification(n, entries_map) do
+  # Build a MapSet of remote_actor ap_ids that the user is already following back
+  defp build_follow_back_set(user_id, notifications) do
+    import Ecto.Query
+
+    remote_actor_ap_ids =
+      notifications
+      |> Enum.filter(fn n -> n.type == :fediverse_follow end)
+      |> Enum.map(fn n -> get_in(n.data, ["remote_actor", "ap_id"]) end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    if remote_actor_ap_ids == [] do
+      MapSet.new()
+    else
+      # Find remote_actor IDs by ap_id
+      actor_rows =
+        Inkwell.Federation.RemoteActor
+        |> where([a], a.ap_id in ^remote_actor_ap_ids)
+        |> select([a], {a.id, a.ap_id})
+        |> Repo.all()
+
+      actor_id_to_ap_id = Map.new(actor_rows, fn {id, ap_id} -> {id, ap_id} end)
+      actor_ids = Enum.map(actor_rows, fn {id, _} -> id end)
+
+      # Check which ones the user has an outbound relationship to
+      following_actor_ids =
+        Inkwell.Social.Relationship
+        |> where([r], r.follower_id == ^user_id and r.remote_actor_id in ^actor_ids)
+        |> where([r], r.status in [:pending, :accepted])
+        |> select([r], r.remote_actor_id)
+        |> Repo.all()
+
+      following_actor_ids
+      |> Enum.map(fn id -> Map.get(actor_id_to_ap_id, id) end)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+    end
+  end
+
+  defp render_notification(n, entries_map, follow_back_set) do
     # For federated notifications, remote actor info lives in the `data` field
     remote_actor =
       case n.data do
         %{"remote_actor" => ra} when is_map(ra) ->
+          ap_id = ra["ap_id"]
           %{
             username: ra["username"],
             domain: ra["domain"],
             display_name: ra["display_name"],
             avatar_url: ra["avatar_url"],
             profile_url: ra["profile_url"],
-            ap_id: ra["ap_id"]
+            ap_id: ap_id,
+            is_following_back: MapSet.member?(follow_back_set, ap_id)
           }
         _ -> nil
       end
