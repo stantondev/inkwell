@@ -160,7 +160,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Update",
-      "id" => "#{entry_url}/activity#update-#{System.system_time(:second)}",
+      "id" => "#{entry_url}/activity#update-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "published" => format_datetime(DateTime.utc_now()),
       "to" => [@public],
@@ -181,7 +181,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Delete",
-      "id" => "#{entry_url}#delete-#{System.system_time(:second)}",
+      "id" => "#{entry_url}#delete-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "to" => [@public],
       "cc" => ["#{actor_url}/followers"],
@@ -201,7 +201,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Accept",
-      "id" => "#{actor_url}#accept-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#accept-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "object" => follow_activity
     }
@@ -276,6 +276,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds a Like activity for stamping a remote entry.
   `remote_actor_ap_id` is the AP ID of the post author (used for `to` addressing).
+  Like ID is deterministic (hash of object URL) so Undo can reconstruct it exactly.
   """
   def build_like(remote_entry_ap_id, user, remote_actor_ap_id) do
     actor_url = actor_url(user)
@@ -283,7 +284,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Like",
-      "id" => "#{actor_url}#like-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#like-#{object_hash(remote_entry_ap_id)}",
       "actor" => actor_url,
       "to" => [remote_actor_ap_id],
       "object" => remote_entry_ap_id
@@ -292,19 +293,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds an Undo { Like } activity for removing a stamp from a remote entry.
+  Inner Like ID matches the original Like's deterministic ID.
   """
   def build_undo_like(remote_entry_ap_id, user, remote_actor_ap_id) do
     actor_url = actor_url(user)
+    like_id = "#{actor_url}#like-#{object_hash(remote_entry_ap_id)}"
 
     %{
       "@context" => ap_context(),
       "type" => "Undo",
-      "id" => "#{actor_url}#undo-like-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#undo-like-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "to" => [remote_actor_ap_id],
       "object" => %{
         "type" => "Like",
-        "id" => "#{actor_url}#like-#{remote_entry_ap_id}",
+        "id" => like_id,
         "actor" => actor_url,
         "object" => remote_entry_ap_id
       }
@@ -323,7 +326,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Announce",
-      "id" => "#{actor_url}#announce-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#announce-#{object_hash(entry_ap_id)}",
       "actor" => actor_url,
       "published" => format_datetime(DateTime.utc_now()),
       "to" => [@public],
@@ -334,20 +337,22 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds an Undo { Announce } activity for un-inking (unboosting) an entry.
+  Inner Announce ID matches the original Announce's deterministic ID.
   """
   def build_undo_announce(entry_ap_id, user) do
     actor_url = actor_url(user)
+    announce_id = "#{actor_url}#announce-#{object_hash(entry_ap_id)}"
 
     %{
       "@context" => ap_context(),
       "type" => "Undo",
-      "id" => "#{actor_url}#undo-announce-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#undo-announce-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "to" => [@public],
       "cc" => ["#{actor_url}/followers"],
       "object" => %{
         "type" => "Announce",
-        "id" => "#{actor_url}#announce-#{entry_ap_id}",
+        "id" => announce_id,
         "actor" => actor_url,
         "object" => entry_ap_id
       }
@@ -365,7 +370,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     %{
       "@context" => ap_context(),
       "type" => "Follow",
-      "id" => "#{actor_url}#follow-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#follow-#{object_hash(target_actor_url)}",
       "actor" => actor_url,
       "object" => target_actor_url
     }
@@ -373,18 +378,20 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds an Undo { Follow } activity for unsubscribing from a relay or remote actor.
+  Inner Follow ID matches the original Follow's deterministic ID.
   """
   def build_undo_follow(target_actor_url, local_user) do
     actor_url = actor_url(local_user)
+    follow_id = "#{actor_url}#follow-#{object_hash(target_actor_url)}"
 
     %{
       "@context" => ap_context(),
       "type" => "Undo",
-      "id" => "#{actor_url}#undo-follow-#{System.system_time(:second)}",
+      "id" => "#{actor_url}#undo-follow-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "object" => %{
         "type" => "Follow",
-        "id" => "#{actor_url}#follow-#{target_actor_url}",
+        "id" => follow_id,
         "actor" => actor_url,
         "object" => target_actor_url
       }
@@ -587,5 +594,13 @@ defmodule Inkwell.Federation.ActivityBuilder do
   defp federation_config(key) do
     config = Application.get_env(:inkwell, :federation, [])
     Keyword.get(config, key)
+  end
+
+  # Deterministic short hash of an object URL for stable activity IDs.
+  # Like/Announce/Follow IDs use this so Undo can reconstruct the same ID.
+  defp object_hash(url) do
+    :crypto.hash(:sha256, url)
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, 12)
   end
 end
