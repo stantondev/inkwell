@@ -44,13 +44,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
     instance_host = federation_config(:instance_host)
     page_url = "#{frontend_host}/#{author.username}/#{entry.slug}"
 
+    # Strip <h1> from content — FEP-b2b8 allowed HTML starts at <h2>;
+    # the title belongs in `name`, not in the HTML body
+    sanitized_content = strip_h1_tags(entry.body_html)
+
     article = %{
       "type" => "Article",
       "id" => entry_url,
       "attributedTo" => actor_url,
-      "content" => entry.body_html,
+      "content" => sanitized_content,
       "published" => format_datetime(entry.published_at),
-      "url" => page_url,
+      "url" => %{
+        "type" => "Link",
+        "mediaType" => "text/html",
+        "href" => page_url
+      },
       "to" => [@public],
       "cc" => ["#{actor_url}/followers"],
       "generator" => %{
@@ -86,8 +94,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
     article =
       if entry.cover_image_id do
         Map.put(article, "image", %{
-          "type" => "Link",
-          "href" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
+          "type" => "Image",
+          "url" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
           "mediaType" => "image/jpeg"
         })
       else
@@ -109,6 +117,14 @@ defmodule Inkwell.Federation.ActivityBuilder do
         Map.put(article, "tag", tags)
       else
         article
+      end
+
+    # Extract inline images from content into `attachment` for pre-fetching
+    # (FEP-b2b8 §attachment: embedded media SHOULD also be listed in attachment)
+    article =
+      case extract_inline_images(sanitized_content) do
+        [] -> article
+        images -> Map.put(article, "attachment", images)
       end
 
     # Content sensitivity flag (Mastodon/fediverse standard)
@@ -467,8 +483,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
     if entry.cover_image_id do
       Map.put(preview, "attachment", %{
-        "type" => "Link",
-        "href" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
+        "type" => "Image",
+        "url" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
         "mediaType" => "image/jpeg"
       })
     else
@@ -479,7 +495,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
   defp build_preview_content(entry) do
     title_html =
       if entry.title && entry.title != "",
-        do: "<p><strong>#{entry.title}</strong></p>",
+        do: "<p><strong>#{html_escape(entry.title)}</strong></p>",
         else: ""
 
     excerpt_html =
@@ -505,6 +521,47 @@ defmodule Inkwell.Federation.ActivityBuilder do
     |> String.trim()
   end
   defp strip_html_tags(_), do: ""
+
+  defp html_escape(text) when is_binary(text) do
+    text
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+  end
+  defp html_escape(text), do: text
+
+  # Strips <h1> tags from content — FEP-b2b8 allowed HTML starts at <h2>.
+  # Replaces <h1> with <h2> to preserve structure rather than removing content.
+  defp strip_h1_tags(nil), do: nil
+  defp strip_h1_tags(html) do
+    html
+    |> String.replace(~r/<h1([^>]*)>/, "<h2\\1>")
+    |> String.replace("</h1>", "</h2>")
+  end
+
+  # Extracts image URLs from <img> tags in HTML content for the `attachment` array.
+  defp extract_inline_images(nil), do: []
+  defp extract_inline_images(html) do
+    Regex.scan(~r/<img[^>]+src="([^"]+)"/, html)
+    |> Enum.map(fn [_, src] ->
+      %{
+        "type" => "Image",
+        "url" => src,
+        "mediaType" => guess_image_media_type(src)
+      }
+    end)
+    |> Enum.uniq_by(& &1["url"])
+  end
+
+  defp guess_image_media_type(url) when is_binary(url) do
+    cond do
+      String.contains?(url, ".png") -> "image/png"
+      String.contains?(url, ".gif") -> "image/gif"
+      String.contains?(url, ".webp") -> "image/webp"
+      true -> "image/jpeg"
+    end
+  end
 
   defp detect_media_type(data_uri) when is_binary(data_uri) do
     case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,/, data_uri) do
