@@ -3,13 +3,13 @@ import type { SessionUser } from "@/lib/session";
 import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
 import { Footer } from "./footer";
-import Link from "next/link";
+import { BottomTabBar } from "./bottom-tab-bar";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
  *
  * - Logged-in desktop (lg+): left sidebar + content with margin-left
- * - Logged-in mobile/tablet (<lg): top nav with hamburger
+ * - Logged-in mobile/tablet (<lg): slim top nav + bottom tab bar
  * - Logged-out (all sizes): top nav with Sign in / Get started
  * - Custom domain: simplified chrome — author name header + Powered by Inkwell footer
  */
@@ -25,9 +25,6 @@ export async function AppShell({
   const customDomainUsername = headersList.get("x-custom-domain-username");
 
   // Custom domain mode — no header, no sidebar, no app nav
-  // The author's site is THEIR brand — we stay out of the way
-  // "Powered by Inkwell" footer is rendered INSIDE the profile page's theme wrapper
-  // (in [username]/page.tsx) so it inherits the author's color scheme
   if (customDomain && customDomainUsername) {
     return (
       <main className="flex flex-col min-h-screen no-sidebar">
@@ -47,13 +44,29 @@ export async function AppShell({
       {/* Sidebar — desktop only, logged-in only */}
       {user && <Sidebar user={user} />}
 
-      {/* Main content area */}
-      <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0" : "no-sidebar"}`}>
+      {/* Main content area — bottom padding on mobile for tab bar clearance */}
+      <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>
         <div className="flex-1">
           {children}
         </div>
         <Footer selfHosted={user?.self_hosted} />
       </main>
+
+      {/* Bottom tab bar — mobile/tablet only, logged-in only */}
+      {user && (
+        <BottomTabBar
+          username={user.username}
+          displayName={user.display_name}
+          avatarUrl={user.avatar_url}
+          avatarFrame={user.avatar_frame}
+          subscriptionTier={user.subscription_tier}
+          isAdmin={user.is_admin}
+          unreadNotificationCount={user.unread_notification_count ?? 0}
+          unreadLetterCount={user.unread_letter_count ?? 0}
+          draftCount={user.draft_count ?? 0}
+          selfHosted={user.self_hosted}
+        />
+      )}
     </>
   );
 }

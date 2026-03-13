@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
+import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
 
 type Step = "enter_email" | "check_email";
 
@@ -313,6 +314,16 @@ function CheckEmailStep({
 }) {
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
+  const [manualCheckFailed, setManualCheckFailed] = useState(false);
+  const isPwa = useIsPwa();
+  const { status, destination, manualCheck } = useSessionPoll(true);
+
+  // Auto-redirect when session is detected (cookie shared from browser/other tab)
+  useEffect(() => {
+    if (status === "found") {
+      window.location.href = destination;
+    }
+  }, [status, destination]);
 
   const handleResend = async () => {
     setResending(true);
@@ -324,6 +335,33 @@ function CheckEmailStep({
       setResending(false);
     }
   };
+
+  const handleManualCheck = async () => {
+    setManualCheckFailed(false);
+    const found = await manualCheck();
+    if (!found) {
+      setManualCheckFailed(true);
+      setTimeout(() => setManualCheckFailed(false), 4000);
+    }
+  };
+
+  if (status === "found") {
+    return (
+      <div className="flex flex-col gap-4 text-center py-4">
+        <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{ background: "var(--accent-light)" }} aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--accent)" }}>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <p className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+          Signed in! Redirecting...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5 text-center">
@@ -347,7 +385,23 @@ function CheckEmailStep({
           <strong style={{ color: "var(--foreground)" }}>{email}</strong>.
           <br />Click the link in the email to sign in.
         </p>
+        {isPwa && (
+          <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--accent)" }}>
+            After clicking the link in your email, return here — you&apos;ll be signed in automatically.
+          </p>
+        )}
       </div>
+
+      {status === "polling" && (
+        <p className="text-xs flex items-center justify-center gap-1.5" style={{ color: "var(--muted)" }}>
+          <span className="inline-flex gap-0.5">
+            <span className="animate-pulse">.</span>
+            <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>.</span>
+            <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>.</span>
+          </span>
+          Waiting for sign-in
+        </p>
+      )}
 
       {devLink && (
         <div className="rounded-xl border p-4 text-left"
@@ -364,6 +418,19 @@ function CheckEmailStep({
           </a>
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={handleManualCheck}
+        className="rounded-xl py-2.5 text-sm font-medium border transition-colors"
+        style={{
+          borderColor: manualCheckFailed ? "var(--danger, #dc2626)" : "var(--border)",
+          color: manualCheckFailed ? "var(--danger, #dc2626)" : "var(--foreground)",
+          background: "var(--surface)",
+        }}
+      >
+        {manualCheckFailed ? "Not signed in yet \u2014 try again after clicking the link" : "I\u2019ve clicked the link"}
+      </button>
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>
         Didn&apos;t get it? Check your spam folder, or{" "}

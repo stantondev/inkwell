@@ -256,13 +256,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning} compact>
           {/* Cover image */}
           {entry.cover_image_id && (
-            <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: 280 }}>
+            <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: "min(280px, 45vw)" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/images/${entry.cover_image_id}`}
                 alt={entry.title ?? "Entry cover"}
                 className="w-full object-cover"
-                style={{ maxHeight: 280 }}
+                style={{ maxHeight: "min(280px, 45vw)" }}
                 loading="lazy"
               />
             </div>

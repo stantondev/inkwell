@@ -127,6 +127,19 @@ img, video, iframe, embed, object {
   overscroll-behavior: none;
 }
 
+/* Prevent long URLs/words from breaking mobile layouts */
+@media (max-width: 639px) {
+  .journal-page,
+  .prose-entry,
+  .prose-comment,
+  .prose-letter,
+  .prose-bio,
+  .prose-discussion {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
+
 /* ─── Prose styles for journal entries ─────────────────────────────────── */
 
 .prose-entry {
@@ -3076,6 +3089,13 @@ body[data-focus-mode] .app-content {
 
 body[data-focus-mode] .sidebar-reveal-tab {
   display: none !important;
+}
+
+/* Hide reveal tab on mobile — bottom tab bar handles navigation */
+@media (max-width: 1023px) {
+  .sidebar-reveal-tab {
+    display: none !important;
+  }
 }
 
 /* ─── Reduced motion ─── */
@@ -7144,7 +7164,7 @@ a.comment-author-name:hover {
   flex-direction: column;
   animation: comment-sheet-slide-up 0.25s ease;
   /* Safe area for notched phones */
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .comment-sheet-handle {
@@ -7178,4 +7198,322 @@ a.comment-author-name:hover {
 
 [data-theme="dark"] .comment-sheet-backdrop {
   background: rgba(0, 0, 0, 0.55);
+}
+
+/* ==========================================================================
+   Bottom Tab Bar — Mobile Navigation
+   ========================================================================== */
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: calc(56px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (min-width: 1024px) {
+  .bottom-tab-bar {
+    display: none;
+  }
+}
+
+.bottom-tab-texture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+body[data-focus-mode] .bottom-tab-bar {
+  display: none;
+}
+
+/* Push Next.js dev tools toast above the bottom tab bar (dev only) */
+nextjs-portal {
+  transform: translateY(-70px);
+}
+
+.bottom-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  min-width: 44px;
+  padding: 6px 12px;
+  color: var(--muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.bottom-tab-item--active {
+  color: var(--accent);
+}
+
+.bottom-tab-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.bottom-tab-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-tab-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Write FAB — raised center button */
+.bottom-tab-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  transform: translateY(-12px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bottom-tab-fab:active {
+  transform: translateY(-10px) scale(0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Content padding — prevent content from hiding behind fixed tab bar */
+.has-bottom-tabs {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .has-bottom-tabs {
+    padding-bottom: 0;
+  }
+}
+
+/* ==========================================================================
+   More Sheet — Bottom Sheet Navigation Menu
+   ========================================================================== */
+
+.more-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.more-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 61;
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.more-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.more-sheet-handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.more-sheet-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  text-decoration: none;
+  color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.more-sheet-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.more-sheet-user-name {
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more-sheet-user-handle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.more-sheet-divider {
+  height: 1px;
+  margin: 4px 20px;
+  background: var(--border);
+}
+
+.more-sheet-links {
+  padding: 4px 0 12px;
+}
+
+.more-sheet-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  min-height: 48px;
+  font-size: 15px;
+  color: var(--foreground);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.more-sheet-link:active {
+  background: var(--surface-hover);
+}
+
+.more-sheet-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  color: var(--muted);
+}
+
+.more-sheet-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.more-sheet-signout {
+  display: contents;
+}
+
+@media (prefers-color-scheme: dark) {
+  .more-sheet-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .bottom-tab-fab {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+}
+
+[data-theme="dark"] .more-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .bottom-tab-fab {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   App-Like Feel — Mobile Enhancements
+   ========================================================================== */
+
+/* Prevent pull-to-refresh bounce */
+html {
+  overscroll-behavior: none;
+}
+
+/* Remove tap highlight globally */
+a, button, [role="tab"], [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable double-tap zoom on interactive elements */
+@media (pointer: coarse) {
+  a, button, input, select, textarea, [role="tab"], [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Touch target enforcement — Apple HIG 44px minimum */
+  header nav a,
+  header nav button,
+  .comment-actions a,
+  .comment-actions button,
+  .feed-card-actions-bar a,
+  .feed-card-actions-bar button {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Editor toolbar buttons — bump to 36px min */
+  .editor-toolbar-wrap button,
+  .letter-editor-toolbar button,
+  .bio-editor-toolbar button,
+  .comment-editor-toolbar button {
+    min-height: 36px;
+    min-width: 36px;
+  }
 }
