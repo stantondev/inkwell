@@ -16,10 +16,21 @@ export async function GET(request: NextRequest) {
   if (search) qs.set("search", search);
   if (filter) qs.set("filter", filter);
 
-  const res = await fetch(`${SERVER_API}/api/admin/entries?${qs.toString()}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const res = await fetch(`${SERVER_API}/api/admin/entries?${qs.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      return NextResponse.json(data, { status: res.status });
+    } catch {
+      console.error("Admin entries: non-JSON response from API:", res.status, text.slice(0, 200));
+      return NextResponse.json({ error: "Unexpected API response" }, { status: 500 });
+    }
+  } catch (err) {
+    console.error("Admin entries: fetch error:", err);
+    return NextResponse.json({ error: "Failed to reach API" }, { status: 500 });
+  }
 }
