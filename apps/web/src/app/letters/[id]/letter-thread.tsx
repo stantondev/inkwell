@@ -429,20 +429,23 @@ function ComposeArea({
   onSend,
   prefersReducedMotion,
   composeWidth,
-  expanded,
-  onToggleExpand,
 }: {
   conversationId: string;
   onSend: (message: LetterMessage) => void;
   prefersReducedMotion: boolean;
   composeWidth: number | null;
-  expanded: boolean;
-  onToggleExpand: () => void;
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isMac, setIsMac] = useState(false);
   const htmlRef = useRef("");
   const editorKeyRef = useRef(0);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+    setIsMac(navigator.platform?.toUpperCase().includes("MAC") || navigator.userAgent?.includes("Mac"));
+  }, []);
 
   const send = async () => {
     const html = htmlRef.current;
@@ -474,9 +477,7 @@ function ComposeArea({
   };
 
   const widthStyle = composeWidth
-    ? { width: `${expanded ? Math.max(composeWidth, 500) : composeWidth}px` }
-    : expanded
-    ? { width: "60%" }
+    ? { width: `${composeWidth}px` }
     : undefined;
 
   return (
@@ -496,28 +497,11 @@ function ComposeArea({
         >
           Write a letter&hellip;
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button
-            className="letter-compose-expand-btn"
-            onClick={onToggleExpand}
-            title={expanded ? "Collapse compose" : "Expand compose"}
-          >
-            {expanded ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" />
-                <line x1="14" y1="10" x2="21" y2="3" /><line x1="3" y1="21" x2="10" y2="14" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
-                <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
-              </svg>
-            )}
-          </button>
-          <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
-            ⌘↵ to send
+        {!isTouchDevice && (
+          <span className="letter-send-hint" style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
+            {isMac ? "⌘" : "Ctrl+"}↵ to send
           </span>
-        </span>
+        )}
       </div>
 
       {error && (
@@ -535,7 +519,7 @@ function ComposeArea({
         </div>
       )}
 
-      <div className="letter-compose-body" style={{ flex: 1, overflow: "auto" }}>
+      <div className="letter-compose-body">
         <LetterEditor
           key={editorKeyRef.current}
           content=""
@@ -603,7 +587,6 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [composeExpanded, setComposeExpanded] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(
@@ -754,7 +737,7 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div className="letter-thread-container">
       {/* Header */}
       <div
         style={{
@@ -900,8 +883,6 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           }}
           prefersReducedMotion={prefersReducedMotion}
           composeWidth={composeWidth}
-          expanded={composeExpanded}
-          onToggleExpand={() => setComposeExpanded((p) => !p)}
         />
       </div>
     </div>

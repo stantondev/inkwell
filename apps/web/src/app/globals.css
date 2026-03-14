@@ -2391,6 +2391,31 @@ div:has(> div > .editor-floating-menu) {
 
 /* ─── Letter thread layout ───────────────────────────────────────────── */
 
+/* Full-viewport letter page — subtract nav (~57px) and bottom tab bar on mobile */
+.letter-page-wrapper {
+  /* Mobile: subtract nav bar + bottom tab bar */
+  height: calc(100dvh - 57px - 56px - env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  /* Desktop: no top nav (sidebar instead), no bottom tab bar */
+  .letter-page-wrapper {
+    height: 100dvh;
+  }
+}
+
+/* Fill the page wrapper */
+.letter-thread-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Mobile: stacked column (messages then compose footer) */
 .letter-thread-body {
   display: flex;
@@ -2408,6 +2433,9 @@ div:has(> div > .editor-floating-menu) {
 /* Compose area — mobile: footer bar */
 .letter-compose-area {
   flex-shrink: 0;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
   border-top: 1px solid var(--border);
   background: #fdf8ee;
   background-image:
@@ -2426,8 +2454,15 @@ div:has(> div > .editor-floating-menu) {
   padding: 10px 18px 0;
 }
 
+/* Hide keyboard shortcut hint on mobile — shown via desktop media query below */
+.letter-send-hint {
+  display: none;
+}
+
 .letter-compose-body {
   padding: 8px 18px 4px;
+  flex: 1;
+  min-height: 0;
 }
 
 .letter-compose-footer {
@@ -2463,6 +2498,10 @@ div:has(> div > .editor-floating-menu) {
     border-radius: 4px 0 0 0;
     /* Subtle paper shadow on the left edge */
     box-shadow: -4px 0 12px -2px rgba(120,100,50,0.06);
+  }
+
+  .letter-send-hint {
+    display: inline;
   }
 
   .letter-compose-header {
@@ -2667,19 +2706,6 @@ div:has(> div > .editor-floating-menu) {
 @media (min-width: 768px) {
   .letter-resize-handle { display: block; }
 }
-
-/* ─── Letter Compose Expand Toggle ──────────────────────────────────── */
-.letter-compose-expand-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted);
-  padding: 2px;
-  font-size: 14px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-.letter-compose-expand-btn:hover { opacity: 1; }
 
 /* ─── Sidebar — "The Contents Page" ─────────────────────────────────── */
 

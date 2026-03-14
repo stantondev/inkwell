@@ -58,7 +58,7 @@ export default async function LetterThreadPage({
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="letter-page-wrapper"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
       <LetterThread
