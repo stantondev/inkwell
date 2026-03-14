@@ -417,8 +417,8 @@ export default async function FeedPage({ searchParams }: PageProps) {
         }}
       />
 
-      {/* Bottom upsell for non-Plus users */}
-      {session.user.subscription_tier !== "plus" && (
+      {/* Bottom upsell — Plus upsell for free users, Ink Donor for Plus non-donors */}
+      {session.user.subscription_tier !== "plus" ? (
         <div className="mx-auto max-w-md px-4 pb-8">
           <div
             className="rounded-xl border p-4 text-center"
@@ -455,7 +455,35 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
           </div>
         </div>
-      )}
+      ) : session.user.ink_donor_status !== "active" ? (
+        <div className="mx-auto max-w-md px-4 pb-8">
+          <div
+            className="rounded-xl border p-4 text-center"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--surface)",
+            }}
+          >
+            <p
+              className="text-sm font-medium mb-1"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+            >
+              Keep the ink flowing.
+            </p>
+            <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+              Inkwell runs on readers and writers, not ads or algorithms.
+              Ink Donors help keep this space independent. From $1/month.
+            </p>
+            <Link
+              href="/settings/billing"
+              className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              Become an Ink Donor
+            </Link>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

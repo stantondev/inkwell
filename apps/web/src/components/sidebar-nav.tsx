@@ -15,6 +15,7 @@ interface SidebarNavProps {
   avatarUrl: string | null;
   avatarFrame?: string | null;
   subscriptionTier?: string;
+  inkDonorStatus?: string | null;
   isAdmin?: boolean;
   initialNotificationCount: number;
   initialLetterCount: number;
@@ -92,6 +93,7 @@ export function SidebarNav({
   avatarUrl,
   avatarFrame,
   subscriptionTier,
+  inkDonorStatus,
   isAdmin,
   initialNotificationCount,
   initialLetterCount,
@@ -275,6 +277,21 @@ export function SidebarNav({
           >
             <span className="sidebar-nav-icon" style={{ color: "var(--accent)" }}>✦</span>
             <span className="sidebar-nav-label">Upgrade to Plus</span>
+          </Link>
+        )}
+
+        {inkDonorStatus !== "active" && (
+          <Link
+            href="/settings/billing"
+            className="sidebar-nav-link"
+            style={{ color: "var(--muted)", fontSize: "12px" }}
+          >
+            <span className="sidebar-nav-icon" style={{ opacity: 0.6 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M12 2C12 2 4 8.5 4 14a8 8 0 0 0 16 0c0-5.5-8-12-8-12Z" />
+              </svg>
+            </span>
+            <span className="sidebar-nav-label" style={{ fontStyle: "italic" }}>Keep the ink flowing. $1/mo</span>
           </Link>
         )}
 

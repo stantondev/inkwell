@@ -31,6 +31,7 @@ export async function Sidebar({ user }: { user: SessionUser }) {
         avatarUrl={user.avatar_url}
         avatarFrame={user.avatar_frame}
         subscriptionTier={user.subscription_tier}
+        inkDonorStatus={user.ink_donor_status}
         isAdmin={user.is_admin}
         initialNotificationCount={user.unread_notification_count ?? 0}
         initialLetterCount={user.unread_letter_count ?? 0}
