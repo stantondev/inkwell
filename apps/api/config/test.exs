@@ -2,9 +2,9 @@ import Config
 
 config :inkwell, Inkwell.Repo,
   username: "inkwell",
-  password: "inkwell_dev",
+  password: "inkwell",
   hostname: "localhost",
-  database: "inkwell_test#{System.get_env("MIX_TEST_PARTITION")},
+  database: "inkwell_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 

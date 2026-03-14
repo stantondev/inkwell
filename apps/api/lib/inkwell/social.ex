@@ -59,6 +59,18 @@ defmodule Inkwell.Social do
     end
   end
 
+  @doc "Unfollow a remote (fediverse) actor. Deletes the relationship record."
+  def unfollow_remote(user_id, remote_actor_id) do
+    query =
+      Relationship
+      |> where([r], r.follower_id == ^user_id and r.remote_actor_id == ^remote_actor_id)
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      rel -> Repo.delete(rel)
+    end
+  end
+
   def block(blocker_id, blocked_id) do
     # Remove any existing relationships
     Relationship

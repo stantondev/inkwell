@@ -287,6 +287,38 @@ defmodule InkwellWeb.RelationshipController do
     })
   end
 
+  # DELETE /api/fediverse/unfollow
+  def fediverse_unfollow(conn, %{"remote_actor_id" => remote_actor_id}) do
+    user = conn.assigns.current_user
+
+    case Social.unfollow_remote(user.id, remote_actor_id) do
+      {:ok, _rel} ->
+        # Send Undo { Follow } to the remote actor's inbox
+        case Inkwell.Federation.RemoteActor.get(remote_actor_id) do
+          nil ->
+            :ok
+
+          remote_actor ->
+            alias Inkwell.Federation.ActivityBuilder
+
+            undo_activity = ActivityBuilder.build_undo_follow(remote_actor.ap_id, user)
+
+            %{activity: undo_activity, inbox_url: remote_actor.inbox, user_id: user.id}
+            |> Inkwell.Federation.Workers.DeliverActivityWorker.new()
+            |> Oban.insert()
+        end
+
+        json(conn, %{ok: true})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Not following this remote actor"})
+    end
+  end
+
+  def fediverse_unfollow(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "remote_actor_id is required"})
+  end
+
   # GET /api/blocked-users
   def blocked_users(conn, _params) do
     user = conn.assigns.current_user

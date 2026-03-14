@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { AcceptDeclineButtons, CancelRequestButton } from "./pending-request-actions";
 import { FediverseFollowBackButton } from "./fediverse-follow-back-button";
+import { RemoveConnectionButton } from "./remove-connection-button";
 
 interface PenPal {
   id: string;
@@ -242,19 +243,18 @@ export function PenPalsClient({
                 <div className="rounded-2xl border overflow-hidden"
                   style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
                   {penPals.map((pal, i) => (
-                    <Link key={pal.id} href={`/${pal.username}`}
-                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)] ${i < penPals.length - 1 ? "border-b" : ""}`}
+                    <div key={pal.id}
+                      className={`flex items-center gap-3 px-5 py-3.5 ${i < penPals.length - 1 ? "border-b" : ""}`}
                       style={{ borderColor: "var(--border)" }}>
-                      <Avatar url={pal.avatar_url} name={pal.display_name} size={40} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{pal.display_name}</p>
-                        <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{pal.username}</p>
-                      </div>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full"
-                        style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                        Pen Pal
-                      </span>
-                    </Link>
+                      <Link href={`/${pal.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar url={pal.avatar_url} name={pal.display_name} size={40} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{pal.display_name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{pal.username}</p>
+                        </div>
+                      </Link>
+                      <RemoveConnectionButton type="pen_pal" username={pal.username} />
+                    </div>
                   ))}
                 </div>
               )}
@@ -299,16 +299,18 @@ export function PenPalsClient({
                 <div className="rounded-2xl border overflow-hidden"
                   style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
                   {reading.map((person, i) => (
-                    <Link key={person.id} href={`/${person.username}`}
-                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--surface-hover)] ${i < reading.length - 1 ? "border-b" : ""}`}
+                    <div key={person.id}
+                      className={`flex items-center gap-3 px-5 py-3.5 ${i < reading.length - 1 ? "border-b" : ""}`}
                       style={{ borderColor: "var(--border)" }}>
-                      <Avatar url={person.avatar_url} name={person.display_name} size={40} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{person.display_name}</p>
-                        <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{person.username}</p>
-                      </div>
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>Following</span>
-                    </Link>
+                      <Link href={`/${person.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar url={person.avatar_url} name={person.display_name} size={40} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{person.display_name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{person.username}</p>
+                        </div>
+                      </Link>
+                      <RemoveConnectionButton type="reading" username={person.username} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -343,11 +345,18 @@ export function PenPalsClient({
                     <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{actor.username}@{actor.domain}</p>
                   </div>
 
-                  {/* Show Follow Back button for followers, badge for others */}
-                  {actor.relationship === "follower" ? (
+                  {/* Show Follow Back button for followers, action buttons for others */}
+                  {actor.relationship === "follower" || actor.relationship === "follower_following_pending" ? (
                     <FediverseFollowBackButton apId={actor.ap_id} initialRelationship={actor.relationship} />
                   ) : (
-                    <RelationshipBadge relationship={actor.relationship} />
+                    <RemoveConnectionButton
+                      type={
+                        actor.relationship === "mutual" ? "fediverse_mutual"
+                        : actor.relationship === "following_pending" ? "fediverse_pending"
+                        : "fediverse_following"
+                      }
+                      remoteActorId={actor.id}
+                    />
                   )}
 
                   <a href={actor.profile_url} target="_blank" rel="noopener noreferrer"
