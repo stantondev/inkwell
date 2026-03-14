@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createAvatar } from "@dicebear/core";
 import * as croodles from "@dicebear/croodles";
 import * as croodlesNeutral from "@dicebear/croodles-neutral";
@@ -87,6 +87,31 @@ export function AvatarBuilder({
   const previewDataUri = useMemo(() => {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
   }, [svgString]);
+
+  // In compact mode (onboarding), auto-render and call onSave on every change
+  // so the avatar is captured without requiring an explicit "Save" click
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!compact) return;
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const dataUri = await renderSvgToDataUri(svgString, 400, 0.85);
+        const config: AvatarConfig = { style: styleId, options };
+        await onSaveRef.current(config, dataUri);
+      } catch {
+        // Silently fail — user can still manually save
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [compact, svgString, styleId, options]);
 
   function switchStyle(newStyleId: string) {
     const newStyle = getStyleById(newStyleId);
@@ -238,27 +263,29 @@ export function AvatarBuilder({
           )}
         </div>
 
-        {/* Actions */}
-        <div className="avatar-builder-actions">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="avatar-builder-btn-primary"
-          >
-            {saving ? "Saving..." : saved ? "Saved!" : "Save avatar"}
-          </button>
-
-          {photoUrl && onRevertToPhoto && (
+        {/* Actions — hidden in compact mode (auto-saved) */}
+        {!compact && (
+          <div className="avatar-builder-actions">
             <button
               type="button"
-              onClick={onRevertToPhoto}
-              className="avatar-builder-btn-link"
+              onClick={handleSave}
+              disabled={saving}
+              className="avatar-builder-btn-primary"
             >
-              Use uploaded photo instead
+              {saving ? "Saving..." : saved ? "Saved!" : "Save avatar"}
             </button>
-          )}
-        </div>
+
+            {photoUrl && onRevertToPhoto && (
+              <button
+                type="button"
+                onClick={onRevertToPhoto}
+                className="avatar-builder-btn-link"
+              >
+                Use uploaded photo instead
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
