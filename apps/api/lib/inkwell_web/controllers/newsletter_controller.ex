@@ -138,6 +138,7 @@ defmodule InkwellWeb.NewsletterController do
   def get_settings(conn, _params) do
     user = conn.assigns.current_user
     subscriber_count = Newsletter.count_subscribers(user.id)
+    pending_count = Newsletter.count_pending_subscribers(user.id)
     limit = Newsletter.subscriber_limit(user.subscription_tier)
 
     json(conn, %{
@@ -147,6 +148,7 @@ defmodule InkwellWeb.NewsletterController do
         newsletter_description: user.newsletter_description,
         newsletter_reply_to: user.newsletter_reply_to,
         subscriber_count: subscriber_count,
+        pending_count: pending_count,
         subscriber_limit: limit,
         sends_this_month: Newsletter.count_sends_this_month(user.id),
         send_limit: Newsletter.send_limit(user.subscription_tier)
@@ -179,6 +181,7 @@ defmodule InkwellWeb.NewsletterController do
     case Accounts.update_user_profile(user, attrs) do
       {:ok, updated_user} ->
         subscriber_count = Newsletter.count_subscribers(updated_user.id)
+        pending_count = Newsletter.count_pending_subscribers(updated_user.id)
         limit = Newsletter.subscriber_limit(updated_user.subscription_tier)
 
         json(conn, %{
@@ -188,6 +191,7 @@ defmodule InkwellWeb.NewsletterController do
             newsletter_description: updated_user.newsletter_description,
             newsletter_reply_to: updated_user.newsletter_reply_to,
             subscriber_count: subscriber_count,
+            pending_count: pending_count,
             subscriber_limit: limit,
             sends_this_month: Newsletter.count_sends_this_month(updated_user.id),
             send_limit: Newsletter.send_limit(updated_user.subscription_tier)
@@ -314,15 +318,57 @@ defmodule InkwellWeb.NewsletterController do
     end
   end
 
+  # POST /api/newsletter/import
+  def import_subscribers(conn, %{"emails" => emails}) when is_list(emails) do
+    user = conn.assigns.current_user
+
+    unless user.newsletter_enabled do
+      conn |> put_status(:forbidden) |> json(%{error: "Newsletter is not enabled"})
+    else
+      cap = Newsletter.import_cap(user.subscription_tier)
+
+      if length(emails) > cap do
+        conn |> put_status(422) |> json(%{error: "Too many emails. Maximum #{cap} per import for your plan."})
+      else
+        case Newsletter.import_subscribers(user.id, emails, user.subscription_tier) do
+          {:ok, result} ->
+            # Enqueue confirmation email worker if there are new subscribers
+            if result.imported > 0 do
+              %{writer_id: user.id, subscriber_ids: result.new_subscriber_ids}
+              |> Inkwell.Workers.NewsletterImportWorker.new()
+              |> Oban.insert()
+            end
+
+            json(conn, %{
+              data: %{
+                imported: result.imported,
+                skipped: result.skipped,
+                invalid: result.invalid
+              }
+            })
+
+          {:error, reason} ->
+            conn |> put_status(422) |> json(%{error: inspect(reason)})
+        end
+      end
+    end
+  end
+
+  def import_subscribers(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "emails list is required"})
+  end
+
   # GET /api/newsletter/stats
   def stats(conn, _params) do
     user = conn.assigns.current_user
     subscriber_count = Newsletter.count_subscribers(user.id)
+    pending_count = Newsletter.count_pending_subscribers(user.id)
     limit = Newsletter.subscriber_limit(user.subscription_tier)
 
     json(conn, %{
       data: %{
         subscriber_count: subscriber_count,
+        pending_count: pending_count,
         subscriber_limit: limit,
         newsletter_enabled: user.newsletter_enabled || false,
         sends_this_month: Newsletter.count_sends_this_month(user.id),

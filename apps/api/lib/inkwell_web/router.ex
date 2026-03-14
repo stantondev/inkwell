@@ -405,6 +405,7 @@ defmodule InkwellWeb.Router do
     patch "/newsletter/settings", NewsletterController, :update_settings
     get "/newsletter/subscribers", NewsletterController, :list_subscribers
     delete "/newsletter/subscribers/:id", NewsletterController, :remove_subscriber
+    post "/newsletter/import", NewsletterController, :import_subscribers
     post "/newsletter/send", NewsletterController, :send_newsletter
     get "/newsletter/sends", NewsletterController, :list_sends
     delete "/newsletter/sends/:id", NewsletterController, :cancel_send

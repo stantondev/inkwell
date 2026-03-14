@@ -9,6 +9,7 @@ interface NewsletterSettings {
   newsletter_description: string | null;
   newsletter_reply_to: string | null;
   subscriber_count: number;
+  pending_count: number;
   subscriber_limit: number | null;
   sends_this_month: number;
   send_limit: number;
@@ -98,6 +99,7 @@ export default function NewsletterSettingsPage() {
   }
 
   const subscriberCount = settings?.subscriber_count ?? 0;
+  const pendingCount = settings?.pending_count ?? 0;
   const subscriberLimit = settings?.subscriber_limit;
 
   return (
@@ -149,8 +151,13 @@ export default function NewsletterSettingsPage() {
               <div>
                 <span className="text-2xl font-semibold">{subscriberCount}</span>
                 <span className="text-sm ml-2" style={{ color: "var(--muted)" }}>
-                  {subscriberLimit ? `/ ${subscriberLimit} subscribers` : "subscribers"}
+                  {subscriberLimit ? `/ ${subscriberLimit} confirmed` : "confirmed"}
                 </span>
+                {pendingCount > 0 && (
+                  <span className="text-sm ml-2" style={{ color: "var(--accent)" }}>
+                    · {pendingCount} pending confirmation
+                  </span>
+                )}
               </div>
               <Link href="/settings/newsletter/subscribers"
                 className="text-sm font-medium" style={{ color: "var(--accent)" }}>
@@ -301,6 +308,24 @@ export default function NewsletterSettingsPage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Import subscribers */}
+          <div className="rounded-xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  Import Subscribers
+                </h3>
+                <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+                  Migrating from another platform? Import your subscriber list — each subscriber will receive a confirmation email.
+                </p>
+              </div>
+              <Link href="/settings/newsletter/import"
+                className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+                Import
+              </Link>
             </div>
           </div>
 

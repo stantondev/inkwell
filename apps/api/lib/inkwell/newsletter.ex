@@ -104,6 +104,12 @@ defmodule Inkwell.Newsletter do
     |> Repo.aggregate(:count)
   end
 
+  def count_pending_subscribers(writer_id) do
+    Subscriber
+    |> where(writer_id: ^writer_id, status: "pending")
+    |> Repo.aggregate(:count)
+  end
+
   @doc "Get all confirmed subscriber emails + unsubscribe tokens for delivery."
   def get_all_confirmed_emails(writer_id) do
     Subscriber
@@ -292,6 +298,85 @@ defmodule Inkwell.Newsletter do
     send
     |> Send.changeset(attrs)
     |> Repo.update()
+  end
+
+  # ── Subscriber Import ──
+
+  @free_import_cap 500
+  @plus_import_cap 5_000
+
+  @email_regex ~r/^[^\s]+@[^\s]+\.[^\s]+$/
+
+  @doc """
+  Bulk import subscribers from a list of email strings.
+  Creates each as pending with source "import". Skips duplicates and invalid emails.
+  Returns {:ok, %{imported: N, skipped: N, invalid: N, new_subscriber_ids: [ids]}}
+  """
+  def import_subscribers(writer_id, emails, subscription_tier) do
+    cap = if (subscription_tier || "free") == "plus", do: @plus_import_cap, else: @free_import_cap
+    emails = Enum.take(emails, cap)
+
+    # Normalize all emails
+    normalized =
+      emails
+      |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+
+    # Separate valid vs invalid
+    {valid, invalid} = Enum.split_with(normalized, &Regex.match?(@email_regex, &1))
+
+    # Find existing subscribers in one query
+    existing_emails =
+      Subscriber
+      |> where(writer_id: ^writer_id)
+      |> where([s], s.email in ^valid)
+      |> select([s], s.email)
+      |> Repo.all()
+      |> MapSet.new()
+
+    # Filter to only new emails
+    new_emails = Enum.reject(valid, &MapSet.member?(existing_emails, &1))
+
+    # Batch insert new subscribers
+    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    new_subscriber_ids =
+      new_emails
+      |> Enum.map(fn email ->
+        id = Ecto.UUID.generate()
+        %{
+          id: id,
+          email: email,
+          writer_id: writer_id,
+          status: "pending",
+          source: "import",
+          confirm_token: generate_token(),
+          unsubscribe_token: generate_token(),
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    # Insert in batches of 500 (Postgres parameter limit)
+    new_subscriber_ids
+    |> Enum.chunk_every(500)
+    |> Enum.each(fn batch ->
+      Repo.insert_all(Subscriber, batch)
+    end)
+
+    ids = Enum.map(new_subscriber_ids, & &1.id)
+
+    {:ok, %{
+      imported: length(new_emails),
+      skipped: MapSet.size(existing_emails),
+      invalid: length(invalid),
+      new_subscriber_ids: ids
+    }}
+  end
+
+  @doc "Get the import cap for a tier."
+  def import_cap(subscription_tier) do
+    if (subscription_tier || "free") == "plus", do: @plus_import_cap, else: @free_import_cap
   end
 
   # ── Helpers ──
