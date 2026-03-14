@@ -546,15 +546,17 @@ export default async function EntryPage({ params }: EntryParams) {
       {/* Cover image */}
       {entry.cover_image_id && (
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
-          <div className="w-full overflow-hidden" style={{ maxHeight: "min(420px, 55vw)" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/images/${entry.cover_image_id}`}
-              alt={entry.title ?? "Entry cover"}
-              className="w-full object-cover"
-              style={{ maxHeight: "min(420px, 55vw)" }}
-              loading="eager"
-            />
+          <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12">
+            <div className="w-full overflow-hidden rounded-lg" style={{ maxHeight: "min(420px, 55vw)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/images/${entry.cover_image_id}`}
+                alt={entry.title ?? "Entry cover"}
+                className="w-full object-cover"
+                style={{ maxHeight: "min(420px, 55vw)" }}
+                loading="eager"
+              />
+            </div>
           </div>
         </ContentWarning>
       )}
