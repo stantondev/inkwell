@@ -1076,6 +1076,30 @@ a.mention:hover,
   display: none;
 }
 
+/* Fediverse image attachments */
+.fediverse-attachment {
+  margin-top: 0.75rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.fediverse-attachment img {
+  width: 100%;
+  max-height: 400px;
+  object-fit: cover;
+  display: block;
+  border-radius: 0.5rem;
+}
+.journal-body-clamp .fediverse-attachment img {
+  max-height: 200px;
+}
+.prose-entry .fediverse-attachment {
+  margin-top: 1rem;
+}
+.prose-entry .fediverse-attachment img {
+  max-height: 600px;
+  object-fit: contain;
+}
+
 .fediverse-view-link:hover {
   color: var(--fediverse-accent) !important;
   opacity: 0.8;

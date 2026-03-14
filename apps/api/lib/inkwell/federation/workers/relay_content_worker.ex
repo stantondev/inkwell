@@ -126,11 +126,15 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           content_warning = if is_sensitive, do: object["summary"], else: nil
 
           # 7. Store with source: "relay"
+          body_html =
+            (object["content"] || "")
+            |> Inkwell.Federation.AttachmentHelper.append_image_attachments(object)
+
           attrs = %{
             ap_id: object["id"],
             url: url,
             title: object["name"],
-            body_html: object["content"] || "",
+            body_html: body_html,
             tags: tags,
             published_at: parse_datetime(object["published"]),
             remote_actor_id: remote_actor.id,

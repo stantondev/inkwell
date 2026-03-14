@@ -110,11 +110,15 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
           _ -> note["id"]
         end
 
+      body_html =
+        (note["content"] || "")
+        |> Inkwell.Federation.AttachmentHelper.append_image_attachments(note)
+
       attrs = %{
         ap_id: note["id"],
         url: url,
         title: note["name"],
-        body_html: note["content"] || "",
+        body_html: body_html,
         tags: tags,
         published_at: parse_datetime(note["published"]),
         remote_actor_id: remote_actor.id
