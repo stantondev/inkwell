@@ -25,7 +25,6 @@ interface CommentNodeProps {
   onDelete: (commentId: string) => void;
 }
 
-const MAX_REPLY_DEPTH = 2; // 0-indexed: depth 0, 1, and 2 can reply
 const COLLAPSE_THRESHOLD = 5;
 const INITIAL_SHOW = 3;
 
@@ -74,7 +73,7 @@ export function CommentNode({
   const canDelete =
     !!session &&
     (session.user.username === comment.author?.username || !!session.user.is_admin);
-  const canReply = !!session && depth <= MAX_REPLY_DEPTH && !isRemote;
+  const canReply = !!session && !isRemote;
 
   const isCollapsed = collapsedThreads.has(comment.id);
   const needsCollapse = replies.length >= COLLAPSE_THRESHOLD;
