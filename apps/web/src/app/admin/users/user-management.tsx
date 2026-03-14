@@ -17,6 +17,8 @@ interface AdminUser {
   subscription_tier: string;
   subscription_status: string | null;
   stripe_customer_id: string | null;
+  ink_donor_status: string | null;
+  ink_donor_amount_cents: number | null;
   blocked_at: string | null;
   created_at: string;
   updated_at: string;
@@ -32,6 +34,7 @@ const FILTERS = [
   { key: "", label: "All" },
   { key: "admin", label: "Admins" },
   { key: "plus", label: "Plus" },
+  { key: "donor", label: "Donors" },
   { key: "blocked", label: "Blocked" },
 ] as const;
 
@@ -276,11 +279,18 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                         )}
                       </td>
                       <td>
-                        {user.subscription_tier === "plus" ? (
-                          <span className="admin-badge admin-badge--accent-light">Plus</span>
-                        ) : (
-                          <span className="text-xs" style={{ color: "var(--muted)" }}>Free</span>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {user.subscription_tier === "plus" ? (
+                            <span className="admin-badge admin-badge--accent-light">Plus</span>
+                          ) : (
+                            <span className="text-xs" style={{ color: "var(--muted)" }}>Free</span>
+                          )}
+                          {user.ink_donor_status === "active" && (
+                            <span className="admin-badge admin-badge--accent" title={user.ink_donor_amount_cents ? `$${user.ink_donor_amount_cents / 100}/mo` : undefined}>
+                              Donor{user.ink_donor_amount_cents ? ` $${user.ink_donor_amount_cents / 100}` : ""}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="hidden lg:table-cell">
                         <span className="text-xs" style={{ color: "var(--muted)" }}>{timeAgo(user.created_at)}</span>
@@ -321,6 +331,11 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                 <div className="admin-mobile-card-meta">
                   {user.is_admin && <span className="admin-badge admin-badge--accent">Admin{user.is_env_admin ? " *" : ""}</span>}
                   {user.subscription_tier === "plus" && <span className="admin-badge admin-badge--accent-light">Plus</span>}
+                  {user.ink_donor_status === "active" && (
+                    <span className="admin-badge admin-badge--accent">
+                      Donor{user.ink_donor_amount_cents ? ` $${user.ink_donor_amount_cents / 100}` : ""}
+                    </span>
+                  )}
                   {user.blocked_at ? (
                     <span className="admin-badge admin-badge--danger">Blocked</span>
                   ) : (

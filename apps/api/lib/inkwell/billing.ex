@@ -440,15 +440,19 @@ defmodule Inkwell.Billing do
 
         if is_donor_price?(price_id) or sub_id == user.ink_donor_stripe_subscription_id do
           donor_status = if status in ["active", "trialing"], do: "active", else: status
+          amount_cents = donor_amount_for_price(price_id)
 
-          user
-          |> User.ink_donor_changeset(%{
+          attrs = %{
             ink_donor_stripe_subscription_id: sub_id,
             ink_donor_status: donor_status
-          })
+          }
+          attrs = if amount_cents, do: Map.put(attrs, :ink_donor_amount_cents, amount_cents), else: attrs
+
+          user
+          |> User.ink_donor_changeset(attrs)
           |> Repo.update()
 
-          Logger.info("Ink Donor subscription updated for #{user.username}: status=#{status}")
+          Logger.info("Ink Donor subscription updated for #{user.username}: status=#{status}, amount=#{amount_cents || "unchanged"}")
         else
           expires_at = case get_in(object, ["current_period_end"]) do
             ts when is_integer(ts) -> DateTime.from_unix!(ts)
@@ -576,6 +580,17 @@ defmodule Inkwell.Billing do
 
   defp is_donor_price?(nil), do: false
   defp is_donor_price?(price_id), do: price_id in donor_price_ids()
+
+  defp donor_amount_for_price(nil), do: nil
+  defp donor_amount_for_price(price_id) do
+    config = stripe_config()
+    cond do
+      price_id == config[:ink_donor_price_1] -> 100
+      price_id == config[:ink_donor_price_2] -> 200
+      price_id == config[:ink_donor_price_3] -> 300
+      true -> nil
+    end
+  end
 
   # ── Private: Helpers ───────────────────────────────────────────────────
 

@@ -422,6 +422,7 @@ defmodule Inkwell.Accounts do
     query = case filter do
       "admin" -> where(query, [u], u.role == "admin")
       "plus" -> where(query, [u], u.subscription_tier == "plus")
+      "donor" -> where(query, [u], u.ink_donor_status == "active")
       "blocked" -> where(query, [u], not is_nil(u.blocked_at))
       _ -> query
     end
@@ -489,6 +490,10 @@ defmodule Inkwell.Accounts do
         from(u in User, where: u.subscription_tier == "plus"),
         :count, :id
       ),
+      ink_donors: Repo.aggregate(
+        from(u in User, where: u.ink_donor_status == "active"),
+        :count, :id
+      ),
       signups_this_week: Repo.aggregate(
         from(u in User, where: u.inserted_at >= ^week_ago),
         :count, :id
@@ -509,6 +514,15 @@ defmodule Inkwell.Accounts do
   def recent_plus_subscribers(limit \\ 10) do
     User
     |> where([u], u.subscription_tier == "plus")
+    |> order_by(desc: :updated_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc "Recent active Ink Donors (latest N)."
+  def recent_ink_donors(limit \\ 10) do
+    User
+    |> where([u], u.ink_donor_status == "active")
     |> order_by(desc: :updated_at)
     |> limit(^limit)
     |> Repo.all()

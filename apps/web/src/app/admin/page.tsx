@@ -12,6 +12,8 @@ interface UserBrief {
   display_name: string;
   avatar_url: string | null;
   subscription_tier: string;
+  ink_donor_status: string | null;
+  ink_donor_amount_cents: number | null;
   created_at: string;
 }
 
@@ -19,6 +21,7 @@ interface StatsData {
   stats: {
     total_users: number;
     plus_subscribers: number;
+    ink_donors: number;
     signups_this_week: number;
     total_entries: number;
     total_comments: number;
@@ -26,6 +29,7 @@ interface StatsData {
     pending_reports: number;
   };
   recent_plus: UserBrief[];
+  recent_donors: UserBrief[];
   recent_signups: UserBrief[];
 }
 
@@ -64,6 +68,7 @@ export default async function AdminDashboardPage() {
         <div className="admin-stat-grid admin-section">
           <StatCard label="Total Users" value={stats.total_users} />
           <StatCard label="Plus Subscribers" value={stats.plus_subscribers} accent />
+          <StatCard label="Ink Donors" value={stats.ink_donors} accent />
           <StatCard label="New This Week" value={stats.signups_this_week} />
           <StatCard label="Total Entries" value={stats.total_entries} />
           <StatCard label="Total Comments" value={stats.total_comments} />
@@ -73,7 +78,7 @@ export default async function AdminDashboardPage() {
       )}
 
       {/* Recent sections */}
-      <div className="admin-two-col">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
         <div className="admin-card">
           <h2 className="admin-card-header">Recent Plus Subscribers</h2>
           {data?.recent_plus && data.recent_plus.length > 0 ? (
@@ -84,6 +89,19 @@ export default async function AdminDashboardPage() {
             </div>
           ) : (
             <p className="text-sm" style={{ color: "var(--muted)" }}>No Plus subscribers yet.</p>
+          )}
+        </div>
+
+        <div className="admin-card">
+          <h2 className="admin-card-header">Recent Ink Donors</h2>
+          {data?.recent_donors && data.recent_donors.length > 0 ? (
+            <div className="space-y-3">
+              {data.recent_donors.map((user) => (
+                <UserRow key={user.id} user={user} showDonorAmount />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>No Ink Donors yet.</p>
           )}
         </div>
 
@@ -114,7 +132,7 @@ function StatCard({ label, value, accent, danger }: { label: string; value: numb
   );
 }
 
-function UserRow({ user }: { user: UserBrief }) {
+function UserRow({ user, showDonorAmount }: { user: UserBrief; showDonorAmount?: boolean }) {
   return (
     <Link
       href={`/${user.username}`}
@@ -125,9 +143,15 @@ function UserRow({ user }: { user: UserBrief }) {
         <div className="text-sm font-medium truncate">{user.display_name || user.username}</div>
         <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
       </div>
-      <div className="text-xs shrink-0" style={{ color: "var(--muted)" }}>
-        {timeAgo(user.created_at)}
-      </div>
+      {showDonorAmount && user.ink_donor_amount_cents ? (
+        <span className="text-xs font-medium shrink-0" style={{ color: "var(--accent)" }}>
+          ${user.ink_donor_amount_cents / 100}/mo
+        </span>
+      ) : (
+        <div className="text-xs shrink-0" style={{ color: "var(--muted)" }}>
+          {timeAgo(user.created_at)}
+        </div>
+      )}
     </Link>
   );
 }

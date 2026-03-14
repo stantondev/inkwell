@@ -10,11 +10,13 @@ defmodule InkwellWeb.AdminController do
   def stats(conn, _params) do
     stats = Accounts.platform_stats()
     recent_plus = Accounts.recent_plus_subscribers(10)
+    recent_donors = Accounts.recent_ink_donors(10)
     recent_signups = Accounts.recent_signups(10)
 
     json(conn, %{
       stats: Map.put(stats, :pending_reports, Moderation.count_pending_reports()),
       recent_plus: Enum.map(recent_plus, &render_user_brief/1),
+      recent_donors: Enum.map(recent_donors, &render_user_brief/1),
       recent_signups: Enum.map(recent_signups, &render_user_brief/1)
     })
   end
@@ -207,6 +209,8 @@ defmodule InkwellWeb.AdminController do
       display_name: user.display_name,
       avatar_url: user.avatar_url,
       subscription_tier: user.subscription_tier || "free",
+      ink_donor_status: user.ink_donor_status,
+      ink_donor_amount_cents: user.ink_donor_amount_cents,
       created_at: user.inserted_at
     }
   end
@@ -226,6 +230,8 @@ defmodule InkwellWeb.AdminController do
       subscription_tier: user.subscription_tier || "free",
       subscription_status: user.subscription_status,
       stripe_customer_id: user.stripe_customer_id,
+      ink_donor_status: user.ink_donor_status,
+      ink_donor_amount_cents: user.ink_donor_amount_cents,
       blocked_at: user.blocked_at,
       created_at: user.inserted_at,
       updated_at: user.updated_at
