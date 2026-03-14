@@ -25,7 +25,7 @@ interface CommentNodeProps {
   onDelete: (commentId: string) => void;
 }
 
-const MAX_REPLY_DEPTH = 1; // 0-indexed: depth 0 and 1 can reply
+const MAX_REPLY_DEPTH = 2; // 0-indexed: depth 0, 1, and 2 can reply
 const COLLAPSE_THRESHOLD = 5;
 const INITIAL_SHOW = 3;
 

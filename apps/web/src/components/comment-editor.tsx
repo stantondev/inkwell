@@ -87,7 +87,24 @@ export function CommentEditor({
       attributes: {
         class: compact ? "comment-editor-tiptap comment-editor-compact-tiptap" : "comment-editor-tiptap",
       },
-      handleKeyDown: (_view, event) => {
+      handleDrop: () => {
+            // Prevent dropping images/files into comment editor
+            return true;
+          },
+          handlePaste: (_view, event) => {
+            // Block image pastes — comment editor doesn't support images
+            const items = event.clipboardData?.items;
+            if (items) {
+              for (const item of items) {
+                if (item.type.startsWith("image/")) {
+                  event.preventDefault();
+                  return true;
+                }
+              }
+            }
+            return false;
+          },
+          handleKeyDown: (_view, event) => {
         // Handle mention keyboard navigation
         if (mentionQuery !== null && mentionUsers.length > 0) {
           if (event.key === "ArrowDown") {

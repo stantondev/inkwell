@@ -831,7 +831,7 @@ defmodule Inkwell.Journals do
     end
   end
 
-  @max_comment_depth 2
+  @max_comment_depth 3
 
   defp compute_and_enforce_depth(attrs) do
     parent_id = attrs["parent_comment_id"] || attrs[:parent_comment_id]
