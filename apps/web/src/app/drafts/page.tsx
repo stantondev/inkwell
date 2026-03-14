@@ -58,6 +58,48 @@ export default async function DraftsPage() {
           </Link>
         </div>
 
+        {/* Draft capacity indicator for free users */}
+        {session.user.subscription_tier !== "plus" && (() => {
+          const count = session.user.draft_count ?? drafts.length;
+          const limit = 10;
+          const pct = (count / limit) * 100;
+          if (pct < 70) {
+            return (
+              <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
+                {count} of {limit} drafts
+              </p>
+            );
+          }
+          const isAtLimit = count >= limit;
+          return (
+            <div
+              className="rounded-lg border px-4 py-3 mb-4 text-xs"
+              style={{
+                borderColor: isAtLimit ? "var(--danger)" : "var(--warning, #b45309)",
+                background: isAtLimit ? "rgba(220, 38, 38, 0.06)" : "rgba(180, 83, 9, 0.06)",
+                color: isAtLimit ? "var(--danger)" : "var(--warning, #b45309)",
+              }}
+            >
+              {isAtLimit ? (
+                <p>
+                  All {limit} draft slots full. Publish or remove a draft, or{" "}
+                  <Link href="/settings/billing" style={{ textDecoration: "underline" }}>
+                    upgrade to Plus
+                  </Link>{" "}
+                  for unlimited drafts.
+                </p>
+              ) : (
+                <p>
+                  {count} of {limit} drafts used.{" "}
+                  <Link href="/settings/billing" style={{ textDecoration: "underline" }}>
+                    Unlimited with Plus
+                  </Link>.
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
         <DraftsList initialDrafts={drafts} />
       </div>
     </div>

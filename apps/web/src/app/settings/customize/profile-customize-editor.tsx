@@ -45,12 +45,62 @@ const SOCIAL_PLATFORMS_CONFIG = [
 
 const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
 
+const PLUS_GATE_COPY: Record<string, { headline: string; detail: string }> = {
+  "Custom colors": {
+    headline: "Make it yours.",
+    detail: "Set custom background, text, and accent colors beyond themes.",
+  },
+  "Background images": {
+    headline: "Set the scene.",
+    detail: "Upload a background image that makes your profile uniquely you.",
+  },
+  "Custom fonts": {
+    headline: "Find your voice.",
+    detail: "Choose from 8 fonts to give your journal a distinctive feel.",
+  },
+  "Custom layouts": {
+    headline: "Change your layout.",
+    detail: "Wide, minimal, or magazine views for your entries.",
+  },
+  "Profile music": {
+    headline: "Set the mood.",
+    detail: "Add a Spotify or YouTube track as your profile's soundtrack.",
+  },
+  "Widget ordering": {
+    headline: "Arrange your space.",
+    detail: "Drag and drop sidebar sections into your preferred order.",
+  },
+  "Custom HTML & CSS": {
+    headline: "Full creative control.",
+    detail: "Write custom HTML and CSS, just like the early web.",
+  },
+};
+
 function PlusGate({ feature }: { feature: string }) {
+  const copy = PLUS_GATE_COPY[feature];
   return (
     <div className="text-center py-6">
-      <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>{feature} requires Plus</p>
-      <a href="/settings/billing" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-        Upgrade to Plus
+      {copy ? (
+        <>
+          <p
+            className="text-sm font-medium mb-1"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+          >
+            {copy.headline}
+          </p>
+          <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+            {copy.detail}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>{feature} requires Plus</p>
+      )}
+      <a
+        href="/settings/billing"
+        className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+        style={{ background: "var(--accent)", color: "#fff" }}
+      >
+        Upgrade to Plus &middot; $5/mo
       </a>
     </div>
   );

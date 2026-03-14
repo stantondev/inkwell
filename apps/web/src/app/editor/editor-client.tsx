@@ -931,14 +931,83 @@ function SaveStatus({ status, lastSavedAt }: { status: SaveStatusType; lastSaved
     const time = lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     return <span className="text-xs" style={{ color: "var(--success)" }}>Saved at {time}</span>;
   }
-  const map: Record<Exclude<SaveStatusType, "idle" | "saved">, { text: string; color: string }> = {
-    saving:      { text: "Saving…",     color: "var(--muted)" },
-    error:       { text: "Save failed", color: "var(--danger)" },
-    draft_limit: { text: "Autosave unavailable — draft limit reached", color: "var(--warning, #b45309)" },
+  if (status === "draft_limit") {
+    return <span className="text-xs" style={{ color: "var(--warning, #b45309)" }}>Autosave paused — drafts full</span>;
+  }
+  const map: Record<Exclude<SaveStatusType, "idle" | "saved" | "draft_limit">, { text: string; color: string }> = {
+    saving: { text: "Saving…", color: "var(--muted)" },
+    error:  { text: "Save failed", color: "var(--danger)" },
   };
   const s = map[status as keyof typeof map];
   if (!s) return null;
   return <span className="text-xs" style={{ color: s.color }}>{s.text}</span>;
+}
+
+function DraftLimitCard() {
+  return (
+    <div
+      className="rounded-xl border p-4 mx-4 mb-4"
+      style={{
+        borderColor: "var(--warning, #b45309)",
+        background: "rgba(180, 83, 9, 0.06)",
+      }}
+    >
+      <p
+        className="text-sm font-medium mb-1"
+        style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+      >
+        Your journal is brimming.
+      </p>
+      <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+        You&apos;ve filled all 10 draft pages. Publish or remove a draft to make room, or unlock unlimited drafts with Plus.
+      </p>
+      <div className="flex items-center gap-3">
+        <a
+          href="/drafts"
+          className="text-xs font-medium"
+          style={{ color: "var(--accent)" }}
+        >
+          View drafts
+        </a>
+        <a
+          href="/settings/billing"
+          className="inline-block rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80"
+          style={{ background: "var(--accent)", color: "#fff" }}
+        >
+          Unlock unlimited drafts
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function StorageLimitCard() {
+  return (
+    <div
+      className="rounded-xl border p-4 mx-4 mb-4"
+      style={{
+        borderColor: "var(--warning, #b45309)",
+        background: "rgba(180, 83, 9, 0.06)",
+      }}
+    >
+      <p
+        className="text-sm font-medium mb-1"
+        style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+      >
+        Your image library is full.
+      </p>
+      <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+        You&apos;ve used all 100 MB of image storage. Remove unused images from older entries, or upgrade to Plus for 1 GB.
+      </p>
+      <a
+        href="/settings/billing"
+        className="inline-block rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80"
+        style={{ background: "var(--accent)", color: "#fff" }}
+      >
+        Unlock 1 GB storage
+      </a>
+    </div>
+  );
 }
 
 // ─── Recovery banner ─────────────────────────────────────────────────────────
@@ -1360,6 +1429,7 @@ export function EditorClient() {
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [storageExceeded, setStorageExceeded] = useState(false);
 
   // Poll state (Plus-only)
   const [pollEnabled, setPollEnabled] = useState(false);
@@ -1425,7 +1495,8 @@ export function EditorClient() {
         const err = await res.json().catch(() => ({}));
         const code = (err as { error?: string }).error;
         if (code === "storage_limit_exceeded") {
-          throw new Error("You've reached the 100 MB image storage limit on the free plan. Upgrade to Inkwell Plus for 1 GB of storage.");
+          setStorageExceeded(true);
+          return;
         }
         throw new Error(code ?? "Upload failed");
       }
@@ -1521,7 +1592,8 @@ export function EditorClient() {
         const err = await res.json().catch(() => ({}));
         const code = (err as { error?: string }).error;
         if (code === "storage_limit_exceeded") {
-          throw new Error("You've reached the image storage limit. Upgrade to Inkwell Plus for more storage.");
+          setStorageExceeded(true);
+          return;
         }
         throw new Error(code ?? "Upload failed");
       }
@@ -2300,6 +2372,10 @@ export function EditorClient() {
               }}
             />
           )}
+
+          {/* Upgrade cards */}
+          {saveStatus === "draft_limit" && !isPlus && <DraftLimitCard />}
+          {storageExceeded && !isPlus && <StorageLimitCard />}
 
           {/* ── Paper container ───────────────────────── */}
           <div className="editor-paper">

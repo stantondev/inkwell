@@ -427,17 +427,32 @@ export default async function FeedPage({ searchParams }: PageProps) {
               background: "var(--surface)",
             }}
           >
-            <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-              Upgrade to Plus for $5/mo. Unlock extra features and keep Inkwell
-              ad-free.
-            </p>
-            <Link
-              href="/settings/billing"
-              className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-              style={{ background: "var(--accent)", color: "#fff" }}
+            <p
+              className="text-sm font-medium mb-1"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
             >
-              Upgrade to Plus
-            </Link>
+              Enjoying your journal?
+            </p>
+            <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+              Plus members get custom themes, unlimited drafts, newsletter
+              delivery, and a custom domain. $5/month, no ads, no algorithms.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link
+                href="/settings/billing"
+                className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                Upgrade to Plus
+              </Link>
+              <Link
+                href="/settings/billing"
+                className="text-xs"
+                style={{ color: "var(--accent)" }}
+              >
+                See what&apos;s included
+              </Link>
+            </div>
           </div>
         </div>
       )}

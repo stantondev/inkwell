@@ -33,6 +33,7 @@ export function StampPicker({
     currentStamp ? resolveStampType(currentStamp) : null
   );
   const [loading, setLoading] = useState(false);
+  const [showPlusHint, setShowPlusHint] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const apiPath = stampApiPath ?? `/api/entries/${entryId}/stamp`;
@@ -124,12 +125,19 @@ export function StampPicker({
           return (
             <button
               key={type}
-              onClick={() => !isDisabled && handleStamp(type)}
-              disabled={isDisabled || loading}
+              onClick={() => {
+                if (isDisabled) {
+                  setShowPlusHint(true);
+                  return;
+                }
+                setShowPlusHint(false);
+                handleStamp(type);
+              }}
+              disabled={loading}
               className="stamp-picker-item"
               data-active={isActive ? "true" : undefined}
               data-disabled={isDisabled ? "true" : undefined}
-              title={isDisabled ? "Plus subscription required" : config.description}
+              title={isDisabled ? "Plus members only" : config.description}
             >
               <StampFrame
                 stampType={type}
@@ -143,7 +151,7 @@ export function StampPicker({
                     className="ml-1 text-[8px] px-1 py-0.5 rounded-full"
                     style={{ background: "var(--accent)", color: "#fff" }}
                   >
-                    Plus
+                    ✦
                   </span>
                 )}
               </span>
@@ -167,6 +175,32 @@ export function StampPicker({
           );
         })}
       </div>
+      {showPlusHint && (
+        <div
+          className="mt-3 rounded-lg border p-3 text-center"
+          style={{
+            borderColor: "var(--accent)",
+            background: "var(--accent-light)",
+          }}
+        >
+          <p
+            className="text-xs font-medium mb-1"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+          >
+            The First Class stamp is for Plus members.
+          </p>
+          <p className="text-[10px] mb-2" style={{ color: "var(--muted)" }}>
+            It tells a writer their work is truly exceptional.
+          </p>
+          <a
+            href="/settings/billing"
+            className="inline-block rounded-full px-3 py-1 text-[10px] font-medium transition-opacity hover:opacity-80"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            Unlock First Class
+          </a>
+        </div>
+      )}
     </>
   );
 
