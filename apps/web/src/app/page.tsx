@@ -116,19 +116,15 @@ export default async function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   "Unlimited public entries",
-                  "8 profile themes",
-                  "Per-entry privacy controls",
-                  "Version history (25 per entry)",
+                  "8 profile themes & privacy controls",
+                  "Bookmarks, categories & cover images",
                   "Series & collections (up to 5)",
-                  "Bookmarks & reading list",
-                  "Categories & cover images",
+                  "Version history (25 per entry)",
                   "Data import (WordPress, Medium, Substack & more)",
-                  "Explore fediverse content from across the open web",
+                  "Explore content from across the fediverse",
                   "Email newsletter (500 subscribers, 2 sends/mo)",
-                  "API access (read-only, 100 req/15 min)",
-                  "100 MB image storage",
-                  "Up to 10 drafts",
-                  "RSS feed",
+                  "100 MB image storage & up to 10 drafts",
+                  "Read-only API access & RSS feed",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
                     <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
@@ -161,23 +157,15 @@ export default async function LandingPage() {
               </p>
               <ul className="space-y-2 text-sm relative z-[1]" style={{ color: "var(--muted)" }}>
                 {[
-                  "Everything in Free",
-                  "Unlimited newsletter subscribers, 8 sends/mo",
-                  "Custom newsletter name & reply-to",
-                  "Scheduled newsletter sends",
-                  "Unlimited version history",
-                  "Unlimited series & collections",
+                  "Everything in Free, plus:",
+                  "Unlimited drafts, series & version history",
                   "1 GB image storage",
-                  "Unlimited drafts",
-                  "Integrated Postage (reader support payments)",
-                  "Paid subscription plans (earn from your writing)",
-                  "Cross-post to linked Mastodon accounts",
-                  "API read + write access (300 req/15 min)",
-                  "Custom colors, fonts & layouts",
-                  "Background images & profile music",
-                  "Custom HTML & CSS",
-                  "Custom domain (your-site.com)",
-                  "Post by Email (publish from any email client)",
+                  "Full newsletter (unlimited subscribers, 8 sends/mo, scheduling)",
+                  "Custom colors, fonts, layouts, backgrounds & music",
+                  "Custom HTML, CSS & domain (your-site.com)",
+                  "Postage payments & paid subscription plans",
+                  "Cross-post to Mastodon & Post by Email",
+                  "Read + write API access (300 req/15 min)",
                   "Plus badge on your profile",
                 ].map((item) => (
                   <li key={item} className="flex gap-2 items-start">
