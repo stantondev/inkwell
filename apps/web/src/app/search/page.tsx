@@ -1,14 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { Avatar } from "@/components/avatar-with-frame";
+import { SearchInput } from "./search-input";
+import { SearchTabs, type SearchTab } from "./search-tabs";
+import { SearchEmptyState } from "./search-empty-state";
+import { SearchLoading } from "./search-loading";
+import { PeopleResults } from "./search-results-people";
+import { EntryResults } from "./search-results-entries";
+import { FediverseResults } from "./search-results-fediverse";
 
 interface SearchUser {
   id: string;
   username: string;
   display_name: string;
   avatar_url: string | null;
+  avatar_frame?: string | null;
+  subscription_tier?: string;
   bio: string | null;
 }
 
@@ -36,123 +43,15 @@ interface FediverseResult {
   relationship_status?: "pending" | "accepted" | null;
 }
 
-function FollowButton({ username }: { username: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "pending" | "following">("idle");
-
-  async function handleFollow() {
-    setState("loading");
-    try {
-      const res = await fetch(`/api/follow/${username}`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setState(data.data?.status === "accepted" ? "following" : "pending");
-      } else {
-        setState("idle");
-      }
-    } catch {
-      setState("idle");
-    }
-  }
-
-  if (state === "following") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Pen Pal</span>;
-  }
-  if (state === "pending") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Requested</span>;
-  }
-  return (
-    <button onClick={handleFollow} disabled={state === "loading"}
-      className="text-xs px-3 py-1 rounded-full border font-medium transition-colors disabled:opacity-50"
-      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-      {state === "loading" ? "..." : "Send Request"}
-    </button>
-  );
-}
-
-function FediverseFollowButton({ remoteActorId, initialStatus }: { remoteActorId: string; initialStatus?: "pending" | "accepted" | null }) {
-  const [state, setState] = useState<"idle" | "loading" | "pending" | "following" | "error">(() => {
-    if (initialStatus === "accepted") return "following";
-    if (initialStatus === "pending") return "pending";
-    return "idle";
-  });
-  const pollRef = useRef<ReturnType<typeof setInterval>>(null);
-
-  // Poll for Accept after Follow click (most Mastodon accounts auto-accept)
-  useEffect(() => {
-    if (state !== "pending") return;
-    let attempts = 0;
-    pollRef.current = setInterval(async () => {
-      attempts++;
-      if (attempts > 10) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/search/fediverse/follow`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ remote_actor_id: remoteActorId }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.data?.status === "accepted") {
-            setState("following");
-            if (pollRef.current) clearInterval(pollRef.current);
-          }
-        }
-      } catch { /* ignore polling errors */ }
-    }, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [state, remoteActorId]);
-
-  async function handleFollow() {
-    setState("loading");
-    try {
-      const res = await fetch(`/api/search/fediverse/follow`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ remote_actor_id: remoteActorId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.data?.already_following && data.data?.status === "accepted") {
-          setState("following");
-        } else if (data.data?.status === "accepted") {
-          setState("following");
-        } else {
-          setState("pending");
-        }
-      } else if (res.status === 401) {
-        setState("error");
-      } else {
-        setState("idle");
-      }
-    } catch {
-      setState("idle");
-    }
-  }
-
-  if (state === "following") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Following</span>;
-  }
-  if (state === "pending") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Requested</span>;
-  }
-  if (state === "error") {
-    return <span className="text-xs px-3 py-1 rounded-full border" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>Log in first</span>;
-  }
-  return (
-    <button onClick={handleFollow} disabled={state === "loading"}
-      className="text-xs px-3 py-1 rounded-full border font-medium transition-colors disabled:opacity-50"
-      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-      {state === "loading" ? "..." : "Follow"}
-    </button>
-  );
-}
+const PLACEHOLDERS: Record<SearchTab, string> = {
+  users: "Search for a writer by name...",
+  entries: "Search for journal entries...",
+  fediverse: "user@mastodon.social",
+};
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"users" | "entries" | "fediverse">("users");
+  const [tab, setTab] = useState<SearchTab>("users");
   const [users, setUsers] = useState<SearchUser[]>([]);
   const [entries, setEntries] = useState<SearchEntry[]>([]);
   const [fediverseResult, setFediverseResult] = useState<FediverseResult | null>(null);
@@ -161,6 +60,7 @@ export default function SearchPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Detect fediverse handle and auto-switch tab
   const isFediverseHandle = /^@?[^@\s]+@[^@\s]+\.[^@\s]+$/.test(query.trim());
@@ -210,225 +110,119 @@ export default function SearchPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, tab]);
 
-  const placeholders: Record<string, string> = {
-    users: "Search for people...",
-    entries: "Search for entries...",
-    fediverse: "Enter a handle from Mastodon or another platform (e.g. user@mastodon.social)",
-  };
+  function handleQueryChange(value: string) {
+    setQuery(value);
+  }
+
+  function handleTabChange(newTab: SearchTab) {
+    setTab(newTab);
+    setHasSearched(false);
+    // Focus input on tab change
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function handleRetry() {
+    setSearchError(false);
+    // Re-trigger search by toggling query
+    const q = query;
+    setQuery("");
+    setTimeout(() => setQuery(q), 10);
+  }
+
+  const showEmpty = !loading && !hasSearched && !query.trim() && !searchError;
+  const showResults = !loading && !searchError && hasSearched;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-lg font-semibold mb-6">Search</h1>
+    <div className="catalog-page">
+      <div className="catalog-container">
+        {/* Header */}
+        <div className="catalog-header">
+          <div className="catalog-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2" />
+              <line x1="2" y1="8" x2="22" y2="8" />
+              <line x1="8" y1="8" x2="8" y2="21" />
+              <line x1="11" y1="12" x2="18" y2="12" />
+              <line x1="11" y1="15.5" x2="16" y2="15.5" />
+            </svg>
+          </div>
+          <h1 className="catalog-title">The Card Catalog</h1>
+          <div className="catalog-ornament">
+            <span className="catalog-ornament-flourish">❧</span>
+          </div>
+          <p className="catalog-subtitle">
+            Browse the stacks — find journals, writers,<br className="hidden sm:inline" /> and voices from across the fediverse
+          </p>
+        </div>
 
         {/* Search input */}
-        <div className="relative mb-4">
-          {tab === "fediverse" ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--muted)" }}>
+        <SearchInput
+          ref={inputRef}
+          query={query}
+          onChange={handleQueryChange}
+          placeholder={PLACEHOLDERS[tab]}
+          showGlobe={tab === "fediverse"}
+        />
+
+        {/* Auto-detect fediverse hint */}
+        {isFediverseHandle && tab !== "fediverse" && (
+          <button className="catalog-fediverse-hint" onClick={() => handleTabChange("fediverse")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <line x1="2" y1="12" x2="22" y2="12"/>
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
             </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--muted)" }}>
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          )}
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={placeholders[tab]}
-            className="w-full rounded-xl border px-4 py-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
-            autoFocus
-          />
-        </div>
-
-        {/* Auto-detect hint */}
-        {isFediverseHandle && tab !== "fediverse" && (
-          <button
-            onClick={() => setTab("fediverse")}
-            className="text-xs mb-3 px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--accent)]"
-            style={{ borderColor: "var(--border)", color: "var(--accent)", background: "var(--accent-light)" }}>
-            That looks like a handle from another platform. Search for them?
+            That looks like a fediverse handle — search for them?
           </button>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(["users", "entries", "fediverse"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className="text-xs px-3 py-1 rounded-full border font-medium transition-colors"
-              style={{
-                borderColor: tab === t ? "var(--accent)" : "var(--border)",
-                background: tab === t ? "var(--accent-light)" : "transparent",
-                color: tab === t ? "var(--accent)" : "var(--muted)",
-              }}>
-              {t === "users" ? "People" : t === "entries" ? "Entries" : "Fediverse"}
-            </button>
-          ))}
-        </div>
+        <SearchTabs tab={tab} onTabChange={handleTabChange} />
 
-        {/* Results */}
-        {loading && (
-          <p className="text-sm text-center py-8" style={{ color: "var(--muted)" }}>
-            {tab === "fediverse" ? "Looking them up..." : "Searching..."}
-          </p>
-        )}
+        {/* Loading */}
+        {loading && <SearchLoading tab={tab} />}
 
+        {/* Error */}
         {!loading && searchError && (
-          <div
-            className="rounded-xl border p-4 text-center"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <p
-              className="text-sm mb-1"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic", color: "var(--foreground)" }}
-            >
-              Something spilled
+          <div className="catalog-error">
+            <p className="catalog-error-title">Something spilled</p>
+            <p className="catalog-error-text">
+              The card catalog is momentarily out of service. Try again in a moment.
             </p>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Search is temporarily unavailable. Try again in a moment.
-            </p>
+            <button className="catalog-error-retry" onClick={handleRetry}>
+              Try again
+            </button>
           </div>
         )}
 
-        {/* Local users results */}
-        {!loading && tab === "users" && (
-          <>
-            {users.length > 0 ? (
-              <div className="rounded-2xl border overflow-hidden"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                {users.map((user, i) => (
-                  <div key={user.id}
-                    className={`flex items-center gap-3 px-5 py-4 ${i < users.length - 1 ? "border-b" : ""}`}
-                    style={{ borderColor: "var(--border)" }}>
-                    <Link href={`/${user.username}`} className="flex-shrink-0">
-                      <Avatar url={user.avatar_url} name={user.display_name} size={40} />
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <Link href={`/${user.username}`} className="hover:underline">
-                        <p className="text-sm font-medium truncate">{user.display_name}</p>
-                      </Link>
-                      <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</p>
-                      {user.bio && (
-                        <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--muted)" }}>{user.bio}</p>
-                      )}
-                    </div>
-                    <FollowButton username={user.username} />
-                  </div>
-                ))}
-              </div>
-            ) : hasSearched && query.trim() ? (
-              <div className="rounded-2xl border p-8 text-center"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                <p className="text-sm" style={{ color: "var(--muted)" }}>No people found for &ldquo;{query}&rdquo;</p>
-              </div>
-            ) : null}
-          </>
+        {/* Empty states */}
+        {showEmpty && (
+          <SearchEmptyState tab={tab} onQueryChange={handleQueryChange} onTabChange={handleTabChange} />
         )}
 
-        {/* Entries results */}
-        {!loading && tab === "entries" && (
-          <>
-            {entries.length > 0 ? (
-              <div className="rounded-2xl border overflow-hidden"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                {entries.map((entry, i) => (
-                  <Link key={entry.id}
-                    href={`/${entry.author.username}/${entry.slug}`}
-                    className={`block px-5 py-4 transition-colors hover:bg-[var(--surface-hover)] ${i < entries.length - 1 ? "border-b" : ""}`}
-                    style={{ borderColor: "var(--border)" }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Avatar url={entry.author.avatar_url} name={entry.author.display_name} size={20} />
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>
-                        {entry.author.display_name} · @{entry.author.username}
-                      </span>
-                    </div>
-                    {entry.title && (
-                      <p className="text-sm font-medium mb-1"
-                        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                        {entry.title}
-                      </p>
-                    )}
-                    <div className="text-xs line-clamp-2" style={{ color: "var(--muted)" }}
-                      dangerouslySetInnerHTML={{ __html: entry.body_html }} />
-                  </Link>
-                ))}
-              </div>
-            ) : hasSearched && query.trim() ? (
-              <div className="rounded-2xl border p-8 text-center"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                <p className="text-sm" style={{ color: "var(--muted)" }}>No entries found for &ldquo;{query}&rdquo;</p>
-              </div>
-            ) : null}
-          </>
+        {/* Results */}
+        {showResults && tab === "users" && (
+          <PeopleResults
+            users={users}
+            query={query}
+            hasSearched={hasSearched}
+            onTabChange={handleTabChange}
+          />
         )}
 
-        {/* Fediverse results */}
-        {!loading && tab === "fediverse" && (
-          <>
-            {!hasSearched && !query.trim() && (
-              <div className="rounded-2xl border p-8 text-center"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                <div className="mb-3">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                    className="mx-auto" style={{ color: "var(--muted)" }}>
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="2" y1="12" x2="22" y2="12"/>
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                  </svg>
-                </div>
-                <p className="text-sm font-medium mb-1">Find people on other platforms</p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  Enter a handle like <code className="px-1 py-0.5 rounded text-xs"
-                    style={{ background: "var(--surface-hover)" }}>user@mastodon.social</code> to find and follow people on Mastodon, Pixelfed, and other fediverse platforms
-                </p>
-              </div>
-            )}
+        {showResults && tab === "entries" && (
+          <EntryResults entries={entries} query={query} hasSearched={hasSearched} />
+        )}
 
-            {fediverseResult && (
-              <div className="rounded-2xl border overflow-hidden"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                <div className="flex items-center gap-3 px-5 py-5">
-                  <a href={fediverseResult.profile_url} target="_blank" rel="noopener noreferrer"
-                    className="flex-shrink-0">
-                    <Avatar url={fediverseResult.avatar_url} name={fediverseResult.display_name || fediverseResult.username} size={48} />
-                  </a>
-                  <div className="flex-1 min-w-0">
-                    <a href={fediverseResult.profile_url} target="_blank" rel="noopener noreferrer"
-                      className="hover:underline">
-                      <p className="text-sm font-medium truncate">
-                        {fediverseResult.display_name || fediverseResult.username}
-                      </p>
-                    </a>
-                    <p className="text-xs truncate" style={{ color: "var(--muted)" }}>
-                      @{fediverseResult.username}@{fediverseResult.domain}
-                    </p>
-                  </div>
-                  <FediverseFollowButton remoteActorId={fediverseResult.id} initialStatus={fediverseResult.relationship_status} />
-                </div>
-              </div>
-            )}
-
-            {fediverseError && hasSearched && (
-              <div className="rounded-2xl border p-8 text-center"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                <p className="text-sm" style={{ color: "var(--muted)" }}>{fediverseError}</p>
-                <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-                  Make sure the handle is correct (e.g. user@mastodon.social)
-                </p>
-              </div>
-            )}
-          </>
+        {showResults && tab === "fediverse" && (
+          <FediverseResults
+            result={fediverseResult}
+            error={fediverseError}
+            hasSearched={hasSearched}
+            query={query}
+          />
         )}
       </div>
     </div>

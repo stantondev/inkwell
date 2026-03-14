@@ -4,6 +4,7 @@ import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
 import { Footer } from "./footer";
 import { BottomTabBar } from "./bottom-tab-bar";
+import { SearchCommand } from "./search-command";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -43,6 +44,9 @@ export async function AppShell({
 
       {/* Sidebar — desktop only, logged-in only */}
       {user && <Sidebar user={user} />}
+
+      {/* Global Cmd/Ctrl+K search shortcut — logged-in only */}
+      {user && <SearchCommand />}
 
       {/* Main content area — bottom padding on mobile for tab bar clearance */}
       <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>
