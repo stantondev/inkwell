@@ -613,7 +613,6 @@ defmodule Inkwell.Journals do
     base =
       Entry
       |> where([e], e.status == :published)
-      |> order_by([e], desc: e.inserted_at)
 
     base = if search && search != "" do
       term = "%#{search}%"
@@ -636,6 +635,7 @@ defmodule Inkwell.Journals do
 
     entries =
       base
+      |> order_by([e], desc: e.inserted_at)
       |> limit(^per_page)
       |> offset(^((page - 1) * per_page))
       |> preload([:user])
