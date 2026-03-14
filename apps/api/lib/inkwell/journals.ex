@@ -610,31 +610,32 @@ defmodule Inkwell.Journals do
     search = Keyword.get(opts, :search)
     filter = Keyword.get(opts, :filter)
 
-    query =
+    base =
       Entry
       |> where([e], e.status == :published)
-      |> join(:inner, [e], u in assoc(e, :user))
-      |> order_by(desc: :inserted_at)
+      |> order_by([e], desc: e.inserted_at)
 
-    query = if search && search != "" do
+    base = if search && search != "" do
       term = "%#{search}%"
-      query |> where([e, u], ilike(e.title, ^term) or ilike(u.username, ^term) or ilike(u.display_name, ^term))
+      base
+      |> join(:inner, [e], u in assoc(e, :user), as: :search_user)
+      |> where([e, search_user: u], ilike(e.title, ^term) or ilike(u.username, ^term) or ilike(u.display_name, ^term))
     else
-      query
+      base
     end
 
-    query = case filter do
-      "sensitive" -> query |> where([e], e.sensitive == true or e.admin_sensitive == true)
-      "public" -> query |> where([e], e.privacy == :public)
-      "private" -> query |> where([e], e.privacy == :private)
-      "friends_only" -> query |> where([e], e.privacy == :friends_only)
-      _ -> query
+    base = case filter do
+      "sensitive" -> base |> where([e], e.sensitive == true or e.admin_sensitive == true)
+      "public" -> base |> where([e], e.privacy == :public)
+      "private" -> base |> where([e], e.privacy == :private)
+      "friends_only" -> base |> where([e], e.privacy == :friends_only)
+      _ -> base
     end
 
-    total = query |> select([e], count(e.id)) |> Repo.one()
+    total = base |> select([e], count(e.id)) |> Repo.one()
 
     entries =
-      query
+      base
       |> limit(^per_page)
       |> offset(^((page - 1) * per_page))
       |> preload([:user])
