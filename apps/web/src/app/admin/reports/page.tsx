@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AdminNav } from "../admin-nav";
 import { Avatar } from "@/components/avatar";
+import { AdminSkeletonCards } from "../admin-skeleton";
 
 interface ReportAuthor {
   id: string;
@@ -43,7 +43,12 @@ const REASON_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-const STATUS_TABS = ["all", "pending", "dismissed", "actioned"] as const;
+const STATUS_TABS = [
+  { key: "pending", label: "Pending" },
+  { key: "all", label: "All" },
+  { key: "dismissed", label: "Dismissed" },
+  { key: "actioned", label: "Actioned" },
+] as const;
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -53,6 +58,12 @@ function timeAgo(iso: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function reasonBadgeClass(reason: string): string {
+  if (reason === "csam_illegal") return "admin-badge admin-badge--danger";
+  if (reason === "hate_speech") return "admin-badge admin-badge--warning";
+  return "admin-badge admin-badge--accent-light";
 }
 
 export default function AdminReportsPage() {
@@ -81,199 +92,136 @@ export default function AdminReportsPage() {
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const handleAction = async (reportId: string, action: string, entryId?: string) => {
-    // Resolve report
     await fetch(`/api/admin/reports/${reportId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: action }),
     });
 
-    // If marking sensitive, also mark the entry
     if (action === "actioned" && entryId) {
-      await fetch(`/api/admin/entries/${entryId}/mark-sensitive`, {
-        method: "POST",
-      });
+      await fetch(`/api/admin/entries/${entryId}/mark-sensitive`, { method: "POST" });
     }
 
     fetchReports();
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-              Content Reports
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-              Review reported content
-            </p>
-          </div>
-          <Link href="/feed" className="text-sm hover:underline" style={{ color: "var(--muted)" }}>
-            &larr; Back to feed
-          </Link>
-        </div>
-
-        <div className="mb-8">
-          <AdminNav pendingReports={pendingCount} />
-        </div>
-
-        {/* Status filter tabs */}
-        <div className="flex gap-2 mb-6">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setStatus(tab)}
-              className="px-3 py-1.5 rounded-full text-sm font-medium transition-colors capitalize"
-              style={{
-                background: status === tab ? "var(--accent)" : "var(--surface)",
-                color: status === tab ? "white" : "var(--muted)",
-                border: `1px solid ${status === tab ? "var(--accent)" : "var(--border)"}`,
-              }}
-            >
-              {tab}
-              {tab === "pending" && pendingCount > 0 && (
-                <span className="ml-1.5">({pendingCount})</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
-        ) : reports.length === 0 ? (
-          <div
-            className="rounded-xl border p-10 text-center"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+    <div>
+      {/* Status filter tabs */}
+      <div className="admin-filter-bar">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatus(tab.key)}
+            className={`admin-filter-pill ${status === tab.key ? "admin-filter-pill--active" : ""}`}
           >
-            <p className="text-sm" style={{ color: "var(--muted)" }}>No reports found.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <div
-                key={report.id}
-                className="rounded-xl border p-5"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-              >
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-2">
-                    {report.reporter && (
-                      <>
-                        <Avatar
-                          url={report.reporter.avatar_url}
-                          name={report.reporter.display_name}
-                          size={24}
-                        />
-                        <Link
-                          href={`/${report.reporter.username}`}
-                          className="text-sm font-medium hover:underline"
-                        >
-                          @{report.reporter.username}
-                        </Link>
-                      </>
-                    )}
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {timeAgo(report.created_at)}
-                    </span>
-                  </div>
-                  <span
-                    className="text-xs px-2.5 py-1 rounded-full font-medium"
-                    style={{
-                      background: report.reason === "csam_illegal" ? "var(--danger, #dc2626)" :
-                        report.reason === "hate_speech" ? "#ea580c" : "var(--accent-light)",
-                      color: report.reason === "csam_illegal" ? "white" :
-                        report.reason === "hate_speech" ? "white" : "var(--accent)",
-                    }}
-                  >
-                    {REASON_LABELS[report.reason] || report.reason}
+            {tab.label}
+            {tab.key === "pending" && pendingCount > 0 && (
+              <span className="ml-1.5">({pendingCount})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <AdminSkeletonCards count={3} />
+      ) : reports.length === 0 ? (
+        <div className="admin-empty"><p>No reports found.</p></div>
+      ) : (
+        <div className="space-y-4">
+          {reports.map((report) => (
+            <div key={report.id} className="admin-card">
+              {/* Header row */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  {report.reporter && (
+                    <>
+                      <Avatar url={report.reporter.avatar_url} name={report.reporter.display_name} size={24} />
+                      <Link href={`/${report.reporter.username}`} className="text-sm font-medium hover:underline">
+                        @{report.reporter.username}
+                      </Link>
+                    </>
+                  )}
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    {timeAgo(report.created_at)}
                   </span>
                 </div>
+                <span className={reasonBadgeClass(report.reason)}>
+                  {REASON_LABELS[report.reason] || report.reason}
+                </span>
+              </div>
 
-                {/* Entry preview */}
-                {report.entry && (
-                  <div
-                    className="rounded-lg border p-3 mb-3"
-                    style={{ borderColor: "var(--border)", background: "var(--background)" }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Link
-                          href={`/${report.entry.author?.username}/${report.entry.slug}`}
-                          className="text-sm font-medium hover:underline"
-                        >
-                          {report.entry.title || "Untitled entry"}
-                        </Link>
-                        {report.entry.author && (
-                          <span className="text-xs ml-2" style={{ color: "var(--muted)" }}>
-                            by @{report.entry.author.username}
-                          </span>
-                        )}
-                      </div>
-                      {(report.entry.sensitive || report.entry.admin_sensitive) && (
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                          Sensitive
+              {/* Entry preview */}
+              {report.entry && (
+                <div className="rounded-lg border p-3 mb-3" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <div className="min-w-0">
+                      <Link href={`/${report.entry.author?.username}/${report.entry.slug}`}
+                        className="text-sm font-medium hover:underline">
+                        {report.entry.title || "Untitled entry"}
+                      </Link>
+                      {report.entry.author && (
+                        <span className="text-xs ml-2" style={{ color: "var(--muted)" }}>
+                          by @{report.entry.author.username}
                         </span>
                       )}
                     </div>
-                    {report.entry.excerpt && (
-                      <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--muted)" }}>
-                        {report.entry.excerpt}
-                      </p>
+                    {(report.entry.sensitive || report.entry.admin_sensitive) && (
+                      <span className="admin-badge admin-badge--accent-light">Sensitive</span>
                     )}
                   </div>
-                )}
+                  {report.entry.excerpt && (
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--muted)" }}>
+                      {report.entry.excerpt}
+                    </p>
+                  )}
+                </div>
+              )}
 
-                {/* Details */}
-                {report.details && (
-                  <p className="text-sm mb-3" style={{ color: "var(--foreground)", opacity: 0.8 }}>
-                    {report.details}
-                  </p>
-                )}
+              {/* Details */}
+              {report.details && (
+                <p className="text-sm mb-3" style={{ color: "var(--foreground)", opacity: 0.8 }}>
+                  {report.details}
+                </p>
+              )}
 
-                {/* Actions */}
-                {report.status === "pending" && (
-                  <div className="flex gap-2 mt-3">
+              {/* Actions */}
+              {report.status === "pending" && (
+                <div className="admin-action-row" style={{ marginTop: "12px" }}>
+                  <button
+                    onClick={() => handleAction(report.id, "dismissed")}
+                    className="admin-btn admin-btn--outline admin-btn--sm"
+                  >
+                    Dismiss
+                  </button>
+                  {report.entry && !(report.entry.sensitive || report.entry.admin_sensitive) && (
                     <button
-                      onClick={() => handleAction(report.id, "dismissed")}
-                      className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors"
-                      style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                      onClick={() => handleAction(report.id, "actioned", report.entry!.id)}
+                      className="admin-btn admin-btn--outline admin-btn--sm"
                     >
-                      Dismiss
+                      Mark sensitive
                     </button>
-                    {report.entry && !(report.entry.sensitive || report.entry.admin_sensitive) && (
-                      <button
-                        onClick={() => handleAction(report.id, "actioned", report.entry!.id)}
-                        className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors"
-                        style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
-                      >
-                        Mark entry sensitive
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleAction(report.id, "actioned")}
-                      className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-colors"
-                      style={{ background: "var(--danger, #dc2626)" }}
-                    >
-                      Action taken
-                    </button>
-                  </div>
-                )}
+                  )}
+                  <button
+                    onClick={() => handleAction(report.id, "actioned")}
+                    className="admin-btn admin-btn--danger admin-btn--sm"
+                  >
+                    Action taken
+                  </button>
+                </div>
+              )}
 
-                {/* Resolved info */}
-                {report.status !== "pending" && (
-                  <div className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-                    Status: <span className="font-medium capitalize">{report.status}</span>
-                    {report.resolved_at && <> &middot; {timeAgo(report.resolved_at)}</>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              {/* Resolved info */}
+              {report.status !== "pending" && (
+                <div className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+                  Status: <span className="font-medium capitalize">{report.status}</span>
+                  {report.resolved_at && <> &middot; {timeAgo(report.resolved_at)}</>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

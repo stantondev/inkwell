@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
+import { AdminSkeletonTable, AdminSkeletonCards } from "../admin-skeleton";
 
 interface AdminUser {
   id: string;
@@ -60,7 +61,6 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
       const params = new URLSearchParams({ page: String(page), per_page: "50" });
       if (searchTerm) params.set("search", searchTerm);
       if (filterKey) params.set("filter", filterKey);
-
       const res = await fetch(`/api/admin/users?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
@@ -85,7 +85,6 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
     const action = role === "admin" ? "promote to admin" : "remove admin role from";
     const target = users.find((u) => u.id === userId);
     if (!target || !confirm(`Are you sure you want to ${action} @${target.username}?`)) return;
-
     setActionLoading(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}/role`, {
@@ -108,7 +107,6 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
   async function handleBlock(userId: string) {
     const target = users.find((u) => u.id === userId);
     if (!target || !confirm(`Block @${target.username}? They will be signed out and unable to access Inkwell.`)) return;
-
     setActionLoading(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}/block`, { method: "POST" });
@@ -143,13 +141,11 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
   async function handleDelete(userId: string) {
     const target = users.find((u) => u.id === userId);
     if (!target) return;
-
     const username = prompt(`Type "${target.username}" to permanently delete this account:`);
     if (username !== target.username) {
       if (username !== null) alert("Username did not match. Account was not deleted.");
       return;
     }
-
     setActionLoading(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
@@ -167,37 +163,60 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
 
   const totalPages = Math.ceil(pagination.total / pagination.per_page);
 
+  function renderUserActions(user: AdminUser) {
+    if (user.id === currentUserId) {
+      return <span className="text-xs" style={{ color: "var(--muted)" }}>You</span>;
+    }
+    return (
+      <div className="admin-action-row">
+        {user.is_admin && !user.is_env_admin ? (
+          <button className="admin-btn admin-btn--outline admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleSetRole(user.id, "user")}>
+            {actionLoading === user.id ? "..." : "Demote"}
+          </button>
+        ) : !user.is_admin ? (
+          <button className="admin-btn admin-btn--outline admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleSetRole(user.id, "admin")}>
+            {actionLoading === user.id ? "..." : "Promote"}
+          </button>
+        ) : null}
+        {user.blocked_at ? (
+          <button className="admin-btn admin-btn--outline admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleUnblock(user.id)}>
+            {actionLoading === user.id ? "..." : "Unblock"}
+          </button>
+        ) : (
+          <button className="admin-btn admin-btn--danger admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleBlock(user.id)}>
+            {actionLoading === user.id ? "..." : "Block"}
+          </button>
+        )}
+        <button className="admin-btn admin-btn--danger admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleDelete(user.id)}>
+          {actionLoading === user.id ? "..." : "Delete"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <form onSubmit={handleSearch} className="flex-1 flex gap-2">
           <input
             type="text"
             placeholder="Search by username, email, or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
-            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+            className="admin-input"
+            style={{ flex: 1 }}
           />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: "var(--accent)", color: "white" }}
-          >
+          <button type="submit" className="admin-btn admin-btn--primary" style={{ padding: "10px 20px" }}>
             Search
           </button>
         </form>
-        <div className="flex flex-wrap gap-1 rounded-lg border p-1" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="admin-filter-bar" style={{ marginBottom: 0 }}>
           {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className="px-2 sm:px-3 py-1 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: filter === f.key ? "var(--accent)" : "transparent",
-                color: filter === f.key ? "white" : "var(--muted)",
-              }}
+              className={`admin-filter-pill ${filter === f.key ? "admin-filter-pill--active" : ""}`}
             >
               {f.label}
             </button>
@@ -205,202 +224,137 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
         </div>
       </div>
 
-      {/* Results info */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
-          {pagination.total} user{pagination.total !== 1 ? "s" : ""} found
-        </span>
+      <div className="admin-results-count">
+        {pagination.total} user{pagination.total !== 1 ? "s" : ""} found
       </div>
 
-      {/* Table */}
+      {/* Loading */}
       {loading ? (
-        <div className="rounded-xl border p-12 text-center" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
-        </div>
+        <>
+          <div className="hidden sm:block"><AdminSkeletonTable rows={5} /></div>
+          <div className="sm:hidden"><AdminSkeletonCards count={3} /></div>
+        </>
       ) : users.length === 0 ? (
-        <div className="rounded-xl border p-12 text-center" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>No users found.</p>
-        </div>
+        <div className="admin-empty"><p>No users found.</p></div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ borderColor: "var(--border)" }}>
-                  <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted)" }}>User</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Email</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Role</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell" style={{ color: "var(--muted)" }}>Tier</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: "var(--muted)" }}>Joined</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell" style={{ color: "var(--muted)" }}>Status</th>
-                  <th className="px-4 py-3 font-medium text-right" style={{ color: "var(--muted)" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b last:border-0" style={{ borderColor: "var(--border)" }}>
-                    {/* User */}
-                    <td className="px-4 py-3">
-                      <Link href={`/${user.username}`} className="flex items-center gap-2 hover:opacity-80">
-                        <Avatar url={user.avatar_url} name={user.display_name || user.username} size={28} />
-                        <div className="min-w-0">
-                          <div className="font-medium truncate text-sm">{user.display_name || user.username}</div>
-                          <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
-                        </div>
-                      </Link>
-                    </td>
-
-                    {/* Email */}
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs truncate block max-w-[200px]" style={{ color: "var(--muted)" }}>{user.email}</span>
-                    </td>
-
-                    {/* Role */}
-                    <td className="px-4 py-3 hidden sm:table-cell whitespace-nowrap">
-                      {user.is_admin ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium inline-block" style={{ background: "var(--accent)", color: "white" }}>
-                          Admin{user.is_env_admin ? " *" : ""}
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: "var(--muted)" }}>User</span>
-                      )}
-                    </td>
-
-                    {/* Tier */}
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      {user.subscription_tier === "plus" ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                          Plus
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: "var(--muted)" }}>Free</span>
-                      )}
-                    </td>
-
-                    {/* Joined */}
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>{timeAgo(user.created_at)}</span>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {user.blocked_at ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#fef2f2", color: "#dc2626" }}>
-                          Blocked
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: "var(--success, #16a34a)" }}>Active</span>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      {user.id !== currentUserId && (
-                        <div className="flex flex-wrap items-center gap-1 justify-end">
-                          {/* Admin toggle */}
-                          {user.is_admin && !user.is_env_admin ? (
-                            <ActionButton
-                              label="Demote"
-                              loading={actionLoading === user.id}
-                              onClick={() => handleSetRole(user.id, "user")}
-                            />
-                          ) : !user.is_admin ? (
-                            <ActionButton
-                              label="Promote"
-                              loading={actionLoading === user.id}
-                              onClick={() => handleSetRole(user.id, "admin")}
-                            />
-                          ) : null}
-
-                          {/* Block/Unblock */}
-                          {user.blocked_at ? (
-                            <ActionButton
-                              label="Unblock"
-                              loading={actionLoading === user.id}
-                              onClick={() => handleUnblock(user.id)}
-                            />
-                          ) : (
-                            <ActionButton
-                              label="Block"
-                              loading={actionLoading === user.id}
-                              onClick={() => handleBlock(user.id)}
-                              danger
-                            />
-                          )}
-
-                          {/* Delete */}
-                          <ActionButton
-                            label="Delete"
-                            loading={actionLoading === user.id}
-                            onClick={() => handleDelete(user.id)}
-                            danger
-                          />
-                        </div>
-                      )}
-                      {user.id === currentUserId && (
-                        <span className="text-xs" style={{ color: "var(--muted)" }}>You</span>
-                      )}
-                    </td>
+        <>
+          {/* Desktop table */}
+          <div className="hidden sm:block">
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th className="hidden md:table-cell">Email</th>
+                    <th>Role</th>
+                    <th>Tier</th>
+                    <th className="hidden lg:table-cell">Joined</th>
+                    <th className="hidden lg:table-cell">Status</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <Link href={`/${user.username}`} className="flex items-center gap-2 hover:opacity-80">
+                          <Avatar url={user.avatar_url} name={user.display_name || user.username} size={28} />
+                          <div className="min-w-0">
+                            <div className="font-medium truncate text-sm">{user.display_name || user.username}</div>
+                            <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="hidden md:table-cell">
+                        <span className="text-xs truncate block max-w-[200px]" style={{ color: "var(--muted)" }}>{user.email}</span>
+                      </td>
+                      <td>
+                        {user.is_admin ? (
+                          <span className="admin-badge admin-badge--accent">Admin{user.is_env_admin ? " *" : ""}</span>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--muted)" }}>User</span>
+                        )}
+                      </td>
+                      <td>
+                        {user.subscription_tier === "plus" ? (
+                          <span className="admin-badge admin-badge--accent-light">Plus</span>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--muted)" }}>Free</span>
+                        )}
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>{timeAgo(user.created_at)}</span>
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {user.blocked_at ? (
+                          <span className="admin-badge admin-badge--danger">Blocked</span>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--success, #16a34a)" }}>Active</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {renderUserActions(user)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Mobile cards */}
+          <div className="sm:hidden">
+            {users.map((user) => (
+              <div key={user.id} className="admin-mobile-card">
+                <div className="admin-mobile-card-header">
+                  <Link href={`/${user.username}`} className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80">
+                    <Avatar url={user.avatar_url} name={user.display_name || user.username} size={36} />
+                    <div className="min-w-0">
+                      <div className="font-medium truncate text-sm">{user.display_name || user.username}</div>
+                      <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
+                    </div>
+                  </Link>
+                </div>
+                <div className="admin-mobile-card-field" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {user.email}
+                </div>
+                <div className="admin-mobile-card-meta">
+                  {user.is_admin && <span className="admin-badge admin-badge--accent">Admin{user.is_env_admin ? " *" : ""}</span>}
+                  {user.subscription_tier === "plus" && <span className="admin-badge admin-badge--accent-light">Plus</span>}
+                  {user.blocked_at ? (
+                    <span className="admin-badge admin-badge--danger">Blocked</span>
+                  ) : (
+                    <span style={{ color: "var(--success, #16a34a)", fontSize: "12px" }}>Active</span>
+                  )}
+                  <span>Joined {timeAgo(user.created_at)}</span>
+                </div>
+                <div className="admin-mobile-card-actions">
+                  {renderUserActions(user)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
+        <div className="admin-pagination">
           {pagination.page > 1 ? (
-            <button
-              onClick={() => fetchUsers(pagination.page - 1, search, filter)}
-              className="text-sm px-4 py-2 rounded-lg border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-            >
+            <button className="admin-btn admin-btn--outline" onClick={() => fetchUsers(pagination.page - 1, search, filter)}>
               ← Previous
             </button>
           ) : <div />}
-          <span className="text-sm" style={{ color: "var(--muted)" }}>
+          <span className="admin-pagination-info">
             Page {pagination.page} of {totalPages}
           </span>
           {pagination.page < totalPages ? (
-            <button
-              onClick={() => fetchUsers(pagination.page + 1, search, filter)}
-              className="text-sm px-4 py-2 rounded-lg border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-            >
+            <button className="admin-btn admin-btn--outline" onClick={() => fetchUsers(pagination.page + 1, search, filter)}>
               Next →
             </button>
           ) : <div />}
         </div>
       )}
     </div>
-  );
-}
-
-function ActionButton({
-  label,
-  loading,
-  onClick,
-  danger,
-}: {
-  label: string;
-  loading: boolean;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors disabled:opacity-40 whitespace-nowrap"
-      style={{
-        borderColor: danger ? "var(--danger, #ef4444)" : "var(--border)",
-        color: danger ? "var(--danger, #ef4444)" : "var(--muted)",
-      }}
-    >
-      {loading ? "..." : label}
-    </button>
   );
 }

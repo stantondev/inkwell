@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getSession, getToken } from "@/lib/session";
+import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
-import { AdminNav } from "../admin-nav";
 import { AdminEntryList } from "../admin-entry-list";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Entries · Admin · Inkwell" };
 
@@ -29,9 +27,6 @@ export default async function AdminEntriesPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  const session = await getSession();
-  if (!session || !session.user.is_admin) redirect("/feed");
-
   const { page: pageParam } = await searchParams;
   const page = parseInt(pageParam ?? "1", 10);
 
@@ -57,49 +52,25 @@ export default async function AdminEntriesPage({
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-              Entry Management
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-              All entries across Inkwell
-            </p>
-          </div>
-          <Link href="/feed" className="text-sm hover:underline" style={{ color: "var(--muted)" }}>
-            ← Back to feed
-          </Link>
-        </div>
+    <div>
+      <AdminEntryList entries={entries} />
 
-        <div className="mb-8">
-          <AdminNav />
-        </div>
-
-        <AdminEntryList entries={entries} />
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-8">
+      {/* Pagination */}
+      {(page > 1 || entries.length >= pagination.per_page) && (
+        <div className="admin-pagination">
           {page > 1 ? (
-            <Link href={`/admin/entries?page=${page - 1}`}
-              className="text-sm px-4 py-2 rounded-lg border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            <Link href={`/admin/entries?page=${page - 1}`} className="admin-btn admin-btn--outline">
               ← Newer
             </Link>
           ) : <div />}
-          <span className="text-sm" style={{ color: "var(--muted)" }}>
-            Page {page}
-          </span>
+          <span className="admin-pagination-info">Page {page}</span>
           {entries.length >= pagination.per_page ? (
-            <Link href={`/admin/entries?page=${page + 1}`}
-              className="text-sm px-4 py-2 rounded-lg border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            <Link href={`/admin/entries?page=${page + 1}`} className="admin-btn admin-btn--outline">
               Older →
             </Link>
           ) : <div />}
         </div>
-      </div>
+      )}
     </div>
   );
 }
