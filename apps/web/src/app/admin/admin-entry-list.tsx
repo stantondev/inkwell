@@ -63,10 +63,12 @@ export function AdminEntryList() {
       if (searchTerm) params.set("search", searchTerm);
       if (filterKey) params.set("filter", filterKey);
       const res = await fetch(`/api/admin/entries?${params.toString()}`);
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setEntries(data.data ?? []);
         setPagination(data.pagination ?? { page, per_page: 50, total: 0 });
+      } else {
+        console.error("Admin entries fetch failed:", res.status, data);
       }
     } finally {
       setLoading(false);

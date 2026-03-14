@@ -10,7 +10,13 @@ export async function GET(request: NextRequest) {
   const page = searchParams.get("page") ?? "1";
   const per_page = searchParams.get("per_page") ?? "50";
 
-  const res = await fetch(`${SERVER_API}/api/admin/entries?page=${page}&per_page=${per_page}`, {
+  const search = searchParams.get("search") ?? "";
+  const filter = searchParams.get("filter") ?? "";
+  const qs = new URLSearchParams({ page, per_page });
+  if (search) qs.set("search", search);
+  if (filter) qs.set("filter", filter);
+
+  const res = await fetch(`${SERVER_API}/api/admin/entries?${qs.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
