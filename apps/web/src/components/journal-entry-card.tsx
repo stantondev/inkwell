@@ -59,6 +59,13 @@ export interface JournalEntry {
   };
 }
 
+/** Extract the first image src from HTML body content */
+function extractFirstImage(html: string): string | null {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match ? match[1] : null;
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "long",
@@ -308,6 +315,22 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
             </div>
           ) : entry.excerpt ? (
             <div>
+              {/* Preview image extracted from body (when no cover image) */}
+              {!entry.cover_image_id && (() => {
+                const previewSrc = extractFirstImage(entry.body_html);
+                return previewSrc ? (
+                  <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: "min(200px, 35vw)" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewSrc}
+                      alt=""
+                      className="w-full object-cover"
+                      style={{ maxHeight: "min(200px, 35vw)" }}
+                      loading="lazy"
+                    />
+                  </div>
+                ) : null;
+              })()}
               <p
                 className="text-sm leading-relaxed line-clamp-8"
                 style={{ color: "var(--foreground)", opacity: 0.85 }}
