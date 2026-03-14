@@ -133,6 +133,28 @@ defmodule Inkwell.Federation.RemoteEntries do
     {:ok, count}
   end
 
+  @doc "Update just the body_html of a remote entry (used by LinkPreviewWorker)."
+  def update_body_html(entry, new_body_html) do
+    entry
+    |> Ecto.Changeset.change(%{body_html: new_body_html})
+    |> Repo.update()
+  end
+
+  @doc """
+  Lists remote entries that contain links but no link preview embeds.
+  Used for backfilling existing entries with link previews.
+  """
+  def list_entries_needing_link_previews(limit \\ 100) do
+    RemoteEntry
+    |> where([e], not is_nil(e.body_html))
+    |> where([e], fragment("? LIKE '%<a %'", e.body_html))
+    |> where([e], fragment("? NOT LIKE '%data-link-embed%'", e.body_html))
+    |> order_by(desc: :inserted_at)
+    |> limit(^limit)
+    |> select([e], e.id)
+    |> Repo.all()
+  end
+
   def cleanup_old_entries(days \\ 90) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 

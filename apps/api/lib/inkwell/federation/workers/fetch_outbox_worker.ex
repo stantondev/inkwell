@@ -121,8 +121,16 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
       }
 
       case RemoteEntries.upsert_remote_entry(attrs) do
-        {:ok, _} -> true
-        {:error, _} -> false
+        {:ok, remote_entry} ->
+          # Enqueue link preview enrichment
+          %{remote_entry_id: remote_entry.id}
+          |> Inkwell.Workers.LinkPreviewWorker.new()
+          |> Oban.insert()
+
+          true
+
+        {:error, _} ->
+          false
       end
     else
       false

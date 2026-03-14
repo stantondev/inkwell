@@ -831,8 +831,13 @@ defmodule InkwellWeb.FederationController do
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do
-            {:ok, _} ->
+            {:ok, remote_entry} ->
               Logger.info("Stored remote entry #{note["id"]} from #{actor_uri}")
+
+              # Enqueue link preview enrichment
+              %{remote_entry_id: remote_entry.id}
+              |> Inkwell.Workers.LinkPreviewWorker.new()
+              |> Oban.insert()
 
             {:error, reason} ->
               Logger.warning("Failed to store remote entry: #{inspect(reason)}")

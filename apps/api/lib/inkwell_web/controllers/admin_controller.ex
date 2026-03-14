@@ -236,6 +236,19 @@ defmodule InkwellWeb.AdminController do
     json(conn, %{ok: true, message: "Full search reindex enqueued"})
   end
 
+  # POST /api/admin/backfill-link-previews — enqueue link preview workers for existing entries
+  def backfill_link_previews(conn, _params) do
+    entry_ids = Inkwell.Federation.RemoteEntries.list_entries_needing_link_previews(500)
+
+    Enum.each(entry_ids, fn id ->
+      %{remote_entry_id: id}
+      |> Inkwell.Workers.LinkPreviewWorker.new()
+      |> Oban.insert()
+    end)
+
+    json(conn, %{ok: true, message: "Enqueued #{length(entry_ids)} link preview jobs"})
+  end
+
   defp parse_int(nil, default), do: default
   defp parse_int(val, _) when is_integer(val), do: val
   defp parse_int(val, default) when is_binary(val) do

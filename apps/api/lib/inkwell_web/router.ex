@@ -457,6 +457,9 @@ defmodule InkwellWeb.Router do
 
     # Search reindex (admin)
     post "/reindex-search", AdminController, :reindex_search
+
+    # Link preview backfill (admin)
+    post "/backfill-link-previews", AdminController, :backfill_link_previews
   end
 
   # Health check — used by Fly.io and external monitors

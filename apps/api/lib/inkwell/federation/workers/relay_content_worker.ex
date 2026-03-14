@@ -141,10 +141,16 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do
-            {:ok, _} ->
+            {:ok, remote_entry} ->
               # 8. Mark activity on subscription
               Relays.mark_activity(subscription.id)
               Logger.info("Stored relay entry #{object["id"]} via #{subscription.relay_domain}")
+
+              # 9. Enqueue link preview enrichment
+              %{remote_entry_id: remote_entry.id}
+              |> Inkwell.Workers.LinkPreviewWorker.new()
+              |> Oban.insert()
+
               :ok
 
             {:error, reason} ->
