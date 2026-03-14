@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-
-export const runtime = "edge";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 // Pen nib SVG path data from favicon.svg (simplified for OG card)
 const PEN_NIB_PATH_1 =
@@ -295,14 +295,25 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const type = searchParams.get("type") ?? "default";
 
-  // Load fonts
+  // Load fonts from filesystem — try multiple paths for dev vs Docker standalone
+  const cwd = process.cwd();
+  const candidates = [
+    join(cwd, "public", "fonts"),                // dev from apps/web
+    join(cwd, "apps", "web", "public", "fonts"), // dev from monorepo root or Docker standalone
+  ];
+  let fontsDir = candidates[0];
+  for (const candidate of candidates) {
+    try {
+      await readFile(join(candidate, "Lora-Regular.ttf"));
+      fontsDir = candidate;
+      break;
+    } catch {
+      continue;
+    }
+  }
   const [loraRegularData, loraBoldData] = await Promise.all([
-    fetch(new URL("/fonts/Lora-Regular.ttf", req.nextUrl.origin)).then((r) =>
-      r.arrayBuffer()
-    ),
-    fetch(new URL("/fonts/Lora-Bold.ttf", req.nextUrl.origin)).then((r) =>
-      r.arrayBuffer()
-    ),
+    readFile(join(fontsDir, "Lora-Regular.ttf")),
+    readFile(join(fontsDir, "Lora-Bold.ttf")),
   ]);
 
   let content: React.ReactElement;
