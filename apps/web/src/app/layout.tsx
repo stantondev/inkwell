@@ -22,8 +22,16 @@ export const metadata: Metadata = {
   title: { default: "Inkwell", template: "%s · Inkwell" },
   description: "A federated social journaling platform. Your journal, your friends, your space.",
   metadataBase: new URL("https://inkwell.social"),
-  openGraph: { siteName: "Inkwell", type: "website" },
-  twitter: { site: "@inkwellsocial" },
+  openGraph: {
+    siteName: "Inkwell",
+    type: "website",
+    images: [{ url: "/api/og", width: 1200, height: 630, alt: "Inkwell — Social Journaling" }],
+  },
+  twitter: {
+    site: "@inkwellsocial",
+    card: "summary_large_image",
+    images: ["/api/og"],
+  },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],

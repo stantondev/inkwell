@@ -382,7 +382,7 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const rssUrl = customDomain
       ? `https://${customDomain}/api/users/${username}/feed.xml`
       : `https://inkwell.social/api/users/${username}/feed.xml`;
-    const hasAvatar = !!profile.avatar_url;
+    const ogImageUrl = `/api/og?type=profile&name=${encodeURIComponent(displayName)}&username=${encodeURIComponent(username)}&bio=${encodeURIComponent(bio)}`;
 
     return {
       title: customDomain ? displayName : `@${username}`,
@@ -393,18 +393,14 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
         description: bio,
         url: profileUrl,
         type: "profile",
-        ...(hasAvatar
-          ? { images: [{ url: `/api/avatars/${username}`, alt: `${displayName}'s avatar` }] }
-          : {}),
+        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${displayName}'s profile on Inkwell` }],
       },
       twitter: {
         site: "@inkwellsocial",
-        card: "summary",
+        card: "summary_large_image",
         title: displayName,
         description: bio,
-        ...(hasAvatar
-          ? { images: [`/api/avatars/${username}`] }
-          : {}),
+        images: [ogImageUrl],
       },
       alternates: {
         canonical: profileUrl,

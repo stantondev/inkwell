@@ -12,13 +12,15 @@ export const metadata: Metadata = {
       "A social journaling platform. The warmth of LiveJournal, the creativity of MySpace, rebuilt for the open web.",
     url: "https://inkwell.social",
     type: "website",
+    images: [{ url: "/api/og", width: 1200, height: 630, alt: "Inkwell — Social Journaling" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     site: "@inkwellsocial",
     title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
     description:
       "A social journaling platform with no algorithms, no ads. Free forever.",
+    images: ["/api/og"],
   },
   alternates: {
     canonical: "https://inkwell.social",

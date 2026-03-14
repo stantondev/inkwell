@@ -26,6 +26,11 @@ import { SignupCta } from "@/components/signup-cta";
 import { PaywallCard } from "@/components/paywall-card";
 import { TranslatableEntry } from "@/components/translatable-entry";
 
+function truncate(str: string, max: number): string {
+  if (str.length <= max) return str;
+  return str.slice(0, max - 1) + "…";
+}
+
 interface EntryParams {
   params: Promise<{ username: string; slug: string }>;
 }
@@ -269,6 +274,9 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       ? `https://${customDomain}/${slug}`
       : `https://inkwell.social/${username}/${slug}`;
     const hasCover = !!entry.cover_image_id;
+    const ogImageUrl = hasCover
+      ? `/api/images/${entry.cover_image_id}`
+      : `/api/og?type=entry&title=${encodeURIComponent(truncate(entry.title ?? "", 100))}&author=${encodeURIComponent(entry.author?.display_name ?? username)}&username=${encodeURIComponent(username)}${entry.category ? `&category=${encodeURIComponent(entry.category)}` : ""}&date=${encodeURIComponent(entry.published_at ?? "")}`;
 
     return {
       title,
@@ -282,18 +290,14 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
         type: "article",
         publishedTime: entry.published_at,
         authors: [entry.author?.display_name ?? username],
-        ...(hasCover
-          ? { images: [{ url: `/api/images/${entry.cover_image_id}`, alt: ogTitle }] }
-          : {}),
+        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
       },
       twitter: {
         site: "@inkwellsocial",
-        card: hasCover ? "summary_large_image" : "summary",
+        card: "summary_large_image",
         title: ogTitle,
         description,
-        ...(hasCover
-          ? { images: [`/api/images/${entry.cover_image_id}`] }
-          : {}),
+        images: [ogImageUrl],
       },
       alternates: {
         canonical: entryUrl,
