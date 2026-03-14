@@ -50,13 +50,13 @@ function EnvelopeCard({
           animate={prefersReducedMotion ? {} : { y: hovered ? -3 : 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
           style={{
-            background: "#ede8dc",
+            background: "var(--envelope-bg)",
             borderRadius: "8px",
             padding: "16px 20px",
             marginBottom: "12px",
             boxShadow: hovered
-              ? "0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)"
-              : "0 2px 8px rgba(0,0,0,0.07)",
+              ? `0 8px 24px var(--envelope-shadow-hover), 0 2px 8px var(--envelope-shadow)`
+              : `0 2px 8px var(--envelope-shadow)`,
             transition: "box-shadow 0.2s ease",
             position: "relative",
             overflow: "hidden",
@@ -74,7 +74,7 @@ function EnvelopeCard({
               left: 0,
               right: 0,
               height: "3px",
-              background: "linear-gradient(90deg, #c8b89a 0%, #d4c4a8 50%, #c8b89a 100%)",
+              background: `linear-gradient(90deg, var(--envelope-flap) 0%, var(--envelope-border) 50%, var(--envelope-flap) 100%)`,
               opacity: 0.6,
             }}
           />
@@ -86,10 +86,10 @@ function EnvelopeCard({
               width: "52px",
               height: "52px",
               borderRadius: "4px",
-              border: "2px solid #b8a888",
+              border: "2px solid var(--envelope-border)",
               overflow: "hidden",
-              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.3), 0 1px 3px rgba(0,0,0,0.15)",
-              background: "#c8b89a",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.3), 0 1px 3px var(--envelope-shadow)",
+              background: "var(--envelope-stamp-bg)",
               position: "relative",
             }}
           >
@@ -109,7 +109,7 @@ function EnvelopeCard({
                   justifyContent: "center",
                   fontSize: "20px",
                   fontFamily: "var(--font-lora, Georgia, serif)",
-                  color: "#5a4a2a",
+                  color: "var(--envelope-stamp-initial)",
                   fontWeight: "600",
                 }}
               >
@@ -137,7 +137,7 @@ function EnvelopeCard({
                   fontFamily: "var(--font-lora, Georgia, serif)",
                   fontSize: "15px",
                   fontWeight: isUnread ? "700" : "500",
-                  color: "#2a1a0a",
+                  color: "var(--envelope-text)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -151,10 +151,10 @@ function EnvelopeCard({
                 style={{
                   flexShrink: 0,
                   fontSize: "11px",
-                  color: "#7a6a4a",
+                  color: "var(--envelope-text-muted)",
                   fontVariant: "small-caps",
                   letterSpacing: "0.05em",
-                  border: "1px solid #b8a888",
+                  border: "1px solid var(--envelope-border)",
                   borderRadius: "50%",
                   padding: "3px 7px",
                   lineHeight: "1",
@@ -168,7 +168,7 @@ function EnvelopeCard({
             <div
               style={{
                 fontSize: "13px",
-                color: isUnread ? "#2a1a0a" : "#6a5a3a",
+                color: isUnread ? "var(--envelope-text)" : "var(--envelope-text-muted)",
                 marginTop: "4px",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -179,7 +179,7 @@ function EnvelopeCard({
             >
               {conv.last_message
                 ? conv.last_message.body
-                : "No letters yet — say hello!"}
+                : "No letters yet. Say hello!"}
             </div>
           </div>
 
@@ -251,9 +251,9 @@ export function Letterbox({ initialConversations }: Props) {
             style={{
               textAlign: "center",
               padding: "64px 24px",
-              background: "#ede8dc",
+              background: "var(--envelope-bg)",
               borderRadius: "12px",
-              border: "1px dashed #b8a888",
+              border: "1px dashed var(--envelope-border)",
             }}
           >
             <div
@@ -270,13 +270,13 @@ export function Letterbox({ initialConversations }: Props) {
                 fontFamily: "var(--font-lora, Georgia, serif)",
                 fontSize: "20px",
                 fontWeight: "600",
-                color: "#2a1a0a",
+                color: "var(--envelope-text)",
                 marginBottom: "8px",
               }}
             >
               Your letterbox is empty
             </h2>
-            <p style={{ fontSize: "14px", color: "#6a5a3a", marginBottom: "24px" }}>
+            <p style={{ fontSize: "14px", color: "var(--envelope-text-muted)", marginBottom: "24px" }}>
               Visit a pen pal&apos;s profile and write them a letter to get started.
             </p>
             <button

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { Letterbox } from "./letterbox";
+import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = { title: "Letterbox · Inkwell" };
 
@@ -27,6 +28,7 @@ export default async function LettersPage() {
   if (!session) redirect("/login");
 
   let conversations: ConversationPreview[] = [];
+  let fetchFailed = false;
   try {
     const data = await apiFetch<{ data: ConversationPreview[] }>(
       "/api/conversations",
@@ -35,7 +37,7 @@ export default async function LettersPage() {
     );
     conversations = data.data ?? [];
   } catch {
-    // show empty state
+    fetchFailed = true;
   }
 
   return (
@@ -52,7 +54,11 @@ export default async function LettersPage() {
             Your private correspondence with pen pals
           </p>
         </div>
-        <Letterbox initialConversations={conversations} />
+        {fetchFailed ? (
+          <FetchError message="We couldn't load your letterbox." />
+        ) : (
+          <Letterbox initialConversations={conversations} />
+        )}
       </div>
     </div>
   );

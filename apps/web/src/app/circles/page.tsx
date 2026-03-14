@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import CircleBrowseClient from "./circle-browse-client";
+import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = {
   title: "Writing Circles — Inkwell",
@@ -51,6 +52,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
   let circles: Circle[] = [];
   let total = 0;
   let myCircles: Circle[] = [];
+  let fetchFailed = false;
 
   try {
     const qs = new URLSearchParams({ page, per_page: "20", category, search }).toString();
@@ -62,7 +64,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
     circles = res.data;
     total = res.pagination.total;
   } catch {
-    // silently fail
+    fetchFailed = true;
   }
 
   if (session) {
@@ -87,17 +89,21 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="max-w-5xl mx-auto" style={{ padding: "1.5rem 1rem" }}>
-        <CircleBrowseClient
-          initialCircles={circles}
-          initialTotal={total}
-          initialPage={parseInt(page)}
-          myCircles={myCircles}
-          categories={CIRCLE_CATEGORIES}
-          currentCategory={category}
-          currentSearch={search}
-          isLoggedIn={!!session}
-          isPlus={session?.user?.subscription_tier === "plus"}
-        />
+        {fetchFailed ? (
+          <FetchError message="We couldn't load circles." />
+        ) : (
+          <CircleBrowseClient
+            initialCircles={circles}
+            initialTotal={total}
+            initialPage={parseInt(page)}
+            myCircles={myCircles}
+            categories={CIRCLE_CATEGORIES}
+            currentCategory={category}
+            currentSearch={search}
+            isLoggedIn={!!session}
+            isPlus={session?.user?.subscription_tier === "plus"}
+          />
+        )}
       </div>
     </div>
   );

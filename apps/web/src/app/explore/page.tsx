@@ -6,6 +6,7 @@ import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { SignupCta } from "@/components/signup-cta";
 import { FilterLink } from "@/components/filter-link";
+import { FetchError } from "@/components/fetch-error";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
@@ -55,6 +56,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   const sourceParam = activeSource ? `&source=${activeSource}` : "";
 
   let entries: JournalEntry[] = [];
+  let fetchFailed = false;
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
       `/api/explore?page=${page}${categoryParam}${sortParam}${sourceParam}`,
@@ -63,7 +65,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
     );
     entries = data.data ?? [];
   } catch {
-    // show empty state
+    fetchFailed = true;
   }
 
   // Fetch trending entries (only on first page, no category filter, newest sort)
@@ -83,7 +85,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   const categoryLabel = category ? getCategoryLabel(category) : null;
 
-  const emptyState = (
+  const emptyState = fetchFailed ? (
+    <FetchError message="We couldn't load entries right now." />
+  ) : (
     <div
       className="rounded-2xl border p-12 text-center mx-auto"
       style={{
@@ -172,7 +176,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={isActive ? {
                     borderColor: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
-                    background: s.value === "fediverse" ? "rgba(86,158,133,0.1)" : "var(--accent-light)",
+                    background: s.value === "fediverse" ? "var(--fediverse-accent-light)" : "var(--accent-light)",
                     color: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
                     fontWeight: 500,
                   } : {

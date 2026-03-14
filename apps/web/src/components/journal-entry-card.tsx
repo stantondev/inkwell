@@ -202,9 +202,9 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                 <span
                   className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
                   style={{
-                    background: "rgba(86,158,133,0.1)",
+                    background: "var(--fediverse-accent-light)",
                     color: "var(--fediverse-accent, #569e85)",
-                    border: "1px solid rgba(86,158,133,0.25)",
+                    border: "1px solid var(--fediverse-accent-border)",
                   }}
                 >
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -34,27 +34,11 @@ export default function Error({
             className="text-2xl font-semibold mb-2"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
           >
-            Something went wrong
+            A page got stuck
           </h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            An error occurred while loading this page.
+            This page ran into trouble loading. It might work if you try again.
           </p>
-        </div>
-
-        {/* Error details */}
-        <div
-          className="rounded-xl border p-4 mb-6 overflow-x-auto"
-          style={{
-            borderColor: "var(--border)",
-            background: "var(--surface-hover)",
-          }}
-        >
-          <code
-            className="text-xs break-all whitespace-pre-wrap"
-            style={{ color: "var(--muted)", fontFamily: "var(--font-mono, monospace)" }}
-          >
-            {displayMessage}
-          </code>
         </div>
 
         {/* Actions */}

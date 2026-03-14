@@ -20,6 +20,24 @@
   --ink-deep: #2d4a8a;
   --ink-bright: #3b5ea6;
   --ink-light: #e8eef7;
+
+  /* Letterbox envelope colors */
+  --envelope-bg: #ede8dc;
+  --envelope-border: #b8a888;
+  --envelope-flap: #c8b89a;
+  --envelope-text: #2a1a0a;
+  --envelope-text-muted: #6a5a3a;
+  --envelope-shadow: rgba(0,0,0,0.07);
+  --envelope-shadow-hover: rgba(0,0,0,0.12);
+  --envelope-stamp-bg: #c8b89a;
+  --envelope-stamp-initial: #5a4a2a;
+
+  /* Prose highlight */
+  --highlight-bg: #fef08a;
+
+  /* Fediverse accent tints */
+  --fediverse-accent-light: rgba(86,158,133,0.1);
+  --fediverse-accent-border: rgba(86,158,133,0.25);
 }
 
 @theme inline {
@@ -51,6 +69,24 @@
     --accent-light: #1a2744;
     --accent-dark: #c4d8f8;
     --ink: #fafaf9;
+
+    /* Letterbox envelope colors (dark) */
+    --envelope-bg: #292524;
+    --envelope-border: #57534e;
+    --envelope-flap: #44403c;
+    --envelope-text: var(--foreground);
+    --envelope-text-muted: var(--muted);
+    --envelope-shadow: rgba(0,0,0,0.25);
+    --envelope-shadow-hover: rgba(0,0,0,0.4);
+    --envelope-stamp-bg: #44403c;
+    --envelope-stamp-initial: var(--foreground);
+
+    /* Prose highlight (dark) */
+    --highlight-bg: #854d0e;
+
+    /* Fediverse accent tints (dark) */
+    --fediverse-accent-light: rgba(109,184,159,0.12);
+    --fediverse-accent-border: rgba(109,184,159,0.3);
   }
 }
 
@@ -312,7 +348,7 @@ a.mention:hover,
 .prose-entry mark {
   padding: 0.1em 0.25em;
   border-radius: 3px;
-  background-color: #fef08a;
+  background-color: var(--highlight-bg);
 }
 
 /* ── Task lists ───────────────────────────────────────────────────────── */
@@ -469,7 +505,7 @@ a.mention:hover,
 .prose-bio mark {
   padding: 0.1em 0.2em;
   border-radius: 2px;
-  background-color: #fef08a;
+  background-color: var(--highlight-bg);
 }
 
 /* ─── Bio Editor ─────────────────────────────────────────────────────── */

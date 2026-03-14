@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { SavedList } from "./saved-list";
 import type { SavedEntry } from "./saved-list";
+import { FetchError } from "@/components/fetch-error";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Reading List" };
@@ -22,6 +23,7 @@ export default async function SavedPage({ searchParams }: PageProps) {
 
   let entries: SavedEntry[] = [];
   let pagination = { page, per_page: 20 };
+  let fetchFailed = false;
 
   try {
     const data = await apiFetch<{ data: SavedEntry[]; pagination: typeof pagination }>(
@@ -32,10 +34,10 @@ export default async function SavedPage({ searchParams }: PageProps) {
     entries = data.data ?? [];
     pagination = data.pagination ?? pagination;
   } catch {
-    // show empty state on error
+    fetchFailed = true;
   }
 
-  const hasMore = entries.length === pagination.per_page;
+  const hasMore = !fetchFailed && entries.length === pagination.per_page;
 
   return (
     <div
@@ -66,8 +68,11 @@ export default async function SavedPage({ searchParams }: PageProps) {
           </h1>
         </div>
 
-        {/* Entry list (client component for interactive remove) */}
-        <SavedList initialEntries={entries} />
+        {fetchFailed ? (
+          <FetchError message="We couldn't load your reading list." />
+        ) : (
+          <SavedList initialEntries={entries} />
+        )}
 
         {/* Pagination */}
         {(page > 1 || hasMore) && (

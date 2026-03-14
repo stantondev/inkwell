@@ -101,8 +101,8 @@ export default async function LandingPage() {
             Choose your ink
           </h2>
           <p className="text-base leading-relaxed mb-10 max-w-2xl mx-auto" style={{ color: "var(--muted)" }}>
-            Inkwell is free to use — no trial, no expiry, no bait-and-switch. Plus ($5/mo) unlocks
-            power-user features and helps sustain the platform for everyone.
+            Inkwell is free to use. No trial, no expiry, no time limit. Plus ($5/mo) adds
+            custom domains, writer subscriptions, cross-posting, and more.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-stretch sm:items-start">
@@ -272,7 +272,7 @@ export default async function LandingPage() {
               </div>
               <h3 className="landing-colophon-title">Federated by default</h3>
               <p className="landing-colophon-desc">
-                Inkwell speaks ActivityPub. Follow writers on Mastodon, Ghost, and the open social web. Your journal isn&apos;t trapped here.
+                Built on ActivityPub, the same open protocol as Mastodon. Follow writers anywhere on the fediverse. Your journal goes where you go.
               </p>
             </div>
 

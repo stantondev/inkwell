@@ -143,7 +143,7 @@ export function PenPalsClient({
                 className="text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap flex items-center gap-1"
                 style={isActive ? {
                   borderColor: isFediverse ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
-                  background: isFediverse ? "rgba(86,158,133,0.1)" : "var(--accent-light)",
+                  background: isFediverse ? "var(--fediverse-accent-light)" : "var(--accent-light)",
                   color: isFediverse ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
                   fontWeight: 500,
                 } : {

@@ -4,11 +4,11 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "How Inkwell Works — The Reader's Guide",
   description:
-    "Everything you need to know about writing, reading, and connecting on Inkwell.",
+    "A walkthrough of Inkwell's journal, pen pals, stamps, inks, and the fediverse.",
   openGraph: {
     title: "How Inkwell Works — The Reader's Guide",
     description:
-      "Everything you need to know about writing, reading, and connecting on Inkwell.",
+      "A walkthrough of Inkwell's journal, pen pals, stamps, inks, and the fediverse.",
     url: "https://inkwell.social/guide",
   },
   alternates: { canonical: "https://inkwell.social/guide" },
@@ -67,7 +67,7 @@ export default function GuidePage() {
         The Reader&rsquo;s Guide to Inkwell
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Everything you need to know about writing, reading, and connecting
+        A walkthrough of Inkwell&rsquo;s journal, pen pals, stamps, inks, and the fediverse
       </p>
 
       <div className="space-y-6">

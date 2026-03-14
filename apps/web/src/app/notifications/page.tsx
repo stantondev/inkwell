@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { NotificationList } from "./notification-list";
+import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = { title: "Notifications · Inkwell" };
 
@@ -39,11 +40,12 @@ export default async function NotificationsPage() {
   if (!session) redirect("/login");
 
   let notifications: Notification[] = [];
+  let fetchFailed = false;
   try {
     const data = await apiFetch<{ data: Notification[] }>("/api/notifications", {}, session.token);
     notifications = data.data ?? [];
   } catch {
-    // show empty state
+    fetchFailed = true;
   }
 
   const autoMarkRead = !!session.user.settings?.auto_mark_notifications_read;
@@ -51,7 +53,11 @@ export default async function NotificationsPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
       <div className="mx-auto max-w-3xl px-4 py-8">
-        <NotificationList initialNotifications={notifications} autoMarkRead={autoMarkRead} />
+        {fetchFailed ? (
+          <FetchError message="We couldn't load your notifications." />
+        ) : (
+          <NotificationList initialNotifications={notifications} autoMarkRead={autoMarkRead} />
+        )}
       </div>
     </div>
   );

@@ -152,7 +152,7 @@ export default function GetStartedPage() {
                 Start your journal
               </h1>
               <p className="text-sm" style={{ color: "var(--muted)" }}>
-                Join a community of writers who own their space.
+                Write freely. Customize wildly. Connect openly.
               </p>
             </div>
 

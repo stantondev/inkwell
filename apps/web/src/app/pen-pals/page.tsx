@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { PenPalsClient } from "./pen-pals-client";
+import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = { title: "Pen Pals · Inkwell" };
 
@@ -50,7 +51,13 @@ export default async function PenPalsPage() {
     incomingRequests = prData.data?.incoming ?? [];
     outgoingRequests = prData.data?.outgoing ?? [];
   } catch {
-    // show empty
+    return (
+      <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+        <div className="mx-auto max-w-2xl px-4 py-8">
+          <FetchError message="We couldn't load your pen pals." />
+        </div>
+      </div>
+    );
   }
 
   return (

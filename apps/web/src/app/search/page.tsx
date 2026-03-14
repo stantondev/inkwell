@@ -159,6 +159,7 @@ export default function SearchPage() {
   const [fediverseError, setFediverseError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   // Detect fediverse handle and auto-switch tab
@@ -178,6 +179,7 @@ export default function SearchPage() {
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       setFediverseError(null);
+      setSearchError(false);
       try {
         if (tab === "fediverse") {
           const res = await fetch(`/api/search/fediverse?q=${encodeURIComponent(query.trim())}`);
@@ -198,7 +200,7 @@ export default function SearchPage() {
           }
         }
       } catch {
-        // ignore
+        setSearchError(true);
       } finally {
         setLoading(false);
         setHasSearched(true);
@@ -279,6 +281,23 @@ export default function SearchPage() {
           <p className="text-sm text-center py-8" style={{ color: "var(--muted)" }}>
             {tab === "fediverse" ? "Looking up on the fediverse..." : "Searching..."}
           </p>
+        )}
+
+        {!loading && searchError && (
+          <div
+            className="rounded-xl border p-4 text-center"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          >
+            <p
+              className="text-sm mb-1"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic", color: "var(--foreground)" }}
+            >
+              Something spilled
+            </p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              Search is temporarily unavailable. Try again in a moment.
+            </p>
+          </div>
         )}
 
         {/* Local users results */}
