@@ -264,7 +264,7 @@ export function PenPalsClient({
             {readers.length > 0 && (
               <section className="mb-8">
                 <h2 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
-                  Readers · {readers.length}
+                  Following You · {readers.length}
                 </h2>
                 <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
                   People who follow you that you haven&apos;t sent a pen pal request to yet.
@@ -280,7 +280,7 @@ export function PenPalsClient({
                         <p className="text-sm font-medium truncate">{reader.display_name}</p>
                         <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{reader.username}</p>
                       </div>
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>Reader</span>
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>Follower</span>
                     </Link>
                   ))}
                 </div>
@@ -291,7 +291,7 @@ export function PenPalsClient({
             {reading.length > 0 && (
               <section className="mb-8">
                 <h2 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
-                  Reading · {reading.length}
+                  You Follow · {reading.length}
                 </h2>
                 <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
                   People you follow who haven&apos;t accepted your pen pal request yet.
@@ -307,7 +307,7 @@ export function PenPalsClient({
                         <p className="text-sm font-medium truncate">{person.display_name}</p>
                         <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{person.username}</p>
                       </div>
-                      <span className="text-xs" style={{ color: "var(--muted)" }}>Reading</span>
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>Following</span>
                     </Link>
                   ))}
                 </div>

@@ -29,7 +29,7 @@ export function FediverseHandle({
       onClick={copyHandle}
       className="inline-flex items-center gap-1 text-xs mt-0.5 transition-opacity hover:opacity-80"
       style={{ color: mutedColor }}
-      title={copied ? "Copied!" : "Copy fediverse handle — use this to follow from Mastodon"}
+      title={copied ? "Copied!" : "Copy handle. Use this to follow from Mastodon or other platforms."}
     >
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
         <circle cx="12" cy="12" r="10"/>

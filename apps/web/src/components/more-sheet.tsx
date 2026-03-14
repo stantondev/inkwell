@@ -81,7 +81,7 @@ export function MoreSheet({
         <div className="more-sheet-links">
           <SheetLink href={`/${username}`} icon={<ProfileIcon />} label="Profile" onClick={onClose} />
           <SheetLink href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" onClick={onClose} />
-          <SheetLink href="/letters" icon={<LettersIcon />} label="Letterbox" onClick={onClose} badge={unreadLetterCount} />
+          <SheetLink href="/letters" icon={<LettersIcon />} label="Letters" onClick={onClose} badge={unreadLetterCount} />
           <SheetLink href="/search" icon={<SearchIcon />} label="Search" onClick={onClose} />
 
           <div className="more-sheet-divider" />

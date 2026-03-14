@@ -3,13 +3,13 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 export const metadata: Metadata = {
-  title: "Inkwell — A Federated Social Journaling Platform",
+  title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
   description:
-    "Your journal, your pen pals, your space. Write, connect, and customize — with no algorithms, no ads, and full ownership of your words. Free forever.",
+    "A social journaling platform. Write, connect, and customize with no algorithms, no ads, and full ownership of your words. Connected to Mastodon and the open social web. Free forever.",
   openGraph: {
     title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
     description:
-      "A federated social journaling platform. The warmth of LiveJournal, the creativity of MySpace, rebuilt for the open web.",
+      "A social journaling platform. The warmth of LiveJournal, the creativity of MySpace, rebuilt for the open web.",
     url: "https://inkwell.social",
     type: "website",
   },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     site: "@inkwellsocial",
     title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
     description:
-      "A federated social journaling platform with no algorithms, no ads. Free forever.",
+      "A social journaling platform with no algorithms, no ads. Free forever.",
   },
   alternates: {
     canonical: "https://inkwell.social",
@@ -121,7 +121,7 @@ export default async function LandingPage() {
                   "Series & collections (up to 5)",
                   "Version history (25 per entry)",
                   "Data import (WordPress, Medium, Substack & more)",
-                  "Explore content from across the fediverse",
+                  "Explore writing from across the fediverse and open web",
                   "Email newsletter (500 subscribers, 2 sends/mo)",
                   "100 MB image storage & up to 10 drafts",
                   "Read-only API access & RSS feed",
@@ -258,9 +258,9 @@ export default async function LandingPage() {
                   <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                 </svg>
               </div>
-              <h3 className="landing-colophon-title">Federated by default</h3>
+              <h3 className="landing-colophon-title">Connected by default</h3>
               <p className="landing-colophon-desc">
-                Built on ActivityPub, the same open protocol as Mastodon. Follow writers anywhere on the fediverse. Your journal goes where you go.
+                Inkwell connects to the fediverse, the network of platforms including Mastodon. Follow writers anywhere. Your journal goes where you go.
               </p>
             </div>
 
@@ -305,7 +305,7 @@ export default async function LandingPage() {
           </div>
 
           <p className="landing-colophon-techstack">
-            Open source (AGPL-3.0) &middot; Built with Elixir, React, and ActivityPub &middot;{" "}
+            Open source (AGPL-3.0) &middot; Built with Elixir and React &middot; Connected via ActivityPub &middot;{" "}
             <a
               href="https://github.com/stantondev/inkwell"
               target="_blank"

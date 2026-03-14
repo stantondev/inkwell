@@ -213,7 +213,7 @@ export default function SearchPage() {
   const placeholders: Record<string, string> = {
     users: "Search for people...",
     entries: "Search for entries...",
-    fediverse: "Enter a fediverse handle (e.g. user@mastodon.social)",
+    fediverse: "Enter a handle from Mastodon or another platform (e.g. user@mastodon.social)",
   };
 
   return (
@@ -257,7 +257,7 @@ export default function SearchPage() {
             onClick={() => setTab("fediverse")}
             className="text-xs mb-3 px-3 py-1.5 rounded-lg border transition-colors hover:border-[var(--accent)]"
             style={{ borderColor: "var(--border)", color: "var(--accent)", background: "var(--accent-light)" }}>
-            Looks like a fediverse handle &mdash; search the fediverse?
+            That looks like a handle from another platform. Search for them?
           </button>
         )}
 
@@ -279,7 +279,7 @@ export default function SearchPage() {
         {/* Results */}
         {loading && (
           <p className="text-sm text-center py-8" style={{ color: "var(--muted)" }}>
-            {tab === "fediverse" ? "Looking up on the fediverse..." : "Searching..."}
+            {tab === "fediverse" ? "Looking them up..." : "Searching..."}
           </p>
         )}
 
@@ -387,10 +387,10 @@ export default function SearchPage() {
                     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                   </svg>
                 </div>
-                <p className="text-sm font-medium mb-1">Search the fediverse</p>
+                <p className="text-sm font-medium mb-1">Find people on other platforms</p>
                 <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  Enter a fediverse handle like <code className="px-1 py-0.5 rounded text-xs"
-                    style={{ background: "var(--surface-hover)" }}>user@mastodon.social</code> to find and follow people across the fediverse
+                  Enter a handle like <code className="px-1 py-0.5 rounded text-xs"
+                    style={{ background: "var(--surface-hover)" }}>user@mastodon.social</code> to find and follow people on Mastodon, Pixelfed, and other fediverse platforms
                 </p>
               </div>
             )}

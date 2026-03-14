@@ -5,11 +5,11 @@ import { getSession } from "@/lib/session";
 import { PollWidget, type PollData } from "@/components/poll-widget";
 
 export const metadata: Metadata = {
-  title: "Community Voice",
+  title: "Community Polls",
   description:
     "Vote in community polls and help shape the future of Inkwell.",
   openGraph: {
-    title: "Community Voice — Inkwell",
+    title: "Community Polls — Inkwell",
     description: "Community polls on Inkwell.",
     url: "https://inkwell.social/polls",
   },
@@ -54,7 +54,7 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
             color: "var(--foreground)",
           }}
         >
-          Community Voice
+          Community Polls
         </h1>
         <p style={{ color: "var(--muted)", fontSize: "15px", margin: 0 }}>
           Have your say in shaping Inkwell

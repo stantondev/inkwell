@@ -13,11 +13,11 @@ import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories"
 export const metadata: Metadata = {
   title: "Explore",
   description:
-    "Discover journal entries from the Inkwell community and the wider fediverse. Browse by category, find trending writing, and connect with new writers.",
+    "Discover journal entries from the Inkwell community and writers across the fediverse. Browse by category, find trending writing, and connect with new writers.",
   openGraph: {
     title: "Explore — Inkwell",
     description:
-      "Discover journal entries from writers across the fediverse.",
+      "Discover journal entries from writers across the open web.",
     url: "https://inkwell.social/explore",
   },
   alternates: { canonical: "https://inkwell.social/explore" },
@@ -303,8 +303,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           learnMoreHref="/guide#interaction"
         >
           <p>
-            Explore shows all public entries from Inkwell writers and the wider
-            fediverse. Click the <strong>ink drop</strong> icon on entries you
+            Explore shows all public entries from Inkwell writers and the
+            fediverse (Mastodon and other connected platforms). Click the <strong>ink drop</strong> icon on entries you
             think deserve more readers — the most-inked entries appear in{" "}
             <strong>Trending This Week</strong> above, and you can sort
             by &ldquo;Most Inked&rdquo; to find community favorites.

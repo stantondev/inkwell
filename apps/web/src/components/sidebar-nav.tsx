@@ -203,7 +203,7 @@ export function SidebarNav({
           <span className="sidebar-section-title">Connections</span>
         </div>
         <NavItem href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" active={isActive("/pen-pals")} />
-        <NavItem href="/letters" icon={<LettersIcon />} label="Letterbox" badge={unreadLetterCount} active={isActive("/letters")} />
+        <NavItem href="/letters" icon={<LettersIcon />} label="Letters" badge={unreadLetterCount} active={isActive("/letters")} />
         <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} />
       </div>
 

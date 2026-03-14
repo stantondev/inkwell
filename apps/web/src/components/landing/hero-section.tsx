@@ -92,7 +92,7 @@ export function HeroSection() {
         {/* Badge pill — always visible immediately */}
         <div className="landing-badge">
           <span className="landing-badge-dot" aria-hidden="true" />
-          Free forever &middot; federated &middot; no ads, ever
+          Free forever &middot; connected to Mastodon &middot; no ads, ever
         </div>
 
         {/* Ink flourish SVG animation */}
@@ -166,8 +166,8 @@ export function HeroSection() {
             delay: prefersReducedMotion ? 0 : 1.8,
           }}
         >
-          A federated social journaling platform — the richness of LiveJournal,
-          the creativity of early MySpace, rebuilt for 2026 on open standards
+          A social journaling platform. The richness of LiveJournal,
+          the creativity of early MySpace, rebuilt for the open social web
           with no algorithm and no ads.
         </motion.p>
 

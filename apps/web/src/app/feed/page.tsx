@@ -40,7 +40,7 @@ function EmptyFeed({
         </p>
         <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
           Your Feed fills up as you follow writers. When your pen pals publish
-          new entries, they appear here — like letters arriving in your mailbox.
+          new entries, they appear here, like letters arriving in your mailbox.
         </p>
 
         {/* Action cards */}
@@ -63,7 +63,7 @@ function EmptyFeed({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Explore what others are writing</p>
               <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Browse public entries from Inkwell writers and the fediverse
+                Browse public entries from Inkwell writers and connected platforms
               </p>
             </div>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -151,9 +151,9 @@ function EmptyFeed({
             <Link href="/guide#fediverse" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
               fediverse
             </Link>
-            {" "}— follow anyone on Mastodon, Pixelfed, or other platforms and their posts appear in your feed.{" "}
+            . Follow anyone on Mastodon, Pixelfed, or other platforms and their posts appear in your feed.{" "}
             <Link href="/search" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
-              Search for fediverse handles
+              Find people on Mastodon
             </Link>
           </p>
         </div>
@@ -377,7 +377,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
           learnMoreHref="/guide#feed-explore"
         >
           <p>
-            Your Feed shows journal entries from writers you follow — your pen
+            Your Feed shows journal entries from writers you follow, your pen
             pals. Entries from writers on Mastodon and other fediverse platforms
             you follow also appear here. Looking to discover new voices?{" "}
             <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
@@ -428,7 +428,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
             }}
           >
             <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-              Upgrade to Plus for $5/mo — unlock extra features and keep Inkwell
+              Upgrade to Plus for $5/mo. Unlock extra features and keep Inkwell
               ad-free.
             </p>
             <Link

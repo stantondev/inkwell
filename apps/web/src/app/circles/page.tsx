@@ -6,7 +6,7 @@ import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = {
   title: "Writing Circles — Inkwell",
-  description: "Join intimate writing circles — collaborative spaces for discussion, feedback, and creative community.",
+  description: "Join intimate writing circles. Collaborative spaces for discussion, feedback, and creative community.",
   openGraph: { title: "Writing Circles — Inkwell", description: "Join intimate writing circles on Inkwell." },
 };
 
@@ -80,7 +80,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
     <div className="circle-page">
       <div className="circle-hero">
         <h1>Writing Circles</h1>
-        <p>No algorithms, no upvotes — just writers talking about what matters</p>
+        <p>Group discussions for writers. No upvotes, no algorithms. Just conversation.</p>
         {total > 0 && (
           <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.5rem" }}>
             {total} circle{total !== 1 ? "s" : ""} · {circles.reduce((acc, c) => acc + c.discussion_count, 0)} discussion{circles.reduce((acc, c) => acc + c.discussion_count, 0) !== 1 ? "s" : ""}
