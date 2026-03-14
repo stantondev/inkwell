@@ -33,6 +33,7 @@ interface FediverseResult {
   avatar_url: string | null;
   ap_id: string;
   profile_url: string;
+  relationship_status?: "pending" | "accepted" | null;
 }
 
 function FollowButton({ username }: { username: string }) {
@@ -68,8 +69,41 @@ function FollowButton({ username }: { username: string }) {
   );
 }
 
-function FediverseFollowButton({ remoteActorId }: { remoteActorId: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "pending" | "following" | "error">("idle");
+function FediverseFollowButton({ remoteActorId, initialStatus }: { remoteActorId: string; initialStatus?: "pending" | "accepted" | null }) {
+  const [state, setState] = useState<"idle" | "loading" | "pending" | "following" | "error">(() => {
+    if (initialStatus === "accepted") return "following";
+    if (initialStatus === "pending") return "pending";
+    return "idle";
+  });
+  const pollRef = useRef<ReturnType<typeof setInterval>>(null);
+
+  // Poll for Accept after Follow click (most Mastodon accounts auto-accept)
+  useEffect(() => {
+    if (state !== "pending") return;
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 10) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/search/fediverse/follow`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remote_actor_id: remoteActorId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.status === "accepted") {
+            setState("following");
+            if (pollRef.current) clearInterval(pollRef.current);
+          }
+        }
+      } catch { /* ignore polling errors */ }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [state, remoteActorId]);
 
   async function handleFollow() {
     setState("loading");
@@ -81,10 +115,12 @@ function FediverseFollowButton({ remoteActorId }: { remoteActorId: string }) {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.data?.already_following) {
+        if (data.data?.already_following && data.data?.status === "accepted") {
+          setState("following");
+        } else if (data.data?.status === "accepted") {
           setState("following");
         } else {
-          setState(data.data?.status === "accepted" ? "following" : "pending");
+          setState("pending");
         }
       } else if (res.status === 401) {
         setState("error");
@@ -359,7 +395,7 @@ export default function SearchPage() {
                       @{fediverseResult.username}@{fediverseResult.domain}
                     </p>
                   </div>
-                  <FediverseFollowButton remoteActorId={fediverseResult.id} />
+                  <FediverseFollowButton remoteActorId={fediverseResult.id} initialStatus={fediverseResult.relationship_status} />
                 </div>
               </div>
             )}

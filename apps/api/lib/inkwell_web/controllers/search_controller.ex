@@ -36,6 +36,18 @@ defmodule InkwellWeb.SearchController do
           {:ok, actor_uri} ->
             case RemoteActor.fetch(actor_uri) do
               {:ok, actor} ->
+                # Check relationship status if user is authenticated
+                relationship_status =
+                  case conn.assigns[:current_user] do
+                    nil -> nil
+                    user ->
+                      import Ecto.Query
+                      Inkwell.Social.Relationship
+                      |> where([r], r.follower_id == ^user.id and r.remote_actor_id == ^actor.id)
+                      |> select([r], r.status)
+                      |> Inkwell.Repo.one()
+                  end
+
                 json(conn, %{
                   data: %{
                     username: actor.username,
@@ -44,7 +56,8 @@ defmodule InkwellWeb.SearchController do
                     avatar_url: actor.avatar_url,
                     ap_id: actor.ap_id,
                     profile_url: get_profile_url(actor),
-                    id: actor.id
+                    id: actor.id,
+                    relationship_status: relationship_status
                   }
                 })
 
@@ -242,6 +255,7 @@ defmodule InkwellWeb.SearchController do
 
   defp create_remote_follow(user, remote_actor) do
     alias Inkwell.Social.Relationship
+    alias Inkwell.Federation.ActivityBuilder
     alias Inkwell.Repo
 
     # Create relationship record (no following_id — remote_actor_id serves that role)
@@ -253,17 +267,8 @@ defmodule InkwellWeb.SearchController do
 
     case %Relationship{} |> Relationship.changeset(attrs) |> Repo.insert() do
       {:ok, relationship} ->
-        # Send Follow activity to remote actor's inbox
-        instance_host = federation_config(:instance_host)
-        actor_url = "https://#{instance_host}/users/#{user.username}"
-
-        follow_activity = %{
-          "@context" => "https://www.w3.org/ns/activitystreams",
-          "type" => "Follow",
-          "id" => "#{actor_url}#follow-#{System.system_time(:second)}",
-          "actor" => actor_url,
-          "object" => remote_actor.ap_id
-        }
+        # Send Follow activity to remote actor's inbox (deterministic ID via ActivityBuilder)
+        follow_activity = ActivityBuilder.build_follow(remote_actor.ap_id, user)
 
         # Deliver asynchronously via Oban
         %{activity: follow_activity, inbox_url: remote_actor.inbox, user_id: user.id}
@@ -275,11 +280,6 @@ defmodule InkwellWeb.SearchController do
       {:error, changeset} ->
         {:error, changeset}
     end
-  end
-
-  defp federation_config(key) do
-    config = Application.get_env(:inkwell, :federation, [])
-    Keyword.get(config, key)
   end
 
   # ── Meilisearch ──────────────────────────────────────────────────────────

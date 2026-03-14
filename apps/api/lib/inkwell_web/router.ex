@@ -73,7 +73,6 @@ defmodule InkwellWeb.Router do
 
     # Search
     get "/search", SearchController, :search
-    get "/search/fediverse", SearchController, :fediverse
 
     # Username availability check (public)
     get "/username-available", UserController, :username_available
@@ -105,6 +104,9 @@ defmodule InkwellWeb.Router do
   # Public endpoints with optional auth (for personalized data)
   scope "/api", InkwellWeb do
     pipe_through [:api, :optional_auth]
+
+    # Fediverse search (optional auth for relationship status)
+    get "/search/fediverse", SearchController, :fediverse
 
     # Trending entries (optional auth for my_ink)
     get "/explore/trending", ExploreController, :trending
