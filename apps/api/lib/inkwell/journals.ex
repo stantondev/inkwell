@@ -607,14 +607,40 @@ defmodule Inkwell.Journals do
   def list_all_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 50)
+    search = Keyword.get(opts, :search)
+    filter = Keyword.get(opts, :filter)
 
-    Entry
-    |> where([e], e.status == :published)
-    |> order_by(desc: :inserted_at)
-    |> limit(^per_page)
-    |> offset(^((page - 1) * per_page))
-    |> preload([:user])
-    |> Repo.all()
+    query =
+      Entry
+      |> where([e], e.status == :published)
+      |> join(:inner, [e], u in assoc(e, :user))
+      |> order_by(desc: :inserted_at)
+
+    query = if search && search != "" do
+      term = "%#{search}%"
+      query |> where([e, u], ilike(e.title, ^term) or ilike(u.username, ^term) or ilike(u.display_name, ^term))
+    else
+      query
+    end
+
+    query = case filter do
+      "sensitive" -> query |> where([e], e.sensitive == true or e.admin_sensitive == true)
+      "public" -> query |> where([e], e.privacy == :public)
+      "private" -> query |> where([e], e.privacy == :private)
+      "friends_only" -> query |> where([e], e.privacy == :friends_only)
+      _ -> query
+    end
+
+    total = query |> select([e], count(e.id)) |> Repo.one()
+
+    entries =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> preload([:user])
+      |> Repo.all()
+
+    {entries, total}
   end
 
   def count_entries(user_id) do

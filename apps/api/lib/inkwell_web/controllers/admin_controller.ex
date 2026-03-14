@@ -138,7 +138,12 @@ defmodule InkwellWeb.AdminController do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], 50)
 
-    entries = Journals.list_all_entries(page: page, per_page: per_page)
+    {entries, total} = Journals.list_all_entries(
+      page: page,
+      per_page: per_page,
+      search: params["search"],
+      filter: params["filter"]
+    )
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
@@ -149,7 +154,7 @@ defmodule InkwellWeb.AdminController do
           avatar_url: entry.user.avatar_url
         })
       end),
-      pagination: %{page: page, per_page: per_page}
+      pagination: %{page: page, per_page: per_page, total: total}
     })
   end
 
