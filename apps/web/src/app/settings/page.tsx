@@ -13,6 +13,7 @@ interface FullUser {
   pronouns: string | null;
   avatar_url: string | null;
   preferred_language?: string | null;
+  social_links?: Record<string, string> | null;
 }
 
 export default async function SettingsPage() {

@@ -19,6 +19,7 @@ interface FullUser {
   support_url?: string | null;
   support_label?: string | null;
   preferred_language?: string | null;
+  social_links?: Record<string, string> | null;
 }
 
 const TRANSLATION_LANGUAGES = [
@@ -40,6 +41,14 @@ const TRANSLATION_LANGUAGES = [
   { code: "SV", label: "Swedish" },
 ];
 
+const SOCIAL_PLATFORMS = [
+  { key: "twitter", label: "X / Twitter", placeholder: "https://x.com/username" },
+  { key: "bluesky", label: "Bluesky", placeholder: "https://bsky.app/profile/you.bsky.social" },
+  { key: "mastodon", label: "Mastodon", placeholder: "https://mastodon.social/@username" },
+  { key: "github", label: "GitHub", placeholder: "https://github.com/username" },
+  { key: "website", label: "Website", placeholder: "https://yoursite.com" },
+];
+
 export function ProfileEditForm({ user }: { user: FullUser }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +60,14 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
     support_url: user.support_url ?? "",
     support_label: user.support_label ?? "",
     preferred_language: user.preferred_language ?? "",
+  });
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>(() => {
+    const links = user.social_links ?? {};
+    const result: Record<string, string> = {};
+    for (const p of SOCIAL_PLATFORMS) {
+      result[p.key] = (links[p.key] as string) ?? "";
+    }
+    return result;
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -195,6 +212,15 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           support_url: form.support_url || null,
           support_label: form.support_label || null,
           preferred_language: form.preferred_language || null,
+          social_links: Object.fromEntries(
+            Object.entries(socialLinks)
+              .filter(([, v]) => v.trim())
+              .map(([k, v]) => {
+                const trimmed = v.trim();
+                if (/^https?:\/\//i.test(trimmed)) return [k, trimmed];
+                return [k, `https://${trimmed}`];
+              }),
+          ),
         }),
       });
       const data = await res.json();
@@ -365,6 +391,39 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
           onChange={e => setForm(f => ({ ...f, pronouns: e.target.value }))}
           placeholder="e.g. she/her, they/them"
           className={inputClass} style={inputStyle} />
+      </div>
+
+      {/* Social Links */}
+      <div className="border-t pt-5 mt-2" style={{ borderColor: "var(--border)" }}>
+        <h3
+          className="text-sm font-semibold mb-1"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+        >
+          Social Links
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
+          Links displayed on your profile and shared with the fediverse. Leave blank to hide.
+        </p>
+        <div className="flex flex-col gap-3">
+          {SOCIAL_PLATFORMS.map((platform) => (
+            <div key={platform.key}>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>
+                {platform.label}
+              </label>
+              <input
+                type="url"
+                value={socialLinks[platform.key] ?? ""}
+                onChange={(e) => {
+                  setSocialLinks((prev) => ({ ...prev, [platform.key]: e.target.value }));
+                  setStatus("idle");
+                }}
+                placeholder={platform.placeholder}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Translation Language */}

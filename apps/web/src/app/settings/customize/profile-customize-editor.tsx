@@ -288,11 +288,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     setStatus("idle");
   }
 
-  function updateSocialLink(key: string, value: string) {
-    setSocialLinks(prev => ({ ...prev, [key]: value }));
-    setStatus("idle");
-  }
-
   const widgetLabels: Record<string, string> = {
     about: "About / Bio",
     entries: "Journal Entries",
@@ -563,28 +558,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                 <p className="text-xs" style={{ color: "var(--muted)" }}>{mode.desc}</p>
               </div>
             </button>
-          ))}
-        </div>
-      </Section>
-
-      {/* Social Links */}
-      <Section title="Social Links" defaultOpen={false}>
-        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-          Links displayed on your profile header. Leave blank to hide.
-        </p>
-        <div className="flex flex-col gap-3">
-          {SOCIAL_PLATFORMS_CONFIG.map((platform) => (
-            <div key={platform.key} className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>{platform.label}</label>
-              <input
-                type="url"
-                value={socialLinks[platform.key] ?? ""}
-                onChange={(e) => updateSocialLink(platform.key, e.target.value)}
-                placeholder={platform.placeholder}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
           ))}
         </div>
       </Section>
