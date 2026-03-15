@@ -210,6 +210,35 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds a Person object for a local user (used by the actor endpoint).
   """
+  @doc """
+  Builds a Note object representing a user's guestbook post.
+  Fediverse users can search for this URL in Mastodon, then reply to sign the guestbook.
+  """
+  def build_guestbook_post(user) do
+    actor_url = actor_url(user)
+    instance_host = federation_config(:instance_host)
+    frontend_host = federation_config(:frontend_host)
+
+    published =
+      case user.inserted_at do
+        %DateTime{} = dt -> format_datetime(dt)
+        %NaiveDateTime{} = ndt -> NaiveDateTime.to_iso8601(ndt) <> "Z"
+        _ -> DateTime.utc_now() |> format_datetime()
+      end
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Note",
+      "id" => "https://#{instance_host}/users/#{user.username}/guestbook-post",
+      "attributedTo" => actor_url,
+      "content" => "<p>Sign my guestbook! Reply to this post from your fediverse account to leave a message on my Inkwell profile. \u270D\uFE0F</p>",
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"],
+      "published" => published,
+      "url" => "#{frontend_host}/#{user.username}#guestbook"
+    }
+  end
+
   def build_person(user) do
     actor_url = actor_url(user)
     frontend_host = federation_config(:frontend_host)
@@ -271,7 +300,52 @@ defmodule Inkwell.Federation.ActivityBuilder do
         person
       end
 
+    # Add featured collection (pinned posts)
+    person = Map.put(person, "featured", "#{actor_url}/featured")
+
+    # Add social links as PropertyValue attachments (Mastodon profile fields)
+    person = add_property_values(person, user)
+
     person
+  end
+
+  defp add_property_values(person, user) do
+    links = user.social_links || %{}
+
+    attachments =
+      [
+        if(links["website"], do: {"Website", link_html(links["website"])}),
+        if(links["bluesky"], do: {"Bluesky", links["bluesky"]}),
+        if(links["mastodon"], do: {"Mastodon", link_html(links["mastodon"])}),
+        if(links["github"], do: {"GitHub", link_html("https://github.com/#{links["github"]}")}),
+        if(links["twitter"], do: {"X/Twitter", link_html("https://x.com/#{links["twitter"]}")})
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(fn {name, value} ->
+        %{"type" => "PropertyValue", "name" => name, "value" => value}
+      end)
+
+    if attachments == [] do
+      person
+    else
+      person
+      |> Map.put("attachment", attachments)
+      |> Map.update("@context", [], fn ctx ->
+        ctx ++ ["https://schema.org"]
+      end)
+    end
+  end
+
+  defp link_html(url) when is_binary(url) do
+    "<a href=\"#{html_escape(url)}\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">#{html_escape(url)}</a>"
+  end
+
+  defp html_escape(str) do
+    str
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
   end
 
   # ── Federated interactions (stamps/comments on remote entries) ──────────

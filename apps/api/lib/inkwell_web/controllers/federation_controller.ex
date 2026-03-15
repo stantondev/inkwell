@@ -236,6 +236,59 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # ── Featured collection (pinned posts) ─────────────────────────────────
+
+  # GET /users/:username/featured
+  def featured(conn, %{"username" => username}) do
+    instance_host = federation_config(:instance_host)
+
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> send_resp(404, "")
+
+      user ->
+        pinned_ids = user.pinned_entry_ids || []
+
+        items =
+          if pinned_ids == [] do
+            []
+          else
+            Inkwell.Journals.Entry
+            |> where([e], e.id in ^pinned_ids)
+            |> where([e], e.status == :published and e.privacy == :public)
+            |> Repo.all()
+            |> Enum.map(fn entry -> ActivityBuilder.build_article(entry, user) end)
+          end
+
+        conn
+        |> put_resp_content_type("application/activity+json")
+        |> json(%{
+          "@context" => "https://www.w3.org/ns/activitystreams",
+          "type" => "OrderedCollection",
+          "id" => "https://#{instance_host}/users/#{username}/featured",
+          "totalItems" => length(items),
+          "orderedItems" => items
+        })
+    end
+  end
+
+  # ── Guestbook post (AP Note for fediverse guestbook signing) ───────────
+
+  # GET /users/:username/guestbook-post
+  def guestbook_post(conn, %{"username" => username}) do
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> send_resp(404, "")
+
+      user ->
+        note = ActivityBuilder.build_guestbook_post(user)
+
+        conn
+        |> put_resp_content_type("application/activity+json")
+        |> json(note)
+    end
+  end
+
   # ── Followers / Following collections ───────────────────────────────────
 
   # GET /users/:username/followers
@@ -685,7 +738,7 @@ defmodule InkwellWeb.FederationController do
 
   # ── Create handling (inbound Notes) ─────────────────────────────────────
 
-  defp handle_create(conn, activity, _target_user) do
+  defp handle_create(conn, activity, target_user) do
     case activity["object"] do
       %{"type" => type, "inReplyTo" => in_reply_to}
           when type in ["Note", "Article", "Page"] and is_binary(in_reply_to) ->
@@ -693,8 +746,10 @@ defmodule InkwellWeb.FederationController do
         handle_incoming_reply(activity["object"], activity["actor"])
 
       %{"type" => type} = object when type in ["Note", "Article", "Page"] ->
-        # Standalone public post — store as remote entry
+        # Standalone public post — store as remote entry for Explore
         handle_incoming_note(object, activity["actor"])
+        # If delivered to a personal inbox, check for @mentions of the inbox owner
+        maybe_create_mention_notification(object, activity["actor"], target_user)
 
       _ ->
         :ok
@@ -746,15 +801,18 @@ defmodule InkwellWeb.FederationController do
     # Many Mastodon replies are "unlisted" (addressed to author + followers, no Public URI).
     # Per FEP-7458: inReplyTo indicates the relationship — if they're replying
     # to our content, we should accept it.
-    handle_incoming_reply_public(note, actor_uri)
-  end
-
-  defp handle_incoming_reply_public(note, actor_uri) do
     in_reply_to = note["inReplyTo"]
 
     case find_entry_by_ap_url(in_reply_to) do
       nil ->
-        Logger.info("Ignoring reply to unknown entry: #{in_reply_to}")
+        # Not a reply to an entry — check if it's a reply to a guestbook post
+        case find_guestbook_owner(in_reply_to) do
+          nil ->
+            Logger.info("Ignoring reply to unknown content: #{in_reply_to}")
+
+          user ->
+            handle_guestbook_reply(note, actor_uri, user)
+        end
 
       entry ->
         case RemoteActor.fetch(actor_uri) do
@@ -986,6 +1044,9 @@ defmodule InkwellWeb.FederationController do
         {:ok, _} -> Logger.info("Deleted remote entry #{object_id}")
         {:error, _} -> :ok
       end
+
+      # Also try deleting a federated guestbook entry
+      Inkwell.Guestbook.delete_by_ap_id(object_id)
     end
 
     conn |> put_status(:accepted) |> json(%{ok: true})
@@ -1049,6 +1110,75 @@ defmodule InkwellWeb.FederationController do
     |> Repo.insert()
   end
 
+  # ── Fediverse mention notification ──────────────────────────────────────
+
+  # Only check for mentions when delivered to a personal inbox (target_user non-nil)
+  defp maybe_create_mention_notification(_object, _actor_uri, nil), do: :ok
+
+  defp maybe_create_mention_notification(object, actor_uri, target_user) do
+    tags = object["tag"] || []
+    frontend_host = Application.get_env(:inkwell, :frontend_url) || ""
+    api_host = InkwellWeb.Endpoint.url()
+
+    # Check if any Mention tag targets the inbox owner's actor URL
+    user_actor_url = "#{api_host}/users/#{target_user.username}"
+    user_frontend_url = "#{frontend_host}/users/#{target_user.username}"
+
+    mentions_user =
+      Enum.any?(tags, fn
+        %{"type" => "Mention", "href" => href} when is_binary(href) ->
+          href == user_actor_url or href == user_frontend_url
+
+        _ ->
+          false
+      end)
+
+    if mentions_user do
+      case RemoteActor.fetch(actor_uri) do
+        {:ok, remote_actor} ->
+          profile_url =
+            case remote_actor.raw_data do
+              %{"url" => url} when is_binary(url) -> url
+              _ -> remote_actor.ap_id
+            end
+
+          content_preview =
+            (object["content"] || "")
+            |> String.replace(~r/<[^>]+>/, "")
+            |> String.slice(0, 200)
+
+          post_url =
+            case object do
+              %{"url" => url} when is_binary(url) -> url
+              %{"id" => id} when is_binary(id) -> id
+              _ -> nil
+            end
+
+          Accounts.create_notification(%{
+            user_id: target_user.id,
+            type: :fediverse_mention,
+            data: %{
+              remote_actor: %{
+                display_name: remote_actor.display_name || remote_actor.username,
+                username: remote_actor.username,
+                domain: remote_actor.domain,
+                avatar_url: remote_actor.avatar_url,
+                profile_url: profile_url,
+                ap_id: remote_actor.ap_id
+              },
+              content_preview: content_preview,
+              post_url: post_url
+            }
+          })
+
+        {:error, reason} ->
+          Logger.warning("Failed to fetch actor for mention notification: #{inspect(reason)}")
+      end
+    end
+
+    :ok
+  end
+
   # ── Entry lookup helper ──────────────────────────────────────────────────
 
   # Find an entry by AP URL, handling multiple URL patterns:
@@ -1098,6 +1228,89 @@ defmodule InkwellWeb.FederationController do
 
           _ -> nil
         end
+    end
+  end
+
+  # ── Guestbook reply handling ────────────────────────────────────────────
+
+  # Match URLs like https://host/users/username/guestbook-post
+  defp find_guestbook_owner(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    case uri.path do
+      nil ->
+        nil
+
+      path ->
+        case path |> String.trim_leading("/") |> String.split("/") do
+          ["users", username, "guestbook-post"] when username != "" ->
+            Accounts.get_user_by_username(username)
+
+          _ ->
+            nil
+        end
+    end
+  end
+
+  defp find_guestbook_owner(_), do: nil
+
+  defp handle_guestbook_reply(note, actor_uri, profile_user) do
+    case RemoteActor.fetch(actor_uri) do
+      {:ok, remote_actor} ->
+        profile_url =
+          case remote_actor.raw_data do
+            %{"url" => url} when is_binary(url) -> url
+            _ -> remote_actor.ap_id
+          end
+
+        # Strip HTML to plain text and truncate to 500 chars
+        body =
+          (note["content"] || "")
+          |> String.replace(~r/<[^>]+>/, "")
+          |> String.trim()
+          |> String.slice(0, 500)
+
+        attrs = %{
+          body: body,
+          profile_user_id: profile_user.id,
+          ap_id: note["id"],
+          remote_author: %{
+            ap_id: remote_actor.ap_id,
+            username: remote_actor.username,
+            domain: remote_actor.domain,
+            display_name: remote_actor.display_name,
+            avatar_url: remote_actor.avatar_url,
+            profile_url: profile_url
+          }
+        }
+
+        case Inkwell.Guestbook.create_entry_from_ap(attrs) do
+          {:ok, _entry} ->
+            Logger.info("Created federated guestbook entry from #{remote_actor.username}@#{remote_actor.domain}")
+
+            # Create notification for the profile owner
+            Accounts.create_notification(%{
+              user_id: profile_user.id,
+              type: :guestbook,
+              data: %{
+                profile_username: profile_user.username,
+                remote_actor: %{
+                  display_name: remote_actor.display_name || remote_actor.username,
+                  username: remote_actor.username,
+                  domain: remote_actor.domain,
+                  avatar_url: remote_actor.avatar_url,
+                  profile_url: profile_url,
+                  ap_id: remote_actor.ap_id
+                }
+              }
+            })
+
+          {:error, reason} ->
+            Logger.warning("Failed to create federated guestbook entry: #{inspect(reason)}")
+        end
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch actor for guestbook reply: #{inspect(reason)}")
     end
   end
 

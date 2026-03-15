@@ -41,7 +41,20 @@ Inkwell users are represented as `Person` actors.
   "outbox": "https://inkwell-api.fly.dev/users/alice/outbox",
   "followers": "https://inkwell-api.fly.dev/users/alice/followers",
   "following": "https://inkwell-api.fly.dev/users/alice/following",
+  "featured": "https://inkwell-api.fly.dev/users/alice/featured",
   "discoverable": true,
+  "attachment": [
+    {
+      "type": "PropertyValue",
+      "name": "Website",
+      "value": "<a href=\"https://example.com\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">example.com</a>"
+    },
+    {
+      "type": "PropertyValue",
+      "name": "Bluesky",
+      "value": "@alice.bsky.social"
+    }
+  ],
   "publicKey": {
     "id": "https://inkwell-api.fly.dev/users/alice#main-key",
     "owner": "https://inkwell-api.fly.dev/users/alice",
@@ -62,6 +75,8 @@ Inkwell users are represented as `Person` actors.
 
 - `id` and inbox/outbox URLs use the API host (`inkwell-api.fly.dev`)
 - `url` points to the frontend profile page (`inkwell.social`)
+- `featured` points to the user's pinned posts collection (see Collections below)
+- `attachment` contains `PropertyValue` entries for social links (website, Bluesky, Mastodon, GitHub, X/Twitter) — displayed as verified profile fields on Mastodon. Only non-empty links are included. Requires `"https://schema.org"` in `@context`
 - `icon` and `image` are served as binary images from API endpoints (not inline data URIs)
 - RSA-2048 key pairs are generated on user registration
 - Actors without an avatar or banner omit those fields entirely
@@ -147,6 +162,35 @@ Comments on remote entries are sent as `Note` objects with `inReplyTo`:
 - Public URI and commenter's followers in `cc`
 - `Mention` tag included with `@user@domain` name
 
+#### Note (Guestbook Post)
+
+Each user has a permanent guestbook post — a `Note` object that fediverse users can reply to in order to sign the user's guestbook.
+
+```json
+{
+  "type": "Note",
+  "id": "https://inkwell-api.fly.dev/users/alice/guestbook-post",
+  "attributedTo": "https://inkwell-api.fly.dev/users/alice",
+  "content": "<p>Sign my guestbook! Reply to this post from your fediverse account to leave a message on my Inkwell profile. ✍️</p>",
+  "to": ["https://www.w3.org/ns/activitystreams#Public"],
+  "cc": ["https://inkwell-api.fly.dev/users/alice/followers"],
+  "published": "2026-01-15T00:00:00Z",
+  "url": "https://inkwell.social/alice#guestbook"
+}
+```
+
+**Flow for fediverse users**:
+1. Copy the guestbook post URL (shown on the user's profile guestbook widget)
+2. Paste into Mastodon's search bar — the Note appears
+3. Reply to the Note — the reply arrives at Inkwell's inbox with `inReplyTo` pointing to the guestbook post URL
+4. Inkwell detects the guestbook post pattern in `inReplyTo` and creates a guestbook entry (not a comment)
+5. The entry appears in the guestbook with a globe icon and `@user@domain` handle
+
+- Reply body is stripped to plain text and truncated to 500 characters
+- Guestbook entries are deduplicated by `ap_id` (the reply's `id`)
+- `Delete` activities targeting a reply's `id` remove the corresponding guestbook entry
+- Profile owner receives a `:guestbook` notification
+
 ### Sensitive Content
 
 When an entry is marked as sensitive (by author or admin):
@@ -201,10 +245,10 @@ All inbound activities **require a valid HTTP Signature**. Activities with missi
 |---|---|
 | `Follow` | Auto-accepted. Creates follower relationship. Sends `Accept` back. Creates notification for the local user. Duplicate Follow re-sends Accept without creating a new notification. |
 | `Undo { Follow }` | Removes follower relationship. |
-| `Create { Note }` (reply) | If `inReplyTo` references a local entry, stored as a federated comment. Replies to unknown entries are silently ignored. Accepts replies regardless of addressing (per FEP-7458). |
-| `Create { Note/Article/Page }` (standalone) | Public posts stored as remote entries for Explore discovery. Non-public posts are ignored. |
+| `Create { Note }` (reply) | If `inReplyTo` references a local entry, stored as a federated comment. If `inReplyTo` matches a guestbook post URL (`/users/{username}/guestbook-post`), stored as a guestbook entry with `remote_author`. Other replies are silently ignored. Accepts replies regardless of addressing (per FEP-7458). |
+| `Create { Note/Article/Page }` (standalone) | Public posts stored as remote entries for Explore discovery. If delivered to a personal inbox and contains a `Mention` tag targeting the inbox owner's actor URL, creates a `:fediverse_mention` notification. Non-public posts are ignored. |
 | `Update { Note/Article/Page }` | Updates existing comment body or remote entry content in-place. |
-| `Delete` | Removes the matching comment or remote entry. Associated data (inks, stamps, comments) cleaned up via foreign key cascade. |
+| `Delete` | Removes the matching comment, remote entry, or guestbook entry. Associated data (inks, stamps, comments) cleaned up via foreign key cascade. |
 | `Accept { Follow }` | Marks our outbound Follow request as accepted. Sets mutual follow flags. For relay subscriptions, triggers outbox backfill. |
 | `Like` | Creates a federated ink on the liked entry. Increments `ink_count`. Creates notification. Deduplicated by `[remote_actor_id, entry_id]`. |
 | `Undo { Like }` | Removes the federated ink. Decrements `ink_count`. |
@@ -328,6 +372,8 @@ Inkwell supports subscribing to ActivityPub relays for content discovery.
 | Outbox | `/users/{username}/outbox` | Paginated (20 items/page). Contains `Create { Article }` activities for public published entries only. |
 | Followers | `/users/{username}/followers` | Returns total count only (`totalItems`). Individual follower URIs are not exposed. |
 | Following | `/users/{username}/following` | Returns total count only (`totalItems`). Individual following URIs are not exposed. |
+| Featured | `/users/{username}/featured` | `OrderedCollection` of pinned `Article` objects. Contains the user's pinned entries (up to 3, public+published only). Mastodon displays these as "pinned posts" on profile pages. |
+| Guestbook Post | `/users/{username}/guestbook-post` | Permanent `Note` object. Replies to this Note create guestbook entries. See "Note (Guestbook Post)" above. |
 
 ---
 
@@ -343,6 +389,7 @@ Inkwell supports subscribing to ActivityPub relays for content discovery.
 | Bio (plain text) | 2,000 characters |
 | Bio (HTML) | 10,000 characters |
 | Comment body | 2,000 characters |
+| Guestbook entry body | 500 characters (HTML stripped to plain text) |
 | Hashtags per entry | No explicit limit |
 
 ---
@@ -371,13 +418,14 @@ Federation is implemented natively in Elixir/Phoenix (no sidecar).
 
 | File | Purpose |
 |---|---|
-| `apps/api/lib/inkwell/federation/activity_builder.ex` | Builds outbound AP activities and objects |
-| `apps/api/lib/inkwell_web/controllers/federation_controller.ex` | Inbox processing, actor/outbox/webfinger endpoints |
+| `apps/api/lib/inkwell/federation/activity_builder.ex` | Builds outbound AP activities and objects (Person, Article, Note, Like, Announce, guestbook post, featured collection) |
+| `apps/api/lib/inkwell_web/controllers/federation_controller.ex` | Inbox processing, actor/outbox/webfinger/featured/guestbook-post endpoints, mention detection, guestbook reply routing |
 | `apps/api/lib/inkwell/federation/http_signature.ex` | HTTP Signature signing and verification |
 | `apps/api/lib/inkwell/federation/http.ex` | Signed HTTP client for fetching remote actors/objects |
 | `apps/api/lib/inkwell/federation/remote_actor.ex` | Remote actor caching and fetching |
 | `apps/api/lib/inkwell/federation/remote_entries.ex` | Remote entry storage and queries |
 | `apps/api/lib/inkwell/federation/relays.ex` | Relay subscription management |
 | `apps/api/lib/inkwell/federation/workers/` | Async delivery, fan-out, relay content, outbox fetch workers |
+| `apps/api/lib/inkwell/guestbook.ex` | Guestbook context (includes `create_entry_from_ap/1`, `delete_by_ap_id/1` for federation) |
 
 Repository: [github.com/stantondev/inkwell](https://github.com/stantondev/inkwell)

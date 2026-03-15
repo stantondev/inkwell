@@ -9,8 +9,8 @@ defmodule Inkwell.Push do
 
   @pushable_types ~w(
     comment reply mention stamp ink follow_request follow_accepted
-    fediverse_follow letter circle_response circle_mention
-    feedback_mention poll_mention writer_plan_subscribe
+    fediverse_follow fediverse_mention letter circle_response circle_mention
+    feedback_mention poll_mention writer_plan_subscribe guestbook
   )a
 
   @doc "Returns true if VAPID keys are configured."
@@ -119,6 +119,8 @@ defmodule Inkwell.Push do
   defp build_text("follow_request", actor, _), do: {"Pen pal request", "#{actor} wants to be your pen pal"}
   defp build_text("follow_accepted", actor, _), do: {"Request accepted", "#{actor} accepted your pen pal request"}
   defp build_text("fediverse_follow", actor, _), do: {"New fediverse follower", "#{actor} followed you from the fediverse"}
+  defp build_text("fediverse_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you from the fediverse"}
+  defp build_text("guestbook", actor, _), do: {"Guestbook signed", "#{actor} signed your guestbook from the fediverse"}
   defp build_text("letter", actor, _), do: {"New letter", "#{actor} sent you a letter"}
   defp build_text("circle_response", actor, n), do: {"Circle response", "#{actor} responded in #{get_circle_name(n)}"}
   defp build_text("circle_mention", actor, n), do: {"Circle mention", "#{actor} mentioned you in #{get_circle_name(n)}"}
@@ -131,6 +133,8 @@ defmodule Inkwell.Push do
   defp build_url("follow_request", _), do: "/notifications"
   defp build_url("follow_accepted", _), do: "/notifications"
   defp build_url("fediverse_follow", _), do: "/notifications"
+  defp build_url("fediverse_mention", _), do: "/notifications"
+  defp build_url("guestbook", n), do: "/#{get_in_data(n, "profile_username") || "notifications"}"
   defp build_url("feedback_mention", n), do: "/roadmap/#{get_target_id(n)}"
   defp build_url("poll_mention", n), do: "/polls/#{get_target_id(n)}"
 

@@ -147,6 +147,10 @@ function notificationText(n: Notification): string {
       return "joined Inkwell from your invitation";
     case "fediverse_follow":
       return "followed you from the fediverse";
+    case "fediverse_mention":
+      return "mentioned you from the fediverse";
+    case "guestbook":
+      return "signed your guestbook from the fediverse";
     case "circle_response": {
       const circleName = n.data?.circle_name as string | undefined;
       return circleName ? `responded to your discussion in ${circleName}` : "responded to your discussion";
@@ -394,6 +398,47 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "fediverse_mention") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    );
+  }
+  if (type === "guestbook") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="12" y1="6" x2="12" y2="14" />
+        <line x1="8" y1="10" x2="16" y2="10" />
+      </svg>
+    );
+  }
   if (type === "fediverse_follow") {
     return (
       <svg
@@ -565,6 +610,14 @@ function getNotificationHref(n: Notification): string | null {
   // Poll notifications link to the poll
   if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {
     return `/polls/${n.target_id}`;
+  }
+  // Fediverse mention — open remote post URL in new tab (handled by isRemote)
+  if (n.type === "fediverse_mention" && n.data?.post_url) {
+    return n.data.post_url as string;
+  }
+  // Guestbook notification — link to the profile's guestbook section
+  if (n.type === "guestbook" && n.data?.profile_username) {
+    return `/${n.data.profile_username}#guestbook`;
   }
   // Feedback notifications link to the roadmap post
   if (
@@ -1103,14 +1156,14 @@ export function NotificationList({
                             <a
                               href={
                                 n.data?.discussion_id
-                                  ? `/circles/${n.data.circle_slug}/${n.data.discussion_id}`
-                                  : `/circles/${n.data.circle_slug}`
+                                  ? `/circles/${String(n.data?.circle_slug)}/${String(n.data.discussion_id)}`
+                                  : `/circles/${String(n.data?.circle_slug)}`
                               }
                               onClick={(e) => e.stopPropagation()}
                               className="text-xs mt-1 inline-block hover:underline truncate max-w-[200px] sm:max-w-[300px]"
                               style={{ color: "#b8860b" }}
                             >
-                              {String(n.data.circle_name)} {"\u2192"}
+                              {String(n.data?.circle_name)} {"\u2192"}
                             </a>
                           )}
                         {/* Feedback post link */}
@@ -1127,6 +1180,17 @@ export function NotificationList({
                             >
                               {String(n.data.post_title)} {"\u2192"}
                             </a>
+                          )}
+
+                        {/* Fediverse mention content preview */}
+                        {n.type === "fediverse_mention" &&
+                          !!n.data?.content_preview && (
+                            <p
+                              className="text-xs mt-1 italic truncate max-w-[200px] sm:max-w-[300px]"
+                              style={{ color: "var(--muted)" }}
+                            >
+                              {"\u201C"}{String(n.data.content_preview).slice(0, 100)}{String(n.data.content_preview).length > 100 ? "\u2026" : ""}{"\u201D"}
+                            </p>
                           )}
 
                         <p

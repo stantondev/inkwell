@@ -486,6 +486,8 @@ defmodule InkwellWeb.Router do
     # Actor endpoint (content negotiation: AP JSON vs browser redirect)
     get "/users/:username", FederationController, :actor
     get "/users/:username/outbox", FederationController, :outbox
+    get "/users/:username/featured", FederationController, :featured
+    get "/users/:username/guestbook-post", FederationController, :guestbook_post
     get "/users/:username/followers", FederationController, :followers
     get "/users/:username/following", FederationController, :following
     post "/users/:username/inbox", FederationController, :inbox

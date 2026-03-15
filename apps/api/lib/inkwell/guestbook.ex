@@ -47,6 +47,31 @@ defmodule Inkwell.Guestbook do
     end
   end
 
+  @doc "Create a guestbook entry from an ActivityPub reply. Idempotent on ap_id."
+  def create_entry_from_ap(attrs) when is_map(attrs) do
+    ap_id = attrs[:ap_id] || attrs["ap_id"]
+
+    case Repo.get_by(GuestbookEntry, ap_id: ap_id) do
+      nil ->
+        string_attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+
+        %GuestbookEntry{}
+        |> GuestbookEntry.ap_changeset(string_attrs)
+        |> Repo.insert()
+
+      existing ->
+        {:ok, existing}
+    end
+  end
+
+  @doc "Delete a guestbook entry by AP ID (for handling Delete activities)."
+  def delete_by_ap_id(ap_id) when is_binary(ap_id) do
+    case Repo.get_by(GuestbookEntry, ap_id: ap_id) do
+      nil -> :ok
+      entry -> Repo.delete(entry) |> elem(0)
+    end
+  end
+
   @doc "Get the profile user by username."
   def get_profile_user(username) do
     Accounts.get_user_by_username(username)

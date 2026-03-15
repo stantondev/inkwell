@@ -80,7 +80,7 @@ defmodule InkwellWeb.GuestbookController do
   end
 
   defp render_entry(entry) do
-    %{
+    base = %{
       id: entry.id,
       body: entry.body,
       created_at: entry.inserted_at,
@@ -89,7 +89,10 @@ defmodule InkwellWeb.GuestbookController do
         username: entry.author.username,
         display_name: entry.author.display_name,
         avatar_url: entry.author.avatar_url
-      }, else: nil)
+      }, else: nil),
+      remote_author: entry.remote_author
     }
+
+    base
   end
 end
