@@ -1112,9 +1112,46 @@ defmodule InkwellWeb.FederationController do
 
   # ── Fediverse mention notification ──────────────────────────────────────
 
-  # Only check for mentions when delivered to a personal inbox (target_user non-nil)
-  defp maybe_create_mention_notification(_object, _actor_uri, nil), do: :ok
+  # Shared inbox (target_user nil) — scan Mention tags for any local users
+  defp maybe_create_mention_notification(object, actor_uri, nil) do
+    tags = object["tag"] || []
 
+    mention_hrefs =
+      tags
+      |> Enum.filter(fn
+        %{"type" => "Mention", "href" => href} when is_binary(href) -> true
+        _ -> false
+      end)
+      |> Enum.map(fn %{"href" => href} -> href end)
+
+    if mention_hrefs != [] do
+      # Extract usernames from mention hrefs that match our domain
+      frontend_host = Application.get_env(:inkwell, :frontend_url) || ""
+      api_host = InkwellWeb.Endpoint.url()
+
+      local_users =
+        mention_hrefs
+        |> Enum.flat_map(fn href ->
+          username = extract_local_username(href, api_host, frontend_host)
+          if username, do: [username], else: []
+        end)
+        |> Enum.uniq()
+        |> Enum.flat_map(fn username ->
+          case Accounts.get_user_by_username(username) do
+            nil -> []
+            user -> [user]
+          end
+        end)
+
+      Enum.each(local_users, fn user ->
+        create_mention_notification_for_user(object, actor_uri, user)
+      end)
+    end
+
+    :ok
+  end
+
+  # Personal inbox — check if mention tags target the inbox owner
   defp maybe_create_mention_notification(object, actor_uri, target_user) do
     tags = object["tag"] || []
     frontend_host = Application.get_env(:inkwell, :frontend_url) || ""
@@ -1134,49 +1171,68 @@ defmodule InkwellWeb.FederationController do
       end)
 
     if mentions_user do
-      case RemoteActor.fetch(actor_uri) do
-        {:ok, remote_actor} ->
-          profile_url =
-            case remote_actor.raw_data do
-              %{"url" => url} when is_binary(url) -> url
-              _ -> remote_actor.ap_id
-            end
-
-          content_preview =
-            (object["content"] || "")
-            |> String.replace(~r/<[^>]+>/, "")
-            |> String.slice(0, 200)
-
-          post_url =
-            case object do
-              %{"url" => url} when is_binary(url) -> url
-              %{"id" => id} when is_binary(id) -> id
-              _ -> nil
-            end
-
-          Accounts.create_notification(%{
-            user_id: target_user.id,
-            type: :fediverse_mention,
-            data: %{
-              remote_actor: %{
-                display_name: remote_actor.display_name || remote_actor.username,
-                username: remote_actor.username,
-                domain: remote_actor.domain,
-                avatar_url: remote_actor.avatar_url,
-                profile_url: profile_url,
-                ap_id: remote_actor.ap_id
-              },
-              content_preview: content_preview,
-              post_url: post_url
-            }
-          })
-
-        {:error, reason} ->
-          Logger.warning("Failed to fetch actor for mention notification: #{inspect(reason)}")
-      end
+      create_mention_notification_for_user(object, actor_uri, target_user)
     end
 
     :ok
+  end
+
+  # Extract a local username from a mention href URL
+  defp extract_local_username(href, api_host, frontend_host) do
+    cond do
+      String.starts_with?(href, "#{api_host}/users/") ->
+        String.replace_prefix(href, "#{api_host}/users/", "")
+
+      String.starts_with?(href, "#{frontend_host}/users/") ->
+        String.replace_prefix(href, "#{frontend_host}/users/", "")
+
+      true ->
+        nil
+    end
+  end
+
+  # Create a fediverse_mention notification for a specific user
+  defp create_mention_notification_for_user(object, actor_uri, user) do
+    case RemoteActor.fetch(actor_uri) do
+      {:ok, remote_actor} ->
+        profile_url =
+          case remote_actor.raw_data do
+            %{"url" => url} when is_binary(url) -> url
+            _ -> remote_actor.ap_id
+          end
+
+        content_preview =
+          (object["content"] || "")
+          |> String.replace(~r/<[^>]+>/, "")
+          |> String.slice(0, 200)
+
+        post_url =
+          case object do
+            %{"url" => url} when is_binary(url) -> url
+            %{"id" => id} when is_binary(id) -> id
+            _ -> nil
+          end
+
+        Accounts.create_notification(%{
+          user_id: user.id,
+          type: :fediverse_mention,
+          data: %{
+            remote_actor: %{
+              display_name: remote_actor.display_name || remote_actor.username,
+              username: remote_actor.username,
+              domain: remote_actor.domain,
+              avatar_url: remote_actor.avatar_url,
+              profile_url: profile_url,
+              ap_id: remote_actor.ap_id
+            },
+            content_preview: content_preview,
+            post_url: post_url
+          }
+        })
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch actor for mention notification: #{inspect(reason)}")
+    end
   end
 
   # ── Entry lookup helper ──────────────────────────────────────────────────
