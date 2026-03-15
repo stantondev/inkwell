@@ -8,6 +8,7 @@ defmodule Inkwell.Workers.ImportDataWorker do
 
   alias Inkwell.Import
   alias Inkwell.Import.DataImport
+  alias Inkwell.Import.ImageImporter
   alias Inkwell.Journals
   alias Inkwell.Repo
 
@@ -142,9 +143,12 @@ defmodule Inkwell.Workers.ImportDataWorker do
   end
 
   defp build_entry_attrs(entry_map, user_id, import_record) do
+    # Localize external images in body HTML
+    body_html = ImageImporter.localize_images(entry_map[:body_html], user_id)
+
     %{
       "title" => entry_map[:title],
-      "body_html" => entry_map[:body_html],
+      "body_html" => body_html,
       "mood" => entry_map[:mood],
       "music" => entry_map[:music],
       "tags" => entry_map[:tags] || [],

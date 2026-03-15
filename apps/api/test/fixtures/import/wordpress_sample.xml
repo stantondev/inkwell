@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:wp="http://wordpress.org/export/1.2/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+>
+  <channel>
+    <title>Test Blog</title>
+    <item>
+      <title>My First Post</title>
+      <content:encoded><![CDATA[<p>Hello world! This is my first blog post.</p>
+<p>It has multiple paragraphs.</p>]]></content:encoded>
+      <wp:post_date>2025-06-15 10:30:00</wp:post_date>
+      <wp:post_date_gmt>2025-06-15 14:30:00</wp:post_date_gmt>
+      <wp:status>publish</wp:status>
+      <wp:post_type>post</wp:post_type>
+      <category>Technology</category>
+      <category>Programming</category>
+    </item>
+    <item>
+      <title>Draft Post</title>
+      <content:encoded><![CDATA[<p>This is still a draft.</p>]]></content:encoded>
+      <wp:post_date>2025-07-01 08:00:00</wp:post_date>
+      <wp:status>draft</wp:status>
+      <wp:post_type>post</wp:post_type>
+    </item>
+    <item>
+      <title>About Page</title>
+      <content:encoded><![CDATA[<p>About me page content.</p>]]></content:encoded>
+      <wp:post_date>2025-01-01 00:00:00</wp:post_date>
+      <wp:status>publish</wp:status>
+      <wp:post_type>page</wp:post_type>
+    </item>
+    <item>
+      <title>Post With Shortcodes</title>
+      <content:encoded><![CDATA[<p>Before shortcode.</p>[gallery ids="1,2,3"]<p>After shortcode.</p>[caption id="test"]Some caption[/caption]]]></content:encoded>
+      <wp:post_date>2025-08-01 12:00:00</wp:post_date>
+      <wp:status>publish</wp:status>
+      <wp:post_type>post</wp:post_type>
+    </item>
+    <item>
+      <title>Post With Images</title>
+      <content:encoded><![CDATA[<p>Check out this image:</p>
+<img src="https://example.com/photo.jpg" alt="A photo" />
+<p>And another one:</p>
+<img src="https://cdn.wordpress.com/uploads/2025/image.png" />
+<!-- wp:image {"id":123} -->
+<figure class="wp-block-image"><img src="https://example.com/wp-content/uploads/2025/01/banner.jpg" alt="Banner"/></figure>
+<!-- /wp:image -->
+<p>End of post.</p>]]></content:encoded>
+      <wp:post_date>2025-09-01 12:00:00</wp:post_date>
+      <wp:status>publish</wp:status>
+      <wp:post_type>post</wp:post_type>
+    </item>
+    <item>
+      <title>Attachment Item</title>
+      <content:encoded><![CDATA[]]></content:encoded>
+      <wp:post_date>2025-01-01 00:00:00</wp:post_date>
+      <wp:status>inherit</wp:status>
+      <wp:post_type>attachment</wp:post_type>
+    </item>
+  </channel>
+</rss>

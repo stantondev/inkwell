@@ -126,7 +126,10 @@ defmodule Inkwell.Import.Parsers.WordpressWxr do
     defp finalize_item(%{post_type: post_type}) when post_type not in [nil, "post"], do: nil
 
     defp finalize_item(item) do
-      body = strip_shortcodes(item.body_html || "")
+      body =
+        (item.body_html || "")
+        |> strip_shortcodes()
+        |> strip_wp_comments()
 
       %{
         title: item.title,
@@ -143,6 +146,18 @@ defmodule Inkwell.Import.Parsers.WordpressWxr do
       # Remove WordPress shortcodes like [gallery], [caption]...[/caption], etc.
       html
       |> String.replace(~r/\[\/?\w+[^\]]*\]/, "")
+      |> String.trim()
+    end
+
+    defp strip_wp_comments(html) do
+      # Remove WordPress block editor comments like:
+      # <!-- wp:paragraph -->  <!-- /wp:paragraph -->
+      # <!-- wp:image {"id":123} -->  <!-- /wp:image -->
+      # <!-- wp:heading {"level":2} -->  <!-- /wp:heading -->
+      # Also removes generic HTML comments (<!-- ... -->)
+      html
+      |> String.replace(~r/<!--.*?-->/s, "")
+      |> String.replace(~r/\n{3,}/, "\n\n")
       |> String.trim()
     end
   end
