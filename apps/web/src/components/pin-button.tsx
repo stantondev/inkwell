@@ -81,9 +81,9 @@ export function PinButton({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M12 17l0 5" />
-        <path d="M5 17h14" />
-        <path d="M15 3l-2 5h5l-4 7h-4l-4-7h5l-2-5z" />
+        <path d="M9 4v6l-2 4v2h10v-2l-2-4V4" />
+        <line x1="12" y1="16" x2="12" y2="21" />
+        <line x1="8" y1="4" x2="16" y2="4" />
       </svg>
     </button>
   );

@@ -193,10 +193,15 @@ export default function PinnedEntriesPage() {
               height="14"
               viewBox="0 0 24 24"
               fill="currentColor"
-              stroke="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               style={{ color: "var(--accent)", flexShrink: 0 }}
             >
-              <path d="M16 2l5 5-5.59 5.59 1.3 4.71L12 22l-1.41-1.41L7 17l-5.59 5.59L0 21.17 5.59 15.59 2.88 11.88l4.71 1.3L13 7.59 16 2z" />
+              <path d="M9 4v6l-2 4v2h10v-2l-2-4V4" />
+              <line x1="12" y1="16" x2="12" y2="21" />
+              <line x1="8" y1="4" x2="16" y2="4" />
             </svg>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
