@@ -138,6 +138,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── /search → /explore redirect (backward compat) ────────────────────
+  if (pathname === "/search" || pathname.startsWith("/search/")) {
+    const url = new URL("/explore", request.url);
+    // Preserve any query params (e.g. ?q=...)
+    request.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
+    return NextResponse.redirect(url, 301);
+  }
+
   // ── Standard inkwell.social logic ─────────────────────────────────────
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 

@@ -7,6 +7,7 @@ import { EducationCard } from "@/components/education-card";
 import { SignupCta } from "@/components/signup-cta";
 import { FilterLink } from "@/components/filter-link";
 import { FetchError } from "@/components/fetch-error";
+import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 
@@ -37,7 +38,7 @@ interface TrendingEntry {
 }
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; category?: string; sort?: string; source?: string }>;
+  searchParams: Promise<{ page?: string; category?: string; sort?: string; source?: string; q?: string }>;
 }
 
 export default async function ExplorePage({ searchParams }: PageProps) {
@@ -122,290 +123,239 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      {/* Header bar */}
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-2">
-        <div className="flex items-center justify-between">
-          <h1
-            className="text-lg font-semibold"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            Explore
-          </h1>
+      <ExploreSearchWrapper>
+        {/* Row 2: Source segmented control (left) + Sort toggles (right) */}
+        <div className="mx-auto max-w-7xl px-4 pb-1">
+          <div className="explore-controls-row">
+            {/* Source segmented control */}
+            <div className="explore-controls-source">
+              {([
+                { label: "Inkwell", value: "inkwell" },
+                { label: "All", value: "all" },
+                { label: "Fediverse", value: "fediverse" },
+              ] as const).map((s) => {
+                const p = new URLSearchParams();
+                if (category) p.set("category", category);
+                if (activeSort !== "newest") p.set("sort", activeSort);
+                if (s.value !== "inkwell") p.set("source", s.value);
+                const qs = p.toString();
+                const isActive =
+                  (s.value === "inkwell" && activeSource === "inkwell") ||
+                  (s.value === "all" && activeSource === null) ||
+                  (s.value === "fediverse" && activeSource === "fediverse");
+                return (
+                  <FilterLink
+                    key={s.label}
+                    href={`/explore${qs ? `?${qs}` : ""}`}
+                    className={`explore-controls-source-segment${isActive ? " active" : ""}`}
+                  >
+                    {s.value === "inkwell" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
+                      </svg>
+                    )}
+                    {s.value === "fediverse" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                    )}
+                    <span>{s.label}</span>
+                  </FilterLink>
+                );
+              })}
+            </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/feed"
-              className="text-xs px-3 py-1 rounded-full border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+            {/* Sort icon toggles */}
+            <div className="explore-controls-sort">
+              {([
+                { label: "Newest", value: "newest" },
+                { label: "Most Inked", value: "most_inked" },
+              ] as const).map((s) => {
+                const p = new URLSearchParams();
+                if (category) p.set("category", category);
+                if (s.value !== "newest") p.set("sort", s.value);
+                if (activeSource) p.set("source", activeSource);
+                const qs = p.toString();
+                const isActive = activeSort === s.value;
+                return (
+                  <FilterLink
+                    key={s.label}
+                    href={`/explore${qs ? `?${qs}` : ""}`}
+                    className={`explore-controls-sort-toggle${isActive ? " active" : ""}`}
+                  >
+                    {s.value === "newest" ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    ) : (
+                      <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                      </svg>
+                    )}
+                    <span>{s.label}</span>
+                  </FilterLink>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Category bookstore shelf */}
+        <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
+          <div className="explore-controls-categories" style={{ minWidth: "max-content" }}>
+            <FilterLink
+              href={(() => {
+                const p = new URLSearchParams();
+                if (activeSort !== "newest") p.set("sort", activeSort);
+                if (activeSource) p.set("source", activeSource);
+                const qs = p.toString();
+                return `/explore${qs ? `?${qs}` : ""}`;
+              })()}
+              className={`explore-controls-category${!category ? " active" : ""}`}
             >
-              Feed
-            </Link>
-            <span
-              className="text-xs px-3 py-1 rounded-full border font-medium"
+              All
+            </FilterLink>
+            {CATEGORIES.map((cat) => {
+              const p = new URLSearchParams();
+              p.set("category", cat.value);
+              if (activeSort !== "newest") p.set("sort", activeSort);
+              if (activeSource) p.set("source", activeSource);
+              return (
+                <FilterLink
+                  key={cat.value}
+                  href={`/explore?${p.toString()}`}
+                  className={`explore-controls-category${category === cat.value ? " active" : ""}`}
+                >
+                  {cat.label}
+                </FilterLink>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Signup banner for logged-out visitors */}
+        {!session && (
+          <div className="mx-auto max-w-7xl px-4 mb-2">
+            <SignupCta
+              variant="banner"
+              heading="Discover writers. Start your journal."
+              subheading="No algorithms, no ads — just writing, community, and the open social web."
+            />
+          </div>
+        )}
+
+        {/* Education card — shown once, dismissible */}
+        <div className="mx-auto max-w-7xl px-4">
+          <EducationCard
+            storageKey="inkwell-edu-explore-card-v2"
+            heading="Discover the community"
+            learnMoreHref="/guide#interaction"
+          >
+            <p>
+              Explore shows all public entries from Inkwell writers and the
+              fediverse (Mastodon and other connected platforms). Click the <strong>ink drop</strong> icon on entries you
+              think deserve more readers — the most-inked entries appear in{" "}
+              <strong>Trending This Week</strong> above, and you can sort
+              by &ldquo;Most Inked&rdquo; to find community favorites.
+            </p>
+          </EducationCard>
+        </div>
+
+        {/* Trending This Week */}
+        {trending.length > 0 && (
+          <div className="mx-auto max-w-7xl px-4 pb-4">
+            <h2
+              className="text-xs font-semibold uppercase tracking-widest mb-3"
               style={{
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
+                color: "var(--muted)",
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                letterSpacing: "0.1em",
               }}
             >
-              Explore
-            </span>
-
-            <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
-
-            {/* Source filter — Inkwell is default, "All" adds fediverse, "Fediverse" shows only fediverse */}
-            {([
-              { label: "Inkwell", value: "inkwell" },
-              { label: "All", value: "all" },
-              { label: "Fediverse", value: "fediverse" },
-            ] as const).map((s) => {
-              const p = new URLSearchParams();
-              if (category) p.set("category", category);
-              if (activeSort !== "newest") p.set("sort", activeSort);
-              // "inkwell" is default (no param), others need explicit source
-              if (s.value !== "inkwell") p.set("source", s.value);
-              const qs = p.toString();
-              const isActive =
-                (s.value === "inkwell" && activeSource === "inkwell") ||
-                (s.value === "all" && activeSource === null) ||
-                (s.value === "fediverse" && activeSource === "fediverse");
-              return (
-                <FilterLink
-                  key={s.label}
-                  href={`/explore${qs ? `?${qs}` : ""}`}
-                  className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap"
-                  style={isActive ? {
-                    borderColor: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
-                    background: s.value === "fediverse" ? "var(--fediverse-accent-light)" : "var(--accent-light)",
-                    color: s.value === "fediverse" ? "var(--fediverse-accent, #569e85)" : "var(--accent)",
-                    fontWeight: 500,
-                  } : {
+              Trending This Week
+            </h2>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2"
+              style={{ scrollbarWidth: "thin" }}
+            >
+              {trending.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/${t.author.username}/${t.slug}`}
+                  className="flex-shrink-0 rounded-xl border p-3 transition-colors hover:border-[var(--accent)]"
+                  style={{
                     borderColor: "var(--border)",
-                    color: "var(--muted)",
+                    background: "var(--surface)",
+                    width: 220,
                   }}
                 >
-                  {s.value === "fediverse" && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 -mt-px" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
-                  )}
-                  <span>{s.label}</span>
-                </FilterLink>
-              );
-            })}
-
-            <span aria-hidden="true" style={{ color: "var(--border)" }}>|</span>
-
-            {/* Sort toggle */}
-            {([
-              { label: "Newest", value: "newest" },
-              { label: "Most Inked", value: "most_inked" },
-            ] as const).map((s) => {
-              const p = new URLSearchParams();
-              if (category) p.set("category", category);
-              if (s.value !== "newest") p.set("sort", s.value);
-              if (activeSource) p.set("source", activeSource);
-              const qs = p.toString();
-              const isActive = activeSort === s.value;
-              return (
-                <FilterLink
-                  key={s.label}
-                  href={`/explore${qs ? `?${qs}` : ""}`}
-                  className="text-xs px-3 py-1 rounded-full border transition-colors"
-                  style={isActive ? {
-                    borderColor: "var(--accent)",
-                    background: "var(--accent-light)",
-                    color: "var(--accent)",
-                    fontWeight: 500,
-                  } : {
-                    borderColor: "var(--border)",
-                    color: "var(--muted)",
-                  }}
-                >
-                  {s.label}
-                </FilterLink>
-              );
-            })}
+                  <p
+                    className="text-sm font-medium leading-snug line-clamp-2 mb-2"
+                    style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+                  >
+                    {t.title || "Untitled"}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {t.author.display_name}
+                    </span>
+                    <span
+                      className="text-xs font-medium flex items-center gap-1"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      <svg width="10" height="12" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                      </svg>
+                      {t.ink_count}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          Discover entries from the community
-        </p>
-      </div>
+        )}
 
-      {/* Category filter bar */}
-      <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
-        <div className="flex items-center gap-1.5 py-2" style={{ minWidth: "max-content" }}>
-          <FilterLink
-            href={(() => {
-              const p = new URLSearchParams();
-              if (activeSort !== "newest") p.set("sort", activeSort);
-              if (activeSource) p.set("source", activeSource);
-              const qs = p.toString();
-              return `/explore${qs ? `?${qs}` : ""}`;
-            })()}
-            className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
-            style={!category ? {
-              borderColor: "var(--accent)",
-              background: "var(--accent-light)",
-              color: "var(--accent)",
-              fontWeight: 500,
-            } : {
-              borderColor: "var(--border)",
-              color: "var(--muted)",
-            }}
-          >
-            All
-          </FilterLink>
-          {CATEGORIES.map((cat) => {
+        {/* Journal area */}
+        <JournalFeed
+          entries={entries}
+          page={page}
+          basePath="/explore"
+          loadMorePath={(() => {
             const p = new URLSearchParams();
-            p.set("category", cat.value);
+            if (category) p.set("category", category);
             if (activeSort !== "newest") p.set("sort", activeSort);
             if (activeSource) p.set("source", activeSource);
-            return (
-              <FilterLink
-                key={cat.value}
-                href={`/explore?${p.toString()}`}
-                className="text-xs px-3 py-1 rounded-full border whitespace-nowrap transition-colors"
-                style={category === cat.value ? {
-                  borderColor: "var(--accent)",
-                  background: "var(--accent-light)",
-                  color: "var(--accent)",
-                  fontWeight: 500,
-                } : {
-                  borderColor: "var(--border)",
-                  color: "var(--muted)",
-                }}
-              >
-                {cat.label}
-              </FilterLink>
-            );
-          })}
-        </div>
-      </div>
+            const qs = p.toString();
+            return `/api/explore${qs ? `?${qs}` : ""}`;
+          })()}
+          extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}${activeSource ? `&source=${activeSource}` : ""}`}
+          emptyState={emptyState}
+          session={session ? {
+            userId: session.user.id,
+            username: session.user.username,
+            isLoggedIn: true,
+            isPlus: session.user.subscription_tier === "plus",
+            isAdmin: !!session.user.is_admin,
+            preferredLanguage: session.user.preferred_language,
+          } : null}
+        />
 
-      {/* Signup banner for logged-out visitors */}
-      {!session && (
-        <div className="mx-auto max-w-7xl px-4 mb-2">
-          <SignupCta
-            variant="banner"
-            heading="Discover writers. Start your journal."
-            subheading="No algorithms, no ads — just writing, community, and the open social web."
-          />
-        </div>
-      )}
-
-      {/* Education card — shown once, dismissible */}
-      <div className="mx-auto max-w-7xl px-4">
-        <EducationCard
-          storageKey="inkwell-edu-explore-card-v2"
-          heading="Discover the community"
-          learnMoreHref="/guide#interaction"
-        >
-          <p>
-            Explore shows all public entries from Inkwell writers and the
-            fediverse (Mastodon and other connected platforms). Click the <strong>ink drop</strong> icon on entries you
-            think deserve more readers — the most-inked entries appear in{" "}
-            <strong>Trending This Week</strong> above, and you can sort
-            by &ldquo;Most Inked&rdquo; to find community favorites.
-          </p>
-        </EducationCard>
-      </div>
-
-      {/* Trending This Week */}
-      {trending.length > 0 && (
-        <div className="mx-auto max-w-7xl px-4 pb-4">
-          <h2
-            className="text-xs font-semibold uppercase tracking-widest mb-3"
+        {/* About Inkwell footer */}
+        <div className="mx-auto max-w-md px-4 pb-8">
+          <div
+            className="rounded-xl border p-4 text-center"
             style={{
-              color: "var(--muted)",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              letterSpacing: "0.1em",
+              borderColor: "var(--border)",
+              background: "var(--surface)",
             }}
           >
-            Trending This Week
-          </h2>
-          <div
-            className="flex gap-3 overflow-x-auto pb-2"
-            style={{ scrollbarWidth: "thin" }}
-          >
-            {trending.map((t) => (
-              <Link
-                key={t.id}
-                href={`/${t.author.username}/${t.slug}`}
-                className="flex-shrink-0 rounded-xl border p-3 transition-colors hover:border-[var(--accent)]"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--surface)",
-                  width: 220,
-                }}
-              >
-                <p
-                  className="text-sm font-medium leading-snug line-clamp-2 mb-2"
-                  style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-                >
-                  {t.title || "Untitled"}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    {t.author.display_name}
-                  </span>
-                  <span
-                    className="text-xs font-medium flex items-center gap-1"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    <svg width="10" height="12" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
-                      <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
-                    </svg>
-                    {t.ink_count}
-                  </span>
-                </div>
-              </Link>
-            ))}
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              A federated journaling platform. No algorithms, no ads — just
+              writing and pen pals.
+            </p>
           </div>
         </div>
-      )}
-
-      {/* Journal area */}
-      <JournalFeed
-        entries={entries}
-        page={page}
-        basePath="/explore"
-        loadMorePath={(() => {
-          const p = new URLSearchParams();
-          if (category) p.set("category", category);
-          if (activeSort !== "newest") p.set("sort", activeSort);
-          if (activeSource) p.set("source", activeSource);
-          const qs = p.toString();
-          return `/api/explore${qs ? `?${qs}` : ""}`;
-        })()}
-        extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}${activeSource ? `&source=${activeSource}` : ""}`}
-        emptyState={emptyState}
-        session={session ? {
-          userId: session.user.id,
-          username: session.user.username,
-          isLoggedIn: true,
-          isPlus: session.user.subscription_tier === "plus",
-          isAdmin: !!session.user.is_admin,
-          preferredLanguage: session.user.preferred_language,
-        } : null}
-      />
-
-      {/* About Inkwell footer */}
-      <div className="mx-auto max-w-md px-4 pb-8">
-        <div
-          className="rounded-xl border p-4 text-center"
-          style={{
-            borderColor: "var(--border)",
-            background: "var(--surface)",
-          }}
-        >
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
-            A federated journaling platform. No algorithms, no ads — just
-            writing and pen pals.
-          </p>
-        </div>
-      </div>
+      </ExploreSearchWrapper>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { PushPrompt } from "@/components/push-prompt";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
+import { FeedSearchInput } from "@/components/feed-search-input";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ function EmptyFeed({
           </Link>
 
           <Link
-            href="/search"
+            href="/explore"
             className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
             style={{ borderColor: "var(--border)", background: "var(--background)" }}
           >
@@ -364,6 +365,11 @@ export default async function FeedPage({ searchParams }: PageProps) {
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
           Journal entries from your pen pals
         </p>
+
+        {/* Compact search — navigates to Explore */}
+        <div className="mt-3" style={{ maxWidth: "400px" }}>
+          <FeedSearchInput />
+        </div>
       </div>
 
       {/* Push notification prompt — shown once, dismissible */}

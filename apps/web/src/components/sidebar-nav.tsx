@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLiveNavCounts } from "./live-nav-counts";
 import { SignOutButton } from "./sign-out-button";
@@ -101,6 +101,7 @@ export function SidebarNav({
   activePoll,
 }: SidebarNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { draftCount, unreadNotificationCount, unreadLetterCount } = useLiveNavCounts({
     draftCount: initialDraftCount,
     unreadNotificationCount: initialNotificationCount,
@@ -150,6 +151,25 @@ export function SidebarNav({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [toggleHidden]);
+
+  // Keyboard shortcut: Cmd/Ctrl + K to search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (pathname === "/explore") {
+          // Already on Explore — focus the search bar
+          window.dispatchEvent(new Event("inkwell-search-focus"));
+        } else {
+          // Navigate to Explore and focus on arrival
+          router.push("/explore");
+          // The search bar's own Cmd+K listener will handle focus
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [pathname, router]);
 
   const isActive = (href: string) => {
     if (href === "/feed") return pathname === "/feed";
@@ -206,7 +226,6 @@ export function SidebarNav({
         </div>
         <NavItem href="/pen-pals" icon={<PenPalsIcon />} label="Pen Pals" active={isActive("/pen-pals")} />
         <NavItem href="/letters" icon={<LettersIcon />} label="Letters" badge={unreadLetterCount} active={isActive("/letters")} />
-        <NavItem href="/search" icon={<SearchIcon />} label="Search" active={isActive("/search")} />
       </div>
 
       {/* ─── III. Library ─── */}
