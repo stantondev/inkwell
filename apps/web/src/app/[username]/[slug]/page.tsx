@@ -20,6 +20,7 @@ import { detectService, getServiceIconSvg } from "@/lib/support-services";
 import { InkButton } from "@/components/ink-button";
 import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
+import { PinButton } from "@/components/pin-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
 import { SignupCta } from "@/components/signup-cta";
@@ -342,6 +343,15 @@ export default async function EntryPage({ params }: EntryParams) {
   const isOwnEntry = session?.user.username === username;
   const isAdmin = session?.user.is_admin ?? false;
 
+  // Fetch pinned entry IDs for own entries (to show pin button)
+  let pinnedEntryIds: string[] = [];
+  if (isOwnEntry && token) {
+    try {
+      const meData = await apiFetch<{ pinned_entry_ids?: string[] }>("/api/me", {}, token);
+      pinnedEntryIds = meData.pinned_entry_ids ?? [];
+    } catch { /* ignore */ }
+  }
+
   const moodHue = getMoodHue(entry.mood);
   // Prefer stored word_count (set at save time); fall back to live HTML computation
   const mins = entry.word_count && entry.word_count > 0
@@ -458,6 +468,14 @@ export default async function EntryPage({ params }: EntryParams) {
               />
               {session && !isOwnEntry && (
                 <ReportButton entryId={entry.id} />
+              )}
+              {isOwnEntry && (
+                <PinButton
+                  entryId={entry.id}
+                  initialPinned={pinnedEntryIds.includes(entry.id)}
+                  pinnedCount={pinnedEntryIds.length}
+                  size={18}
+                />
               )}
               {(isOwnEntry || isAdmin) && (
                 <EntryActions entryId={entry.id} username={username} showEdit={isOwnEntry} />

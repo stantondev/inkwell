@@ -21,6 +21,7 @@ function ProfileIcon() { return <svg {...iconProps}><path d="M20 21v-2a4 4 0 0 0
 function AvatarIcon() { return <svg {...iconProps}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>; }
 function PeopleIcon() { return <svg {...iconProps}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>; }
 function PaletteIcon() { return <svg {...iconProps}><circle cx="13.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" /><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor" stroke="none" /><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor" stroke="none" /><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor" stroke="none" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>; }
+function PinIcon() { return <svg {...iconProps}><path d="M12 17l0 5" /><path d="M5 17h14" /><path d="M15 3l-2 5h5l-4 7h-4l-4-7h5l-2-5z" /></svg>; }
 function BookIcon() { return <svg {...iconProps}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>; }
 function FilterIcon() { return <svg {...iconProps}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>; }
 function ImportIcon() { return <svg {...iconProps}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>; }
@@ -77,6 +78,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     numeral: "III",
     title: "Writing & Content",
     items: [
+      { href: "/settings/pinned", label: "Pinned Entries", icon: PinIcon },
       { href: "/settings/series", label: "Series", icon: BookIcon },
       { href: "/settings/filters", label: "Filters", icon: FilterIcon },
       { href: "/settings/import", label: "Import", icon: ImportIcon },

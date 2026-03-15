@@ -175,10 +175,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     return result;
   });
 
-  const [pinnedIds, setPinnedIds] = useState<string[]>(user.pinned_entry_ids ?? []);
-  const [pinnedSearch, setPinnedSearch] = useState("");
-  const [pinnedResults, setPinnedResults] = useState<{ id: string; title: string; slug: string }[]>([]);
-  const [searchingPinned, setSearchingPinned] = useState(false);
+  const [pinnedIds] = useState<string[]>(user.pinned_entry_ids ?? []);
 
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
     const saved = (user.profile_widgets as { order?: string[]; html_mode?: string })?.order;
@@ -288,35 +285,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     if (target < 0 || target >= newOrder.length) return;
     [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
     setWidgetOrder(newOrder);
-    setStatus("idle");
-  }
-
-  async function searchPinnedEntries(query: string) {
-    setPinnedSearch(query);
-    if (query.length < 2) { setPinnedResults([]); return; }
-    setSearchingPinned(true);
-    try {
-      const res = await fetch(`/api/users/${user.username}/entries?per_page=10&q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPinnedResults((data.data ?? []).map((e: { id: string; title: string | null; slug: string }) => ({
-          id: e.id, title: e.title ?? "Untitled", slug: e.slug,
-        })));
-      }
-    } catch { /* ignore */ }
-    setSearchingPinned(false);
-  }
-
-  function addPinnedEntry(entryId: string) {
-    if (pinnedIds.length >= 3 || pinnedIds.includes(entryId)) return;
-    setPinnedIds([...pinnedIds, entryId]);
-    setPinnedSearch("");
-    setPinnedResults([]);
-    setStatus("idle");
-  }
-
-  function removePinnedEntry(entryId: string) {
-    setPinnedIds(pinnedIds.filter(id => id !== entryId));
     setStatus("idle");
   }
 
@@ -597,66 +565,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
             </button>
           ))}
         </div>
-      </Section>
-
-      {/* Pinned Entries */}
-      <Section title="Pinned Entries" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Pinned entries only appear if you include {{pinned}} in your custom HTML." : undefined}>
-        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-          Highlight up to 3 entries at the top of your profile. Search by title to find them.
-        </p>
-        {pinnedIds.length > 0 && (
-          <div className="flex flex-col gap-2 mb-3">
-            {pinnedIds.map((id, i) => {
-              const result = pinnedResults.find(r => r.id === id);
-              return (
-                <div key={id} className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)" }}>
-                  <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{i + 1}</span>
-                  <span className="flex-1 text-sm truncate">{result?.title ?? id.slice(0, 8) + "..."}</span>
-                  <button type="button" onClick={() => removePinnedEntry(id)} className="text-xs px-2 py-0.5 rounded hover:bg-[var(--surface-hover)] transition-colors" style={{ color: "var(--muted)" }}>
-                    Remove
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {pinnedIds.length < 3 && (
-          <div className="relative">
-            <input
-              type="text"
-              value={pinnedSearch}
-              onChange={(e) => searchPinnedEntries(e.target.value)}
-              placeholder="Search your entries by title..."
-              className={inputClass}
-              style={inputStyle}
-            />
-            {searchingPinned && (
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Searching...</p>
-            )}
-            {pinnedResults.length > 0 && (
-              <div className="absolute z-10 left-0 right-0 mt-1 rounded-lg border shadow-lg max-h-48 overflow-y-auto" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                {pinnedResults
-                  .filter(r => !pinnedIds.includes(r.id))
-                  .map(result => (
-                    <button
-                      key={result.id}
-                      type="button"
-                      onClick={() => addPinnedEntry(result.id)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-hover)] transition-colors truncate"
-                    >
-                      {result.title}
-                    </button>
-                  ))}
-                {pinnedResults.filter(r => !pinnedIds.includes(r.id)).length === 0 && (
-                  <p className="px-3 py-2 text-xs" style={{ color: "var(--muted)" }}>All results already pinned</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        {pinnedIds.length >= 3 && (
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Maximum 3 pinned entries reached</p>
-        )}
       </Section>
 
       {/* Social Links */}
