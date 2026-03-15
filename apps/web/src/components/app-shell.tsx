@@ -4,13 +4,14 @@ import { Nav } from "./nav";
 import { Sidebar } from "./sidebar";
 import { Footer } from "./footer";
 import { BottomTabBar } from "./bottom-tab-bar";
+import { MobileTopBar } from "./mobile-top-bar";
 import { SearchCommand } from "./search-command";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
  *
  * - Logged-in desktop (lg+): left sidebar + content with margin-left
- * - Logged-in mobile/tablet (<lg): slim top nav + bottom tab bar
+ * - Logged-in mobile/tablet (<lg): mobile top bar + bottom tab bar
  * - Logged-out (all sizes): top nav with Sign in / Get started
  * - Custom domain: simplified chrome — author name header + Powered by Inkwell footer
  */
@@ -37,10 +38,27 @@ export async function AppShell({
   // Standard mode
   return (
     <>
-      {/* Top nav — visible below lg breakpoint for logged-in users, or always for logged-out */}
-      <div className={user ? "lg:hidden" : ""}>
-        <Nav user={user} />
-      </div>
+      {/* Logged-in mobile: MobileTopBar (<lg only) */}
+      {user && (
+        <div className="lg:hidden">
+          <MobileTopBar
+            username={user.username}
+            displayName={user.display_name || user.username}
+            avatarUrl={user.avatar_url}
+            avatarFrame={user.avatar_frame}
+            subscriptionTier={user.subscription_tier}
+            inkDonorStatus={user.ink_donor_status}
+            isAdmin={user.is_admin}
+            unreadLetterCount={user.unread_letter_count ?? 0}
+            unreadNotificationCount={user.unread_notification_count ?? 0}
+            draftCount={user.draft_count ?? 0}
+            selfHosted={user.self_hosted}
+          />
+        </div>
+      )}
+
+      {/* Logged-out: standard Nav (all sizes) */}
+      {!user && <Nav user={null} />}
 
       {/* Sidebar — desktop only, logged-in only */}
       {user && <Sidebar user={user} />}
@@ -60,15 +78,10 @@ export async function AppShell({
       {user && (
         <BottomTabBar
           username={user.username}
-          displayName={user.display_name}
           avatarUrl={user.avatar_url}
-          avatarFrame={user.avatar_frame}
-          subscriptionTier={user.subscription_tier}
-          isAdmin={user.is_admin}
           unreadNotificationCount={user.unread_notification_count ?? 0}
           unreadLetterCount={user.unread_letter_count ?? 0}
           draftCount={user.draft_count ?? 0}
-          selfHosted={user.self_hosted}
         />
       )}
     </>

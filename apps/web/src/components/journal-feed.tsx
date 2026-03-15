@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
+import { MobileSwipeableCard } from "./mobile-swipeable-card";
 
 interface TranslationData {
   translated_title: string | null;
@@ -52,6 +55,21 @@ export function JournalFeed({
   const prefersReducedMotion = usePrefersReducedMotion();
   // Track active translations per entry ID
   const [translations, setTranslations] = useState<Record<string, TranslationData>>({});
+  // Mobile detection for swipe gestures
+  const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const { refreshing, pullDistance } = usePullToRefresh({
+    onRefresh: () => router.refresh(),
+    enabled: isMobile,
+  });
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore || !loadMorePath) return;
@@ -84,6 +102,34 @@ export function JournalFeed({
   if (entries.length === 0) {
     return <>{emptyState}</>;
   }
+
+  // Mobile swipe actions
+  const toggleInk = useCallback(async (entryId: string, isRemote: boolean) => {
+    if (!session?.isLoggedIn) return;
+    const path = isRemote ? `/api/remote-entries/${entryId}/ink` : `/api/entries/${entryId}/ink`;
+    try {
+      const res = await fetch(path, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(prev => prev.map(e =>
+          e.id === entryId ? { ...e, my_ink: data.inked, ink_count: data.ink_count } : e
+        ));
+      }
+    } catch { /* silent */ }
+  }, [session?.isLoggedIn]);
+
+  const toggleBookmark = useCallback(async (entryId: string) => {
+    if (!session?.isLoggedIn) return;
+    try {
+      const res = await fetch(`/api/entries/${entryId}/bookmark`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(prev => prev.map(e =>
+          e.id === entryId ? { ...e, bookmarked: data.bookmarked } : e
+        ));
+      }
+    } catch { /* silent */ }
+  }, [session?.isLoggedIn]);
 
   // Handle translation callback from feed card actions
   function handleTranslation(entryId: string, translation: TranslationData | null) {
@@ -138,8 +184,58 @@ export function JournalFeed({
     );
   }
 
+  const renderCard = (entry: JournalEntry) => {
+    const isRemote = entry.source === "remote";
+    const isOwnEntry = session ? entry.author.id === session.userId : false;
+    const card = (
+      <JournalEntryCard
+        entry={entry}
+        actions={session ? renderActions(entry) : undefined}
+        translatedBody={translations[entry.id]?.translated_body ?? null}
+        translatedTitle={translations[entry.id]?.translated_title ?? null}
+      />
+    );
+
+    // Wrap in swipeable on mobile for logged-in, non-own, non-remote entries
+    if (isMobile && session?.isLoggedIn && !isOwnEntry) {
+      return (
+        <MobileSwipeableCard
+          onSwipeLeft={() => toggleInk(entry.id, isRemote)}
+          onSwipeRight={() => toggleBookmark(entry.id)}
+          leftActive={entry.bookmarked ?? false}
+          rightActive={entry.my_ink ?? false}
+          leftLabel="Bookmark"
+          rightLabel="Ink"
+        >
+          {card}
+        </MobileSwipeableCard>
+      );
+    }
+    return card;
+  };
+
   return (
     <div>
+      {/* Pull-to-refresh indicator (mobile only) */}
+      {isMobile && (pullDistance > 0 || refreshing) && (
+        <div className="pull-to-refresh-indicator" style={{ height: pullDistance || (refreshing ? 40 : 0) }}>
+          {refreshing ? (
+            <svg className="pull-to-refresh-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          ) : (
+            <svg
+              width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: `rotate(${Math.min(pullDistance / 40 * 180, 180)}deg)`, transition: "transform 0.1s" }}
+            >
+              <polyline points="7 13 12 18 17 13" />
+              <line x1="12" y1="6" x2="12" y2="18" />
+            </svg>
+          )}
+        </div>
+      )}
+
       {/* Masonry grid */}
       <div className="journal-grid" role="feed" aria-label="Journal entries">
         {entries.map((entry) => (
@@ -150,12 +246,7 @@ export function JournalFeed({
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              <JournalEntryCard
-                entry={entry}
-                actions={session ? renderActions(entry) : undefined}
-                translatedBody={translations[entry.id]?.translated_body ?? null}
-                translatedTitle={translations[entry.id]?.translated_title ?? null}
-              />
+              {renderCard(entry)}
             </motion.div>
           </div>
         ))}

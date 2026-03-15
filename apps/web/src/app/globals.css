@@ -7407,6 +7407,494 @@ nextjs-portal {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* Profile tab avatar */
+.bottom-tab-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--border);
+}
+
+.bottom-tab-item--active .bottom-tab-avatar {
+  border-color: var(--accent);
+}
+
+/* ==========================================================================
+   Mobile Top Bar — Purposeful header for logged-in mobile users
+   ========================================================================== */
+
+.mobile-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 57px;
+  padding: 0 4px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 1024px) {
+  .mobile-top-bar {
+    display: none;
+  }
+}
+
+body[data-focus-mode] .mobile-top-bar {
+  display: none;
+}
+
+.mobile-top-bar-left,
+.mobile-top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 88px;
+}
+
+.mobile-top-bar-right {
+  justify-content: flex-end;
+}
+
+.mobile-top-bar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-top-bar-logo {
+  height: 32px;
+  width: auto;
+}
+
+.mobile-top-bar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--foreground);
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.mobile-top-bar-btn:active {
+  color: var(--accent);
+}
+
+.mobile-top-bar-badge {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Book Spine Drawer — Mobile navigation drawer (slides from left)
+   ========================================================================== */
+
+.book-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 60;
+  animation: book-drawer-fade-in 0.3s ease forwards;
+}
+
+.book-drawer-backdrop--closing {
+  animation: book-drawer-fade-out 0.3s ease forwards;
+}
+
+@keyframes book-drawer-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes book-drawer-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.book-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 85vw;
+  max-width: 340px;
+  background: var(--surface);
+  z-index: 61;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  box-shadow: 4px 0 16px -4px rgba(0, 0, 0, 0.15);
+  animation: book-drawer-slide-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.book-drawer--closing {
+  animation: book-drawer-slide-out 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes book-drawer-slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes book-drawer-slide-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.book-drawer-texture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* User section */
+.book-drawer-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  z-index: 1;
+}
+
+.book-drawer-user:active {
+  opacity: 0.8;
+}
+
+.book-drawer-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.book-drawer-user-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-drawer-plus-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.book-drawer-donor-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.book-drawer-user-handle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Sections */
+.book-drawer-sections {
+  padding: 4px 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.book-drawer-section {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  margin: 0 20px;
+}
+
+.book-drawer-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  padding: 8px 0 4px;
+}
+
+.book-drawer-numeral {
+  font-style: normal;
+  margin-right: 4px;
+  color: var(--accent);
+}
+
+/* Nav links */
+.book-drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  text-decoration: none;
+  color: var(--foreground);
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 0.15s ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.book-drawer-link:active {
+  opacity: 0.7;
+}
+
+.book-drawer-link--active {
+  color: var(--accent);
+}
+
+.book-drawer-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.book-drawer-link--active .book-drawer-link-icon {
+  color: var(--accent);
+}
+
+.book-drawer-link-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Dot leader + badge */
+.book-drawer-dot-leader {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 1px dotted var(--border);
+  margin: 0 4px;
+  align-self: center;
+  height: 0;
+}
+
+.book-drawer-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Ornament divider */
+.book-drawer-ornament {
+  text-align: center;
+  padding: 12px 0;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.3em;
+  margin: 0 20px;
+}
+
+/* Upgrade link */
+.book-drawer-upgrade {
+  color: var(--accent);
+  font-weight: 500;
+  margin: 0 20px;
+}
+
+/* Sign out */
+.book-drawer-signout {
+  display: contents;
+}
+
+.book-drawer-signout .book-drawer-link {
+  color: var(--muted);
+  margin: 0 20px;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .book-drawer-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .book-drawer {
+    box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.4);
+  }
+}
+
+[data-theme="dark"] .book-drawer-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .book-drawer {
+  box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   Mobile Swipeable Cards — Swipe gestures on feed cards
+   ========================================================================== */
+
+.mobile-swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.mobile-swipe-card {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.mobile-swipe-action {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mobile-swipe-action--visible {
+  opacity: 1;
+}
+
+.mobile-swipe-action--left {
+  left: 0;
+}
+
+.mobile-swipe-action--right {
+  right: 0;
+  flex-direction: row-reverse;
+}
+
+/* Pull-to-refresh indicator */
+.pull-to-refresh-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.pull-to-refresh-spinner {
+  animation: ptr-spin 0.8s linear infinite;
+}
+
+@keyframes ptr-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Hide swipe features on desktop */
+@media (min-width: 1024px) {
+  .mobile-swipe-wrapper {
+    overflow: visible;
+  }
+  .mobile-swipe-action {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Mobile Feed Layout — Full-width cards on mobile
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  .journal-grid {
+    columns: 1 !important;
+    gap: 8px !important;
+    padding: 0 !important;
+  }
+
+  .journal-grid-item {
+    break-inside: auto;
+    margin-bottom: 8px;
+  }
+}
+
+/* ==========================================================================
+   Sprint 4: Mobile Page Optimizations
+   ========================================================================== */
+
+/* 4C: Explore mobile polish */
+@media (max-width: 1023px) {
+  .explore-categories {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .explore-categories > * {
+    scroll-snap-align: start;
+  }
+}
+
+/* 4E: Entry detail reading optimization on mobile */
+@media (max-width: 1023px) {
+  .prose-entry {
+    font-size: 17px;
+    line-height: 1.85;
+  }
+
+  .prose-entry img {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    max-width: calc(100% + 2rem);
+    width: calc(100% + 2rem);
+    border-radius: 0;
+  }
+}
+
 /* Content padding — prevent content from hiding behind fixed tab bar */
 .has-bottom-tabs {
   padding-bottom: calc(56px + env(safe-area-inset-bottom));
