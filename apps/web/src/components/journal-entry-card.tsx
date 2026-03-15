@@ -176,7 +176,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         {/* Author row */}
         <div className="flex items-center gap-3 mb-3">
           {isRemote ? (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-nowrap min-w-0">
               <a
                 href={authorHref}
                 target="_blank"
@@ -188,11 +188,11 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                   name={entry.author.display_name}
                   size={28}
                 />
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm font-medium group-hover:underline">
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span className="text-sm font-medium group-hover:underline truncate">
                     {entry.author.display_name}
                   </span>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  <span className="text-xs truncate" style={{ color: "var(--muted)" }}>
                     @{entry.author.username}@{entry.author.domain} &middot; {ago}
                   </span>
                 </div>
@@ -200,17 +200,17 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               {/* Fediverse instance pill */}
               {entry.author.domain && (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full"
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full shrink-0 max-w-[140px]"
                   style={{
                     background: "var(--fediverse-accent-light)",
                     color: "var(--fediverse-accent, #569e85)",
                     border: "1px solid var(--fediverse-accent-border)",
                   }}
                 >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg className="shrink-0" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                   </svg>
-                  {entry.author.domain}
+                  <span className="truncate">{entry.author.domain}</span>
                 </span>
               )}
             </div>
