@@ -2,6 +2,7 @@ defmodule InkwellWeb.UserController do
   use InkwellWeb, :controller
 
   alias Inkwell.Accounts
+  alias Inkwell.CustomDomains
   alias Inkwell.Journals
   alias Inkwell.Social
 
@@ -60,6 +61,11 @@ defmodule InkwellWeb.UserController do
         following_count = Social.count_following(user.id)
         fediverse_follower_count = Social.count_fediverse_followers(user.id)
 
+        custom_domain = case CustomDomains.get_domain_by_user(user.id) do
+          %{status: "active", domain: domain} -> domain
+          _ -> nil
+        end
+
         conn |> json(%{
           data: render_user(user),
           meta: %{
@@ -71,6 +77,7 @@ defmodule InkwellWeb.UserController do
             fediverse_follower_count: fediverse_follower_count,
             relationship_status: relationship_status,
             incoming_request: incoming_request,
+            custom_domain: custom_domain,
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
             end),

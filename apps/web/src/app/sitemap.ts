@@ -29,8 +29,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Dynamic data from API
-  let users: { username: string; updated_at: string }[] = [];
-  let entries: { username: string; slug: string; updated_at: string }[] = [];
+  let users: { username: string; updated_at: string; custom_domain?: string | null }[] = [];
+  let entries: { username: string; slug: string; updated_at: string; custom_domain?: string | null }[] = [];
   let tags: string[] = [];
 
   try {
@@ -48,14 +48,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const profilePages: MetadataRoute.Sitemap = users.map((u) => ({
-    url: `${BASE}/${u.username}`,
+    url: u.custom_domain ? `https://${u.custom_domain}` : `${BASE}/${u.username}`,
     lastModified: u.updated_at,
     changeFrequency: "weekly" as const,
     priority: 0.7,
   }));
 
   const entryPages: MetadataRoute.Sitemap = entries.map((e) => ({
-    url: `${BASE}/${e.username}/${e.slug}`,
+    url: e.custom_domain ? `https://${e.custom_domain}/${e.slug}` : `${BASE}/${e.username}/${e.slug}`,
     lastModified: e.updated_at,
     changeFrequency: "monthly" as const,
     priority: 0.8,

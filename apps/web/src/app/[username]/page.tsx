@@ -370,24 +370,26 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
   const customDomain = headersList.get("x-custom-domain");
 
   try {
-    const data = await apiFetch<{ data: ProfileUser }>(`/api/users/${username}`);
+    const data = await apiFetch<{ data: ProfileUser; meta?: { custom_domain?: string } }>(`/api/users/${username}`);
     const profile = data.data;
     const displayName = profile.display_name || `@${username}`;
     const bio = profile.bio
       ? profile.bio.replace(/<[^>]+>/g, "").slice(0, 160)
       : `@${username} on Inkwell`;
-    const profileUrl = customDomain
-      ? `https://${customDomain}`
+    // Use header (custom domain request) or API response (inkwell.social request)
+    const effectiveDomain = customDomain || data.meta?.custom_domain || null;
+    const profileUrl = effectiveDomain
+      ? `https://${effectiveDomain}`
       : `https://inkwell.social/${username}`;
-    const rssUrl = customDomain
-      ? `https://${customDomain}/api/users/${username}/feed.xml`
+    const rssUrl = effectiveDomain
+      ? `https://${effectiveDomain}/api/users/${username}/feed.xml`
       : `https://inkwell.social/api/users/${username}/feed.xml`;
     const ogImageUrl = `/api/og?type=profile&name=${encodeURIComponent(displayName)}&username=${encodeURIComponent(username)}&bio=${encodeURIComponent(bio)}`;
 
     return {
-      title: customDomain ? displayName : `@${username}`,
+      title: effectiveDomain ? displayName : `@${username}`,
       description: bio,
-      ...(customDomain ? { metadataBase: new URL(`https://${customDomain}`) } : {}),
+      ...(effectiveDomain ? { metadataBase: new URL(`https://${effectiveDomain}`) } : {}),
       openGraph: {
         title: displayName,
         description: bio,

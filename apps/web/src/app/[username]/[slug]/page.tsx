@@ -95,6 +95,7 @@ interface EntryData {
     subscriber_count: number;
   } | null;
   is_paid?: boolean;
+  custom_domain?: string | null;
   author: EntryAuthor;
 }
 
@@ -271,8 +272,10 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const title = entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`;
     const ogTitle = entry.title ?? `Entry by @${username}`;
-    const entryUrl = customDomain
-      ? `https://${customDomain}/${slug}`
+    // Use header (custom domain request) or API response (inkwell.social request)
+    const effectiveDomain = customDomain || entry.custom_domain || null;
+    const entryUrl = effectiveDomain
+      ? `https://${effectiveDomain}/${slug}`
       : `https://inkwell.social/${username}/${slug}`;
     const hasCover = !!entry.cover_image_id;
     const ogImageUrl = hasCover
@@ -283,7 +286,7 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       title,
       description,
       authors: [{ name: entry.author?.display_name ?? username }],
-      ...(customDomain ? { metadataBase: new URL(`https://${customDomain}`) } : {}),
+      ...(effectiveDomain ? { metadataBase: new URL(`https://${effectiveDomain}`) } : {}),
       openGraph: {
         title: ogTitle,
         description,
@@ -317,7 +320,6 @@ export default async function EntryPage({ params }: EntryParams) {
   // Detect custom domain context
   const headersList = await import("next/headers").then(m => m.headers());
   const customDomain = headersList.get("x-custom-domain");
-  const baseUrl = customDomain ? `https://${customDomain}` : `https://inkwell.social`;
 
   let entry: EntryData;
   try {
@@ -328,6 +330,10 @@ export default async function EntryPage({ params }: EntryParams) {
   } catch {
     notFound();
   }
+
+  // Use header (custom domain request) or API response (inkwell.social request) for canonical URLs
+  const effectiveDomain = customDomain || entry.custom_domain || null;
+  const baseUrl = effectiveDomain ? `https://${effectiveDomain}` : `https://inkwell.social`;
 
   let comments: Comment[] = [];
   try {
@@ -383,7 +389,7 @@ export default async function EntryPage({ params }: EntryParams) {
             author: {
               "@type": "Person",
               name: author.display_name,
-              url: customDomain ? baseUrl : `https://inkwell.social/${username}`,
+              url: effectiveDomain ? baseUrl : `https://inkwell.social/${username}`,
             },
             datePublished: entry.published_at,
             ...(entry.published_at !== entry.created_at
@@ -405,7 +411,7 @@ export default async function EntryPage({ params }: EntryParams) {
             },
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": customDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`,
+              "@id": effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`,
             },
           }).replace(/</g, "\\u003c"),
         }}
@@ -461,7 +467,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 />
               )}
               <ShareButton
-                url={customDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
+                url={effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
                 title={entry.title || "Entry"}
                 description={entry.excerpt || entry.title || ""}
                 size={18}

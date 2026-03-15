@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
   alias InkwellWeb.UserController
@@ -122,6 +122,12 @@ defmodule InkwellWeb.EntryController do
               InkwellWeb.PollController.render_poll(poll, my_vote)
           end
 
+        # Look up author's active custom domain for canonical URL resolution
+        author_custom_domain = case CustomDomains.get_domain_by_user(user.id) do
+          %{status: "active", domain: domain} -> domain
+          _ -> nil
+        end
+
         result =
           render_entry_full(entry, user)
           |> Map.put(:stamps, stamp_types)
@@ -130,6 +136,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:my_ink, my_ink)
           |> Map.put(:series, series_nav)
           |> Map.put(:poll, poll_data)
+          |> Map.put(:custom_domain, author_custom_domain)
 
         # Include per-entry postage stats for the author only
         if viewer && viewer.id == user.id do

@@ -3,17 +3,32 @@ defmodule InkwellWeb.SitemapController do
 
   alias Inkwell.Repo
   alias Inkwell.Accounts.User
+  alias Inkwell.CustomDomains.CustomDomain
   alias Inkwell.Journals.Entry
   import Ecto.Query
 
   # GET /api/sitemap-data — public, returns sitemap data in one call
   def index(conn, _params) do
+    # Build a map of user_id → active custom domain
+    custom_domain_map =
+      CustomDomain
+      |> where([cd], cd.status == "active")
+      |> select([cd], {cd.user_id, cd.domain})
+      |> Repo.all()
+      |> Map.new()
+
     users =
       User
       |> where([u], not is_nil(u.username))
       |> where([u], is_nil(u.blocked_at))
-      |> select([u], %{username: u.username, updated_at: u.updated_at})
+      |> select([u], %{id: u.id, username: u.username, updated_at: u.updated_at})
       |> Repo.all()
+      |> Enum.map(fn u ->
+        %{username: u.username, updated_at: u.updated_at, custom_domain: Map.get(custom_domain_map, u.id)}
+      end)
+
+    # Build username → custom_domain lookup for entries
+    username_domain_map = Map.new(users, fn u -> {u.username, u[:custom_domain]} end)
 
     entries =
       Entry
@@ -27,6 +42,9 @@ defmodule InkwellWeb.SitemapController do
         updated_at: e.updated_at
       })
       |> Repo.all()
+      |> Enum.map(fn e ->
+        Map.put(e, :custom_domain, Map.get(username_domain_map, e.username))
+      end)
 
     tags =
       Entry
