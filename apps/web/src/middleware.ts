@@ -149,6 +149,11 @@ export async function middleware(request: NextRequest) {
   // ── Standard inkwell.social logic ─────────────────────────────────────
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 
+  // Signed-in users landing on "/" go straight to Feed (skip marketing page)
+  if (pathname === "/" && token) {
+    return NextResponse.redirect(new URL("/feed", request.url));
+  }
+
   if (PROTECTED.some((p) => pathname.startsWith(p)) && !token) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
