@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SessionUser } from "@/lib/session";
+import { BackButton } from "./back-button";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -28,8 +29,11 @@ export function Nav({ user }: { user: SessionUser | null }) {
     <header className="sticky top-0 z-40 border-b relative"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        {/* Left: logo */}
-        <InkwellLogo />
+        {/* Left: back button (mobile, logged-in) + logo */}
+        <div className="flex items-center gap-1">
+          {user && <BackButton />}
+          <InkwellLogo />
+        </div>
 
         {/* Right: actions — logged-out only (logged-in uses bottom tab bar) */}
         {!user && (
