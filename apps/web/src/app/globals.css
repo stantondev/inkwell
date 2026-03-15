@@ -8241,7 +8241,60 @@ a, button, [role="tab"], [role="button"] {
 }
 
 
-/* ─── Feed Search (compact pill) ─── */
+/* Feed Dispatch Header */
+.feed-dispatch-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+}
+
+.feed-dispatch-rule {
+  width: 100%;
+  max-width: 480px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border) 20%,
+    var(--accent) 50%,
+    var(--border) 80%,
+    transparent 100%
+  );
+  opacity: 0.5;
+}
+
+.feed-dispatch-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+}
+
+.feed-dispatch-icon {
+  color: var(--accent);
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
+.feed-dispatch-tagline {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--foreground);
+  letter-spacing: 0.02em;
+}
+
+.feed-dispatch-date {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+/* Feed Search (compact pill) */
 
 .feed-search-form {
   display: flex;

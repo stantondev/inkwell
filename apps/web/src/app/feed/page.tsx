@@ -7,7 +7,7 @@ import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { PushPrompt } from "@/components/push-prompt";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
-import { FeedSearchInput } from "@/components/feed-search-input";
+import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
 export const dynamic = "force-dynamic";
@@ -153,7 +153,7 @@ function EmptyFeed({
               fediverse
             </Link>
             . Follow anyone on Mastodon, Pixelfed, or other platforms and their posts appear in your feed.{" "}
-            <Link href="/search" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
+            <Link href="/explore" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
               Find people on Mastodon
             </Link>
           </p>
@@ -332,164 +332,146 @@ export default async function FeedPage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      {/* Header bar */}
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-2">
-        <div className="flex items-center justify-between">
-          <h1
-            className="text-lg font-semibold"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            Feed
-          </h1>
+      <ExploreSearchWrapper>
+        {/* Feed dispatch header */}
+        <div className="mx-auto max-w-7xl px-4 pb-3">
+          <div className="feed-dispatch-header">
+            <div className="feed-dispatch-rule" />
+            <div className="feed-dispatch-content">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="feed-dispatch-icon" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <p className="feed-dispatch-tagline">
+                Fresh ink from your pen pals
+              </p>
+              <p className="feed-dispatch-date">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+            <div className="feed-dispatch-rule" />
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs px-3 py-1 rounded-full border font-medium"
+        {/* Push notification prompt — shown once, dismissible */}
+        <PushPrompt />
+
+        {/* Education card — shown once, dismissible */}
+        <div className="mx-auto max-w-7xl px-4">
+          <EducationCard
+            storageKey="inkwell-edu-feed-card"
+            heading="Welcome to your Feed"
+            learnMoreHref="/guide#feed-explore"
+          >
+            <p>
+              Your Feed shows journal entries from writers you follow, your pen
+              pals. Entries from writers on Mastodon and other fediverse platforms
+              you follow also appear here. Looking to discover new voices?{" "}
+              <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
+                Switch to Explore
+              </Link>
+              .
+            </p>
+          </EducationCard>
+        </div>
+
+        {/* Journal area */}
+        <JournalFeed
+          entries={entries}
+          page={page}
+          basePath="/feed"
+          loadMorePath="/api/feed"
+          emptyState={feedError ? (
+            <div
+              className="rounded-2xl border p-12 text-center"
+              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+            >
+              <p className="text-lg font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                Couldn&apos;t load your feed
+              </p>
+              <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+                Something went wrong. Please try refreshing the page.
+              </p>
+            </div>
+          ) : <EmptyFeed username={session.user.username} featuredEntries={featuredEntries} />}
+          session={{
+            userId: session.user.id,
+            username: session.user.username,
+            isLoggedIn: true,
+            isPlus: session.user.subscription_tier === "plus",
+            isAdmin: !!session.user.is_admin,
+            preferredLanguage: session.user.preferred_language,
+          }}
+        />
+
+        {/* Bottom upsell — Plus upsell for free users, Ink Donor for Plus non-donors */}
+        {session.user.subscription_tier !== "plus" ? (
+          <div className="mx-auto max-w-md px-4 pb-8">
+            <div
+              className="rounded-xl border p-4 text-center"
               style={{
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
+                borderColor: "var(--border)",
+                background: "var(--surface)",
               }}
             >
-              Feed
-            </span>
-            <Link
-              href="/explore"
-              className="text-xs px-3 py-1 rounded-full border transition-colors"
-              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-            >
-              Explore
-            </Link>
+              <p
+                className="text-sm font-medium mb-1"
+                style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+              >
+                Enjoying your journal?
+              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+                Plus members get custom themes, unlimited drafts, newsletter
+                delivery, and a custom domain. $5/month, no ads, no algorithms.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Link
+                  href="/settings/billing"
+                  className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  Upgrade to Plus
+                </Link>
+                <Link
+                  href="/settings/billing"
+                  className="text-xs"
+                  style={{ color: "var(--accent)" }}
+                >
+                  See what&apos;s included
+                </Link>
+              </div>
+            </div>
           </div>
-        </div>
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          Journal entries from your pen pals
-        </p>
-
-        {/* Compact search — navigates to Explore */}
-        <div className="mt-3" style={{ maxWidth: "400px" }}>
-          <FeedSearchInput />
-        </div>
-      </div>
-
-      {/* Push notification prompt — shown once, dismissible */}
-      <PushPrompt />
-
-      {/* Education card — shown once, dismissible */}
-      <div className="mx-auto max-w-7xl px-4">
-        <EducationCard
-          storageKey="inkwell-edu-feed-card"
-          heading="Welcome to your Feed"
-          learnMoreHref="/guide#feed-explore"
-        >
-          <p>
-            Your Feed shows journal entries from writers you follow, your pen
-            pals. Entries from writers on Mastodon and other fediverse platforms
-            you follow also appear here. Looking to discover new voices?{" "}
-            <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
-              Switch to Explore
-            </Link>
-            .
-          </p>
-        </EducationCard>
-      </div>
-
-      {/* Journal area */}
-      <JournalFeed
-        entries={entries}
-        page={page}
-        basePath="/feed"
-        loadMorePath="/api/feed"
-        emptyState={feedError ? (
-          <div
-            className="rounded-2xl border p-12 text-center"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <p className="text-lg font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-              Couldn&apos;t load your feed
-            </p>
-            <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-              Something went wrong. Please try refreshing the page.
-            </p>
-          </div>
-        ) : <EmptyFeed username={session.user.username} featuredEntries={featuredEntries} />}
-        session={{
-          userId: session.user.id,
-          username: session.user.username,
-          isLoggedIn: true,
-          isPlus: session.user.subscription_tier === "plus",
-          isAdmin: !!session.user.is_admin,
-          preferredLanguage: session.user.preferred_language,
-        }}
-      />
-
-      {/* Bottom upsell — Plus upsell for free users, Ink Donor for Plus non-donors */}
-      {session.user.subscription_tier !== "plus" ? (
-        <div className="mx-auto max-w-md px-4 pb-8">
-          <div
-            className="rounded-xl border p-4 text-center"
-            style={{
-              borderColor: "var(--border)",
-              background: "var(--surface)",
-            }}
-          >
-            <p
-              className="text-sm font-medium mb-1"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+        ) : session.user.ink_donor_status !== "active" ? (
+          <div className="mx-auto max-w-md px-4 pb-8">
+            <div
+              className="rounded-xl border p-4 text-center"
+              style={{
+                borderColor: "var(--border)",
+                background: "var(--surface)",
+              }}
             >
-              Enjoying your journal?
-            </p>
-            <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-              Plus members get custom themes, unlimited drafts, newsletter
-              delivery, and a custom domain. $5/month, no ads, no algorithms.
-            </p>
-            <div className="flex items-center justify-center gap-3">
+              <p
+                className="text-sm font-medium mb-1"
+                style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+              >
+                Keep the ink flowing.
+              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+                Inkwell runs on readers and writers, not ads or algorithms.
+                Ink Donors help keep this space independent. From $1/month.
+              </p>
               <Link
                 href="/settings/billing"
                 className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                 style={{ background: "var(--accent)", color: "#fff" }}
               >
-                Upgrade to Plus
-              </Link>
-              <Link
-                href="/settings/billing"
-                className="text-xs"
-                style={{ color: "var(--accent)" }}
-              >
-                See what&apos;s included
+                Become an Ink Donor
               </Link>
             </div>
           </div>
-        </div>
-      ) : session.user.ink_donor_status !== "active" ? (
-        <div className="mx-auto max-w-md px-4 pb-8">
-          <div
-            className="rounded-xl border p-4 text-center"
-            style={{
-              borderColor: "var(--border)",
-              background: "var(--surface)",
-            }}
-          >
-            <p
-              className="text-sm font-medium mb-1"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
-            >
-              Keep the ink flowing.
-            </p>
-            <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-              Inkwell runs on readers and writers, not ads or algorithms.
-              Ink Donors help keep this space independent. From $1/month.
-            </p>
-            <Link
-              href="/settings/billing"
-              className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-              style={{ background: "var(--accent)", color: "#fff" }}
-            >
-              Become an Ink Donor
-            </Link>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </ExploreSearchWrapper>
     </div>
   );
 }
