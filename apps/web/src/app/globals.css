@@ -5774,6 +5774,7 @@ body[data-sidebar-hidden] .settings-ledger-nav {
   cursor: pointer;
   transition: background-color 0.15s;
   text-align: left;
+  text-decoration: none;
 }
 .share-popup-option:hover {
   background: var(--surface-hover);
