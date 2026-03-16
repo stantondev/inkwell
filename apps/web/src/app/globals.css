@@ -2211,10 +2211,7 @@ div:has(> div > .editor-floating-menu) {
   align-items: center;
   justify-content: space-between;
   padding: 20px 20px 12px;
-  position: sticky;
-  top: 0;
   background: var(--surface);
-  z-index: 1;
 }
 
 .editor-settings-heading {
@@ -2493,6 +2490,12 @@ div:has(> div > .editor-floating-menu) {
   .editor-settings-panel {
     width: 300px;
     flex-shrink: 0;
+  }
+
+  .editor-settings-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 }
 
