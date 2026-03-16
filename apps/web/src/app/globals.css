@@ -1141,6 +1141,48 @@ a.mention:hover,
   opacity: 0.8;
 }
 
+/* ── Mastodon URL span classes ── */
+/* Mastodon wraps URLs in spans: .invisible hides https:// and trailing parts,
+   .ellipsis shows the middle with truncation. Without these styles, full raw
+   URLs display in fediverse posts making them look cluttered. */
+.prose-entry span.invisible {
+  display: none;
+}
+.prose-entry span.ellipsis::after {
+  content: "…";
+}
+
+/* ── Fediverse quote-inline (Mastodon quote posts) ── */
+/* Some Mastodon instances (e.g. henshaw.social) format quote-posts with
+   <p class="quote-inline">RE: <a href="...">. Style these as proper
+   quote cards instead of displaying raw "RE: url" text. */
+.prose-entry .quote-inline {
+  display: block;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 0.75rem;
+  border-left: 3px solid var(--fediverse-accent, #569e85);
+  background: color-mix(in srgb, var(--surface-hover, #f0f0f0) 60%, transparent);
+  border-radius: 0 0.375rem 0.375rem 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.prose-entry .quote-inline a {
+  color: var(--fediverse-accent, #569e85);
+  text-decoration: none;
+  font-weight: 500;
+}
+.prose-entry .quote-inline a:hover {
+  text-decoration: underline;
+}
+
+/* ── Link embed cards should escape the body clamp ── */
+/* Ensure link preview cards are visible even when body is clamped */
+.journal-body-clamp [data-link-embed] {
+  position: relative;
+  z-index: 1;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --fediverse-accent: #6db89f;
