@@ -246,6 +246,76 @@ export default function AboutPage() {
             payouts. We take 8% to keep the platform running.
           </p>
 
+          {/* ── Ink Donor callout ── */}
+          <div
+            className="rounded-xl border p-6 sm:p-8 mb-8"
+            style={{
+              borderColor: "var(--accent)",
+              background: "var(--accent-light)",
+            }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <svg
+                width="18"
+                height="22"
+                viewBox="0 0 10 12"
+                fill="currentColor"
+                aria-hidden="true"
+                style={{ color: "var(--accent)" }}
+              >
+                <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+              </svg>
+              <h3
+                className="text-lg font-semibold"
+                style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--accent)" }}
+              >
+                Ink Donors — Keep the Ink Flowing
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
+              Not every reader needs Plus, and we never want cost to be a barrier
+              to writing. Ink Donors are the quiet patrons who help keep Inkwell
+              ad-free, algorithm-free, and open for everyone. There are no extra
+              features — just an ink-blue badge on your profile and the knowledge
+              that you helped keep the presses running.
+            </p>
+            <div className="flex items-center gap-3 mb-4">
+              {["$1", "$2", "$3"].map((amt) => (
+                <span
+                  key={amt}
+                  className="inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold border"
+                  style={{
+                    borderColor: "var(--accent)",
+                    color: "var(--accent)",
+                    background: "var(--background)",
+                  }}
+                >
+                  {amt}
+                </span>
+              ))}
+              <span className="text-xs" style={{ color: "var(--muted)" }}>per month</span>
+            </div>
+            <Link
+              href="/settings/billing"
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium text-white"
+              style={{ background: "var(--accent)" }}
+            >
+              <svg
+                width="12"
+                height="15"
+                viewBox="0 0 10 12"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+              </svg>
+              Become an Ink Donor
+            </Link>
+            <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
+              Every drop helps. Cancel anytime.
+            </p>
+          </div>
+
           <p
             className="text-sm font-medium uppercase tracking-widest mb-4"
             style={{ color: "var(--accent)" }}
