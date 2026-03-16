@@ -13,6 +13,17 @@ const POLL_INTERVAL = 15_000; // 15 seconds — fast enough to feel near-instant
 const BACKGROUND_POLL_INTERVAL = 15_000; // same in background so sounds fire promptly
 const BLINK_INTERVAL = 1500; // title blink speed (ms)
 
+// --- Module-level shared state ---
+// Multiple components use useLiveNavCounts simultaneously (sidebar, bottom tabs,
+// mobile top bar). Without shared state, each instance runs independent polling
+// and sound logic — causing duplicate sounds and false-positive "new notification"
+// detection when router.refresh() resets one instance's prev counts.
+let sharedPrevNotifications = -1; // -1 = uninitialized
+let sharedPrevLetters = -1;
+let lastSoundTime = 0;
+const SOUND_DEBOUNCE_MS = 3000; // at most 1 sound per 3 seconds
+let activePollingInstances = 0;
+
 // --- Favicon badge helpers ---
 
 const ORIGINAL_FAVICON = "/favicon.svg";
@@ -77,7 +88,6 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const pathname = usePathname();
 
   // Refs for polling + sound
-  const prevCountsRef = useRef(initial);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioUnlockedRef = useRef(false);
   const soundsMutedRef = useRef(false);
@@ -91,10 +101,16 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const badgeFaviconRef = useRef<string | null>(null);
   const hasBadgeRef = useRef(false);
 
-  // Update initial values when server-rendered props change (full page load)
+  // Update displayed counts when server-rendered props change (full page load)
+  // Do NOT reset shared prev counts here — router.refresh() triggers this effect
+  // and resetting prev counts would cause false-positive sound on the next poll.
   useEffect(() => {
     setCounts(initial);
-    prevCountsRef.current = initial;
+    // Only initialize shared prev counts if they haven't been set yet
+    if (sharedPrevNotifications === -1) {
+      sharedPrevNotifications = initial.unreadNotificationCount;
+      sharedPrevLetters = initial.unreadLetterCount;
+    }
   }, [initial.draftCount, initial.unreadNotificationCount, initial.unreadLetterCount]);
 
   // Load original favicon SVG text once (needed for badge overlay)
@@ -180,9 +196,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
       if (showAlert) {
         document.title = `✦ New notification — ${base}`;
       } else {
-        const total =
-          prevCountsRef.current.unreadNotificationCount +
-          prevCountsRef.current.unreadLetterCount;
+        const total = sharedPrevNotifications + sharedPrevLetters;
         document.title = total > 0 ? `(${total}) ${base}` : base;
       }
       showAlert = !showAlert;
@@ -267,16 +281,24 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         hideBadgesRef.current =
           !!data.data.settings?.hide_notification_badges;
 
-        // Detect new arrivals (only trigger alerts if badges aren't hidden)
-        const prev = prevCountsRef.current;
+        // Detect new arrivals using module-level shared prev counts
+        // (prevents duplicate sounds from multiple hook instances)
         const hasNewNotification =
-          newCounts.unreadNotificationCount > prev.unreadNotificationCount ||
-          newCounts.unreadLetterCount > prev.unreadLetterCount;
+          newCounts.unreadNotificationCount > sharedPrevNotifications ||
+          newCounts.unreadLetterCount > sharedPrevLetters;
 
         if (hasNewNotification && !hideBadgesRef.current) {
-          playSound();
-          startTitleBlink();
+          const now = Date.now();
+          if (now - lastSoundTime > SOUND_DEBOUNCE_MS) {
+            playSound();
+            startTitleBlink();
+            lastSoundTime = now;
+          }
         }
+
+        // Update shared prev counts so other instances see the same baseline
+        sharedPrevNotifications = newCounts.unreadNotificationCount;
+        sharedPrevLetters = newCounts.unreadLetterCount;
 
         // When badges are hidden, suppress displayed counts
         if (hideBadgesRef.current) {
@@ -294,7 +316,6 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         // Update favicon badge
         updateFaviconBadge(total > 0);
 
-        prevCountsRef.current = newCounts;
         setCounts(newCounts);
       })
       .catch(() => {});
@@ -313,8 +334,18 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     return () => window.removeEventListener("inkwell-nav-refresh", handler);
   }, [refetch]);
 
-  // Periodic polling — faster when visible, slower in background
+  // Periodic polling — only the first active instance runs the interval.
+  // Multiple hook instances (sidebar, bottom tabs, mobile top bar) would
+  // otherwise create 3 independent polling loops.
   useEffect(() => {
+    activePollingInstances++;
+    const isLeader = activePollingInstances === 1;
+
+    if (!isLeader) {
+      // Non-leader instances still refetch on mount but don't start polling
+      return () => { activePollingInstances--; };
+    }
+
     const startPolling = (interval: number) => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = setInterval(refetch, interval);
@@ -322,21 +353,19 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
 
     const handleVisibility = () => {
       if (document.hidden) {
-        // Switch to slower background polling (sound + title blink still fire)
         startPolling(BACKGROUND_POLL_INTERVAL);
       } else {
-        // Tab became visible — refetch immediately, switch to fast polling
         refetch();
         startPolling(POLL_INTERVAL);
       }
     };
 
-    // Start with appropriate interval
     startPolling(document.hidden ? BACKGROUND_POLL_INTERVAL : POLL_INTERVAL);
 
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      activePollingInstances--;
       if (intervalRef.current) clearInterval(intervalRef.current);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
