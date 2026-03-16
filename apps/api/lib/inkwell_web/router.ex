@@ -131,9 +131,10 @@ defmodule InkwellWeb.Router do
     # Writer plans (public/optional-auth)
     get "/writer-plans/by-writer/:username", WriterSubscriptionController, :get_writer_plan
 
-    # Polls (optional auth for my_vote; /polls/active must precede /polls/:id)
+    # Polls (optional auth for my_vote; /polls/active and /polls/history must precede /polls/:id)
     get "/polls", PollController, :index
     get "/polls/active", PollController, :active_widget
+    get "/polls/history", PollController, :history
     get "/polls/:id", PollController, :show
     get "/polls/:id/comments", PollController, :list_comments
 
@@ -373,7 +374,10 @@ defmodule InkwellWeb.Router do
     delete "/circles/responses/:response_id", CircleController, :delete_response
 
     # Polls (authenticated)
+    get "/my-polls", PollController, :my_polls
     post "/polls/:id/vote", PollController, :vote
+    post "/polls/:id/close-own", PollController, :close_own
+    delete "/polls/:id/own", PollController, :delete_own
     patch "/polls/:id", PollController, :update_entry_poll
     post "/entries/:entry_id/poll", PollController, :create_entry_poll
     post "/polls/:id/comments", PollController, :create_comment

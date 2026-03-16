@@ -24,6 +24,7 @@ function PaletteIcon() { return <svg {...iconProps}><circle cx="13.5" cy="6.5" r
 function PinIcon() { return <svg {...iconProps}><path d="M9 4v6l-2 4v2h10v-2l-2-4V4" /><line x1="12" y1="16" x2="12" y2="21" /><line x1="8" y1="4" x2="16" y2="4" /></svg>; }
 function BookIcon() { return <svg {...iconProps}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>; }
 function FilterIcon() { return <svg {...iconProps}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>; }
+function BarChartIcon() { return <svg {...iconProps}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>; }
 function ImportIcon() { return <svg {...iconProps}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>; }
 function RedactIcon() { return <svg {...iconProps}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>; }
 function ShieldIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
@@ -80,6 +81,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     items: [
       { href: "/settings/pinned", label: "Pinned Entries", icon: PinIcon },
       { href: "/settings/series", label: "Series", icon: BookIcon },
+      { href: "/settings/polls", label: "My Polls", icon: BarChartIcon },
       { href: "/settings/filters", label: "Filters", icon: FilterIcon },
       { href: "/settings/import", label: "Import", icon: ImportIcon },
       { href: "/settings/redactions", label: "Redactions", icon: RedactIcon },

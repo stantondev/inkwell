@@ -39,33 +39,28 @@ export function PollWidget({ poll: initialPoll, compact = false, isLoggedIn }: P
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Compute effective status (server may say open but closes_at could be past)
   const isOpen = poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at) > new Date());
   const hasVoted = poll.my_vote != null;
   const showResults = hasVoted || !isOpen || !isLoggedIn;
+
+  // Find the leading option for winner highlighting
+  const maxVotes = Math.max(...poll.options.map((o) => o.vote_count));
+  const leadingId = poll.total_votes > 0 ? poll.options.find((o) => o.vote_count === maxVotes)?.id : null;
 
   const handleVote = useCallback(async () => {
     if (!selected || voting) return;
     setVoting(true);
     setError(null);
 
-    // Optimistic update
     const optimisticPoll = { ...poll };
     optimisticPoll.my_vote = selected;
     optimisticPoll.total_votes = poll.total_votes + 1;
     optimisticPoll.options = poll.options.map((opt) => {
       if (opt.id === selected) {
         const newCount = opt.vote_count + 1;
-        return {
-          ...opt,
-          vote_count: newCount,
-          percentage: Math.round((newCount / (poll.total_votes + 1)) * 100),
-        };
+        return { ...opt, vote_count: newCount, percentage: Math.round((newCount / (poll.total_votes + 1)) * 100) };
       }
-      return {
-        ...opt,
-        percentage: Math.round((opt.vote_count / (poll.total_votes + 1)) * 100),
-      };
+      return { ...opt, percentage: Math.round((opt.vote_count / (poll.total_votes + 1)) * 100) };
     });
     setPoll(optimisticPoll);
 
@@ -90,67 +85,55 @@ export function PollWidget({ poll: initialPoll, compact = false, isLoggedIn }: P
     }
   }, [selected, voting, poll, initialPoll]);
 
-  // Time remaining for closing
   const closesAt = poll.closes_at ? new Date(poll.closes_at) : null;
   const closesLabel = closesAt
     ? isOpen
       ? `Closes ${formatTimeRemaining(closesAt)}`
-      : `Closed ${formatTimeAgo(closesAt)}`
+      : `Sealed ${formatTimeAgo(closesAt)}`
     : null;
 
   return (
-    <div
-      className={`poll-widget ${compact ? "poll-widget--compact" : ""}`}
-      style={{
-        borderRadius: "var(--radius, 12px)",
-        border: "1px solid var(--border)",
-        background: "var(--surface)",
-        padding: compact ? "12px" : "16px 20px",
-      }}
-    >
+    <div className={`poll-card ${compact ? "poll-card--compact" : ""}`}>
+      {/* Paper texture overlay */}
+      <svg className="poll-card-texture" aria-hidden="true">
+        <filter id="pollPaperNoise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#pollPaperNoise)" opacity="0.03" />
+      </svg>
+
+      {/* Status badge */}
+      {!isOpen && (
+        <div className="poll-sealed-badge">Sealed</div>
+      )}
+
+      {showResults && isOpen && hasVoted && (
+        <div className="poll-voted-badge">Voted</div>
+      )}
+
       {/* Question */}
-      <h3
-        className="poll-widget-question"
-        style={{
-          fontFamily: "var(--font-lora, Georgia, serif)",
-          fontSize: compact ? "14px" : "16px",
-          fontWeight: 600,
-          margin: "0 0 12px 0",
-          lineHeight: 1.4,
-          color: "var(--foreground)",
-        }}
-      >
+      <h3 className={`poll-question ${compact ? "poll-question--compact" : ""}`}>
         {poll.question}
       </h3>
 
-      {/* Closed badge */}
-      {!isOpen && (
-        <div
-          style={{
-            display: "inline-block",
-            fontSize: "11px",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            background: "var(--muted)",
-            color: "white",
-            marginBottom: "10px",
-          }}
-        >
-          Poll closed
-        </div>
+      {/* Section header for results */}
+      {showResults && !isOpen && !compact && (
+        <>
+          <div className="poll-ornament" aria-hidden="true"><span>· · ·</span></div>
+          <div className="poll-final-results">Final Results</div>
+        </>
       )}
 
       {/* Options */}
-      <div style={{ display: "flex", flexDirection: "column", gap: compact ? "6px" : "8px" }}>
+      <div className={`poll-options ${compact ? "poll-options--compact" : ""}`}>
         {poll.options.map((opt) =>
           showResults ? (
             <ResultBar
               key={opt.id}
               option={opt}
               isMyVote={poll.my_vote === opt.id}
+              isLeading={opt.id === leadingId}
               totalVotes={poll.total_votes}
               compact={compact}
             />
@@ -166,59 +149,35 @@ export function PollWidget({ poll: initialPoll, compact = false, isLoggedIn }: P
         )}
       </div>
 
-      {/* Vote button */}
+      {/* Vote CTA */}
       {!showResults && (
         <button
           onClick={handleVote}
           disabled={!selected || voting}
-          className="poll-vote-btn"
-          style={{
-            marginTop: "12px",
-            padding: "8px 24px",
-            borderRadius: "999px",
-            border: "none",
-            background: selected ? "var(--accent)" : "var(--muted)",
-            color: "white",
-            fontWeight: 600,
-            fontSize: "13px",
-            cursor: selected ? "pointer" : "default",
-            opacity: voting ? 0.6 : 1,
-            transition: "background 0.15s, opacity 0.15s",
-          }}
+          className="poll-vote-cta"
         >
-          {voting ? "Voting..." : "Vote"}
+          {voting ? "Casting..." : "Cast your vote"}
         </button>
       )}
 
       {/* Error */}
       {error && (
-        <p style={{ color: "var(--danger, #dc2626)", fontSize: "12px", margin: "8px 0 0" }}>{error}</p>
+        <p className="poll-error">{error}</p>
       )}
 
-      {/* Join CTA for logged-out visitors on open polls */}
+      {/* Join CTA */}
       {!isLoggedIn && isOpen && (
-        <p style={{ fontSize: "12px", textAlign: "center", marginTop: "10px", color: "var(--muted)" }}>
-          <a href="/get-started" style={{ fontWeight: 500, color: "var(--accent)", textDecoration: "none" }}
-            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
-            Join Inkwell
-          </a>{" "}to vote.
+        <p className="poll-join-cta">
+          <a href="/get-started">Join Inkwell</a> to have your say.
         </p>
       )}
 
       {/* Footer */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: compact ? "8px" : "12px",
-          fontSize: compact ? "11px" : "12px",
-          color: "var(--muted)",
-        }}
-      >
-        <span>{poll.total_votes} {poll.total_votes === 1 ? "vote" : "votes"}</span>
-        {closesLabel && <span>{closesLabel}</span>}
+      <div className={`poll-footer ${compact ? "poll-footer--compact" : ""}`}>
+        <span className="poll-footer-votes">
+          {poll.total_votes} {poll.total_votes === 1 ? "vote" : "votes"} cast
+        </span>
+        {closesLabel && <span className="poll-footer-time">{closesLabel}</span>}
       </div>
     </div>
   );
@@ -238,45 +197,10 @@ function VoteOption({
   return (
     <button
       onClick={onSelect}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        padding: compact ? "8px 10px" : "10px 12px",
-        borderRadius: "8px",
-        border: `1.5px solid ${selected ? "var(--accent)" : "var(--border)"}`,
-        background: selected ? "var(--accent-light, rgba(45, 74, 138, 0.08))" : "transparent",
-        cursor: "pointer",
-        textAlign: "left",
-        width: "100%",
-        transition: "border-color 0.15s, background 0.15s",
-        fontSize: compact ? "13px" : "14px",
-        color: "var(--foreground)",
-      }}
+      className={`poll-vote-option ${selected ? "poll-vote-option--selected" : ""} ${compact ? "poll-vote-option--compact" : ""}`}
     >
-      {/* Radio circle */}
-      <span
-        style={{
-          width: "16px",
-          height: "16px",
-          borderRadius: "50%",
-          border: `2px solid ${selected ? "var(--accent)" : "var(--muted)"}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {selected && (
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: "var(--accent)",
-            }}
-          />
-        )}
+      <span className={`poll-radio ${selected ? "poll-radio--selected" : ""}`}>
+        {selected && <span className="poll-radio-dot" />}
       </span>
       <span>{option.label}</span>
     </button>
@@ -286,77 +210,33 @@ function VoteOption({
 function ResultBar({
   option,
   isMyVote,
+  isLeading,
   totalVotes,
   compact,
 }: {
   option: PollOption;
   isMyVote: boolean;
+  isLeading: boolean;
   totalVotes: number;
   compact: boolean;
 }) {
   const pct = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0;
 
   return (
-    <div
-      style={{
-        position: "relative",
-        borderRadius: "8px",
-        overflow: "hidden",
-        border: isMyVote ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
-        background: "var(--background, var(--surface))",
-      }}
-    >
-      {/* Progress bar background */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          height: "100%",
-          width: `${pct}%`,
-          background: isMyVote
-            ? "var(--accent-light, rgba(45, 74, 138, 0.15))"
-            : "var(--surface-hover, rgba(0,0,0,0.04))",
-          transition: "width 0.4s ease",
-        }}
-      />
-      {/* Content */}
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: compact ? "6px 10px" : "10px 12px",
-          fontSize: compact ? "13px" : "14px",
-        }}
-      >
-        <span
-          style={{
-            fontWeight: isMyVote ? 600 : 400,
-            color: "var(--foreground)",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
+    <div className={`poll-result ${isMyVote ? "poll-result--mine" : ""} ${isLeading ? "poll-result--leading" : ""} ${compact ? "poll-result--compact" : ""}`}>
+      <div className="poll-result-fill" style={{ width: `${pct}%` }} />
+      <div className="poll-result-content">
+        <span className="poll-result-label">
           {isMyVote && (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           )}
           {option.label}
+          {isLeading && !compact && <span className="poll-result-leading-tag">Leading</span>}
         </span>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: compact ? "12px" : "13px",
-            color: isMyVote ? "var(--accent)" : "var(--muted)",
-            flexShrink: 0,
-            marginLeft: "8px",
-          }}
-        >
-          {pct}%{!compact && <span style={{ fontWeight: 400, marginLeft: "4px", fontSize: "12px" }}>({option.vote_count})</span>}
+        <span className={`poll-result-pct ${isLeading ? "poll-result-pct--leading" : ""}`}>
+          {pct}%{!compact && <span className="poll-result-count">({option.vote_count})</span>}
         </span>
       </div>
     </div>

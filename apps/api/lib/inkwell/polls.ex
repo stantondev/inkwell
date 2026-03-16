@@ -268,11 +268,73 @@ defmodule Inkwell.Polls do
   def list_all_polls(opts \\ %{}) do
     page = Map.get(opts, :page, 1)
     per_page = Map.get(opts, :per_page, 20)
+    type_filter = Map.get(opts, :type)
 
     query =
       Poll
       |> preload([:creator, options: ^from(o in PollOption, order_by: o.position)])
       |> order_by(desc: :inserted_at)
+
+    query =
+      case type_filter do
+        "platform" -> where(query, type: :platform)
+        "entry" -> where(query, type: :entry)
+        _ -> query
+      end
+
+    total = Repo.aggregate(query, :count)
+
+    polls =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> Repo.all()
+
+    {polls, total}
+  end
+
+  # ── User polls ─────────────────────────────────────────────────────────
+
+  def list_user_polls(user_id, opts \\ %{}) do
+    page = Map.get(opts, :page, 1)
+    per_page = Map.get(opts, :per_page, 20)
+
+    query =
+      Poll
+      |> where(creator_id: ^user_id)
+      |> preload([:creator, :entry, options: ^from(o in PollOption, order_by: o.position)])
+      |> order_by(desc: :inserted_at)
+
+    total = Repo.aggregate(query, :count)
+
+    polls =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> Repo.all()
+
+    {polls, total}
+  end
+
+  # ── Closed polls (history) ──────────────────────────────────────────────
+
+  def list_closed_polls(opts \\ %{}) do
+    page = Map.get(opts, :page, 1)
+    per_page = Map.get(opts, :per_page, 20)
+    type_filter = Map.get(opts, :type)
+
+    query =
+      Poll
+      |> where(status: :closed)
+      |> preload([:creator, options: ^from(o in PollOption, order_by: o.position)])
+      |> order_by(desc: :closed_at)
+
+    query =
+      case type_filter do
+        "platform" -> where(query, type: :platform)
+        "entry" -> where(query, type: :entry)
+        _ -> query
+      end
 
     total = Repo.aggregate(query, :count)
 

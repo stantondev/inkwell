@@ -44,16 +44,18 @@ export default function AdminPollsPage() {
   const [closesAt, setClosesAt] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"all" | "platform" | "entry">("all");
 
   const fetchPolls = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/polls?per_page=50");
+      const typeParam = typeFilter !== "all" ? `&type=${typeFilter}` : "";
+      const res = await fetch(`/api/admin/polls?per_page=50${typeParam}`);
       const data = await res.json();
       if (data.data) setPolls(data.data);
     } catch {} finally {
       setLoading(false);
     }
-  }, []);
+  }, [typeFilter]);
 
   useEffect(() => { fetchPolls(); }, [fetchPolls]);
 
@@ -181,7 +183,20 @@ export default function AdminPollsPage() {
       </div>
 
       {/* Poll list */}
-      <h2 className="admin-card-header" style={{ marginBottom: "16px" }}>All Polls</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+        <h2 className="admin-card-header" style={{ margin: 0 }}>All Polls</h2>
+        <div style={{ display: "flex", gap: "4px" }}>
+          {(["all", "platform", "entry"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTypeFilter(t); setLoading(true); }}
+              className={`admin-btn admin-btn--sm ${typeFilter === t ? "admin-btn--primary" : "admin-btn--outline"}`}
+            >
+              {t === "all" ? "All" : t === "platform" ? "Platform" : "Entry"}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {loading ? (
         <AdminSkeletonCards count={3} />

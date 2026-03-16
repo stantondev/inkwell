@@ -64,7 +64,122 @@ defmodule InkwellWeb.PollController do
     end
   end
 
+  def history(conn, params) do
+    viewer = conn.assigns[:current_user]
+    page = parse_int(params["page"], 1)
+    per_page = parse_int(params["per_page"], 20)
+    type = params["type"]
+
+    {polls, total} = Polls.list_closed_polls(%{page: page, per_page: per_page, type: type})
+
+    viewer_id = if viewer, do: viewer.id, else: nil
+    poll_ids = Enum.map(polls, & &1.id)
+    user_votes = Polls.get_user_votes_for_polls(viewer_id, poll_ids)
+
+    rendered =
+      Enum.map(polls, fn poll ->
+        render_poll(poll, Map.get(user_votes, poll.id))
+      end)
+
+    json(conn, %{
+      data: rendered,
+      pagination: %{
+        page: page,
+        per_page: per_page,
+        total: total,
+        total_pages: max(ceil(total / per_page), 1)
+      }
+    })
+  end
+
   # ── Authenticated ──────────────────────────────────────────────────────────
+
+  def my_polls(conn, params) do
+    user = conn.assigns.current_user
+    page = parse_int(params["page"], 1)
+    per_page = parse_int(params["per_page"], 20)
+
+    {polls, total} = Polls.list_user_polls(user.id, %{page: page, per_page: per_page})
+
+    poll_ids = Enum.map(polls, & &1.id)
+    user_votes = Polls.get_user_votes_for_polls(user.id, poll_ids)
+
+    rendered =
+      Enum.map(polls, fn poll ->
+        rendered = render_poll(poll, Map.get(user_votes, poll.id))
+
+        entry_info =
+          if poll.entry do
+            %{
+              id: poll.entry.id,
+              title: poll.entry.title,
+              slug: poll.entry.slug
+            }
+          end
+
+        Map.put(rendered, :entry, entry_info)
+      end)
+
+    json(conn, %{
+      data: rendered,
+      pagination: %{
+        page: page,
+        per_page: per_page,
+        total: total,
+        total_pages: max(ceil(total / per_page), 1)
+      }
+    })
+  end
+
+  def close_own(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case Polls.get_poll(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Poll not found"})
+
+      poll ->
+        if poll.creator_id != user.id do
+          conn |> put_status(:forbidden) |> json(%{error: "You can only close your own polls"})
+        else if poll.status == :closed do
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Poll is already closed"})
+        else
+          case Polls.close_poll(poll) do
+            {:ok, updated} ->
+              updated = Inkwell.Repo.preload(updated, [:creator, options: {Inkwell.Polls.PollOption |> Ecto.Query.order_by(:position), []}])
+              my_vote = Polls.get_user_vote(user.id, updated.id)
+              json(conn, %{data: render_poll(updated, my_vote)})
+
+            {:error, _} ->
+              conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to close poll"})
+          end
+        end end
+    end
+  end
+
+  def delete_own(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case Polls.get_poll(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Poll not found"})
+
+      poll ->
+        cond do
+          poll.creator_id != user.id ->
+            conn |> put_status(:forbidden) |> json(%{error: "You can only delete your own polls"})
+
+          poll.total_votes > 0 ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Cannot delete a poll that has votes"})
+
+          true ->
+            case Polls.delete_poll(poll) do
+              {:ok, _} -> json(conn, %{ok: true})
+              {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to delete poll"})
+            end
+        end
+    end
+  end
 
   def vote(conn, %{"id" => poll_id, "option_id" => option_id}) do
     user = conn.assigns.current_user
@@ -197,7 +312,9 @@ defmodule InkwellWeb.PollController do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], 20)
 
-    {polls, total} = Polls.list_all_polls(%{page: page, per_page: per_page})
+    type = params["type"]
+
+    {polls, total} = Polls.list_all_polls(%{page: page, per_page: per_page, type: type})
 
     rendered = Enum.map(polls, fn poll -> render_poll(poll, nil) end)
 
@@ -391,9 +508,7 @@ defmodule InkwellWeb.PollController do
   # ── Helpers ────────────────────────────────────────────────────────────────
 
   def render_poll(poll, viewer_vote) do
-    is_open =
-      poll.status == :open and
-        (is_nil(poll.closes_at) or DateTime.compare(poll.closes_at, DateTime.utc_now()) == :gt)
+    is_open = Inkwell.Polls.is_poll_open?(poll)
 
     options =
       Enum.map(poll.options, fn opt ->
@@ -453,8 +568,16 @@ defmodule InkwellWeb.PollController do
   defp parse_datetime(""), do: nil
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
-      {:ok, dt, _} -> DateTime.truncate(dt, :microsecond)
-      _ -> nil
+      {:ok, dt, _} ->
+        DateTime.truncate(dt, :microsecond)
+
+      _ ->
+        # HTML datetime-local inputs send "2026-03-15T00:00" (no seconds, no timezone).
+        # Append ":00Z" to make it valid ISO 8601.
+        case DateTime.from_iso8601(str <> ":00Z") do
+          {:ok, dt, _} -> DateTime.truncate(dt, :microsecond)
+          _ -> nil
+        end
     end
   end
 

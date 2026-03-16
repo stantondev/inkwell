@@ -91,6 +91,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
       end
 
     # cover image → image (for AP consumers that show link card thumbnails)
+    # When no cover image, use the dynamic OG image generator to create a branded card
+    # so Mastodon/fediverse preview cards aren't empty
     article =
       if entry.cover_image_id do
         Map.put(article, "image", %{
@@ -99,7 +101,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
           "mediaType" => "image/jpeg"
         })
       else
-        article
+        og_params =
+          URI.encode_query(%{
+            "type" => "entry",
+            "title" => entry.title || "Untitled",
+            "author" => author.display_name || author.username,
+            "username" => author.username,
+            "category" => entry.category || "",
+            "date" => if(entry.published_at, do: DateTime.to_iso8601(entry.published_at), else: "")
+          })
+
+        Map.put(article, "image", %{
+          "type" => "Image",
+          "url" => "#{frontend_host}/api/og?#{og_params}",
+          "mediaType" => "image/png"
+        })
       end
 
     # hashtags

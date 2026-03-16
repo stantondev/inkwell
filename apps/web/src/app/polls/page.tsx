@@ -54,9 +54,20 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
             color: "var(--foreground)",
           }}
         >
-          Community Polls
+          Community Voice
         </h1>
-        <p style={{ color: "var(--muted)", fontSize: "15px", margin: 0 }}>
+        <div className="poll-ornament" aria-hidden="true" style={{ margin: "12px 0" }}>
+          <span>· · ·</span>
+        </div>
+        <p
+          style={{
+            color: "var(--muted)",
+            fontSize: "15px",
+            margin: 0,
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontStyle: "italic",
+          }}
+        >
           Have your say in shaping Inkwell
         </p>
       </div>
@@ -98,6 +109,29 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
           ))}
         </div>
       )}
+
+      {/* Archives link */}
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "32px",
+          paddingTop: "24px",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        <Link
+          href="/polls/history"
+          style={{
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontStyle: "italic",
+            fontSize: "14px",
+            color: "var(--muted)",
+            textDecoration: "none",
+          }}
+        >
+          View poll archives →
+        </Link>
+      </div>
 
       {/* Pagination */}
       {pagination.total_pages > 1 && (
