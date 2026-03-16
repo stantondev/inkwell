@@ -60,6 +60,7 @@ export default function GetStartedPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
+  const [loginSessionId, setLoginSessionId] = useState<string | undefined>();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +116,7 @@ export default function GetStartedPage() {
       }
 
       setDevLink(data.dev_magic_link);
+      setLoginSessionId(data.login_session_id);
       setStep("check_email");
     } catch {
       setError("Could not reach the server. Please try again.");
@@ -285,6 +287,7 @@ export default function GetStartedPage() {
           <CheckEmailStep
             email={email}
             devLink={devLink}
+            loginSessionId={loginSessionId}
             onResend={handleResend}
             onReset={() => setStep("enter_email")}
           />
@@ -304,11 +307,13 @@ export default function GetStartedPage() {
 function CheckEmailStep({
   email,
   devLink,
+  loginSessionId,
   onResend,
   onReset,
 }: {
   email: string;
   devLink?: string;
+  loginSessionId?: string;
   onResend: () => void;
   onReset: () => void;
 }) {
@@ -316,7 +321,7 @@ function CheckEmailStep({
   const [resending, setResending] = useState(false);
   const [manualCheckFailed, setManualCheckFailed] = useState(false);
   const isPwa = useIsPwa();
-  const { status, destination, manualCheck } = useSessionPoll(true);
+  const { status, destination, manualCheck } = useSessionPoll(true, loginSessionId);
 
   // Auto-redirect when session is detected (cookie shared from browser/other tab)
   useEffect(() => {

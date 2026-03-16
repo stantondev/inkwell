@@ -7,6 +7,7 @@ import Link from "next/link";
 export default function VerifyPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const lsid = searchParams.get("lsid");
   const [status, setStatus] = useState<"ready" | "verifying" | "success" | "error">("ready");
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export default function VerifyPage() {
       const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, lsid }),
       });
 
       const data = await res.json();

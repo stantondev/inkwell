@@ -7739,21 +7739,13 @@ body[data-focus-mode] .mobile-top-bar {
   margin: 0 20px;
 }
 
-/* Upgrade link */
-.book-drawer-upgrade {
-  color: var(--accent);
-  font-weight: 500;
-  margin: 0 20px;
-}
-
-/* Sign out */
+/* Sign out (inside section IV) */
 .book-drawer-signout {
-  display: contents;
+  display: block;
 }
 
 .book-drawer-signout .book-drawer-link {
   color: var(--muted);
-  margin: 0 20px;
 }
 
 /* Dark mode */

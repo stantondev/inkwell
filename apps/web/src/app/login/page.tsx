@@ -36,7 +36,7 @@ function InkwellLogo() {
 function EnterEmailStep({
   onSubmit,
 }: {
-  onSubmit: (email: string, devLink?: string) => void;
+  onSubmit: (email: string, devLink?: string, loginSessionId?: string) => void;
 }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ function EnterEmailStep({
         return;
       }
 
-      onSubmit(email.trim(), data.dev_magic_link);
+      onSubmit(email.trim(), data.dev_magic_link, data.login_session_id);
     } catch {
       setError("Could not reach the server. Is the API running?");
     } finally {
@@ -154,17 +154,19 @@ function EnterEmailStep({
 function CheckEmailStep({
   email,
   devLink,
+  loginSessionId,
   onReset,
 }: {
   email: string;
   devLink?: string;
+  loginSessionId?: string;
   onReset: () => void;
 }) {
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
   const [manualCheckFailed, setManualCheckFailed] = useState(false);
   const isPwa = useIsPwa();
-  const { status, destination, manualCheck } = useSessionPoll(true);
+  const { status, destination, manualCheck } = useSessionPoll(true, loginSessionId);
 
   // Auto-redirect when session is detected (cookie shared from browser/other tab)
   useEffect(() => {
@@ -311,15 +313,17 @@ export default function LoginPage() {
   const [step, setStep] = useState<LoginStep>("enter_email");
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [devLink, setDevLink] = useState<string | undefined>();
+  const [loginSessionId, setLoginSessionId] = useState<string | undefined>();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
   const urlErrorMessage = urlError
     ? OAUTH_ERROR_MESSAGES[urlError] || decodeURIComponent(urlError)
     : null;
 
-  const handleEmailSubmit = (email: string, link?: string) => {
+  const handleEmailSubmit = (email: string, link?: string, sessionId?: string) => {
     setSubmittedEmail(email);
     setDevLink(link);
+    setLoginSessionId(sessionId);
     setStep("check_email");
   };
 
@@ -367,6 +371,7 @@ export default function LoginPage() {
           <CheckEmailStep
             email={submittedEmail}
             devLink={devLink}
+            loginSessionId={loginSessionId}
             onReset={() => setStep("enter_email")}
           />
         )}

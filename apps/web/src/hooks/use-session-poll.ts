@@ -8,18 +8,45 @@ const POLL_INTERVAL = 3000; // 3 seconds
 const POLL_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 /**
- * Polls GET /api/session to detect when auth completes in another context
- * (e.g., browser sets cookie that PWA can read, or another tab completes login).
+ * Polls to detect when auth completes in another context.
  *
- * Returns the redirect destination based on the session user's onboarding state.
+ * When loginSessionId is provided (PWA flow), polls the claim-session endpoint
+ * which doesn't require cookies — works even when the PWA has an isolated
+ * cookie jar from the browser.
+ *
+ * Falls back to cookie-based /api/session polling when no loginSessionId.
  */
-export function useSessionPoll(enabled: boolean) {
+export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
   const [status, setStatus] = useState<SessionPollStatus>(enabled ? "polling" : "idle");
   const [destination, setDestination] = useState<string>("/feed");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkSession = useCallback(async (): Promise<boolean> => {
+    // Primary: claim-session polling (works across isolated cookie jars)
+    if (loginSessionId) {
+      try {
+        const res = await fetch(`/api/auth/claim-session?id=${encodeURIComponent(loginSessionId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok) {
+            // Cookie was set by the claim-session route handler in our context
+            setDestination(data.destination || "/feed");
+            setStatus("found");
+            return true;
+          }
+          // data.pending — keep polling
+        } else if (res.status === 404) {
+          // Handoff expired — stop polling
+          setStatus("timeout");
+          return false;
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }
+
+    // Fallback: cookie-based session check (works when contexts share cookies)
     try {
       const res = await fetch("/api/session");
       if (res.ok) {
@@ -33,7 +60,7 @@ export function useSessionPoll(enabled: boolean) {
       // Network error — keep polling
     }
     return false;
-  }, []);
+  }, [loginSessionId]);
 
   useEffect(() => {
     if (!enabled) {

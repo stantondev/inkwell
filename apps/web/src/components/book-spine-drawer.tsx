@@ -191,31 +191,19 @@ export function BookSpineDrawer({
             </div>
             <DrawerLink href="/settings/customize" icon={<SettingsIcon />} label="Customize" active={isActive("/settings/customize")} onClick={handleLinkClick} />
             <DrawerLink href="/settings" icon={<SettingsIcon />} label="Account" active={pathname === "/settings"} onClick={handleLinkClick} />
+            {isAdmin && (
+              <DrawerLink href="/admin" icon={<AdminIcon />} label="Admin" active={isActive("/admin")} onClick={handleLinkClick} />
+            )}
+            {!isPlus && !selfHosted && (
+              <DrawerLink href="/settings/billing" icon={<>✦</>} label="Upgrade to Plus" active={false} onClick={handleLinkClick} />
+            )}
+            <form action="/auth/signout" method="POST" className="book-drawer-signout">
+              <button type="submit" className="book-drawer-link" onClick={handleLinkClick}>
+                <span className="book-drawer-link-icon"><SignOutIcon /></span>
+                <span>Sign out</span>
+              </button>
+            </form>
           </div>
-
-          {/* Ornament */}
-          <div className="book-drawer-ornament" aria-hidden="true">· · ·</div>
-
-          {/* Plus upsell */}
-          {!isPlus && !selfHosted && (
-            <Link href="/settings/billing" onClick={handleLinkClick} className="book-drawer-link book-drawer-upgrade">
-              <span className="book-drawer-link-icon" style={{ color: "var(--accent)" }}>✦</span>
-              <span>Upgrade to Plus</span>
-            </Link>
-          )}
-
-          {/* Admin */}
-          {isAdmin && (
-            <DrawerLink href="/admin" icon={<AdminIcon />} label="Admin" active={isActive("/admin")} onClick={handleLinkClick} />
-          )}
-
-          {/* Sign out */}
-          <form action="/auth/signout" method="POST" className="book-drawer-signout">
-            <button type="submit" className="book-drawer-link" onClick={handleLinkClick}>
-              <span className="book-drawer-link-icon"><SignOutIcon /></span>
-              <span>Sign out</span>
-            </button>
-          </form>
         </div>
       </div>
     </>,

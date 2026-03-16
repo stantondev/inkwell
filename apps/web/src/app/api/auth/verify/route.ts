@@ -15,15 +15,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const token = body.token;
+    const lsid = body.lsid;
 
     if (!token) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 });
     }
 
-    const res = await fetch(
-      `${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}`,
-      { cache: "no-store" }
-    );
+    // Forward lsid (login session ID) so Phoenix can complete the PWA handoff
+    let verifyUrl = `${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+    if (lsid) {
+      verifyUrl += `&lsid=${encodeURIComponent(lsid)}`;
+    }
+
+    const res = await fetch(verifyUrl, { cache: "no-store" });
 
     if (!res.ok) {
       return NextResponse.json(

@@ -3,6 +3,7 @@ defmodule InkwellWeb.AuthController do
 
   alias Inkwell.Accounts
   alias Inkwell.Auth
+  alias Inkwell.Auth.LoginHandoff
   alias Inkwell.Invitations
 
   # POST /api/auth/magic-link
@@ -60,22 +61,26 @@ defmodule InkwellWeb.AuthController do
             # Create token in Postgres
             token = Auth.create_magic_link_token(user.id)
 
+            # Create a login handoff ID for PWA cross-context auth
+            login_session_id = LoginHandoff.create_handoff()
+
             # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
-            magic_link = "#{frontend_url()}/auth/verify?token=#{token}"
+            # Include lsid so the verify step can complete the handoff for PWA polling.
+            magic_link = "#{frontend_url()}/auth/verify?token=#{token}&lsid=#{login_session_id}"
 
             # Send the email (or fall back to dev mode if no API key)
             case Inkwell.Email.send_magic_link(email, magic_link) do
               {:ok, :sent} ->
-                json(conn, %{ok: true})
+                json(conn, %{ok: true, login_session_id: login_session_id})
 
               {:ok, :no_email_configured, _link} ->
                 # No email service configured — return the link directly for dev/testing
-                json(conn, %{ok: true, dev_magic_link: magic_link})
+                json(conn, %{ok: true, dev_magic_link: magic_link, login_session_id: login_session_id})
 
               {:error, _reason} ->
                 # Email sending failed — fall back to showing the magic link directly
                 # so the user isn't locked out. They can click it to sign in.
-                json(conn, %{ok: true, dev_magic_link: magic_link})
+                json(conn, %{ok: true, dev_magic_link: magic_link, login_session_id: login_session_id})
             end
 
           {:error, changeset} ->
@@ -91,10 +96,11 @@ defmodule InkwellWeb.AuthController do
     conn |> put_status(:unprocessable_entity) |> json(%{error: "email is required"})
   end
 
-  # GET /api/auth/verify?token=TOKEN
+  # GET /api/auth/verify?token=TOKEN&lsid=LOGIN_SESSION_ID
   # Called server-side by Next.js /auth/verify route handler.
   # Returns a long-lived API token instead of a session cookie redirect.
-  def verify_magic_link(conn, %{"token" => token}) do
+  # Optional lsid completes a PWA login handoff so the PWA can claim the session.
+  def verify_magic_link(conn, %{"token" => token} = params) do
     case Auth.verify_magic_link_token(token) do
       :error ->
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid or expired magic link"})
@@ -104,6 +110,11 @@ defmodule InkwellWeb.AuthController do
 
         # Create a long-lived API session token in Postgres
         api_token = Auth.create_api_session_token(user.id)
+
+        # Complete the PWA login handoff if lsid was provided
+        if lsid = params["lsid"] do
+          LoginHandoff.complete_handoff(lsid, api_token, render_user(user))
+        end
 
         json(conn, %{
           ok: true,
@@ -150,6 +161,26 @@ defmodule InkwellWeb.AuthController do
     end
 
     conn |> clear_session() |> json(%{ok: true})
+  end
+
+  # GET /api/auth/claim-session?id=LOGIN_SESSION_ID
+  # Called by PWA to claim a completed login handoff.
+  # Returns the session token if the magic link was verified in the browser.
+  def claim_session(conn, %{"id" => id}) when is_binary(id) and byte_size(id) > 0 do
+    case LoginHandoff.claim_handoff(id) do
+      {:ok, token, user_data} ->
+        json(conn, %{ok: true, token: token, user: user_data})
+
+      :pending ->
+        json(conn, %{pending: true})
+
+      :not_found ->
+        conn |> put_status(:not_found) |> json(%{expired: true})
+    end
+  end
+
+  def claim_session(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "id is required"})
   end
 
   # ── Helpers ─────────────────────────────────────────────────────────────────

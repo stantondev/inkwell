@@ -47,6 +47,7 @@ defmodule InkwellWeb.Router do
 
     # Auth
     get "/auth/verify", AuthController, :verify_magic_link
+    get "/auth/claim-session", AuthController, :claim_session
     delete "/auth/session", AuthController, :sign_out
     post "/auth/fediverse/callback", FediverseAuthController, :callback
 

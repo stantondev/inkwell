@@ -15,6 +15,7 @@ defmodule Inkwell.Application do
       Inkwell.Repo,
       {Phoenix.PubSub, name: Inkwell.PubSub},
       {Oban, Application.fetch_env!(:inkwell, Oban)},
+      Inkwell.Auth.LoginHandoff,
       InkwellWeb.Endpoint,
       # Metrics pusher — pushes to Grafana Cloud every 60s (returns :ignore if not configured)
       Inkwell.Metrics.Pusher

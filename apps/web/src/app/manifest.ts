@@ -6,12 +6,15 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Inkwell",
     description:
       "A federated social journaling platform. Your journal, your friends, your space.",
+    id: "/?source=pwa",
     start_url: "/",
     scope: "/",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#2d4a8a",
     orientation: "any",
+    lang: "en",
+    prefer_related_applications: false,
     categories: ["social", "lifestyle"],
     icons: [
       { src: "/icons/icon-72x72.png", sizes: "72x72", type: "image/png" },

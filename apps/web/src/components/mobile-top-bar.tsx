@@ -85,6 +85,42 @@ export function MobileTopBar({
     setDrawerOpen(true);
   };
 
+  // Edge swipe to open drawer — touch starting within 24px of left edge
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (drawerOpen) return;
+      const touch = e.touches[0];
+      if (touch.clientX < 24) {
+        startX = touch.clientX;
+        startY = touch.clientY;
+        tracking = true;
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = Math.abs(touch.clientY - startY);
+      // Must swipe right at least 60px, and more horizontal than vertical
+      if (deltaX > 60 && deltaX > deltaY) {
+        setDrawerOpen(true);
+      }
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [drawerOpen]);
+
   return (
     <>
       <header className="mobile-top-bar">
