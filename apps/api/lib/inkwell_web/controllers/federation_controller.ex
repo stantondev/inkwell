@@ -355,7 +355,8 @@ defmodule InkwellWeb.FederationController do
             process_activity(conn, params, user)
         end
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning("Inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} to /users/#{username}/inbox — #{inspect(reason)}")
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -366,7 +367,8 @@ defmodule InkwellWeb.FederationController do
       :ok ->
         process_activity(conn, params, nil)
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -739,19 +741,25 @@ defmodule InkwellWeb.FederationController do
   # ── Create handling (inbound Notes) ─────────────────────────────────────
 
   defp handle_create(conn, activity, target_user) do
-    case activity["object"] do
-      %{"type" => type, "inReplyTo" => in_reply_to}
-          when type in ["Note", "Article", "Page"] and is_binary(in_reply_to) ->
-        # Reply to a local entry (Note, Article, or Page)
-        handle_incoming_reply(activity["object"], activity["actor"])
+    object = activity["object"]
+    object_type = if is_map(object), do: object["type"], else: "non-map: #{inspect(object)}"
+    in_reply_to = if is_map(object), do: object["inReplyTo"], else: nil
+    Logger.info("handle_create: object type=#{object_type}, inReplyTo=#{inspect(in_reply_to)}, actor=#{activity["actor"]}")
 
-      %{"type" => type} = object when type in ["Note", "Article", "Page"] ->
+    case object do
+      %{"type" => type, "inReplyTo" => reply_to}
+          when type in ["Note", "Article", "Page"] and is_binary(reply_to) ->
+        # Reply to a local entry (Note, Article, or Page)
+        handle_incoming_reply(object, activity["actor"])
+
+      %{"type" => type} = obj when type in ["Note", "Article", "Page"] ->
         # Standalone public post — store as remote entry for Explore
-        handle_incoming_note(object, activity["actor"])
+        handle_incoming_note(obj, activity["actor"])
         # If delivered to a personal inbox, check for @mentions of the inbox owner
-        maybe_create_mention_notification(object, activity["actor"], target_user)
+        maybe_create_mention_notification(obj, activity["actor"], target_user)
 
       _ ->
+        Logger.info("handle_create: unhandled object format — #{inspect(object_type)}")
         :ok
     end
 
@@ -802,10 +810,12 @@ defmodule InkwellWeb.FederationController do
     # Per FEP-7458: inReplyTo indicates the relationship — if they're replying
     # to our content, we should accept it.
     in_reply_to = note["inReplyTo"]
+    Logger.info("handle_incoming_reply: inReplyTo=#{in_reply_to}, actor=#{actor_uri}, note_id=#{note["id"]}")
 
     case find_entry_by_ap_url(in_reply_to) do
       nil ->
         # Not a reply to an entry — check if it's a reply to a guestbook post
+        Logger.info("handle_incoming_reply: no local entry found for #{in_reply_to}, checking guestbook")
         case find_guestbook_owner(in_reply_to) do
           nil ->
             Logger.info("Ignoring reply to unknown content: #{in_reply_to}")
@@ -815,6 +825,7 @@ defmodule InkwellWeb.FederationController do
         end
 
       entry ->
+        Logger.info("handle_incoming_reply: matched entry #{entry.id} (#{entry.title})")
         case RemoteActor.fetch(actor_uri) do
           {:ok, remote_actor} ->
             profile_url =
@@ -838,9 +849,9 @@ defmodule InkwellWeb.FederationController do
             }
 
             case Journals.create_comment(comment_attrs) do
-              {:ok, _comment} ->
+              {:ok, comment} ->
+                Logger.info("Created federated comment #{comment.id} on entry #{entry.id} from #{actor_uri}")
                 create_reply_notification(entry, remote_actor)
-                Logger.info("Created federated comment on entry #{entry.id} from #{actor_uri}")
 
               {:error, reason} ->
                 Logger.warning("Failed to create federated comment: #{inspect(reason)}")
@@ -1061,8 +1072,7 @@ defmodule InkwellWeb.FederationController do
         _ -> remote_actor.ap_id
       end
 
-    %Inkwell.Accounts.Notification{}
-    |> Inkwell.Accounts.Notification.changeset(%{
+    Accounts.create_notification(%{
       user_id: entry.user_id,
       type: :comment,
       data: %{
@@ -1078,7 +1088,6 @@ defmodule InkwellWeb.FederationController do
         }
       }
     })
-    |> Repo.insert()
   end
 
   defp create_ink_notification(entry, remote_actor) do
@@ -1088,8 +1097,7 @@ defmodule InkwellWeb.FederationController do
         _ -> remote_actor.ap_id
       end
 
-    %Inkwell.Accounts.Notification{}
-    |> Inkwell.Accounts.Notification.changeset(%{
+    Accounts.create_notification(%{
       user_id: entry.user_id,
       type: :ink,
       target_type: "entry",
@@ -1107,7 +1115,6 @@ defmodule InkwellWeb.FederationController do
         }
       }
     })
-    |> Repo.insert()
   end
 
   # ── Fediverse mention notification ──────────────────────────────────────
