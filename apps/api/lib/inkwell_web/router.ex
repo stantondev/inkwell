@@ -205,6 +205,10 @@ defmodule InkwellWeb.Router do
     # Image uploads
     post "/images", EntryImageController, :create
 
+    # Post Manager (own entries with filters + bulk ops)
+    get "/me/entries", EntryController, :list_own
+    post "/me/entries/bulk", EntryController, :bulk_action
+
     # Entries (CRUD)
     get "/drafts", EntryController, :list_drafts
     get "/entries/:id", EntryController, :show_own

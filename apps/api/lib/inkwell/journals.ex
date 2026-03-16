@@ -298,6 +298,211 @@ defmodule Inkwell.Journals do
     |> Repo.aggregate(:count)
   end
 
+  # ── Post Manager (own entries with filters + bulk ops) ──────────────────────
+
+  @doc "List all entries belonging to a user (drafts + published) with filters."
+  def list_own_entries(user_id, opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 20)
+    sort = Keyword.get(opts, :sort, "newest")
+
+    build_own_entries_query(user_id, opts)
+    |> apply_own_entries_sort(sort)
+    |> limit(^per_page)
+    |> offset(^((page - 1) * per_page))
+    |> preload(:series)
+    |> Repo.all()
+  end
+
+  @doc "Count own entries matching filters (for pagination)."
+  def count_own_entries(user_id, opts \\ []) do
+    build_own_entries_query(user_id, opts)
+    |> Repo.aggregate(:count)
+  end
+
+  defp build_own_entries_query(user_id, opts) do
+    status = Keyword.get(opts, :status)
+    privacy = Keyword.get(opts, :privacy)
+    category = Keyword.get(opts, :category)
+    series_id = Keyword.get(opts, :series_id)
+    tag = Keyword.get(opts, :tag)
+    search = Keyword.get(opts, :search)
+
+    query = Entry |> where(user_id: ^user_id)
+
+    query =
+      case status do
+        "draft" -> where(query, [e], e.status == :draft)
+        "published" -> where(query, [e], e.status == :published)
+        _ -> query
+      end
+
+    query = if privacy, do: where(query, [e], e.privacy == ^privacy), else: query
+    query = if category, do: where(query, [e], e.category == ^category), else: query
+    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+
+    query =
+      case series_id do
+        "none" -> where(query, [e], is_nil(e.series_id))
+        sid when is_binary(sid) and sid != "" -> where(query, [e], e.series_id == ^sid)
+        _ -> query
+      end
+
+    if search && search != "" do
+      term = "%#{search}%"
+      where(query, [e], ilike(e.title, ^term))
+    else
+      query
+    end
+  end
+
+  defp apply_own_entries_sort(query, "oldest"), do: order_by(query, asc: :inserted_at)
+  defp apply_own_entries_sort(query, "most_inked"), do: order_by(query, [e], desc: e.ink_count, desc: e.inserted_at)
+  defp apply_own_entries_sort(query, "alphabetical"), do: order_by(query, [e], asc_nulls_last: e.title, desc: e.inserted_at)
+  defp apply_own_entries_sort(query, _newest), do: order_by(query, desc: :inserted_at)
+
+  @doc "Bulk delete entries with ownership verification. Returns {:ok, count, entries_meta} or {:error, reason}."
+  def bulk_delete_entries(user_id, entry_ids) when is_list(entry_ids) do
+    # Fetch entries that belong to this user
+    entries =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> select([e], %{id: e.id, ap_id: e.ap_id, privacy: e.privacy, status: e.status, user_id: e.user_id})
+      |> Repo.all()
+
+    if length(entries) != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      # Delete translations for each entry
+      Enum.each(entries, fn e -> Inkwell.Translations.delete_translations_for("entry", e.id) end)
+
+      {count, _} =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> Repo.delete_all()
+
+      {:ok, count, entries}
+    end
+  end
+
+  @doc "Bulk update privacy on entries with ownership verification."
+  def bulk_update_privacy(user_id, entry_ids, privacy) when is_list(entry_ids) do
+    owned_count =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    if owned_count != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      {count, _} =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> Repo.update_all(set: [privacy: String.to_existing_atom(privacy), custom_filter_id: nil])
+
+      {:ok, count}
+    end
+  end
+
+  @doc "Bulk set or remove series assignment."
+  def bulk_update_series(user_id, entry_ids, series_id) when is_list(entry_ids) do
+    owned_count =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    if owned_count != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      # If setting a series, verify it belongs to the user
+      if series_id do
+        case Repo.get(Series, series_id) do
+          %Series{user_id: ^user_id} ->
+            {count, _} =
+              Entry
+              |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+              |> Repo.update_all(set: [series_id: series_id])
+
+            {:ok, count}
+
+          _ ->
+            {:error, :unauthorized}
+        end
+      else
+        {count, _} =
+          Entry
+          |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+          |> Repo.update_all(set: [series_id: nil, series_order: nil])
+
+        {:ok, count}
+      end
+    end
+  end
+
+  @doc "Bulk add tags to entries."
+  def bulk_add_tags(user_id, entry_ids, new_tags) when is_list(entry_ids) and is_list(new_tags) do
+    owned_count =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    if owned_count != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      # Use raw SQL to append + deduplicate tags array
+      {count, _} =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> Repo.update_all(set: [tags: dynamic([e], fragment("(SELECT array_agg(DISTINCT t) FROM unnest(? || ?) AS t)", e.tags, ^new_tags))])
+
+      {:ok, count}
+    end
+  end
+
+  @doc "Bulk remove tags from entries."
+  def bulk_remove_tags(user_id, entry_ids, tags_to_remove) when is_list(entry_ids) and is_list(tags_to_remove) do
+    owned_count =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    if owned_count != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      # Remove specified tags from the array
+      {count, _} =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> Repo.update_all(set: [tags: dynamic([e], fragment("(SELECT coalesce(array_agg(t), '{}') FROM unnest(?) AS t WHERE t != ALL(?))", e.tags, ^tags_to_remove))])
+
+      {:ok, count}
+    end
+  end
+
+  @doc "Bulk publish drafts. Returns {:ok, published_entries} or {:error, reason}."
+  def bulk_publish_drafts(user_id, entry_ids) when is_list(entry_ids) do
+    drafts =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id and e.status == :draft)
+      |> Repo.all()
+
+    if length(drafts) != length(entry_ids) do
+      {:error, :not_all_drafts}
+    else
+      results =
+        Enum.map(drafts, fn draft ->
+          attrs = %{
+            "privacy" => Atom.to_string(draft.privacy || :public)
+          }
+
+          publish_draft(draft, attrs)
+        end)
+
+      published = Enum.filter(results, &match?({:ok, _}, &1)) |> Enum.map(fn {:ok, e} -> e end)
+      {:ok, published}
+    end
+  end
+
   # ── Series ───────────────────────────────────────────────────────────────────
 
   def list_series(user_id) do

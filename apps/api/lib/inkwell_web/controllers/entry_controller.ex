@@ -533,6 +533,179 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
+  # ── Post Manager ─────────────────────────────────────────────────────────
+
+  # GET /api/me/entries — list own entries with filters
+  def list_own(conn, params) do
+    user = conn.assigns.current_user
+
+    filter_opts = [
+      page: parse_int(params["page"], 1),
+      per_page: min(parse_int(params["per_page"], 20), 50),
+      status: params["status"],
+      privacy: params["privacy"],
+      category: params["category"],
+      series_id: params["series_id"],
+      tag: params["tag"],
+      search: params["q"],
+      sort: params["sort"] || "newest"
+    ]
+
+    entries = Journals.list_own_entries(user.id, filter_opts)
+    total = Journals.count_own_entries(user.id, Keyword.drop(filter_opts, [:page, :per_page, :sort]))
+
+    entry_ids = Enum.map(entries, & &1.id)
+    comment_counts = Journals.count_comments_for_entries(entry_ids)
+
+    json(conn, %{
+      data: Enum.map(entries, fn entry ->
+        %{
+          id: entry.id,
+          title: entry.title,
+          slug: entry.slug,
+          status: entry.status,
+          privacy: entry.privacy,
+          category: entry.category,
+          series_id: entry.series_id,
+          series_name: if(entry.series, do: entry.series.name, else: nil),
+          tags: entry.tags || [],
+          word_count: entry.word_count || 0,
+          ink_count: entry.ink_count || 0,
+          comment_count: Map.get(comment_counts, entry.id, 0),
+          sensitive: entry.sensitive || false,
+          cover_image_id: entry.cover_image_id,
+          published_at: entry.published_at,
+          updated_at: entry.updated_at,
+          created_at: entry.inserted_at
+        }
+      end),
+      pagination: %{page: filter_opts[:page], per_page: filter_opts[:per_page], total: total}
+    })
+  end
+
+  @bulk_max_ids 100
+
+  # POST /api/me/entries/bulk — bulk operations
+  def bulk_action(conn, %{"action" => action, "entry_ids" => entry_ids} = params)
+      when is_list(entry_ids) do
+    user = conn.assigns.current_user
+
+    if length(entry_ids) > @bulk_max_ids do
+      conn |> put_status(:bad_request) |> json(%{error: "Maximum #{@bulk_max_ids} entries per request"})
+    else
+      case action do
+        "delete" -> handle_bulk_delete(conn, user, entry_ids)
+        "update_privacy" -> handle_bulk_privacy(conn, user, entry_ids, params["privacy"])
+        "set_series" -> handle_bulk_series(conn, user, entry_ids, params["series_id"])
+        "remove_series" -> handle_bulk_series(conn, user, entry_ids, nil)
+        "add_tags" -> handle_bulk_tags(conn, user, entry_ids, params["tags"], :add)
+        "remove_tags" -> handle_bulk_tags(conn, user, entry_ids, params["tags"], :remove)
+        "publish" -> handle_bulk_publish(conn, user, entry_ids)
+        _ -> conn |> put_status(:bad_request) |> json(%{error: "Unknown action"})
+      end
+    end
+  end
+
+  def bulk_action(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "Missing action or entry_ids"})
+  end
+
+  defp handle_bulk_delete(conn, user, entry_ids) do
+    case Journals.bulk_delete_entries(user.id, entry_ids) do
+      {:ok, count, entries_meta} ->
+        # Fan out deletes for public published entries
+        Enum.each(entries_meta, fn meta ->
+          if meta.privacy == :public && meta.status == :published && meta.ap_id do
+            %{entry_ap_id: meta.ap_id, action: "delete", user_id: meta.user_id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+          end
+
+          enqueue_search_delete(meta.id)
+        end)
+
+        json(conn, %{ok: true, count: count})
+
+      {:error, :unauthorized} ->
+        conn |> put_status(:forbidden) |> json(%{error: "One or more entries not found or not yours"})
+    end
+  end
+
+  defp handle_bulk_privacy(conn, user, entry_ids, privacy) when privacy in ~w(public friends_only private) do
+    case Journals.bulk_update_privacy(user.id, entry_ids, privacy) do
+      {:ok, count} ->
+        # Re-index affected entries
+        Enum.each(entry_ids, &enqueue_search_index/1)
+        json(conn, %{ok: true, count: count})
+
+      {:error, :unauthorized} ->
+        conn |> put_status(:forbidden) |> json(%{error: "One or more entries not found or not yours"})
+    end
+  end
+
+  defp handle_bulk_privacy(conn, _user, _entry_ids, _privacy) do
+    conn |> put_status(:bad_request) |> json(%{error: "Invalid privacy value"})
+  end
+
+  defp handle_bulk_series(conn, user, entry_ids, series_id) do
+    case Journals.bulk_update_series(user.id, entry_ids, series_id) do
+      {:ok, count} ->
+        Enum.each(entry_ids, &enqueue_search_index/1)
+        json(conn, %{ok: true, count: count})
+
+      {:error, :unauthorized} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
+    end
+  end
+
+  defp handle_bulk_tags(conn, user, entry_ids, tags, direction) when is_list(tags) do
+    clean_tags = tags |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+    if clean_tags == [] do
+      conn |> put_status(:bad_request) |> json(%{error: "No tags provided"})
+    else
+      result =
+        case direction do
+          :add -> Journals.bulk_add_tags(user.id, entry_ids, clean_tags)
+          :remove -> Journals.bulk_remove_tags(user.id, entry_ids, clean_tags)
+        end
+
+      case result do
+        {:ok, count} ->
+          Enum.each(entry_ids, &enqueue_search_index/1)
+          json(conn, %{ok: true, count: count})
+
+        {:error, :unauthorized} ->
+          conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
+      end
+    end
+  end
+
+  defp handle_bulk_tags(conn, _user, _entry_ids, _tags, _dir) do
+    conn |> put_status(:bad_request) |> json(%{error: "tags must be an array"})
+  end
+
+  defp handle_bulk_publish(conn, user, entry_ids) do
+    case Journals.bulk_publish_drafts(user.id, entry_ids) do
+      {:ok, published} ->
+        # Fan out creates for public entries + index all
+        Enum.each(published, fn entry ->
+          if entry.privacy == :public do
+            %{entry_id: entry.id, action: "create", user_id: entry.user_id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+          end
+
+          enqueue_search_index(entry.id)
+        end)
+
+        json(conn, %{ok: true, count: length(published)})
+
+      {:error, :not_all_drafts} ->
+        conn |> put_status(:bad_request) |> json(%{error: "Some entries are not drafts"})
+    end
+  end
+
   # ── Helpers ───────────────────────────────────────────────────────────────
 
   defp viewer_in_custom_filter?(entry, viewer_id) do

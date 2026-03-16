@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
 
-const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings"];
+const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings", "/manage"];
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 // ── Custom domain detection ─────────────────────────────────────────────────
@@ -19,7 +19,7 @@ const APP_ROUTES = [
   "/feed", "/editor", "/drafts", "/admin", "/letters", "/saved",
   "/settings", "/login", "/get-started", "/welcome", "/explore",
   "/search", "/notifications", "/roadmap", "/polls", "/circles",
-  "/pen-pals", "/developers", "/category", "/tag",
+  "/pen-pals", "/developers", "/category", "/tag", "/manage",
 ];
 
 // In-memory cache for custom domain resolution (60-second TTL)
