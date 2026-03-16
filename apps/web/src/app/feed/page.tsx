@@ -8,13 +8,14 @@ import { EducationCard } from "@/components/education-card";
 import { PushPrompt } from "@/components/push-prompt";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
+import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
 
 interface PageProps {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; source?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -285,14 +286,21 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const session = await getSession();
   if (!session) notFound();
 
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, source } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+
+  // Default to "all" — Feed shows everything you follow (local + fediverse)
+  const activeSource: string | null =
+    source === "inkwell" ? "inkwell" :
+    source === "fediverse" ? "fediverse" :
+    null;  // default: show all
+  const sourceParam = activeSource ? `&source=${activeSource}` : "";
 
   let entries: JournalEntry[] = [];
   let feedError = false;
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/feed?page=${page}`,
+      `/api/feed?page=${page}${sourceParam}`,
       {},
       session.token
     );
@@ -333,6 +341,46 @@ export default async function FeedPage({ searchParams }: PageProps) {
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
       <ExploreSearchWrapper>
+        {/* Source filter pills */}
+        <div className="mx-auto max-w-7xl px-4 pb-1">
+          <div className="explore-controls-row">
+            <div className="explore-controls-source">
+              {([
+                { label: "All", value: "all" },
+                { label: "Inkwell", value: "inkwell" },
+                { label: "Fediverse", value: "fediverse" },
+              ] as const).map((s) => {
+                const p = new URLSearchParams();
+                if (s.value !== "all") p.set("source", s.value);
+                const qs = p.toString();
+                const isActive =
+                  (s.value === "all" && activeSource === null) ||
+                  (s.value === "inkwell" && activeSource === "inkwell") ||
+                  (s.value === "fediverse" && activeSource === "fediverse");
+                return (
+                  <FilterLink
+                    key={s.label}
+                    href={`/feed${qs ? `?${qs}` : ""}`}
+                    className={`explore-controls-source-segment${isActive ? " active" : ""}`}
+                  >
+                    {s.value === "inkwell" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
+                      </svg>
+                    )}
+                    {s.value === "fediverse" && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                    )}
+                    <span>{s.label}</span>
+                  </FilterLink>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Feed dispatch header */}
         <div className="mx-auto max-w-7xl px-4 pb-3">
           <div className="feed-dispatch-header">
@@ -380,7 +428,8 @@ export default async function FeedPage({ searchParams }: PageProps) {
           entries={entries}
           page={page}
           basePath="/feed"
-          loadMorePath="/api/feed"
+          loadMorePath={activeSource ? `/api/feed?source=${activeSource}` : "/api/feed"}
+          extraParams={activeSource ? `&source=${activeSource}` : ""}
           emptyState={feedError ? (
             <div
               className="rounded-2xl border p-12 text-center"

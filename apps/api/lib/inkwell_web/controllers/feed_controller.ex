@@ -10,6 +10,7 @@ defmodule InkwellWeb.FeedController do
     user = conn.assigns.current_user
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], 20)
+    source_filter = params["source"]
 
     blocked_ids = Social.get_blocked_user_ids(user.id)
     friend_ids = Social.list_friend_ids(user.id) -- blocked_ids
@@ -19,8 +20,15 @@ defmodule InkwellWeb.FeedController do
 
     subscribed_writer_ids = WriterSubscriptions.get_subscribed_writer_ids(user.id)
 
-    local_entries = Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids, subscribed_writer_ids: subscribed_writer_ids)
-    remote_entries = RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
+    local_entries =
+      if source_filter == "fediverse",
+        do: [],
+        else: Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids, subscribed_writer_ids: subscribed_writer_ids)
+
+    remote_entries =
+      if source_filter == "inkwell",
+        do: [],
+        else: RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
 
     # Normalize into a common shape and merge chronologically
     local_items = Enum.map(local_entries, fn entry ->

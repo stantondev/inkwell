@@ -8,9 +8,11 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const page = searchParams.get("page") || "1";
+  const source = searchParams.get("source") || "";
+  const sourceParam = source ? `&source=${source}` : "";
 
   try {
-    const res = await fetch(`${SERVER_API}/api/feed?page=${page}`, {
+    const res = await fetch(`${SERVER_API}/api/feed?page=${page}${sourceParam}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
