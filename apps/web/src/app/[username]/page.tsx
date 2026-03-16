@@ -384,7 +384,10 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const rssUrl = effectiveDomain
       ? `https://${effectiveDomain}/api/users/${username}/feed.xml`
       : `https://inkwell.social/api/users/${username}/feed.xml`;
-    const ogImageUrl = `/api/og?type=profile&name=${encodeURIComponent(displayName)}&username=${encodeURIComponent(username)}&bio=${encodeURIComponent(bio)}`;
+    // Use avatar as small OG image for compact preview cards.
+    // No giant dynamic image — text-based cards (title + bio) look much better on Mastodon.
+    const hasAvatar = !!profile.avatar_url;
+    const avatarOgUrl = hasAvatar ? `/api/avatars/${username}` : undefined;
 
     return {
       title: effectiveDomain ? displayName : `@${username}`,
@@ -395,14 +398,14 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
         description: bio,
         url: profileUrl,
         type: "profile",
-        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${displayName}'s profile on Inkwell` }],
+        ...(avatarOgUrl ? { images: [{ url: avatarOgUrl, alt: `${displayName}'s avatar` }] } : {}),
       },
       twitter: {
         site: "@inkwellsocial",
-        card: "summary_large_image",
+        card: "summary",
         title: displayName,
         description: bio,
-        images: [ogImageUrl],
+        ...(avatarOgUrl ? { images: [avatarOgUrl] } : {}),
       },
       alternates: {
         canonical: profileUrl,
