@@ -577,6 +577,13 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 function EditorBubbleMenu({ editor }: { editor: Editor }) {
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  if (isTouchDevice) return null;
 
   return (
     <BubbleMenu editor={editor} style={{ zIndex: 50 }}>

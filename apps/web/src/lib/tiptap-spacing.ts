@@ -27,7 +27,7 @@ export const Spacing = Extension.create({
         ],
         attributes: {
           spacing: {
-            default: null,
+            default: "tight",
             parseHTML: (element) => element.getAttribute("data-spacing") || null,
             renderHTML: (attributes) => {
               if (!attributes.spacing || attributes.spacing === "normal") return {};
