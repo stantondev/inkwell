@@ -285,35 +285,41 @@ defmodule InkwellWeb.CommentController do
           inboxes = Inkwell.Federation.Workers.FanOutWorker.collect_remote_inboxes(entry_author.id)
 
           if inboxes != [] do
-            # Build a Create{Note} reply activity
-            # The inReplyTo should be the entry's AP ID so Mastodon threads it correctly
+            # Build the reply Note addressed to the entry author.
+            # build_reply_note creates a proper Mention tag and addresses
+            # the Note to the entry author — this is essential for Mastodon
+            # to thread the comment under the original entry.
+            entry_author_ap_id = ActivityBuilder.actor_url(entry_author)
+
             activity = ActivityBuilder.build_reply_note(
               comment.body_html,
               entry.ap_id,
               user,
               comment.id,
-              # For local entries, address to Public (no single remote author to mention)
-              # We override the to/cc below for broadcast
-              "https://www.w3.org/ns/activitystreams#Public"
+              entry_author_ap_id
             )
 
-            # Override addressing for broadcast to followers (not a reply to a specific remote actor)
-            actor_url = activity["actor"]
-            followers_url = "#{actor_url}/followers"
+            # Adjust addressing: the comment should be public (so fediverse
+            # followers can see the thread) with the entry author mentioned.
+            # build_reply_note sets to=[author], cc=[Public, commenter_followers]
+            # We add the entry author's followers to cc so the thread propagates.
+            commenter_url = activity["actor"]
+            commenter_followers = "#{commenter_url}/followers"
+            author_followers = "#{entry_author_ap_id}/followers"
             public = "https://www.w3.org/ns/activitystreams#Public"
 
             activity =
               activity
-              |> Map.put("to", [public])
-              |> Map.put("cc", [followers_url])
+              |> Map.put("to", [public, entry_author_ap_id])
+              |> Map.put("cc", [commenter_followers, author_followers])
               |> Map.update("object", %{}, fn obj ->
                 obj
-                |> Map.put("to", [public])
-                |> Map.put("cc", [followers_url])
-                |> Map.put("tag", [])
+                |> Map.put("to", [public, entry_author_ap_id])
+                |> Map.put("cc", [commenter_followers, author_followers])
+                # Keep the Mention tag from build_reply_note — Mastodon needs it
               end)
 
-            Logger.info("Federating comment #{comment.id} to #{length(inboxes)} inboxes")
+            Logger.info("Federating comment #{comment.id} on entry #{entry.id} by #{user.username} to #{length(inboxes)} inboxes (entry author: #{entry_author.username})")
 
             Enum.each(inboxes, fn inbox_url ->
               %{activity: activity, inbox_url: inbox_url, user_id: user.id}
