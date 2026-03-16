@@ -35,6 +35,12 @@ inkwell/
 - **API**: https://api.inkwell.social (custom domain) / https://inkwell-api.fly.dev (Fly fallback)
 - **Health check**: https://inkwell-api.fly.dev/health
 
+### Machine scaling
+- **API**: 2× `shared-cpu-1x` in `ord` — rolling deploys (zero downtime), redundancy
+- **Web**: 2× `shared-cpu-1x` in `ord` — rolling deploys (zero downtime), redundancy
+- **Search**: 1× `shared-cpu-1x` in `ord` (single instance, not critical path)
+- Fly rolls deploys one machine at a time, keeping the other serving traffic
+
 ### Deploy commands
 ```bash
 fly deploy --config fly.api.toml --wait-timeout 600     # API only
