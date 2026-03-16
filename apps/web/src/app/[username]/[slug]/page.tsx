@@ -278,9 +278,12 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       ? `https://${effectiveDomain}/${slug}`
       : `https://inkwell.social/${username}/${slug}`;
     const hasCover = !!entry.cover_image_id;
+    const hasAvatar = !!entry.author?.avatar_url;
     const ogImageUrl = hasCover
       ? `/api/images/${entry.cover_image_id}`
-      : `/api/og?type=entry&title=${encodeURIComponent(truncate(entry.title ?? "", 100))}&author=${encodeURIComponent(entry.author?.display_name ?? username)}&username=${encodeURIComponent(username)}${entry.category ? `&category=${encodeURIComponent(entry.category)}` : ""}&date=${encodeURIComponent(entry.published_at ?? "")}`;
+      : hasAvatar
+        ? `/api/avatars/${username}`
+        : `/api/og?type=entry&title=${encodeURIComponent(truncate(entry.title ?? "", 100))}&author=${encodeURIComponent(entry.author?.display_name ?? username)}&username=${encodeURIComponent(username)}${entry.category ? `&category=${encodeURIComponent(entry.category)}` : ""}&date=${encodeURIComponent(entry.published_at ?? "")}`;
 
     return {
       title,
@@ -294,11 +297,13 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
         type: "article",
         publishedTime: entry.published_at,
         authors: [entry.author?.display_name ?? username],
-        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
+        images: hasCover
+          ? [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }]
+          : [{ url: ogImageUrl, alt: ogTitle }],
       },
       twitter: {
         site: "@inkwellsocial",
-        card: "summary_large_image",
+        card: hasCover ? "summary_large_image" : "summary",
         title: ogTitle,
         description,
         images: [ogImageUrl],
