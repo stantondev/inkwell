@@ -63,7 +63,6 @@ Starts empty — no seed data. To see content on Explore/Feed, sign up and publi
 ## Key Decisions
 
 - **Local-first workflow**: All changes tested locally before deploying to prod. Do NOT push untested code directly.
-- **CLAUDE.md and .claude/ are gitignored** — removed from public repo on 2026-02-24 to avoid revealing AI tooling usage
 - **Docker Compose has no Redis** — removed from docker-compose.yml on 2026-02-24 (nothing uses it)
 - **Pool size is 5** — `POOL_SIZE=5` in fly.api.toml. Do not raise to 10; it overwhelmed Postgres on cold starts and contributed to the 2026-02-24 outage.
 - **Resilient docker entrypoint** — `apps/api/rel/docker-entrypoint.sh` retries DB connection up to 15 times (5s delay) before running migrations, and never crashes the container if migrations fail. This prevents the restart-loop that caused the 2026-02-24 outage.
