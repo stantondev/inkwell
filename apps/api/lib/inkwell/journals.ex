@@ -165,8 +165,23 @@ defmodule Inkwell.Journals do
         query
       end
 
+    category = Keyword.get(opts, :category, nil)
+    query =
+      if is_binary(category) && category != "" do
+        where(query, [e], e.category == ^category)
+      else
+        query
+      end
+
+    sort = Keyword.get(opts, :sort, "newest")
+    query =
+      if sort == "most_inked" do
+        order_by(query, [e], desc: e.ink_count, desc: e.published_at)
+      else
+        order_by(query, desc: :published_at)
+      end
+
     query
-    |> order_by(desc: :published_at)
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
     |> preload([:user, :user_icon])

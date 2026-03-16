@@ -40,6 +40,7 @@ defmodule Inkwell.Federation.RemoteEntries do
   def list_followed_remote_entries(user_id, opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
+    filter_tags = Keyword.get(opts, :tags, nil)
 
     # Find remote_actor_ids that this user follows
     followed_actor_ids =
@@ -51,14 +52,29 @@ defmodule Inkwell.Federation.RemoteEntries do
     if followed_actor_ids == [] do
       []
     else
-      RemoteEntry
-      |> where([e], e.remote_actor_id in ^followed_actor_ids)
-      |> where([e], not is_nil(e.published_at))
-      |> order_by(desc: :published_at)
-      |> limit(^per_page)
-      |> offset(^((page - 1) * per_page))
-      |> preload(:remote_actor)
-      |> Repo.all()
+      query =
+        RemoteEntry
+        |> where([e], e.remote_actor_id in ^followed_actor_ids)
+        |> where([e], not is_nil(e.published_at))
+        |> order_by(desc: :published_at)
+        |> limit(^per_page)
+        |> offset(^((page - 1) * per_page))
+        |> preload(:remote_actor)
+
+      query =
+        if is_list(filter_tags) && filter_tags != [] do
+          where(query, [e],
+            fragment(
+              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ANY(?))",
+              e.tags,
+              ^filter_tags
+            )
+          )
+        else
+          query
+        end
+
+      Repo.all(query)
     end
   end
 

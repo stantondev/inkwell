@@ -10,12 +10,13 @@ import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
+import { CATEGORIES } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; source?: string }>;
+  searchParams: Promise<{ page?: string; source?: string; category?: string; sort?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +287,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const session = await getSession();
   if (!session) notFound();
 
-  const { page: pageParam, source } = await searchParams;
+  const { page: pageParam, source, category, sort } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
   // Default to "all" — Feed shows everything you follow (local + fediverse)
@@ -294,13 +295,15 @@ export default async function FeedPage({ searchParams }: PageProps) {
     source === "inkwell" ? "inkwell" :
     source === "fediverse" ? "fediverse" :
     null;  // default: show all
+  const activeSort = sort === "most_inked" ? "most_inked" : "newest";
   const sourceParam = activeSource ? `&source=${activeSource}` : "";
-
+  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
+  const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
   let entries: JournalEntry[] = [];
   let feedError = false;
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/feed?page=${page}${sourceParam}`,
+      `/api/feed?page=${page}${sourceParam}${categoryParam}${sortParam}`,
       {},
       session.token
     );
@@ -341,9 +344,10 @@ export default async function FeedPage({ searchParams }: PageProps) {
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
       <ExploreSearchWrapper>
-        {/* Source filter pills */}
+        {/* Source filter pills + Sort toggles */}
         <div className="mx-auto max-w-7xl px-4 pb-1">
           <div className="explore-controls-row">
+            {/* Source segmented control */}
             <div className="explore-controls-source">
               {([
                 { label: "All", value: "all" },
@@ -352,6 +356,8 @@ export default async function FeedPage({ searchParams }: PageProps) {
               ] as const).map((s) => {
                 const p = new URLSearchParams();
                 if (s.value !== "all") p.set("source", s.value);
+                if (category) p.set("category", category);
+                if (activeSort !== "newest") p.set("sort", activeSort);
                 const qs = p.toString();
                 const isActive =
                   (s.value === "all" && activeSource === null) ||
@@ -378,6 +384,72 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 );
               })}
             </div>
+
+            {/* Sort icon toggles */}
+            <div className="explore-controls-sort">
+              {([
+                { label: "Newest", value: "newest" },
+                { label: "Most Inked", value: "most_inked" },
+              ] as const).map((s) => {
+                const p = new URLSearchParams();
+                if (category) p.set("category", category);
+                if (s.value !== "newest") p.set("sort", s.value);
+                if (activeSource) p.set("source", activeSource);
+                const qs = p.toString();
+                const isActive = activeSort === s.value;
+                return (
+                  <FilterLink
+                    key={s.label}
+                    href={`/feed${qs ? `?${qs}` : ""}`}
+                    className={`explore-controls-sort-toggle${isActive ? " active" : ""}`}
+                  >
+                    {s.value === "newest" ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    ) : (
+                      <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                      </svg>
+                    )}
+                    <span>{s.label}</span>
+                  </FilterLink>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Category bookstore shelf */}
+        <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
+          <div className="explore-controls-categories" style={{ minWidth: "max-content" }}>
+            <FilterLink
+              href={(() => {
+                const p = new URLSearchParams();
+                if (activeSort !== "newest") p.set("sort", activeSort);
+                if (activeSource) p.set("source", activeSource);
+                const qs = p.toString();
+                return `/feed${qs ? `?${qs}` : ""}`;
+              })()}
+              className={`explore-controls-category${!category ? " active" : ""}`}
+            >
+              All
+            </FilterLink>
+            {CATEGORIES.map((cat) => {
+              const p = new URLSearchParams();
+              p.set("category", cat.value);
+              if (activeSort !== "newest") p.set("sort", activeSort);
+              if (activeSource) p.set("source", activeSource);
+              return (
+                <FilterLink
+                  key={cat.value}
+                  href={`/feed?${p.toString()}`}
+                  className={`explore-controls-category${category === cat.value ? " active" : ""}`}
+                >
+                  {cat.label}
+                </FilterLink>
+              );
+            })}
           </div>
         </div>
 
@@ -428,8 +500,15 @@ export default async function FeedPage({ searchParams }: PageProps) {
           entries={entries}
           page={page}
           basePath="/feed"
-          loadMorePath={activeSource ? `/api/feed?source=${activeSource}` : "/api/feed"}
-          extraParams={activeSource ? `&source=${activeSource}` : ""}
+          loadMorePath={(() => {
+            const p = new URLSearchParams();
+            if (activeSource) p.set("source", activeSource);
+            if (category) p.set("category", category);
+            if (activeSort !== "newest") p.set("sort", activeSort);
+            const qs = p.toString();
+            return `/api/feed${qs ? `?${qs}` : ""}`;
+          })()}
+          extraParams={`${sourceParam}${categoryParam}${sortParam}`}
           emptyState={feedError ? (
             <div
               className="rounded-2xl border p-12 text-center"

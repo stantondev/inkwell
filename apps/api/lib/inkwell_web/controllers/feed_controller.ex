@@ -2,7 +2,7 @@ defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
-  alias Inkwell.Federation.RemoteEntries
+  alias Inkwell.Federation.{CategoryHashtags, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/feed — authenticated reading feed (friends' + followed remote actors' entries)
@@ -11,6 +11,8 @@ defmodule InkwellWeb.FeedController do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], 20)
     source_filter = params["source"]
+    category_filter = params["category"]
+    sort_filter = params["sort"]
 
     blocked_ids = Social.get_blocked_user_ids(user.id)
     friend_ids = Social.list_friend_ids(user.id) -- blocked_ids
@@ -20,28 +22,51 @@ defmodule InkwellWeb.FeedController do
 
     subscribed_writer_ids = WriterSubscriptions.get_subscribed_writer_ids(user.id)
 
+    # Build category hashtags for remote entry filtering
+    category_hashtags =
+      if is_binary(category_filter) && category_filter != "" do
+        CategoryHashtags.hashtags_for_category(category_filter)
+      else
+        nil
+      end
+
     local_entries =
       if source_filter == "fediverse",
         do: [],
-        else: Journals.list_feed_entries(user.id, friend_ids, page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids, subscribed_writer_ids: subscribed_writer_ids)
+        else: Journals.list_feed_entries(user.id, friend_ids,
+          page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids,
+          subscribed_writer_ids: subscribed_writer_ids,
+          category: category_filter, sort: sort_filter)
 
     remote_entries =
-      if source_filter == "inkwell",
-        do: [],
-        else: RemoteEntries.list_followed_remote_entries(user.id, page: 1, per_page: fetch_count)
+      cond do
+        source_filter == "inkwell" -> []
+        is_list(category_hashtags) && category_hashtags == [] -> []
+        true ->
+          RemoteEntries.list_followed_remote_entries(user.id,
+            page: 1, per_page: fetch_count, tags: category_hashtags)
+      end
 
-    # Normalize into a common shape and merge chronologically
+    # Normalize into a common shape and merge
     local_items = Enum.map(local_entries, fn entry ->
-      %{type: :local, entry: entry, published_at: entry.published_at}
+      %{type: :local, entry: entry, published_at: entry.published_at, ink_count: entry.ink_count || 0}
     end)
 
     remote_items = Enum.map(remote_entries, fn re ->
-      %{type: :remote, entry: re, published_at: re.published_at}
+      %{type: :remote, entry: re, published_at: re.published_at, ink_count: 0}
     end)
 
     all_items =
       (local_items ++ remote_items)
-      |> Enum.sort_by(& &1.published_at, {:desc, DateTime})
+      |> then(fn items ->
+        if sort_filter == "most_inked" do
+          Enum.sort_by(items, fn i -> {i.ink_count, i.published_at} end, fn {a_ink, a_pub}, {b_ink, b_pub} ->
+            if a_ink == b_ink, do: DateTime.compare(a_pub, b_pub) != :lt, else: a_ink > b_ink
+          end)
+        else
+          Enum.sort_by(items, & &1.published_at, {:desc, DateTime})
+        end
+      end)
       |> Enum.drop((page - 1) * per_page)
       |> Enum.take(per_page)
 

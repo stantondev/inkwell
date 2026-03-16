@@ -9,10 +9,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const page = searchParams.get("page") || "1";
   const source = searchParams.get("source") || "";
+  const category = searchParams.get("category") || "";
+  const sort = searchParams.get("sort") || "";
   const sourceParam = source ? `&source=${source}` : "";
+  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
+  const sortParam = sort ? `&sort=${sort}` : "";
 
   try {
-    const res = await fetch(`${SERVER_API}/api/feed?page=${page}${sourceParam}`, {
+    const res = await fetch(`${SERVER_API}/api/feed?page=${page}${sourceParam}${categoryParam}${sortParam}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
