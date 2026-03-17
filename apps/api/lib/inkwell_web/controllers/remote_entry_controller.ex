@@ -2,8 +2,8 @@ defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Inks, Journals, Stamps}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, RemoteActor}
-  alias Inkwell.Federation.Workers.DeliverActivityWorker
+  alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, RemoteActor, ReplyFetcher}
+  alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
   alias Inkwell.Repo
 
   import Ecto.Query
@@ -73,7 +73,19 @@ defmodule InkwellWeb.RemoteEntryController do
   # GET /api/remote-entries/:id/comments
   def list_comments(conn, %{"id" => id}) do
     case get_remote_entry(id) do
-      {:ok, _remote_entry} ->
+      {:ok, remote_entry} ->
+        # Check if we should trigger a background fetch of fediverse replies
+        fetching =
+          if ReplyFetcher.needs_fetch?(remote_entry) do
+            %{remote_entry_id: id}
+            |> FetchRepliesWorker.new()
+            |> Oban.insert()
+
+            true
+          else
+            false
+          end
+
         comments =
           Inkwell.Journals.Comment
           |> where([c], c.remote_entry_id == ^id)
@@ -81,7 +93,11 @@ defmodule InkwellWeb.RemoteEntryController do
           |> preload(:user)
           |> Repo.all()
 
-        json(conn, %{data: Enum.map(comments, &render_comment/1)})
+        json(conn, %{
+          data: Enum.map(comments, &render_comment/1),
+          replies_fetched_at: remote_entry.replies_fetched_at,
+          fetching: fetching
+        })
 
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
@@ -246,13 +262,30 @@ defmodule InkwellWeb.RemoteEntryController do
         }
       end
 
+    remote_author =
+      case comment.remote_author do
+        %{} = ra when map_size(ra) > 0 ->
+          %{
+            username: ra["username"] || ra[:username],
+            domain: ra["domain"] || ra[:domain],
+            display_name: ra["display_name"] || ra[:display_name],
+            avatar_url: ra["avatar_url"] || ra[:avatar_url],
+            profile_url: ra["profile_url"] || ra[:profile_url],
+            ap_id: ra["ap_id"] || ra[:ap_id]
+          }
+        _ -> nil
+      end
+
     %{
       id: comment.id,
       remote_entry_id: comment.remote_entry_id,
       user_id: comment.user_id,
+      parent_comment_id: comment.parent_comment_id,
       body_html: comment.body_html,
       ap_id: comment.ap_id,
+      depth: comment.depth || 0,
       author: author,
+      remote_author: remote_author,
       created_at: comment.inserted_at
     }
   end

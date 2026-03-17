@@ -84,6 +84,7 @@ function CommentPopupContent({
   commentsLoaded,
   comments,
   isRemote,
+  fetchingReplies,
   isLoggedIn,
   entryHref,
   entryId,
@@ -97,6 +98,7 @@ function CommentPopupContent({
   commentsLoaded: boolean;
   comments: FeedComment[];
   isRemote: boolean;
+  fetchingReplies?: boolean;
   isLoggedIn: boolean;
   entryHref: string;
   entryId: string;
@@ -220,7 +222,9 @@ function CommentPopupContent({
               fontStyle: "italic",
             }}
           >
-            No marginalia yet. Be the first to annotate.
+            {fetchingReplies
+              ? "Loading fediverse replies…"
+              : "No marginalia yet. Be the first to annotate."}
           </p>
         ) : (
           <div className="comment-thread-list">
@@ -242,6 +246,18 @@ function CommentPopupContent({
                 onDelete={handleDelete}
               />
             ))}
+            {fetchingReplies && (
+              <p
+                className="text-[10px] py-2 text-center"
+                style={{
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-lora, Georgia, serif)",
+                  fontStyle: "italic",
+                }}
+              >
+                Loading fediverse replies…
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -337,18 +353,46 @@ export function FeedCardActions({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadComments = useCallback(async () => {
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+    };
+  }, []);
+
+  const [fetchingReplies, setFetchingReplies] = useState(false);
+  const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadComments = useCallback(async (opts?: { skipRefetch?: boolean }) => {
     try {
       const res = await fetch(commentsPath);
       if (res.ok) {
-        const { data } = await res.json();
-        setComments(data ?? []);
+        const json = await res.json();
+        const data = json.data ?? [];
+        setComments(data);
         setCommentsLoaded(true);
+
+        // For remote entries: if a background fetch was just triggered and
+        // replies haven't been fetched before, re-fetch once after 3s
+        if (
+          isRemote &&
+          json.fetching === true &&
+          !json.replies_fetched_at &&
+          !opts?.skipRefetch
+        ) {
+          setFetchingReplies(true);
+          refetchTimerRef.current = setTimeout(async () => {
+            await loadComments({ skipRefetch: true });
+            setFetchingReplies(false);
+          }, 3000);
+        } else {
+          setFetchingReplies(false);
+        }
       }
     } catch {
       // silent fail
     }
-  }, [commentsPath]);
+  }, [commentsPath, isRemote]);
 
   function handleCommentToggle() {
     if (!commentPopupOpen) {
@@ -452,6 +496,7 @@ export function FeedCardActions({
                       commentsLoaded={commentsLoaded}
                       comments={comments}
                       isRemote={isRemote}
+                      fetchingReplies={fetchingReplies}
                       isLoggedIn={isLoggedIn}
                       entryHref={entryHref}
                       entryId={entryId}
@@ -484,6 +529,7 @@ export function FeedCardActions({
                   commentsLoaded={commentsLoaded}
                   comments={comments}
                   isRemote={isRemote}
+                  fetchingReplies={fetchingReplies}
                   isLoggedIn={isLoggedIn}
                   entryHref={entryHref}
                   entryId={entryId}
