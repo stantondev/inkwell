@@ -596,15 +596,29 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide }: { editor: E
   const [showHighlights, setShowHighlights] = useState(false);
   const [showSpacing, setShowSpacing] = useState(false);
 
+  // Grace period: on touch devices, once shown, don't hide for 600ms even if
+  // the selection briefly collapses (iOS native popup causes transient deselect)
+  const lastShownAt = useRef(0);
+  const shouldShow = useCallback(({ state }: { state: { selection: { from: number; to: number } } }) => {
+    const { from, to } = state.selection;
+    const hasSelection = from !== to;
+    if (hasSelection) {
+      lastShownAt.current = Date.now();
+      return true;
+    }
+    // On touch: keep visible during grace period after last valid selection
+    if (isTouchDevice && Date.now() - lastShownAt.current < 600) {
+      return true;
+    }
+    return false;
+  }, [isTouchDevice]);
+
   return (
     <BubbleMenu
       editor={editor}
       style={{ zIndex: 50 }}
       updateDelay={isTouchDevice ? 500 : 250}
-      shouldShow={({ state }) => {
-        const { from, to } = state.selection;
-        return from !== to;
-      }}
+      shouldShow={shouldShow}
       options={{
         placement: "bottom-start",
         offset: 80,
