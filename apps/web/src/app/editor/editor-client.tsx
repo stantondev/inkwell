@@ -596,30 +596,38 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
   const [showHighlights, setShowHighlights] = useState(false);
   const [showSpacing, setShowSpacing] = useState(false);
 
-  // Grace period: on touch devices, once the BubbleMenu has been shown with a valid
-  // selection, keep it visible for 2s even if iOS briefly collapses the selection.
-  // iOS's first contentEditable selection often gets cleared by the native popup
-  // appearing — this grace period rides through that disruption.
-  const lastValidSelectionAt = useRef(0);
-  const GRACE_MS = isTouchDevice ? 2000 : 0;
+  // On touch devices: once shown with a valid selection, keep visible until
+  // the editor blurs. iOS clears selections as a side effect of native popup
+  // rendering — we should ignore that, not hide the BubbleMenu.
+  const wasShownWithSelection = useRef(false);
+
+  // Reset on blur — the user has moved away from the editor
+  useEffect(() => {
+    if (!isTouchDevice) return;
+    const onBlur = () => {
+      wasShownWithSelection.current = false;
+      onShouldShowLog?.("blur → reset lock");
+    };
+    editor.on("blur", onBlur);
+    return () => { editor.off("blur", onBlur); };
+  }, [editor, isTouchDevice, onShouldShowLog]);
 
   const shouldShow = useCallback(({ state }: { state: { selection: { from: number; to: number } } }) => {
     const { from, to } = state.selection;
     const hasSelection = from !== to;
     if (hasSelection) {
-      lastValidSelectionAt.current = Date.now();
+      wasShownWithSelection.current = true;
       onShouldShowLog?.(`sel ${from}-${to} → YES`);
       return true;
     }
-    // On touch: keep visible during grace period after last valid selection
-    const elapsed = Date.now() - lastValidSelectionAt.current;
-    if (GRACE_MS > 0 && elapsed < GRACE_MS) {
-      onShouldShowLog?.(`empty, grace ${elapsed}ms → YES`);
+    // On touch: once shown, stay visible until blur (ignore iOS deselect side effects)
+    if (isTouchDevice && wasShownWithSelection.current) {
+      onShouldShowLog?.(`empty, locked → YES`);
       return true;
     }
-    onShouldShowLog?.(`empty, no grace → NO`);
+    onShouldShowLog?.(`empty → NO`);
     return false;
-  }, [isTouchDevice, GRACE_MS, onShouldShowLog]);
+  }, [isTouchDevice, onShouldShowLog]);
 
   return (
     <BubbleMenu
