@@ -591,27 +591,35 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 
 // ─── Bubble Menu (appears on text selection, positioned well below native popup) ──
 
-function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide }: { editor: Editor; isTouchDevice: boolean; onShow: () => void; onHide: () => void }) {
+function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowLog }: { editor: Editor; isTouchDevice: boolean; onShow: () => void; onHide: () => void; onShouldShowLog?: (msg: string) => void }) {
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
   const [showSpacing, setShowSpacing] = useState(false);
 
-  // Grace period: on touch devices, once shown, don't hide for 600ms even if
-  // the selection briefly collapses (iOS native popup causes transient deselect)
-  const lastShownAt = useRef(0);
+  // Grace period: on touch devices, once the BubbleMenu has been shown with a valid
+  // selection, keep it visible for 2s even if iOS briefly collapses the selection.
+  // iOS's first contentEditable selection often gets cleared by the native popup
+  // appearing — this grace period rides through that disruption.
+  const lastValidSelectionAt = useRef(0);
+  const GRACE_MS = isTouchDevice ? 2000 : 0;
+
   const shouldShow = useCallback(({ state }: { state: { selection: { from: number; to: number } } }) => {
     const { from, to } = state.selection;
     const hasSelection = from !== to;
     if (hasSelection) {
-      lastShownAt.current = Date.now();
+      lastValidSelectionAt.current = Date.now();
+      onShouldShowLog?.(`sel ${from}-${to} → YES`);
       return true;
     }
     // On touch: keep visible during grace period after last valid selection
-    if (isTouchDevice && Date.now() - lastShownAt.current < 600) {
+    const elapsed = Date.now() - lastValidSelectionAt.current;
+    if (GRACE_MS > 0 && elapsed < GRACE_MS) {
+      onShouldShowLog?.(`empty, grace ${elapsed}ms → YES`);
       return true;
     }
+    onShouldShowLog?.(`empty, no grace → NO`);
     return false;
-  }, [isTouchDevice]);
+  }, [isTouchDevice, GRACE_MS, onShouldShowLog]);
 
   return (
     <BubbleMenu
@@ -763,7 +771,7 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide }: { editor: E
 
 // ─── Editor Debug Overlay (activate via ?debug=1 URL param) ─────────────────
 
-function EditorDebugOverlay({ editor, isTouchDevice, bubbleVisible }: { editor: Editor; isTouchDevice: boolean; bubbleVisible: boolean }) {
+function EditorDebugOverlay({ editor, isTouchDevice, bubbleVisible, shouldShowLogs = [] }: { editor: Editor; isTouchDevice: boolean; bubbleVisible: boolean; shouldShowLogs?: string[] }) {
   const [events, setEvents] = useState<string[]>([]);
   const [selInfo, setSelInfo] = useState({ from: 0, to: 0 });
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
@@ -832,9 +840,19 @@ function EditorDebugOverlay({ editor, isTouchDevice, bubbleVisible }: { editor: 
       <div>hasSelection: <span style={{ color: hasSelection ? "#0f0" : "#f55" }}>{hasSelection ? "yes" : "no"}</span></div>
       <div>bubbleVisible: <span style={{ color: bubbleVisible ? "#0f0" : "#f55" }}>{bubbleVisible ? "yes" : "no"}</span></div>
       <div>touchDevice: <span style={{ color: isTouchDevice ? "#ff0" : "#0f0" }}>{isTouchDevice ? "yes" : "no"}</span></div>
-      <div>updateDelay: {isTouchDevice ? 500 : 250}ms</div>
+      <div>updateDelay: {isTouchDevice ? 500 : 250}ms | grace: {isTouchDevice ? 2000 : 0}ms</div>
       <div>focused: <span style={{ color: editor.isFocused ? "#0f0" : "#f55" }}>{editor.isFocused ? "yes" : "no"}</span></div>
       <div>viewport: {viewport.w}×{viewport.h}</div>
+      {shouldShowLogs.length > 0 && (
+        <>
+          <div style={{ marginTop: 6, borderTop: "1px solid #555", paddingTop: 4, color: "#ff0" }}>
+            shouldShow (last 8):
+          </div>
+          {shouldShowLogs.map((e, i) => (
+            <div key={`s${i}`} style={{ color: e.includes("YES") ? "#0f0" : "#f55", fontSize: 10 }}>{e}</div>
+          ))}
+        </>
+      )}
       <div style={{ marginTop: 6, borderTop: "1px solid #333", paddingTop: 4, color: "#8f8" }}>
         Events (last 10):
       </div>
@@ -1513,6 +1531,13 @@ export function EditorClient() {
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const shouldShowLogsRef = useRef<string[]>([]);
+  const [shouldShowLogs, setShouldShowLogs] = useState<string[]>([]);
+  const handleShouldShowLog = useCallback((msg: string) => {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    shouldShowLogsRef.current = [`${ts} ${msg}`, ...shouldShowLogsRef.current.slice(0, 7)];
+    setShouldShowLogs([...shouldShowLogsRef.current]);
+  }, []);
 
   useEffect(() => {
     setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
@@ -2604,12 +2629,13 @@ export function EditorClient() {
                 isTouchDevice={isTouchDevice}
                 onShow={() => setBubbleVisible(true)}
                 onHide={() => setBubbleVisible(false)}
+                onShouldShowLog={debugMode ? handleShouldShowLog : undefined}
               />
             )}
 
             {/* ── Debug overlay (activate via ?debug=1) ── */}
             {debugMode && editor && (
-              <EditorDebugOverlay editor={editor} isTouchDevice={isTouchDevice} bubbleVisible={bubbleVisible} />
+              <EditorDebugOverlay editor={editor} isTouchDevice={isTouchDevice} bubbleVisible={bubbleVisible} shouldShowLogs={shouldShowLogs} />
             )}
 
             {/* FloatingMenu removed — toolbar has all the same options */}
