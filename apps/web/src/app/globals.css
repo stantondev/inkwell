@@ -2093,35 +2093,47 @@ body[data-focus-mode] footer {
   margin-bottom: calc(var(--ruled-line) * 2);
 }
 
-/* ── Bubble menu (selection toolbar) ── */
+/* ── Selection bar (fixed bottom strip on text selection) ── */
 
-/* TipTap renders menus via a portal: a position:absolute div wrapping our content.
-   That portal div must sit above the sidebar (z-index: 40) so menus aren't clipped. */
-div:has(> div > .editor-bubble-menu) {
-  z-index: 45 !important;
+.editor-selection-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 8px 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+  animation: selbar-slide-up 0.15s ease-out;
 }
 
-.editor-bubble-menu {
+@keyframes selbar-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.editor-selection-bar-inner {
   display: flex;
   align-items: center;
-  gap: 1px;
-  padding: 4px 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  justify-content: center;
+  gap: 2px;
+  max-width: 500px;
+  margin: 0 auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.editor-selection-bar .editor-btn {
+  min-width: 34px;
+  min-height: 34px;
 }
 
 @media (prefers-color-scheme: dark) {
-  .editor-bubble-menu {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  .editor-selection-bar {
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
   }
-}
-
-/* Smaller buttons on touch devices to reduce menu footprint */
-.editor-bubble-touch .editor-btn {
-  min-width: 26px;
-  min-height: 26px;
 }
 
 /* ── Eye comfort mode (site-wide) ── */

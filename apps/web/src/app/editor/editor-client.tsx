@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
+import { createPortal } from "react-dom";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
@@ -589,59 +589,70 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
   );
 }
 
-// ─── Bubble Menu (appears on text selection) ─────────────────────────────────
+// ─── Selection Bar (fixed bottom bar, appears when text is selected) ─────────
+// Uses createPortal to render at document.body so it sits above the keyboard on
+// mobile and never conflicts with the native Cut/Copy/Paste popup.
 
-function EditorBubbleMenu({ editor }: { editor: Editor }) {
+function SelectionBar({ editor }: { editor: Editor }) {
+  const [hasSelection, setHasSelection] = useState(false);
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
   const [showSpacing, setShowSpacing] = useState(false);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
-    setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
-  }, []);
+    const onSelectionUpdate = () => {
+      const { from, to } = editor.state.selection;
+      const sel = from !== to;
+      setHasSelection(sel);
+      if (!sel) { setShowColors(false); setShowHighlights(false); setShowSpacing(false); }
+    };
+    editor.on("selectionUpdate", onSelectionUpdate);
+    return () => { editor.off("selectionUpdate", onSelectionUpdate); };
+  }, [editor]);
 
-  return (
-    <BubbleMenu editor={editor} style={{ zIndex: 50 }} options={{ placement: "bottom-start", offset: 8, flip: true }}>
-      <div className={`editor-bubble-menu${isTouchDevice ? " editor-bubble-touch" : ""}`}>
+  if (!hasSelection) return null;
+
+  const bar = (
+    <div className="editor-selection-bar">
+      <div className="editor-selection-bar-inner">
         <Btn onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")} title="Bold">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
           </svg>
         </Btn>
         <Btn onClick={() => editor.chain().focus().toggleItalic().run()}
           active={editor.isActive("italic")} title="Italic">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>
           </svg>
         </Btn>
         <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
           active={editor.isActive("underline")} title="Underline">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/>
           </svg>
         </Btn>
         <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
           active={editor.isActive("strike")} title="Strikethrough">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6a3 3 0 0 0-5.19 2.06C10.03 9.74 10.9 11.06 12 12c1.1.94 2 2.02 2 3.44A3 3 0 0 1 8.5 18"/>
           </svg>
         </Btn>
         <Sep />
-        {/* Highlight with color sub-menu */}
+        {/* Highlight */}
         <div className="relative">
-          <Btn onClick={() => { setShowHighlights((v) => !v); setShowColors(false); }}
+          <Btn onClick={() => { setShowHighlights((v) => !v); setShowColors(false); setShowSpacing(false); }}
             active={editor.isActive("highlight")} title="Highlight">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
             </svg>
           </Btn>
           {showHighlights && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-2 flex gap-1"
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[55] rounded-lg border shadow-lg p-2 flex gap-1"
               style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); setShowHighlights(false); }}
-                className="w-6 h-6 rounded border flex items-center justify-center"
+                className="w-7 h-7 rounded border flex items-center justify-center"
                 style={{ borderColor: "var(--border)" }} title="Remove">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -650,7 +661,7 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
               {HIGHLIGHT_COLORS.map((c) => (
                 <button key={c.value} type="button"
                   onClick={() => { editor.chain().focus().toggleHighlight({ color: c.value }).run(); setShowHighlights(false); }}
-                  className="w-6 h-6 rounded border"
+                  className="w-7 h-7 rounded border"
                   style={{ background: c.value, borderColor: editor.isActive("highlight", { color: c.value }) ? "var(--accent)" : "transparent" }}
                   title={c.label} />
               ))}
@@ -659,14 +670,14 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
         </div>
         {/* Text color */}
         <div className="relative">
-          <Btn onClick={() => { setShowColors((v) => !v); setShowHighlights(false); }}
+          <Btn onClick={() => { setShowColors((v) => !v); setShowHighlights(false); setShowSpacing(false); }}
             active={!!editor.getAttributes("textStyle").color} title="Text color">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/>
             </svg>
           </Btn>
           {showColors && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-2 flex flex-wrap gap-1 w-[180px]"
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[55] rounded-lg border shadow-lg p-2 flex flex-wrap gap-1 w-[180px]"
               style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               {TEXT_COLORS.map((c) => (
                 <button key={c.label} type="button"
@@ -675,13 +686,13 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
                     else { editor.chain().focus().setColor(c.value).run(); }
                     setShowColors(false);
                   }}
-                  className="w-6 h-6 rounded border flex items-center justify-center"
+                  className="w-7 h-7 rounded border flex items-center justify-center"
                   style={{
                     background: c.value || "var(--background)",
                     borderColor: (c.value && editor.getAttributes("textStyle").color === c.value) ? "var(--accent)" : "var(--border)",
                   }}
                   title={c.label}>
-                  {c.value === "" && <span className="text-[9px]" style={{ color: "var(--muted)" }}>Aa</span>}
+                  {c.value === "" && <span className="text-[10px]" style={{ color: "var(--muted)" }}>Aa</span>}
                 </button>
               ))}
             </div>
@@ -695,7 +706,7 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
           if (url === "") { editor.chain().focus().extendMarkRange("link").unsetLink().run(); }
           else { editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run(); }
         }} active={editor.isActive("link")} title="Link">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
@@ -706,43 +717,36 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
           <Btn onClick={() => { setShowSpacing((v) => !v); setShowColors(false); setShowHighlights(false); }}
             active={editor.getAttributes("paragraph").spacing != null}
             title="Paragraph spacing">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </Btn>
           {showSpacing && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-1 flex flex-col gap-0.5"
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[55] rounded-lg border shadow-lg p-1 flex flex-col gap-0.5"
               style={{ background: "var(--surface)", borderColor: "var(--border)", minWidth: 100 }}>
               <button type="button" onClick={() => { editor.chain().focus().setSpacing("tight").run(); setShowSpacing(false); }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
                 style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "tight") ? 600 : 400 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>
-                </svg>
                 Tight
               </button>
               <button type="button" onClick={() => { editor.chain().focus().setSpacing("normal").run(); setShowSpacing(false); }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
                 style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing == null) ? 600 : 400 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
                 Normal
               </button>
               <button type="button" onClick={() => { editor.chain().focus().setSpacing("loose").run(); setShowSpacing(false); }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
                 style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "loose") ? 600 : 400 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="20" x2="21" y2="20"/>
-                </svg>
                 Loose
               </button>
             </div>
           )}
         </div>
       </div>
-    </BubbleMenu>
+    </div>
   );
+
+  return createPortal(bar, document.body);
 }
 
 // FloatingMenu removed — toolbar provides all the same block insertion options
@@ -2483,9 +2487,9 @@ export function EditorClient() {
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
             </div>
 
-            {/* ── Bubble menu (appears on text selection) ── */}
+            {/* ── Selection bar (fixed bottom strip, appears on text selection) ── */}
             {editor && !htmlMode && (
-              <EditorBubbleMenu editor={editor} />
+              <SelectionBar editor={editor} />
             )}
 
             {/* FloatingMenu removed — toolbar has all the same options */}
