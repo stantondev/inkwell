@@ -591,13 +591,27 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 
 // ─── Bubble Menu (appears on text selection, positioned well below native popup) ──
 
-function EditorBubbleMenu({ editor }: { editor: Editor }) {
+function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide }: { editor: Editor; isTouchDevice: boolean; onShow: () => void; onHide: () => void }) {
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
   const [showSpacing, setShowSpacing] = useState(false);
 
   return (
-    <BubbleMenu editor={editor} style={{ zIndex: 50 }} options={{ placement: "bottom-start", offset: 50, flip: true }}>
+    <BubbleMenu
+      editor={editor}
+      style={{ zIndex: 50 }}
+      updateDelay={isTouchDevice ? 500 : 250}
+      shouldShow={({ state }) => {
+        const { from, to } = state.selection;
+        return from !== to;
+      }}
+      options={{
+        placement: "bottom-start",
+        offset: 80,
+        flip: true,
+        onShow,
+        onHide,
+      }}>
       <div className="editor-bubble-menu">
         <Btn onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")} title="Bold">
@@ -732,6 +746,90 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
 }
 
 // FloatingMenu removed — toolbar provides all the same block insertion options
+
+// ─── Editor Debug Overlay (activate via ?debug=1 URL param) ─────────────────
+
+function EditorDebugOverlay({ editor, isTouchDevice, bubbleVisible }: { editor: Editor; isTouchDevice: boolean; bubbleVisible: boolean }) {
+  const [events, setEvents] = useState<string[]>([]);
+  const [selInfo, setSelInfo] = useState({ from: 0, to: 0 });
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
+  const eventsRef = useRef<string[]>([]);
+
+  const addEvent = useCallback((name: string) => {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const entry = `${ts} ${name}`;
+    eventsRef.current = [entry, ...eventsRef.current.slice(0, 9)];
+    setEvents([...eventsRef.current]);
+  }, []);
+
+  useEffect(() => {
+    setViewport({ w: window.innerWidth, h: window.innerHeight });
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const onSelUpdate = () => {
+      const { from, to } = editor.state.selection;
+      setSelInfo({ from, to });
+      addEvent(`selectionUpdate ${from}-${to}`);
+    };
+    const onFocus = () => addEvent("focus");
+    const onBlur = () => addEvent("blur");
+    const onTransaction = () => addEvent("transaction");
+
+    editor.on("selectionUpdate", onSelUpdate);
+    editor.on("focus", onFocus);
+    editor.on("blur", onBlur);
+    editor.on("transaction", onTransaction);
+    return () => {
+      editor.off("selectionUpdate", onSelUpdate);
+      editor.off("focus", onFocus);
+      editor.off("blur", onBlur);
+      editor.off("transaction", onTransaction);
+    };
+  }, [editor, addEvent]);
+
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed",
+    bottom: 60,
+    right: 8,
+    width: 280,
+    fontSize: 11,
+    fontFamily: "monospace",
+    background: "rgba(0,0,0,0.85)",
+    color: "#0f0",
+    padding: 8,
+    borderRadius: 6,
+    zIndex: 99999,
+    maxHeight: 300,
+    overflowY: "auto",
+    pointerEvents: "none",
+    lineHeight: 1.5,
+  };
+
+  const hasSelection = selInfo.from !== selInfo.to;
+
+  return (
+    <div style={overlayStyle}>
+      <div style={{ fontWeight: "bold", marginBottom: 4, color: "#0f0" }}>Editor Debug</div>
+      <div>selection: {selInfo.from}–{selInfo.to}</div>
+      <div>hasSelection: <span style={{ color: hasSelection ? "#0f0" : "#f55" }}>{hasSelection ? "yes" : "no"}</span></div>
+      <div>bubbleVisible: <span style={{ color: bubbleVisible ? "#0f0" : "#f55" }}>{bubbleVisible ? "yes" : "no"}</span></div>
+      <div>touchDevice: <span style={{ color: isTouchDevice ? "#ff0" : "#0f0" }}>{isTouchDevice ? "yes" : "no"}</span></div>
+      <div>updateDelay: {isTouchDevice ? 500 : 250}ms</div>
+      <div>focused: <span style={{ color: editor.isFocused ? "#0f0" : "#f55" }}>{editor.isFocused ? "yes" : "no"}</span></div>
+      <div>viewport: {viewport.w}×{viewport.h}</div>
+      <div style={{ marginTop: 6, borderTop: "1px solid #333", paddingTop: 4, color: "#8f8" }}>
+        Events (last 10):
+      </div>
+      {events.map((e, i) => (
+        <div key={i} style={{ color: i === 0 ? "#0f0" : "#686", fontSize: 10 }}>{e}</div>
+      ))}
+    </div>
+  );
+}
 
 // ─── Mood input with preset picker ───────────────────────────────────────────
 
@@ -1396,6 +1494,22 @@ export function EditorClient() {
   const [circlePickerOpen, setCirclePickerOpen] = useState(false);
   // Link embed picker
   const [linkEmbedOpen, setLinkEmbedOpen] = useState(false);
+
+  // Debug overlay + BubbleMenu tracking
+  const [bubbleVisible, setBubbleVisible] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("debug") === "1") {
+      setDebugMode(true);
+      sessionStorage.setItem("inkwell-editor-debug", "1");
+    } else if (sessionStorage.getItem("inkwell-editor-debug") === "1") {
+      setDebugMode(true);
+    }
+  }, []);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const floatingImageRef = useRef<HTMLInputElement>(null);
@@ -2469,9 +2583,19 @@ export function EditorClient() {
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
             </div>
 
-            {/* ── Bubble menu (below selection, 50px offset to clear native popup) ── */}
+            {/* ── Bubble menu (below selection, 80px offset to clear native popup) ── */}
             {editor && !htmlMode && (
-              <EditorBubbleMenu editor={editor} />
+              <EditorBubbleMenu
+                editor={editor}
+                isTouchDevice={isTouchDevice}
+                onShow={() => setBubbleVisible(true)}
+                onHide={() => setBubbleVisible(false)}
+              />
+            )}
+
+            {/* ── Debug overlay (activate via ?debug=1) ── */}
+            {debugMode && editor && (
+              <EditorDebugOverlay editor={editor} isTouchDevice={isTouchDevice} bubbleVisible={bubbleVisible} />
             )}
 
             {/* FloatingMenu removed — toolbar has all the same options */}
