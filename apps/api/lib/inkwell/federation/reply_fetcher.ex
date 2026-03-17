@@ -13,6 +13,24 @@ defmodule Inkwell.Federation.ReplyFetcher do
 
   require Logger
 
+  @doc """
+  Extracts the reply count from an AP object's `replies` field.
+  Used at ingestion time (relay, follow, inbox) to store the count without
+  needing to fetch the full reply thread.
+
+  Handles the various forms of `replies`:
+  - `%{"totalItems" => N}` — inline Collection with count
+  - `%{"first" => %{"totalItems" => N}}` — Mastodon pattern (count on first page)
+  - nil or missing — returns 0
+  """
+  def extract_reply_count(nil), do: 0
+
+  def extract_reply_count(%{"totalItems" => count}) when is_integer(count), do: count
+
+  def extract_reply_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
+
+  def extract_reply_count(_), do: 0
+
   @accept_headers [{~c"accept", ~c"application/activity+json, application/ld+json"}]
   @max_items 100
   @max_pages 2
@@ -40,10 +58,11 @@ defmodule Inkwell.Federation.ReplyFetcher do
       {:ok, ap_object} ->
         replies_data = ap_object["replies"]
         items = extract_reply_items(replies_data)
-        Logger.info("ReplyFetcher: found #{length(items)} reply items for #{entry.ap_id}")
+        reply_count = extract_reply_count(replies_data)
+        Logger.info("ReplyFetcher: found #{length(items)} reply items (totalItems: #{reply_count}) for #{entry.ap_id}")
 
         process_items(items, entry)
-        mark_fetched(entry)
+        mark_fetched(entry, reply_count)
         :ok
 
       {:error, reason} ->
@@ -326,9 +345,12 @@ defmodule Inkwell.Federation.ReplyFetcher do
 
   # ── Mark as fetched ─────────────────────────────────────────────────────
 
-  defp mark_fetched(entry) do
+  defp mark_fetched(entry, reply_count \\ 0) do
+    changes = %{replies_fetched_at: DateTime.utc_now()}
+    changes = if reply_count > 0, do: Map.put(changes, :reply_count, reply_count), else: changes
+
     entry
-    |> Ecto.Changeset.change(%{replies_fetched_at: DateTime.utc_now()})
+    |> Ecto.Changeset.change(changes)
     |> Repo.update()
   end
 end

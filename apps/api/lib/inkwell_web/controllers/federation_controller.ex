@@ -900,7 +900,8 @@ defmodule InkwellWeb.FederationController do
             published_at: parse_ap_datetime(note["published"]),
             remote_actor_id: remote_actor.id,
             sensitive: is_sensitive,
-            content_warning: content_warning
+            content_warning: content_warning,
+            reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"])
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do

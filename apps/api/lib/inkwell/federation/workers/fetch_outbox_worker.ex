@@ -121,7 +121,8 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
         body_html: body_html,
         tags: tags,
         published_at: parse_datetime(note["published"]),
-        remote_actor_id: remote_actor.id
+        remote_actor_id: remote_actor.id,
+        reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"])
       }
 
       case RemoteEntries.upsert_remote_entry(attrs) do

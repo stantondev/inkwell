@@ -229,7 +229,7 @@ defmodule InkwellWeb.ExploreController do
           },
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
-          comment_count: Map.get(remote_comment_counts, re.id, 0),
+          comment_count: max(re.reply_count || 0, Map.get(remote_comment_counts, re.id, 0)),
           ink_count: Map.get(remote_ink_counts, re.id, 0),
           my_ink: MapSet.member?(remote_inks_set, re.id),
           sensitive: re.sensitive || false,

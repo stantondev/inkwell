@@ -140,6 +140,7 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
             remote_actor_id: remote_actor.id,
             sensitive: is_sensitive,
             content_warning: content_warning,
+            reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(object["replies"]),
             source: "relay",
             relay_subscription_id: subscription.id
           }
