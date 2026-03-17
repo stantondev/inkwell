@@ -276,24 +276,25 @@ defmodule Inkwell.Federation.ReplyFetcher do
         in_reply_to = obj["inReplyTo"]
         parent_comment_id = resolve_parent(in_reply_to, entry, ap_id_map)
 
+        # Use string keys throughout — compute_and_enforce_depth adds "depth" as string key
         comment_attrs = %{
-          remote_entry_id: entry.id,
-          body_html: obj["content"] || "",
-          ap_id: obj["id"],
-          remote_author: %{
-            ap_id: remote_actor.ap_id,
-            username: remote_actor.username,
-            domain: remote_actor.domain,
-            display_name: remote_actor.display_name,
-            avatar_url: remote_actor.avatar_url,
-            profile_url: profile_url
+          "remote_entry_id" => entry.id,
+          "body_html" => obj["content"] || "",
+          "ap_id" => obj["id"],
+          "remote_author" => %{
+            "ap_id" => remote_actor.ap_id,
+            "username" => remote_actor.username,
+            "domain" => remote_actor.domain,
+            "display_name" => remote_actor.display_name,
+            "avatar_url" => remote_actor.avatar_url,
+            "profile_url" => profile_url
           }
         }
 
         # Add parent for threading — depth is computed by Journals.create_comment
         comment_attrs =
           if parent_comment_id do
-            Map.put(comment_attrs, :parent_comment_id, parent_comment_id)
+            Map.put(comment_attrs, "parent_comment_id", parent_comment_id)
           else
             comment_attrs
           end
