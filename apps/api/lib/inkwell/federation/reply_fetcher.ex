@@ -272,9 +272,9 @@ defmodule Inkwell.Federation.ReplyFetcher do
             _ -> remote_actor.ap_id
           end
 
-        # Determine threading depth
+        # Determine threading parent
         in_reply_to = obj["inReplyTo"]
-        {parent_comment_id, depth} = resolve_threading(in_reply_to, entry, ap_id_map)
+        parent_comment_id = resolve_parent(in_reply_to, entry, ap_id_map)
 
         comment_attrs = %{
           remote_entry_id: entry.id,
@@ -290,12 +290,12 @@ defmodule Inkwell.Federation.ReplyFetcher do
           }
         }
 
-        # Add parent if threaded
+        # Add parent for threading — depth is computed by Journals.create_comment
         comment_attrs =
           if parent_comment_id do
-            Map.merge(comment_attrs, %{parent_comment_id: parent_comment_id, depth: depth})
+            Map.put(comment_attrs, :parent_comment_id, parent_comment_id)
           else
-            Map.put(comment_attrs, :depth, depth)
+            comment_attrs
           end
 
         case Journals.create_comment(comment_attrs) do
@@ -311,37 +311,28 @@ defmodule Inkwell.Federation.ReplyFetcher do
     end
   end
 
-  # Resolve threading: find parent comment if inReplyTo matches a sibling
-  defp resolve_threading(in_reply_to, entry, _ap_id_map) when in_reply_to == entry.ap_id do
+  # Resolve parent: find parent comment ID if inReplyTo matches a sibling
+  defp resolve_parent(in_reply_to, entry, _ap_id_map) when in_reply_to == entry.ap_id do
     # Direct reply to the entry — root level
-    {nil, 0}
+    nil
   end
 
-  defp resolve_threading(in_reply_to, _entry, ap_id_map) when is_binary(in_reply_to) do
+  defp resolve_parent(in_reply_to, _entry, ap_id_map) when is_binary(in_reply_to) do
     # Check if it's a reply to another comment we've fetched/stored
     if Map.has_key?(ap_id_map, in_reply_to) do
-      # Try to find the parent comment in the DB
       import Ecto.Query
 
-      case Repo.one(
+      Repo.one(
         from c in Journals.Comment,
           where: c.ap_id == ^in_reply_to,
-          select: {c.id, c.depth}
-      ) do
-        {parent_id, parent_depth} ->
-          {parent_id, min((parent_depth || 0) + 1, 2)}
-
-        nil ->
-          # Parent not created yet (ordering issue) — treat as root
-          {nil, 0}
-      end
+          select: c.id
+      )
     else
-      # Reply to something we don't have — treat as root
-      {nil, 0}
+      nil
     end
   end
 
-  defp resolve_threading(_, _, _), do: {nil, 0}
+  defp resolve_parent(_, _, _), do: nil
 
   # ── Mark as fetched ─────────────────────────────────────────────────────
 
