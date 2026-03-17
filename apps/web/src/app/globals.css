@@ -206,6 +206,12 @@ img, video, iframe, embed, object {
   margin-bottom: 1.25em;
 }
 
+/* Empty paragraphs (from pressing Enter twice) need visible height */
+.prose-entry p:empty,
+.prose-entry p:has(> br:only-child) {
+  min-height: 1em;
+}
+
 /* Lists */
 .prose-entry ul {
   list-style: disc;
@@ -2065,6 +2071,11 @@ body[data-focus-mode] footer {
    lands on a ruled line, even across multiple paragraphs. */
 .editor-writing-area .prose-entry p {
   margin-bottom: var(--ruled-line);
+}
+
+.editor-writing-area .prose-entry p:empty,
+.editor-writing-area .prose-entry p:has(> br:only-child) {
+  min-height: 1em;
 }
 
 .editor-word-count {

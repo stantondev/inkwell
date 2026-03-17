@@ -198,7 +198,10 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
     } else {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      // Don't extendMarkRange when setting — apply link to current selection only.
+      // Then move cursor to end so subsequent typing isn't linked.
+      const { to } = editor.state.selection;
+      editor.chain().focus().setLink({ href: url }).setTextSelection(to).run();
     }
   }, [editor]);
 
@@ -463,6 +466,15 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
           </Btn>
+          {editor.isActive("link") && (
+            <Btn onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()} title="Remove link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M5.16 11.75l-1.72 1.71a5 5 0 0 0 7.07 7.07l1.72-1.71"/>
+                <line x1="2" y1="2" x2="22" y2="22"/>
+              </svg>
+            </Btn>
+          )}
           <div className="relative">
             <Btn onClick={() => setShowImageMenu((v) => !v)} disabled={isUploading}
               title={isUploading ? "Uploading..." : "Add image"}>
@@ -530,10 +542,11 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
             </svg>
           </Btn>
-          <Btn onClick={onInsertLinkEmbed} title="Embed link">
+          <Btn onClick={onInsertLinkEmbed} title="Embed link preview">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <line x1="7" y1="9" x2="17" y2="9"/>
+              <line x1="7" y1="13" x2="13" y2="13"/>
             </svg>
           </Btn>
           <Sep />
@@ -732,13 +745,22 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
           const url = window.prompt("URL:", prev);
           if (url === null) return;
           if (url === "") { editor.chain().focus().extendMarkRange("link").unsetLink().run(); }
-          else { editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run(); }
+          else { const { to } = editor.state.selection; editor.chain().focus().setLink({ href: url }).setTextSelection(to).run(); }
         }} active={editor.isActive("link")} title="Link">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
         </Btn>
+        {editor.isActive("link") && (
+          <Btn onClick={() => { editor.chain().focus().extendMarkRange("link").unsetLink().run(); }} title="Remove link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M5.16 11.75l-1.72 1.71a5 5 0 0 0 7.07 7.07l1.72-1.71"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+          </Btn>
+        )}
         <Sep />
         {/* Spacing */}
         <div className="relative">
@@ -1617,7 +1639,7 @@ export function EditorClient() {
     extensions: [
       StarterKit.configure({ link: false }),
       Placeholder.configure({ placeholder: "What's on your mind today?" }),
-      Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
+      Link.extend({ inclusive() { return false; } }).configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
       Image.configure({ inline: false, allowBase64: true }),
       CharacterCount.configure({ limit: 100_000 }),
       // New extensions
