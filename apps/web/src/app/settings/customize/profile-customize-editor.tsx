@@ -33,6 +33,7 @@ interface ProfileUser {
   profile_entry_display?: string | null;
   pinned_entry_ids?: string[];
   social_links?: Record<string, string> | null;
+  settings?: { entries_per_page?: Record<string, number>; [key: string]: unknown } | null;
 }
 
 const SOCIAL_PLATFORMS_CONFIG = [
@@ -190,6 +191,21 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     return saved === "fullpage" ? "fullpage" : "widget";
   });
 
+  const PER_PAGE_OPTIONS: Record<string, number[]> = {
+    full: [1, 3, 5, 10],
+    cards: [6, 9, 12, 18],
+    preview: [10, 20, 30, 50],
+  };
+  const PER_PAGE_DEFAULTS: Record<string, number> = { full: 3, cards: 9, preview: 20 };
+
+  const [entriesPerPage, setEntriesPerPage] = useState<Record<string, number>>(() => {
+    const saved = (user as { settings?: { entries_per_page?: Record<string, number> } }).settings?.entries_per_page;
+    return saved ?? {};
+  });
+
+  const currentMode = form.profile_entry_display || "cards";
+  const currentPerPage = entriesPerPage[currentMode] ?? PER_PAGE_DEFAULTS[currentMode] ?? 9;
+
   const [saving, setSaving] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
@@ -305,12 +321,21 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
     try {
       // 1. Save main profile fields (free-tier fields always, Plus fields only if Plus)
+      // Only save entries_per_page values that differ from defaults
+      const eppToSave: Record<string, number> = {};
+      for (const [mode, val] of Object.entries(entriesPerPage)) {
+        if (val !== PER_PAGE_DEFAULTS[mode]) {
+          eppToSave[mode] = val;
+        }
+      }
+
       const mainBody: Record<string, unknown> = {
         profile_status: form.profile_status || null,
         profile_theme: form.profile_theme || null,
         avatar_frame: form.avatar_frame || null,
         profile_banner_url: form.profile_banner_url || null,
         profile_entry_display: form.profile_entry_display || "cards",
+        settings: { entries_per_page: Object.keys(eppToSave).length > 0 ? eppToSave : null },
         pinned_entry_ids: pinnedIds,
         social_links: Object.fromEntries(
           Object.entries(socialLinks)
@@ -559,6 +584,30 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
               </div>
             </button>
           ))}
+        </div>
+
+        {/* Entries per page */}
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+          <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
+            Entries per page
+          </label>
+          <select
+            value={currentPerPage}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              setEntriesPerPage((prev) => ({ ...prev, [currentMode]: val }));
+              setStatus("idle");
+            }}
+            className={inputClass}
+            style={inputStyle}
+          >
+            {(PER_PAGE_OPTIONS[currentMode] ?? [9]).map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
+            How many entries to show per page in {currentMode === "full" ? "Full Post" : currentMode === "preview" ? "Timeline" : "Cards"} mode.
+          </p>
         </div>
       </Section>
 

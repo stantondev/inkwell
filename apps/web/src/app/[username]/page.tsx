@@ -69,6 +69,7 @@ interface ProfileUser {
   ink_donor_status?: string | null;
   ink_donor_amount_cents?: number | null;
   visitor_count?: number;
+  entries_per_page?: Record<string, number> | null;
 }
 
 interface ProfileEntry {
@@ -578,8 +579,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
 
   // Compute display mode and per_page for initial fetch
   const displayMode = (profile.profile_entry_display ?? "cards") as "full" | "cards" | "preview";
-  const perPageMap = { full: 1, cards: 9, preview: 20 };
-  const perPage = perPageMap[displayMode] ?? 9;
+  const perPageDefaults: Record<string, number> = { full: 3, cards: 9, preview: 20 };
+  const perPage = profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
 
   // Fetch entries (page 1) + series + pinned entries in parallel
   const pinnedIds = profile.pinned_entry_ids ?? [];
@@ -978,6 +979,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             entryYears={entryYears}
             entryTags={entryTags}
             entryCategories={entryCategories}
+            perPage={perPage}
           />
         ) : (
           <ProfileEntries
@@ -986,6 +988,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             initialEntries={entries}
             totalCount={entryCount}
             styles={styles}
+            perPage={perPage}
           />
         )}
       </section>

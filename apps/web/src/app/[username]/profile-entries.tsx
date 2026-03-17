@@ -42,10 +42,11 @@ interface ProfileEntriesProps {
   totalCount: number;
   styles: ProfileStyles;
   filters?: ProfileFilters;
+  perPage?: number;
 }
 
 const PER_PAGE: Record<string, number> = {
-  full: 1,
+  full: 3,
   cards: 9,
   preview: 20,
 };
@@ -118,10 +119,10 @@ function Pagination({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Previous Entry
+          Previous
         </button>
         <span className="text-xs" style={{ color: styles.muted, fontFamily: "var(--font-lora, Georgia, serif)" }}>
-          Entry {page} of {totalPages}
+          Page {page} of {totalPages}
         </span>
         <button
           onClick={() => onPageChange(page + 1)}
@@ -129,7 +130,7 @@ function Pagination({
           className="flex items-center gap-1.5 text-sm font-medium transition-opacity disabled:opacity-30"
           style={{ color: styles.accent }}
         >
-          Next Entry
+          Next
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="9 6 15 12 9 18" />
           </svg>
@@ -457,8 +458,9 @@ export function ProfileEntries({
   totalCount: initialTotalCount,
   styles,
   filters,
+  perPage: perPageProp,
 }: ProfileEntriesProps) {
-  const perPage = PER_PAGE[displayMode] ?? 9;
+  const perPage = perPageProp ?? PER_PAGE[displayMode] ?? 9;
 
   const [page, setPage] = useState(1);
   const [entries, setEntries] = useState<ProfileEntry[]>(initialEntries);

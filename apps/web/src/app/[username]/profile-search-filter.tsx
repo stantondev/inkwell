@@ -31,6 +31,7 @@ interface ProfileSearchFilterProps {
   entryYears: number[];
   entryTags: { tag: string; count: number }[];
   entryCategories: { category: string; count: number }[];
+  perPage?: number;
 }
 
 export function ProfileSearchFilter({
@@ -42,6 +43,7 @@ export function ProfileSearchFilter({
   entryYears,
   entryTags,
   entryCategories,
+  perPage,
 }: ProfileSearchFilterProps) {
   const [filters, setFilters] = useState<ProfileFilters>({
     q: "",
@@ -76,6 +78,7 @@ export function ProfileSearchFilter({
         totalCount={totalCount}
         styles={styles}
         filters={filters}
+        perPage={perPage}
       />
     </>
   );

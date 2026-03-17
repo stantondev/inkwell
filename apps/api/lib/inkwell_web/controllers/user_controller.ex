@@ -534,7 +534,8 @@ defmodule InkwellWeb.UserController do
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       visitor_count: user.visitor_count || 0,
       has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id),
-      preferred_language: user.preferred_language
+      preferred_language: user.preferred_language,
+      entries_per_page: (user.settings || %{})["entries_per_page"]
     }
   end
 
