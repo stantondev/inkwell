@@ -281,6 +281,11 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         hideBadgesRef.current =
           !!data.data.settings?.hide_notification_badges;
 
+        // Sync eye comfort mode from server → body class + localStorage
+        const eyeComfort = !!data.data.settings?.eye_comfort_mode;
+        document.body.classList.toggle("eye-comfort", eyeComfort);
+        localStorage.setItem("inkwell-eye-comfort", eyeComfort ? "true" : "false");
+
         // Detect new arrivals using module-level shared prev counts
         // (prevents duplicate sounds from multiple hook instances)
         const hasNewNotification =

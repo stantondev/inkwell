@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
@@ -179,10 +179,11 @@ function DropdownItem({ onClick, active, children }: {
 
 // ─── Main Toolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, onInsertCircle, onInsertLinkEmbed }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, onInsertCircle, onInsertLinkEmbed }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
+  comfortMode: boolean; onToggleComfort: () => void;
   onInsertCircle: () => void;
   onInsertLinkEmbed: () => void;
 }) {
@@ -568,6 +569,22 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
           </svg>
         )}
       </Btn>
+      <Btn onClick={onToggleComfort} active={comfortMode} title={comfortMode ? "Normal brightness" : "Eye comfort mode"}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {comfortMode ? (
+            <>
+              <path d="M2 12s3-4 10-4 10 4 10 4-3 4-10 4S2 12 2 12z" opacity="0.5"/>
+              <circle cx="12" cy="12" r="3"/>
+              <line x1="2" y1="2" x2="22" y2="22" opacity="0.5"/>
+            </>
+          ) : (
+            <>
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </>
+          )}
+        </svg>
+      </Btn>
     </div>
   );
 }
@@ -577,17 +594,16 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 function EditorBubbleMenu({ editor }: { editor: Editor }) {
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
+  const [showSpacing, setShowSpacing] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
     setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  if (isTouchDevice) return null;
-
   return (
-    <BubbleMenu editor={editor} style={{ zIndex: 50 }}>
-      <div className="editor-bubble-menu">
+    <BubbleMenu editor={editor} style={{ zIndex: 50 }} options={{ placement: "bottom-start", offset: 8, flip: true }}>
+      <div className={`editor-bubble-menu${isTouchDevice ? " editor-bubble-touch" : ""}`}>
         <Btn onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")} title="Bold">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -684,127 +700,52 @@ function EditorBubbleMenu({ editor }: { editor: Editor }) {
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
         </Btn>
+        <Sep />
+        {/* Spacing */}
+        <div className="relative">
+          <Btn onClick={() => { setShowSpacing((v) => !v); setShowColors(false); setShowHighlights(false); }}
+            active={editor.getAttributes("paragraph").spacing != null}
+            title="Paragraph spacing">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </Btn>
+          {showSpacing && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-1 flex flex-col gap-0.5"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", minWidth: 100 }}>
+              <button type="button" onClick={() => { editor.chain().focus().setSpacing("tight").run(); setShowSpacing(false); }}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
+                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "tight") ? 600 : 400 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>
+                </svg>
+                Tight
+              </button>
+              <button type="button" onClick={() => { editor.chain().focus().setSpacing("normal").run(); setShowSpacing(false); }}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
+                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing == null) ? 600 : 400 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+                Normal
+              </button>
+              <button type="button" onClick={() => { editor.chain().focus().setSpacing("loose").run(); setShowSpacing(false); }}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
+                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "loose") ? 600 : 400 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="20" x2="21" y2="20"/>
+                </svg>
+                Loose
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </BubbleMenu>
   );
 }
 
-// ─── Floating Menu (appears on empty lines) ──────────────────────────────────
-
-function EditorFloatingMenu({ editor, onUploadImage, onInsertCircle, onInsertLinkEmbed }: { editor: Editor; onUploadImage: () => void; onInsertCircle: () => void; onInsertLinkEmbed: () => void }) {
-  const floatingFileRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <FloatingMenu editor={editor} style={{ zIndex: 50 }}
-      shouldShow={({ editor: e }) => {
-        // Don't show on the initial empty editor (only one empty paragraph)
-        if (e.isEmpty) return false;
-        // Show only on empty text blocks (paragraphs, headings)
-        const { $from } = e.state.selection;
-        const node = $from.parent;
-        return node.isTextblock && node.content.size === 0;
-      }}>
-      <div className="editor-floating-menu">
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className="editor-floating-menu-item">
-          <span style={{ fontWeight: 700, fontSize: 13, minWidth: 20 }}>H1</span>
-          <span>Heading 1</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className="editor-floating-menu-item">
-          <span style={{ fontWeight: 700, fontSize: 12, minWidth: 20 }}>H2</span>
-          <span>Heading 2</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
-            <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/>
-            <circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/>
-            <circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/>
-          </svg>
-          <span>Bullet list</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/>
-            <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
-          </svg>
-          <span>Numbered list</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
-            <line x1="13" y1="8" x2="21" y2="8"/>
-            <rect x="3" y="14" width="6" height="6" rx="1"/>
-            <line x1="13" y1="17" x2="21" y2="17"/>
-          </svg>
-          <span>Task list</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
-            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
-          </svg>
-          <span>Blockquote</span>
-        </button>
-        <button type="button" onClick={onUploadImage}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-          </svg>
-          <span>Image</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ minWidth: 14 }}>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
-            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
-            <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
-          </svg>
-          <span>Divider</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
-            <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
-          </svg>
-          <span>Table</span>
-        </button>
-        <button type="button" onClick={onInsertCircle}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
-          </svg>
-          <span>Circle embed</span>
-        </button>
-        <button type="button" onClick={onInsertLinkEmbed}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-          </svg>
-          <span>Link embed</span>
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          className="editor-floating-menu-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: 14 }}>
-            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-          </svg>
-          <span>Code block</span>
-        </button>
-      </div>
-      <input ref={floatingFileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" />
-    </FloatingMenu>
-  );
-}
+// FloatingMenu removed — toolbar provides all the same block insertion options
 
 // ─── Mood input with preset picker ───────────────────────────────────────────
 
@@ -1415,6 +1356,12 @@ export function EditorClient() {
   const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [comfortMode, setComfortMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("inkwell-eye-comfort") === "true";
+    }
+    return false;
+  });
   const [coverImageId, setCoverImageId] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
 
@@ -1642,6 +1589,23 @@ export function EditorClient() {
     return () => document.removeEventListener("keydown", handler);
   }, [focusMode]);
 
+  // Eye comfort mode: sync body class + localStorage + persist to DB on toggle
+  const comfortModeInitialized = useRef(false);
+  useEffect(() => {
+    document.body.classList.toggle("eye-comfort", comfortMode);
+    localStorage.setItem("inkwell-eye-comfort", comfortMode ? "true" : "false");
+    // Skip DB persist on initial mount — only persist user-initiated toggles
+    if (!comfortModeInitialized.current) {
+      comfortModeInitialized.current = true;
+      return;
+    }
+    fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: { eye_comfort_mode: comfortMode } }),
+    }).catch(() => {});
+  }, [comfortMode]);
+
   // Fetch filters when privacy is set to "custom"
   useEffect(() => {
     if (state.privacy !== "custom" || filtersLoaded) return;
@@ -1674,6 +1638,9 @@ export function EditorClient() {
           setHasStripeConnect(!!data?.stripe_connect_enabled);
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
+          // Sync eye comfort from server (cross-device sync)
+          const serverComfort = !!data?.settings?.eye_comfort_mode;
+          if (serverComfort !== comfortMode) setComfortMode(serverComfort);
         }
       } catch {
         // ignore
@@ -2511,6 +2478,7 @@ export function EditorClient() {
               <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
+                comfortMode={comfortMode} onToggleComfort={() => setComfortMode((v) => !v)}
                 onInsertCircle={() => setCirclePickerOpen(true)}
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
             </div>
@@ -2520,10 +2488,7 @@ export function EditorClient() {
               <EditorBubbleMenu editor={editor} />
             )}
 
-            {/* ── Floating menu (appears on empty lines) ── */}
-            {editor && !htmlMode && (
-              <EditorFloatingMenu editor={editor} onUploadImage={() => floatingImageRef.current?.click()} onInsertCircle={() => setCirclePickerOpen(true)} onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
-            )}
+            {/* FloatingMenu removed — toolbar has all the same options */}
             <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
               className="hidden" onChange={(e) => {
                 const file = e.target.files?.[0];

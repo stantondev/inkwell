@@ -2097,8 +2097,7 @@ body[data-focus-mode] footer {
 
 /* TipTap renders menus via a portal: a position:absolute div wrapping our content.
    That portal div must sit above the sidebar (z-index: 40) so menus aren't clipped. */
-div:has(> div > .editor-bubble-menu),
-div:has(> div > .editor-floating-menu) {
+div:has(> div > .editor-bubble-menu) {
   z-index: 45 !important;
 }
 
@@ -2119,45 +2118,46 @@ div:has(> div > .editor-floating-menu) {
   }
 }
 
-/* ── Floating menu (empty-line block inserter) ── */
+/* Smaller buttons on touch devices to reduce menu footprint */
+.editor-bubble-touch .editor-btn {
+  min-width: 26px;
+  min-height: 26px;
+}
 
-.editor-floating-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  min-width: 140px;
+/* ── Eye comfort mode (site-wide) ── */
+/* Warm sepia tones to reduce eye strain — applied site-wide via body class */
+
+body.eye-comfort {
+  --background: #f5f0e8;
+  --surface: #ede7dc;
+  --surface-hover: #e5dfd4;
+  --border: #d9d2c3;
+  --foreground: #3c3430;
+  --muted: #7a7068;
 }
 
 @media (prefers-color-scheme: dark) {
-  .editor-floating-menu {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  body.eye-comfort {
+    --background: #1a1815;
+    --surface: #2a251f;
+    --surface-hover: #332e27;
+    --border: #3d362e;
+    --foreground: #e8e0d6;
+    --muted: #9a9088;
   }
 }
 
-.editor-floating-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--foreground);
-  transition: background 0.1s;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
+/* Soften paper texture and ruled lines in comfort mode */
+body.eye-comfort .editor-paper::before {
+  opacity: 0.012;
 }
 
-.editor-floating-menu-item:hover {
-  background: var(--accent-light);
+@media (prefers-color-scheme: dark) {
+  body.eye-comfort .editor-paper::before {
+    opacity: 0.025;
+  }
 }
+
 
 /* ── Table editor styles ── */
 
