@@ -17,9 +17,11 @@ interface CommentSectionProps {
       is_admin?: boolean;
     };
   } | null;
+  /** Override API path for remote entries (e.g., /api/remote-entries/:id/comments) */
+  commentApiPath?: string;
 }
 
-export function CommentSection({ comments, entryId, session }: CommentSectionProps) {
+export function CommentSection({ comments, entryId, session, commentApiPath }: CommentSectionProps) {
   const router = useRouter();
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
@@ -55,7 +57,7 @@ export function CommentSection({ comments, entryId, session }: CommentSectionPro
         const body: Record<string, string> = { body_html: html };
         if (parentCommentId) body.parent_comment_id = parentCommentId;
 
-        const res = await fetch(`/api/entries/${entryId}/comments`, {
+        const res = await fetch(commentApiPath ?? `/api/entries/${entryId}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

@@ -1,7 +1,7 @@
 defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Inks, Journals, Stamps}
+  alias Inkwell.{Inks, Journals, Reprints, Social, Stamps}
   alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, RemoteActor, ReplyFetcher}
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
   alias Inkwell.Repo
@@ -9,6 +9,73 @@ defmodule InkwellWeb.RemoteEntryController do
   import Ecto.Query
 
   @valid_stamp_types ~w(felt holding_space beautifully_said rooting throwback i_cannot first_class)
+
+  # GET /api/remote-entries/:id — detail view for a single fediverse entry
+  def show(conn, %{"id" => id}) do
+    viewer = conn.assigns[:current_user]
+
+    case get_remote_entry(id) do
+      {:ok, remote_entry} ->
+        remote_entry = Repo.preload(remote_entry, :remote_actor)
+        actor = remote_entry.remote_actor
+
+        unless actor do
+          conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+        end
+
+        # Block check
+        blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+        if actor && actor.id in blocked_ids do
+          conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+        else
+          # Fetch engagement data
+          entry_ids = [id]
+          stamp_types_map = Stamps.get_stamp_types_for_remote_entries(entry_ids)
+          my_stamps_map = if viewer, do: Stamps.get_user_stamps_for_remote_entries(viewer.id, entry_ids), else: %{}
+          ink_counts = Inks.count_inks_for_remote_entries(entry_ids)
+          inks_set = if viewer, do: Inks.get_user_inks_for_remote_entries(viewer.id, entry_ids), else: MapSet.new()
+          reprint_counts = Reprints.count_reprints_for_remote_entries(entry_ids)
+          reprints_set = if viewer, do: Reprints.get_user_reprints_for_remote_entries(viewer.id, entry_ids), else: MapSet.new()
+          comment_count = Journals.count_comments_for_remote_entries(entry_ids) |> Map.get(id, 0)
+
+          json(conn, %{
+            data: %{
+              id: remote_entry.id,
+              source: "remote",
+              relay_source: remote_entry.source,
+              ap_id: remote_entry.ap_id,
+              url: remote_entry.url,
+              title: remote_entry.title,
+              body_html: remote_entry.body_html,
+              tags: remote_entry.tags || [],
+              published_at: remote_entry.published_at,
+              author: %{
+                username: actor.username,
+                display_name: actor.display_name || actor.username,
+                avatar_url: actor.avatar_url,
+                domain: actor.domain,
+                ap_id: actor.ap_id,
+                profile_url: get_profile_url(actor)
+              },
+              stamps: Map.get(stamp_types_map, id, []),
+              my_stamp: Map.get(my_stamps_map, id),
+              comment_count: max(remote_entry.reply_count || 0, comment_count),
+              ink_count: Map.get(ink_counts, id, 0) + (remote_entry.likes_count || 0),
+              reprint_count: Map.get(reprint_counts, id, 0) + (remote_entry.reprint_count || 0),
+              boosts_count: remote_entry.boosts_count || 0,
+              my_ink: MapSet.member?(inks_set, id),
+              my_reprint: MapSet.member?(reprints_set, id),
+              sensitive: remote_entry.sensitive || false,
+              content_warning: remote_entry.content_warning,
+              is_sensitive: remote_entry.sensitive || false
+            }
+          })
+        end
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+    end
+  end
 
   # POST /api/remote-entries/:id/stamp
   def stamp(conn, %{"id" => id} = params) do
@@ -288,6 +355,13 @@ defmodule InkwellWeb.RemoteEntryController do
       remote_author: remote_author,
       created_at: comment.inserted_at
     }
+  end
+
+  defp get_profile_url(actor) do
+    case actor.raw_data do
+      %{"url" => url} when is_binary(url) -> url
+      _ -> actor.ap_id
+    end
   end
 
   defp format_errors(changeset) do

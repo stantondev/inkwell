@@ -11,6 +11,7 @@ interface EntryStampsProps {
   isOwnEntry: boolean;
   isLoggedIn: boolean;
   isPlus: boolean;
+  stampApiPath?: string;
 }
 
 export function EntryStamps({
@@ -20,6 +21,7 @@ export function EntryStamps({
   isOwnEntry,
   isLoggedIn,
   isPlus,
+  stampApiPath,
 }: EntryStampsProps) {
   const [stamps, setStamps] = useState<string[]>(initialStamps);
   const [myStamp, setMyStamp] = useState<string | null>(initialMyStamp);
@@ -46,6 +48,7 @@ export function EntryStamps({
         isLoggedIn={isLoggedIn}
         isPlus={isPlus}
         onStampChange={handleStampChange}
+        stampApiPath={stampApiPath}
       />
     </div>
   );

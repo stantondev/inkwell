@@ -131,8 +131,9 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
   const isRemote = entry.source === "remote";
   const isReprint = entry.source === "reprint";
   const href = isRemote
-    ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
+    ? `/fediverse/${entry.id}`
     : `/${entry.author.username}/${entry.slug ?? entry.id}`;
+  const externalUrl = isRemote ? entry.url : null;
   const authorHref = isRemote
     ? (entry.author.profile_url ?? "#")
     : `/${entry.author.username}`;
@@ -341,11 +342,11 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               />
               <div className="mt-4">
                 {isRemote ? (
-                  <a href={href} target="_blank" rel="noopener noreferrer"
+                  <Link href={href}
                     className="inline-block text-sm font-medium hover:underline"
                     style={{ color: "var(--accent)", fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}>
-                    Read on {entry.author.domain || "original site"} &rarr;
-                  </a>
+                    Read full post &rarr;
+                  </Link>
                 ) : (
                   <Link href={href}
                     className="inline-block text-sm font-medium hover:underline"
@@ -372,25 +373,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                   className="prose-entry text-sm leading-relaxed"
                 />
               </div>
-              {isRemote ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </a>
-              ) : (
-                <Link
-                  href={href}
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </Link>
-              )}
+              <Link
+                href={href}
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </Link>
             </div>
           ) : entry.excerpt ? (
             <div>
@@ -416,25 +405,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               >
                 {decodeEntities(entry.excerpt)}
               </p>
-              {isRemote ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </a>
-              ) : (
-                <Link
-                  href={href}
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </Link>
-              )}
+              <Link
+                href={href}
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </Link>
             </div>
           ) : (
             <div>
@@ -445,25 +422,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                   className="prose-entry text-sm leading-relaxed"
                 />
               </div>
-              {isRemote ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </a>
-              ) : (
-                <Link
-                  href={href}
-                  className="inline-block mt-3 text-sm font-medium hover:underline"
-                  style={{ color: "var(--accent)" }}
-                >
-                  Continue reading &rarr;
-                </Link>
-              )}
+              <Link
+                href={href}
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Continue reading &rarr;
+              </Link>
             </div>
           )}
 
@@ -502,9 +467,9 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
           className={`flex items-center justify-between ${bookMode ? "px-5 lg:px-6" : isCompact ? "px-3 sm:px-4" : "px-4 sm:px-5 lg:px-6"} py-2.5 border-t`}
           style={{ borderColor: "var(--border)" }}
         >
-          {isRemote && !bookMode ? (
+          {isRemote && !bookMode && externalUrl ? (
             <a
-              href={href}
+              href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="fediverse-view-link flex items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
@@ -537,7 +502,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
             </span>
             {/* Comment count */}
             <Link
-              href={isRemote ? "#" : `${href}#comments`}
+              href={`${href}#comments`}
               className="flex items-center gap-1 text-sm"
               style={{ color: "var(--muted)" }}
             >

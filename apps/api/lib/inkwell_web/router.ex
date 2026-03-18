@@ -138,6 +138,9 @@ defmodule InkwellWeb.Router do
     get "/polls/:id", PollController, :show
     get "/polls/:id/comments", PollController, :list_comments
 
+    # Remote entry detail (optional auth for engagement data)
+    get "/remote-entries/:id", RemoteEntryController, :show
+
     # Comments by entry ID (optional auth for visibility check)
     get "/entries/:entry_id/comments", CommentController, :index_by_entry
 
