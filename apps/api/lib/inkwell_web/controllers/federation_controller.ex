@@ -357,6 +357,7 @@ defmodule InkwellWeb.FederationController do
 
       {:error, reason} ->
         Logger.warning("Inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} to /users/#{username}/inbox — #{inspect(reason)}")
+        Inkwell.Federation.FederationStats.track_inbound("rejected_signature")
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -369,6 +370,7 @@ defmodule InkwellWeb.FederationController do
 
       {:error, reason} ->
         Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
+        Inkwell.Federation.FederationStats.track_inbound("rejected_signature")
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -378,6 +380,7 @@ defmodule InkwellWeb.FederationController do
   defp process_activity(conn, activity, target_user) do
     activity_type = activity["type"]
     Logger.info("Inbox received #{activity_type} activity from #{activity["actor"]}")
+    Inkwell.Federation.FederationStats.track_inbound(activity_type)
 
     case activity_type do
       "Follow" ->

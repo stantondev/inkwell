@@ -281,6 +281,110 @@ defmodule Inkwell.Federation.RemoteEntries do
     end
   end
 
+  # ── Engagement Count Refresh ──────────────────────────────────────────
+
+  @doc """
+  Extracts a count from an AP Collection field (likes, shares, replies).
+  Handles various formats: `%{"totalItems" => N}`, `%{"first" => %{"totalItems" => N}}`, nil.
+  """
+  def extract_collection_count(%{"totalItems" => count}) when is_integer(count), do: count
+  def extract_collection_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
+  def extract_collection_count(_), do: 0
+
+  @doc """
+  Lists remote entries that need engagement count refresh.
+  Targets entries published in the last 7 days that haven't been refreshed in 2 hours.
+  """
+  def list_entries_needing_engagement_refresh(limit \\ 100) do
+    seven_days_ago = DateTime.add(DateTime.utc_now(), -7, :day)
+    two_hours_ago = DateTime.add(DateTime.utc_now(), -2, :hour)
+
+    RemoteEntry
+    |> where([e], e.published_at > ^seven_days_ago)
+    |> where([e], is_nil(e.engagement_refreshed_at) or e.engagement_refreshed_at < ^two_hours_ago)
+    |> order_by([e], asc_nulls_first: e.engagement_refreshed_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc """
+  Updates engagement counts for a remote entry.
+  """
+  def update_engagement_counts(entry_id, likes_count, boosts_count, reply_count) do
+    RemoteEntry
+    |> where([e], e.id == ^entry_id)
+    |> Repo.update_all(set: [
+      likes_count: likes_count,
+      boosts_count: boosts_count,
+      reply_count: reply_count,
+      engagement_refreshed_at: DateTime.utc_now()
+    ])
+  end
+
+  @doc """
+  Fetches AP objects for a batch of remote entries and updates their engagement counts.
+  Groups by domain with 500ms delay between same-domain requests.
+  Returns %{refreshed: N, skipped: N, errors: N}.
+  """
+  def refresh_engagement_batch(entries) do
+    accept_headers = [{~c"accept", ~c"application/activity+json, application/ld+json"}]
+
+    grouped =
+      Enum.group_by(entries, fn entry ->
+        url = entry.ap_id || entry.url
+        case URI.parse(url) do
+          %URI{host: host} when is_binary(host) -> host
+          _ -> "unknown"
+        end
+      end)
+
+    results =
+      Enum.flat_map(grouped, fn {_domain, domain_entries} ->
+        domain_entries
+        |> Enum.with_index()
+        |> Enum.map(fn {entry, index} ->
+          if index > 0, do: Process.sleep(500)
+          refresh_single_entry(entry, accept_headers)
+        end)
+      end)
+
+    %{
+      refreshed: Enum.count(results, &(&1 == :refreshed)),
+      skipped: Enum.count(results, &(&1 == :skipped)),
+      errors: Enum.count(results, &(&1 == :error))
+    }
+  end
+
+  defp refresh_single_entry(entry, accept_headers) do
+    url = entry.ap_id || entry.url
+
+    case Inkwell.Federation.Http.get(url, accept_headers) do
+      {:ok, {status, body}} when status in 200..299 ->
+        case Jason.decode(body) do
+          {:ok, ap_object} ->
+            likes = extract_collection_count(ap_object["likes"])
+            boosts = extract_collection_count(ap_object["shares"])
+            replies = Inkwell.Federation.ReplyFetcher.extract_reply_count(ap_object["replies"])
+            update_engagement_counts(entry.id, likes, boosts, replies)
+            :refreshed
+
+          {:error, _} ->
+            Logger.debug("RefreshEngagement: failed to parse JSON for #{url}")
+            :error
+        end
+
+      {:ok, {status, _}} ->
+        Logger.debug("RefreshEngagement: HTTP #{status} for #{url}")
+        :skipped
+
+      {:error, reason} ->
+        Logger.debug("RefreshEngagement: network error for #{url}: #{inspect(reason)}")
+        :error
+    end
+  end
+
+  # ── Entry Verification ──────────────────────────────────────────────
+
   defp head_request(url) when is_binary(url) do
     url_cl = String.to_charlist(url)
 

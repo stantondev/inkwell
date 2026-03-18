@@ -473,6 +473,12 @@ defmodule InkwellWeb.Router do
 
     # Link preview backfill (admin)
     post "/backfill-link-previews", AdminController, :backfill_link_previews
+
+    # Federation diagnostics (admin)
+    get "/federation/status", FederationDebugController, :status
+    post "/federation/refresh-engagement", FederationDebugController, :refresh_engagement
+    post "/federation/test-webfinger", FederationDebugController, :test_webfinger
+    post "/federation/test-actor", FederationDebugController, :test_actor
   end
 
   # Health check — used by Fly.io and external monitors

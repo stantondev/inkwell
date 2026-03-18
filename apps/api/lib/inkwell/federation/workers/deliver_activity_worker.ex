@@ -27,12 +27,16 @@ defmodule Inkwell.Federation.Workers.DeliverActivityWorker do
         key_id = "https://#{instance_host}/users/#{user.username}#main-key"
 
         case ActivityDelivery.deliver(activity, inbox_url, user.private_key, key_id) do
-          :ok -> :ok
+          :ok ->
+            Inkwell.Federation.FederationStats.track_outbound(inbox_url, :ok)
+            :ok
           {:error, {:http_error, status}} when status in [401, 403, 404, 410] ->
             # Don't retry on permanent errors
             Logger.info("Permanent delivery failure to #{inbox_url}: #{status}, not retrying")
+            Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, {:http_error, status}})
             :ok
           {:error, reason} ->
+            Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, reason})
             {:error, reason}
         end
     end
