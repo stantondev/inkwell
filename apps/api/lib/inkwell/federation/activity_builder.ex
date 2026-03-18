@@ -141,7 +141,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
               %{
                 "type" => "Hashtag",
                 "name" => "##{tag}",
-                "href" => "#{frontend_host}/tag/#{tag}"
+                "href" => "#{frontend_host}/tag/#{URI.encode_www_form(tag)}"
               }
             end)
           else
@@ -716,7 +716,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
       if entry.tags && length(entry.tags) > 0 do
         frontend_host = federation_config(:frontend_host)
         tag_links = Enum.map(entry.tags, fn tag ->
-          "<a href=\"#{frontend_host}/tag/#{tag}\" class=\"mention hashtag\" rel=\"tag\">##{tag}</a>"
+          "<a href=\"#{frontend_host}/tag/#{URI.encode_www_form(tag)}\" class=\"mention hashtag\" rel=\"tag\">##{tag}</a>"
         end)
         parts ++ ["<p>#{Enum.join(tag_links, " ")}</p>"]
       else

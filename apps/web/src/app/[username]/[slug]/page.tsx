@@ -652,7 +652,7 @@ export default async function EntryPage({ params }: EntryParams) {
               {entry.tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/tag/${tag}`}
+                  href={`/tag/${encodeURIComponent(tag)}`}
                   className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                   style={{ borderColor: "var(--border)", color: "var(--muted)" }}
                 >

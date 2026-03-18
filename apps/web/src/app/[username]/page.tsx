@@ -319,7 +319,7 @@ function TagCloud({ tags, styles }: { tags: { tag: string; count: number }[]; st
           return (
             <Link
               key={tag}
-              href={`/tag/${tag}`}
+              href={`/tag/${encodeURIComponent(tag)}`}
               className="profile-tag-chip hover:underline transition-opacity"
               style={{ fontSize: `${fontSize}px`, color: styles.foreground, opacity }}
             >

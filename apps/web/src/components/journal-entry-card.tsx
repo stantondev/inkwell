@@ -481,7 +481,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               {entry.tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/tag/${tag}`}
+                  href={`/tag/${encodeURIComponent(tag)}`}
                   className="text-xs px-2 py-0.5 rounded-full border transition-colors hover:border-accent"
                   style={{
                     borderColor: "var(--border)",

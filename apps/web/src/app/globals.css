@@ -1588,6 +1588,28 @@ a.mention:hover,
   opacity: 0.8;
 }
 
+/* ── Fediverse content readability ── */
+/* Mastodon/fediverse posts use minimal HTML (<p> tags, <br>, inline links).
+   These styles improve readability when that content is rendered on Inkwell. */
+
+/* Hashtag links — style distinctly for visual identity */
+.prose-entry a.mention.hashtag,
+.prose-entry a[rel="tag"] {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.prose-entry a.mention.hashtag:hover,
+.prose-entry a[rel="tag"]:hover {
+  text-decoration: underline;
+}
+
+/* Long URLs should break cleanly instead of overflowing */
+.prose-entry a[href] {
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
 /* ── Mastodon URL span classes ── */
 /* Mastodon wraps URLs in spans: .invisible hides https:// and trailing parts,
    .ellipsis shows the middle with truncation. Without these styles, full raw

@@ -155,7 +155,7 @@ function SavedEntryCard({ entry, onRemove }: SavedEntryCardProps) {
             {entry.tags.slice(0, 3).map((tag) => (
               <Link
                 key={tag}
-                href={`/tag/${tag}`}
+                href={`/tag/${encodeURIComponent(tag)}`}
                 className="text-xs px-2 py-0.5 rounded-full border transition-colors hover:border-[var(--accent)]"
                 style={{ borderColor: "var(--border)", color: "var(--muted)" }}
               >

@@ -264,7 +264,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
         {entry.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-6">
             {entry.tags.map((tag) => (
-              <Link key={tag} href={`/tag/${tag}`}
+              <Link key={tag} href={`/tag/${encodeURIComponent(tag)}`}
                 className="profile-tag-chip text-xs px-2 py-0.5 rounded-full border transition-colors hover:border-accent"
                 style={{ borderColor: styles.border, color: styles.muted }}>
                 #{tag}
@@ -370,7 +370,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         <div className="flex items-center justify-between mt-3 pt-2 border-t" style={{ borderColor: styles.border }}>
           <div className="flex flex-wrap gap-1">
             {entry.tags.slice(0, 3).map((tag) => (
-              <Link key={tag} href={`/tag/${tag}`}
+              <Link key={tag} href={`/tag/${encodeURIComponent(tag)}`}
                 className="profile-tag-chip text-[10px] px-1.5 py-0.5 rounded-full border"
                 style={{ borderColor: styles.border, color: styles.muted }}>
                 #{tag}
