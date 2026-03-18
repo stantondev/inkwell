@@ -155,7 +155,7 @@ defmodule InkwellWeb.ReprintController do
             remote_entry = Repo.preload(remote_entry, :remote_actor)
 
             # Send AP Announce to followers
-            %{entry_ap_id: remote_entry.ap_id, action: "announce_repost_remote", user_id: user.id}
+            %{remote_entry_ap_id: remote_entry.ap_id, action: "announce_repost_remote", user_id: user.id}
             |> FanOutWorker.new()
             |> Oban.insert()
 
@@ -166,7 +166,7 @@ defmodule InkwellWeb.ReprintController do
             remote_entry = Repo.preload(remote_entry, :remote_actor)
 
             # Send Undo { Announce } to followers
-            %{entry_ap_id: remote_entry.ap_id, action: "undo_announce_repost_remote", user_id: user.id}
+            %{remote_entry_ap_id: remote_entry.ap_id, action: "undo_announce_repost_remote", user_id: user.id}
             |> FanOutWorker.new()
             |> Oban.insert()
 
