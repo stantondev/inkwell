@@ -228,6 +228,28 @@ defmodule Inkwell.Accounts do
     |> Repo.all()
   end
 
+  @doc """
+  Check if a notification with the same user/type/actor/target was created recently.
+  Used to prevent duplicate notifications from rapid-fire requests or federation echoes.
+  """
+  def recent_notification_exists?(user_id, type, actor_id, target_id) do
+    since = DateTime.utc_now() |> DateTime.add(-300, :second)
+
+    query =
+      Notification
+      |> where(user_id: ^user_id, type: ^type, target_id: ^target_id)
+      |> where([n], n.inserted_at >= ^since)
+
+    query =
+      if actor_id do
+        where(query, actor_id: ^actor_id)
+      else
+        where(query, [n], is_nil(n.actor_id))
+      end
+
+    Repo.exists?(query)
+  end
+
   def create_notification(attrs) do
     user_id = attrs[:user_id] || attrs["user_id"]
     actor_id = attrs[:actor_id] || attrs["actor_id"]

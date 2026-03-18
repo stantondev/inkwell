@@ -173,8 +173,12 @@ export function JournalFeed({
 
   // ─── Shared helpers ──────────────────────────────────────────────
 
+  const inkingRef = useRef(new Set<string>());
+
   const toggleInk = useCallback(async (entryId: string, isRemote: boolean) => {
     if (!session?.isLoggedIn) return;
+    if (inkingRef.current.has(entryId)) return;
+    inkingRef.current.add(entryId);
     const path = isRemote ? `/api/remote-entries/${entryId}/ink` : `/api/entries/${entryId}/ink`;
     try {
       const res = await fetch(path, { method: "POST" });
@@ -182,7 +186,9 @@ export function JournalFeed({
         const data = await res.json();
         setEntries(prev => prev.map(e => e.id === entryId ? { ...e, my_ink: data.inked, ink_count: data.ink_count } : e));
       }
-    } catch { /* silent */ }
+    } catch { /* silent */ } finally {
+      inkingRef.current.delete(entryId);
+    }
   }, [session?.isLoggedIn]);
 
   const toggleBookmark = useCallback(async (entryId: string) => {

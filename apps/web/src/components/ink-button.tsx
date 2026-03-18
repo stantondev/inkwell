@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface InkButtonProps {
@@ -30,6 +30,7 @@ export function InkButton({
   const [inked, setInked] = useState(initialInked);
   const [count, setCount] = useState(initialCount);
   const [animating, setAnimating] = useState(false);
+  const loadingRef = useRef(false);
   const router = useRouter();
 
   // For own entries, show read-only count if > 0
@@ -51,6 +52,8 @@ export function InkButton({
       router.push("/get-started");
       return;
     }
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
     const newInked = !inked;
     setInked(newInked);
@@ -68,13 +71,14 @@ export function InkButton({
         setInked(data.inked);
         setCount(data.ink_count);
       } else {
-        // Revert on error
         setInked(!newInked);
         setCount((c) => c + (newInked ? -1 : 1));
       }
     } catch {
       setInked(!newInked);
       setCount((c) => c + (newInked ? -1 : 1));
+    } finally {
+      loadingRef.current = false;
     }
   }
 

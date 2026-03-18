@@ -13,13 +13,15 @@ defmodule InkwellWeb.InkController do
          :ok <- validate_not_blocked(entry, user) do
       case Inks.toggle_ink(user.id, entry_id) do
         {:ok, {:created, _ink}} ->
-          Accounts.create_notification(%{
-            type: :ink,
-            user_id: entry.user_id,
-            actor_id: user.id,
-            target_type: "entry",
-            target_id: entry.id
-          })
+          unless Accounts.recent_notification_exists?(entry.user_id, :ink, user.id, entry.id) do
+            Accounts.create_notification(%{
+              type: :ink,
+              user_id: entry.user_id,
+              actor_id: user.id,
+              target_type: "entry",
+              target_id: entry.id
+            })
+          end
 
           # Send Announce (boost) to inker's fediverse followers for public entries
           if entry.privacy == :public do

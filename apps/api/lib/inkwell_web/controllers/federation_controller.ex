@@ -1092,6 +1092,15 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp create_ink_notification(entry, remote_actor) do
+    # Dedup: skip if a recent ink notification already exists for this entry
+    if Accounts.recent_notification_exists?(entry.user_id, :ink, nil, entry.id) do
+      Logger.info("Skipping duplicate ink notification for entry #{entry.id} from #{remote_actor.ap_id}")
+    else
+      do_create_ink_notification(entry, remote_actor)
+    end
+  end
+
+  defp do_create_ink_notification(entry, remote_actor) do
     profile_url =
       case remote_actor.raw_data do
         %{"url" => url} when is_binary(url) -> url
