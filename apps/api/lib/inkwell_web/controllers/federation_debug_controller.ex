@@ -143,7 +143,11 @@ defmodule InkwellWeb.FederationDebugController do
   defp check_federation_endpoints do
     config = Application.get_env(:inkwell, :federation, [])
     instance_host = Keyword.get(config, :instance_host, "inkwell.social")
-    frontend_host = Keyword.get(config, :frontend_host, instance_host)
+
+    # Use localhost to check API endpoints directly (avoids Fly internal network issues
+    # when trying to reach the frontend host via external HTTPS)
+    port = Application.get_env(:inkwell, InkwellWeb.Endpoint)[:http][:port] || 4000
+    api_base = "http://localhost:#{port}"
 
     # Find a test user and entry
     test_user =
@@ -165,9 +169,9 @@ defmodule InkwellWeb.FederationDebugController do
 
     endpoints =
       if test_user do
-        webfinger_url = "https://#{frontend_host}/.well-known/webfinger?resource=acct:#{test_user.username}@#{instance_host}"
-        actor_url = "https://#{frontend_host}/users/#{test_user.username}"
-        avatar_url = "https://#{frontend_host}/api/avatars/#{test_user.username}"
+        webfinger_url = "#{api_base}/.well-known/webfinger?resource=acct:#{test_user.username}@#{instance_host}"
+        actor_url = "#{api_base}/users/#{test_user.username}"
+        avatar_url = "#{api_base}/api/avatars/#{test_user.username}"
 
         endpoints
         |> Map.put(:webfinger, check_endpoint(webfinger_url, [{~c"accept", ~c"application/jrd+json"}]))
@@ -182,7 +186,7 @@ defmodule InkwellWeb.FederationDebugController do
 
     endpoints =
       if test_entry do
-        entry_url = "https://#{frontend_host}/entries/#{test_entry.id}"
+        entry_url = "#{api_base}/entries/#{test_entry.id}"
         Map.put(endpoints, :entry, check_endpoint(entry_url, [{~c"accept", ~c"application/activity+json"}]))
       else
         Map.put(endpoints, :entry, %{status: "skipped", reason: "no test entry"})
