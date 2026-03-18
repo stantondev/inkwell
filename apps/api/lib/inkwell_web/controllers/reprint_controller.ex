@@ -16,9 +16,13 @@ defmodule InkwellWeb.ReprintController do
          :ok <- validate_not_blocked(entry, user),
          :ok <- validate_body(body_html) do
 
+      # Derive title from original post
+      quoted_title = if entry.title && entry.title != "", do: "RE: #{entry.title}", else: nil
+
       # Create a new published entry that quotes the original
       entry_attrs = %{
         user_id: user.id,
+        title: quoted_title,
         body_html: body_html,
         privacy: :public,
         status: :published,
@@ -83,6 +87,101 @@ defmodule InkwellWeb.ReprintController do
     end
   end
 
+  # POST /api/entries/:entry_id/reprint/toggle — simple reprint toggle (no quote text)
+  def toggle(conn, %{"entry_id" => entry_id}) do
+    user = conn.assigns.current_user
+
+    with {:ok, entry} <- get_entry(entry_id),
+         :ok <- validate_not_own_entry(entry, user),
+         :ok <- validate_public(entry),
+         :ok <- validate_not_blocked(entry, user) do
+      case Reprints.toggle_reprint(user.id, entry_id) do
+        {:ok, {:created, _reprint}} ->
+          Accounts.create_notification(%{
+            type: :reprint,
+            user_id: entry.user_id,
+            actor_id: user.id,
+            target_type: "entry",
+            target_id: entry.id
+          })
+
+          # Send AP Announce to followers
+          if entry.privacy == :public do
+            %{entry_id: entry_id, action: "announce_repost", user_id: user.id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+          end
+
+          updated = Journals.get_entry!(entry_id)
+          json(conn, %{data: %{reprinted: true, reprint_count: updated.reprint_count}})
+
+        {:ok, {:removed, _}} ->
+          # Send Undo { Announce } to followers
+          if entry.privacy == :public do
+            %{entry_id: entry_id, action: "undo_announce_repost", user_id: user.id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+          end
+
+          updated = Journals.get_entry!(entry_id)
+          json(conn, %{data: %{reprinted: false, reprint_count: updated.reprint_count}})
+
+        {:error, _changeset} ->
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to process reprint"})
+      end
+    else
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+
+      {:error, :own_entry} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Cannot reprint your own entry"})
+
+      {:error, :not_public} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Only public entries can be reprinted"})
+
+      {:error, :blocked} ->
+        conn |> put_status(:forbidden) |> json(%{error: "Cannot reprint this entry"})
+    end
+  end
+
+  # POST /api/remote-entries/:id/reprint/toggle — simple reprint toggle for fediverse entries
+  def toggle_remote(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case get_remote_entry(id) do
+      {:ok, remote_entry} ->
+        case Reprints.toggle_reprint_remote(user.id, id) do
+          {:ok, {:created, _reprint}} ->
+            remote_entry = Repo.preload(remote_entry, :remote_actor)
+
+            # Send AP Announce to followers
+            %{entry_ap_id: remote_entry.ap_id, action: "announce_repost_remote", user_id: user.id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+
+            reprint_count = Reprints.count_reprints_for_remote_entries([id]) |> Map.get(id, 0)
+            json(conn, %{data: %{reprinted: true, reprint_count: reprint_count}})
+
+          {:ok, {:removed, _}} ->
+            remote_entry = Repo.preload(remote_entry, :remote_actor)
+
+            # Send Undo { Announce } to followers
+            %{entry_ap_id: remote_entry.ap_id, action: "undo_announce_repost_remote", user_id: user.id}
+            |> FanOutWorker.new()
+            |> Oban.insert()
+
+            reprint_count = Reprints.count_reprints_for_remote_entries([id]) |> Map.get(id, 0)
+            json(conn, %{data: %{reprinted: false, reprint_count: reprint_count}})
+
+          {:error, _changeset} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to process reprint"})
+        end
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+    end
+  end
+
   # POST /api/remote-entries/:id/reprint — create a quote reprint of a remote entry
   def create_remote(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
@@ -91,9 +190,13 @@ defmodule InkwellWeb.ReprintController do
     with {:ok, remote_entry} <- get_remote_entry(id),
          :ok <- validate_body(body_html) do
 
+      # Derive title from original post
+      quoted_title = if remote_entry.title && remote_entry.title != "", do: "RE: #{remote_entry.title}", else: nil
+
       # Create a new published entry that quotes the remote entry
       entry_attrs = %{
         user_id: user.id,
+        title: quoted_title,
         body_html: body_html,
         privacy: :public,
         status: :published,
@@ -173,14 +276,19 @@ defmodule InkwellWeb.ReprintController do
     %{
       id: entry.id,
       title: entry.title,
-      excerpt: entry.excerpt || truncate_html(entry.body_html, 200),
+      excerpt: entry.excerpt || truncate_html(entry.body_html, 300),
       slug: entry.slug,
       cover_image_id: entry.cover_image_id,
       published_at: entry.published_at,
+      word_count: entry.word_count,
+      ink_count: entry.ink_count || 0,
+      category: entry.category,
       author: %{
         username: author.username,
         display_name: author.display_name,
-        avatar_url: author.avatar_url
+        avatar_url: author.avatar_url,
+        avatar_frame: author.avatar_frame,
+        subscription_tier: author.subscription_tier
       }
     }
   end
@@ -191,13 +299,15 @@ defmodule InkwellWeb.ReprintController do
     %{
       id: remote_entry.id,
       title: remote_entry.title,
-      excerpt: truncate_html(remote_entry.body_html, 200),
+      excerpt: truncate_html(remote_entry.body_html, 300),
       url: remote_entry.url,
       published_at: remote_entry.published_at,
+      ink_count: remote_entry.likes_count || 0,
       author: %{
         username: actor.username,
         display_name: actor.display_name || actor.username,
         avatar_url: actor.avatar_url,
+        avatar_frame: nil,
         domain: actor.domain
       }
     }

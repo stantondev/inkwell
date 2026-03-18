@@ -161,13 +161,14 @@ export default function GuidePage() {
           </p>
         </Section>
 
-        {/* IV. Stamps, Inks, Comments & Interaction */}
-        <Section id="interaction" number="IV" title="Stamps, Inks & Interaction">
+        {/* IV. Stamps, Inks, Reprints & Interaction */}
+        <Section id="interaction" number="IV" title="Stamps, Inks, Reprints & Interaction">
           <p>
             <strong>Stamps</strong> are Inkwell&rsquo;s way of reacting to
             entries — like pressing an ink stamp onto paper. Each entry shows
             which stamp types have been placed in the top-right corner (like
-            postage on a letter).
+            postage on a letter). When someone on the fediverse favorites your
+            entry, it shows up as a stamp too.
           </p>
           <p>
             You can leave one stamp per entry. Pick the one that fits how the
@@ -178,10 +179,21 @@ export default function GuidePage() {
             <strong>Inks</strong> are a way to signal &ldquo;more people should
             read this.&rdquo; Click the ink drop icon on any entry to ink it.
             Unlike stamps (which express how something made you feel), inks are
-            a discovery signal — they help surface great writing. The most-inked
-            entries appear in the <strong>Trending This Week</strong> section on
-            Explore, and you can sort Explore by &ldquo;Most Inked&rdquo; to
-            find community favorites.
+            a discovery signal — they help surface great writing on Inkwell.
+            The most-inked entries appear in the{" "}
+            <strong>Trending This Week</strong> section on Explore, and you can
+            sort Explore by &ldquo;Most Inked&rdquo; to find community favorites.
+            Inks are an Inkwell-native feature and stay within the platform.
+          </p>
+          <p>
+            <strong>Reprints</strong> are how you share someone else&rsquo;s
+            writing with your followers — like a repost or boost. Click the
+            reprint icon (↻) on any public entry to reprint it. Your followers
+            will see it in their feed with a &ldquo;reprinted&rdquo; label.
+            Reprints are federated — they appear as boosts on Mastodon and
+            other fediverse platforms. You can also <strong>reprint with your
+            thoughts</strong> by clicking the dropdown arrow, which lets you
+            add your own commentary while embedding the original post.
           </p>
           <p>
             <strong>Comments</strong> support @mentions — type{" "}

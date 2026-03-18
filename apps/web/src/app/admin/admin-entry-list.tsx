@@ -7,6 +7,8 @@ import { AdminSkeletonTable, AdminSkeletonCards } from "./admin-skeleton";
 interface AdminEntry {
   id: string;
   title: string | null;
+  excerpt: string | null;
+  body_html: string | null;
   privacy: string;
   slug: string;
   category: string | null;
@@ -15,6 +17,8 @@ interface AdminEntry {
   tags: string[];
   sensitive?: boolean;
   admin_sensitive?: boolean;
+  quoted_entry_id?: string | null;
+  quoted_remote_entry_id?: string | null;
   author: {
     username: string;
     display_name: string;
@@ -26,6 +30,33 @@ interface Pagination {
   page: number;
   per_page: number;
   total: number;
+}
+
+/** Display title for admin list — falls back to excerpt or body snippet */
+function entryDisplayTitle(entry: AdminEntry): React.ReactNode {
+  if (entry.title) return entry.title;
+
+  // For quote reprints, show "↻ Reprint" label
+  const isQuote = entry.quoted_entry_id || entry.quoted_remote_entry_id;
+
+  // Try excerpt, then strip HTML from body for a snippet
+  const snippet = entry.excerpt
+    || (entry.body_html
+      ? entry.body_html.replace(/<[^>]+>/g, "").trim().slice(0, 60)
+      : null);
+
+  if (snippet) {
+    return (
+      <span>
+        {isQuote && <span style={{ color: "var(--accent)", marginRight: "0.25rem" }}>↻</span>}
+        <em style={{ color: "var(--muted)", fontWeight: 400 }}>
+          {snippet.length >= 60 ? snippet + "…" : snippet}
+        </em>
+      </span>
+    );
+  }
+
+  return <em style={{ color: "var(--muted)" }}>Untitled</em>;
 }
 
 const FILTERS = [
@@ -212,7 +243,7 @@ export function AdminEntryList() {
                           )}
                           <Link href={`/${entry.author.username}/${entry.slug}`}
                             className="font-medium hover:underline truncate block">
-                            {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
+                            {entryDisplayTitle(entry)}
                           </Link>
                         </div>
                       </td>
@@ -257,7 +288,7 @@ export function AdminEntryList() {
                     )}
                     <Link href={`/${entry.author.username}/${entry.slug}`}
                       className="font-medium hover:underline truncate text-sm">
-                      {entry.title ?? <em style={{ color: "var(--muted)" }}>Untitled</em>}
+                      {entryDisplayTitle(entry)}
                     </Link>
                   </div>
                 </div>

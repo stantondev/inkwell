@@ -2,7 +2,6 @@ defmodule InkwellWeb.InkController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Inks, Journals, Social}
-  alias Inkwell.Federation.Workers.FanOutWorker
 
   # POST /api/entries/:entry_id/ink — toggle ink on/off
   def toggle(conn, %{"entry_id" => entry_id}) do
@@ -23,24 +22,10 @@ defmodule InkwellWeb.InkController do
             })
           end
 
-          # Send Announce (boost) to inker's fediverse followers for public entries
-          if entry.privacy == :public do
-            %{entry_id: entry_id, action: "announce", user_id: user.id}
-            |> FanOutWorker.new()
-            |> Oban.insert()
-          end
-
           updated = Journals.get_entry!(entry_id)
           json(conn, %{data: %{inked: true, ink_count: updated.ink_count}})
 
         {:ok, {:removed, _}} ->
-          # Send Undo { Announce } to inker's fediverse followers for public entries
-          if entry.privacy == :public do
-            %{entry_id: entry_id, action: "undo_announce", user_id: user.id}
-            |> FanOutWorker.new()
-            |> Oban.insert()
-          end
-
           updated = Journals.get_entry!(entry_id)
           json(conn, %{data: %{inked: false, ink_count: updated.ink_count}})
 

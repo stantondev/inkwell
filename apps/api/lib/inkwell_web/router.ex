@@ -238,7 +238,8 @@ defmodule InkwellWeb.Router do
     # Inks (discovery signal)
     post "/entries/:entry_id/ink", InkController, :toggle
 
-    # Reprints (quote reposts)
+    # Reprints (simple toggle + quote reposts)
+    post "/entries/:entry_id/reprint/toggle", ReprintController, :toggle
     post "/entries/:entry_id/reprint", ReprintController, :create
     get "/entries/:entry_id/quote-preview", ReprintController, :quote_preview
 
@@ -312,6 +313,7 @@ defmodule InkwellWeb.Router do
     post "/remote-entries/:id/stamp", RemoteEntryController, :stamp
     delete "/remote-entries/:id/stamp", RemoteEntryController, :unstamp
     post "/remote-entries/:id/ink", RemoteEntryController, :toggle_ink
+    post "/remote-entries/:id/reprint/toggle", ReprintController, :toggle_remote
     post "/remote-entries/:id/reprint", ReprintController, :create_remote
     get "/remote-entries/:id/quote-preview", ReprintController, :quote_preview_remote
     get "/remote-entries/:id/comments", RemoteEntryController, :list_comments

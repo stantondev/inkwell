@@ -568,6 +568,7 @@ export function FeedCardActions({
           isOwnEntry={isOwnEntry}
           isLoggedIn={isLoggedIn}
           isRemote={isRemote}
+          apiPath={isRemote ? `/api/remote-entries/${entryId}/reprint/toggle` : undefined}
         />
 
         {/* Stamp button */}

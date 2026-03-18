@@ -13,10 +13,15 @@ interface QuotedEntry {
   url?: string | null;
   cover_image_id?: string | null;
   published_at: string;
+  word_count?: number | null;
+  ink_count?: number;
+  category?: string | null;
   author: {
     username: string;
     display_name: string;
     avatar_url: string | null;
+    avatar_frame?: string | null;
+    subscription_tier?: string | null;
     domain?: string;
   };
 }
@@ -186,38 +191,52 @@ export function ReprintModal({ entryId, isRemote, onClose, onSuccess }: ReprintM
             <div className="reprint-modal-preview-loading">Loading preview...</div>
           ) : quotedEntry ? (
             <a href={entryHref} target={isRemote ? "_blank" : undefined} className="reprint-quote-card">
-              <div className="reprint-quote-card-inner">
-                {quotedEntry.cover_image_id && (
-                  <img
-                    src={`/api/images/${quotedEntry.cover_image_id}`}
-                    alt=""
-                    className="reprint-quote-cover"
-                  />
-                )}
-                <div className="reprint-quote-content">
-                  {quotedEntry.title && (
-                    <div className="reprint-quote-title">{quotedEntry.title}</div>
+              {quotedEntry.cover_image_id && (
+                <img
+                  src={`/api/images/${quotedEntry.cover_image_id}`}
+                  alt=""
+                  className="reprint-quote-cover"
+                />
+              )}
+              <div className="reprint-quote-body">
+                <div className="reprint-quote-author">
+                  {quotedEntry.author.avatar_url && (
+                    <img
+                      src={quotedEntry.author.avatar_url.startsWith("data:")
+                        ? `/api/avatars/${quotedEntry.author.username}`
+                        : quotedEntry.author.avatar_url}
+                      alt=""
+                      className="reprint-quote-avatar"
+                    />
                   )}
-                  {quotedEntry.excerpt && (
-                    <div className="reprint-quote-excerpt">{quotedEntry.excerpt}</div>
-                  )}
-                  <div className="reprint-quote-author">
-                    {quotedEntry.author.avatar_url && (
-                      <img
-                        src={quotedEntry.author.avatar_url.startsWith("data:")
-                          ? `/api/avatars/${quotedEntry.author.username}`
-                          : quotedEntry.author.avatar_url}
-                        alt=""
-                        className="reprint-quote-avatar"
-                      />
-                    )}
-                    <span>
+                  <div className="reprint-quote-author-info">
+                    <span className="reprint-quote-author-name">
                       {quotedEntry.author.display_name}
-                      {quotedEntry.author.domain && (
-                        <span className="reprint-quote-domain"> @{quotedEntry.author.domain}</span>
-                      )}
+                    </span>
+                    <span className="reprint-quote-author-handle">
+                      @{quotedEntry.author.username}{quotedEntry.author.domain ? `@${quotedEntry.author.domain}` : ""}
                     </span>
                   </div>
+                  {isRemote && (
+                    <span className="reprint-quote-fediverse-badge">🌐</span>
+                  )}
+                </div>
+                {quotedEntry.title && (
+                  <div className="reprint-quote-title">{quotedEntry.title}</div>
+                )}
+                {quotedEntry.excerpt && (
+                  <div className="reprint-quote-excerpt">{quotedEntry.excerpt}</div>
+                )}
+                <div className="reprint-quote-meta">
+                  {quotedEntry.word_count && (
+                    <span>{Math.max(1, Math.round(quotedEntry.word_count / 265))} min read</span>
+                  )}
+                  {quotedEntry.ink_count != null && quotedEntry.ink_count > 0 && (
+                    <span>◆ {quotedEntry.ink_count} inks</span>
+                  )}
+                  {quotedEntry.category && (
+                    <span style={{ textTransform: "capitalize" }}>{quotedEntry.category.replace(/_/g, " ")}</span>
+                  )}
                 </div>
               </div>
             </a>

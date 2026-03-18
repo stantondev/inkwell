@@ -2,7 +2,7 @@ defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Inks, Journals, Reprints, Social, Stamps}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, RemoteActor, ReplyFetcher}
+  alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, ReplyFetcher}
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
   alias Inkwell.Repo
 
@@ -225,21 +225,13 @@ defmodule InkwellWeb.RemoteEntryController do
     user = conn.assigns.current_user
 
     case get_remote_entry(id) do
-      {:ok, remote_entry} ->
+      {:ok, _remote_entry} ->
         case Inks.toggle_ink_remote(user.id, id) do
           {:ok, {:created, _ink}} ->
-            # Send Announce to followers (boost)
-            remote_entry = Repo.preload(remote_entry, :remote_actor)
-            deliver_announce(remote_entry, user)
-
             ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
             json(conn, %{data: %{inked: true, ink_count: ink_count}})
 
           {:ok, {:removed, _}} ->
-            # Send Undo { Announce } to followers
-            remote_entry = Repo.preload(remote_entry, :remote_actor)
-            deliver_undo_announce(remote_entry, user)
-
             ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
             json(conn, %{data: %{inked: false, ink_count: ink_count}})
 
@@ -278,22 +270,6 @@ defmodule InkwellWeb.RemoteEntryController do
       |> DeliverActivityWorker.new()
       |> Oban.insert()
     end
-  end
-
-  defp deliver_announce(remote_entry, user) do
-    alias Inkwell.Federation.Workers.FanOutWorker
-
-    %{entry_ap_id: remote_entry.ap_id, action: "announce", user_id: user.id}
-    |> FanOutWorker.new()
-    |> Oban.insert()
-  end
-
-  defp deliver_undo_announce(remote_entry, user) do
-    alias Inkwell.Federation.Workers.FanOutWorker
-
-    %{entry_ap_id: remote_entry.ap_id, action: "undo_announce", user_id: user.id}
-    |> FanOutWorker.new()
-    |> Oban.insert()
   end
 
   defp deliver_reply(remote_entry, comment, user) do

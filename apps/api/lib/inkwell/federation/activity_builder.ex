@@ -186,6 +186,11 @@ defmodule Inkwell.Federation.ActivityBuilder do
         images -> Map.put(article, "attachment", images)
       end
 
+    # Quote post fields (FEP-e232 Object Links + backward-compat fields)
+    # When this entry quotes another entry, include the quote reference so
+    # Mastodon 4.4+, Misskey, Akkoma, Pleroma, and Threads can render the quote.
+    article = maybe_add_quote_fields(article, entry, frontend_host)
+
     # Content sensitivity flag (Mastodon/fediverse standard)
     is_sensitive = (Map.get(entry, :sensitive, false) || false) || (Map.get(entry, :admin_sensitive, false) || false)
 
@@ -827,5 +832,67 @@ defmodule Inkwell.Federation.ActivityBuilder do
     :crypto.hash(:sha256, url)
     |> Base.url_encode64(padding: false)
     |> binary_part(0, 12)
+  end
+
+  # ── Quote post fields (FEP-e232 + backward compat) ──────────────────
+
+  @doc false
+  # Adds FEP-e232 Object Link tag + quoteUri/quoteUrl/_misskey_quote fields
+  # when this entry quotes another entry. Also prepends a fallback
+  # `<p class="quote-inline">RE: <a href="...">...</a></p>` to content
+  # for servers that don't understand native quote embeds.
+  defp maybe_add_quote_fields(article, entry, frontend_host) do
+    quoted_ap_id = resolve_quoted_ap_id(entry, frontend_host)
+
+    case quoted_ap_id do
+      nil -> article
+      ap_id ->
+        # FEP-e232: Link in tag array with AP media type
+        quote_link = %{
+          "type" => "Link",
+          "mediaType" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+          "href" => ap_id,
+          "name" => "RE: #{ap_id}"
+        }
+
+        existing_tags = article["tag"] || []
+        article = Map.put(article, "tag", existing_tags ++ [quote_link])
+
+        # Backward-compat fields for Misskey, Akkoma, Pleroma, and older Mastodon
+        article =
+          article
+          |> Map.put("quoteUri", ap_id)
+          |> Map.put("quoteUrl", ap_id)
+          |> Map.put("_misskey_quote", ap_id)
+
+        # Prepend fallback <p class="quote-inline"> to content for servers
+        # that don't render native quote embeds (they show the link as text;
+        # servers that DO render embeds hide elements with .quote-inline)
+        existing_content = article["content"] || ""
+        fallback = "<p class=\"quote-inline\">RE: <a href=\"#{ap_id}\">#{ap_id}</a></p>\n"
+        Map.put(article, "content", fallback <> existing_content)
+    end
+  end
+
+  # Resolves the AP ID of the quoted entry (local or remote)
+  defp resolve_quoted_ap_id(entry, frontend_host) do
+    cond do
+      # Local quoted entry — AP ID is the entry's ap_id field
+      Map.get(entry, :quoted_entry_id) != nil ->
+        case Inkwell.Repo.get(Inkwell.Journals.Entry, entry.quoted_entry_id) do
+          nil -> nil
+          quoted -> quoted.ap_id || "#{frontend_host}/entries/#{quoted.id}"
+        end
+
+      # Remote quoted entry — AP ID is the remote entry's ap_id field
+      Map.get(entry, :quoted_remote_entry_id) != nil ->
+        case Inkwell.Repo.get(Inkwell.Federation.RemoteEntry, entry.quoted_remote_entry_id) do
+          nil -> nil
+          quoted -> quoted.ap_id
+        end
+
+      true ->
+        nil
+    end
   end
 end

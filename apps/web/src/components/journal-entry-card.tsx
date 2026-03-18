@@ -39,20 +39,31 @@ export interface JournalEntry {
   boosts_count?: number;
   my_ink?: boolean;
   my_reprint?: boolean;
-  /** Quoted/reprinted entry data */
+  /** Quoted/reprinted entry data — full post content for inline rendering */
   quoted_entry?: {
     id: string;
     type: "local" | "remote";
     title: string | null;
+    body_html: string | null;
     excerpt: string | null;
     slug?: string | null;
     url?: string | null;
     cover_image_id?: string | null;
     published_at: string;
+    word_count?: number | null;
+    ink_count?: number;
+    reprint_count?: number;
+    category?: string | null;
+    tags?: string[];
+    mood?: string | null;
+    music?: string | null;
     author: {
       username: string;
       display_name: string;
       avatar_url: string | null;
+      avatar_frame?: string | null;
+      subscription_tier?: string | null;
+      ink_donor_status?: string | null;
       domain?: string;
     };
   } | null;
@@ -193,8 +204,8 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
           </time>
         )}
 
-        {/* Title */}
-        {entry.title && (
+        {/* Title — hidden on feed cards for quote reprints (the quoted post speaks for itself) */}
+        {entry.title && !entry.quoted_entry && (
           <h2
             className="text-2xl font-bold mb-4 leading-snug pr-14 sm:pr-24"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
@@ -528,42 +539,88 @@ function QuotedEntryCard({ quoted }: { quoted: NonNullable<JournalEntry["quoted_
     ? `/api/avatars/${quoted.author.username}`
     : quoted.author.avatar_url;
 
-  const Tag = isExternal ? "a" : Link;
-  const tagProps = isExternal
-    ? { href, target: "_blank", rel: "noopener noreferrer" }
-    : { href };
+  const readingTime = quoted.word_count ? Math.max(1, Math.round(quoted.word_count / 265)) : null;
 
   return (
-    <Tag {...tagProps as any} className="reprint-quote-card" style={{ marginTop: "0.75rem" }}>
-      <div className="reprint-quote-card-inner">
-        {quoted.cover_image_id && (
-          <img
-            src={`/api/images/${quoted.cover_image_id}`}
-            alt=""
-            className="reprint-quote-cover"
-          />
-        )}
-        <div className="reprint-quote-content">
-          {quoted.title && (
-            <div className="reprint-quote-title">{quoted.title}</div>
+    <div className="reprint-quoted-post" style={{ marginTop: "0.75rem" }}>
+      {/* Author row with link to original */}
+      <div className="reprint-quoted-header">
+        <div className="reprint-quoted-author">
+          {avatarSrc && (
+            <img src={avatarSrc} alt="" className="reprint-quoted-avatar" />
           )}
-          {quoted.excerpt && (
-            <div className="reprint-quote-excerpt">{quoted.excerpt}</div>
-          )}
-          <div className="reprint-quote-author">
-            {avatarSrc && (
-              <img src={avatarSrc} alt="" className="reprint-quote-avatar" />
-            )}
-            <span>
+          <div className="reprint-quoted-author-info">
+            <span className="reprint-quoted-author-name">
               {quoted.author.display_name}
-              {quoted.author.domain && (
-                <span className="reprint-quote-domain"> @{quoted.author.domain}</span>
-              )}
+            </span>
+            <span className="reprint-quoted-author-handle">
+              @{quoted.author.username}{quoted.author.domain ? `@${quoted.author.domain}` : ""}
             </span>
           </div>
+          {quoted.type === "remote" && (
+            <span style={{ marginLeft: "auto", fontSize: "0.75rem", opacity: 0.6 }}>🌐</span>
+          )}
         </div>
       </div>
-    </Tag>
+
+      {/* Cover image — full width */}
+      {quoted.cover_image_id && (
+        <img
+          src={`/api/images/${quoted.cover_image_id}`}
+          alt=""
+          className="reprint-quoted-cover"
+        />
+      )}
+
+      {/* Title */}
+      {quoted.title && (
+        <h3 className="reprint-quoted-title">
+          {isExternal ? (
+            <a href={href} target="_blank" rel="noopener noreferrer">{quoted.title}</a>
+          ) : (
+            <Link href={href}>{quoted.title}</Link>
+          )}
+        </h3>
+      )}
+
+      {/* Full body content — renders same as a normal entry */}
+      {quoted.body_html && (
+        <div
+          className="prose-entry reprint-quoted-body"
+          dangerouslySetInnerHTML={{ __html: quoted.body_html }}
+        />
+      )}
+
+      {/* Tags */}
+      {quoted.tags && quoted.tags.length > 0 && (
+        <div className="reprint-quoted-tags">
+          {quoted.tags.map((tag) => (
+            <Link key={tag} href={`/tag/${encodeURIComponent(tag)}`} className="reprint-quoted-tag">
+              #{tag}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Footer — reading time + link to original */}
+      <div className="reprint-quoted-footer">
+        {readingTime && <span>{readingTime} min read</span>}
+        {quoted.category && (
+          <span style={{ textTransform: "capitalize" }}>{quoted.category.replace(/_/g, " ")}</span>
+        )}
+        <span style={{ marginLeft: "auto" }}>
+          {isExternal ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="reprint-quoted-link">
+              View original →
+            </a>
+          ) : (
+            <Link href={href} className="reprint-quoted-link">
+              Open full entry →
+            </Link>
+          )}
+        </span>
+      </div>
+    </div>
   );
 }
 

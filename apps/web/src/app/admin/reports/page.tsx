@@ -158,7 +158,7 @@ export default function AdminReportsPage() {
                     <div className="min-w-0">
                       <Link href={`/${report.entry.author?.username}/${report.entry.slug}`}
                         className="text-sm font-medium hover:underline">
-                        {report.entry.title || "Untitled entry"}
+                        {report.entry.title || report.entry.excerpt?.slice(0, 60) || "Untitled entry"}
                       </Link>
                       {report.entry.author && (
                         <span className="text-xs ml-2" style={{ color: "var(--muted)" }}>

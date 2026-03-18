@@ -903,6 +903,8 @@ defmodule InkwellWeb.EntryController do
       is_sensitive: (entry.sensitive || false) || (entry.admin_sensitive || false),
       ink_count: entry.ink_count || 0,
       reprint_count: entry.reprint_count || 0,
+      quoted_entry_id: entry.quoted_entry_id,
+      quoted_remote_entry_id: entry.quoted_remote_entry_id,
       quoted_entry: render_quoted_entry(entry),
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
@@ -921,14 +923,25 @@ defmodule InkwellWeb.EntryController do
           id: qe.id,
           type: "local",
           title: qe.title,
-          excerpt: qe.excerpt || truncate_text(qe.body_html, 200),
+          body_html: qe.body_html,
+          excerpt: qe.excerpt || truncate_text(qe.body_html, 300),
           slug: qe.slug,
           cover_image_id: qe.cover_image_id,
           published_at: qe.published_at,
+          word_count: qe.word_count,
+          ink_count: qe.ink_count || 0,
+          reprint_count: qe.reprint_count || 0,
+          category: qe.category,
+          tags: qe.tags || [],
+          mood: qe.mood,
+          music: qe.music,
           author: %{
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url
+            avatar_url: author.avatar_url,
+            avatar_frame: author.avatar_frame,
+            subscription_tier: author.subscription_tier,
+            ink_donor_status: author.ink_donor_status
           }
         }
     end
@@ -943,13 +956,17 @@ defmodule InkwellWeb.EntryController do
           id: qre.id,
           type: "remote",
           title: qre.title,
-          excerpt: truncate_text(qre.body_html, 200),
+          body_html: qre.body_html,
+          excerpt: truncate_text(qre.body_html, 300),
           url: qre.url,
           published_at: qre.published_at,
+          ink_count: qre.likes_count || 0,
+          tags: qre.tags || [],
           author: %{
             username: actor.username,
             display_name: actor.display_name || actor.username,
             avatar_url: actor.avatar_url,
+            avatar_frame: nil,
             domain: actor.domain
           }
         }

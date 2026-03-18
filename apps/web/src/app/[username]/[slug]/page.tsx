@@ -91,6 +91,31 @@ interface EntryData {
   tip_count?: number;
   poll?: PollData | null;
   is_paywalled?: boolean;
+  quoted_entry?: {
+    id: string;
+    type: "local" | "remote";
+    title: string | null;
+    body_html: string | null;
+    excerpt: string | null;
+    slug?: string | null;
+    url?: string | null;
+    cover_image_id?: string | null;
+    published_at: string;
+    word_count?: number | null;
+    ink_count?: number;
+    reprint_count?: number;
+    category?: string | null;
+    tags?: string[];
+    author: {
+      username: string;
+      display_name: string;
+      avatar_url: string | null;
+      avatar_frame?: string | null;
+      subscription_tier?: string | null;
+      ink_donor_status?: string | null;
+      domain?: string;
+    };
+  } | null;
   writer_plan?: {
     id: string;
     name: string;
@@ -316,6 +341,95 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
   } catch {
     return { title: `Entry · @${username}` };
   }
+}
+
+function QuotedPostEmbed({ quoted }: { quoted: NonNullable<EntryData["quoted_entry"]> }) {
+  const href = quoted.type === "remote"
+    ? (quoted.url || "#")
+    : `/${quoted.author.username}/${quoted.slug}`;
+  const isExternal = quoted.type === "remote";
+
+  const avatarSrc = quoted.author.avatar_url?.startsWith("data:")
+    ? `/api/avatars/${quoted.author.username}`
+    : quoted.author.avatar_url;
+
+  const readTime = quoted.word_count ? Math.max(1, Math.round(quoted.word_count / 265)) : null;
+
+  return (
+    <div className="reprint-quoted-post" style={{ marginTop: "2rem" }}>
+      <div className="reprint-quoted-header">
+        <div className="reprint-quoted-author">
+          {avatarSrc && (
+            <img src={avatarSrc} alt="" className="reprint-quoted-avatar" />
+          )}
+          <div className="reprint-quoted-author-info">
+            <span className="reprint-quoted-author-name">
+              {quoted.author.display_name}
+            </span>
+            <span className="reprint-quoted-author-handle">
+              @{quoted.author.username}{quoted.author.domain ? `@${quoted.author.domain}` : ""}
+            </span>
+          </div>
+          {quoted.type === "remote" && (
+            <span style={{ marginLeft: "auto", fontSize: "0.75rem", opacity: 0.6 }}>🌐</span>
+          )}
+        </div>
+      </div>
+
+      {quoted.cover_image_id && (
+        <img
+          src={`/api/images/${quoted.cover_image_id}`}
+          alt=""
+          className="reprint-quoted-cover"
+        />
+      )}
+
+      {quoted.title && (
+        <h3 className="reprint-quoted-title">
+          {isExternal ? (
+            <a href={href} target="_blank" rel="noopener noreferrer">{quoted.title}</a>
+          ) : (
+            <Link href={href}>{quoted.title}</Link>
+          )}
+        </h3>
+      )}
+
+      {quoted.body_html && (
+        <div
+          className="prose-entry reprint-quoted-body"
+          dangerouslySetInnerHTML={{ __html: quoted.body_html }}
+        />
+      )}
+
+      {quoted.tags && quoted.tags.length > 0 && (
+        <div className="reprint-quoted-tags">
+          {quoted.tags.map((tag) => (
+            <Link key={tag} href={`/tag/${encodeURIComponent(tag)}`} className="reprint-quoted-tag">
+              #{tag}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <div className="reprint-quoted-footer">
+        {readTime && <span>{readTime} min read</span>}
+        {quoted.category && (
+          <span style={{ textTransform: "capitalize" }}>{quoted.category.replace(/_/g, " ")}</span>
+        )}
+        <span style={{ marginLeft: "auto" }}>
+          {isExternal ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="reprint-quoted-link">
+              View original →
+            </a>
+          ) : (
+            <Link href={href} className="reprint-quoted-link">
+              Open full entry →
+            </Link>
+          )}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default async function EntryPage({ params }: EntryParams) {
@@ -645,6 +759,11 @@ export default async function EntryPage({ params }: EntryParams) {
               />
             </TranslatableEntry>
           </JournalPage>
+
+          {/* Quoted / Reprinted entry — full original post embedded */}
+          {entry.quoted_entry && (
+            <QuotedPostEmbed quoted={entry.quoted_entry} />
+          )}
 
           {/* Tags */}
           {entry.tags.length > 0 && (

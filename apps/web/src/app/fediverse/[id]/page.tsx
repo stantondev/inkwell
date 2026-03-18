@@ -179,6 +179,7 @@ export default async function FediverseEntryPage({ params }: FediverseEntryParam
               isLoggedIn={!!session}
               isRemote={true}
               size={18}
+              apiPath={`/api/remote-entries/${entry.id}/reprint/toggle`}
             />
             {session && (
               <TranslateButton

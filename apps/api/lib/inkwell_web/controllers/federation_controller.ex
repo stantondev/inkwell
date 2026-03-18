@@ -673,7 +673,6 @@ defmodule InkwellWeb.FederationController do
         case RemoteActor.get_by_ap_id(actor_uri) do
           nil ->
             if is_binary(announce_id) do
-              Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
               Inkwell.Reprints.remove_remote_reprint_by_ap_id(announce_id)
             end
 
@@ -681,12 +680,10 @@ defmodule InkwellWeb.FederationController do
             case find_entry_by_ap_url(object_uri) do
               nil ->
                 if is_binary(announce_id) do
-                  Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
                   Inkwell.Reprints.remove_remote_reprint_by_ap_id(announce_id)
                 end
 
               entry ->
-                Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
                 Inkwell.Reprints.remove_remote_reprint(remote_actor.id, entry.id)
                 Logger.info("Processed Undo Announce from #{actor_uri} on entry #{entry.id}")
             end
@@ -1020,21 +1017,33 @@ defmodule InkwellWeb.FederationController do
         entry ->
           case RemoteActor.fetch(actor_uri) do
             {:ok, remote_actor} ->
-              # Create both an ink (for trending) and a reprint (for attribution)
-              case Inkwell.Inks.create_remote_ink(remote_actor.id, entry.id, announce_id) do
-                {:ok, {:created, _ink}} ->
-                  create_ink_notification(entry, remote_actor)
-                  Logger.info("Received federated boost-ink on entry #{entry.id} from #{actor_uri}")
+              # Create a reprint record (Announce = repost, not endorsement)
+              case Inkwell.Reprints.create_remote_reprint(remote_actor.id, entry.id, announce_id) do
+                {:ok, {:created, _reprint}} ->
+                  Accounts.create_notification(%{
+                    type: :reprint,
+                    user_id: entry.user_id,
+                    target_type: "entry",
+                    target_id: entry.id,
+                    data: %{
+                      remote_actor: %{
+                        display_name: remote_actor.display_name,
+                        username: remote_actor.username,
+                        domain: remote_actor.domain,
+                        avatar_url: remote_actor.avatar_url,
+                        profile_url: remote_actor.ap_id,
+                        ap_id: remote_actor.ap_id
+                      }
+                    }
+                  })
+                  Logger.info("Received federated reprint on entry #{entry.id} from #{actor_uri}")
 
                 {:ok, :existing} ->
                   Logger.info("Duplicate Announce from #{actor_uri} on entry #{entry.id}, skipping")
 
                 {:error, reason} ->
-                  Logger.warning("Failed to create boost-ink: #{inspect(reason)}")
+                  Logger.warning("Failed to create remote reprint: #{inspect(reason)}")
               end
-
-              # Also create a reprint record for attribution/display
-              Inkwell.Reprints.create_remote_reprint(remote_actor.id, entry.id, announce_id)
 
             _ ->
               :ok
