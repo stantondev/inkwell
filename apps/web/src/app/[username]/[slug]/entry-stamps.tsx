@@ -30,7 +30,7 @@ export function EntryStamps({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-row items-center gap-2 flex-wrap">
       {/* Stamp icons (author can click to see who) */}
       <StampPopover
         entryId={entryId}

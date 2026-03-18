@@ -59,7 +59,7 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
   const resolvedStamps = stamps.map(resolveStampType);
 
   return (
-    <div ref={popoverRef} className="flex flex-col items-end gap-1 relative" aria-label="Stamps on this entry">
+    <div ref={popoverRef} className="flex flex-row flex-wrap items-center gap-1.5 relative" aria-label="Stamps on this entry">
       {resolvedStamps.map((stampType) => {
         const config = STAMP_CONFIG[stampType];
         if (!config) return null;
@@ -74,8 +74,8 @@ export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
           >
             <StampFrame
               stampType={stampType}
-              size="xl"
-              showLabel
+              size="lg"
+              showLabel={false}
               interactive={isAuthor}
             />
           </button>

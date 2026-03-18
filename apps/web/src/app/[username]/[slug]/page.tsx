@@ -427,8 +427,8 @@ export default async function EntryPage({ params }: EntryParams) {
 
         <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12 relative">
 
-          {/* Stamps — positioned like postage on a letter, top-right */}
-          <div className="flex justify-end mb-2 sm:mb-0 sm:absolute sm:top-8 sm:right-6 md:right-8 lg:right-12 z-10">
+          {/* Stamps — horizontal row inline on mobile, absolute top-right on desktop */}
+          <div className="flex justify-end mb-3 sm:mb-0 sm:absolute sm:top-8 sm:right-6 md:right-8 lg:right-12 z-10">
             <EntryStamps
               entryId={entry.id}
               initialStamps={entry.stamps ?? []}
