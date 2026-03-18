@@ -48,11 +48,18 @@ defmodule Inkwell.Federation.ActivityBuilder do
     # the title belongs in `name`, not in the HTML body
     sanitized_content = strip_h1_tags(entry.body_html)
 
+    # Build content with a clean text hook prepended before the full body.
+    # Mastodon truncates Article content aggressively (~100-150 chars displayed),
+    # so we front-load a readable title + excerpt + "Read more" link. The full
+    # body_html follows after <hr> for clients that render Articles fully
+    # (Pleroma, Akkoma, Misskey, etc.).
+    content = build_article_content(entry, sanitized_content, page_url)
+
     article = %{
       "type" => "Article",
       "id" => entry_url,
       "attributedTo" => actor_url,
-      "content" => sanitized_content,
+      "content" => content,
       "published" => format_datetime(entry.published_at),
       "url" => %{
         "type" => "Link",
@@ -72,11 +79,18 @@ defmodule Inkwell.Federation.ActivityBuilder do
     article = if entry.title, do: Map.put(article, "name", entry.title), else: article
 
     # excerpt → summary (teaser/abstract, per FEP-b2b8 §summary)
+    # Always populate summary — Mastodon should show this for Articles but doesn't yet.
+    # Having it ready means the moment they implement FEP-b2b8 §Type guidance, it works.
     article =
-      if entry.excerpt && entry.excerpt != "" do
-        Map.put(article, "summary", entry.excerpt)
-      else
-        article
+      cond do
+        entry.excerpt && entry.excerpt != "" ->
+          Map.put(article, "summary", entry.excerpt)
+
+        entry.body_html ->
+          Map.put(article, "summary", auto_generate_summary(entry.body_html, 400))
+
+        true ->
+          article
       end
 
     # updated timestamp (only when meaningfully different from published_at — >60s gap
@@ -630,6 +644,95 @@ defmodule Inkwell.Federation.ActivityBuilder do
     |> String.replace("\"", "&quot;")
   end
   defp html_escape(text), do: text
+
+  # Builds the Article `content` field with a clean text hook prepended.
+  # Front-loads title + excerpt + "Read more" link so Mastodon's truncated
+  # display shows meaningful text instead of the start of raw HTML body.
+  defp build_article_content(entry, sanitized_body, page_url) do
+    parts = []
+
+    # Title in bold
+    parts =
+      if entry.title && entry.title != "" do
+        parts ++ ["<p><strong>#{html_escape(entry.title)}</strong></p>"]
+      else
+        parts
+      end
+
+    # Excerpt or auto-generated summary
+    excerpt_text =
+      cond do
+        entry.excerpt && entry.excerpt != "" ->
+          entry.excerpt
+
+        sanitized_body ->
+          auto_generate_summary(sanitized_body, 300)
+
+        true ->
+          nil
+      end
+
+    parts =
+      if excerpt_text && excerpt_text != "" do
+        parts ++ ["<p>#{html_escape(excerpt_text)}</p>"]
+      else
+        parts
+      end
+
+    # Read more link
+    parts = parts ++ ["<p>\u{1F4D6} <a href=\"#{page_url}\">Read the full entry on Inkwell</a></p>"]
+
+    # Hashtags inline (Mastodon format)
+    parts =
+      if entry.tags && length(entry.tags) > 0 do
+        frontend_host = federation_config(:frontend_host)
+        tag_links = Enum.map(entry.tags, fn tag ->
+          "<a href=\"#{frontend_host}/tag/#{tag}\" class=\"mention hashtag\" rel=\"tag\">##{tag}</a>"
+        end)
+        parts ++ ["<p>#{Enum.join(tag_links, " ")}</p>"]
+      else
+        parts
+      end
+
+    # Separator + full body for clients that render Articles fully
+    hook = Enum.join(parts, "\n")
+
+    if sanitized_body && sanitized_body != "" do
+      hook <> "\n<hr>\n" <> sanitized_body
+    else
+      hook
+    end
+  end
+
+  # Auto-generates a summary from HTML content by stripping tags and
+  # truncating at a sentence boundary (period, exclamation, or question mark).
+  defp auto_generate_summary(html, max_chars) when is_binary(html) do
+    plain =
+      html
+      |> strip_html_tags()
+      |> String.trim()
+
+    if String.length(plain) <= max_chars do
+      plain
+    else
+      # Try to break at a sentence boundary
+      truncated = String.slice(plain, 0, max_chars)
+
+      case Regex.run(~r/^(.*[.!?])\s/s, truncated) do
+        [_, at_sentence] when byte_size(at_sentence) > 50 ->
+          String.trim(at_sentence)
+
+        _ ->
+          # Fall back to word boundary
+          case Regex.run(~r/^(.*)\s\S*$/s, truncated) do
+            [_, at_word] -> String.trim(at_word) <> "…"
+            _ -> truncated <> "…"
+          end
+      end
+    end
+  end
+
+  defp auto_generate_summary(_, _), do: nil
 
   # Strips <h1> tags from content — FEP-b2b8 allowed HTML starts at <h2>.
   # Replaces <h1> with <h2> to preserve structure rather than removing content.
