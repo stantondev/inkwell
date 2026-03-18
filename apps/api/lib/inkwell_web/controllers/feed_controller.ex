@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
   alias Inkwell.Federation.{CategoryHashtags, RemoteEntries}
   alias InkwellWeb.EntryController
 
@@ -47,6 +47,15 @@ defmodule InkwellWeb.FeedController do
             page: 1, per_page: fetch_count, tags: category_hashtags)
       end
 
+    # Fetch reprints by followed users (entries they reprinted appear in our feed)
+    reprint_items =
+      if source_filter == "fediverse" do
+        []
+      else
+        Reprints.list_feed_reprints(user.id, friend_ids,
+          exclude_user_ids: blocked_ids, limit: fetch_count)
+      end
+
     # Normalize into a common shape and merge
     local_items = Enum.map(local_entries, fn entry ->
       %{type: :local, entry: entry, published_at: entry.published_at, ink_count: entry.ink_count || 0}
@@ -56,8 +65,21 @@ defmodule InkwellWeb.FeedController do
       %{type: :remote, entry: re, published_at: re.published_at, ink_count: (re.likes_count || 0)}
     end)
 
+    reprint_feed_items = Enum.map(reprint_items, fn r ->
+      %{type: :reprint, reprint: r, published_at: r.reprinted_at, ink_count: 0}
+    end)
+
+    # Collect reprinted entry IDs for deduplication
+    reprinted_entry_ids = MapSet.new(reprint_items, & &1.entry_id)
+
     all_items =
-      (local_items ++ remote_items)
+      (local_items ++ remote_items ++ reprint_feed_items)
+      # Deduplicate: if an entry appears both as original and as reprint, keep original
+      |> Enum.reject(fn
+        %{type: :reprint, reprint: r} ->
+          Enum.any?(local_items, fn %{entry: e} -> e.id == r.entry_id end)
+        _ -> false
+      end)
       |> then(fn items ->
         if sort_filter == "most_inked" do
           Enum.sort_by(items, fn i -> {i.ink_count, i.published_at} end, fn {a_ink, a_pub}, {b_ink, b_pub} ->
@@ -87,6 +109,7 @@ defmodule InkwellWeb.FeedController do
     comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, local_entry_ids)
     inks_set = Inks.get_user_inks_for_entries(user.id, local_entry_ids)
+    reprints_set = Reprints.get_user_reprints_for_entries(user.id, local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
 
     # Build stamp/comment maps for remote entries
@@ -121,7 +144,41 @@ defmodule InkwellWeb.FeedController do
           my_stamp: Map.get(my_stamps_map, entry.id),
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
           ink_count: entry.ink_count || 0,
+          reprint_count: entry.reprint_count || 0,
           my_ink: MapSet.member?(inks_set, entry.id),
+          my_reprint: MapSet.member?(reprints_set, entry.id),
+          series: Map.get(series_map, entry.id),
+          is_paid: entry.privacy == :paid
+        })
+
+      %{type: :reprint, reprint: r} ->
+        # Fetch the full entry for rendering
+        entry = Journals.get_entry!(r.entry_id)
+        author = r.author
+
+        entry
+        |> EntryController.render_entry()
+        |> Map.merge(%{
+          source: "reprint",
+          reprinter: r.reprinter,
+          reprinted_at: r.reprinted_at,
+          author: %{
+            id: author.id,
+            username: author.username,
+            display_name: author.display_name,
+            avatar_url: author.avatar_url,
+            subscription_tier: author.subscription_tier,
+            ink_donor_status: nil
+          },
+          user_icon: nil,
+          comment_count: Map.get(comment_counts, entry.id, 0),
+          stamps: Map.get(stamp_types_map, entry.id, []),
+          my_stamp: Map.get(my_stamps_map, entry.id),
+          bookmarked: MapSet.member?(bookmarks_set, entry.id),
+          ink_count: entry.ink_count || 0,
+          reprint_count: entry.reprint_count || 0,
+          my_ink: MapSet.member?(inks_set, entry.id),
+          my_reprint: MapSet.member?(reprints_set, entry.id),
           series: Map.get(series_map, entry.id),
           is_paid: entry.privacy == :paid
         })
@@ -158,6 +215,8 @@ defmodule InkwellWeb.FeedController do
           ink_count: re.likes_count || 0,
           boosts_count: re.boosts_count || 0,
           my_ink: false,
+          reprint_count: re.reprint_count || 0,
+          my_reprint: false,
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,

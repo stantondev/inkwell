@@ -196,6 +196,7 @@ defmodule Inkwell.Search do
       user_id: entry.user_id,
       published_at: entry.published_at && DateTime.to_unix(entry.published_at),
       ink_count: entry.ink_count || 0,
+      reprint_count: entry.reprint_count || 0,
       word_count: entry.word_count || 0,
       cover_image_id: entry.cover_image_id,
       series_id: entry.series_id,

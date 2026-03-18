@@ -19,6 +19,7 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :reply_count, :integer, default: 0
     field :likes_count, :integer, default: 0
     field :boosts_count, :integer, default: 0
+    field :reprint_count, :integer, default: 0
     field :engagement_refreshed_at, :utc_datetime_usec
     field :source, :string
 

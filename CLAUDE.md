@@ -279,6 +279,37 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Notification list: ink drop icon, "inked your entry" text (local), "inked your entry from the fediverse" text (remote `:like` type)
   - Migrations: `20260302000046` (inks table), `20260302000047` (add remote_actor_id + ap_like_id for federated inks)
 
+### Reprints (Reposts/Boosts)
+- Inkwell's literary-themed repost feature — "Reprint" maps to Mastodon's boost/reblog
+- One reprint per user per entry — toggle on/off, public entries only, cannot reprint own entries
+- Reprinted entries appear in followers' feeds with "↻ alice reprinted" attribution header
+- Federated as standard AP `Announce` activities (interoperable with Mastodon boosts)
+- Denormalized `reprint_count` on both `entries` and `remote_entries` tables
+- **Distinct from Inks**: Inks = private discovery signal (trending), Reprints = public timeline action (appears in feed)
+- **Inbound Announces create both** an ink (trending) AND a reprint (attribution)
+- **Block enforcement**: can't reprint blocked users' entries, reprints deleted on block cascade
+- **Feed deduplication**: if an entry appears both as original (from followed author) and as reprint (from different followed user), the original is shown and the reprint is deduplicated
+- **Backend**:
+  - `apps/api/lib/inkwell/reprints/reprint.ex` — Ecto schema with mutually exclusive FK validation (user_id/remote_actor_id, entry_id/remote_entry_id)
+  - `apps/api/lib/inkwell/reprints.ex` — context: `toggle_reprint/2`, `toggle_reprint_remote/2`, batch queries (`get_user_reprints_for_entries/2`, `get_user_reprints_for_remote_entries/2`, `count_reprints_for_remote_entries/1`), `list_feed_reprints/3` (feed timeline), `create_remote_reprint/3` (inbound AP), `remove_remote_reprint/2`, `remove_remote_reprint_by_ap_id/1`
+  - `apps/api/lib/inkwell_web/controllers/reprint_controller.ex` — `toggle/2` (local entries) and `toggle_remote/2` (remote entries), validates public + not own + not blocked
+  - Routes: `POST /api/entries/:entry_id/reprint` (auth), `POST /api/remote-entries/:id/reprint` (auth)
+  - `:reprint` notification type with ↻ icon, web push enabled
+  - Feed controller merges reprints as third feed item type (`source: "reprint"` with `reprinter` object)
+  - Explore/entry controllers return `reprint_count` + `my_reprint` on all entry responses
+  - Federation: inbound `Announce` creates reprint + ink; `Undo{Announce}` removes both
+  - Fan-out: `announce_repost` / `undo_announce_repost` / `announce_repost_remote` / `undo_announce_repost_remote` actions
+  - Search indexing: `reprint_count` included in Meilisearch entry documents
+  - Migration: `20260318000068`
+- **Frontend**:
+  - `apps/web/src/components/reprint-button.tsx` — `"use client"` toggle with optimistic UI, circular arrow icon, scale animation, count display
+  - `apps/web/src/app/api/entries/[id]/reprint/route.ts` — POST proxy
+  - `apps/web/src/app/api/remote-entries/[id]/reprint/route.ts` — POST proxy
+  - Feed card actions: ReprintButton between InkButton and StampPicker
+  - Journal entry card: reprint attribution header (`.reprint-attribution` CSS) with ↻ icon, reprinter name link, italic serif "reprinted" text
+  - Entry detail page: ReprintButton in action row
+  - Notification list: ↻ icon, "reprinted your entry" text
+
 ### Floating Popup (Portal-Based)
 - `apps/web/src/components/floating-popup.tsx` — reusable React Portal popup component
 - Uses `createPortal` to render at `document.body`, escaping `overflow-hidden` on `JournalPage` and `overflow-x: auto` on `.journal-scroll` (which forces `overflow-y: auto` per CSS spec)
@@ -1136,6 +1167,7 @@ Key files:
 - `notifications` — type (follow/comment/entry/stamp/fediverse_follow/etc), actor_id (nullable for remote actors), target_id, data (JSON, stores remote_actor details for fediverse notifications), read flag
 - `stamps` — entry_id + user_id + stamp_type; unique on [user_id, entry_id]
 - `inks` — entry_id + user_id (FK → users delete_all, FK → entries delete_all); unique on [user_id, entry_id]; index on entry_id
+- `reprints` — repost/boost records: user_id (FK → users delete_all, nullable), remote_actor_id (FK → remote_actors delete_all, nullable), entry_id (FK → entries delete_all, nullable), remote_entry_id (FK → remote_entries delete_all, nullable), ap_announce_id (string). Unique constraints on [user_id, entry_id], [user_id, remote_entry_id], [remote_actor_id, entry_id], [remote_actor_id, remote_entry_id]
 - `user_icons` — custom profile icons
 - `friend_filters` — named lists of friends (user_id, name, member_ids UUID array) for custom entry privacy; entries reference via `custom_filter_id`
 - `auth_tokens` — magic link + API session tokens (type, token, user_id, expires_at)
@@ -1453,7 +1485,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260317000067_add_engagement_counts_to_remote_entries.exs`
+- Latest migration: `20260318000069_create_reprints.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)

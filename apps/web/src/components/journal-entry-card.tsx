@@ -35,15 +35,45 @@ export interface JournalEntry {
     series_order: number;
   } | null;
   ink_count?: number;
+  reprint_count?: number;
   boosts_count?: number;
   my_ink?: boolean;
+  my_reprint?: boolean;
+  /** Quoted/reprinted entry data */
+  quoted_entry?: {
+    id: string;
+    type: "local" | "remote";
+    title: string | null;
+    excerpt: string | null;
+    slug?: string | null;
+    url?: string | null;
+    cover_image_id?: string | null;
+    published_at: string;
+    author: {
+      username: string;
+      display_name: string;
+      avatar_url: string | null;
+      domain?: string;
+    };
+  } | null;
   sensitive?: boolean;
   content_warning?: string | null;
   is_sensitive?: boolean;
   is_paywalled?: boolean;
   is_paid?: boolean;
-  /** "local" (default) or "remote" for federated entries */
-  source?: "local" | "remote";
+  /** "local" (default), "remote" for federated entries, or "reprint" for reprinted entries */
+  source?: "local" | "remote" | "reprint";
+  /** Reprinter info — present when source is "reprint" */
+  reprinter?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    avatar_frame?: string | null;
+    subscription_tier?: string | null;
+  };
+  /** When the reprint was made */
+  reprinted_at?: string;
   /** Original URL for remote entries */
   url?: string;
   author: {
@@ -99,6 +129,7 @@ interface JournalEntryCardProps {
 
 export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false }: JournalEntryCardProps) {
   const isRemote = entry.source === "remote";
+  const isReprint = entry.source === "reprint";
   const href = isRemote
     ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
     : `/${entry.author.username}/${entry.slug ?? entry.id}`;
@@ -121,6 +152,22 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
       bookPage={bookMode}
       className={`flex flex-col${isRemote && !bookMode ? " journal-page-fediverse" : ""}${isCompact ? " fediverse-compact" : ""}`}
     >
+      {/* Reprint attribution header */}
+      {isReprint && entry.reprinter && (
+        <div className="reprint-attribution">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+          </svg>
+          <a href={`/${entry.reprinter.username}`} className="reprint-attribution-name">
+            {entry.reprinter.display_name || entry.reprinter.username}
+          </a>
+          <span>reprinted</span>
+        </div>
+      )}
+
       {/* Top section */}
       <div className={`${bookMode ? "p-4 sm:p-5 lg:p-6 journal-book-entry-body" : isCompact ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6"} flex flex-col relative${bookMode ? " flex-1 min-h-0" : " flex-1"}`}>
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
@@ -420,6 +467,11 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
             </div>
           )}
 
+          {/* Quoted entry preview card (for reprints) */}
+          {entry.quoted_entry && (
+            <QuotedEntryCard quoted={entry.quoted_entry} />
+          )}
+
           {/* Music embed */}
           <MusicPlayer music={entry.music} />
 
@@ -498,6 +550,55 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         </div>
       )}
     </JournalPage>
+  );
+}
+
+function QuotedEntryCard({ quoted }: { quoted: NonNullable<JournalEntry["quoted_entry"]> }) {
+  const href = quoted.type === "remote"
+    ? (quoted.url || "#")
+    : `/${quoted.author.username}/${quoted.slug}`;
+  const isExternal = quoted.type === "remote";
+
+  const avatarSrc = quoted.author.avatar_url?.startsWith("data:")
+    ? `/api/avatars/${quoted.author.username}`
+    : quoted.author.avatar_url;
+
+  const Tag = isExternal ? "a" : Link;
+  const tagProps = isExternal
+    ? { href, target: "_blank", rel: "noopener noreferrer" }
+    : { href };
+
+  return (
+    <Tag {...tagProps as any} className="reprint-quote-card" style={{ marginTop: "0.75rem" }}>
+      <div className="reprint-quote-card-inner">
+        {quoted.cover_image_id && (
+          <img
+            src={`/api/images/${quoted.cover_image_id}`}
+            alt=""
+            className="reprint-quote-cover"
+          />
+        )}
+        <div className="reprint-quote-content">
+          {quoted.title && (
+            <div className="reprint-quote-title">{quoted.title}</div>
+          )}
+          {quoted.excerpt && (
+            <div className="reprint-quote-excerpt">{quoted.excerpt}</div>
+          )}
+          <div className="reprint-quote-author">
+            {avatarSrc && (
+              <img src={avatarSrc} alt="" className="reprint-quote-avatar" />
+            )}
+            <span>
+              {quoted.author.display_name}
+              {quoted.author.domain && (
+                <span className="reprint-quote-domain"> @{quoted.author.domain}</span>
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+    </Tag>
   );
 }
 

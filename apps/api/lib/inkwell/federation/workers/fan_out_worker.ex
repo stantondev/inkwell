@@ -56,6 +56,30 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
     :ok
   end
 
+  # Handle announce/undo_announce for reprints of remote entries (by AP ID)
+  def perform(%Oban.Job{args: %{"remote_entry_ap_id" => remote_entry_ap_id, "action" => action, "user_id" => user_id}})
+      when action in ["announce_repost_remote", "undo_announce_repost_remote"] do
+    user = Accounts.get_user!(user_id)
+
+    activity =
+      case action do
+        "announce_repost_remote" -> ActivityBuilder.build_announce(remote_entry_ap_id, user)
+        "undo_announce_repost_remote" -> ActivityBuilder.build_undo_announce(remote_entry_ap_id, user)
+      end
+
+    inboxes = collect_remote_inboxes(user.id)
+
+    Logger.info("Fan-out #{action} for #{remote_entry_ap_id}: #{length(inboxes)} remote inboxes")
+
+    Enum.each(inboxes, fn inbox_url ->
+      %{activity: activity, inbox_url: inbox_url, user_id: user.id}
+      |> DeliverActivityWorker.new()
+      |> Oban.insert()
+    end)
+
+    :ok
+  end
+
   # Handle announce/undo_announce by AP ID (used for inking remote entries)
   def perform(%Oban.Job{args: %{"entry_ap_id" => entry_ap_id, "action" => action, "user_id" => user_id}})
       when action in ["announce", "undo_announce"] do
@@ -85,6 +109,8 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
   defp build_activity("delete", entry, user), do: ActivityBuilder.build_delete(entry.ap_id, user)
   defp build_activity("announce", entry, user), do: ActivityBuilder.build_announce(entry.ap_id, user)
   defp build_activity("undo_announce", entry, user), do: ActivityBuilder.build_undo_announce(entry.ap_id, user)
+  defp build_activity("announce_repost", entry, user), do: ActivityBuilder.build_announce(entry.ap_id, user)
+  defp build_activity("undo_announce_repost", entry, user), do: ActivityBuilder.build_undo_announce(entry.ap_id, user)
 
   @doc false
   def collect_remote_inboxes(user_id) do

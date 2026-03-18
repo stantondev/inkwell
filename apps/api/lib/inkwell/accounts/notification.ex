@@ -6,7 +6,7 @@ defmodule Inkwell.Accounts.Notification do
   @foreign_key_type :binary_id
 
   schema "notifications" do
-    field :type, Ecto.Enum, values: [:comment, :follow_request, :follow_accepted, :mention, :community_invite, :tip, :like, :stamp, :ink, :feedback_status_change, :feedback_comment, :feedback_vote, :feedback_mention, :letter, :report, :invite_accepted, :poll_comment, :poll_mention, :fediverse_follow, :fediverse_mention, :circle_response, :circle_mention, :circle_new_member, :writer_plan_subscribe, :reply, :guestbook]
+    field :type, Ecto.Enum, values: [:comment, :follow_request, :follow_accepted, :mention, :community_invite, :tip, :like, :stamp, :ink, :reprint, :feedback_status_change, :feedback_comment, :feedback_vote, :feedback_mention, :letter, :report, :invite_accepted, :poll_comment, :poll_mention, :fediverse_follow, :fediverse_mention, :circle_response, :circle_mention, :circle_new_member, :writer_plan_subscribe, :reply, :guestbook]
     field :target_type, :string
     field :target_id, :binary_id
     field :read, :boolean, default: false

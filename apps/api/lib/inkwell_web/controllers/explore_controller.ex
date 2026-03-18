@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
   alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
@@ -140,6 +140,22 @@ defmodule InkwellWeb.ExploreController do
         MapSet.new()
       end
 
+    reprints_set =
+      if viewer do
+        Reprints.get_user_reprints_for_entries(viewer.id, local_entry_ids)
+      else
+        MapSet.new()
+      end
+
+    remote_reprints_set =
+      if viewer do
+        Reprints.get_user_reprints_for_remote_entries(viewer.id, remote_entry_ids)
+      else
+        MapSet.new()
+      end
+
+    remote_reprint_counts = Reprints.count_reprints_for_remote_entries(remote_entry_ids)
+
     remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
@@ -186,7 +202,9 @@ defmodule InkwellWeb.ExploreController do
             my_stamp: Map.get(my_stamps_map, entry.id),
             bookmarked: MapSet.member?(bookmarks_set, entry.id),
             ink_count: entry.ink_count || 0,
+            reprint_count: entry.reprint_count || 0,
             my_ink: MapSet.member?(inks_set, entry.id),
+            my_reprint: MapSet.member?(reprints_set, entry.id),
             series: Map.get(series_map, entry.id),
             is_paid: is_paid,
             is_paywalled: is_paywalled
@@ -231,8 +249,10 @@ defmodule InkwellWeb.ExploreController do
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: max(re.reply_count || 0, Map.get(remote_comment_counts, re.id, 0)),
           ink_count: Map.get(remote_ink_counts, re.id, 0) + (re.likes_count || 0),
+          reprint_count: Map.get(remote_reprint_counts, re.id, 0) + (re.reprint_count || 0),
           boosts_count: re.boosts_count || 0,
           my_ink: MapSet.member?(remote_inks_set, re.id),
+          my_reprint: MapSet.member?(remote_reprints_set, re.id),
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,
@@ -284,6 +304,13 @@ defmodule InkwellWeb.ExploreController do
         MapSet.new()
       end
 
+    reprints_set =
+      if viewer do
+        Reprints.get_user_reprints_for_entries(viewer.id, entry_ids)
+      else
+        MapSet.new()
+      end
+
     my_stamps_map =
       if viewer do
         Stamps.get_user_stamps_for_entries(viewer.id, entry_ids)
@@ -311,7 +338,9 @@ defmodule InkwellWeb.ExploreController do
         my_stamp: Map.get(my_stamps_map, entry.id),
         bookmarked: MapSet.member?(bookmarks_set, entry.id),
         ink_count: entry.ink_count || 0,
-        my_ink: MapSet.member?(inks_set, entry.id)
+        reprint_count: entry.reprint_count || 0,
+        my_ink: MapSet.member?(inks_set, entry.id),
+        my_reprint: MapSet.member?(reprints_set, entry.id)
       })
     end)
 

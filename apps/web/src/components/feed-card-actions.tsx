@@ -7,6 +7,7 @@ import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { StampPicker } from "@/components/stamp-picker";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { InkButton } from "@/components/ink-button";
+import { ReprintButton } from "@/components/reprint-button";
 import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
 import { ShareButton } from "@/components/share-button";
@@ -64,6 +65,9 @@ interface FeedCardActionsProps {
   externalDomain?: string;
   /** Override API path for remote entry inks */
   inkApiPath?: string;
+  /** Reprint (repost/boost) state */
+  reprintCount?: number;
+  myReprint?: boolean;
   /** Whether this is a federated/remote entry */
   isRemote?: boolean;
   /** Entry title for share text */
@@ -323,6 +327,8 @@ export function FeedCardActions({
   externalUrl,
   externalDomain,
   inkApiPath,
+  reprintCount = 0,
+  myReprint = false,
   isRemote = false,
   entryTitle,
   entryAuthorUsername,
@@ -552,6 +558,16 @@ export function FeedCardActions({
           isOwnEntry={isOwnEntry}
           isLoggedIn={isLoggedIn}
           apiPath={inkApiPath}
+        />
+
+        {/* Reprint button */}
+        <ReprintButton
+          entryId={entryId}
+          initialReprinted={myReprint}
+          initialCount={reprintCount}
+          isOwnEntry={isOwnEntry}
+          isLoggedIn={isLoggedIn}
+          isRemote={isRemote}
         />
 
         {/* Stamp button */}

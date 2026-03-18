@@ -672,15 +672,22 @@ defmodule InkwellWeb.FederationController do
 
         case RemoteActor.get_by_ap_id(actor_uri) do
           nil ->
-            if is_binary(announce_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+            if is_binary(announce_id) do
+              Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+              Inkwell.Reprints.remove_remote_reprint_by_ap_id(announce_id)
+            end
 
           remote_actor ->
             case find_entry_by_ap_url(object_uri) do
               nil ->
-                if is_binary(announce_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+                if is_binary(announce_id) do
+                  Inkwell.Inks.remove_remote_ink_by_ap_id(announce_id)
+                  Inkwell.Reprints.remove_remote_reprint_by_ap_id(announce_id)
+                end
 
               entry ->
                 Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
+                Inkwell.Reprints.remove_remote_reprint(remote_actor.id, entry.id)
                 Logger.info("Processed Undo Announce from #{actor_uri} on entry #{entry.id}")
             end
         end
@@ -1013,6 +1020,7 @@ defmodule InkwellWeb.FederationController do
         entry ->
           case RemoteActor.fetch(actor_uri) do
             {:ok, remote_actor} ->
+              # Create both an ink (for trending) and a reprint (for attribution)
               case Inkwell.Inks.create_remote_ink(remote_actor.id, entry.id, announce_id) do
                 {:ok, {:created, _ink}} ->
                   create_ink_notification(entry, remote_actor)
@@ -1024,6 +1032,9 @@ defmodule InkwellWeb.FederationController do
                 {:error, reason} ->
                   Logger.warning("Failed to create boost-ink: #{inspect(reason)}")
               end
+
+              # Also create a reprint record for attribution/display
+              Inkwell.Reprints.create_remote_reprint(remote_actor.id, entry.id, announce_id)
 
             _ ->
               :ok

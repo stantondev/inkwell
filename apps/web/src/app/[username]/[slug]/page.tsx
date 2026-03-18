@@ -18,6 +18,7 @@ import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
 import { InkButton } from "@/components/ink-button";
+import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
 import { PinButton } from "@/components/pin-button";
@@ -83,7 +84,9 @@ interface EntryData {
   admin_sensitive?: boolean;
   is_sensitive?: boolean;
   ink_count?: number;
+  reprint_count?: number;
   my_ink?: boolean;
+  my_reprint?: boolean;
   tip_total_cents?: number;
   tip_count?: number;
   poll?: PollData | null;
@@ -459,6 +462,15 @@ export default async function EntryPage({ params }: EntryParams) {
                 initialCount={entry.ink_count ?? 0}
                 isOwnEntry={isOwnEntry ?? false}
                 isLoggedIn={!!session}
+                size={18}
+              />
+              <ReprintButton
+                entryId={entry.id}
+                initialReprinted={entry.my_reprint ?? false}
+                initialCount={entry.reprint_count ?? 0}
+                isOwnEntry={isOwnEntry ?? false}
+                isLoggedIn={!!session}
+                isRemote={false}
                 size={18}
               />
               {session && (

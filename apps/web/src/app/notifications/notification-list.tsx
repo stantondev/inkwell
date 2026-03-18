@@ -143,6 +143,8 @@ function notificationText(n: Notification): string {
     }
     case "ink":
       return "inked your entry";
+    case "reprint":
+      return "reprinted your entry";
     case "invite_accepted":
       return "joined Inkwell from your invitation";
     case "fediverse_follow":
@@ -376,6 +378,27 @@ function NotificationIcon({
         aria-hidden="true"
       >
         <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+      </svg>
+    );
+  }
+  if (type === "reprint") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <polyline points="17 1 21 5 17 9" />
+        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+        <polyline points="7 23 3 19 7 15" />
+        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
       </svg>
     );
   }

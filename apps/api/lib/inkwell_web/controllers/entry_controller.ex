@@ -1,7 +1,7 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
   alias InkwellWeb.UserController
@@ -109,6 +109,7 @@ defmodule InkwellWeb.EntryController do
         my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
         bookmarked = if viewer, do: Bookmarks.get_user_bookmark(viewer.id, entry.id) != nil, else: false
         my_ink = if viewer, do: Inks.has_inked?(viewer.id, entry.id), else: false
+        my_reprint = if viewer, do: Reprints.has_reprinted?(viewer.id, entry.id), else: false
 
         entry_with_user = %{entry | user: user}
         series_nav = Journals.get_series_navigation(entry_with_user)
@@ -134,6 +135,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
           |> Map.put(:bookmarked, bookmarked)
           |> Map.put(:my_ink, my_ink)
+          |> Map.put(:my_reprint, my_reprint)
           |> Map.put(:series, series_nav)
           |> Map.put(:poll, poll_data)
           |> Map.put(:custom_domain, author_custom_domain)
@@ -571,6 +573,7 @@ defmodule InkwellWeb.EntryController do
           tags: entry.tags || [],
           word_count: entry.word_count || 0,
           ink_count: entry.ink_count || 0,
+          reprint_count: entry.reprint_count || 0,
           comment_count: Map.get(comment_counts, entry.id, 0),
           sensitive: entry.sensitive || false,
           cover_image_id: entry.cover_image_id,
@@ -889,9 +892,69 @@ defmodule InkwellWeb.EntryController do
       admin_sensitive: entry.admin_sensitive || false,
       is_sensitive: (entry.sensitive || false) || (entry.admin_sensitive || false),
       ink_count: entry.ink_count || 0,
+      reprint_count: entry.reprint_count || 0,
+      quoted_entry: render_quoted_entry(entry),
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
+  end
+
+  defp render_quoted_entry(%{quoted_entry_id: nil, quoted_remote_entry_id: nil}), do: nil
+  defp render_quoted_entry(%{quoted_entry_id: qid} = entry) when not is_nil(qid) do
+    # Preload the quoted entry if not already loaded
+    entry = Repo.preload(entry, [quoted_entry: :user])
+    case entry.quoted_entry do
+      nil -> nil
+      qe ->
+        author = qe.user
+        %{
+          id: qe.id,
+          type: "local",
+          title: qe.title,
+          excerpt: qe.excerpt || truncate_text(qe.body_html, 200),
+          slug: qe.slug,
+          cover_image_id: qe.cover_image_id,
+          published_at: qe.published_at,
+          author: %{
+            username: author.username,
+            display_name: author.display_name,
+            avatar_url: author.avatar_url
+          }
+        }
+    end
+  end
+  defp render_quoted_entry(%{quoted_remote_entry_id: qrid} = entry) when not is_nil(qrid) do
+    entry = Repo.preload(entry, [quoted_remote_entry: :remote_actor])
+    case entry.quoted_remote_entry do
+      nil -> nil
+      qre ->
+        actor = qre.remote_actor
+        %{
+          id: qre.id,
+          type: "remote",
+          title: qre.title,
+          excerpt: truncate_text(qre.body_html, 200),
+          url: qre.url,
+          published_at: qre.published_at,
+          author: %{
+            username: actor.username,
+            display_name: actor.display_name || actor.username,
+            avatar_url: actor.avatar_url,
+            domain: actor.domain
+          }
+        }
+    end
+  end
+  defp render_quoted_entry(_), do: nil
+
+  defp truncate_text(nil, _), do: nil
+  defp truncate_text(html, max_len) do
+    text = String.replace(html, ~r/<[^>]+>/, "") |> String.trim()
+    if String.length(text) > max_len do
+      String.slice(text, 0, max_len) <> "..."
+    else
+      text
+    end
   end
 
   def render_entry_full(entry, author) do

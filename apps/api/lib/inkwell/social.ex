@@ -102,6 +102,15 @@ defmodule Inkwell.Social do
     |> where([i], i.user_id == ^blocked_id and i.entry_id in subquery(entry_ids_by_blocker))
     |> Repo.delete_all()
 
+    # Delete reprints between the two users (both directions)
+    Inkwell.Reprints.Reprint
+    |> where([r], r.user_id == ^blocker_id and r.entry_id in subquery(entry_ids_by_blocked))
+    |> Repo.delete_all()
+
+    Inkwell.Reprints.Reprint
+    |> where([r], r.user_id == ^blocked_id and r.entry_id in subquery(entry_ids_by_blocker))
+    |> Repo.delete_all()
+
     # Remove from top friends (both directions)
     TopFriend
     |> where([tf],

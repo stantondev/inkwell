@@ -228,6 +228,8 @@ export function JournalFeed({
         bookmarked={entry.bookmarked ?? false}
         inkCount={entry.ink_count ?? 0}
         myInk={entry.my_ink ?? false}
+        reprintCount={entry.reprint_count ?? 0}
+        myReprint={entry.my_reprint ?? false}
         isOwnEntry={isOwnEntry}
         isLoggedIn={session?.isLoggedIn ?? false}
         isPlus={session?.isPlus ?? false}

@@ -41,6 +41,7 @@ defmodule Inkwell.Journals.Entry do
 
     # Discovery
     field :ink_count, :integer, default: 0
+    field :reprint_count, :integer, default: 0
 
     # Content moderation
     field :sensitive, :boolean, default: false
@@ -49,6 +50,10 @@ defmodule Inkwell.Journals.Entry do
 
     # Source tracking (nil = web, "email" = post by email)
     field :source, :string
+
+    # Quote reprint (references the original entry being reprinted)
+    belongs_to :quoted_entry, Inkwell.Journals.Entry
+    belongs_to :quoted_remote_entry, Inkwell.Federation.RemoteEntry
 
     # Cross-posting
     field :crosspost_results, :map, default: %{}
@@ -63,7 +68,8 @@ defmodule Inkwell.Journals.Entry do
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
       :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category,
-      :series_id, :series_order, :sensitive, :content_warning, :source
+      :series_id, :series_order, :sensitive, :content_warning, :source,
+      :quoted_entry_id, :quoted_remote_entry_id
     ])
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)

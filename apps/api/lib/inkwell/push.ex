@@ -8,7 +8,7 @@ defmodule Inkwell.Push do
   alias Inkwell.Push.PushSubscription
 
   @pushable_types ~w(
-    comment reply mention stamp ink follow_request follow_accepted
+    comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
     feedback_mention poll_mention writer_plan_subscribe guestbook
   )a
