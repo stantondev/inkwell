@@ -122,7 +122,9 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
         tags: tags,
         published_at: parse_datetime(note["published"]),
         remote_actor_id: remote_actor.id,
-        reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"])
+        reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"]),
+        likes_count: extract_collection_count(note["likes"]),
+        boosts_count: extract_collection_count(note["shares"])
       }
 
       case RemoteEntries.upsert_remote_entry(attrs) do
@@ -152,6 +154,10 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
   end
 
   defp extract_hashtags(_), do: []
+
+  defp extract_collection_count(%{"totalItems" => count}) when is_integer(count), do: count
+  defp extract_collection_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
+  defp extract_collection_count(_), do: 0
 
   defp parse_datetime(nil), do: nil
 

@@ -340,8 +340,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           } : null}
         />
 
-        {/* About Inkwell footer */}
-        <div className="mx-auto max-w-md px-4 pb-8">
+        {/* About Inkwell footer — only show on mobile where masonry grid is used */}
+        <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
           <div
             className="rounded-xl border p-4 text-center"
             style={{

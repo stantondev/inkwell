@@ -532,9 +532,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
           }}
         />
 
-        {/* Bottom upsell — Plus upsell for free users, Ink Donor for Plus non-donors */}
+        {/* Bottom upsell — only show on mobile (desktop uses book layout) */}
         {session.user.subscription_tier !== "plus" ? (
-          <div className="mx-auto max-w-md px-4 pb-8">
+          <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
             <div
               className="rounded-xl border p-4 text-center"
               style={{
@@ -571,7 +571,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
           </div>
         ) : session.user.ink_donor_status !== "active" ? (
-          <div className="mx-auto max-w-md px-4 pb-8">
+          <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
             <div
               className="rounded-xl border p-4 text-center"
               style={{

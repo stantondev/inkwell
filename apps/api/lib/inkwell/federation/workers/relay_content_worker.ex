@@ -141,6 +141,8 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
             sensitive: is_sensitive,
             content_warning: content_warning,
             reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(object["replies"]),
+            likes_count: extract_collection_count(object["likes"]),
+            boosts_count: extract_collection_count(object["shares"]),
             source: "relay",
             relay_subscription_id: subscription.id
           }
@@ -206,6 +208,11 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
   end
 
   defp extract_hashtags(_), do: []
+
+  # Extract totalItems from an AP Collection (likes, shares)
+  defp extract_collection_count(%{"totalItems" => count}) when is_integer(count), do: count
+  defp extract_collection_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
+  defp extract_collection_count(_), do: 0
 
   defp parse_datetime(nil), do: nil
 

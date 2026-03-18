@@ -17,6 +17,8 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :last_verified_at, :utc_datetime_usec
     field :replies_fetched_at, :utc_datetime_usec
     field :reply_count, :integer, default: 0
+    field :likes_count, :integer, default: 0
+    field :boosts_count, :integer, default: 0
     field :source, :string
 
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
@@ -27,7 +29,7 @@ defmodule Inkwell.Federation.RemoteEntry do
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id, :replies_fetched_at, :reply_count])
+    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id, :replies_fetched_at, :reply_count, :likes_count, :boosts_count])
     |> validate_required([:ap_id, :body_html, :remote_actor_id])
     |> unique_constraint(:ap_id)
   end

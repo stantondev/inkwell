@@ -35,6 +35,7 @@ export interface JournalEntry {
     series_order: number;
   } | null;
   ink_count?: number;
+  boosts_count?: number;
   my_ink?: boolean;
   sensitive?: boolean;
   content_warning?: string | null;
@@ -92,9 +93,11 @@ interface JournalEntryCardProps {
   translatedBody?: string | null;
   /** Translated title — when set, replaces the original title */
   translatedTitle?: string | null;
+  /** Book mode: full content display without clamping, for horizontal book layout */
+  bookMode?: boolean;
 }
 
-export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false }: JournalEntryCardProps) {
   const isRemote = entry.source === "remote";
   const href = isRemote
     ? (entry.url ?? `/${entry.author.username}/${entry.id}`)
@@ -112,9 +115,14 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
   const isCompact = isRemote && !entry.title && entry.body_html && entry.body_html.replace(/<[^>]+>/g, "").length < 280;
 
   return (
-    <JournalPage corner edge className={`flex flex-col${isRemote ? " journal-page-fediverse" : ""}${isCompact ? " fediverse-compact" : ""}`}>
+    <JournalPage
+      corner={!bookMode}
+      edge={!bookMode}
+      bookPage={bookMode}
+      className={`flex flex-col${isRemote && !bookMode ? " journal-page-fediverse" : ""}${isCompact ? " fediverse-compact" : ""}`}
+    >
       {/* Top section */}
-      <div className={`${isCompact ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6"} flex flex-col relative`}>
+      <div className={`${bookMode ? "p-5 lg:p-6" : isCompact ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6"} flex flex-col relative${bookMode ? "" : " flex-1"}`}>
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
@@ -263,20 +271,44 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning} compact>
           {/* Cover image */}
           {entry.cover_image_id && (
-            <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: "min(280px, 45vw)" }}>
+            <div className="w-full overflow-hidden rounded-lg mb-4" style={{ maxHeight: bookMode ? "min(500px, 50vh)" : "min(280px, 45vw)" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/images/${entry.cover_image_id}`}
                 alt={entry.title ?? "Entry cover"}
                 className="w-full object-cover"
-                style={{ maxHeight: "min(280px, 45vw)" }}
+                style={{ maxHeight: bookMode ? "min(500px, 50vh)" : "min(280px, 45vw)" }}
                 loading="lazy"
               />
             </div>
           )}
 
-          {/* Body preview — compact fediverse posts show full content, others use excerpt/clamp */}
-          {isCompact ? (
+          {/* Body content — book mode shows full content, card mode uses excerpt/clamp */}
+          {bookMode && !isCompact ? (
+            /* Book mode: full body, no clamping */
+            <div>
+              <EntryContent
+                html={translatedBody || entry.body_html}
+                entryId={entry.id}
+                className="prose-entry"
+              />
+              <div className="mt-4">
+                {isRemote ? (
+                  <a href={href} target="_blank" rel="noopener noreferrer"
+                    className="inline-block text-sm font-medium hover:underline"
+                    style={{ color: "var(--accent)", fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}>
+                    Read on {entry.author.domain || "original site"} &rarr;
+                  </a>
+                ) : (
+                  <Link href={href}
+                    className="inline-block text-sm font-medium hover:underline"
+                    style={{ color: "var(--accent)", fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}>
+                    Open full entry &rarr;
+                  </Link>
+                )}
+              </div>
+            </div>
+          ) : isCompact ? (
             <div>
               <EntryContent
                 html={translatedBody || entry.body_html}
@@ -415,10 +447,10 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
       {/* Footer — either custom actions or static default */}
       {actions ?? (
         <div
-          className={`flex items-center justify-between ${isCompact ? "px-3 sm:px-4" : "px-4 sm:px-5 lg:px-6"} py-2.5 border-t`}
+          className={`flex items-center justify-between ${bookMode ? "px-5 lg:px-6" : isCompact ? "px-3 sm:px-4" : "px-4 sm:px-5 lg:px-6"} py-2.5 border-t`}
           style={{ borderColor: "var(--border)" }}
         >
-          {isRemote ? (
+          {isRemote && !bookMode ? (
             <a
               href={href}
               target="_blank"
@@ -434,26 +466,35 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
           ) : (
             <span />
           )}
-          <Link
-            href={isRemote ? "#" : `${href}#comments`}
-            className="flex items-center gap-1.5 text-sm"
-            style={{ color: "var(--muted)" }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <div className="flex items-center gap-4">
+            {/* Boosts count (fediverse shares) */}
+            {(entry.boosts_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
+                  <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+                {entry.boosts_count}
+              </span>
+            )}
+            {/* Ink/favorites count */}
+            <span className="flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
+              <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true" style={{ opacity: 0.6 }}>
+                <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+              </svg>
+              {entry.ink_count ?? 0}
+            </span>
+            {/* Comment count */}
+            <Link
+              href={isRemote ? "#" : `${href}#comments`}
+              className="flex items-center gap-1 text-sm"
+              style={{ color: "var(--muted)" }}
             >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            {entry.comment_count ?? 0}
-          </Link>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {entry.comment_count ?? 0}
+            </Link>
+          </div>
         </div>
       )}
     </JournalPage>
