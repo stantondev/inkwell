@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { getSession, getToken } from "@/lib/session";
 import { ContentWarning } from "@/components/content-warning";
-import { EntryContent } from "@/components/entry-content";
+import { EnrichableContent } from "./enrichable-content";
 import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
@@ -104,9 +104,11 @@ export default async function FediverseEntryPage({ params }: FediverseEntryParam
   const session = await getSession();
 
   let entry: RemoteEntryData;
+  let enrichingPreview = false;
   try {
-    const data = await apiFetch<{ data: RemoteEntryData }>(`/api/remote-entries/${id}`, {}, token);
+    const data = await apiFetch<{ data: RemoteEntryData; enriching_preview?: boolean }>(`/api/remote-entries/${id}`, {}, token);
     entry = data.data;
+    enrichingPreview = data.enriching_preview ?? false;
   } catch {
     notFound();
   }
@@ -256,10 +258,10 @@ export default async function FediverseEntryPage({ params }: FediverseEntryParam
 
         {/* Content */}
         <ContentWarning isSensitive={entry.is_sensitive} contentWarning={entry.content_warning}>
-          <EntryContent
-            html={entry.body_html}
+          <EnrichableContent
             entryId={entry.id}
-            className="prose-entry"
+            initialHtml={entry.body_html}
+            enriching={enrichingPreview}
           />
 
           {/* Tags */}

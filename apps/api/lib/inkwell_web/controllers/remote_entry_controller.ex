@@ -38,7 +38,20 @@ defmodule InkwellWeb.RemoteEntryController do
           reprints_set = if viewer, do: Reprints.get_user_reprints_for_remote_entries(viewer.id, entry_ids), else: MapSet.new()
           comment_count = Journals.count_comments_for_remote_entries(entry_ids) |> Map.get(id, 0)
 
+          # Enqueue link preview enrichment if entry has links but no preview yet
+          enriching_preview =
+            if not String.contains?(remote_entry.body_html || "", "data-link-embed") and
+               String.contains?(remote_entry.body_html || "", "<a ") do
+              %{remote_entry_id: remote_entry.id}
+              |> Inkwell.Workers.LinkPreviewWorker.new()
+              |> Oban.insert()
+              true
+            else
+              false
+            end
+
           json(conn, %{
+            enriching_preview: enriching_preview,
             data: %{
               id: remote_entry.id,
               source: "remote",
