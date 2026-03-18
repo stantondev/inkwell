@@ -4,7 +4,7 @@ defmodule InkwellWeb.EntryController do
   alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
-  alias InkwellWeb.UserController
+  alias InkwellWeb.{Helpers.MentionHelper, UserController}
 
   @free_draft_limit 10
 
@@ -313,6 +313,10 @@ defmodule InkwellWeb.EntryController do
         case Journals.create_entry(attrs) do
           {:ok, entry} ->
             record_entry_creation(user.id)
+
+            # Process @mentions in body
+            entry = process_entry_mentions(entry, user.id)
+
             # Fan out to federated followers for public entries
             if entry.privacy == :public do
               %{entry_id: entry.id, action: "create", user_id: user.id}
@@ -382,6 +386,9 @@ defmodule InkwellWeb.EntryController do
 
         case result do
           {:ok, updated} ->
+            # Process @mentions in body
+            updated = process_entry_mentions(updated, user.id)
+
             # Fan out updates for published public entries
             if updated.status == :published && updated.privacy == :public do
               %{entry_id: updated.id, action: "update", user_id: user.id}
@@ -443,6 +450,9 @@ defmodule InkwellWeb.EntryController do
         with :ok <- validate_custom_filter_ownership(attrs, user.id) do
           case Journals.publish_draft(entry, attrs) do
             {:ok, published} ->
+              # Process @mentions in body
+              published = process_entry_mentions(published, user.id)
+
               # Fan out to federated followers for public entries
               if published.privacy == :public do
                 %{entry_id: published.id, action: "create", user_id: user.id}
@@ -1062,6 +1072,39 @@ defmodule InkwellWeb.EntryController do
   end
 
   # ── Search indexing helpers ───────────────────────────────────────────
+
+  defp process_entry_mentions(entry, author_id) do
+    case entry.body_html do
+      nil -> entry
+      body_html ->
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
+
+        # Update the entry HTML with processed mentions (converts @username to links)
+        entry =
+          if processed_html != body_html do
+            {:ok, updated} =
+              entry
+              |> Ecto.Changeset.change(%{body_html: processed_html})
+              |> Repo.update()
+            updated
+          else
+            entry
+          end
+
+        # Create notifications for mentioned users (skip self)
+        for user <- mentioned_users, user.id != author_id do
+          Accounts.create_notification(%{
+            type: :mention,
+            user_id: user.id,
+            actor_id: author_id,
+            target_type: "entry",
+            target_id: entry.id
+          })
+        end
+
+        entry
+    end
+  end
 
   defp enqueue_search_index(entry_id) do
     %{action: "index_entry", entry_id: entry_id}

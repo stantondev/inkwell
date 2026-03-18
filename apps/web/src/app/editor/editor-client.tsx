@@ -28,6 +28,7 @@ import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
 import { CircleEmbed, type CircleEmbedAttrs } from "@/lib/tiptap-circle-embed";
 import { LinkEmbed, type LinkEmbedAttrs } from "@/lib/tiptap-link-embed";
+import { MentionDropdown } from "@/components/mention-dropdown";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
 
@@ -1593,6 +1594,14 @@ export function EditorClient() {
   const editorLoadedRef = useRef(false); // suppress autosave during initial load
   const [recoveryData, setRecoveryData] = useState<RecoveryData | null>(null);
 
+  // @Mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionUsers, setMentionUsers] = useState<{ id: string; username: string; display_name: string; avatar_url: string | null }[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionPos, setMentionPos] = useState<{ top: number; left: number } | null>(null);
+  const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+
   // Open settings panel by default on all screen sizes (persisted in localStorage)
   useEffect(() => {
     if (settingsInitialized.current) return;
@@ -1633,6 +1642,79 @@ export function EditorClient() {
       setIsUploadingImage(false);
     }
   }, []);
+
+  // Detect @mention in TipTap editor content
+  const detectMentionInEditor = useCallback((e: Editor) => {
+    const { state } = e;
+    const { from } = state.selection;
+    const text = state.doc.textBetween(Math.max(0, from - 50), from, "\n");
+
+    let i = text.length - 1;
+    while (i >= 0) {
+      const ch = text[i];
+      if (ch === "@") {
+        if (i === 0 || /\s/.test(text[i - 1])) {
+          const query = text.substring(i + 1);
+          if (/^[a-zA-Z0-9_-]*$/.test(query) && query.length >= 1) {
+            setMentionQuery(query);
+            setMentionIndex(0);
+            try {
+              const coords = e.view.coordsAtPos(from);
+              const wrapRect = editorWrapRef.current?.getBoundingClientRect();
+              if (wrapRect) {
+                setMentionPos({
+                  top: coords.top - wrapRect.top + 24,
+                  left: coords.left - wrapRect.left,
+                });
+              }
+            } catch { /* coords may fail at edge positions */ }
+
+            if (mentionDebounceRef.current) clearTimeout(mentionDebounceRef.current);
+            mentionDebounceRef.current = setTimeout(async () => {
+              try {
+                const res = await fetch(`/api/users/mention-search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                setMentionUsers(data.data || []);
+              } catch {
+                setMentionUsers([]);
+              }
+            }, 200);
+            return;
+          }
+        }
+        break;
+      }
+      if (/\s/.test(ch)) break;
+      i--;
+    }
+    setMentionQuery(null);
+    setMentionUsers([]);
+  }, []);
+
+  // Insert selected mention into TipTap
+  const insertMention = useCallback((userIndex?: number) => {
+    if (!editorRef.current || mentionQuery === null || mentionUsers.length === 0) return;
+    const ed = editorRef.current;
+    const user = mentionUsers[userIndex ?? mentionIndex];
+    if (!user) return;
+
+    const { from } = ed.state.selection;
+    const atPos = from - mentionQuery.length - 1;
+
+    ed.chain()
+      .focus()
+      .deleteRange({ from: atPos, to: from })
+      .insertContent(`@${user.username} `)
+      .run();
+
+    setMentionQuery(null);
+    setMentionUsers([]);
+  }, [mentionQuery, mentionUsers, mentionIndex]);
+
+  const insertMentionRef = useRef(insertMention);
+  insertMentionRef.current = insertMention;
+
+  const editorRef = useRef<Editor | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -1692,6 +1774,7 @@ export function EditorClient() {
     onUpdate: ({ editor }) => {
       setHasContent(!!editor.getText().trim());
       setWordCount(editor.storage.characterCount.words());
+      detectMentionInEditor(editor);
       // Don't trigger autosave during initial content load
       if (editorLoadedRef.current) {
         hasUnsavedChanges.current = true;
@@ -1700,6 +1783,9 @@ export function EditorClient() {
       }
     },
   });
+
+  // Keep editorRef in sync
+  editorRef.current = editor;
 
   // Upload a cover image: resize, upload to API, store ID
   const uploadCoverImage = useCallback(async (file: File) => {
@@ -2722,7 +2808,41 @@ export function EditorClient() {
                   />
                 </>
               ) : (
-                <EditorContent editor={editor} />
+                <div ref={editorWrapRef} style={{ position: "relative" }}
+                  onKeyDown={(e) => {
+                    if (mentionQuery !== null && mentionUsers.length > 0) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setMentionIndex((i) => Math.min(i + 1, mentionUsers.length - 1));
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setMentionIndex((i) => Math.max(i - 1, 0));
+                      } else if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        insertMentionRef.current();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        setMentionQuery(null);
+                        setMentionUsers([]);
+                      }
+                    }
+                  }}
+                >
+                  <EditorContent editor={editor} />
+                  {mentionQuery !== null && mentionUsers.length > 0 && mentionPos && (
+                    <div style={{ position: "absolute", top: mentionPos.top, left: mentionPos.left, zIndex: 50, width: 280 }}>
+                      <MentionDropdown
+                        users={mentionUsers}
+                        activeIndex={mentionIndex}
+                        onSelect={(user) => {
+                          const idx = mentionUsers.findIndex((u) => u.id === user.id);
+                          if (idx >= 0) insertMentionRef.current(idx);
+                        }}
+                        position="below"
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

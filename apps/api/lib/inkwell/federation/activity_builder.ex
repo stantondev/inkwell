@@ -132,22 +132,51 @@ defmodule Inkwell.Federation.ActivityBuilder do
         })
       end
 
-    # hashtags
+    # hashtags + mention tags
     article =
-      if entry.tags && length(entry.tags) > 0 do
-        tags =
-          Enum.map(entry.tags, fn tag ->
+      (fn ->
+        hashtag_tags =
+          if entry.tags && length(entry.tags) > 0 do
+            Enum.map(entry.tags, fn tag ->
+              %{
+                "type" => "Hashtag",
+                "name" => "##{tag}",
+                "href" => "#{frontend_host}/tag/#{tag}"
+              }
+            end)
+          else
+            []
+          end
+
+        # Extract mentioned users from body_html and build Mention tags
+        {_, mentioned_users} = InkwellWeb.Helpers.MentionHelper.process_mentions(entry.body_html || "")
+        mention_tags =
+          Enum.map(mentioned_users, fn user ->
             %{
-              "type" => "Hashtag",
-              "name" => "##{tag}",
-              "href" => "#{frontend_host}/tag/#{tag}"
+              "type" => "Mention",
+              "href" => "#{frontend_host}/users/#{user.username}",
+              "name" => "@#{user.username}@#{URI.parse(frontend_host).host}"
             }
           end)
 
-        Map.put(article, "tag", tags)
-      else
-        article
-      end
+        all_tags = hashtag_tags ++ mention_tags
+        if all_tags != [], do: Map.put(article, "tag", all_tags), else: article
+      end).()
+
+    # Add mentioned users to cc addressing so their servers receive the activity
+    article =
+      (fn ->
+        {_, mentioned_users} = InkwellWeb.Helpers.MentionHelper.process_mentions(entry.body_html || "")
+        if mentioned_users != [] do
+          existing_cc = article["cc"] || []
+          mention_uris = Enum.map(mentioned_users, fn user ->
+            "#{frontend_host}/users/#{user.username}"
+          end)
+          Map.put(article, "cc", Enum.uniq(existing_cc ++ mention_uris))
+        else
+          article
+        end
+      end).()
 
     # Extract inline images from content into `attachment` for pre-fetching
     # (FEP-b2b8 §attachment: embedded media SHOULD also be listed in attachment)

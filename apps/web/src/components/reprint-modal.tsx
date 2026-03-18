@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
+import { MentionDropdown } from "@/components/mention-dropdown";
 
 interface QuotedEntry {
   id: string;
@@ -34,6 +36,20 @@ export function ReprintModal({ entryId, isRemote, onClose, onSuccess }: ReprintM
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
+
+  // @Mention autocomplete
+  const {
+    mentionUsers,
+    mentionIndex,
+    showDropdown,
+    handleMentionChange,
+    handleMentionKeyDown,
+    insertMention,
+  } = useMentionAutocomplete({
+    textareaRef,
+    text: thoughts,
+    setText: setThoughts,
+  });
 
   // Fetch the quoted entry preview
   useEffect(() => {
@@ -138,21 +154,32 @@ export function ReprintModal({ entryId, isRemote, onClose, onSuccess }: ReprintM
 
         <div className="reprint-modal-body">
           {/* Text input for user's thoughts */}
-          <textarea
-            ref={textareaRef}
-            value={thoughts}
-            onChange={(e) => setThoughts(e.target.value)}
-            placeholder="Add your thoughts..."
-            className="reprint-modal-textarea"
-            rows={4}
-            maxLength={2000}
-            disabled={submitting}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                handleSubmit();
-              }
-            }}
-          />
+          <div style={{ position: "relative" }}>
+            <textarea
+              ref={textareaRef}
+              value={thoughts}
+              onChange={handleMentionChange}
+              placeholder="Add your thoughts... (type @ to mention someone)"
+              className="reprint-modal-textarea"
+              rows={4}
+              maxLength={2000}
+              disabled={submitting}
+              onKeyDown={(e) => {
+                if (handleMentionKeyDown(e as any)) return;
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  handleSubmit();
+                }
+              }}
+            />
+            {showDropdown && (
+              <MentionDropdown
+                users={mentionUsers}
+                activeIndex={mentionIndex}
+                onSelect={insertMention}
+                position="below"
+              />
+            )}
+          </div>
 
           {/* Preview of the entry being quoted */}
           {loading ? (
