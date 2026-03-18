@@ -58,6 +58,11 @@ export function JournalFeed({
   const [activeSpreadIndex, setActiveSpreadIndex] = useState(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // Mobile hooks (must be called unconditionally before any early returns)
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  const mobileSentinelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
     check();
@@ -115,6 +120,30 @@ export function JournalFeed({
       { threshold: 0.5 }
     );
     observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [isDesktop, hasMore, loadMorePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Track active mobile page
+  useEffect(() => {
+    if (isDesktop || !mobileScrollRef.current) return;
+    const container = mobileScrollRef.current;
+    const handleScroll = () => {
+      const w = container.clientWidth;
+      if (w === 0) return;
+      setMobileActiveIndex(Math.round(container.scrollLeft / w));
+    };
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [isDesktop]);
+
+  // Auto-load more on mobile
+  useEffect(() => {
+    if (isDesktop || !mobileSentinelRef.current || !hasMore || !loadMorePath) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore(); },
+      { threshold: 0.5 }
+    );
+    observer.observe(mobileSentinelRef.current);
     return () => observer.disconnect();
   }, [isDesktop, hasMore, loadMorePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -227,15 +256,16 @@ export function JournalFeed({
         bookMode={bookMode}
       />
     );
+    // Mobile vertical swipe: up = ink, down = bookmark
     if (isMobile && session?.isLoggedIn && !isOwnEntry) {
       return (
         <MobileSwipeableCard
-          onSwipeLeft={() => toggleInk(entry.id, isRemote)}
-          onSwipeRight={() => toggleBookmark(entry.id)}
-          leftActive={entry.bookmarked ?? false}
-          rightActive={entry.my_ink ?? false}
-          leftLabel="Bookmark"
-          rightLabel="Ink"
+          onSwipeUp={() => toggleInk(entry.id, isRemote)}
+          onSwipeDown={() => toggleBookmark(entry.id)}
+          upActive={entry.my_ink ?? false}
+          downActive={entry.bookmarked ?? false}
+          upLabel="Ink"
+          downLabel="Bookmark"
         >
           {card}
         </MobileSwipeableCard>
@@ -337,11 +367,12 @@ export function JournalFeed({
     );
   }
 
-  // ─── Mobile: Masonry Grid (unchanged) ───────────────────────────
+  // ─── Mobile: Horizontal Scroll-Snap (matching desktop book feel) ─────
   return (
-    <div>
-      {isMobile && (pullDistance > 0 || refreshing) && (
-        <div className="pull-to-refresh-indicator" style={{ height: pullDistance || (refreshing ? 40 : 0) }}>
+    <div className="mobile-book-wrapper">
+      {/* Pull-to-refresh */}
+      {pullDistance > 0 || refreshing ? (
+        <div className="pull-to-refresh-indicator" style={{ height: pullDistance || (refreshing ? 40 : 0), position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
           {refreshing ? (
             <svg className="pull-to-refresh-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
           ) : (
@@ -351,48 +382,49 @@ export function JournalFeed({
             </svg>
           )}
         </div>
-      )}
+      ) : null}
 
-      <div className="journal-grid" role="feed" aria-label="Journal entries">
-        {entries.map((entry) => (
-          <div key={entry.id} className="journal-grid-item">
-            <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              {renderCard(entry)}
-            </motion.div>
-          </div>
-        ))}
+      {/* Swipe hint — shown briefly on first visit */}
+      <div className="mobile-book-swipe-hints">
+        <span className="mobile-book-hint-left">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+        </span>
+        <span className="mobile-book-hint-text">swipe to read</span>
+        <span className="mobile-book-hint-right">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+        </span>
       </div>
 
-      {hasMore && loadMorePath && (
-        <div className="flex justify-center py-8">
-          <button onClick={loadMore} disabled={loading}
-            className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#fff", opacity: loading ? 0.6 : 1 }}>
-            {loading ? "Loading..." : "Load more entries"}
-          </button>
-        </div>
-      )}
+      <div ref={mobileScrollRef} className="mobile-book-scroll">
+        {entries.map((entry, idx) => (
+          <div key={entry.id} className="mobile-book-page">
+            {renderCard(entry, true)}
+          </div>
+        ))}
 
-      {hasMore && !loadMorePath && (
-        <div className="flex justify-center py-8">
-          <Link href={`${basePath}?page=${page + 1}${extraParams}`}
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#fff" }}>
-            Older entries <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-          </Link>
-        </div>
-      )}
+        {/* Load-more sentinel */}
+        {hasMore && loadMorePath && (
+          <div ref={mobileSentinelRef} className="mobile-book-page mobile-book-sentinel">
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <button
+                onClick={loadMore}
+                disabled={loading}
+                className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+                style={{ background: "var(--accent)", color: "#fff", opacity: loading ? 0.6 : 1, fontFamily: "var(--font-lora, Georgia, serif)" }}
+              >
+                {loading ? "Loading..." : "Turn the page..."}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {page > 1 && (
-        <div className="flex justify-center mt-2 pb-4">
-          <Link href={`${basePath}?page=${page - 1}${extraParams}`} className="text-sm font-medium hover:underline" style={{ color: "var(--accent)" }}>
-            &larr; Newer entries
-          </Link>
+      {/* Page counter */}
+      {entries.length > 1 && (
+        <div className="mobile-book-counter">
+          <span>{mobileActiveIndex + 1}</span>
+          <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
+          <span>{entries.length}</span>
         </div>
       )}
     </div>

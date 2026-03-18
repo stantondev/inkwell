@@ -340,21 +340,37 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           } : null}
         />
 
-        {/* About Inkwell footer — only show on mobile where masonry grid is used */}
-        <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
-          <div
-            className="rounded-xl border p-4 text-center"
-            style={{
-              borderColor: "var(--border)",
-              background: "var(--surface)",
-            }}
-          >
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              A federated journaling platform. No algorithms, no ads — just
-              writing and pen pals.
-            </p>
+        {/* Ink Donor CTA — show to logged-in non-donor users */}
+        {session && session.user.ink_donor_status !== "active" && (
+          <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
+            <div
+              className="rounded-xl border p-4 text-center"
+              style={{
+                borderColor: "var(--border)",
+                background: "var(--surface)",
+              }}
+            >
+              <p
+                className="text-sm font-medium mb-1"
+                style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+              >
+                Keep the ink flowing.
+              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+                Inkwell runs on readers and writers, not ads or algorithms.
+                Ink Donors help keep this space independent. From $1/month.
+              </p>
+              <Link
+                href="/settings/billing"
+                className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                Become an Ink Donor
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
+
       </ExploreSearchWrapper>
     </div>
   );

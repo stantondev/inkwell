@@ -4,72 +4,124 @@ import { useRef, useState, useCallback } from "react";
 
 interface MobileSwipeableCardProps {
   children: React.ReactNode;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
-  leftLabel?: string;
-  rightLabel?: string;
-  leftActive?: boolean;
-  rightActive?: boolean;
+  /** Called when user swipes up past threshold */
+  onSwipeUp?: () => void;
+  /** Called when user swipes down past threshold */
+  onSwipeDown?: () => void;
+  /** Label for swipe-up action */
+  upLabel?: string;
+  /** Label for swipe-down action */
+  downLabel?: string;
+  /** Whether the up action is already active (e.g. already inked) */
+  upActive?: boolean;
+  /** Whether the down action is already active (e.g. already bookmarked) */
+  downActive?: boolean;
 }
 
 export function MobileSwipeableCard({
   children,
-  onSwipeLeft,
-  onSwipeRight,
-  leftLabel = "Bookmark",
-  rightLabel = "Ink",
-  leftActive = false,
-  rightActive = false,
+  onSwipeUp,
+  onSwipeDown,
+  upLabel = "Ink",
+  downLabel = "Bookmark",
+  upActive = false,
+  downActive = false,
 }: MobileSwipeableCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
-  const touchDelta = useRef(0);
+  const touchDeltaY = useRef(0);
   const isDragging = useRef(false);
-  const isVertical = useRef(false);
-  const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
+  const isHorizontal = useRef(false);
+  const directionLocked = useRef(false);
+  const [swipeDir, setSwipeDir] = useState<"up" | "down" | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState(0);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Check if the touch is inside a scrollable container that has room to scroll
+    const target = e.target as HTMLElement;
+    const scrollable = target.closest(".journal-book-entry-body");
+    if (scrollable) {
+      const el = scrollable as HTMLElement;
+      const canScrollUp = el.scrollTop > 0;
+      const canScrollDown = el.scrollTop < el.scrollHeight - el.clientHeight - 2;
+      // If content is scrollable in the direction of the gesture, don't intercept
+      if (canScrollUp || canScrollDown) {
+        // We'll check direction in touchMove
+      }
+    }
+
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
-    touchDelta.current = 0;
+    touchDeltaY.current = 0;
     isDragging.current = false;
-    isVertical.current = false;
+    isHorizontal.current = false;
+    directionLocked.current = false;
     setSwipeDir(null);
+    setSwipeProgress(0);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
 
-    // Determine scroll direction on first significant movement
-    if (!isDragging.current && !isVertical.current) {
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
-        isVertical.current = true;
+    // Lock direction on first significant movement
+    if (!directionLocked.current) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+        // Horizontal movement — let the scroll-snap container handle it
+        isHorizontal.current = true;
+        directionLocked.current = true;
         return;
       }
-      if (Math.abs(dx) > 10) {
+      if (Math.abs(dy) > 8) {
+        // Check if content inside is scrollable in this direction
+        const target = e.target as HTMLElement;
+        const scrollable = target.closest(".journal-book-entry-body");
+        if (scrollable) {
+          const el = scrollable as HTMLElement;
+          const atTop = el.scrollTop <= 0;
+          const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 2;
+
+          // If swiping up but content can scroll up, let it scroll
+          if (dy > 0 && !atTop) {
+            isHorizontal.current = true; // Not horizontal, but let it pass through
+            directionLocked.current = true;
+            return;
+          }
+          // If swiping down but content can scroll down
+          if (dy < 0 && !atBottom) {
+            isHorizontal.current = true;
+            directionLocked.current = true;
+            return;
+          }
+        }
+
         isDragging.current = true;
+        directionLocked.current = true;
       }
     }
 
-    if (isVertical.current) return;
+    if (isHorizontal.current) return;
     if (!isDragging.current) return;
 
-    touchDelta.current = dx;
+    touchDeltaY.current = dy;
 
-    // Dampen the movement (feels more natural)
-    const dampened = dx * 0.4;
+    // Dampen the movement
+    const dampened = dy * 0.35;
+    const absDampened = Math.abs(dampened);
+    const threshold = 60;
 
     if (containerRef.current) {
-      containerRef.current.style.transform = `translateX(${dampened}px)`;
+      containerRef.current.style.transform = `translateY(${dampened}px)`;
       containerRef.current.style.transition = "none";
     }
 
-    if (dx > 30) {
-      setSwipeDir("right");
-    } else if (dx < -30) {
-      setSwipeDir("left");
+    setSwipeProgress(Math.min(absDampened / threshold, 1));
+
+    if (dy < -30) {
+      setSwipeDir("up");
+    } else if (dy > 30) {
+      setSwipeDir("down");
     } else {
       setSwipeDir(null);
     }
@@ -82,49 +134,57 @@ export function MobileSwipeableCard({
     }
 
     if (isDragging.current) {
-      const threshold = 80;
-      if (touchDelta.current > threshold && onSwipeRight) {
-        onSwipeRight();
+      const threshold = 60;
+      if (touchDeltaY.current < -threshold && onSwipeUp) {
+        onSwipeUp();
         try { navigator.vibrate?.(10); } catch { /* not supported */ }
-      } else if (touchDelta.current < -threshold && onSwipeLeft) {
-        onSwipeLeft();
+      } else if (touchDeltaY.current > threshold && onSwipeDown) {
+        onSwipeDown();
         try { navigator.vibrate?.(10); } catch { /* not supported */ }
       }
     }
 
     isDragging.current = false;
-    isVertical.current = false;
+    isHorizontal.current = false;
+    directionLocked.current = false;
     setSwipeDir(null);
-  }, [onSwipeLeft, onSwipeRight]);
+    setSwipeProgress(0);
+  }, [onSwipeUp, onSwipeDown]);
 
   return (
-    <div className="mobile-swipe-wrapper">
-      {/* Action indicators behind card */}
+    <div className="mobile-swipe-wrapper-v">
+      {/* Swipe UP indicator (ink) — appears at bottom, slides up */}
       <div
-        className={`mobile-swipe-action mobile-swipe-action--left ${swipeDir === "right" ? "mobile-swipe-action--visible" : ""}`}
-        style={{ color: leftActive ? "var(--accent)" : undefined }}
+        className={`mobile-swipe-indicator mobile-swipe-indicator--up ${swipeDir === "up" ? "mobile-swipe-indicator--visible" : ""}`}
+        style={{
+          color: upActive ? "var(--accent)" : "var(--foreground)",
+          opacity: swipeDir === "up" ? Math.max(0.4, swipeProgress) : 0,
+        }}
       >
-        {/* Bookmark icon */}
-        <svg width="20" height="20" viewBox="0 0 24 24" fill={leftActive ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="24" height="28" viewBox="0 0 16 20" fill={upActive ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.25">
+          <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+        </svg>
+        <span className="text-xs font-medium">{upActive ? "Inked" : upLabel}</span>
+      </div>
+
+      {/* Swipe DOWN indicator (bookmark) — appears at top, slides down */}
+      <div
+        className={`mobile-swipe-indicator mobile-swipe-indicator--down ${swipeDir === "down" ? "mobile-swipe-indicator--visible" : ""}`}
+        style={{
+          color: downActive ? "var(--accent)" : "var(--foreground)",
+          opacity: swipeDir === "down" ? Math.max(0.4, swipeProgress) : 0,
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill={downActive ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
-        <span>{leftLabel}</span>
-      </div>
-      <div
-        className={`mobile-swipe-action mobile-swipe-action--right ${swipeDir === "left" ? "mobile-swipe-action--visible" : ""}`}
-        style={{ color: rightActive ? "var(--accent)" : undefined }}
-      >
-        <span>{rightLabel}</span>
-        {/* Ink drop icon */}
-        <svg width="20" height="20" viewBox="0 0 24 24" fill={rightActive ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75">
-          <path d="M12 2C12 2 5 10 5 14.5C5 18.09 8.13 21 12 21C15.87 21 19 18.09 19 14.5C19 10 12 2 12 2Z" />
-        </svg>
+        <span className="text-xs font-medium">{downActive ? "Saved" : downLabel}</span>
       </div>
 
       {/* Card content */}
       <div
         ref={containerRef}
-        className="mobile-swipe-card"
+        className="mobile-swipe-card-v"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
