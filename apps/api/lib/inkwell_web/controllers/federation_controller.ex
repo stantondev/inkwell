@@ -347,12 +347,20 @@ defmodule InkwellWeb.FederationController do
   def inbox(conn, %{"username" => username} = params) do
     case verify_inbox_signature(conn) do
       :ok ->
-        case Accounts.get_user_by_username(username) do
-          nil ->
-            conn |> put_status(:not_found) |> json(%{error: "Not found"})
+        # Validate that the signing key's domain matches the activity actor's domain
+        case validate_actor_origin(conn, params) do
+          :ok ->
+            case Accounts.get_user_by_username(username) do
+              nil ->
+                conn |> put_status(:not_found) |> json(%{error: "Not found"})
 
-          user ->
-            process_activity(conn, params, user)
+              user ->
+                process_activity(conn, params, user)
+            end
+
+          {:error, :domain_mismatch} ->
+            Logger.warning("Inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
+            conn |> put_status(:unauthorized) |> json(%{error: "Actor domain mismatch"})
         end
 
       {:error, reason} ->
@@ -366,7 +374,14 @@ defmodule InkwellWeb.FederationController do
   def shared_inbox(conn, params) do
     case verify_inbox_signature(conn) do
       :ok ->
-        process_activity(conn, params, nil)
+        case validate_actor_origin(conn, params) do
+          :ok ->
+            process_activity(conn, params, nil)
+
+          {:error, :domain_mismatch} ->
+            Logger.warning("Shared inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
+            conn |> put_status(:unauthorized) |> json(%{error: "Actor domain mismatch"})
+        end
 
       {:error, reason} ->
         Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
@@ -471,6 +486,35 @@ defmodule InkwellWeb.FederationController do
             Logger.warning("Inbox: REJECTED — could not fetch actor #{actor_uri} — #{inspect(reason)}")
             {:error, reason}
         end
+    end
+  end
+
+  # Validates that the signing key's domain matches the activity actor's domain.
+  # Prevents spoofing: attacker at evil.com cannot sign activities claiming to be from mastodon.social.
+  defp validate_actor_origin(conn, activity) do
+    actor_uri = activity["actor"]
+
+    if is_nil(actor_uri) or not is_binary(actor_uri) do
+      {:error, :domain_mismatch}
+    else
+      # Extract the signing key's domain from the parsed signature
+      case Inkwell.Federation.HttpSignature.parse_signature(conn) do
+        {:ok, sig_parts} ->
+          key_id = sig_parts["keyId"] || ""
+          key_domain = URI.parse(key_id) |> Map.get(:host) |> to_string() |> String.downcase()
+          actor_domain = URI.parse(actor_uri) |> Map.get(:host) |> to_string() |> String.downcase()
+
+          if key_domain == actor_domain do
+            :ok
+          else
+            Logger.warning("Actor origin mismatch: key from #{key_domain}, actor claims #{actor_domain}")
+            {:error, :domain_mismatch}
+          end
+
+        {:error, _} ->
+          # If we can't parse the signature, the earlier verify_inbox_signature would have rejected
+          :ok
+      end
     end
   end
 
@@ -801,7 +845,7 @@ defmodule InkwellWeb.FederationController do
 
       comment ->
         # Bypass the 24-hour edit window — federated edits come from the author's server
-        case comment |> Comment.edit_changeset(%{body_html: note["content"] || ""}) |> Repo.update() do
+        case comment |> Comment.edit_changeset(%{body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || "")}) |> Repo.update() do
           {:ok, _} ->
             Logger.info("Updated federated comment #{ap_id}")
 
@@ -843,7 +887,7 @@ defmodule InkwellWeb.FederationController do
 
             comment_attrs = %{
               entry_id: entry.id,
-              body_html: note["content"] || "",
+              body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
               ap_id: note["id"],
               remote_author: %{
                 ap_id: remote_actor.ap_id,
@@ -896,12 +940,13 @@ defmodule InkwellWeb.FederationController do
 
           body_html =
             (note["content"] || "")
+            |> Inkwell.HtmlSanitizer.sanitize()
             |> Inkwell.Federation.AttachmentHelper.append_image_attachments(note)
 
           attrs = %{
             ap_id: note["id"],
             url: url,
-            title: note["name"],
+            title: Inkwell.HtmlSanitizer.sanitize(note["name"]),
             body_html: body_html,
             tags: tags,
             published_at: parse_ap_datetime(note["published"]),

@@ -83,7 +83,9 @@ defmodule InkwellWeb.Plugs.ApiKeyRateLimit do
           retry_after = oldest + @window_seconds - now
           {:deny, max(retry_after, 1)}
         else
-          :ets.insert(@table, {key, [now | recent]})
+          # Cap stored list to prevent unbounded memory growth
+          capped = Enum.take([now | recent], max)
+          :ets.insert(@table, {key, capped})
           {:allow, count}
         end
 

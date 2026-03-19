@@ -451,7 +451,7 @@ defmodule Inkwell.Tipping do
       case :httpc.request(
              :post,
              {url, headers, ~c"application/x-www-form-urlencoded", body},
-             [ssl: [verify: :verify_none]],
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
@@ -490,7 +490,7 @@ defmodule Inkwell.Tipping do
       case :httpc.request(
              :get,
              {url, headers},
-             [ssl: [verify: :verify_none]],
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->

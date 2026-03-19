@@ -65,7 +65,10 @@ defmodule InkwellWeb.Plugs.RateLimit do
           retry_after = oldest + window - now
           {:deny, max(retry_after, 1)}
         else
-          :ets.insert(@table, {key, [now | recent]})
+          # Cap the stored list to prevent unbounded memory growth.
+          # Only keep the most recent `max` timestamps — we never need more.
+          capped = Enum.take([now | recent], max)
+          :ets.insert(@table, {key, capped})
           {:allow, count}
         end
 
@@ -76,13 +79,12 @@ defmodule InkwellWeb.Plugs.RateLimit do
   end
 
   defp client_ip(conn) do
-    # Check x-forwarded-for first (Fly.io proxy sets this)
+    # Use the LAST IP in X-Forwarded-For — it's appended by the trusted proxy (Fly.io).
+    # The first IP is client-controlled and can be spoofed to bypass rate limits.
     case get_req_header(conn, "x-forwarded-for") do
       [forwarded | _] ->
-        forwarded
-        |> String.split(",")
-        |> List.first()
-        |> String.trim()
+        ips = forwarded |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+        List.last(ips) || (conn.remote_ip |> :inet.ntoa() |> to_string())
 
       [] ->
         conn.remote_ip |> :inet.ntoa() |> to_string()

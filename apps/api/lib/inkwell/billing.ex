@@ -248,9 +248,15 @@ defmodule Inkwell.Billing do
     webhook_secret = stripe_config()[:webhook_secret]
 
     if is_nil(webhook_secret) or webhook_secret == "" do
-      # In dev without webhook secret, accept all events
-      Logger.warning("STRIPE_WEBHOOK_SECRET not set — accepting webhook without verification")
-      :ok
+      if Application.get_env(:inkwell, :env) == :prod do
+        # In production, NEVER accept unverified webhooks — could enable forged payment events
+        Logger.error("STRIPE_WEBHOOK_SECRET not set in production — rejecting webhook")
+        {:error, :webhook_secret_not_configured}
+      else
+        # In dev without webhook secret, accept all events
+        Logger.warning("STRIPE_WEBHOOK_SECRET not set — accepting webhook without verification (dev only)")
+        :ok
+      end
     else
       verify_stripe_signature(payload, signature_header, webhook_secret)
     end
@@ -292,7 +298,7 @@ defmodule Inkwell.Billing do
       case :httpc.request(
              :post,
              {url, headers, ~c"application/x-www-form-urlencoded", body},
-             [ssl: [verify: :verify_none]],
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
@@ -331,7 +337,7 @@ defmodule Inkwell.Billing do
       case :httpc.request(
              :delete,
              {url, headers},
-             [ssl: [verify: :verify_none]],
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->

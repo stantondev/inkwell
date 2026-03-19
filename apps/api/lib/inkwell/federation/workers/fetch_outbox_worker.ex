@@ -112,12 +112,13 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
 
       body_html =
         (note["content"] || "")
+        |> Inkwell.HtmlSanitizer.sanitize()
         |> Inkwell.Federation.AttachmentHelper.append_image_attachments(note)
 
       attrs = %{
         ap_id: note["id"],
         url: url,
-        title: note["name"],
+        title: Inkwell.HtmlSanitizer.sanitize(note["name"]),
         body_html: body_html,
         tags: tags,
         published_at: parse_datetime(note["published"]),

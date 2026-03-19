@@ -128,12 +128,13 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           # 7. Store with source: "relay"
           body_html =
             (object["content"] || "")
+            |> Inkwell.HtmlSanitizer.sanitize()
             |> Inkwell.Federation.AttachmentHelper.append_image_attachments(object)
 
           attrs = %{
             ap_id: object["id"],
             url: url,
-            title: object["name"],
+            title: Inkwell.HtmlSanitizer.sanitize(object["name"]),
             body_html: body_html,
             tags: tags,
             published_at: parse_datetime(object["published"]),

@@ -266,11 +266,17 @@ defmodule InkwellWeb.UserController do
     else
       allowed = Map.take(params, ["profile_html", "profile_css"])
 
-      # Sanitize HTML server-side
+      # Sanitize HTML and CSS server-side
       allowed =
         case Map.get(allowed, "profile_html") do
           nil -> allowed
           html -> Map.put(allowed, "profile_html", sanitize_profile_html(html))
+        end
+
+      allowed =
+        case Map.get(allowed, "profile_css") do
+          nil -> allowed
+          css -> Map.put(allowed, "profile_css", Inkwell.HtmlSanitizer.sanitize_css(css))
         end
 
       case Accounts.update_user_profile(user, allowed) do
@@ -400,10 +406,14 @@ defmodule InkwellWeb.UserController do
             content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
             etag = :crypto.hash(:md5, "#{updated_at}") |> Base.encode16(case: :lower)
 
+            ext = if type == "jpg", do: "jpeg", else: type
+
             conn
             |> put_resp_content_type(content_type)
             |> put_resp_header("cache-control", "public, max-age=86400")
             |> put_resp_header("etag", ~s("#{etag}"))
+            |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
+            |> put_resp_header("x-content-type-options", "nosniff")
             |> send_resp(200, binary)
 
           :error ->
@@ -572,43 +582,7 @@ defmodule InkwellWeb.UserController do
   end
 
   defp sanitize_profile_html(html) do
-    html
-    |> String.replace(~r/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is, "")
-    |> String.replace(~r/<script\b[^>]*\/?\s*>/is, "")
-    |> String.replace(~r/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "")
-    |> String.replace(~r/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/i, "\\1=\"\"")
-    |> String.replace(~r/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/is, "")
-    |> String.replace(~r/<iframe\b[^>]*\/?\s*>/is, "")
-    |> String.replace(~r/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/is, "")
-    |> String.replace(~r/<(object|embed|applet)\b[^>]*\/?\s*>/is, "")
-    # Strip <meta>, <link>, <base> tags (prevent redirects, external stylesheets, URL hijacking)
-    |> String.replace(~r/<meta\b[^>]*\/?>/is, "")
-    |> String.replace(~r/<link\b[^>]*\/?>/is, "")
-    |> String.replace(~r/<base\b[^>]*\/?>/is, "")
-    # Strip <form> tags with external action URLs (prevent phishing)
-    |> strip_external_forms()
-  end
-
-  defp strip_external_forms(html) do
-    # Remove forms with action pointing to external domains
-    # Allow: no action, empty action, relative paths, same-domain
-    Regex.replace(
-      ~r/<form\b([^>]*)>/is,
-      html,
-      fn full_match, attrs ->
-        case Regex.run(~r/action\s*=\s*(?:"([^"]*)"|'([^']*)')/i, attrs) do
-          nil -> full_match  # No action attribute — keep
-          [_, url | _] ->
-            url = String.trim(url)
-            if url == "" or not String.starts_with?(url, ["http://", "https://"]) do
-              full_match  # Relative URL or empty — keep
-            else
-              # External URL — strip the form tag
-              ""
-            end
-        end
-      end
-    )
+    Inkwell.HtmlSanitizer.sanitize_profile(html)
   end
 
   defp sanitize_redacted_words(settings) do

@@ -249,7 +249,7 @@ defmodule Inkwell.Email do
     case :httpc.request(
            :post,
            {~c"#{@resend_url}", headers, ~c"application/json", body},
-           [ssl: [verify: :verify_none]],
+           [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
            []
          ) do
       {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->
@@ -281,7 +281,7 @@ defmodule Inkwell.Email do
     case :httpc.request(
            :post,
            {~c"#{@resend_batch_url}", headers, ~c"application/json", body},
-           [ssl: [verify: :verify_none]],
+           [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
            []
          ) do
       {:ok, {{_, status, _}, _headers, _body}} when status in 200..299 ->

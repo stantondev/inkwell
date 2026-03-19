@@ -210,11 +210,10 @@ defmodule Inkwell.Federation.HttpSignature do
               end
 
             _ ->
-              # Raw body not cached — skip digest validation rather than rejecting
-              # valid requests. This should only happen if the endpoint.ex cache_body_reader
-              # didn't match this route (shouldn't happen for inbox routes).
-              Logger.debug("Digest check skipped — raw body not cached for #{conn.request_path}")
-              :ok
+              # Raw body not cached — reject. If digest is in the signed headers,
+              # we MUST verify it to prevent body tampering (CVE-2023-49079 class).
+              Logger.warning("Digest REJECTED — raw body not cached for #{conn.request_path}")
+              {:error, :digest_body_not_cached}
           end
       end
     else

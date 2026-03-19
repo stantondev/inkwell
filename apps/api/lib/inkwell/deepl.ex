@@ -57,7 +57,7 @@ defmodule Inkwell.DeepL do
     case :httpc.request(
            :post,
            {~c"#{@api_url}", headers, ~c"application/x-www-form-urlencoded", String.to_charlist(body)},
-           [ssl: [verify: :verify_none], timeout: 30_000, connect_timeout: 10_000],
+           [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}], timeout: 30_000, connect_timeout: 10_000],
            []
          ) do
       {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->

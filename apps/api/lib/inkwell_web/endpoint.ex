@@ -27,6 +27,7 @@ defmodule InkwellWeb.Endpoint do
   plug Plug.Session, @session_options
   plug InkwellWeb.Plugs.CORS
   plug InkwellWeb.Plugs.HSTS
+  plug InkwellWeb.Plugs.SecurityHeaders
   plug InkwellWeb.Router
 
   @doc """

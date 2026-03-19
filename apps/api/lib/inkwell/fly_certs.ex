@@ -54,7 +54,7 @@ defmodule Inkwell.FlyCerts do
       ]
 
       case :httpc.request(:post, {url, headers, ~c"application/json", String.to_charlist(body_json)},
-             [ssl: [verify: :verify_none]], []) do
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]], []) do
         {:ok, {{_, status, _}, _h, resp}} when status in 200..299 ->
           {:ok, Jason.decode!(:erlang.list_to_binary(resp))}
 
@@ -80,7 +80,7 @@ defmodule Inkwell.FlyCerts do
       headers = [{~c"authorization", String.to_charlist("Bearer #{token}")}]
 
       case :httpc.request(:get, {url, headers},
-             [ssl: [verify: :verify_none]], []) do
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]], []) do
         {:ok, {{_, status, _}, _h, resp}} when status in 200..299 ->
           {:ok, Jason.decode!(:erlang.list_to_binary(resp))}
 
@@ -104,7 +104,7 @@ defmodule Inkwell.FlyCerts do
       headers = [{~c"authorization", String.to_charlist("Bearer #{token}")}]
 
       case :httpc.request(:delete, {url, headers},
-             [ssl: [verify: :verify_none]], []) do
+             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]], []) do
         {:ok, {{_, status, _}, _h, _resp}} when status in 200..204 ->
           :ok
 

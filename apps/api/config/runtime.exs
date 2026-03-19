@@ -1,6 +1,8 @@
 import Config
 
 if config_env() == :prod do
+  config :inkwell, :env, :prod
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

@@ -73,9 +73,13 @@ defmodule InkwellWeb.EntryImageController do
           [_, base64] ->
             case Base.decode64(base64) do
               {:ok, binary} ->
+                ext = image.content_type |> String.replace("image/", "")
+
                 conn
                 |> put_resp_content_type(image.content_type)
                 |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
+                |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
+                |> put_resp_header("x-content-type-options", "nosniff")
                 |> send_resp(200, binary)
 
               :error ->

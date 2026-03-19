@@ -11,6 +11,64 @@ defmodule Inkwell.Federation.Http do
 
   @user_agent ~c"Inkwell/0.1 (+https://inkwell.social)"
 
+  # Private/internal IP ranges and hostnames that must never be fetched.
+  # Prevents SSRF attacks where malicious AP objects reference internal services.
+  @blocked_hostnames ~w(localhost)
+  @blocked_tlds ~w(.internal .local .localhost)
+
+  @doc """
+  Validates that a URL is safe to fetch (not pointing to internal/private services).
+  Returns :ok or {:error, :blocked_url}.
+  """
+  def validate_url(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme} when scheme not in ["http", "https"] ->
+        {:error, :blocked_url}
+
+      %URI{host: nil} ->
+        {:error, :blocked_url}
+
+      %URI{host: host} ->
+        host = String.downcase(host)
+
+        cond do
+          # Block known internal hostnames
+          host in @blocked_hostnames ->
+            {:error, :blocked_url}
+
+          # Block internal TLDs (.internal, .local, .localhost)
+          Enum.any?(@blocked_tlds, &String.ends_with?(host, &1)) ->
+            {:error, :blocked_url}
+
+          # Block IP addresses in private ranges
+          is_private_ip?(host) ->
+            {:error, :blocked_url}
+
+          true ->
+            :ok
+        end
+    end
+  end
+
+  def validate_url(_), do: {:error, :blocked_url}
+
+  defp is_private_ip?(host) do
+    case :inet.parse_address(String.to_charlist(host)) do
+      {:ok, {127, _, _, _}} -> true
+      {:ok, {10, _, _, _}} -> true
+      {:ok, {172, b, _, _}} when b >= 16 and b <= 31 -> true
+      {:ok, {192, 168, _, _}} -> true
+      {:ok, {169, 254, _, _}} -> true  # Link-local / cloud metadata
+      {:ok, {0, 0, 0, 0}} -> true
+      {:ok, {0, 0, 0, 0, 0, 0, 0, 1}} -> true  # ::1
+      {:ok, {0, 0, 0, 0, 0, 0, 0, 0}} -> true  # ::
+      {:ok, {0xfe80, _, _, _, _, _, _, _}} -> true  # IPv6 link-local
+      {:ok, {0xfc00, _, _, _, _, _, _, _}} -> true  # IPv6 ULA (fc00::/7)
+      {:ok, {0xfd00, _, _, _, _, _, _, _}} -> true  # IPv6 ULA
+      _ -> false
+    end
+  end
+
   # Build SSL options once at module load — :public_key.cacerts_get() is OTP 25+
   # (Dockerfile uses Erlang 27, so this is safe)
   defp ssl_opts do
@@ -37,16 +95,23 @@ defmodule Inkwell.Federation.Http do
   Returns `{:ok, {status, body_string}}` or `{:error, reason}`.
   """
   def get(url, extra_headers \\ []) do
-    headers = [{~c"user-agent", @user_agent} | extra_headers]
-    url_cl = String.to_charlist(url)
+    case validate_url(url) do
+      {:error, :blocked_url} ->
+        Logger.warning("Federation HTTP GET blocked — URL targets internal/private address: #{url}")
+        {:error, :blocked_url}
 
-    case :httpc.request(:get, {url_cl, headers}, http_opts(), []) do
-      {:ok, {{_, status, _}, _resp_headers, body}} ->
-        {:ok, {status, :erlang.list_to_binary(body)}}
+      :ok ->
+        headers = [{~c"user-agent", @user_agent} | extra_headers]
+        url_cl = String.to_charlist(url)
 
-      {:error, reason} ->
-        Logger.warning("Federation HTTP GET failed for #{url}: #{inspect(reason)}")
-        {:error, reason}
+        case :httpc.request(:get, {url_cl, headers}, http_opts(), []) do
+          {:ok, {{_, status, _}, _resp_headers, body}} ->
+            {:ok, {status, :erlang.list_to_binary(body)}}
+
+          {:error, reason} ->
+            Logger.warning("Federation HTTP GET failed for #{url}: #{inspect(reason)}")
+            {:error, reason}
+        end
     end
   end
 

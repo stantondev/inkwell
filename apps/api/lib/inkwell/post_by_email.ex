@@ -162,18 +162,9 @@ defmodule Inkwell.PostByEmail do
   end
 
   defp sanitize_email_html(html) do
-    html
-    # Strip script tags
-    |> String.replace(~r/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is, "")
-    # Strip style tags (email clients add lots of inline styles, keep those but remove <style> blocks)
-    |> String.replace(~r/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/is, "")
-    # Strip event handlers
-    |> String.replace(~r/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "")
-    # Strip javascript: URLs
-    |> String.replace(~r/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/i, "\\1=\"\"")
-    # Strip iframes
-    |> String.replace(~r/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/is, "")
-    |> String.replace(~r/<iframe\b[^>]*\/?\s*>/is, "")
+    # Use the centralized HTML sanitizer (strict mode) for email content.
+    # This handles scripts, SVGs, iframes, event handlers, data: URIs, and more.
+    Inkwell.HtmlSanitizer.sanitize(html)
   end
 
   defp strip_email_signatures(text) do

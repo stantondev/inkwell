@@ -29,6 +29,10 @@ defmodule InkwellWeb.Router do
     plug InkwellWeb.Plugs.ApiKeyRateLimit
   end
 
+  pipeline :tight_rate_limit do
+    plug InkwellWeb.Plugs.RateLimit, max_requests: 10, window_seconds: 60
+  end
+
   pipeline :write_scope do
     plug InkwellWeb.Plugs.RequireWriteScope
   end
