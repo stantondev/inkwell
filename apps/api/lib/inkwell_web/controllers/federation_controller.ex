@@ -394,8 +394,20 @@ defmodule InkwellWeb.FederationController do
 
   defp process_activity(conn, activity, target_user) do
     activity_type = activity["type"]
-    Logger.info("Inbox received #{activity_type} activity from #{activity["actor"]}")
+    actor_uri = activity["actor"]
+    Logger.info("Inbox received #{activity_type} activity from #{actor_uri}")
     Inkwell.Federation.FederationStats.track_inbound(activity_type)
+
+    # Check instance-level domain defederation before processing any activity
+    actor_domain = case URI.parse(actor_uri || "") do
+      %URI{host: host} when is_binary(host) -> String.downcase(host)
+      _ -> nil
+    end
+
+    if actor_domain && Inkwell.Moderation.FediverseBlocks.is_domain_defederated?(actor_domain) do
+      Logger.info("Dropping #{activity_type} from defederated domain #{actor_domain}")
+      conn |> put_status(:accepted) |> json(%{ok: true})
+    else
 
     case activity_type do
       "Follow" ->
@@ -426,6 +438,8 @@ defmodule InkwellWeb.FederationController do
         Logger.info("Ignoring unsupported activity type: #{activity_type}")
         conn |> put_status(:accepted) |> json(%{ok: true})
     end
+
+    end  # end defederation check
   end
 
   # ── Signature verification ──────────────────────────────────────────────

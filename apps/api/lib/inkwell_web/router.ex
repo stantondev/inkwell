@@ -275,6 +275,15 @@ defmodule InkwellWeb.Router do
     delete "/relationships/:username/block", RelationshipController, :unblock
     delete "/relationships/:username/reject", RelationshipController, :reject
     get "/blocked-users", RelationshipController, :blocked_users
+
+    # Fediverse blocking (remote actors + domains)
+    post "/fediverse-blocks/actors", FediverseBlockController, :block_actor
+    delete "/fediverse-blocks/actors/:remote_actor_id", FediverseBlockController, :unblock_actor
+    get "/fediverse-blocks/actors", FediverseBlockController, :list_blocked_actors
+    post "/fediverse-blocks/domains", FediverseBlockController, :block_domain
+    delete "/fediverse-blocks/domains/:domain", FediverseBlockController, :unblock_domain
+    get "/fediverse-blocks/domains", FediverseBlockController, :list_blocked_domains
+
     get "/fediverse-followers", RelationshipController, :fediverse_followers
     get "/fediverse-following", RelationshipController, :fediverse_following
     get "/fediverse-connections", RelationshipController, :fediverse_connections
@@ -487,6 +496,11 @@ defmodule InkwellWeb.Router do
     post "/relays/:id/pause", RelayController, :pause
     post "/relays/:id/resume", RelayController, :resume
     delete "/relays/:id", RelayController, :delete
+
+    # Domain defederation (admin)
+    get "/blocked-domains", AdminController, :list_blocked_domains
+    post "/blocked-domains", AdminController, :admin_block_domain
+    delete "/blocked-domains/:domain", AdminController, :admin_unblock_domain
 
     # Search reindex (admin)
     post "/reindex-search", AdminController, :reindex_search

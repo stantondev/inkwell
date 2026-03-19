@@ -260,6 +260,42 @@ defmodule InkwellWeb.AdminController do
     json(conn, %{ok: true, message: "Enqueued #{length(entry_ids)} link preview jobs"})
   end
 
+  # ── Admin Domain Blocking (Defederation) ──────────────────────────────
+
+  alias Inkwell.Moderation.FediverseBlocks
+
+  # GET /api/admin/blocked-domains
+  def list_blocked_domains(conn, _params) do
+    domains = FediverseBlocks.list_admin_blocked_domains()
+
+    json(conn, %{
+      data: Enum.map(domains, fn d ->
+        %{id: d.id, domain: d.domain, reason: d.reason, blocked_at: d.inserted_at}
+      end)
+    })
+  end
+
+  # POST /api/admin/blocked-domains
+  def admin_block_domain(conn, %{"domain" => domain} = params) do
+    reason = Map.get(params, "reason")
+
+    case FediverseBlocks.admin_block_domain(domain, reason) do
+      {:ok, _block} ->
+        Logger.info("Admin #{conn.assigns.current_user.username} defederated domain #{domain}")
+        json(conn, %{ok: true})
+
+      {:error, _changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not block domain"})
+    end
+  end
+
+  # DELETE /api/admin/blocked-domains/:domain
+  def admin_unblock_domain(conn, %{"domain" => domain}) do
+    FediverseBlocks.admin_unblock_domain(domain)
+    Logger.info("Admin #{conn.assigns.current_user.username} un-defederated domain #{domain}")
+    json(conn, %{ok: true})
+  end
+
   defp parse_int(nil, default), do: default
   defp parse_int(val, _) when is_integer(val), do: val
   defp parse_int(val, default) when is_binary(val) do

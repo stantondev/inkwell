@@ -26,6 +26,15 @@ defmodule InkwellWeb.ExploreController do
 
     blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
 
+    # Fediverse blocks (remote actors + domains)
+    fediverse_blocks = if viewer do
+      Inkwell.Moderation.FediverseBlocks.get_all_blocks_for_user(viewer.id)
+    else
+      # Still check admin-level defederation for logged-out users
+      admin_domains = Inkwell.Moderation.FediverseBlocks.list_admin_blocked_domains()
+      %{blocked_remote_actor_ids: [], blocked_domains: Enum.map(admin_domains, & &1.domain)}
+    end
+
     # Fetch extra from each source to ensure good interleaving after merge
     fetch_count = per_page * 2
 
@@ -69,7 +78,17 @@ defmodule InkwellWeb.ExploreController do
           end
 
         # Filter out mojibake, bot content, and low-quality posts at read time
-        ContentQuality.filter_remote_entries(all_remote)
+        all_remote = ContentQuality.filter_remote_entries(all_remote)
+
+        # Filter out entries from blocked remote actors and blocked domains
+        blocked_actor_ids = fediverse_blocks.blocked_remote_actor_ids
+        blocked_domains = fediverse_blocks.blocked_domains
+
+        all_remote
+        |> Enum.reject(fn re ->
+          re.remote_actor_id in blocked_actor_ids ||
+            (re.remote_actor && re.remote_actor.domain && String.downcase(re.remote_actor.domain) in blocked_domains)
+        end)
       end
 
     # Normalize into a common shape

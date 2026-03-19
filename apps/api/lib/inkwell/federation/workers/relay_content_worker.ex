@@ -106,6 +106,17 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
       Logger.debug("RelayContentWorker: no attributedTo, skipping")
       :ok
     else
+      # Check instance-level defederation before storing
+      actor_domain = case URI.parse(actor_uri) do
+        %URI{host: host} when is_binary(host) -> String.downcase(host)
+        _ -> nil
+      end
+
+      if actor_domain && Inkwell.Moderation.FediverseBlocks.is_domain_defederated?(actor_domain) do
+        Logger.debug("RelayContentWorker: domain #{actor_domain} is defederated, skipping")
+        :ok
+      else
+
       # 6. Fetch/cache remote actor
       case RemoteActor.fetch(actor_uri) do
         {:ok, remote_actor} ->
@@ -171,6 +182,8 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           Logger.warning("RelayContentWorker: failed to fetch actor #{actor_uri}: #{inspect(reason)}")
           :ok
       end
+
+      end  # end defederation check
     end
   end
 
