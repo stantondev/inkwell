@@ -16,10 +16,15 @@ defmodule InkwellWeb.Plugs.OptionalAuth do
         if String.starts_with?(token, "ink_") do
           case Inkwell.ApiKeys.verify_api_key(token) do
             {:ok, api_key} ->
-              conn
-              |> assign(:current_user, api_key.user)
-              |> assign(:api_key, api_key)
-              |> assign(:auth_method, :api_key)
+              if api_key.user.blocked_at do
+                # Blocked users treated as unauthenticated on optional auth routes
+                conn
+              else
+                conn
+                |> assign(:current_user, api_key.user)
+                |> assign(:api_key, api_key)
+                |> assign(:auth_method, :api_key)
+              end
             :error -> conn
           end
         else
@@ -27,7 +32,12 @@ defmodule InkwellWeb.Plugs.OptionalAuth do
             nil -> conn
             user_id ->
               user = Inkwell.Accounts.get_user!(user_id)
-              assign(conn, :current_user, user)
+              if user.blocked_at do
+                # Blocked users treated as unauthenticated on optional auth routes
+                conn
+              else
+                assign(conn, :current_user, user)
+              end
           end
         end
 

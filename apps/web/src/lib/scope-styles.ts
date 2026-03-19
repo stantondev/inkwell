@@ -14,6 +14,22 @@ function scopeCss(css: string, scopeId: string): string {
   // Remove CSS comments
   let cleaned = css.replace(/\/\*[\s\S]*?\*\//g, "");
 
+  // Strip @import rules (can load external stylesheets — security risk)
+  cleaned = cleaned.replace(/@import\b[^;]*;/gi, "");
+
+  // Strip @charset rules
+  cleaned = cleaned.replace(/@charset\b[^;]*;/gi, "");
+
+  // Strip url() with data: URIs that aren't images (can embed HTML/JS)
+  cleaned = cleaned.replace(/url\s*\(\s*(?:"|')?\s*data\s*:(?!image\/)/gi, "url(#blocked:");
+
+  // Strip url() with javascript: or blob: URIs
+  cleaned = cleaned.replace(/url\s*\(\s*(?:"|')?\s*(?:javascript|blob)\s*:/gi, "url(#blocked:");
+
+  // Strip CSS expressions (IE) and -moz-binding (Firefox XBL)
+  cleaned = cleaned.replace(/expression\s*\(/gi, "blocked(");
+  cleaned = cleaned.replace(/-moz-binding\s*:\s*url/gi, "blocked: url");
+
   // Make @keyframes names unique to this entry to prevent conflicts
   const keyframeNames: string[] = [];
   cleaned = cleaned.replace(/@keyframes\s+([\w-]+)/g, (_match, name) => {
@@ -119,22 +135,28 @@ function scopeCss(css: string, scopeId: string): string {
   return output.join("\n");
 }
 
-/** Strip dangerous HTML: <script>, on* event handlers, javascript: URLs, etc. */
+/** Strip dangerous HTML: <script>, SVG, on* event handlers, javascript:/data: URLs, etc. */
 function sanitizeHtml(html: string): string {
   let safe = html;
 
   // Strip <script> tags and their content
   safe = safe.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-  // Strip self-closing script tags
   safe = safe.replace(/<script\b[^>]*\/?\s*>/gi, "");
+
+  // Strip <svg> tags (complex attack surface — scripts, foreignObject, event handlers)
+  safe = safe.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "");
+  safe = safe.replace(/<svg\b[^>]*\/?\s*>/gi, "");
+
+  // Strip <math> tags
+  safe = safe.replace(/<math\b[^<]*(?:(?!<\/math>)<[^<]*)*<\/math>/gi, "");
 
   // Strip on* event handler attributes (onclick, onerror, onload, etc.)
   safe = safe.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 
-  // Strip javascript: URLs in href, src, action attributes
-  safe = safe.replace(/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, "$1=\"\"");
+  // Strip javascript: and data:text/html URLs in href, src, action attributes
+  safe = safe.replace(/((?:href|src|action)\s*=\s*(?:"|'))(?:\s*(?:javascript|vbscript|data\s*:\s*text\/html)\s*:)/gi, "$1#");
 
-  // Strip <iframe> tags (prevent embedding external content)
+  // Strip <iframe> tags
   safe = safe.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
   safe = safe.replace(/<iframe\b[^>]*\/?\s*>/gi, "");
 
@@ -142,10 +164,14 @@ function sanitizeHtml(html: string): string {
   safe = safe.replace(/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, "");
   safe = safe.replace(/<(object|embed|applet)\b[^>]*\/?\s*>/gi, "");
 
-  // Strip <meta>, <link>, <base> tags (prevent redirects, external stylesheets, URL hijacking)
+  // Strip <meta>, <link>, <base>, <template> tags
   safe = safe.replace(/<meta\b[^>]*\/?>/gi, "");
   safe = safe.replace(/<link\b[^>]*\/?>/gi, "");
   safe = safe.replace(/<base\b[^>]*\/?>/gi, "");
+  safe = safe.replace(/<template\b[^<]*(?:(?!<\/template>)<[^<]*)*<\/template>/gi, "");
+
+  // Strip formaction and srcdoc attributes
+  safe = safe.replace(/\s+(?:formaction|srcdoc)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 
   return safe;
 }
@@ -156,9 +182,10 @@ function sanitizeHtml(html: string): string {
  */
 export function stripSiteSelectors(css: string): string {
   const siteSelectors = [
-    "body", "html", "#__next", ".app-content", ".sidebar",
+    "body", "html", ":root", "*",
+    "#__next", ".app-content", ".sidebar",
     ".sidebar-nav", ".nav", "nav", "header", "footer",
-    "[data-sidebar-hidden]",
+    "[data-sidebar-hidden]", "[data-focus-mode]",
   ];
 
   return css

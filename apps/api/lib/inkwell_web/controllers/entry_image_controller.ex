@@ -29,23 +29,32 @@ defmodule InkwellWeb.EntryImageController do
           else
             content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
 
-            attrs = %{
-              "data" => image_data,
-              "content_type" => content_type,
-              "byte_size" => byte_size(base64),
-              "user_id" => user.id
-            }
-
-            case Journals.create_entry_image(attrs) do
-              {:ok, image} ->
-                conn
-                |> put_status(:created)
-                |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
-
-              {:error, _changeset} ->
+            # Validate magic bytes match claimed content type
+            case validate_image_magic_bytes(base64, type) do
+              {:error, reason} ->
                 conn
                 |> put_status(:unprocessable_entity)
-                |> json(%{error: "Could not save image"})
+                |> json(%{error: reason})
+
+              :ok ->
+                attrs = %{
+                  "data" => image_data,
+                  "content_type" => content_type,
+                  "byte_size" => byte_size(base64),
+                  "user_id" => user.id
+                }
+
+                case Journals.create_entry_image(attrs) do
+                  {:ok, image} ->
+                    conn
+                    |> put_status(:created)
+                    |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
+
+                  {:error, _changeset} ->
+                    conn
+                    |> put_status(:unprocessable_entity)
+                    |> json(%{error: "Could not save image"})
+                end
             end
           end
         end
@@ -91,4 +100,30 @@ defmodule InkwellWeb.EntryImageController do
         end
     end
   end
+
+  # Validates that decoded image binary matches the claimed content type via magic bytes.
+  # Prevents uploading non-image content (e.g., HTML disguised as PNG).
+  defp validate_image_magic_bytes(base64, claimed_type) do
+    case Base.decode64(base64) do
+      {:ok, binary} ->
+        detected = detect_image_type(binary)
+
+        normalized_claim = if claimed_type == "jpg", do: "jpeg", else: claimed_type
+
+        if detected == normalized_claim do
+          :ok
+        else
+          {:error, "Image content does not match claimed format (expected #{claimed_type}, detected #{detected || "unknown"})"}
+        end
+
+      :error ->
+        {:error, "Invalid base64 encoding"}
+    end
+  end
+
+  defp detect_image_type(<<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>), do: "png"
+  defp detect_image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
+  defp detect_image_type(<<0x47, 0x49, 0x46, 0x38, _::binary>>), do: "gif"
+  defp detect_image_type(<<0x52, 0x49, 0x46, 0x46, _::32, 0x57, 0x45, 0x42, 0x50, _::binary>>), do: "webp"
+  defp detect_image_type(_), do: nil
 end

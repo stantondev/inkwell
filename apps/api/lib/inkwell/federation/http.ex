@@ -69,6 +69,48 @@ defmodule Inkwell.Federation.Http do
     end
   end
 
+  # Per-domain rate limiting for outbound GET requests.
+  # Prevents DDoS amplification: a flood of inbound activities with different actor URIs
+  # on the same domain would cause us to hammer that domain with fetches.
+  @domain_rate_table :federation_domain_rate
+  @domain_rate_window_ms 5_000  # 5-second window
+  @domain_rate_max 10  # max 10 requests per domain per window
+
+  @doc """
+  Checks per-domain rate limit for outbound federation fetches.
+  Returns :ok or {:error, :domain_rate_limited}.
+  """
+  def check_domain_rate(url) do
+    ensure_domain_rate_table()
+    domain = URI.parse(url) |> Map.get(:host, "unknown") |> String.downcase()
+    now = System.system_time(:millisecond)
+    window_start = now - @domain_rate_window_ms
+    key = {:domain_rate, domain}
+
+    case :ets.lookup(@domain_rate_table, key) do
+      [{^key, timestamps}] ->
+        recent = Enum.filter(timestamps, &(&1 > window_start))
+        if length(recent) >= @domain_rate_max do
+          {:error, :domain_rate_limited}
+        else
+          :ets.insert(@domain_rate_table, {key, Enum.take([now | recent], @domain_rate_max)})
+          :ok
+        end
+
+      [] ->
+        :ets.insert(@domain_rate_table, {key, [now]})
+        :ok
+    end
+  end
+
+  defp ensure_domain_rate_table do
+    if :ets.whereis(@domain_rate_table) == :undefined do
+      :ets.new(@domain_rate_table, [:set, :public, :named_table])
+    end
+  rescue
+    ArgumentError -> :ok
+  end
+
   # Build SSL options once at module load — :public_key.cacerts_get() is OTP 25+
   # (Dockerfile uses Erlang 27, so this is safe)
   defp ssl_opts do
@@ -101,6 +143,12 @@ defmodule Inkwell.Federation.Http do
         {:error, :blocked_url}
 
       :ok ->
+        case check_domain_rate(url) do
+          {:error, :domain_rate_limited} ->
+            Logger.warning("Federation HTTP GET rate-limited for domain in #{url}")
+            {:error, :domain_rate_limited}
+
+          :ok ->
         headers = [{~c"user-agent", @user_agent} | extra_headers]
         url_cl = String.to_charlist(url)
 
@@ -112,6 +160,7 @@ defmodule Inkwell.Federation.Http do
             Logger.warning("Federation HTTP GET failed for #{url}: #{inspect(reason)}")
             {:error, reason}
         end
+        end  # end domain rate check
     end
   end
 

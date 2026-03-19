@@ -9,7 +9,7 @@ defmodule Inkwell.Federation.RemoteActor do
 
   require Logger
 
-  @cache_ttl_seconds 86_400  # 24 hours
+  @cache_ttl_seconds 14_400  # 4 hours (reduced from 24h for faster key rotation detection)
 
   @doc """
   Fetches a remote actor by their AP ID.

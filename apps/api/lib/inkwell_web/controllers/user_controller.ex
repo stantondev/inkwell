@@ -429,7 +429,7 @@ defmodule InkwellWeb.UserController do
   def delete_account(conn, %{"username" => confirmation_username}) do
     user = conn.assigns.current_user
 
-    if confirmation_username == user.username do
+    if String.downcase(confirmation_username) == String.downcase(user.username) do
       case Accounts.delete_account(user) do
         {:ok, _} ->
           json(conn, %{ok: true})

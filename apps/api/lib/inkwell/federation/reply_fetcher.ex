@@ -34,7 +34,7 @@ defmodule Inkwell.Federation.ReplyFetcher do
   @accept_headers [{~c"accept", ~c"application/activity+json, application/ld+json"}]
   @max_items 100
   @max_pages 2
-  @max_dereferences 10
+  @max_dereferences 5
   @fetch_ttl_seconds 15 * 60
   @domain_delay_ms 500
 
