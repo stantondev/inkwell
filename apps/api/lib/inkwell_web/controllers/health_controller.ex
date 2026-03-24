@@ -163,6 +163,7 @@ defmodule InkwellWeb.HealthController do
       status: "ok",
       total_mb: Float.round(memory[:total] / 1_048_576, 1),
       processes_mb: Float.round(memory[:processes] / 1_048_576, 1),
+      binary_mb: Float.round(memory[:binary] / 1_048_576, 1),
       ets_mb: Float.round(memory[:ets] / 1_048_576, 1)
     }
   end

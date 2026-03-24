@@ -23,7 +23,7 @@ defmodule Inkwell.Import.ImageImporter do
   @max_image_size 5 * 1024 * 1024  # 5MB
   @download_timeout 10_000          # 10 seconds
   @rate_limit_ms 500                # 500ms between requests
-  @max_images_per_entry 50
+  @max_images_per_entry 20
 
   @doc """
   Process HTML body, downloading external images and replacing URLs with local ones.
@@ -71,18 +71,25 @@ defmodule Inkwell.Import.ImageImporter do
   defp download_images(urls, user_id) do
     urls
     |> Enum.reduce(%{}, fn url, acc ->
-      case download_and_store(url, user_id) do
-        {:ok, local_url} ->
-          Map.put(acc, url, local_url)
+      result =
+        case download_and_store(url, user_id) do
+          {:ok, local_url} ->
+            Map.put(acc, url, local_url)
 
-        {:error, reason} ->
-          Logger.warning("[ImageImporter] Failed to download #{url}: #{reason}")
-          acc
-      end
-      |> tap(fn _ ->
-        # Rate limit: pause between downloads
-        if length(urls) > 1, do: Process.sleep(@rate_limit_ms)
-      end)
+          {:error, reason} ->
+            Logger.warning("[ImageImporter] Failed to download #{url}: #{reason}")
+            acc
+        end
+
+      # Free image binary memory immediately instead of waiting for GC cycle.
+      # Each image can be up to 5MB; without this, binaries linger on the heap
+      # until the next GC and can cause OOM on large imports.
+      :erlang.garbage_collect()
+
+      # Rate limit: pause between downloads
+      if length(urls) > 1, do: Process.sleep(@rate_limit_ms)
+
+      result
     end)
   end
 

@@ -114,18 +114,13 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
 
   @doc false
   def collect_remote_inboxes(user_id) do
-    # Get remote actors that follow this user via the Relationship schema
-    # Use a proper Ecto join through the schema for correct enum handling
+    # Get unique remote inboxes (preferring shared_inbox) via SQL-level dedup
+    # to avoid loading duplicate inbox maps into BEAM memory
     Relationship
     |> where([r], r.following_id == ^user_id and r.status == :accepted)
     |> where([r], not is_nil(r.remote_actor_id))
     |> join(:inner, [r], ra in RemoteActorSchema, on: r.remote_actor_id == ra.id)
-    |> select([r, ra], %{inbox: ra.inbox, shared_inbox: ra.shared_inbox})
+    |> select([r, ra], fragment("DISTINCT COALESCE(?, ?)", ra.shared_inbox, ra.inbox))
     |> Repo.all()
-    |> Enum.map(fn %{inbox: inbox, shared_inbox: shared_inbox} ->
-      # Prefer shared inbox to reduce number of requests
-      shared_inbox || inbox
-    end)
-    |> Enum.uniq()
   end
 end
