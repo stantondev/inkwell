@@ -15,7 +15,7 @@ primary_region = "ord"
 [env]
   PORT = "4000"
   PHX_HOST = "inkwell-api.fly.dev"
-  POOL_SIZE = "5"
+  POOL_SIZE = "7"
 
 [http_service]
   internal_port = 4000

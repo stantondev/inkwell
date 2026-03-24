@@ -23,10 +23,10 @@ config :phoenix, :json_library, Jason
 config :inkwell, Oban,
   repo: Inkwell.Repo,
   queues: [
-    default: 10,
-    federation: 20,
-    search_indexing: 5,
-    email: 10
+    default: 5,
+    federation: 5,
+    search_indexing: 3,
+    email: 5
   ],
   plugins: [
     {Oban.Plugins.Cron,
@@ -41,7 +41,7 @@ config :inkwell, Oban,
        {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
        {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
        {"*/5 * * * *", Inkwell.Workers.NewsletterScheduleWorker},
-       {"0 */4 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
+       {"30 1-23/4 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
        {"0 */2 * * *", Inkwell.Workers.RefreshEngagementWorker},
        {"0 9 * * *", Inkwell.Workers.MuseWorker, args: %{"type" => "daily_prompt"}},
        {"0 10 * * 0", Inkwell.Workers.MuseWorker, args: %{"type" => "weekly_roundup"}},
