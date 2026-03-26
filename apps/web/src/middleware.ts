@@ -91,6 +91,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(pathname, "https://inkwell.social"));
     }
 
+    // Wildcard slug redirect: multi-segment paths on custom domains
+    // (e.g., /2014/01/05/old-slug → /old-slug via 301)
+    // Handles imported content from CMSes with date-based or category-based URLs.
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length >= 2 && !pathname.startsWith(`/${username}/`)) {
+      const lastSegment = segments[segments.length - 1];
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/${lastSegment}`;
+      return NextResponse.redirect(redirectUrl, 301);
+    }
+
     // Rewrite: / → /[username] (profile page)
     // Rewrite: /some-slug → /[username]/some-slug (entry page)
     // Rewrite: /subscribe → /[username]/subscribe
