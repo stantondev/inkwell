@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-
-const API = process.env.API_URL || "http://localhost:4000";
+import { SERVER_API } from "@/lib/api";
 
 export async function POST(req: NextRequest) {
   const jar = await cookies();
@@ -13,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const res = await fetch(`${API}/api/translate`, {
+    const res = await fetch(`${SERVER_API}/api/translate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,7 +31,8 @@ export async function POST(req: NextRequest) {
         { status: 502 }
       );
     }
-  } catch {
+  } catch (err) {
+    console.error("[translate proxy] fetch failed:", err);
     return NextResponse.json(
       { error: "Translation service temporarily unavailable" },
       { status: 503 }
