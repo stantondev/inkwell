@@ -10,25 +10,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-
-  const res = await fetch(`${API}/api/translate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
   try {
-    const data = JSON.parse(text);
-    return NextResponse.json(data, { status: res.status });
+    const body = await req.json();
+
+    const res = await fetch(`${API}/api/translate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      return NextResponse.json(data, { status: res.status });
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid response from API" },
+        { status: 502 }
+      );
+    }
   } catch {
     return NextResponse.json(
-      { error: "Invalid response from API" },
-      { status: 502 }
+      { error: "Translation service temporarily unavailable" },
+      { status: 503 }
     );
   }
 }
