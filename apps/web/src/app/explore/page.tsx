@@ -250,6 +250,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             storageKey="inkwell-edu-explore-card-v2"
             heading="Discover the community"
             learnMoreHref="/guide#interaction"
+            serverDismissed={((session?.user?.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-explore-card-v2")}
           >
             <p>
               Explore shows all public entries from Inkwell writers and the

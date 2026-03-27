@@ -8,6 +8,7 @@ interface EducationCardProps {
   heading: string;
   children: React.ReactNode;
   learnMoreHref?: string;
+  serverDismissed?: boolean;
 }
 
 export function EducationCard({
@@ -15,15 +16,15 @@ export function EducationCard({
   heading,
   children,
   learnMoreHref,
+  serverDismissed,
 }: EducationCardProps) {
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(storageKey) !== "true") {
-      setVisible(true);
-    }
-  }, [storageKey]);
+    if (serverDismissed || localStorage.getItem(storageKey) === "true") return;
+    setVisible(true);
+  }, [storageKey, serverDismissed]);
 
   if (!visible) return null;
 
@@ -31,6 +32,22 @@ export function EducationCard({
     setExiting(true);
     setTimeout(() => {
       localStorage.setItem(storageKey, "true");
+      // Persist to DB — append storageKey to dismissed_education_cards array
+      fetch("/api/me")
+        .then((r) => r.ok ? r.json() : null)
+        .then((me) => {
+          const existing: string[] = me?.data?.settings?.dismissed_education_cards ?? [];
+          if (!existing.includes(storageKey)) {
+            fetch("/api/me", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                settings: { dismissed_education_cards: [...existing, storageKey] },
+              }),
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
       setVisible(false);
     }, 300);
   }

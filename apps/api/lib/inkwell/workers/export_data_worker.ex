@@ -30,8 +30,11 @@ defmodule Inkwell.Workers.ExportDataWorker do
         user = Repo.get!(User, user_id)
         data = build_export_data(user)
 
-        json_string = Jason.encode!(data, pretty: true)
-        compressed = :zlib.gzip(json_string)
+        # Encode and compress in one pass to avoid holding 3 copies in memory.
+        # Jason.encode_to_iodata! returns iodata (nested lists/binaries) which
+        # :zlib.gzip accepts directly — no intermediate full-size binary copy.
+        json_iodata = Jason.encode_to_iodata!(data, pretty: true)
+        compressed = :zlib.gzip(json_iodata)
         file_size = byte_size(compressed)
 
         {:ok, _} = Export.mark_completed(export, compressed, file_size)
@@ -345,6 +348,7 @@ defmodule Inkwell.Workers.ExportDataWorker do
     Notification
     |> where(user_id: ^user_id)
     |> order_by(desc: :inserted_at)
+    |> select([n], %{type: n.type, data: n.data, read: n.read, inserted_at: n.inserted_at})
     |> Repo.all()
     |> Enum.map(fn n ->
       %{

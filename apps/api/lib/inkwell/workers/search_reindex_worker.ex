@@ -82,20 +82,20 @@ defmodule Inkwell.Workers.SearchReindexWorker do
     end)
   end
 
-  # Simple batch streaming using LIMIT/OFFSET to avoid Repo.stream
-  # (which requires a transaction and can hold connections)
+  # Keyset pagination: uses WHERE id > last_id instead of OFFSET.
+  # OFFSET scans and discards N rows, becoming O(N) slow at scale.
+  # Keyset pagination is O(1) via the primary key index.
   defp batch_stream(query, batch_size) do
-    Stream.unfold(0, fn offset ->
-      batch =
+    Stream.unfold(nil, fn last_id ->
+      q =
         query
         |> limit(^batch_size)
-        |> offset(^offset)
-        |> Repo.all()
 
-      if batch == [] do
-        nil
-      else
-        {batch, offset + batch_size}
+      q = if last_id, do: where(q, [r], r.id > ^last_id), else: q
+
+      case Repo.all(q) do
+        [] -> nil
+        batch -> {batch, List.last(batch).id}
       end
     end)
   end

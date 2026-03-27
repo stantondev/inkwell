@@ -21,6 +21,7 @@ interface SidebarNavProps {
   initialLetterCount: number;
   initialDraftCount: number;
   activePoll?: import("./poll-widget").PollData | null;
+  serverSidebarHidden?: boolean;
 }
 
 // Small inline SVG icons (16x16) — reused from mobile-menu
@@ -100,6 +101,7 @@ export function SidebarNav({
   initialLetterCount,
   initialDraftCount,
   activePoll,
+  serverSidebarHidden,
 }: SidebarNavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -121,12 +123,15 @@ export function SidebarNav({
       localStorage.removeItem("inkwell-sidebar-collapsed");
       localStorage.setItem("inkwell-sidebar-hidden", "true");
     }
-    const stored = localStorage.getItem("inkwell-sidebar-hidden");
-    if (stored === "true") {
+    // Prefer server value if available, otherwise fall back to localStorage
+    const isHidden = serverSidebarHidden !== undefined
+      ? serverSidebarHidden
+      : localStorage.getItem("inkwell-sidebar-hidden") === "true";
+    if (isHidden) {
       setHidden(true);
       document.body.setAttribute("data-sidebar-hidden", "");
     }
-  }, []);
+  }, [serverSidebarHidden]);
 
   const toggleHidden = useCallback(() => {
     setHidden((prev) => {
@@ -137,6 +142,12 @@ export function SidebarNav({
       } else {
         document.body.removeAttribute("data-sidebar-hidden");
       }
+      // Persist to DB
+      fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { sidebar_hidden: next } }),
+      }).catch(() => {});
       return next;
     });
   }, []);

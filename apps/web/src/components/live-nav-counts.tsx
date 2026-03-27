@@ -286,6 +286,57 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         document.body.classList.toggle("eye-comfort", eyeComfort);
         localStorage.setItem("inkwell-eye-comfort", eyeComfort ? "true" : "false");
 
+        // Sync sidebar hidden state from server → localStorage (for flash prevention script)
+        const serverSidebarHidden = data.data.settings?.sidebar_hidden;
+        if (serverSidebarHidden !== undefined) {
+          localStorage.setItem("inkwell-sidebar-hidden", serverSidebarHidden ? "true" : "false");
+        }
+
+        // Sync editor panel state from server → localStorage
+        const serverEditorPanel = data.data.settings?.editor_panel_open;
+        if (serverEditorPanel !== undefined) {
+          localStorage.setItem("inkwell-editor-panel", serverEditorPanel ? "open" : "collapsed");
+        }
+
+        // One-time migration: localStorage → DB settings
+        // Runs once per browser to persist existing preferences to the server
+        if (!localStorage.getItem("inkwell-settings-migrated")) {
+          const patch: Record<string, unknown> = {};
+
+          if (localStorage.getItem("inkwell-push-prompt-dismissed") === "true") {
+            patch.push_prompt_dismissed = true;
+          }
+
+          const eduCards: string[] = [];
+          if (localStorage.getItem("inkwell-edu-feed-card") === "true") eduCards.push("inkwell-edu-feed-card");
+          if (localStorage.getItem("inkwell-edu-explore-card-v2") === "true") eduCards.push("inkwell-edu-explore-card-v2");
+          if (eduCards.length > 0) patch.dismissed_education_cards = eduCards;
+
+          if (localStorage.getItem("inkwell-sidebar-hidden") === "true") {
+            patch.sidebar_hidden = true;
+          }
+
+          const musicPref = localStorage.getItem("inkwell_music_autoplay");
+          if (musicPref !== null) {
+            patch.music_autoplay = musicPref !== "false";
+          }
+
+          const editorPanel = localStorage.getItem("inkwell-editor-panel");
+          if (editorPanel) {
+            patch.editor_panel_open = editorPanel !== "collapsed";
+          }
+
+          if (Object.keys(patch).length > 0) {
+            fetch("/api/me", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ settings: patch }),
+            }).catch(() => {});
+          }
+
+          localStorage.setItem("inkwell-settings-migrated", "true");
+        }
+
         // Detect new arrivals using module-level shared prev counts
         // (prevents duplicate sounds from multiple hook instances)
         const hasNewNotification =

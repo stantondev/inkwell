@@ -2259,6 +2259,12 @@ export function EditorClient() {
       const next = !prev;
       if (typeof window !== "undefined" && window.innerWidth >= 768) {
         localStorage.setItem("inkwell-editor-panel", next ? "open" : "collapsed");
+        // Persist to DB
+        fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings: { editor_panel_open: next } }),
+        }).catch(() => {});
       }
       return next;
     });

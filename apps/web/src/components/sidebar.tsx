@@ -37,6 +37,7 @@ export async function Sidebar({ user }: { user: SessionUser }) {
         initialLetterCount={user.unread_letter_count ?? 0}
         initialDraftCount={user.draft_count ?? 0}
         activePoll={activePoll}
+        serverSidebarHidden={user.settings?.sidebar_hidden as boolean | undefined}
       />
     </aside>
   );

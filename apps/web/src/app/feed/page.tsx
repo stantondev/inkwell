@@ -474,7 +474,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
         </div>
 
         {/* Push notification prompt — shown once, dismissible */}
-        <PushPrompt />
+        <PushPrompt serverDismissed={!!session.user.settings?.push_prompt_dismissed} />
 
         {/* Education card — shown once, dismissible */}
         <div className="mx-auto max-w-7xl px-4">
@@ -482,6 +482,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
             storageKey="inkwell-edu-feed-card"
             heading="Welcome to your Feed"
             learnMoreHref="/guide#feed-explore"
+            serverDismissed={((session.user.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-feed-card")}
           >
             <p>
               Your Feed shows journal entries from writers you follow, your pen

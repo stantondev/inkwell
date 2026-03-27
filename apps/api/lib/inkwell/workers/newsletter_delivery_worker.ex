@@ -46,18 +46,30 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
       # Build the newsletter email HTML
       template = Email.build_newsletter_html(entry, writer)
 
-      # Get all confirmed subscribers
-      subscribers = Newsletter.get_all_confirmed_emails(writer.id)
+      # Count subscribers for the final record
+      recipient_count = Newsletter.count_confirmed_subscribers(writer.id)
 
-      # Send in batches
-      {total_sent, total_failed} = send_in_batches(subscribers, send, writer, template)
+      # Stream subscribers in batches (memory-safe — never loads all at once)
+      {total_sent, total_failed} =
+        Newsletter.stream_confirmed_subscribers(writer.id, @batch_size)
+        |> Enum.reduce({0, 0}, fn batch, {sent_acc, failed_acc} ->
+          case send_batch(batch, send, writer, template) do
+            {:ok, count} ->
+              Process.sleep(@batch_delay_ms)
+              {sent_acc + count, failed_acc}
+
+            {:error, sent, failed} ->
+              Process.sleep(@batch_delay_ms)
+              {sent_acc + sent, failed_acc + failed}
+          end
+        end)
 
       # Mark complete
       Newsletter.update_send(send, %{
         status: "sent",
         sent_count: total_sent,
         failed_count: total_failed,
-        recipient_count: length(subscribers),
+        recipient_count: recipient_count,
         completed_at: DateTime.utc_now()
       })
 
@@ -68,22 +80,6 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
 
       :ok
     end
-  end
-
-  defp send_in_batches(subscribers, send, writer, template) do
-    subscribers
-    |> Enum.chunk_every(@batch_size)
-    |> Enum.reduce({0, 0}, fn batch, {sent_acc, failed_acc} ->
-      case send_batch(batch, send, writer, template) do
-        {:ok, count} ->
-          Process.sleep(@batch_delay_ms)
-          {sent_acc + count, failed_acc}
-
-        {:error, sent, failed} ->
-          Process.sleep(@batch_delay_ms)
-          {sent_acc + sent, failed_acc + failed}
-      end
-    end)
   end
 
   defp send_batch(subscribers, send, writer, template) do

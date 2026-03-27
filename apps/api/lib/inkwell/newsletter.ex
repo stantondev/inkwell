@@ -118,6 +118,32 @@ defmodule Inkwell.Newsletter do
     |> Repo.all()
   end
 
+  @doc "Stream confirmed subscribers in batches using keyset pagination. Memory-safe."
+  def stream_confirmed_subscribers(writer_id, batch_size \\ 100) do
+    Stream.unfold(nil, fn last_id ->
+      query =
+        Subscriber
+        |> where(writer_id: ^writer_id, status: "confirmed")
+        |> select([s], %{id: s.id, email: s.email, unsubscribe_token: s.unsubscribe_token})
+        |> order_by(:id)
+        |> limit(^batch_size)
+
+      query = if last_id, do: where(query, [s], s.id > ^last_id), else: query
+
+      case Repo.all(query) do
+        [] -> nil
+        batch -> {batch, List.last(batch).id}
+      end
+    end)
+  end
+
+  @doc "Count confirmed subscribers for a writer."
+  def count_confirmed_subscribers(writer_id) do
+    Subscriber
+    |> where(writer_id: ^writer_id, status: "confirmed")
+    |> Repo.aggregate(:count)
+  end
+
   @doc "List subscribers for a writer (paginated, with optional status filter)."
   def list_subscribers(writer_id, opts \\ []) do
     page = Keyword.get(opts, :page, 1)

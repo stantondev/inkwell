@@ -5,16 +5,20 @@ import { usePushSubscription } from "@/hooks/use-push-subscription";
 
 const STORAGE_KEY = "inkwell-push-prompt-dismissed";
 
-export function PushPrompt() {
+interface PushPromptProps {
+  serverDismissed?: boolean;
+}
+
+export function PushPrompt({ serverDismissed }: PushPromptProps) {
   const { supported, permission, subscribed, loading, subscribe } = usePushSubscription();
   const [dismissed, setDismissed] = useState(true); // default hidden until checked
   const [visible, setVisible] = useState(false);
   const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
-    const wasDismissed = localStorage.getItem(STORAGE_KEY) === "true";
+    const wasDismissed = serverDismissed || localStorage.getItem(STORAGE_KEY) === "true";
     setDismissed(wasDismissed);
-  }, []);
+  }, [serverDismissed]);
 
   // Show after a brief delay for a smoother experience
   useEffect(() => {
@@ -34,6 +38,11 @@ export function PushPrompt() {
   const handleDismiss = () => {
     setVisible(false);
     localStorage.setItem(STORAGE_KEY, "true");
+    fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: { push_prompt_dismissed: true } }),
+    }).catch(() => {});
     setTimeout(() => setDismissed(true), 300);
   };
 

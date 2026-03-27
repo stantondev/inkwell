@@ -77,6 +77,12 @@ export function ProfileMusicWidget({
     const next = !autoplay;
     setAutoplay(next);
     localStorage.setItem("inkwell_music_autoplay", String(next));
+    // Persist to DB
+    fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: { music_autoplay: next } }),
+    }).catch(() => {});
   };
 
   // Build embed URL with autoplay if enabled and client-side
