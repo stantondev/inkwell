@@ -17,12 +17,22 @@ defmodule InkwellWeb.SitemapController do
       |> Repo.all()
       |> Map.new()
 
+    # Only include users who have at least 1 published public entry
+    users_with_entries =
+      Entry
+      |> where([e], e.privacy == :public and e.status == :published)
+      |> group_by([e], e.user_id)
+      |> select([e], e.user_id)
+      |> Repo.all()
+      |> MapSet.new()
+
     users =
       User
       |> where([u], not is_nil(u.username))
       |> where([u], is_nil(u.blocked_at))
       |> select([u], %{id: u.id, username: u.username, updated_at: u.updated_at})
       |> Repo.all()
+      |> Enum.filter(fn u -> MapSet.member?(users_with_entries, u.id) end)
       |> Enum.map(fn u ->
         %{username: u.username, updated_at: u.updated_at, custom_domain: Map.get(custom_domain_map, u.id)}
       end)
@@ -46,6 +56,7 @@ defmodule InkwellWeb.SitemapController do
         Map.put(e, :custom_domain, Map.get(username_domain_map, e.username))
       end)
 
+    # Only include tags used by at least 2 published entries (skip thin tag pages)
     tags =
       Entry
       |> where([e], e.privacy == :public and e.status == :published)
@@ -53,7 +64,9 @@ defmodule InkwellWeb.SitemapController do
       |> select([e], e.tags)
       |> Repo.all()
       |> List.flatten()
-      |> Enum.uniq()
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_tag, count} -> count >= 2 end)
+      |> Enum.map(fn {tag, _count} -> tag end)
 
     json(conn, %{users: users, entries: entries, tags: tags})
   end
