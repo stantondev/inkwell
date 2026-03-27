@@ -84,11 +84,11 @@ defmodule Inkwell.Email do
   end
 
   @doc "Send a comment/reply/mention email notification to a user."
-  def send_comment_notification(user, actor_name, type, entry_title, entry_url) do
+  def send_comment_notification(user, actor_name, actor_username, type, entry_title, entry_url, opts \\ %{}) do
     subject = build_notification_subject(type, actor_name, entry_title)
     unsubscribe_url = build_unsubscribe_url(user.id)
 
-    html = comment_notification_html(actor_name, type, entry_title, entry_url, unsubscribe_url)
+    html = comment_notification_html(actor_name, actor_username, type, entry_title, entry_url, unsubscribe_url, opts)
 
     headers = %{
       "List-Unsubscribe" => "<#{unsubscribe_url}>",
@@ -474,18 +474,76 @@ defmodule Inkwell.Email do
     "#{frontend_url}/api/email-notifications/unsubscribe?token=#{token}"
   end
 
-  defp build_notification_type_text("comment", actor), do: "#{escape_html(actor)} commented on your entry"
-  defp build_notification_type_text("reply", actor), do: "#{escape_html(actor)} replied to your comment"
-  defp build_notification_type_text("mention", actor), do: "#{escape_html(actor)} mentioned you in a comment"
-  defp build_notification_type_text("feedback_mention", actor), do: "#{escape_html(actor)} mentioned you on the roadmap"
-  defp build_notification_type_text("poll_mention", actor), do: "#{escape_html(actor)} mentioned you in a poll comment"
-  defp build_notification_type_text("circle_mention", actor), do: "#{escape_html(actor)} mentioned you in a circle discussion"
-  defp build_notification_type_text(_, actor), do: "#{escape_html(actor)} interacted with your content"
-
-  defp comment_notification_html(actor_name, type, entry_title, entry_url, unsubscribe_url) do
+  defp comment_notification_html(actor_name, actor_username, type, entry_title, entry_url, unsubscribe_url, opts) do
     frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
     escaped_title = escape_html(entry_title || "an entry")
-    body_text = build_notification_type_text(type, actor_name)
+    escaped_actor = escape_html(actor_name)
+    escaped_username = if actor_username, do: escape_html(actor_username), else: nil
+    action_text = build_notification_action_text(type)
+    comment_body = opts[:comment_body]
+    actor_avatar_url = opts[:actor_avatar_url]
+
+    # Avatar: real image or fallback initial in a colored circle
+    initial = String.first(actor_name || "?") |> String.upcase()
+
+    avatar_html =
+      if actor_avatar_url do
+        """
+        <td style="width: 48px; vertical-align: top; padding-right: 14px;">
+          <img src="#{actor_avatar_url}" alt="" width="48" height="48"
+               style="border-radius: 50%; border: 2px solid #e8e4de; display: block; width: 48px; height: 48px; object-fit: cover;" />
+        </td>
+        """
+      else
+        """
+        <td style="width: 48px; vertical-align: top; padding-right: 14px;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: #2d4a8a; color: #fff;
+                      font-size: 20px; font-weight: 600; line-height: 48px; text-align: center;
+                      font-family: Georgia, serif; border: 2px solid #e8e4de;">#{initial}</div>
+        </td>
+        """
+      end
+
+    # Comment body preview block
+    comment_block =
+      if comment_body && String.trim(comment_body) != "" do
+        escaped_body = escape_html(comment_body)
+
+        """
+        <div style="background: #f8f6f2; border-left: 3px solid #2d4a8a; padding: 14px 18px;
+                    border-radius: 0 8px 8px 0; margin: 16px 0 20px;">
+          <p style="font-family: Georgia, serif; font-style: italic; color: #4a4a4a;
+                    font-size: 15px; line-height: 1.65; margin: 0;">
+            &ldquo;#{escaped_body}&rdquo;
+          </p>
+        </div>
+        """
+      else
+        ""
+      end
+
+    # Username display: @username for local, @user@domain for fediverse
+    handle_html =
+      if escaped_username do
+        profile_url =
+          if String.contains?(actor_username || "", "@") do
+            nil
+          else
+            "#{frontend_url}/#{actor_username}"
+          end
+
+        if profile_url do
+          """
+          <a href="#{profile_url}" style="font-size: 13px; color: #8a8a8a; text-decoration: none;">@#{escaped_username}</a>
+          """
+        else
+          """
+          <span style="font-size: 13px; color: #8a8a8a;">@#{escaped_username}</span>
+          """
+        end
+      else
+        ""
+      end
 
     """
     <!DOCTYPE html>
@@ -495,34 +553,67 @@ defmodule Inkwell.Email do
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body style="font-family: Georgia, 'Times New Roman', serif; background: #faf9f6; color: #333; margin: 0; padding: 0;">
-      <div style="max-width: 500px; margin: 0 auto; padding: 32px 20px;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 32px 20px;">
+
+        <!-- Header -->
         <div style="text-align: center; margin-bottom: 24px;">
-          <div style="font-size: 14px; color: #2d4a8a; letter-spacing: 0.1em; text-transform: uppercase;">Inkwell</div>
+          <span style="font-size: 13px; color: #2d4a8a; letter-spacing: 0.15em; text-transform: uppercase;
+                       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">Inkwell</span>
         </div>
 
-        <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 28px;">
-          <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 0 0 16px;">
-            #{body_text}
+        <!-- Main card -->
+        <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+
+          <!-- Avatar + name + action row -->
+          <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-bottom: 4px;">
+            <tr>
+              #{avatar_html}
+              <td style="vertical-align: middle;">
+                <div style="font-size: 16px; font-weight: 600; color: #1a1a1a; line-height: 1.3;">#{escaped_actor}</div>
+                #{handle_html}
+              </td>
+            </tr>
+          </table>
+
+          <!-- Action text -->
+          <p style="font-size: 15px; line-height: 1.5; color: #666; margin: 12px 0 0; padding-left: 62px;">
+            #{action_text}
           </p>
 
-          <div style="background: #f8f6f2; border-left: 3px solid #2d4a8a; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
-            <p style="font-size: 15px; color: #1a1a1a; margin: 0; font-weight: 600;">
-              #{escaped_title}
-            </p>
-          </div>
+          <!-- Comment body preview -->
+          #{comment_block}
 
-          <div style="text-align: center;">
+          <!-- Entry title callout -->
+          <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 20px 0;">
+            <tr>
+              <td style="background: #f5f3ef; border-radius: 8px; padding: 14px 18px;">
+                <a href="#{entry_url}" style="text-decoration: none; color: #1a1a1a;">
+                  <span style="font-size: 11px; color: #8a8a8a; text-transform: uppercase; letter-spacing: 0.08em;
+                               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: block; margin-bottom: 4px;">
+                    On
+                  </span>
+                  <span style="font-size: 16px; font-weight: 600; color: #1a1a1a; font-family: Georgia, serif;">
+                    #{escaped_title}
+                  </span>
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA button -->
+          <div style="text-align: center; padding-top: 4px;">
             <a href="#{entry_url}"
                style="display: inline-block; background: #2d4a8a; color: #fff; text-decoration: none;
-                      padding: 12px 28px; border-radius: 24px; font-weight: 600; font-size: 15px;
+                      padding: 12px 32px; border-radius: 24px; font-weight: 600; font-size: 15px;
                       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
               View on Inkwell
             </a>
           </div>
         </div>
 
-        <div style="margin-top: 32px; font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
-          <p style="margin: 0 0 8px;">
+        <!-- Footer -->
+        <div style="margin-top: 28px; font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
+          <p style="margin: 0 0 6px;">
             You received this because you have email notifications enabled on
             <a href="#{frontend_url}" style="color: #2d4a8a; text-decoration: none;">Inkwell</a>.
           </p>
@@ -530,11 +621,21 @@ defmodule Inkwell.Email do
             <a href="#{unsubscribe_url}" style="color: #999; text-decoration: underline;">Unsubscribe from email notifications</a>
           </p>
         </div>
+
       </div>
     </body>
     </html>
     """
   end
+
+  # Short action text without the actor name (actor shown separately above)
+  defp build_notification_action_text("comment"), do: "commented on your entry"
+  defp build_notification_action_text("reply"), do: "replied to your comment"
+  defp build_notification_action_text("mention"), do: "mentioned you in a comment"
+  defp build_notification_action_text("feedback_mention"), do: "mentioned you on the roadmap"
+  defp build_notification_action_text("poll_mention"), do: "mentioned you in a poll comment"
+  defp build_notification_action_text("circle_mention"), do: "mentioned you in a circle discussion"
+  defp build_notification_action_text(_), do: "interacted with your content"
 
   defp invite_html(inviter, inviter_name, invite_url, message) do
     api_url = Application.get_env(:inkwell, :api_url, "http://localhost:4000")

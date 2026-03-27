@@ -103,7 +103,8 @@ defmodule InkwellWeb.CommentController do
                   type: :comment,
                   actor_id: user.id,
                   target_type: "entry",
-                  target_id: entry_id
+                  target_id: entry_id,
+                  data: %{comment_id: comment.id}
                 })
               end
 

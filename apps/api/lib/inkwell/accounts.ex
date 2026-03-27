@@ -313,14 +313,19 @@ defmodule Inkwell.Accounts do
 
       unless email_disabled or is_nil(user) or is_nil(user.email) do
         actor_name = resolve_push_actor_name(notification)
+        actor_username = resolve_actor_username(notification)
         {entry_title, entry_url} = resolve_entry_info(notification)
+        comment_id = get_in(notification.data || %{}, ["comment_id"]) ||
+                     get_in(notification.data || %{}, [:comment_id])
 
         %{
           user_id: notification.user_id,
           actor_name: actor_name,
+          actor_username: actor_username,
           type: to_string(notification.type),
           entry_title: entry_title,
-          entry_url: entry_url
+          entry_url: entry_url,
+          comment_id: if(comment_id, do: to_string(comment_id), else: nil)
         }
         |> Inkwell.Workers.EmailNotificationWorker.new()
         |> Oban.insert()
@@ -400,6 +405,24 @@ defmodule Inkwell.Accounts do
 
       true ->
         "Someone"
+    end
+  end
+
+  defp resolve_actor_username(notification) do
+    cond do
+      notification.actor_id == nil and is_map(notification.data) ->
+        username = get_in(notification.data, ["remote_actor", "username"])
+        domain = get_in(notification.data, ["remote_actor", "domain"])
+        if username && domain, do: "#{username}@#{domain}", else: username
+
+      notification.actor_id != nil ->
+        case Repo.get(Inkwell.Accounts.User, notification.actor_id) do
+          nil -> nil
+          user -> user.username
+        end
+
+      true ->
+        nil
     end
   end
 
