@@ -8,6 +8,7 @@ export function NotificationSettings() {
   const [autoMarkRead, setAutoMarkRead] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
   const [pushDisabled, setPushDisabled] = useState(false);
+  const [emailDisabled, setEmailDisabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -23,6 +24,7 @@ export function NotificationSettings() {
         setAutoMarkRead(!!data.settings?.auto_mark_notifications_read);
         setHideBadges(!!data.settings?.hide_notification_badges);
         setPushDisabled(!!data.settings?.push_notifications_disabled);
+        setEmailDisabled(!!data.settings?.email_notifications_disabled);
       } catch {
         // ignore
       } finally {
@@ -55,6 +57,42 @@ export function NotificationSettings() {
 
   return (
     <>
+      {/* Email Notifications */}
+      <div
+        className="rounded-xl border p-5 mt-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <h3
+          className="text-base font-semibold mb-3"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+        >
+          Email Notifications
+        </h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm font-medium">
+              {emailDisabled ? "Email notifications disabled" : "Email notifications enabled"}
+            </span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              Receive an email when someone comments on your entries, replies to your comments, or @mentions you.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleSetting("email_notifications_disabled", !emailDisabled, setEmailDisabled)}
+            disabled={saving}
+            className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors shrink-0 ml-4"
+            style={{
+              background: emailDisabled ? "var(--accent)" : "var(--surface-hover, var(--border))",
+              color: emailDisabled ? "white" : "var(--foreground)",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "..." : emailDisabled ? "Enable" : "Disable"}
+          </button>
+        </div>
+      </div>
+
       {/* Push Notifications */}
       <div
         className="rounded-xl border p-5 mt-6"

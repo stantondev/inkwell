@@ -109,6 +109,10 @@ defmodule InkwellWeb.Router do
 
     # Push notifications (VAPID public key — no auth needed)
     get "/push/vapid-key", PushController, :vapid_key
+
+    # Email notification unsubscribe (one-click, token-verified)
+    get "/email-notifications/unsubscribe", EmailNotificationController, :unsubscribe
+    post "/email-notifications/unsubscribe", EmailNotificationController, :unsubscribe
   end
 
   # Public endpoints with optional auth (for personalized data)

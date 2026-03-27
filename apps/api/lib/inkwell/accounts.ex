@@ -266,6 +266,7 @@ defmodule Inkwell.Accounts do
       case result do
         {:ok, notification} ->
           maybe_send_push(notification, attrs)
+          maybe_send_email_notification(notification, attrs)
           {:ok, notification}
 
         error ->
@@ -296,6 +297,72 @@ defmodule Inkwell.Accounts do
     e ->
       require Logger
       Logger.warning("[Push] Failed to send push: #{inspect(e)}")
+  end
+
+  @emailable_types ~w(comment reply mention)a
+
+  defp maybe_send_email_notification(notification, _attrs) do
+    if notification.type in @emailable_types do
+      user = Repo.get(Inkwell.Accounts.User, notification.user_id)
+
+      email_disabled =
+        case user do
+          %{settings: %{"email_notifications_disabled" => true}} -> true
+          _ -> false
+        end
+
+      unless email_disabled or is_nil(user) or is_nil(user.email) do
+        actor_name = resolve_push_actor_name(notification)
+        {entry_title, entry_url} = resolve_entry_info(notification)
+
+        %{
+          user_id: notification.user_id,
+          actor_name: actor_name,
+          type: to_string(notification.type),
+          entry_title: entry_title,
+          entry_url: entry_url
+        }
+        |> Inkwell.Workers.EmailNotificationWorker.new()
+        |> Oban.insert()
+      end
+    end
+  rescue
+    e ->
+      require Logger
+      Logger.warning("[EmailNotification] Failed to enqueue: #{inspect(e)}")
+  end
+
+  defp resolve_entry_info(notification) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+
+    case notification.target_id do
+      nil ->
+        {"an entry", "#{frontend_url}/notifications"}
+
+      target_id ->
+        case Repo.get(Inkwell.Journals.Entry, target_id) do
+          nil ->
+            # target_id might be a comment ID — check notification data for entry info
+            entry_slug = get_in(notification.data || %{}, ["entry_slug"])
+            entry_username = get_in(notification.data || %{}, ["entry_username"])
+
+            if entry_slug && entry_username do
+              {get_in(notification.data, ["entry_title"]) || "an entry",
+               "#{frontend_url}/#{entry_username}/#{entry_slug}"}
+            else
+              {"an entry", "#{frontend_url}/notifications"}
+            end
+
+          entry ->
+            username =
+              case Repo.get(Inkwell.Accounts.User, entry.user_id) do
+                nil -> "unknown"
+                u -> u.username
+              end
+
+            {entry.title || "an entry", "#{frontend_url}/#{username}/#{entry.slug}"}
+        end
+    end
   end
 
   defp resolve_push_actor_name(notification) do

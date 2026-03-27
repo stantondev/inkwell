@@ -83,6 +83,28 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc "Send a comment/reply/mention email notification to a user."
+  def send_comment_notification(user, actor_name, type, entry_title, entry_url) do
+    subject = build_notification_subject(type, actor_name, entry_title)
+    unsubscribe_url = build_unsubscribe_url(user.id)
+
+    html = comment_notification_html(actor_name, type, entry_title, entry_url, unsubscribe_url)
+
+    headers = %{
+      "List-Unsubscribe" => "<#{unsubscribe_url}>",
+      "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click"
+    }
+
+    case do_send_email(user.email, subject, html, headers: headers) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — comment notification for #{user.email}")
+        {:ok, :no_email_configured}
+
+      result ->
+        result
+    end
+  end
+
   @doc "Send a batch of emails. Max 100 per call for Resend; SMTP sends sequentially."
   def send_batch(emails) when is_list(emails) do
     case email_provider() do
@@ -215,28 +237,38 @@ defmodule Inkwell.Email do
 
   defp do_send_email(to, subject, html, opts \\ []) do
     from = opts[:from] || Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+    extra_headers = opts[:headers] || %{}
 
     case email_provider() do
       :smtp ->
         Inkwell.Email.SmtpAdapter.send_email(to, subject, html, Keyword.put(opts, :from, from))
 
       :resend ->
-        send_via_resend(to, subject, html, from)
+        send_via_resend(to, subject, html, from, extra_headers)
 
       :none ->
         {:ok, :no_email_configured}
     end
   end
 
-  defp send_via_resend(to, subject, html, from) do
+  defp send_via_resend(to, subject, html, from, extra_headers \\ %{}) do
     api_key = Application.get_env(:inkwell, :resend_api_key)
 
-    body = Jason.encode!(%{
+    payload = %{
       from: from,
       to: [to],
       subject: subject,
       html: html
-    })
+    }
+
+    payload =
+      if map_size(extra_headers) > 0 do
+        Map.put(payload, :headers, extra_headers)
+      else
+        payload
+      end
+
+    body = Jason.encode!(payload)
 
     headers = [
       {~c"authorization", ~c"Bearer #{api_key}"},
@@ -411,6 +443,84 @@ defmodule Inkwell.Email do
           This download link expires in 48 hours.<br/>
           After that, you can request a new export anytime.
         </p>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  defp build_notification_subject("comment", actor, title),
+    do: "#{actor} commented on \"#{truncate(title, 50)}\""
+  defp build_notification_subject("reply", actor, _title),
+    do: "#{actor} replied to your comment"
+  defp build_notification_subject("mention", actor, title),
+    do: "#{actor} mentioned you on \"#{truncate(title, 50)}\""
+  defp build_notification_subject(_, actor, _title),
+    do: "#{actor} interacted with your content"
+
+  defp truncate(nil, _), do: "an entry"
+  defp truncate(text, max) when byte_size(text) <= max, do: text
+  defp truncate(text, max), do: String.slice(text, 0, max) <> "..."
+
+  defp build_unsubscribe_url(user_id) do
+    token = Phoenix.Token.sign(InkwellWeb.Endpoint, "email_unsub", user_id)
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    "#{frontend_url}/api/email-notifications/unsubscribe?token=#{token}"
+  end
+
+  defp build_notification_type_text("comment", actor), do: "#{escape_html(actor)} commented on your entry"
+  defp build_notification_type_text("reply", actor), do: "#{escape_html(actor)} replied to your comment"
+  defp build_notification_type_text("mention", actor), do: "#{escape_html(actor)} mentioned you in a comment"
+  defp build_notification_type_text(_, actor), do: "#{escape_html(actor)} interacted with your content"
+
+  defp comment_notification_html(actor_name, type, entry_title, entry_url, unsubscribe_url) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    escaped_title = escape_html(entry_title || "an entry")
+    body_text = build_notification_type_text(type, actor_name)
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Georgia, 'Times New Roman', serif; background: #faf9f6; color: #333; margin: 0; padding: 0;">
+      <div style="max-width: 500px; margin: 0 auto; padding: 32px 20px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="font-size: 14px; color: #2d4a8a; letter-spacing: 0.1em; text-transform: uppercase;">Inkwell</div>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 28px;">
+          <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 0 0 16px;">
+            #{body_text}
+          </p>
+
+          <div style="background: #f8f6f2; border-left: 3px solid #2d4a8a; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+            <p style="font-size: 15px; color: #1a1a1a; margin: 0; font-weight: 600;">
+              #{escaped_title}
+            </p>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="#{entry_url}"
+               style="display: inline-block; background: #2d4a8a; color: #fff; text-decoration: none;
+                      padding: 12px 28px; border-radius: 24px; font-weight: 600; font-size: 15px;
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+              View on Inkwell
+            </a>
+          </div>
+        </div>
+
+        <div style="margin-top: 32px; font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
+          <p style="margin: 0 0 8px;">
+            You received this because you have email notifications enabled on
+            <a href="#{frontend_url}" style="color: #2d4a8a; text-decoration: none;">Inkwell</a>.
+          </p>
+          <p style="margin: 0;">
+            <a href="#{unsubscribe_url}" style="color: #999; text-decoration: underline;">Unsubscribe from email notifications</a>
+          </p>
+        </div>
       </div>
     </body>
     </html>
