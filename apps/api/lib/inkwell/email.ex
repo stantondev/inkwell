@@ -455,6 +455,12 @@ defmodule Inkwell.Email do
     do: "#{actor} replied to your comment"
   defp build_notification_subject("mention", actor, title),
     do: "#{actor} mentioned you on \"#{truncate(title, 50)}\""
+  defp build_notification_subject("feedback_mention", actor, _title),
+    do: "#{actor} mentioned you on the roadmap"
+  defp build_notification_subject("poll_mention", actor, _title),
+    do: "#{actor} mentioned you in a poll comment"
+  defp build_notification_subject("circle_mention", actor, title),
+    do: "#{actor} mentioned you in #{truncate(title, 50)}"
   defp build_notification_subject(_, actor, _title),
     do: "#{actor} interacted with your content"
 
@@ -471,6 +477,9 @@ defmodule Inkwell.Email do
   defp build_notification_type_text("comment", actor), do: "#{escape_html(actor)} commented on your entry"
   defp build_notification_type_text("reply", actor), do: "#{escape_html(actor)} replied to your comment"
   defp build_notification_type_text("mention", actor), do: "#{escape_html(actor)} mentioned you in a comment"
+  defp build_notification_type_text("feedback_mention", actor), do: "#{escape_html(actor)} mentioned you on the roadmap"
+  defp build_notification_type_text("poll_mention", actor), do: "#{escape_html(actor)} mentioned you in a poll comment"
+  defp build_notification_type_text("circle_mention", actor), do: "#{escape_html(actor)} mentioned you in a circle discussion"
   defp build_notification_type_text(_, actor), do: "#{escape_html(actor)} interacted with your content"
 
   defp comment_notification_html(actor_name, type, entry_title, entry_url, unsubscribe_url) do

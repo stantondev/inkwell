@@ -299,7 +299,7 @@ defmodule Inkwell.Accounts do
       Logger.warning("[Push] Failed to send push: #{inspect(e)}")
   end
 
-  @emailable_types ~w(comment reply mention)a
+  @emailable_types ~w(comment reply mention feedback_mention poll_mention circle_mention)a
 
   defp maybe_send_email_notification(notification, _attrs) do
     if notification.type in @emailable_types do
@@ -335,6 +335,26 @@ defmodule Inkwell.Accounts do
   defp resolve_entry_info(notification) do
     frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
 
+    # For non-entry mention types, build context-appropriate titles and URLs
+    case notification.type do
+      :feedback_mention ->
+        {"a roadmap discussion", "#{frontend_url}/roadmap/#{notification.target_id}"}
+
+      :poll_mention ->
+        {"a poll comment", "#{frontend_url}/polls/#{notification.target_id}"}
+
+      :circle_mention ->
+        circle_slug = get_in(notification.data || %{}, ["circle_slug"])
+        circle_name = get_in(notification.data || %{}, ["circle_name"]) || "a circle"
+        url = if circle_slug, do: "#{frontend_url}/circles/#{circle_slug}", else: "#{frontend_url}/notifications"
+        {circle_name, url}
+
+      _ ->
+        resolve_entry_info_for_entry(notification, frontend_url)
+    end
+  end
+
+  defp resolve_entry_info_for_entry(notification, frontend_url) do
     case notification.target_id do
       nil ->
         {"an entry", "#{frontend_url}/notifications"}
