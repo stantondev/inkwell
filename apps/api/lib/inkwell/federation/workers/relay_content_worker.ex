@@ -160,6 +160,10 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do
+            {:ok, :self_domain_skipped} ->
+              Logger.debug("RelayContentWorker: skipping self-domain entry #{object["id"]}")
+              :ok
+
             {:ok, remote_entry} ->
               # 8. Mark activity on subscription
               Relays.mark_activity(subscription.id)

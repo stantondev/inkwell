@@ -5,17 +5,56 @@ defmodule Inkwell.Federation.RemoteEntries do
   alias Inkwell.Federation.RemoteEntry
 
   def upsert_remote_entry(attrs) do
-    case Repo.get_by(RemoteEntry, ap_id: attrs.ap_id) do
-      nil ->
-        %RemoteEntry{}
-        |> RemoteEntry.changeset(attrs)
-        |> Repo.insert()
+    if points_to_self?(attrs) do
+      Logger.info("[RemoteEntries] Skipping self-domain entry: #{attrs.ap_id || attrs[:url]}")
+      {:ok, :self_domain_skipped}
+    else
+      case Repo.get_by(RemoteEntry, ap_id: attrs.ap_id) do
+        nil ->
+          %RemoteEntry{}
+          |> RemoteEntry.changeset(attrs)
+          |> Repo.insert()
 
-      existing ->
-        existing
-        |> RemoteEntry.changeset(attrs)
-        |> Repo.update()
+        existing ->
+          existing
+          |> RemoteEntry.changeset(attrs)
+          |> Repo.update()
+      end
     end
+  end
+
+  @doc """
+  Returns true if the remote entry is a crosspost that links back to our own domain.
+  Catches two cases:
+  1. The AP ID or URL directly points to our domain (e.g., relay loopback)
+  2. The body content is primarily a link back to an Inkwell entry (crosspost from Mastodon)
+  """
+  def points_to_self?(attrs) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    self_host = URI.parse(frontend_url).host
+
+    url_points_to_self =
+      Enum.any?([:url, :ap_id], fn key ->
+        case Map.get(attrs, key) do
+          url when is_binary(url) ->
+            case URI.parse(url) do
+              %URI{host: host} when is_binary(host) -> String.downcase(host) == self_host
+              _ -> false
+            end
+          _ -> false
+        end
+      end)
+
+    body_links_to_self =
+      case Map.get(attrs, :body_html) do
+        html when is_binary(html) ->
+          # Check if body contains a prominent link back to our domain
+          # Crossposts typically have a link like "inkwell.social/username/slug"
+          Regex.match?(~r/href="https?:\/\/#{Regex.escape(self_host)}\/[^"]*\/[^"]*"/, html)
+        _ -> false
+      end
+
+    url_points_to_self || body_links_to_self
   end
 
   def get_remote_entry!(id), do: Repo.get!(RemoteEntry, id)

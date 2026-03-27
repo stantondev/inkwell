@@ -971,6 +971,9 @@ defmodule InkwellWeb.FederationController do
           }
 
           case RemoteEntries.upsert_remote_entry(attrs) do
+            {:ok, :self_domain_skipped} ->
+              Logger.debug("Skipping self-domain entry #{note["id"]}")
+
             {:ok, remote_entry} ->
               Logger.info("Stored remote entry #{note["id"]} from #{actor_uri}")
 
