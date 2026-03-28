@@ -101,6 +101,10 @@ defmodule Inkwell.Accounts.User do
     newsletter billing noreply postmaster webmaster abuse
   )
 
+  # Brand-related prefixes — any username starting with these is blocked
+  # to prevent impersonation (e.g., "inkwell2603", "inkwellofficial")
+  @protected_prefixes ~w(inkwell)
+
   def registration_changeset(user, attrs) do
     user
     |> cast(attrs, [:username, :email, :display_name])
@@ -125,7 +129,10 @@ defmodule Inkwell.Accounts.User do
   end
 
   def reserved_username?(username) do
-    String.downcase(username) in @reserved_usernames
+    downcased = String.downcase(username)
+
+    downcased in @reserved_usernames or
+      Enum.any?(@protected_prefixes, &String.starts_with?(downcased, &1))
   end
 
   defp validate_not_reserved(changeset, field) do

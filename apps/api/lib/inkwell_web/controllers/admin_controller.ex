@@ -81,6 +81,33 @@ defmodule InkwellWeb.AdminController do
     conn |> put_status(:bad_request) |> json(%{error: "Invalid role. Must be 'admin' or 'user'."})
   end
 
+  # PATCH /api/admin/users/:id/rename
+  def rename_user(conn, %{"id" => id, "username" => new_username}) do
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      target ->
+        case Accounts.admin_rename_user(target, new_username) do
+          {:ok, user} ->
+            Logger.info("Admin #{conn.assigns.current_user.username} renamed user #{target.username} to #{user.username}")
+            json(conn, %{data: render_user_admin(user)})
+
+          {:error, changeset} ->
+            errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+              Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+                opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+              end)
+            end)
+            conn |> put_status(:unprocessable_entity) |> json(%{error: "Invalid username", details: errors})
+        end
+    end
+  end
+
+  def rename_user(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "Missing username parameter"})
+  end
+
   # POST /api/admin/users/:id/block
   def block_user(conn, %{"id" => id}) do
     current_user = conn.assigns.current_user

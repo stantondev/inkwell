@@ -588,6 +588,25 @@ defmodule Inkwell.Accounts do
     |> Repo.update()
   end
 
+  @doc "Admin-rename a user. Uses username_changeset for full validation."
+  def admin_rename_user(%User{} = user, new_username) do
+    user
+    |> User.username_changeset(%{username: new_username})
+    |> Repo.update()
+    |> case do
+      {:ok, user} ->
+        # Reindex search with new username
+        if Code.ensure_loaded?(Inkwell.Search) and function_exported?(Inkwell.Search, :configured?, 0) and Inkwell.Search.configured?() do
+          Inkwell.Workers.SearchIndexWorker.new(%{"action" => "index_user", "user_id" => user.id})
+          |> Oban.insert()
+        end
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
   @doc "Block a user and revoke all their auth tokens."
   def block_user(%User{} = user) do
     user

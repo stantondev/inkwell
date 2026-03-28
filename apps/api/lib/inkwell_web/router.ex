@@ -474,6 +474,7 @@ defmodule InkwellWeb.Router do
     get "/users", AdminController, :list_users
     get "/users/:id", AdminController, :show_user
     patch "/users/:id/role", AdminController, :set_role
+    patch "/users/:id/rename", AdminController, :rename_user
     post "/users/:id/block", AdminController, :block_user
     post "/users/:id/unblock", AdminController, :unblock_user
     delete "/users/:id", AdminController, :delete_user

@@ -141,6 +141,30 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
     }
   }
 
+  async function handleRename(userId: string) {
+    const target = users.find((u) => u.id === userId);
+    if (!target) return;
+    const newUsername = prompt(`Enter new username for @${target.username}:`);
+    if (!newUsername || newUsername.trim() === "" || newUsername.trim() === target.username) return;
+    setActionLoading(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/rename`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: newUsername.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers((prev) => prev.map((u) => (u.id === userId ? data.data : u)));
+      } else {
+        const err = await res.json();
+        alert(err.details?.username?.[0] || err.error || "Failed to rename user");
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleDelete(userId: string) {
     const target = users.find((u) => u.id === userId);
     if (!target) return;
@@ -181,6 +205,9 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
             {actionLoading === user.id ? "..." : "Promote"}
           </button>
         ) : null}
+        <button className="admin-btn admin-btn--outline admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleRename(user.id)}>
+          {actionLoading === user.id ? "..." : "Rename"}
+        </button>
         {user.blocked_at ? (
           <button className="admin-btn admin-btn--outline admin-btn--sm" disabled={actionLoading === user.id} onClick={() => handleUnblock(user.id)}>
             {actionLoading === user.id ? "..." : "Unblock"}

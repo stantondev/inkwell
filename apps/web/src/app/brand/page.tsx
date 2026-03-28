@@ -163,7 +163,15 @@ export default function BrandPage() {
             clearly identified as unofficial.
           </p>
 
-          <h3 className="font-semibold mt-4 mb-2">4.4 Commercial Use</h3>
+          <h3 className="font-semibold mt-4 mb-2">4.4 Platform Usernames</h3>
+          <p>
+            Usernames on inkwell.social that contain or begin with &ldquo;inkwell&rdquo; are reserved exclusively for
+            official use. This includes any variation such as &ldquo;inkwell123&rdquo;, &ldquo;inkwellofficial&rdquo;,
+            &ldquo;inkwell_support&rdquo;, or similar. Accounts registered with such usernames may be reclaimed or
+            renamed at any time without prior notice.
+          </p>
+
+          <h3 className="font-semibold mt-4 mb-2">4.5 Commercial Use</h3>
           <p>
             You may not use the Inkwell Marks in advertising, marketing materials, or product names for commercial
             products or services without prior written permission.
