@@ -53,6 +53,20 @@ defmodule Inkwell.Accounts do
     DateTime.add(DateTime.utc_now(), -@inactive_no_posts_days, :day)
   end
 
+  @doc "Check if a specific user is inactive (two-tier threshold)."
+  def user_inactive?(user) do
+    case user.last_active_at do
+      nil -> true
+      last_active ->
+        has_posts = Repo.exists?(
+          from(e in Inkwell.Journals.Entry,
+            where: e.user_id == ^user.id and e.status == :published)
+        )
+        cutoff_days = if has_posts, do: @inactive_with_posts_days, else: @inactive_no_posts_days
+        DateTime.diff(DateTime.utc_now(), last_active, :day) >= cutoff_days
+    end
+  end
+
   def create_user(attrs) do
     %User{}
     |> User.registration_changeset(attrs)
