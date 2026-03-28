@@ -1,6 +1,8 @@
 defmodule InkwellWeb.AdminController do
   use InkwellWeb, :controller
 
+  require Logger
+
   alias Inkwell.Accounts
   alias Inkwell.Journals
   alias Inkwell.Moderation
