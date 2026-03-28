@@ -107,6 +107,7 @@ defmodule InkwellWeb.AuthController do
 
       {:ok, user_id} ->
         user = Accounts.get_user!(user_id)
+        Accounts.touch_last_active(user.id)
 
         # Create a long-lived API session token in Postgres
         api_token = Auth.create_api_session_token(user.id)

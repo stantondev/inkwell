@@ -81,7 +81,7 @@ defmodule Inkwell.Search do
       # Configure users index
       http_patch("/indexes/users/settings", %{
         searchableAttributes: ["username", "display_name", "bio", "profile_status"],
-        filterableAttributes: ["subscription_tier"],
+        filterableAttributes: ["subscription_tier", "last_active_at", "entry_count"],
         sortableAttributes: ["entry_count"]
       })
 
@@ -238,7 +238,8 @@ defmodule Inkwell.Search do
       avatar_frame: user.avatar_frame,
       subscription_tier: user.subscription_tier,
       ink_donor_status: user.ink_donor_status,
-      entry_count: entry_count
+      entry_count: entry_count,
+      last_active_at: user.last_active_at && DateTime.to_unix(user.last_active_at)
     }
   end
 

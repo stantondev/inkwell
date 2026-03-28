@@ -18,6 +18,41 @@ defmodule Inkwell.Accounts do
     |> Repo.update_all(inc: [visitor_count: 1])
   end
 
+  # Inactivity thresholds (days)
+  @inactive_with_posts_days 30
+  @inactive_no_posts_days 14
+
+  def touch_last_active(user_id) do
+    from(u in User, where: u.id == ^user_id)
+    |> Repo.update_all(set: [last_active_at: DateTime.utc_now()])
+  end
+
+  @doc "Returns a WHERE clause that filters out inactive users via subquery."
+  def active_user_ids_subquery do
+    now = DateTime.utc_now()
+    cutoff_with_posts = DateTime.add(now, -@inactive_with_posts_days, :day)
+    cutoff_no_posts = DateTime.add(now, -@inactive_no_posts_days, :day)
+
+    has_posts_ids =
+      from(e in Inkwell.Journals.Entry,
+        where: e.status == :published,
+        select: e.user_id,
+        distinct: true
+      )
+
+    from(u in User,
+      where:
+        is_nil(u.last_active_at) or
+        (u.id in subquery(has_posts_ids) and u.last_active_at >= ^cutoff_with_posts) or
+        (u.id not in subquery(has_posts_ids) and u.last_active_at >= ^cutoff_no_posts),
+      select: u.id
+    )
+  end
+
+  def inactive_cutoff_date do
+    DateTime.add(DateTime.utc_now(), -@inactive_no_posts_days, :day)
+  end
+
   def create_user(attrs) do
     %User{}
     |> User.registration_changeset(attrs)
@@ -62,11 +97,15 @@ defmodule Inkwell.Accounts do
     else
       like_pattern = "#{prefix}%"
 
+      # Use the longer threshold (30 days) for mention autocomplete to be conservative
+      activity_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_with_posts_days, :day)
+
       query =
         User
         |> where([u], like(u.username, ^like_pattern))
         |> where([u], not is_nil(u.username))
         |> where([u], is_nil(u.blocked_at))
+        |> where([u], u.last_active_at >= ^activity_cutoff or is_nil(u.last_active_at))
         |> order_by([u], asc: u.username)
         |> limit(^limit)
         |> select([u], %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url})
@@ -93,6 +132,8 @@ defmodule Inkwell.Accounts do
     blocked_ids = Inkwell.Social.get_blocked_user_ids(current_user_id)
 
     # Primary: users with ≥3 published public entries, sorted by entry count + ink count
+    active_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_with_posts_days, :day)
+
     writers =
       from u in User,
         join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
@@ -101,6 +142,7 @@ defmodule Inkwell.Accounts do
         where: u.id not in subquery(already_following),
         where: u.id not in ^blocked_ids,
         where: is_nil(u.blocked_at),
+        where: u.last_active_at >= ^active_cutoff or is_nil(u.last_active_at),
         group_by: u.id,
         having: count(e.id) >= 3,
         order_by: [desc: count(e.id) + sum(coalesce(e.ink_count, 0))],
@@ -124,6 +166,7 @@ defmodule Inkwell.Accounts do
             where: u.id not in subquery(already_following),
             where: u.id not in ^blocked_ids,
             where: is_nil(u.blocked_at),
+            where: u.last_active_at >= ^active_cutoff or is_nil(u.last_active_at),
             group_by: u.id,
             order_by: [desc: count(e.id)],
             limit: ^remaining,
@@ -135,6 +178,8 @@ defmodule Inkwell.Accounts do
       end
 
     # Final fallback: pad with recently joined users (no entries yet)
+    no_posts_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_no_posts_days, :day)
+
     if length(results) < limit do
       existing_ids = Enum.map(results, & &1.user.id)
       remaining = limit - length(results)
@@ -147,6 +192,7 @@ defmodule Inkwell.Accounts do
           where: u.id not in ^blocked_ids,
           where: is_nil(u.blocked_at),
           where: not is_nil(u.username),
+          where: u.last_active_at >= ^no_posts_cutoff or is_nil(u.last_active_at),
           order_by: [desc: u.inserted_at],
           limit: ^remaining,
           select: u
@@ -556,6 +602,8 @@ defmodule Inkwell.Accounts do
       "plus" -> where(query, [u], u.subscription_tier == "plus")
       "donor" -> where(query, [u], u.ink_donor_status == "active")
       "blocked" -> where(query, [u], not is_nil(u.blocked_at))
+      "inactive" -> where(query, [u], u.id not in subquery(active_user_ids_subquery()))
+      "active" -> where(query, [u], u.id in subquery(active_user_ids_subquery()))
       _ -> query
     end
 
@@ -656,6 +704,10 @@ defmodule Inkwell.Accounts do
       total_comments: Repo.aggregate(Inkwell.Journals.Comment, :count, :id),
       blocked_users: Repo.aggregate(
         from(u in User, where: not is_nil(u.blocked_at)),
+        :count, :id
+      ),
+      inactive_users: Repo.aggregate(
+        from(u in User, where: u.id not in subquery(active_user_ids_subquery())),
         :count, :id
       )
     }

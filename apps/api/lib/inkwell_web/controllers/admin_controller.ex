@@ -262,6 +262,7 @@ defmodule InkwellWeb.AdminController do
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       blocked_at: user.blocked_at,
+      last_active_at: user.last_active_at,
       created_at: user.inserted_at,
       updated_at: user.updated_at
     }

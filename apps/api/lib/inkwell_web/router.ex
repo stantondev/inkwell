@@ -10,6 +10,7 @@ defmodule InkwellWeb.Router do
   pipeline :authenticated do
     plug InkwellWeb.Plugs.RequireAuth
     plug InkwellWeb.Plugs.SelfHostedTier
+    plug InkwellWeb.Plugs.TrackActivity
   end
 
   pipeline :admin do

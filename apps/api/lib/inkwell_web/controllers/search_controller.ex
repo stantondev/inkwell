@@ -298,11 +298,17 @@ defmodule InkwellWeb.SearchController do
         crop_length: 200
       ]
 
-      # For entries, only show public content
-      opts = if type == "entries" do
-        Keyword.put(opts, :filter, "privacy = public")
-      else
-        opts
+      # For entries, only show public content; for users, exclude inactive
+      opts = cond do
+        type == "entries" ->
+          Keyword.put(opts, :filter, "privacy = public")
+
+        type == "users" ->
+          cutoff = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.to_unix()
+          Keyword.put(opts, :filter, "last_active_at >= #{cutoff}")
+
+        true ->
+          opts
       end
 
       Inkwell.Search.search(index, q, opts)
@@ -315,10 +321,12 @@ defmodule InkwellWeb.SearchController do
     import Ecto.Query
 
     pattern = "%#{q}%"
+    active_ids = Inkwell.Accounts.active_user_ids_subquery()
 
     Inkwell.Accounts.User
     |> where([u], ilike(u.username, ^pattern) or ilike(u.display_name, ^pattern))
     |> where([u], is_nil(u.blocked_at))
+    |> where([u], u.id in subquery(active_ids))
     |> limit(20)
     |> Inkwell.Repo.all()
     |> Enum.map(fn u ->

@@ -20,6 +20,7 @@ interface AdminUser {
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
   blocked_at: string | null;
+  last_active_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,8 @@ const FILTERS = [
   { key: "admin", label: "Admins" },
   { key: "plus", label: "Plus" },
   { key: "donor", label: "Donors" },
+  { key: "active", label: "Active" },
+  { key: "inactive", label: "Inactive" },
   { key: "blocked", label: "Blocked" },
 ] as const;
 
@@ -48,6 +51,12 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function isInactive(user: AdminUser): boolean {
+  if (!user.last_active_at) return true;
+  const daysSinceActive = (Date.now() - new Date(user.last_active_at).getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceActive > 30;
 }
 
 export function UserManagement({ currentUserId }: { currentUserId: string }) {
@@ -325,6 +334,8 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                       <td className="hidden lg:table-cell">
                         {user.blocked_at ? (
                           <span className="admin-badge admin-badge--danger">Blocked</span>
+                        ) : isInactive(user) ? (
+                          <span className="text-xs" style={{ color: "var(--muted)" }} title={user.last_active_at ? `Last active ${timeAgo(user.last_active_at)}` : "Never active"}>Inactive</span>
                         ) : (
                           <span className="text-xs" style={{ color: "var(--success, #16a34a)" }}>Active</span>
                         )}
@@ -365,6 +376,8 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                   )}
                   {user.blocked_at ? (
                     <span className="admin-badge admin-badge--danger">Blocked</span>
+                  ) : isInactive(user) ? (
+                    <span style={{ color: "var(--muted)", fontSize: "12px" }}>Inactive</span>
                   ) : (
                     <span style={{ color: "var(--success, #16a34a)", fontSize: "12px" }}>Active</span>
                   )}

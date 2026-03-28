@@ -78,6 +78,9 @@ defmodule Inkwell.Accounts.User do
     # Language preference (for content translation)
     field :preferred_language, :string
 
+    # Activity tracking
+    field :last_active_at, :utc_datetime_usec
+
     # Post by Email
     field :post_email_token, :string
 
