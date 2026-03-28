@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
+import { ReindexButton } from "./reindex-button";
 
 export const metadata: Metadata = { title: "Admin Dashboard · Inkwell" };
 
@@ -26,6 +27,7 @@ interface StatsData {
     total_entries: number;
     total_comments: number;
     blocked_users: number;
+    inactive_users: number;
     pending_reports: number;
   };
   recent_plus: UserBrief[];
@@ -72,10 +74,16 @@ export default async function AdminDashboardPage() {
           <StatCard label="New This Week" value={stats.signups_this_week} />
           <StatCard label="Total Entries" value={stats.total_entries} />
           <StatCard label="Total Comments" value={stats.total_comments} />
+          <StatCard label="Inactive" value={stats.inactive_users} />
           <StatCard label="Blocked" value={stats.blocked_users} danger={stats.blocked_users > 0} />
           <StatCard label="Pending Reports" value={stats.pending_reports} danger={stats.pending_reports > 0} />
         </div>
       )}
+
+      {/* Admin Actions */}
+      <div className="admin-section" style={{ marginBottom: "1rem" }}>
+        <ReindexButton />
+      </div>
 
       {/* Recent sections */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
