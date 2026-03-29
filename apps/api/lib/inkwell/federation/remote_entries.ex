@@ -432,16 +432,8 @@ defmodule Inkwell.Federation.RemoteEntries do
       {~c"accept", ~c"text/html, application/activity+json"}
     ]
 
-    ssl_opts = [
-      {:verify, :verify_peer},
-      {:cacerts, :public_key.cacerts_get()},
-      {:depth, 3},
-      {:customize_hostname_check,
-       [{:match_fun, :public_key.pkix_verify_hostname_match_fun(:https)}]}
-    ]
-
     http_opts = [
-      {:ssl, ssl_opts},
+      {:ssl, Inkwell.SSL.httpc_opts()},
       {:timeout, 10_000},
       {:connect_timeout, 10_000}
     ]

@@ -22,7 +22,7 @@ defmodule Inkwell.Slack do
       case :httpc.request(
              :post,
              {~c"#{webhook_url}", [], ~c"application/json", body},
-             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
+             [ssl: Inkwell.SSL.httpc_opts()],
              []
            ) do
         {:ok, {{_, status, _}, _, _}} when status in 200..299 ->

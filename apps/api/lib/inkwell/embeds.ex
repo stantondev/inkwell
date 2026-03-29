@@ -148,16 +148,8 @@ defmodule Inkwell.Embeds do
     url_cl = String.to_charlist(url)
     headers = [{~c"user-agent", @user_agent}, {~c"accept", ~c"text/html,application/xhtml+xml"}]
 
-    ssl_opts = [
-      {:verify, :verify_peer},
-      {:cacerts, :public_key.cacerts_get()},
-      {:depth, 3},
-      {:customize_hostname_check,
-       [{:match_fun, :public_key.pkix_verify_hostname_match_fun(:https)}]}
-    ]
-
     http_opts = [
-      {:ssl, ssl_opts},
+      {:ssl, Inkwell.SSL.httpc_opts()},
       {:timeout, @fetch_timeout},
       {:connect_timeout, @connect_timeout},
       {:autoredirect, true}

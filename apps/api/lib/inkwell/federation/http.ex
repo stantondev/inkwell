@@ -113,19 +113,9 @@ defmodule Inkwell.Federation.Http do
 
   # Build SSL options once at module load — :public_key.cacerts_get() is OTP 25+
   # (Dockerfile uses Erlang 27, so this is safe)
-  defp ssl_opts do
-    [
-      {:verify, :verify_peer},
-      {:cacerts, :public_key.cacerts_get()},
-      {:depth, 3},
-      {:customize_hostname_check,
-       [{:match_fun, :public_key.pkix_verify_hostname_match_fun(:https)}]}
-    ]
-  end
-
   defp http_opts do
     [
-      {:ssl, ssl_opts()},
+      {:ssl, Inkwell.SSL.httpc_opts()},
       {:timeout, 30_000},
       {:connect_timeout, 15_000}
     ]

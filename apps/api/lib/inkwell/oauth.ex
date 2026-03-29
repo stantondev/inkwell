@@ -322,19 +322,9 @@ defmodule Inkwell.OAuth do
 
   # ── Private HTTP helpers ─────────────────────────────────────────
 
-  defp ssl_opts do
-    [
-      {:verify, :verify_peer},
-      {:cacerts, :public_key.cacerts_get()},
-      {:depth, 3},
-      {:customize_hostname_check,
-       [{:match_fun, :public_key.pkix_verify_hostname_match_fun(:https)}]}
-    ]
-  end
-
   defp http_opts do
     [
-      {:ssl, ssl_opts()},
+      {:ssl, Inkwell.SSL.httpc_opts()},
       {:timeout, 15_000},
       {:connect_timeout, 10_000}
     ]

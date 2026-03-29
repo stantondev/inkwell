@@ -298,7 +298,7 @@ defmodule Inkwell.Billing do
       case :httpc.request(
              :post,
              {url, headers, ~c"application/x-www-form-urlencoded", body},
-             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
+             [ssl: Inkwell.SSL.httpc_opts()],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
@@ -337,7 +337,7 @@ defmodule Inkwell.Billing do
       case :httpc.request(
              :delete,
              {url, headers},
-             [ssl: [{:verify, :verify_peer}, {:cacerts, :public_key.cacerts_get()}, {:depth, 3}]],
+             [ssl: Inkwell.SSL.httpc_opts()],
              []
            ) do
         {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
