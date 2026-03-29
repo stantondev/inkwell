@@ -105,6 +105,7 @@ defmodule InkwellWeb.UserController do
       "display_name", "bio", "bio_html", "pronouns", "avatar_url", "avatar_config", "settings",
       "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
+      "avatar_animation",
       "support_url", "support_label",
       "pinned_entry_ids", "social_links",
       "preferred_language"
@@ -114,7 +115,7 @@ defmodule InkwellWeb.UserController do
     plus_fields = [
       "profile_music", "profile_background_color", "profile_accent_color",
       "profile_foreground_color", "profile_font", "profile_layout",
-      "profile_widgets"
+      "profile_widgets", "avatar_animation"
     ]
 
     allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
@@ -188,6 +189,7 @@ defmodule InkwellWeb.UserController do
           bio: u.bio,
           bio_html: u.bio_html,
           avatar_frame: u.avatar_frame,
+          avatar_animation: u.avatar_animation,
           subscription_tier: u.subscription_tier || "free",
           entry_count: ec,
           ink_count: ic || 0
@@ -531,6 +533,7 @@ defmodule InkwellWeb.UserController do
       profile_theme: user.profile_theme,
       profile_entry_display: user.profile_entry_display || "cards",
       avatar_frame: user.avatar_frame,
+      avatar_animation: user.avatar_animation,
       newsletter_enabled: user.newsletter_enabled || false,
       newsletter_name: user.newsletter_name,
       newsletter_description: user.newsletter_description,
@@ -555,7 +558,8 @@ defmodule InkwellWeb.UserController do
       username: user.username,
       display_name: user.display_name,
       avatar_url: user.avatar_url,
-      avatar_frame: user.avatar_frame
+      avatar_frame: user.avatar_frame,
+      avatar_animation: user.avatar_animation
     }
   end
 

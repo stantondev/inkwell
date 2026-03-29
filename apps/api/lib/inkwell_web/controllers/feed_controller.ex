@@ -135,6 +135,8 @@ defmodule InkwellWeb.FeedController do
             username: author.username,
             display_name: author.display_name,
             avatar_url: author.avatar_url,
+            avatar_frame: author.avatar_frame,
+            avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,
             ink_donor_status: author.ink_donor_status
           },
@@ -167,6 +169,8 @@ defmodule InkwellWeb.FeedController do
             username: author.username,
             display_name: author.display_name,
             avatar_url: author.avatar_url,
+            avatar_frame: author.avatar_frame,
+            avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,
             ink_donor_status: nil
           },

@@ -28,3 +28,23 @@ export function isFrameAvailable(frameId: string, subscriptionTier: string): boo
   if (!PLUS_FRAME_IDS.has(frameId)) return true;
   return subscriptionTier === "plus";
 }
+
+// ── Avatar Animations (Plus Feature) ──────────────────────────────────
+
+export interface AvatarAnimationInfo {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const AVATAR_ANIMATIONS: AvatarAnimationInfo[] = [
+  { id: "none", label: "None", description: "Static avatar" },
+  { id: "float", label: "Float", description: "Gentle up-and-down bobbing" },
+  { id: "glow", label: "Glow", description: "Soft pulsing shadow" },
+  { id: "prismatic", label: "Prismatic", description: "Slow color-shifting hue cycle" },
+  { id: "shimmer", label: "Shimmer", description: "Light sweep across the avatar" },
+];
+
+export const AVATAR_ANIMATION_IDS = new Set(
+  AVATAR_ANIMATIONS.filter((a) => a.id !== "none").map((a) => a.id)
+);

@@ -220,6 +220,7 @@ defmodule InkwellWeb.CommentController do
           display_name: comment.user.display_name,
           avatar_url: comment.user.avatar_url,
           avatar_frame: comment.user.avatar_frame,
+          avatar_animation: comment.user.avatar_animation,
           subscription_tier: comment.user.subscription_tier
         }
       end

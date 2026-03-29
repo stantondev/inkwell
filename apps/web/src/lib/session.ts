@@ -10,6 +10,7 @@ export interface SessionUser {
   avatar_url: string | null;
   avatar_config?: Record<string, unknown> | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
   bio: string | null;
   pronouns: string | null;
   ap_id: string;

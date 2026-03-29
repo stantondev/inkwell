@@ -63,6 +63,7 @@ export function CommentNode({
       ? comment.remote_author!.profile_url
       : null;
   const avatarFrame = isLocal ? comment.author?.avatar_frame : null;
+  const avatarAnimation = isLocal ? comment.author?.avatar_animation : null;
   const subscriptionTier = isLocal ? comment.author?.subscription_tier : undefined;
 
   const canEdit =
@@ -121,6 +122,7 @@ export function CommentNode({
                 name={displayName}
                 size={28}
                 frame={avatarFrame}
+                animation={avatarAnimation}
                 subscriptionTier={subscriptionTier || undefined}
               />
             </a>

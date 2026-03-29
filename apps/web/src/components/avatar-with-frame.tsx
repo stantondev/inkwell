@@ -1,11 +1,13 @@
-import { PLUS_FRAME_IDS } from "@/lib/avatar-frames";
+import { PLUS_FRAME_IDS, AVATAR_ANIMATION_IDS } from "@/lib/avatar-frames";
 
 interface AvatarWithFrameProps {
   url: string | null;
   name: string;
   size?: number;
   frame?: string | null;
-  /** Pass the user's subscription tier to gate Plus frames */
+  /** CSS animation style for the avatar (Plus only) */
+  animation?: string | null;
+  /** Pass the user's subscription tier to gate Plus frames/animations */
   subscriptionTier?: string;
 }
 
@@ -21,6 +23,7 @@ export function AvatarWithFrame({
   name,
   size = 32,
   frame,
+  animation,
   subscriptionTier,
 }: AvatarWithFrameProps) {
   const initials = (name || "?")
@@ -41,13 +44,21 @@ export function AvatarWithFrame({
 
   const hasFrame = !!effectiveFrame;
 
+  // Determine effective animation (Plus-only)
+  let animClass = "";
+  if (animation && AVATAR_ANIMATION_IDS.has(animation)) {
+    if (!subscriptionTier || subscriptionTier === "plus") {
+      animClass = `avatar-anim-${animation}`;
+    }
+  }
+
   // Frame adds visual padding around the avatar
   const outerSize = hasFrame ? Math.round(size * 1.3) : size;
   const offset = hasFrame ? Math.round((outerSize - size) / 2) : 0;
 
   return (
     <div
-      className="relative inline-flex items-center justify-center flex-shrink-0"
+      className={`relative inline-flex items-center justify-center flex-shrink-0 ${animClass}`}
       style={{ width: outerSize, height: outerSize }}
     >
       {/* Avatar image or initials */}

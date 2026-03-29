@@ -687,6 +687,7 @@ defmodule InkwellWeb.CircleController do
             display_name: owner.display_name,
             avatar_url: owner.avatar_url,
             avatar_frame: owner.avatar_frame,
+            avatar_animation: owner.avatar_animation,
             subscription_tier: owner.subscription_tier
           }
         end
@@ -727,6 +728,7 @@ defmodule InkwellWeb.CircleController do
             display_name: user.display_name,
             avatar_url: user.avatar_url,
             avatar_frame: user.avatar_frame,
+            avatar_animation: user.avatar_animation,
             subscription_tier: user.subscription_tier
           }
         end
@@ -767,7 +769,8 @@ defmodule InkwellWeb.CircleController do
             username: author.username,
             display_name: author.display_name,
             avatar_url: author.avatar_url,
-            avatar_frame: author.avatar_frame
+            avatar_frame: author.avatar_frame,
+            avatar_animation: author.avatar_animation
           }
         end
     }
@@ -799,7 +802,8 @@ defmodule InkwellWeb.CircleController do
             username: author.username,
             display_name: author.display_name,
             avatar_url: author.avatar_url,
-            avatar_frame: author.avatar_frame
+            avatar_frame: author.avatar_frame,
+            avatar_animation: author.avatar_animation
           }
         end
     }

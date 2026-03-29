@@ -199,6 +199,7 @@ defmodule InkwellWeb.EntryController do
                 display_name: user.display_name,
                 avatar_url: user.avatar_url,
                 avatar_frame: user.avatar_frame,
+                avatar_animation: user.avatar_animation,
                 subscription_tier: user.subscription_tier
               })
 
@@ -940,6 +941,7 @@ defmodule InkwellWeb.EntryController do
             display_name: author.display_name,
             avatar_url: author.avatar_url,
             avatar_frame: author.avatar_frame,
+            avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,
             ink_donor_status: author.ink_donor_status
           }

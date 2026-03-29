@@ -46,6 +46,7 @@ export async function AppShell({
             displayName={user.display_name || user.username}
             avatarUrl={user.avatar_url}
             avatarFrame={user.avatar_frame}
+            avatarAnimation={user.avatar_animation}
             subscriptionTier={user.subscription_tier}
             inkDonorStatus={user.ink_donor_status}
             isAdmin={user.is_admin}

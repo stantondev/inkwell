@@ -14,6 +14,7 @@ interface SidebarNavProps {
   displayName: string;
   avatarUrl: string | null;
   avatarFrame?: string | null;
+  avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
   isAdmin?: boolean;
@@ -94,6 +95,7 @@ export function SidebarNav({
   displayName,
   avatarUrl,
   avatarFrame,
+  avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
   isAdmin,
@@ -285,6 +287,7 @@ export function SidebarNav({
             name={displayName}
             size={32}
             frame={avatarFrame}
+            animation={avatarAnimation}
             subscriptionTier={subscriptionTier}
           />
           <div className="sidebar-user-info">

@@ -30,6 +30,7 @@ interface MobileTopBarProps {
   displayName: string;
   avatarUrl: string | null;
   avatarFrame?: string | null;
+  avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
   isAdmin?: boolean;
@@ -44,6 +45,7 @@ export function MobileTopBar({
   displayName,
   avatarUrl,
   avatarFrame,
+  avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
   isAdmin,
@@ -195,6 +197,7 @@ export function MobileTopBar({
           displayName={displayName}
           avatarUrl={avatarUrl}
           avatarFrame={avatarFrame}
+          avatarAnimation={avatarAnimation}
           subscriptionTier={subscriptionTier}
           inkDonorStatus={inkDonorStatus}
           isAdmin={isAdmin}

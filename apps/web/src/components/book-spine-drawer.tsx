@@ -16,6 +16,7 @@ interface BookSpineDrawerProps {
   displayName: string;
   avatarUrl: string | null;
   avatarFrame?: string | null;
+  avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
   isAdmin?: boolean;
@@ -30,6 +31,7 @@ export function BookSpineDrawer({
   displayName,
   avatarUrl,
   avatarFrame,
+  avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
   isAdmin,
@@ -138,7 +140,7 @@ export function BookSpineDrawer({
 
         {/* User section */}
         <Link href={`/${username}`} onClick={handleLinkClick} className="book-drawer-user">
-          <AvatarWithFrame url={avatarUrl} name={displayName} size={44} frame={avatarFrame} subscriptionTier={subscriptionTier} />
+          <AvatarWithFrame url={avatarUrl} name={displayName} size={44} frame={avatarFrame} animation={avatarAnimation} subscriptionTier={subscriptionTier} />
           <div className="book-drawer-user-info">
             <span className="book-drawer-user-name">
               {displayName}

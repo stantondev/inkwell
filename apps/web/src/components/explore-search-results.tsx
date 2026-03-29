@@ -12,6 +12,7 @@ interface SearchUser {
   display_name: string;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
   subscription_tier?: string;
   ink_donor_status?: string;
   bio: string | null;
@@ -319,6 +320,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
                   name={user.display_name}
                   size={40}
                   frame={user.avatar_frame}
+                  animation={user.avatar_animation}
                   subscriptionTier={user.subscription_tier}
                 />
                 <div className="explore-writer-info">

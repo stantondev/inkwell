@@ -34,6 +34,7 @@ interface HydratorProps {
     pronouns: string | null;
     avatar_url: string | null;
     avatar_frame?: string | null;
+    avatar_animation?: string | null;
     subscription_tier?: string;
     created_at: string;
     profile_music?: string | null;
@@ -81,6 +82,7 @@ interface HydratorProps {
       display_name: string;
       avatar_url: string | null;
       avatar_frame?: string | null;
+      avatar_animation?: string | null;
     };
   }>;
   isOwnProfile: boolean;
@@ -173,6 +175,7 @@ export function CustomProfileHydrator({
                     name={profile.display_name}
                     size={80}
                     frame={profile.avatar_frame}
+                    animation={profile.avatar_animation}
                     subscriptionTier={profile.subscription_tier}
                   />
                 </div>

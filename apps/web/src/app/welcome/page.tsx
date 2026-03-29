@@ -23,6 +23,7 @@ type SuggestedUser = {
   avatar_url: string | null;
   bio: string | null;
   avatar_frame: string | null;
+  avatar_animation?: string | null;
   subscription_tier: string;
   entry_count: number;
   ink_count: number;
@@ -1016,6 +1017,7 @@ export default function WelcomePage() {
                             name={u.display_name ?? u.username}
                             size={56}
                             frame={u.avatar_frame}
+                            animation={u.avatar_animation}
                             subscriptionTier={u.subscription_tier}
                           />
                           <div className="min-w-0 w-full">

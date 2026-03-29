@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Avatar } from "@/components/avatar";
+import { Avatar, AvatarWithFrame } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
@@ -62,6 +62,7 @@ export interface JournalEntry {
       display_name: string;
       avatar_url: string | null;
       avatar_frame?: string | null;
+      avatar_animation?: string | null;
       subscription_tier?: string | null;
       ink_donor_status?: string | null;
       domain?: string;
@@ -81,6 +82,7 @@ export interface JournalEntry {
     display_name: string;
     avatar_url: string | null;
     avatar_frame?: string | null;
+    avatar_animation?: string | null;
     subscription_tier?: string | null;
   };
   /** When the reprint was made */
@@ -96,6 +98,8 @@ export interface JournalEntry {
     domain?: string;
     /** URL to the remote user's profile */
     profile_url?: string;
+    avatar_frame?: string | null;
+    avatar_animation?: string | null;
     subscription_tier?: string;
     ink_donor_status?: string | null;
   };
@@ -286,10 +290,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               href={authorHref}
               className="flex items-center gap-2 group"
             >
-              <Avatar
+              <AvatarWithFrame
                 url={entry.author.avatar_url}
                 name={entry.author.display_name}
                 size={28}
+                frame={entry.author.avatar_frame}
+                animation={entry.author.avatar_animation}
+                subscriptionTier={entry.author.subscription_tier}
               />
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-medium group-hover:underline">

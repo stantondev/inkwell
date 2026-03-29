@@ -40,6 +40,7 @@ interface ProfileUser {
   pronouns: string | null;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
   ap_id: string;
   subscription_tier?: string;
   created_at: string;
@@ -102,6 +103,7 @@ interface TopFriendUser {
   display_name: string;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
 }
 
 interface TopFriendSlot {
@@ -351,7 +353,7 @@ function TopFriends({ friends, isOwnProfile, styles }: { friends: TopFriendSlot[
         {friends.map((slot) => (
           <Link key={slot.user.username} href={`/${slot.user.username}`}
             className="flex flex-col items-center gap-1 group">
-            <AvatarWithFrame url={slot.user.avatar_url} name={slot.user.display_name} size={36} frame={slot.user.avatar_frame} />
+            <AvatarWithFrame url={slot.user.avatar_url} name={slot.user.display_name} size={36} frame={slot.user.avatar_frame} animation={slot.user.avatar_animation} />
             <span className="text-xs text-center leading-tight truncate w-full group-hover:underline"
               style={{ color: styles.muted }}>
               {slot.user.display_name}
@@ -565,7 +567,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
       <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
         <div className="mx-auto max-w-2xl px-4 py-12">
           <div className="rounded-xl border p-8 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-            <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={64} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
+            <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={64} frame={profile.avatar_frame} animation={profile.avatar_animation} subscriptionTier={profile.subscription_tier} />
             <h1 className="text-lg font-semibold mt-4">@{profile.username}</h1>
             <p className="text-sm mt-2 mb-6" style={{ color: "var(--muted)" }}>
               You&apos;ve blocked this user. They can&apos;t see your content or interact with you.
@@ -1046,7 +1048,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
           <div className="px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="-mt-10 mb-4 flex items-end justify-between">
               <div className="rounded-full p-1" style={{ background: styles.surface.background }}>
-                <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} subscriptionTier={profile.subscription_tier} />
+                <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} animation={profile.avatar_animation} subscriptionTier={profile.subscription_tier} />
               </div>
               {isOwnProfile ? (
                 <div className="flex items-center gap-2 flex-wrap justify-end">

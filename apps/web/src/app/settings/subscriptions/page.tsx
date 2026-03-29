@@ -25,6 +25,7 @@ interface Subscriber {
   display_name: string | null;
   avatar_url: string | null;
   avatar_frame: string | null;
+  avatar_animation?: string | null;
   subscribed_at: string;
   status: string;
 }
@@ -582,6 +583,7 @@ export default function SubscriptionsSettingsPage() {
                         name={sub.display_name || sub.username}
                         size={36}
                         frame={sub.avatar_frame}
+                        animation={sub.avatar_animation}
                       />
                     </a>
                     <div className="flex-1 min-w-0">

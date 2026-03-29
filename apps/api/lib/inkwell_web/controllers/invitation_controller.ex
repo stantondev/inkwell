@@ -113,6 +113,7 @@ defmodule InkwellWeb.InvitationController do
           display_name: user.display_name || user.username,
           avatar_url: user.avatar_url,
           avatar_frame: user.avatar_frame,
+          avatar_animation: user.avatar_animation,
           subscription_tier: user.subscription_tier,
           bio: user.bio
         })
@@ -139,6 +140,7 @@ defmodule InkwellWeb.InvitationController do
             display_name: inviter.display_name || inviter.username,
             avatar_url: inviter.avatar_url,
             avatar_frame: inviter.avatar_frame,
+            avatar_animation: inviter.avatar_animation,
             subscription_tier: inviter.subscription_tier,
             bio: inviter.bio,
             message: invitation.message

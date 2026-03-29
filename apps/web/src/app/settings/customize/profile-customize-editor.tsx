@@ -7,7 +7,7 @@ import { resizeBackgroundImage } from "@/lib/image-utils";
 import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
-import { AVATAR_FRAMES } from "@/lib/avatar-frames";
+import { AVATAR_FRAMES, AVATAR_ANIMATIONS } from "@/lib/avatar-frames";
 import { HtmlEditor } from "./html-editor";
 
 interface ProfileUser {
@@ -16,6 +16,7 @@ interface ProfileUser {
   display_name: string;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
   subscription_tier?: string;
   profile_html?: string | null;
   profile_css?: string | null;
@@ -152,6 +153,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
   const [form, setForm] = useState({
     avatar_frame: user.avatar_frame ?? "none",
+    avatar_animation: user.avatar_animation ?? "none",
     profile_status: user.profile_status ?? "",
     profile_theme: user.profile_theme ?? "default",
     profile_background_color: user.profile_background_color ?? "",
@@ -350,6 +352,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
       if (isPlus) {
         Object.assign(mainBody, {
+          avatar_animation: form.avatar_animation === "none" ? null : form.avatar_animation,
           profile_background_color: form.profile_background_color || null,
           profile_accent_color: form.profile_accent_color || null,
           profile_foreground_color: form.profile_foreground_color || null,
@@ -427,6 +430,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
               name={user.display_name}
               size={72}
               frame={form.avatar_frame === "none" ? null : form.avatar_frame}
+              animation={form.avatar_animation === "none" ? null : form.avatar_animation}
               subscriptionTier={user.subscription_tier}
             />
           </div>
@@ -468,6 +472,61 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
             })}
           </div>
         </div>
+      </Section>
+
+      {/* Avatar Animation (Plus only) */}
+      <Section title="Avatar Animation" defaultOpen={false}>
+        {!isPlus ? (
+          <div className="text-center py-3">
+            <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+              Animated avatars are a Plus feature.
+            </p>
+            <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+              ✦ Upgrade to Plus
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-center py-2">
+              <AvatarWithFrame
+                url={user.avatar_url}
+                name={user.display_name}
+                size={72}
+                frame={form.avatar_frame === "none" ? null : form.avatar_frame}
+                animation={form.avatar_animation === "none" ? null : form.avatar_animation}
+                subscriptionTier="plus"
+              />
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {AVATAR_ANIMATIONS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => updateForm("avatar_animation", a.id)}
+                  className="rounded-lg border p-2 flex flex-col items-center gap-1 transition-all hover:scale-[1.03]"
+                  style={{
+                    borderColor: form.avatar_animation === a.id ? "var(--accent)" : "var(--border)",
+                    borderWidth: form.avatar_animation === a.id ? 2 : 1,
+                    cursor: "pointer",
+                  }}
+                  title={a.description}
+                >
+                  <AvatarWithFrame
+                    url={user.avatar_url}
+                    name={user.display_name}
+                    size={28}
+                    frame={form.avatar_frame === "none" ? null : form.avatar_frame}
+                    animation={a.id === "none" ? null : a.id}
+                    subscriptionTier="plus"
+                  />
+                  <span className="text-[10px] truncate w-full text-center" style={{ color: "var(--muted)" }}>
+                    {a.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Banner Image */}

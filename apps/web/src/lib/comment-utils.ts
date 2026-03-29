@@ -4,6 +4,7 @@ export interface CommentAuthor {
   display_name: string | null;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  avatar_animation?: string | null;
   subscription_tier?: string | null;
 }
 

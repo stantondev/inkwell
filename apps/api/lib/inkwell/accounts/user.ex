@@ -29,6 +29,7 @@ defmodule Inkwell.Accounts.User do
     field :profile_theme, :string
     field :profile_entry_display, :string, default: "cards"
     field :avatar_frame, :string
+    field :avatar_animation, :string
     field :ap_id, :string
     field :public_key, :string
     field :private_key, :string
@@ -178,6 +179,7 @@ defmodule Inkwell.Accounts.User do
   }
   @allowed_frames ~w[none classic ink-ring notebook wax-seal gilded constellation botanical neon stamp]
   @allowed_entry_displays ~w[full cards preview]
+  @allowed_animations ~w[float glow prismatic shimmer]
 
   def profile_changeset(user, attrs) do
     user
@@ -187,6 +189,7 @@ defmodule Inkwell.Accounts.User do
       :profile_music, :profile_background_url, :profile_banner_url, :profile_background_color,
       :profile_accent_color, :profile_foreground_color, :profile_font, :profile_layout,
       :profile_widgets, :profile_status, :profile_theme, :profile_entry_display, :avatar_frame,
+      :avatar_animation,
       :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
       :support_url, :support_label,
       :pinned_entry_ids, :social_links,
@@ -213,6 +216,7 @@ defmodule Inkwell.Accounts.User do
     |> normalize_theme()
     |> maybe_validate_inclusion(:profile_theme, @allowed_themes)
     |> maybe_validate_inclusion(:avatar_frame, @allowed_frames)
+    |> maybe_validate_inclusion(:avatar_animation, @allowed_animations)
     |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
     |> validate_avatar_config()
   end

@@ -165,7 +165,8 @@ defmodule InkwellWeb.WriterSubscriptionController do
             username: writer.username,
             display_name: writer.display_name,
             avatar_url: writer.avatar_url,
-            avatar_frame: writer.avatar_frame
+            avatar_frame: writer.avatar_frame,
+            avatar_animation: writer.avatar_animation
           },
           plan: if(plan, do: %{
             id: plan.id,
@@ -198,7 +199,8 @@ defmodule InkwellWeb.WriterSubscriptionController do
             username: subscriber.username,
             display_name: subscriber.display_name,
             avatar_url: subscriber.avatar_url,
-            avatar_frame: subscriber.avatar_frame
+            avatar_frame: subscriber.avatar_frame,
+            avatar_animation: subscriber.avatar_animation
           }
         }
       end)
