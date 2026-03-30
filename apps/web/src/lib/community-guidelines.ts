@@ -88,6 +88,17 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
     ],
   },
   {
+    id: "ai",
+    title: "AI and Authentic Writing",
+    body: [
+      "Inkwell celebrates human creativity and authentic expression. This is a place for your words, your ideas, and your voice.",
+      "AI tools for grammar checking, translation, and accessibility are welcome \u2014 they help you say what you mean more clearly.",
+      "If you post content that is substantially AI-generated, please disclose that. Transparency builds trust, and your readers deserve to know what they\u2019re reading.",
+      "Fully automated AI accounts (other than the official Muse writing prompt bot) are not permitted. Every account on Inkwell should have a real person behind it.",
+      "Writing prompts from Muse are starting points \u2014 your response should be yours. The best entries on Inkwell are the ones that could only have been written by you.",
+    ],
+  },
+  {
     id: "enforcement",
     title: "When Things Go Wrong",
     body: [

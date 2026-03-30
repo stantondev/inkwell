@@ -45,6 +45,7 @@ const PLEDGES = [
   "Deliberately cripple the free tier to force paid upgrades",
   "Compromise open federation in exchange for growth or revenue",
   "Prioritize profit in ways that contradict our stated values",
+  "Train AI on your writing or sell your content to companies that do",
 ];
 
 const COMMITMENTS = [

@@ -90,6 +90,7 @@ interface EntryData {
   tip_total_cents?: number;
   tip_count?: number;
   poll?: PollData | null;
+  entry_source?: string | null;
   is_paywalled?: boolean;
   quoted_entry?: {
     id: string;
@@ -643,6 +644,22 @@ export default async function EntryPage({ params }: EntryParams) {
               <Avatar url={author.avatar_url} name={author.display_name} size={26} />
               <span className="text-sm font-medium">{author.display_name}</span>
             </Link>
+
+            {entry.entry_source === "muse" && (
+              <>
+                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full italic"
+                  style={{ color: "var(--muted)", background: "var(--surface-hover, var(--surface))", border: "1px solid var(--border)" }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+                    <path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" />
+                  </svg>
+                  AI-generated
+                </span>
+              </>
+            )}
 
             <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
 

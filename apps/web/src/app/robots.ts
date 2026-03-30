@@ -1,6 +1,33 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
+  // Known AI training crawlers — block all
+  const aiCrawlers = [
+    "GPTBot",
+    "ChatGPT-User",
+    "CCBot",
+    "anthropic-ai",
+    "ClaudeBot",
+    "Claude-Web",
+    "Google-Extended",
+    "FacebookBot",
+    "Bytespider",
+    "cohere-ai",
+    "Diffbot",
+    "PerplexityBot",
+    "YouBot",
+    "Applebot-Extended",
+    "Amazonbot",
+    "Meta-ExternalAgent",
+    "AI2Bot",
+    "Scrapy",
+    "Timpibot",
+    "VelenPublicWebCrawler",
+    "Omgilibot",
+    "img2dataset",
+    "PetalBot",
+  ];
+
   return {
     rules: [
       {
@@ -28,6 +55,11 @@ export default function robots(): MetadataRoute.Robots {
           "/get-started",
         ],
       },
+      // Block AI training crawlers from all content
+      ...aiCrawlers.map((agent) => ({
+        userAgent: agent,
+        disallow: ["/"],
+      })),
     ],
     sitemap: "https://inkwell.social/sitemap.xml",
   };

@@ -75,6 +75,8 @@ export interface JournalEntry {
   is_paid?: boolean;
   /** "local" (default), "remote" for federated entries, or "reprint" for reprinted entries */
   source?: "local" | "remote" | "reprint";
+  /** The entry's creation source — "muse" for AI-generated Muse entries, "email" for Post by Email */
+  entry_source?: string | null;
   /** Reprinter info — present when source is "reprint" */
   reprinter?: {
     id: string;
@@ -322,6 +324,19 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                 </span>
               </div>
             </Link>
+          )}
+          {/* AI-generated label for Muse entries */}
+          {entry.entry_source === "muse" && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full shrink-0 italic"
+              style={{ color: "var(--muted)", background: "var(--surface-hover, var(--surface))", border: "1px solid var(--border)" }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+                <path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" />
+              </svg>
+              AI-generated
+            </span>
           )}
         </div>
 

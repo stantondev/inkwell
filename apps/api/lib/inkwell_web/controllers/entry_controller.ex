@@ -907,6 +907,7 @@ defmodule InkwellWeb.EntryController do
       quoted_entry_id: entry.quoted_entry_id,
       quoted_remote_entry_id: entry.quoted_remote_entry_id,
       quoted_entry: render_quoted_entry(entry),
+      entry_source: entry.source,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }

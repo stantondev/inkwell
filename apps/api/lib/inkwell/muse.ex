@@ -287,7 +287,8 @@ defmodule Inkwell.Muse do
       status: :published,
       tags: tags,
       word_count: word_count,
-      excerpt: excerpt
+      excerpt: excerpt,
+      source: "muse"
     }
 
     case Journals.create_entry(attrs) do

@@ -155,6 +155,7 @@ export default function PrivacyPage() {
               <li>Inkwell does not sell your personal information to third parties.</li>
               <li>Inkwell does not use your data for targeted advertising.</li>
               <li>Inkwell does not use algorithmic profiling to curate your feed.</li>
+              <li>Inkwell does not sell, license, or provide your content to AI companies for model training.</li>
               <li>There are no ads on Inkwell.</li>
             </ul>
           </div>
@@ -196,6 +197,13 @@ export default function PrivacyPage() {
               <strong>Business transfers:</strong> In the event of a merger, acquisition, reorganization, or sale of
               assets, your information may be transferred to the acquiring entity. We will provide notice of any such
               transfer and any choices you may have regarding your information.
+            </li>
+            <li>
+              <strong>AI and machine learning:</strong> We do not share, sell, license, or otherwise provide your
+              content to any third party for the purpose of training artificial intelligence or machine learning models.
+              We actively block known AI training crawlers from accessing user content via{" "}
+              <code className="text-sm">robots.txt</code> and monitor for unauthorized scraping. For more details, see
+              our <Link href="/ai" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>AI Policy</Link>.
             </li>
           </ul>
         </section>
