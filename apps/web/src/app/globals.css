@@ -10637,3 +10637,44 @@ a, button, [role="tab"], [role="button"] {
   width: 100%;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
+
+/* ── Help Center ──────────────────────────────────────────────────────── */
+
+.help-quick-link:hover {
+  background: var(--surface-hover, var(--border)) !important;
+  border-color: var(--accent) !important;
+}
+
+.help-category-card:hover {
+  background: var(--surface-hover, var(--border)) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.help-search-result:hover {
+  background: var(--surface-hover, var(--border)) !important;
+  border-color: var(--accent) !important;
+}
+
+.faq-pill:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.faq-answer a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.faq-answer a:hover {
+  opacity: 0.8;
+}
+.faq-answer ul, .faq-answer ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.faq-answer li {
+  margin: 0.25em 0;
+}
+.faq-answer strong {
+  font-weight: 600;
+}

@@ -83,6 +83,38 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc "Send a support request email from the contact form."
+  def send_support_request(from_email, category, subject, message, username \\ nil) do
+    support_to = Application.get_env(:inkwell, :feedback_email, "stanton@inkwell.social")
+    email_subject = "[Inkwell Support] #{String.capitalize(category)}: #{subject}"
+
+    user_info = if username, do: " (@#{username})", else: ""
+
+    html = """
+    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #faf8f5; border-radius: 12px;">
+      <h2 style="color: #2d4a8a; margin: 0 0 16px;">Support Request</h2>
+      <table style="width: 100%; font-size: 14px; color: #333;">
+        <tr><td style="padding: 4px 8px 4px 0; color: #666; vertical-align: top;"><strong>Category:</strong></td><td style="padding: 4px 0;">#{escape_html(String.capitalize(category))}</td></tr>
+        <tr><td style="padding: 4px 8px 4px 0; color: #666; vertical-align: top;"><strong>From:</strong></td><td style="padding: 4px 0;">#{escape_html(from_email)}#{escape_html(user_info)}</td></tr>
+        <tr><td style="padding: 4px 8px 4px 0; color: #666; vertical-align: top;"><strong>Subject:</strong></td><td style="padding: 4px 0;">#{escape_html(subject)}</td></tr>
+      </table>
+      <hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;" />
+      <div style="font-size: 14px; line-height: 1.6; color: #333; white-space: pre-wrap;">#{escape_html(message)}</div>
+      <hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;" />
+      <p style="font-size: 12px; color: #999;">Reply directly to this email to respond to the user at #{from_email}.</p>
+    </div>
+    """
+
+    case do_send_email(support_to, email_subject, html, headers: %{"Reply-To" => from_email}) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — support request from #{from_email}: [#{category}] #{subject}")
+        {:ok, :no_email_configured}
+
+      result ->
+        result
+    end
+  end
+
   @doc "Send a comment/reply/mention email notification to a user."
   def send_comment_notification(user, actor_name, actor_username, type, entry_title, entry_url, opts \\ %{}) do
     subject = build_notification_subject(type, actor_name, entry_title)

@@ -8,7 +8,7 @@ import { AvatarWithFrame } from "./avatar-with-frame";
 import {
   FeedIcon, ExploreIcon, PenPalsIcon, LettersIcon,
   SearchIcon, SavedIcon, PostsIcon, DraftsIcon, CirclesIcon, PollsIcon,
-  RoadmapIcon, InviteIcon, SettingsIcon, AdminIcon, SignOutIcon,
+  RoadmapIcon, HelpIcon, InviteIcon, SettingsIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
 
 interface BookSpineDrawerProps {
@@ -184,6 +184,7 @@ export function BookSpineDrawer({
             <DrawerLink href="/circles" icon={<CirclesIcon />} label="Circles" active={isActive("/circles")} onClick={handleLinkClick} />
             <DrawerLink href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} onClick={handleLinkClick} />
             <DrawerLink href="/roadmap" icon={<RoadmapIcon />} label="Roadmap" active={isActive("/roadmap")} onClick={handleLinkClick} />
+            <DrawerLink href="/help" icon={<HelpIcon />} label="Help" active={isActive("/help")} onClick={handleLinkClick} />
             <DrawerLink href="/settings/invite" icon={<InviteIcon />} label="Invite Friends" active={isActive("/settings/invite")} onClick={handleLinkClick} />
           </div>
 

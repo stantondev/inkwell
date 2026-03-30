@@ -51,6 +51,13 @@ defmodule InkwellWeb.Router do
     post "/auth/fediverse/initiate", FediverseAuthController, :initiate
   end
 
+  # Support contact form — tight rate limit (3 req / 5 min per IP)
+  scope "/api", InkwellWeb do
+    pipe_through [:api, :tight_rate_limit]
+
+    post "/support/contact", SupportController, :contact
+  end
+
   # Public API — no auth required
   scope "/api", InkwellWeb do
     pipe_through :api

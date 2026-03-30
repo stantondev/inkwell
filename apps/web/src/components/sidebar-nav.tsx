@@ -49,6 +49,7 @@ function DraftsIcon() { return <svg {...iconProps}><path d="M14 2H6a2 2 0 0 0-2 
 function SearchIcon() { return <svg {...iconProps}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>; }
 function RoadmapIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>; }
 function SubmitFeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M10 10h4" /></svg>; }
+function HelpIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>; }
 function InviteIcon() { return <svg {...iconProps}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>; }
 function PollsIcon() { return <svg {...iconProps}><path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" /></svg>; }
 function CirclesIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>; }
@@ -263,6 +264,7 @@ export function SidebarNav({
         <NavItem href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} />
         <NavItem href="/circles" icon={<CirclesIcon />} label="Circles" active={isActive("/circles")} />
         <NavItem href="/roadmap/new" icon={<SubmitFeedbackIcon />} label="Feedback" active={pathname === "/roadmap/new"} />
+        <NavItem href="/help" icon={<HelpIcon />} label="Help" active={isActive("/help")} />
         <NavItem href="/settings/invite" icon={<InviteIcon />} label="Invite friends" active={isActive("/settings/invite")} />
         {activePoll && !activePoll.my_vote && (
           <div style={{ padding: "4px 0 0" }}>
