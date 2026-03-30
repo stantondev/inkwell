@@ -28,7 +28,7 @@ defmodule Inkwell.Email do
 
   @doc "Send a feedback email from a user to the Inkwell team."
   def send_feedback(user, category, message) do
-    feedback_to = Application.get_env(:inkwell, :feedback_email, "stanton@inkwell.social")
+    feedback_to = Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social")
     subject = "[Inkwell Feedback] #{String.capitalize(category)} from @#{user.username}"
 
     case do_send_email(feedback_to, subject, feedback_html(user, category, message)) do
@@ -85,7 +85,7 @@ defmodule Inkwell.Email do
 
   @doc "Send a support request email from the contact form."
   def send_support_request(from_email, category, subject, message, username \\ nil) do
-    support_to = Application.get_env(:inkwell, :feedback_email, "stanton@inkwell.social")
+    support_to = Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social")
     email_subject = "[Inkwell Support] #{String.capitalize(category)}: #{subject}"
 
     user_info = if username, do: " (@#{username})", else: ""

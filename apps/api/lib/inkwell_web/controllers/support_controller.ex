@@ -18,7 +18,15 @@ defmodule InkwellWeb.SupportController do
         username = params["username"]
 
         Task.start(fn ->
-          Email.send_support_request(email, category, subject, message, username)
+          try do
+            case Email.send_support_request(email, category, subject, message, username) do
+              {:ok, :sent} -> Logger.info("Support email sent for #{email}")
+              {:ok, :no_email_configured} -> :ok
+              {:error, reason} -> Logger.error("Support email failed: #{inspect(reason)}")
+            end
+          rescue
+            e -> Logger.error("Support email crashed: #{Exception.message(e)}")
+          end
         end)
 
         json(conn, %{ok: true})

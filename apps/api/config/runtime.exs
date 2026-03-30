@@ -92,7 +92,7 @@ if config_env() == :prod do
     cancel_url: "#{frontend_url}/settings/billing?canceled=true"
 
   # Feedback email recipient
-  config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "stanton@inkwell.social"
+  config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "hello@inkwell.social"
 
   # Slack notifications (optional — disabled if not set)
   config :inkwell, :slack_webhook_url, System.get_env("SLACK_WEBHOOK_URL")
