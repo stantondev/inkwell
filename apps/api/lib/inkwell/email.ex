@@ -105,7 +105,7 @@ defmodule Inkwell.Email do
     </div>
     """
 
-    case do_send_email(support_to, email_subject, html, headers: %{"Reply-To" => from_email}) do
+    case do_send_email(support_to, email_subject, html, from: "Inkwell Support <hello@inkwell.social>", headers: %{"Reply-To" => from_email}) do
       {:ok, :no_email_configured} ->
         Logger.warning("No email configured — support request from #{from_email}: [#{category}] #{subject}")
         {:ok, :no_email_configured}
