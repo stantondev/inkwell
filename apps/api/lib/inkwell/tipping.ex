@@ -222,19 +222,35 @@ defmodule Inkwell.Tipping do
         total_cents = ceil((amount_cents + 30) / (1 - 0.029)) |> trunc()
         commission_cents = ceil(amount_cents * @commission_rate) |> trunc()
 
+        # Ensure sender has a Stripe Customer (so charges aren't "Guest" in Dashboard)
+        sender_customer_id = case Inkwell.Billing.ensure_customer(sender) do
+          {:ok, cid} -> cid
+          _ -> nil
+        end
+
         # Create Stripe PaymentIntent with destination charge
+        base_params = %{
+          "amount" => total_cents,
+          "currency" => "usd",
+          "payment_method_types[]" => "card",
+          "application_fee_amount" => commission_cents,
+          "transfer_data[destination]" => recipient.stripe_connect_account_id,
+          "metadata[sender_id]" => sender.id,
+          "metadata[sender_username]" => sender.username,
+          "metadata[recipient_id]" => recipient.id,
+          "metadata[recipient_username]" => recipient.username,
+          "metadata[tip_amount_cents]" => amount_cents,
+          "metadata[anonymous]" => to_string(anonymous)
+        }
+
         params =
-          URI.encode_query(%{
-            "amount" => total_cents,
-            "currency" => "usd",
-            "payment_method_types[]" => "card",
-            "application_fee_amount" => commission_cents,
-            "transfer_data[destination]" => recipient.stripe_connect_account_id,
-            "metadata[sender_id]" => sender.id,
-            "metadata[recipient_id]" => recipient.id,
-            "metadata[tip_amount_cents]" => amount_cents,
-            "metadata[anonymous]" => to_string(anonymous)
-          })
+          URI.encode_query(
+            if sender_customer_id do
+              Map.put(base_params, "customer", sender_customer_id)
+            else
+              base_params
+            end
+          )
 
         case stripe_post("/payment_intents", params) do
           {:ok, %{"id" => pi_id, "client_secret" => client_secret}} ->
