@@ -6,31 +6,24 @@ defmodule InkwellWeb.BillingController do
 
   require Logger
 
-  # Minimum account age (in seconds) before allowing payment — prevents instant card testing
-  @min_account_age_seconds 3600
-
   # POST /api/billing/checkout — create a Stripe Checkout session
   def checkout(conn, _params) do
     user = conn.assigns.current_user
 
-    if account_too_new?(user) do
-      conn |> put_status(:unprocessable_entity) |> json(%{error: "Your account is too new to subscribe. Please wait a bit and try again."})
-    else
-      case Billing.create_checkout_session(user) do
-        {:ok, %{url: url}} ->
-          json(conn, %{url: url})
+    case Billing.create_checkout_session(user) do
+      {:ok, %{url: url}} ->
+        json(conn, %{url: url})
 
-        {:error, :stripe_not_configured} ->
-          conn
-          |> put_status(:service_unavailable)
-          |> json(%{error: "Billing is not yet configured. Coming soon!"})
+      {:error, :stripe_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Billing is not yet configured. Coming soon!"})
 
-        {:error, reason} ->
-          Logger.error("Checkout session failed: #{inspect(reason)}")
-          conn
-          |> put_status(:internal_server_error)
-          |> json(%{error: "Unable to start checkout. Please try again."})
-      end
+      {:error, reason} ->
+        Logger.error("Checkout session failed: #{inspect(reason)}")
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Unable to start checkout. Please try again."})
     end
   end
 
@@ -64,24 +57,20 @@ defmodule InkwellWeb.BillingController do
   def donor_checkout(conn, %{"amount_cents" => amount_cents}) when amount_cents in [100, 200, 300] do
     user = conn.assigns.current_user
 
-    if account_too_new?(user) do
-      conn |> put_status(:unprocessable_entity) |> json(%{error: "Your account is too new to subscribe. Please wait a bit and try again."})
-    else
-      case Billing.create_donor_checkout_session(user, amount_cents) do
-        {:ok, %{url: url}} ->
-          json(conn, %{url: url})
+    case Billing.create_donor_checkout_session(user, amount_cents) do
+      {:ok, %{url: url}} ->
+        json(conn, %{url: url})
 
-        {:error, :stripe_not_configured} ->
-          conn
-          |> put_status(:service_unavailable)
-          |> json(%{error: "Donations are not yet configured. Coming soon!"})
+      {:error, :stripe_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Donations are not yet configured. Coming soon!"})
 
-        {:error, reason} ->
-          Logger.error("Donor checkout failed: #{inspect(reason)}")
-          conn
-          |> put_status(:internal_server_error)
-          |> json(%{error: "Unable to start checkout. Please try again."})
-      end
+      {:error, reason} ->
+        Logger.error("Donor checkout failed: #{inspect(reason)}")
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Unable to start checkout. Please try again."})
     end
   end
 
@@ -201,11 +190,4 @@ defmodule InkwellWeb.BillingController do
   end
 
   defp handle_connect_event(_), do: :ok
-
-  defp account_too_new?(%{inserted_at: inserted_at}) when not is_nil(inserted_at) do
-    age_seconds = DateTime.diff(DateTime.utc_now(), inserted_at, :second)
-    age_seconds < @min_account_age_seconds
-  end
-
-  defp account_too_new?(_), do: false
 end

@@ -131,21 +131,9 @@ defmodule InkwellWeb.TippingController do
 
   # ── Tip Payment Endpoints ──────────────────────────────────────────
 
-  # Minimum account age (in seconds) before allowing payment — prevents card testing
-  @min_account_age_seconds 3600
-
   # POST /api/tips — create a tip (returns client_secret for Stripe Elements)
   def create_tip(conn, %{"recipient_id" => recipient_id} = params) do
     sender = conn.assigns.current_user
-
-    if account_too_new?(sender) do
-      conn |> put_status(:unprocessable_entity) |> json(%{error: "Your account is too new to send postage. Please wait a bit and try again."})
-    else
-      create_tip_inner(conn, sender, recipient_id, params)
-    end
-  end
-
-  defp create_tip_inner(conn, sender, recipient_id, params) do
     case Repo.get(User, recipient_id) do
       nil ->
         conn |> put_status(:not_found) |> json(%{error: "Writer not found."})
@@ -253,13 +241,6 @@ defmodule InkwellWeb.TippingController do
       })
     }
   end
-
-  defp account_too_new?(%{inserted_at: inserted_at}) when not is_nil(inserted_at) do
-    age_seconds = DateTime.diff(DateTime.utc_now(), inserted_at, :second)
-    age_seconds < @min_account_age_seconds
-  end
-
-  defp account_too_new?(_), do: false
 
   defp render_tip_sent(tip) do
     %{
