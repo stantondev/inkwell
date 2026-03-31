@@ -4,6 +4,7 @@ defmodule InkwellWeb.AuthController do
   alias Inkwell.Accounts
   alias Inkwell.Auth
   alias Inkwell.Auth.LoginHandoff
+  alias Inkwell.FraudDetection
   alias Inkwell.Invitations
 
   # POST /api/auth/magic-link
@@ -16,12 +17,19 @@ defmodule InkwellWeb.AuthController do
       terms_accepted = params["terms_accepted"] == true
       existing_user = Accounts.get_user_by_email(email)
 
-      # New user must accept terms
-      if is_nil(existing_user) && !terms_accepted do
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
-      else
+      cond do
+        # Block disposable email signups (but allow existing users to log in)
+        is_nil(existing_user) && FraudDetection.disposable_email?(email) ->
+          # Silently succeed — same pattern as honeypot, don't reveal the block
+          json(conn, %{ok: true})
+
+        # New user must accept terms
+        is_nil(existing_user) && !terms_accepted ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{error: "You must accept the Terms of Service and Privacy Policy to create an account"})
+
+        true ->
         result =
           case existing_user do
             nil ->

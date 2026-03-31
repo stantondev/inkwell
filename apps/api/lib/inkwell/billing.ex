@@ -38,16 +38,21 @@ defmodule Inkwell.Billing do
       config = stripe_config()
 
       params =
-        URI.encode_query(%{
-          "customer" => customer_id,
-          "mode" => "subscription",
-          "line_items[0][price]" => config[:price_id],
-          "line_items[0][quantity]" => "1",
-          "success_url" => config[:success_url],
-          "cancel_url" => config[:cancel_url],
-          "client_reference_id" => user.id,
-          "metadata[user_id]" => user.id
-        })
+        URI.encode_query(
+          Map.merge(
+            %{
+              "customer" => customer_id,
+              "mode" => "subscription",
+              "line_items[0][price]" => config[:price_id],
+              "line_items[0][quantity]" => "1",
+              "success_url" => config[:success_url],
+              "cancel_url" => config[:cancel_url],
+              "client_reference_id" => user.id,
+              "metadata[user_id]" => user.id
+            },
+            fraud_metadata(user)
+          )
+        )
 
       case stripe_post("/checkout/sessions", params) do
         {:ok, %{"url" => url, "id" => session_id}} ->
@@ -108,18 +113,23 @@ defmodule Inkwell.Billing do
     else
       with {:ok, customer_id} <- ensure_customer(user) do
         params =
-          URI.encode_query(%{
-            "customer" => customer_id,
-            "mode" => "subscription",
-            "line_items[0][price]" => price_id,
-            "line_items[0][quantity]" => "1",
-            "success_url" => config[:success_url] <> "&donor=true",
-            "cancel_url" => config[:cancel_url],
-            "client_reference_id" => user.id,
-            "metadata[user_id]" => user.id,
-            "metadata[type]" => "ink_donor",
-            "metadata[amount_cents]" => to_string(amount_cents)
-          })
+          URI.encode_query(
+            Map.merge(
+              %{
+                "customer" => customer_id,
+                "mode" => "subscription",
+                "line_items[0][price]" => price_id,
+                "line_items[0][quantity]" => "1",
+                "success_url" => config[:success_url] <> "&donor=true",
+                "cancel_url" => config[:cancel_url],
+                "client_reference_id" => user.id,
+                "metadata[user_id]" => user.id,
+                "metadata[type]" => "ink_donor",
+                "metadata[amount_cents]" => to_string(amount_cents)
+              },
+              fraud_metadata(user)
+            )
+          )
 
         case stripe_post("/checkout/sessions", params) do
           {:ok, %{"url" => url, "id" => session_id}} ->
@@ -156,16 +166,21 @@ defmodule Inkwell.Billing do
         {:error, :stripe_not_configured}
       else
         params =
-          URI.encode_query(%{
-            "customer" => customer_id,
-            "mode" => "subscription",
-            "line_items[0][price]" => config[:price_id],
-            "line_items[0][quantity]" => "1",
-            "success_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
-            "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
-            "client_reference_id" => user.id,
-            "metadata[user_id]" => user.id
-          })
+          URI.encode_query(
+            Map.merge(
+              %{
+                "customer" => customer_id,
+                "mode" => "subscription",
+                "line_items[0][price]" => config[:price_id],
+                "line_items[0][quantity]" => "1",
+                "success_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
+                "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
+                "client_reference_id" => user.id,
+                "metadata[user_id]" => user.id
+              },
+              fraud_metadata(user)
+            )
+          )
 
         case stripe_post("/checkout/sessions", params) do
           {:ok, %{"url" => url, "id" => session_id}} ->
@@ -194,18 +209,23 @@ defmodule Inkwell.Billing do
     else
       with {:ok, customer_id} <- ensure_customer(user) do
         params =
-          URI.encode_query(%{
-            "customer" => customer_id,
-            "mode" => "subscription",
-            "line_items[0][price]" => price_id,
-            "line_items[0][quantity]" => "1",
-            "success_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
-            "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
-            "client_reference_id" => user.id,
-            "metadata[user_id]" => user.id,
-            "metadata[type]" => "ink_donor",
-            "metadata[amount_cents]" => to_string(amount_cents)
-          })
+          URI.encode_query(
+            Map.merge(
+              %{
+                "customer" => customer_id,
+                "mode" => "subscription",
+                "line_items[0][price]" => price_id,
+                "line_items[0][quantity]" => "1",
+                "success_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
+                "cancel_url" => "#{frontend_url}/welcome?checkout=canceled&step=5",
+                "client_reference_id" => user.id,
+                "metadata[user_id]" => user.id,
+                "metadata[type]" => "ink_donor",
+                "metadata[amount_cents]" => to_string(amount_cents)
+              },
+              fraud_metadata(user)
+            )
+          )
 
         case stripe_post("/checkout/sessions", params) do
           {:ok, %{"url" => url, "id" => session_id}} ->
@@ -234,6 +254,15 @@ defmodule Inkwell.Billing do
 
       "invoice.payment_failed" ->
         handle_payment_failed(object)
+
+      "charge.dispute.created" ->
+        handle_dispute_created(object)
+
+      "charge.dispute.closed" ->
+        handle_dispute_closed(object)
+
+      "charge.refunded" ->
+        handle_charge_refunded(object)
 
       _ ->
         Logger.info("Ignoring Stripe event: #{type}")
@@ -352,6 +381,45 @@ defmodule Inkwell.Billing do
 
         {:error, reason} ->
           Logger.error("Stripe HTTP error on DELETE #{path}: #{inspect(reason)}")
+          {:error, :http_error}
+      end
+    end
+  end
+
+  defp stripe_get(path) do
+    secret_key = stripe_config()[:secret_key]
+
+    if is_nil(secret_key) or secret_key == "" do
+      Logger.warning("STRIPE_SECRET_KEY not set — cannot make Stripe API call to #{path}")
+      {:error, :stripe_not_configured}
+    else
+      url = ~c"#{@stripe_api}#{path}"
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{secret_key}"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :get,
+             {url, headers},
+             [ssl: Inkwell.SSL.httpc_opts()],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
+          case Jason.decode(to_string(resp_body)) do
+            {:ok, data} -> {:ok, data}
+            error -> {:error, {:parse_error, error}}
+          end
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          Logger.error("Stripe API error #{status} on GET #{path}: #{to_string(resp_body)}")
+          {:error, {:stripe_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          Logger.error("Stripe HTTP error on GET #{path}: #{inspect(reason)}")
           {:error, :http_error}
       end
     end
@@ -574,6 +642,82 @@ defmodule Inkwell.Billing do
         Inkwell.Slack.notify_payment_failed(user.username, :plus)
         :ok
     end
+  end
+
+  # ── Private: Dispute/Chargeback handlers ────────────────────────────────
+
+  defp handle_dispute_created(%{"charge" => charge_id} = object) do
+    customer_id = get_in(object, ["customer"]) || get_charge_customer(charge_id)
+    amount = get_in(object, ["amount"])
+    reason = get_in(object, ["reason"])
+
+    Logger.error("DISPUTE CREATED: charge=#{charge_id}, customer=#{customer_id}, amount=#{amount}, reason=#{reason}")
+
+    user = if customer_id, do: find_user_by_customer(customer_id), else: nil
+
+    case user do
+      nil ->
+        Logger.error("Dispute — no user found for customer #{customer_id}")
+        Inkwell.Slack.notify_dispute(nil, amount, reason)
+        :ok
+
+      user ->
+        # Auto-block the user immediately
+        Inkwell.Accounts.block_user(user)
+        Logger.error("FRAUD: Auto-blocked user #{user.username} due to dispute on charge #{charge_id}")
+
+        # Cancel all subscriptions
+        if user.stripe_subscription_id do
+          stripe_delete("/subscriptions/#{user.stripe_subscription_id}")
+        end
+
+        if user.ink_donor_stripe_subscription_id do
+          stripe_delete("/subscriptions/#{user.ink_donor_stripe_subscription_id}")
+        end
+
+        Inkwell.Slack.notify_dispute(user.username, amount, reason)
+        :ok
+    end
+  end
+
+  defp handle_dispute_created(_) do
+    Logger.warning("charge.dispute.created — missing charge ID")
+    :ok
+  end
+
+  defp handle_dispute_closed(%{"id" => dispute_id, "status" => status, "reason" => reason} = _object) do
+    Logger.info("Dispute #{dispute_id} closed: status=#{status}, reason=#{reason}")
+    :ok
+  end
+
+  defp handle_dispute_closed(_), do: :ok
+
+  defp handle_charge_refunded(%{"id" => charge_id, "customer" => customer_id, "amount_refunded" => amount} = _object) do
+    Logger.info("Charge #{charge_id} refunded: customer=#{customer_id}, amount=#{amount}")
+    :ok
+  end
+
+  defp handle_charge_refunded(_), do: :ok
+
+  defp get_charge_customer(nil), do: nil
+  defp get_charge_customer(charge_id) do
+    case stripe_get("/charges/#{charge_id}") do
+      {:ok, %{"customer" => customer_id}} -> customer_id
+      _ -> nil
+    end
+  end
+
+  # ── Private: Fraud prevention metadata ──────────────────────────────────
+
+  defp fraud_metadata(%User{} = user) do
+    age_hours = DateTime.diff(DateTime.utc_now(), user.inserted_at, :hour)
+
+    %{
+      "metadata[username]" => user.username,
+      "metadata[account_age_hours]" => to_string(age_hours),
+      "payment_intent_data[metadata][user_id]" => user.id,
+      "payment_intent_data[metadata][username]" => user.username
+    }
   end
 
   # ── Private: Ink Donor helpers ─────────────────────────────────────────

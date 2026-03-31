@@ -67,6 +67,16 @@ defmodule Inkwell.Slack do
     notify(":memo: *New feedback!* @#{username} posted a #{category}: \"#{title}\"")
   end
 
+  def notify_dispute(username, amount_cents, reason) do
+    amount = if is_integer(amount_cents), do: "$#{trunc(amount_cents / 100)}", else: "unknown"
+    user_label = if username, do: "@#{username}", else: "unknown user"
+    notify(":rotating_light: *DISPUTE ALERT!* #{user_label} — #{amount} — reason: #{reason || "unknown"}. User has been auto-blocked.")
+  end
+
+  def notify_fraud_block(username) do
+    notify(":no_entry: *Fraud block:* @#{username} was auto-blocked due to suspected fraud")
+  end
+
   def notify_writer_plan_subscription(writer_username, subscriber_username, amount_cents) do
     dollars = trunc((amount_cents || 0) / 100)
     notify(":moneybag: *New plan subscriber!* @#{subscriber_username} subscribed to @#{writer_username}'s plan ($#{dollars}/mo)")
