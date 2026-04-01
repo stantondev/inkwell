@@ -45,7 +45,14 @@ defmodule InkwellWeb.WriterSubscriptionController do
   end
 
   # POST /api/writer-plans — auth
-  def create_plan(conn, params) do
+  def create_plan(conn, _params) do
+    # Writer subscription plans require Stripe Connect (temporarily unavailable)
+    conn
+    |> put_status(:service_unavailable)
+    |> json(%{error: "Writer subscription plans are temporarily unavailable while we switch payment processors. They will return soon."})
+  end
+
+  def _create_plan_disabled(conn, params) do
     user = conn.assigns.current_user
 
     case WriterSubscriptions.create_plan(user, params) do
@@ -108,7 +115,14 @@ defmodule InkwellWeb.WriterSubscriptionController do
   end
 
   # POST /api/writer-plans/:id/checkout — auth
-  def create_checkout(conn, %{"id" => id}) do
+  def create_checkout(conn, %{"id" => _id}) do
+    # Writer subscription checkout requires Stripe Connect (temporarily unavailable)
+    conn
+    |> put_status(:service_unavailable)
+    |> json(%{error: "Writer subscription plans are temporarily unavailable while we switch payment processors. They will return soon."})
+  end
+
+  def _create_checkout_disabled(conn, %{"id" => id}) do
     user = conn.assigns.current_user
 
     case WriterSubscriptions.create_checkout_session(user, id) do

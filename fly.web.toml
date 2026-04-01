@@ -10,7 +10,6 @@ primary_region = "ord"
   dockerfile = "apps/web/Dockerfile"
   [build.args]
     NEXT_PUBLIC_API_URL = "https://api.inkwell.social"
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_live_51T3CeT3leE4x2l02n5uISZn0n98IEvZZcv3vsDtVCY1CvtlhzYtqvabTLFGtE9Zete3xGHtRzBMTdyXiOsAr4pOf00PxcT3dH1"
 
 [env]
   PORT = "3000"

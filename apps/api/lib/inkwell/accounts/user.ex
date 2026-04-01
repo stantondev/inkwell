@@ -69,6 +69,11 @@ defmodule Inkwell.Accounts.User do
     field :ink_donor_status, :string
     field :ink_donor_amount_cents, :integer
 
+    # Square billing (bridge processor)
+    field :square_customer_id, :string
+    field :square_subscription_id, :string
+    field :square_donor_subscription_id, :string
+
     # Profile improvements
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}
@@ -151,7 +156,11 @@ defmodule Inkwell.Accounts.User do
 
   def subscription_changeset(user, attrs) do
     user
-    |> cast(attrs, [:stripe_customer_id, :stripe_subscription_id, :subscription_tier, :subscription_status, :subscription_expires_at])
+    |> cast(attrs, [
+      :stripe_customer_id, :stripe_subscription_id,
+      :square_customer_id, :square_subscription_id,
+      :subscription_tier, :subscription_status, :subscription_expires_at
+    ])
   end
 
   def stripe_connect_changeset(user, attrs) do
@@ -161,7 +170,7 @@ defmodule Inkwell.Accounts.User do
 
   def ink_donor_changeset(user, attrs) do
     user
-    |> cast(attrs, [:ink_donor_stripe_subscription_id, :ink_donor_status, :ink_donor_amount_cents])
+    |> cast(attrs, [:ink_donor_stripe_subscription_id, :ink_donor_status, :ink_donor_amount_cents, :square_donor_subscription_id])
   end
 
   @allowed_fonts ~w[default lora courier georgia comic-sans times palatino verdana]

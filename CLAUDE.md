@@ -56,12 +56,18 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 - `RESEND_API_KEY` — for sending magic link emails + newsletter delivery (Resend Pro plan $20/mo required for newsletters)
 - `FROM_EMAIL` — `Inkwell <noreply@inkwell.social>` (set after domain verification)
 - `ADMIN_USERNAMES` — comma-separated list of usernames that get admin access
-- `STRIPE_SECRET_KEY` — Stripe API key for billing
-- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret
-- `STRIPE_PRICE_ID` — Stripe price ID for Plus subscription ($5/mo)
-- `STRIPE_INK_DONOR_PRICE_1` — Stripe price ID for Ink Donor $1/mo
-- `STRIPE_INK_DONOR_PRICE_2` — Stripe price ID for Ink Donor $2/mo
-- `STRIPE_INK_DONOR_PRICE_3` — Stripe price ID for Ink Donor $3/mo
+- `SQUARE_ACCESS_TOKEN` — Square production access token for billing
+- `SQUARE_APPLICATION_ID` — Square application ID
+- `SQUARE_LOCATION_ID` — Square location ID
+- `SQUARE_WEBHOOK_SIGNATURE_KEY` — Square webhook HMAC-SHA256 signature key
+- `SQUARE_PLUS_PLAN_VARIATION_ID` — Square plan variation ID for Plus $5/mo
+- `SQUARE_DONOR_PLAN_VARIATION_1` — Square plan variation ID for Ink Donor $1/mo
+- `SQUARE_DONOR_PLAN_VARIATION_2` — Square plan variation ID for Ink Donor $2/mo
+- `SQUARE_DONOR_PLAN_VARIATION_3` — Square plan variation ID for Ink Donor $3/mo
+- ~~`STRIPE_SECRET_KEY`~~ — (legacy, unused — Stripe account closed)
+- ~~`STRIPE_WEBHOOK_SECRET`~~ — (legacy, unused)
+- ~~`STRIPE_PRICE_ID`~~ — (legacy, unused)
+- ~~`STRIPE_INK_DONOR_PRICE_1/2/3`~~ — (legacy, unused)
 - `SLACK_WEBHOOK_URL` — Slack incoming webhook for admin event notifications (Plus/Donor signups, cancellations, payment failures, new feedback)
 - `ANTHROPIC_API_KEY` — Claude API key for Muse writing prompt generation (optional — falls back to evergreen prompts)
 - `MUSE_ENABLED` — set to `"true"` to enable the Muse content bot (default: disabled)
@@ -82,35 +88,39 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 ### Fly secrets (inkwell-web)
 - `API_URL` — set in fly.web.toml env section as `https://api.inkwell.social`
 - `NEXT_PUBLIC_API_URL` — set as build arg in fly.web.toml as `https://api.inkwell.social` (no longer used by client components; kept for backward compat)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — set as build arg in fly.web.toml; required for Stripe Elements postage payment modal (public key, safe to embed)
+- ~~`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`~~ — removed from fly.web.toml (Stripe account closed; Square Payment Links are hosted — no frontend SDK needed)
 
-### Postage Setup Guide (Stripe Connect)
+### Postage & Writer Subscriptions (Temporarily Paused)
 
-The Postage feature (reader support payments) requires these steps to go live:
+**Postage** (reader support payments) and **Writer Subscription Plans** require Stripe Connect for marketplace split payments. Stripe closed Inkwell's account (fraudulent charges from stolen cards), so these features are temporarily disabled with "feature unavailable" messages in the UI. They will return when Stripe access is restored (pending LLC + EIN formation).
 
-**1. Get your Stripe Publishable Key**
-- Go to https://dashboard.stripe.com/apikeys
-- Copy the **Publishable key** (starts with `pk_live_`)
-- Edit `fly.web.toml` → set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_live_..."` in `[build.args]`
-- Redeploy web: `fly deploy --config fly.web.toml --wait-timeout 600`
+- Backend endpoints return 503 with descriptive messages
+- Read-only endpoints (tip history, stats, subscriber lists) remain functional
+- No code was deleted — just early-return guards for easy re-enablement
 
-**2. Enable Stripe Connect in your Stripe Dashboard**
-- Go to https://dashboard.stripe.com/settings/connect
-- Complete the Connect platform profile (business info, branding)
-- Set the Connect branding (icon, color) — this is what writers see during onboarding
+### Payment Processor: Square (Bridge)
 
-**3. Set up a Connect webhook (optional but recommended)**
-- Go to https://dashboard.stripe.com/webhooks
-- The existing billing webhook already handles Connect events (`account.updated`, `payment_intent.succeeded`, `payment_intent.payment_failed`)
-- If you want a separate Connect webhook endpoint, create one and set `STRIPE_CONNECT_WEBHOOK_SECRET` as a Fly secret on `inkwell-api`
+Inkwell migrated from Stripe to **Square** as a bridge payment processor (April 2026). Square handles Plus subscriptions ($5/mo), Ink Donor recurring ($1/$2/$3/mo), and one-time donations ($3/$5/$10). Square does NOT support marketplace split payments, which is why Postage and Writer Subscriptions are paused.
 
-**4. Test the flow**
-- As a Plus user, go to Settings → Support → "Enable Postage"
-- Complete Stripe Express onboarding (test mode uses test data)
-- As another user, visit the writer's profile → click "Send postage" → complete payment
-- Writer receives 92% of postage; Inkwell keeps 8% commission
+**Architecture**: Square Payment Links (hosted checkout pages, like Stripe Checkout) — no frontend SDK needed. Card data never touches Inkwell's server. Backend creates a Payment Link URL via `POST /v2/online-checkout/payment-links` with `subscription_plan_variation_id`, redirects user to Square-hosted page, Square handles card storage + customer creation + subscription creation, then redirects back to Inkwell.
 
-**Local dev**: No `STRIPE_SECRET_KEY` is set locally, so Stripe calls return `stripe_not_configured` errors. The UI handles this gracefully. To test locally, set `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in your local environment.
+**Square subscription plans** (created in Square Dashboard):
+- Plus: $5/mo recurring
+- Ink Donor $1/mo, $2/mo, $3/mo recurring
+
+**Key module**: `apps/api/lib/inkwell/square.ex` — Square API client (~340 lines). Functions: `create_plus_payment_link/1`, `create_donor_payment_link/2`, `create_onboarding_payment_link/2`, `create_donation_payment_link/2`, `cancel_subscription/1`, `get_subscription/1`, `verify_webhook_signature/3`.
+
+**Webhook signature verification**: HMAC-SHA256 via `x-square-hmacsha256-signature` header. Signature = `Base64(HMAC-SHA256(key, notification_url + raw_body))`.
+
+**Square status mapping**: `ACTIVE` → `active`, `CANCELED` → `canceled`, `DEACTIVATED` → `canceled`, `PAUSED` → `past_due`, `PENDING` → `active`.
+
+**Square webhook events**: `subscription.created`, `subscription.updated`, `invoice.payment_made`, `invoice.payment_failed`, `dispute.created` (auto-block user).
+
+**Database fields** (alongside legacy Stripe fields): `square_customer_id`, `square_subscription_id`, `square_donor_subscription_id` on users table. Migration `20260401000074`.
+
+**No Customer Portal**: Square has no equivalent of Stripe's self-service portal. Inkwell has an inline cancel UI (confirmation dialog → `POST /api/billing/cancel` → Square cancel API).
+
+**Local dev**: No `SQUARE_ACCESS_TOKEN` is set locally, so Square calls return configuration errors. The UI handles this gracefully.
 
 ### Docker builds
 - API Dockerfile at `apps/api/Dockerfile` — build context is **project root**, paths use `apps/api/` prefix
@@ -125,7 +135,7 @@ The Postage feature (reader support payments) requires these steps to go live:
 Inkwell can run on any server with Docker Compose. See `SELF_HOSTING.md` for full documentation.
 
 ### Self-Hosted Mode (`INKWELL_SELF_HOSTED=true`)
-- All Plus features unlocked for every user — no Stripe subscription required
+- All Plus features unlocked for every user — no Square/Stripe subscription required
 - `Inkwell.SelfHosted.enabled?/0` reads `Application.get_env(:inkwell, :self_hosted, false)`
 - `Inkwell.SelfHosted.effective_tier/1` returns `"plus"` when self-hosted, else user's actual tier
 - `InkwellWeb.Plugs.SelfHostedTier` plug runs after auth in both `:authenticated` and `:optional_auth` pipelines — overrides `conn.assigns.current_user.subscription_tier` to `"plus"` when self-hosted
@@ -398,40 +408,36 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - Proxy routes: `apps/web/src/app/api/push/vapid-key/route.ts` (GET), `apps/web/src/app/api/push/subscribe/route.ts` (POST), `apps/web/src/app/api/push/unsubscribe/route.ts` (POST)
 - **Config**: `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` Fly secrets on `inkwell-api`. Dev keys hardcoded in `dev.exs`. When VAPID not configured, `GET /api/push/vapid-key` returns `{enabled: false}` and UI hides toggle
 
-### Subscription / Billing (Stripe)
-- Plus tier at $5/mo via Stripe Checkout
-- `POST /api/billing/checkout` → creates Stripe Checkout session, returns URL
-- `POST /api/billing/portal` → creates Stripe Customer Portal session
-- `POST /api/billing/webhook` → handles Stripe webhook events (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed)
-- User model has: `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` ("free"/"plus"), `subscription_status`, `subscription_expires_at`
+### Subscription / Billing (Square — migrated from Stripe April 2026)
+- **Payment processor**: Square (bridge processor while LLC forms for Stripe return). See "Payment Processor: Square (Bridge)" section above for architecture details
+- Plus tier at $5/mo via Square Payment Links (hosted checkout)
+- `POST /api/billing/checkout` → creates Square Payment Link, returns URL for redirect
+- `POST /api/billing/cancel` → cancels Plus subscription via Square Subscriptions API (replaces Stripe Portal — Square has no self-service portal)
+- `POST /api/billing/cancel-donor` → cancels Ink Donor subscription
+- `POST /api/billing/donate` → creates one-time donation Payment Link ($3/$5/$10)
+- `POST /api/billing/webhook` → handles Square webhook events (subscription.created, subscription.updated, invoice.payment_made, dispute.created)
+- User model has: `square_customer_id`, `square_subscription_id`, `square_donor_subscription_id`, `subscription_tier` ("free"/"plus"), `subscription_status`, `subscription_expires_at` (legacy Stripe fields also retained: `stripe_customer_id`, `stripe_subscription_id`)
 - `subscription_tier` is exposed via `render_user/1` in auth controller → available in `SessionUser` on frontend
-- Frontend billing page: `apps/web/src/app/settings/billing/page.tsx`
+- Frontend billing page: `apps/web/src/app/settings/billing/page.tsx` — inline cancel UI with confirmation dialog (no portal redirect), one-time donation section ($3/$5/$10 pills)
 - Nav shows "✦ Plus" pill for non-Plus users (desktop); mobile menu shows "Upgrade to Plus"
-- **Postage (reader support payments)** — Plus-only feature; integrated via Stripe Connect Express. See "Writer Support / Postage" feature section
+- **Postage (reader support payments)** — **TEMPORARILY PAUSED**. Requires Stripe Connect for marketplace split payments. UI shows "temporarily unavailable" messages. Read-only endpoints (history, stats) still work. See "Postage & Writer Subscriptions (Temporarily Paused)" section above
 - **Ink Donor (voluntary donations)** — $1/$2/$3 per month recurring donation, separate from Plus. Grants "Ink Donor" badge on profile and feed cards. Users can be both Plus and Ink Donor simultaneously. Tagline: "Keep the ink flowing."
-  - `POST /api/billing/donor-checkout` — accepts `%{"amount_cents" => 100|200|300}`, creates Stripe Checkout session for the matching donor price
-  - Webhook handlers distinguish Plus vs Donor via `metadata["type"] == "ink_donor"` on checkout, or by checking price ID against configured donor prices for subscription/payment events
-  - User model has: `ink_donor_stripe_subscription_id`, `ink_donor_status` ("active"/"canceled"/"past_due"/nil), `ink_donor_amount_cents` (100/200/300/nil)
+  - `POST /api/billing/donor-checkout` — accepts `%{"amount_cents" => 100|200|300}`, creates Square Payment Link for the matching donor plan variation
+  - Webhook handlers distinguish Plus vs Donor by matching `subscription_plan_variation_id` against configured plan variation IDs
+  - User model has: `square_donor_subscription_id`, `ink_donor_status` ("active"/"canceled"/"past_due"/nil), `ink_donor_amount_cents` (100/200/300/nil) (legacy field `ink_donor_stripe_subscription_id` retained)
   - `ink_donor_status` and `ink_donor_amount_cents` exposed in auth session, user profile, billing status, feed/explore author maps
   - Account deletion cancels donor subscription alongside Plus
-  - Frontend: Ink Donor section on billing settings page (amount picker, checkout CTA, active donor management), "Ink Donor" badge on profile pages and feed cards, dedicated landing page section with ink-drop animation
+  - Frontend: Ink Donor section on billing settings page (amount picker, checkout CTA, active donor management, cancel with confirmation), one-time donation section ($3/$5/$10), "Ink Donor" badge on profile pages and feed cards, dedicated landing page section with ink-drop animation
   - No features unlocked — badge only
-- **Onboarding checkout** — `POST /api/billing/onboarding-checkout` creates Stripe Checkout sessions that redirect back to `/welcome?checkout=success&type={plus|donor}&step=5` instead of `/settings/billing`. Accepts `%{"type" => "plus"}` or `%{"type" => "donor", "amount_cents" => 100|200|300}`. Frontend proxy: `apps/web/src/app/api/billing/onboarding-checkout/route.ts`
-- Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
-- **Writer Subscription Plans** — Plus-only recurring subscriptions. Writers create a monthly plan ($1–$100), publish `:paid` privacy entries visible only to subscribers. Inkwell takes 8% via `application_fee_percent` on Stripe Connect destination charges. One active plan per writer (UI-enforced). Requires Plus + Stripe Connect onboarded.
-  - **Backend**: `Inkwell.WriterSubscriptions` context module — plan CRUD (create with Stripe Product+Price, archive, update name/desc), subscription management (Stripe Checkout, cancel via Stripe API, is_subscribed? query), webhook handlers (checkout.session.completed, subscription.updated/deleted), stats aggregation, account deletion hooks
-  - `apps/api/lib/inkwell/writer_subscriptions/writer_plan.ex` — WriterPlan Ecto schema (belongs_to :writer, status active/archived)
-  - `apps/api/lib/inkwell/writer_subscriptions/plan_subscription.ex` — PlanSubscription Ecto schema (subscriber_id, writer_id, stripe_subscription_id)
-  - `apps/api/lib/inkwell_web/controllers/writer_subscription_controller.ex` — 11 actions (get_writer_plan, get_my_plan, create/update/archive plan, checkout, cancel, subscriptions, subscribers, stats, check)
-  - 11 routes in `router.ex` (1 optional_auth + 10 authenticated)
-  - Entry visibility: `:paid` privacy enum value, feed includes paid entries from subscribed writers, explore includes paid entries with body stripped, entry show returns `is_paywalled` + `writer_plan` data for non-subscribers
-  - Webhook routing in `billing.ex`: `"writer_plan"` metadata type check in checkout, `get_subscription_by_stripe_id` routing in subscription events
-  - `:writer_plan_subscribe` notification type with dollar icon
-  - `has_writer_plan` in session (`render_user/1`, `SessionUser`)
-  - Slack notification on new subscription
+- **One-time donations** (NEW with Square) — $3/$5/$10 single payments via Square Payment Link. No subscription created. Available from billing settings page
+- **Onboarding checkout** — `POST /api/billing/onboarding-checkout` creates Square Payment Link that redirects back to `/welcome?checkout=success&type={plus|donor}&step=5` instead of `/settings/billing`. Accepts `%{"type" => "plus"}` or `%{"type" => "donor", "amount_cents" => 100|200|300}`. Frontend proxy: `apps/web/src/app/api/billing/onboarding-checkout/route.ts`
+- Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell/square.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
+- Frontend proxy routes: `apps/web/src/app/api/billing/` — `checkout/route.ts`, `cancel/route.ts`, `cancel-donor/route.ts`, `donor-checkout/route.ts`, `donate/route.ts`, `onboarding-checkout/route.ts`, `webhook/route.ts`, `status/route.ts`
+- **Writer Subscription Plans** — **TEMPORARILY PAUSED**. Requires Stripe Connect for marketplace split payments. Backend returns 503 "feature unavailable". Frontend shows paused message. Code intact for re-enablement when Stripe returns.
+  - **Backend**: `Inkwell.WriterSubscriptions` context module — plan CRUD, subscription management, webhook handlers, stats, account deletion hooks (all still in codebase, guarded by feature-unavailable checks in controller)
+  - `apps/api/lib/inkwell_web/controllers/writer_subscription_controller.ex` — `create_plan/2` and `create_checkout/2` return 503; read-only endpoints still work
+  - All DB tables, routes, and frontend components preserved for future re-enablement
   - Migrations: `20260309000055` (add `:paid` enum value), `20260309000056` (writer_plans + writer_plan_subscriptions tables)
-  - **Frontend**: editor shows "Paid subscribers only" privacy when Plus+Connect+Plan, `PaywallCard` component on entry detail (gradient overlay, subscribe CTA), `WriterSubscribeCard` profile sidebar widget, `/settings/subscriptions` writer dashboard (create/manage plan, stats, subscriber list), `/for-writers` marketing page, lock icon on feed cards for paid entries
-  - 10 proxy routes under `apps/web/src/app/api/writer-plans/`
 - **Free vs Plus tier feature gating**:
   - **Free tier**: all 8 themes, status message, 10 drafts, 5 filters, 100MB images, 6 basic stamps, classic layout, default font, 5 free avatar frames (none, classic, ink-ring, notebook, wax-seal), banner image, 500 newsletter subscribers, 2 newsletter sends/month, API read-only access (100 req/15min per key)
   - **Plus tier**: custom color overrides (3 pickers), all 8 fonts, all 4 layouts, background images, profile music, widget ordering, custom HTML/CSS, custom domain, First Class stamp, unlimited drafts/filters, 1GB images, Plus badge, 5 premium avatar frames (gilded, constellation, botanical, neon, postage), 4 avatar animations (float, glow, prismatic, shimmer), unlimited newsletter subscribers, 8 newsletter sends/month, API read+write access (300 read + 60 write req/15min per key)
@@ -481,11 +487,11 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Account Deletion
 - Self-serve account deletion from Settings → Profile page (Danger Zone section)
 - Confirmation modal requires typing username to confirm
-- Cancels Stripe subscription if active before deleting
+- Cancels active subscriptions (Square Plus + Donor, legacy Stripe) before deleting
 - DB cascading foreign keys delete all associated data (entries, stamps, relationships, notifications, auth tokens, top friends, votes)
 - Comments and feedback posts are preserved anonymously (`user_id` set to NULL via `nilify_all`)
 - Clears session cookie and redirects to home page after deletion
-- **Backend**: `Inkwell.Accounts.delete_account/1`, `Inkwell.Billing.cancel_subscription/1`, `DELETE /api/me` in UserController
+- **Backend**: `Inkwell.Accounts.delete_account/1`, `Inkwell.Billing.cancel_subscription/1` (handles both Square and legacy Stripe), `DELETE /api/me` in UserController
 - **Frontend**: `apps/web/src/app/settings/danger-zone.tsx` (client component), proxy route in `apps/web/src/app/api/me/route.ts`
 - **Migration**: `20260222000003` — allows NULL `user_id` on `feedback_posts` and `feedback_comments` for nilify cascade
 
@@ -715,26 +721,23 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
   - 11 proxy routes under `apps/web/src/app/api/newsletter/`
   - Settings layout: Newsletter tab added between Customize and Fediverse
 
-### Writer Support / Postage (Complete — 4 Sprints)
+### Writer Support / Postage (Sprints 1-2 Active, Sprints 3-5 Paused)
 User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondence/letter/stamp theme.
-- **Sprint 1: External Support Links** (all users) — writers add Ko-fi, BMC, Patreon, etc. links to profile
+**⚠️ Postage payment flow (Sprints 3-5) is TEMPORARILY PAUSED** — requires Stripe Connect for marketplace split payments. Stripe account closed due to fraud. External support links (Sprint 1) remain fully functional. Postage history and stats remain accessible as read-only. Will return when Stripe access is restored.
+- **Sprint 1: External Support Links** (all users, ACTIVE) — writers add Ko-fi, BMC, Patreon, etc. links to profile
   - `support_url` (max 500, HTTPS), `support_label` (max 50) in `free_fields`
   - Profile sidebar widget with smart service icon detection, entry footer CTA
   - Migration: `20260222000030`
-- **Sprint 2: Stripe Connect Onboarding** (Plus-only) — writers connect Express accounts to receive postage
-  - User fields: `stripe_connect_account_id`, `stripe_connect_enabled`, `stripe_connect_onboarded`
-  - Tipping context module (`tipping.ex`): account creation, onboarding links, dashboard links, disconnect
-  - TippingController: 5 Connect management endpoints
-  - Settings → Support page with connect/disconnect UI, status indicators
+- **Sprint 2: Stripe Connect Onboarding** (PAUSED — UI shows "temporarily unavailable")
+  - User fields: `stripe_connect_account_id`, `stripe_connect_enabled`, `stripe_connect_onboarded` (retained in DB)
+  - Tipping context module (`tipping.ex`): Connect endpoints return 503 "feature unavailable"
+  - Settings → Support page shows "Integrated Postage" as paused with historical stats preserved
   - Migration: `20260222000031`
-- **Sprint 3: Postage Payment Flow** — readers send postage to writers via Stripe Elements
-  - `tips` table (internal): sender, recipient, amount_cents, total_cents, stripe_payment_intent_id, anonymous, message, status
-  - Destination charges: `application_fee_amount` (8% commission), `transfer_data[destination]` to writer's Connect account
-  - Fee structure: reader pays postage + processing fee (2.9% + $0.30), writer receives postage - 8%, Inkwell gets 8%
-  - 3-step postage modal: amount selection → Stripe PaymentElement → success
-  - "Send postage" button on profiles and entry detail pages (only when writer has Connect enabled + viewer logged in)
-  - Webhook handling: `payment_intent.succeeded` / `payment_intent.payment_failed` update status
-  - NPM packages: `@stripe/stripe-js`, `@stripe/react-stripe-js`
+- **Sprint 3: Postage Payment Flow** (PAUSED — tip modal shows "temporarily unavailable")
+  - `tips` table (internal): retained with all data, read-only endpoints work
+  - `create_tip` and `confirm_tip` controller actions return 503
+  - Tip modal (`tip-modal.tsx`) rewritten to show unavailable message instead of Stripe Elements
+  - `@stripe/stripe-js` and `@stripe/react-stripe-js` NPM packages removed
   - Migration: `20260222000032`
 - **Sprint 4: Notifications & History** — postage notifications and dashboard
   - `:tip` notification type (internal) with heart icon, amount display, message preview ("sent you $5.00 in postage")
@@ -1477,7 +1480,7 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - **Layout uses `AppShell` with conditional sidebar** — `AppShell` in `layout.tsx` renders the fixed left sidebar (260px) for logged-in desktop users (≥1024px) and the top nav for mobile/logged-out. Content area uses `.app-content` class with `margin-left` offset. Sidebar hidden state is managed via `data-sidebar-hidden` body attribute + localStorage. New pages don't need special handling — they render inside the content area and `mx-auto` containers recenter naturally.
 - **Popups must use `FloatingPopup`** — `JournalPage` has `overflow-hidden` and `.journal-scroll` has `overflow-x: auto` (forces `overflow-y: auto`). Any absolutely-positioned dropdown/popup inside the feed must use the `FloatingPopup` portal component or it will be clipped.
 - **All client-side API calls must use same-origin proxy routes** — never call the Phoenix API directly from `"use client"` components. Create a Next.js route handler at `apps/web/src/app/api/...` that proxies to `SERVER_API`. This avoids CORS issues since `inkwell.social` and `api.inkwell.social` are different origins. Every existing feature follows this pattern.
-- **Stripe is in LIVE mode** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID` are all production (live) keys. Test-mode Stripe customer/subscription IDs from development won't work and must be cleared from the database if found.
+- **Square is in LIVE mode** — all `SQUARE_*` secrets are production credentials. Stripe account was closed (April 2026); legacy Stripe fields remain in DB but are unused. The `Inkwell.Square` module handles all payment operations; `billing.ex` delegates to it.
 
 ### Federation URL Invariants (CRITICAL)
 
@@ -1538,7 +1541,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260329000073_add_avatar_animation_to_users.exs`
+- Latest migration: `20260401000074_add_square_fields_to_users.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)

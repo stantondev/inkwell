@@ -80,7 +80,7 @@ if config_env() == :prod do
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
 
-  # Stripe billing (optional — disabled if STRIPE_SECRET_KEY not set)
+  # Stripe billing (disabled — account closed, kept for reference)
   config :inkwell, :stripe,
     secret_key: System.get_env("STRIPE_SECRET_KEY"),
     webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET"),
@@ -90,6 +90,17 @@ if config_env() == :prod do
     ink_donor_price_3: System.get_env("STRIPE_INK_DONOR_PRICE_3"),
     success_url: "#{frontend_url}/settings/billing?success=true",
     cancel_url: "#{frontend_url}/settings/billing?canceled=true"
+
+  # Square billing (bridge processor — replaces Stripe)
+  config :inkwell, :square,
+    access_token: System.get_env("SQUARE_ACCESS_TOKEN"),
+    application_id: System.get_env("SQUARE_APPLICATION_ID"),
+    location_id: System.get_env("SQUARE_LOCATION_ID"),
+    webhook_signature_key: System.get_env("SQUARE_WEBHOOK_SIGNATURE_KEY"),
+    plus_plan_variation_id: System.get_env("SQUARE_PLUS_PLAN_VARIATION_ID"),
+    donor_plan_variation_1: System.get_env("SQUARE_DONOR_PLAN_VARIATION_1"),
+    donor_plan_variation_2: System.get_env("SQUARE_DONOR_PLAN_VARIATION_2"),
+    donor_plan_variation_3: System.get_env("SQUARE_DONOR_PLAN_VARIATION_3")
 
   # Feedback email recipient
   config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "hello@inkwell.social"

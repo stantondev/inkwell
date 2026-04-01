@@ -337,6 +337,9 @@ defmodule InkwellWeb.Router do
     post "/billing/donor-checkout", BillingController, :donor_checkout
     post "/billing/onboarding-checkout", BillingController, :onboarding_checkout
     post "/billing/portal", BillingController, :portal
+    post "/billing/cancel", BillingController, :cancel
+    post "/billing/cancel-donor", BillingController, :cancel_donor
+    post "/billing/donate", BillingController, :donate
     get "/billing/status", BillingController, :status
 
     # Remote entry interactions (federated)

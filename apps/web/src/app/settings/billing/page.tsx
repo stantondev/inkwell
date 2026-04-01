@@ -10,6 +10,7 @@ interface BillingStatus {
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
   self_hosted?: boolean;
+  processor?: string;
 }
 
 function InkDropIcon({ size = 10 }: { size?: number }) {
@@ -27,13 +28,19 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [donorLoading, setDonorLoading] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelDonorLoading, setCancelDonorLoading] = useState(false);
+  const [donateLoading, setDonateLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedAmount, setSelectedAmount] = useState(200);
+  const [selectedDonation, setSelectedDonation] = useState(500);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCancelDonorConfirm, setShowCancelDonorConfirm] = useState(false);
 
-  const justSucceeded = searchParams.get("success") === "true";
+  const justSucceeded = searchParams.get("success") === "true" || searchParams.get("checkout") === "success";
   const justCanceled = searchParams.get("canceled") === "true";
   const justDonored = justSucceeded && searchParams.get("donor") === "true";
+  const justDonated = searchParams.get("donation") === "success";
 
   useEffect(() => {
     async function fetchStatus() {
@@ -92,26 +99,69 @@ export default function BillingPage() {
     }
   }
 
-  async function handlePortal() {
-    setPortalLoading(true);
+  async function handleCancel() {
+    setCancelLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const res = await fetch("/api/billing/cancel", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setShowCancelConfirm(false);
+        setStatus(prev => prev ? { ...prev, subscription_status: "canceled" } : prev);
+      } else {
+        setError(data.error || "Unable to cancel subscription");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  async function handleCancelDonor() {
+    setCancelDonorLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/billing/cancel-donor", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setShowCancelDonorConfirm(false);
+        setStatus(prev => prev ? { ...prev, ink_donor_status: "canceled" } : prev);
+      } else {
+        setError(data.error || "Unable to cancel donation");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setCancelDonorLoading(false);
+    }
+  }
+
+  async function handleDonate(amountCents: number) {
+    setDonateLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/billing/donate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount_cents: amountCents }),
+      });
       const data = await res.json();
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        setError(data.error || "Unable to open billing portal");
-        setPortalLoading(false);
+        setError(data.error || "Unable to start checkout");
+        setDonateLoading(false);
       }
     } catch {
       setError("Network error. Please try again.");
-      setPortalLoading(false);
+      setDonateLoading(false);
     }
   }
 
   const isPlus = status?.subscription_tier === "plus";
   const isPastDue = status?.subscription_status === "past_due";
+  const isCanceled = status?.subscription_status === "canceled";
   const isDonor = status?.ink_donor_status === "active";
   const isDonorPastDue = status?.ink_donor_status === "past_due";
 
@@ -152,8 +202,20 @@ export default function BillingPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Payment processor migration banner */}
+      {!isPlus && !isDonor && (
+        <div className="rounded-xl border p-4 text-sm"
+          style={{ borderColor: "var(--accent)", background: "var(--surface)" }}>
+          <span className="font-medium" style={{ color: "var(--accent)" }}>
+            New payment processor
+          </span>{" "}
+          — We&apos;ve switched to Square for payment processing. If you had an existing subscription,
+          please re-subscribe below to restore your benefits.
+        </div>
+      )}
+
       {/* Success/cancel banners */}
-      {justSucceeded && !justDonored && (
+      {justSucceeded && !justDonored && !justDonated && (
         <div className="rounded-xl border p-4 text-sm"
           style={{ borderColor: "var(--success)", background: "var(--surface)" }}>
           <span className="font-medium" style={{ color: "var(--success)" }}>
@@ -169,6 +231,15 @@ export default function BillingPage() {
             Thank you, Ink Donor!
           </span>{" "}
           Your donation is now active. Every drop helps keep Inkwell ad-free.
+        </div>
+      )}
+      {justDonated && (
+        <div className="rounded-xl border p-4 text-sm"
+          style={{ borderColor: "var(--ink-deep, #2d4a8a)", background: "var(--surface)" }}>
+          <span className="font-medium" style={{ color: "var(--ink-deep, #2d4a8a)" }}>
+            Thank you for your donation!
+          </span>{" "}
+          Your generosity helps keep Inkwell ad-free and community-owned.
         </div>
       )}
       {justCanceled && (
@@ -218,11 +289,34 @@ export default function BillingPage() {
                 })}
               </p>
             )}
-            <button onClick={handlePortal} disabled={portalLoading}
-              className="self-start rounded-full px-5 py-2 text-sm font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
-              {portalLoading ? "Opening..." : "Manage subscription"}
-            </button>
+            {isCanceled ? (
+              <p className="text-sm" style={{ color: "var(--muted)" }}>
+                Your subscription has been canceled. You&apos;ll retain Plus features until the end of your current billing period.
+              </p>
+            ) : !showCancelConfirm ? (
+              <button onClick={() => setShowCancelConfirm(true)}
+                className="self-start rounded-full px-5 py-2 text-sm font-medium border transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
+                Cancel subscription
+              </button>
+            ) : (
+              <div className="rounded-lg border p-4" style={{ borderColor: "var(--danger)", background: "var(--surface)" }}>
+                <p className="text-sm mb-3" style={{ color: "var(--foreground)" }}>
+                  Are you sure you want to cancel your Plus subscription? You&apos;ll lose access to Plus features at the end of your billing period.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleCancel} disabled={cancelLoading}
+                    className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
+                    style={{ background: "var(--danger)", color: "#fff" }}>
+                    {cancelLoading ? "Canceling..." : "Yes, cancel"}
+                  </button>
+                  <button onClick={() => setShowCancelConfirm(false)}
+                    className="text-sm" style={{ color: "var(--muted)" }}>
+                    Never mind
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -240,8 +334,6 @@ export default function BillingPage() {
                 "1 GB image storage (Free: 100 MB)",
                 "Unlimited drafts (Free: 10 max)",
                 "Unlimited pen pal filters (Free: 5 max)",
-                "Integrated Postage (reader support payments)",
-                "Paid subscription plans (earn from your writing)",
                 "Cross-post to linked Mastodon accounts",
                 "API read + write access, 300 req/15 min (Free: read-only, 100 req/15 min)",
                 "Custom colors, fonts & layouts",
@@ -295,11 +387,30 @@ export default function BillingPage() {
               You&apos;re donating <strong style={{ color: "var(--foreground)" }}>${((status?.ink_donor_amount_cents ?? 0) / 100).toFixed(0)}/month</strong> to
               help keep Inkwell running. Thank you for being an Ink Donor — every drop of ink helps.
             </p>
-            <button onClick={handlePortal} disabled={portalLoading}
-              className="self-start rounded-full px-5 py-2 text-sm font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
-              {portalLoading ? "Opening..." : "Manage donation"}
-            </button>
+            {!showCancelDonorConfirm ? (
+              <button onClick={() => setShowCancelDonorConfirm(true)}
+                className="self-start rounded-full px-5 py-2 text-sm font-medium border transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
+                Cancel donation
+              </button>
+            ) : (
+              <div className="rounded-lg border p-4" style={{ borderColor: "var(--danger)", background: "var(--surface)" }}>
+                <p className="text-sm mb-3" style={{ color: "var(--foreground)" }}>
+                  Are you sure you want to cancel your Ink Donor subscription?
+                </p>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleCancelDonor} disabled={cancelDonorLoading}
+                    className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
+                    style={{ background: "var(--danger)", color: "#fff" }}>
+                    {cancelDonorLoading ? "Canceling..." : "Yes, cancel"}
+                  </button>
+                  <button onClick={() => setShowCancelDonorConfirm(false)}
+                    className="text-sm" style={{ color: "var(--muted)" }}>
+                    Never mind
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -318,38 +429,105 @@ export default function BillingPage() {
               </p>
             )}
 
-            <div className="flex gap-3 items-center">
-              {[100, 200, 300].map((cents) => (
-                <button
-                  key={cents}
-                  onClick={() => setSelectedAmount(cents)}
-                  className="rounded-full px-5 py-2 text-sm font-medium border-2 transition-all"
-                  style={{
-                    borderColor: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "var(--border)",
-                    color: selectedAmount === cents ? "#fff" : "var(--ink-deep, #2d4a8a)",
-                    background: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "transparent",
-                  }}>
-                  ${cents / 100}/mo
-                </button>
-              ))}
+            {/* Monthly recurring */}
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>Monthly recurring</p>
+              <div className="flex gap-3 items-center mb-3">
+                {[100, 200, 300].map((cents) => (
+                  <button
+                    key={cents}
+                    onClick={() => setSelectedAmount(cents)}
+                    className="rounded-full px-5 py-2 text-sm font-medium border-2 transition-all"
+                    style={{
+                      borderColor: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "var(--border)",
+                      color: selectedAmount === cents ? "#fff" : "var(--ink-deep, #2d4a8a)",
+                      background: selectedAmount === cents ? "var(--ink-deep, #2d4a8a)" : "transparent",
+                    }}>
+                    ${cents / 100}/mo
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => handleDonorCheckout(selectedAmount)}
+                disabled={donorLoading}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff" }}>
+                <InkDropIcon size={10} />
+                {donorLoading ? "Redirecting..." : "Become an Ink Donor"}
+              </button>
             </div>
 
-            <button
-              onClick={() => handleDonorCheckout(selectedAmount)}
-              disabled={donorLoading}
-              className="self-start inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-              style={{ background: "var(--ink-deep, #2d4a8a)", color: "#fff" }}>
-              <InkDropIcon size={10} />
-              {donorLoading ? "Redirecting..." : "Become an Ink Donor"}
-            </button>
+            {/* One-time donation */}
+            <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>One-time donation</p>
+              <div className="flex gap-3 items-center mb-3">
+                {[300, 500, 1000].map((cents) => (
+                  <button
+                    key={cents}
+                    onClick={() => setSelectedDonation(cents)}
+                    className="rounded-full px-5 py-2 text-sm font-medium border-2 transition-all"
+                    style={{
+                      borderColor: selectedDonation === cents ? "var(--ink-deep, #2d4a8a)" : "var(--border)",
+                      color: selectedDonation === cents ? "#fff" : "var(--ink-deep, #2d4a8a)",
+                      background: selectedDonation === cents ? "var(--ink-deep, #2d4a8a)" : "transparent",
+                    }}>
+                    ${cents / 100}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => handleDonate(selectedDonation)}
+                disabled={donateLoading}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium border transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ borderColor: "var(--ink-deep, #2d4a8a)", color: "var(--ink-deep, #2d4a8a)" }}>
+                <InkDropIcon size={10} />
+                {donateLoading ? "Redirecting..." : "Make a one-time donation"}
+              </button>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Postage temporarily unavailable */}
+      <div className="rounded-xl border p-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="flex items-center gap-3 mb-2">
+          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Postage
+          </h2>
+          <span className="rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{ background: "var(--surface-hover, #333)", color: "var(--muted)" }}>
+            Paused
+          </span>
+        </div>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Postage (reader support payments) is temporarily unavailable while we switch payment processors.
+          It will return soon. Your postage history is preserved.
+        </p>
+      </div>
+
+      {/* Writer Plans temporarily unavailable */}
+      <div className="rounded-xl border p-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="flex items-center gap-3 mb-2">
+          <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Writer Subscription Plans
+          </h2>
+          <span className="rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{ background: "var(--surface-hover, #333)", color: "var(--muted)" }}>
+            Paused
+          </span>
+        </div>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Writer subscription plans are temporarily unavailable while we switch payment processors.
+          They will return soon. Existing paid content remains accessible.
+        </p>
+      </div>
+
       {/* Info footer */}
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Payments are securely processed by Stripe. You can cancel anytime from
-        the billing portal. Inkwell never sees your card details.
+        Payments are securely processed by Square. You can cancel anytime from this page.
+        Inkwell never sees your card details.
       </p>
     </div>
   );

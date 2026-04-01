@@ -1,0 +1,370 @@
+defmodule Inkwell.Square do
+  @moduledoc """
+  Square API client for Inkwell billing.
+  Uses Payment Links for checkout (hosted pages, like Stripe Checkout).
+  Uses Subscriptions API for cancellation.
+  """
+
+  alias Inkwell.Accounts.User
+
+  require Logger
+
+  @square_api "https://connect.squareup.com/v2"
+
+  # ── Payment Links (Checkout) ──────────────────────────────────────────
+
+  @doc "Create a Square Payment Link for Plus $5/mo subscription."
+  def create_plus_payment_link(%User{} = user) do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    plan_variation_id = config[:plus_plan_variation_id]
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body = %{
+        "idempotency_key" => "plus-#{user.id}-#{System.system_time(:second)}",
+        "quick_pay" => %{
+          "name" => "Inkwell Plus",
+          "price_money" => %{"amount" => 500, "currency" => "USD"},
+          "location_id" => config[:location_id]
+        },
+        "checkout_options" => %{
+          "subscription_plan_variation_id" => plan_variation_id,
+          "redirect_url" => "#{frontend_url}/settings/billing?checkout=success",
+          "accepted_payment_methods" => %{
+            "apple_pay" => true,
+            "google_pay" => true
+          }
+        },
+        "pre_populated_data" => %{
+          "buyer_email" => user.email
+        }
+      }
+
+      case square_post("/online-checkout/payment-links", body) do
+        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
+        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc "Create a Square Payment Link for Ink Donor subscription ($1/$2/$3/mo)."
+  def create_donor_payment_link(%User{} = user, amount_cents) when amount_cents in [100, 200, 300] do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    plan_variation_id = case amount_cents do
+      100 -> config[:donor_plan_variation_1]
+      200 -> config[:donor_plan_variation_2]
+      300 -> config[:donor_plan_variation_3]
+    end
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body = %{
+        "idempotency_key" => "donor-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "quick_pay" => %{
+          "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
+          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
+          "location_id" => config[:location_id]
+        },
+        "checkout_options" => %{
+          "subscription_plan_variation_id" => plan_variation_id,
+          "redirect_url" => "#{frontend_url}/settings/billing?checkout=success&donor=true",
+          "accepted_payment_methods" => %{
+            "apple_pay" => true,
+            "google_pay" => true
+          }
+        },
+        "pre_populated_data" => %{
+          "buyer_email" => user.email
+        }
+      }
+
+      case square_post("/online-checkout/payment-links", body) do
+        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
+        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc "Create a Square Payment Link for one-time donation."
+  def create_donation_payment_link(%User{} = user, amount_cents) when is_integer(amount_cents) and amount_cents >= 100 do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    if is_nil(config[:location_id]) or config[:location_id] == "" do
+      {:error, :square_not_configured}
+    else
+      body = %{
+        "idempotency_key" => "donation-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "quick_pay" => %{
+          "name" => "Ink Donor — One-time",
+          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
+          "location_id" => config[:location_id]
+        },
+        "checkout_options" => %{
+          "redirect_url" => "#{frontend_url}/settings/billing?donation=success",
+          "accepted_payment_methods" => %{
+            "apple_pay" => true,
+            "google_pay" => true
+          }
+        },
+        "pre_populated_data" => %{
+          "buyer_email" => user.email
+        }
+      }
+
+      case square_post("/online-checkout/payment-links", body) do
+        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
+        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc "Create a Square Payment Link for Plus during onboarding (redirects to /welcome)."
+  def create_onboarding_payment_link(%User{} = user, "plus") do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    plan_variation_id = config[:plus_plan_variation_id]
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body = %{
+        "idempotency_key" => "onboard-plus-#{user.id}-#{System.system_time(:second)}",
+        "quick_pay" => %{
+          "name" => "Inkwell Plus",
+          "price_money" => %{"amount" => 500, "currency" => "USD"},
+          "location_id" => config[:location_id]
+        },
+        "checkout_options" => %{
+          "subscription_plan_variation_id" => plan_variation_id,
+          "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
+          "accepted_payment_methods" => %{
+            "apple_pay" => true,
+            "google_pay" => true
+          }
+        },
+        "pre_populated_data" => %{
+          "buyer_email" => user.email
+        }
+      }
+
+      case square_post("/online-checkout/payment-links", body) do
+        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
+        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  @doc "Create a Square Payment Link for Ink Donor during onboarding."
+  def create_onboarding_payment_link(%User{} = user, "donor", amount_cents) when amount_cents in [100, 200, 300] do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    plan_variation_id = case amount_cents do
+      100 -> config[:donor_plan_variation_1]
+      200 -> config[:donor_plan_variation_2]
+      300 -> config[:donor_plan_variation_3]
+    end
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body = %{
+        "idempotency_key" => "onboard-donor-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "quick_pay" => %{
+          "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
+          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
+          "location_id" => config[:location_id]
+        },
+        "checkout_options" => %{
+          "subscription_plan_variation_id" => plan_variation_id,
+          "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
+          "accepted_payment_methods" => %{
+            "apple_pay" => true,
+            "google_pay" => true
+          }
+        },
+        "pre_populated_data" => %{
+          "buyer_email" => user.email
+        }
+      }
+
+      case square_post("/online-checkout/payment-links", body) do
+        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
+        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  # ── Subscription Management ───────────────────────────────────────────
+
+  @doc "Cancel a Square subscription (at end of billing cycle)."
+  def cancel_subscription(nil), do: :ok
+  def cancel_subscription(subscription_id) do
+    body = %{
+      "action" => "CANCEL"
+    }
+
+    case square_post("/subscriptions/#{subscription_id}/actions/cancel", body) do
+      {:ok, _} ->
+        Logger.info("Canceled Square subscription #{subscription_id}")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to cancel Square subscription #{subscription_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @doc "Get a Square subscription's status."
+  def get_subscription(nil), do: {:error, :no_subscription}
+  def get_subscription(subscription_id) do
+    case square_get("/subscriptions/#{subscription_id}") do
+      {:ok, %{"subscription" => sub}} -> {:ok, sub}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # ── Webhook Verification ──────────────────────────────────────────────
+
+  @doc """
+  Verify a Square webhook signature.
+  Square signs: HMAC-SHA256(signature_key, notification_url + raw_body)
+  """
+  def verify_webhook_signature(raw_body, signature_header, notification_url) do
+    signature_key = square_config()[:webhook_signature_key]
+
+    if is_nil(signature_key) or signature_key == "" do
+      if Application.get_env(:inkwell, :env) == :prod do
+        Logger.error("SQUARE_WEBHOOK_SIGNATURE_KEY not set in production — rejecting webhook")
+        {:error, :webhook_secret_not_configured}
+      else
+        Logger.warning("SQUARE_WEBHOOK_SIGNATURE_KEY not set — accepting webhook without verification (dev only)")
+        :ok
+      end
+    else
+      combined = notification_url <> raw_body
+      expected = :crypto.mac(:hmac, :sha256, signature_key, combined) |> Base.encode64()
+
+      if Plug.Crypto.secure_compare(expected, signature_header) do
+        :ok
+      else
+        {:error, :invalid_signature}
+      end
+    end
+  end
+
+  # ── Square Status Mapping ─────────────────────────────────────────────
+
+  @doc "Map Square subscription status to Inkwell subscription_status."
+  def map_subscription_status(square_status) do
+    case square_status do
+      "ACTIVE" -> "active"
+      "CANCELED" -> "canceled"
+      "DEACTIVATED" -> "canceled"
+      "PAUSED" -> "past_due"
+      "PENDING" -> "active"
+      _ -> "none"
+    end
+  end
+
+  # ── Private: HTTP helpers ─────────────────────────────────────────────
+
+  defp square_post(path, body) do
+    access_token = square_config()[:access_token]
+
+    if is_nil(access_token) or access_token == "" do
+      Logger.warning("SQUARE_ACCESS_TOKEN not set — cannot make Square API call to #{path}")
+      {:error, :square_not_configured}
+    else
+      url = ~c"#{@square_api}#{path}"
+      json_body = Jason.encode!(body)
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{access_token}"},
+        {~c"content-type", ~c"application/json"},
+        {~c"square-version", ~c"2024-12-18"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :post,
+             {url, headers, ~c"application/json", json_body},
+             [ssl: Inkwell.SSL.httpc_opts()],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
+          case Jason.decode(to_string(resp_body)) do
+            {:ok, data} -> {:ok, data}
+            error -> {:error, {:parse_error, error}}
+          end
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          Logger.error("Square API error #{status} on #{path}: #{to_string(resp_body)}")
+          {:error, {:square_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          Logger.error("Square HTTP error on #{path}: #{inspect(reason)}")
+          {:error, :http_error}
+      end
+    end
+  end
+
+  defp square_get(path) do
+    access_token = square_config()[:access_token]
+
+    if is_nil(access_token) or access_token == "" do
+      Logger.warning("SQUARE_ACCESS_TOKEN not set — cannot make Square API call to #{path}")
+      {:error, :square_not_configured}
+    else
+      url = ~c"#{@square_api}#{path}"
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{access_token}"},
+        {~c"square-version", ~c"2024-12-18"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      case :httpc.request(
+             :get,
+             {url, headers},
+             [ssl: Inkwell.SSL.httpc_opts()],
+             []
+           ) do
+        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
+          case Jason.decode(to_string(resp_body)) do
+            {:ok, data} -> {:ok, data}
+            error -> {:error, {:parse_error, error}}
+          end
+
+        {:ok, {{_, status, _}, _headers, resp_body}} ->
+          Logger.error("Square API error #{status} on GET #{path}: #{to_string(resp_body)}")
+          {:error, {:square_error, status, to_string(resp_body)}}
+
+        {:error, reason} ->
+          Logger.error("Square HTTP error on GET #{path}: #{inspect(reason)}")
+          {:error, :http_error}
+      end
+    end
+  end
+
+  defp square_config do
+    Application.get_env(:inkwell, :square, [])
+  end
+end

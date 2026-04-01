@@ -7,34 +7,11 @@ defmodule InkwellWeb.TippingController do
 
   require Logger
 
-  # POST /api/tipping/connect — create Express account + return onboarding URL
+  @postage_unavailable_message "Postage is temporarily unavailable while we switch payment processors. It will return soon."
+
+  # POST /api/tipping/connect — temporarily disabled (requires Stripe Connect)
   def connect(conn, _params) do
-    user = conn.assigns.current_user
-
-    # Plus-only feature
-    if (user.subscription_tier || "free") != "plus" do
-      conn
-      |> put_status(:forbidden)
-      |> json(%{error: "Integrated tips require an Inkwell Plus subscription"})
-    else
-      with {:ok, _account_id} <- Tipping.create_connect_account(user),
-           # Reload user to get updated fields
-           user <- Inkwell.Repo.get!(Inkwell.Accounts.User, user.id),
-           {:ok, url} <- Tipping.create_onboarding_link(user) do
-        json(conn, %{url: url})
-      else
-        {:error, :stripe_not_configured} ->
-          conn
-          |> put_status(:service_unavailable)
-          |> json(%{error: "Stripe is not configured. Please try again later."})
-
-        {:error, reason} ->
-          Logger.error("Connect account creation failed: #{inspect(reason)}")
-          conn
-          |> put_status(:internal_server_error)
-          |> json(%{error: "Unable to set up tipping. Please try again."})
-      end
-    end
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
   # GET /api/tipping/connect/status — check onboarding status
@@ -61,133 +38,31 @@ defmodule InkwellWeb.TippingController do
     end
   end
 
-  # POST /api/tipping/connect/dashboard — return Express Dashboard login link
+  # POST /api/tipping/connect/dashboard — temporarily disabled
   def dashboard(conn, _params) do
-    user = conn.assigns.current_user
-
-    case Tipping.create_login_link(user) do
-      {:ok, url} ->
-        json(conn, %{url: url})
-
-      {:error, :no_connect_account} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{error: "No connected Stripe account found. Set up tipping first."})
-
-      {:error, :stripe_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Stripe is not configured."})
-
-      {:error, reason} ->
-        Logger.error("Dashboard link creation failed: #{inspect(reason)}")
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to open dashboard. Please try again."})
-    end
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
-  # POST /api/tipping/connect/disconnect — disable tips, deauthorize account
+  # POST /api/tipping/connect/disconnect — temporarily disabled
   def disconnect(conn, _params) do
-    user = conn.assigns.current_user
-
-    case Tipping.disconnect_account(user) do
-      {:ok, _user} ->
-        json(conn, %{ok: true})
-
-      {:error, reason} ->
-        Logger.error("Disconnect failed: #{inspect(reason)}")
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to disconnect. Please try again."})
-    end
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
-  # POST /api/tipping/connect/refresh — force refresh onboarding link (when returning from expired link)
+  # POST /api/tipping/connect/refresh — temporarily disabled
   def refresh(conn, _params) do
-    user = conn.assigns.current_user
-
-    case Tipping.create_onboarding_link(user) do
-      {:ok, url} ->
-        json(conn, %{url: url})
-
-      {:error, :no_connect_account} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{error: "No connected Stripe account found."})
-
-      {:error, :stripe_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Stripe is not configured."})
-
-      {:error, reason} ->
-        Logger.error("Refresh onboarding link failed: #{inspect(reason)}")
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to create onboarding link. Please try again."})
-    end
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
   # ── Tip Payment Endpoints ──────────────────────────────────────────
 
-  # POST /api/tips — create a tip (returns client_secret for Stripe Elements)
-  def create_tip(conn, %{"recipient_id" => recipient_id} = params) do
-    sender = conn.assigns.current_user
-    case Repo.get(User, recipient_id) do
-      nil ->
-        conn |> put_status(:not_found) |> json(%{error: "Writer not found."})
-
-      recipient ->
-        case Tipping.create_tip(sender, recipient, params) do
-          {:ok, result} ->
-            json(conn, %{data: result})
-
-          {:error, :blocked} ->
-            conn |> put_status(:forbidden) |> json(%{error: "Cannot send postage to this user."})
-
-          {:error, :tips_not_enabled} ->
-            conn |> put_status(:bad_request) |> json(%{error: "This writer has not enabled tips."})
-
-          {:error, :no_connect_account} ->
-            conn |> put_status(:bad_request) |> json(%{error: "This writer has not set up tipping."})
-
-          {:error, :cannot_tip_self} ->
-            conn |> put_status(:unprocessable_entity) |> json(%{error: "You cannot tip yourself."})
-
-          {:error, :invalid_amount} ->
-            conn |> put_status(:unprocessable_entity) |> json(%{error: "Tip amount must be between $1 and $100."})
-
-          {:error, :stripe_not_configured} ->
-            conn |> put_status(:service_unavailable) |> json(%{error: "Payment processing is unavailable."})
-
-          {:error, reason} ->
-            Logger.error("Tip creation failed: #{inspect(reason)}")
-            conn |> put_status(:internal_server_error) |> json(%{error: "Unable to process tip. Please try again."})
-        end
-    end
-  end
-
+  # POST /api/tips — temporarily disabled (requires Stripe Connect)
   def create_tip(conn, _params) do
-    conn |> put_status(:unprocessable_entity) |> json(%{error: "recipient_id is required."})
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
-  # POST /api/tips/:id/confirm — mark tip as succeeded after frontend payment confirmation
-  def confirm_tip(conn, %{"id" => tip_id}) do
-    case Tipping.confirm_tip(tip_id) do
-      {:ok, _tip} ->
-        json(conn, %{ok: true})
-
-      {:error, :not_found} ->
-        conn |> put_status(:not_found) |> json(%{error: "Tip not found."})
-
-      {:error, {:already_processed, _}} ->
-        json(conn, %{ok: true})
-
-      {:error, reason} ->
-        Logger.error("Tip confirmation failed: #{inspect(reason)}")
-        conn |> put_status(:internal_server_error) |> json(%{error: "Unable to confirm tip."})
-    end
+  # POST /api/tips/:id/confirm — temporarily disabled (requires Stripe Connect)
+  def confirm_tip(conn, _params) do
+    conn |> put_status(:service_unavailable) |> json(%{error: @postage_unavailable_message})
   end
 
   # GET /api/tips/received — writer's received tips (paginated)

@@ -165,7 +165,7 @@ export default async function LandingPage() {
                   "Full newsletter (unlimited subscribers, 8 sends/mo, scheduling)",
                   "Custom colors, fonts, layouts, backgrounds & music",
                   "Custom HTML, CSS & domain (your-site.com)",
-                  "Postage payments & paid subscription plans",
+                  "Premium avatar frames & animations",
                   "Cross-post to Mastodon & Post by Email",
                   "Read + write API access (300 req/15 min)",
                   "Plus badge on your profile",
@@ -234,6 +234,11 @@ export default async function LandingPage() {
             </svg>
             Become an Ink Donor
           </Link>
+
+          <p className="landing-donor-desc" style={{ marginTop: "2rem", fontSize: "0.95rem" }}>
+            Prefer a one-time contribution? You can also make a single donation of $3, $5, or $10
+            from your <Link href="/settings/billing" style={{ color: "var(--accent)", textDecoration: "underline" }}>billing settings</Link>.
+          </p>
 
           <p className="landing-donor-footnote">
             Every drop of ink helps. Cancel anytime.
