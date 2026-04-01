@@ -225,16 +225,23 @@ defmodule InkwellWeb.AuthController do
 
   # Detects users who had active Stripe subscriptions (Plus or Donor)
   # but haven't re-subscribed on Square after the processor migration.
+  # Returns false if user dismissed the banner via settings.
   defp needs_resubscribe?(user) do
-    had_stripe =
-      not is_nil(user.stripe_subscription_id) or
-      not is_nil(user.ink_donor_stripe_subscription_id)
+    dismissed = get_in(user.settings || %{}, ["resubscribe_dismissed"]) == true
 
-    has_square =
-      not is_nil(user.square_subscription_id) or
-      not is_nil(user.square_donor_subscription_id)
+    if dismissed do
+      false
+    else
+      had_stripe =
+        not is_nil(user.stripe_subscription_id) or
+        not is_nil(user.ink_donor_stripe_subscription_id)
 
-    had_stripe and not has_square
+      has_square =
+        not is_nil(user.square_subscription_id) or
+        not is_nil(user.square_donor_subscription_id)
+
+      had_stripe and not has_square
+    end
   end
 
   defp derive_username(email) do

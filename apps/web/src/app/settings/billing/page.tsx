@@ -14,31 +14,6 @@ interface BillingStatus {
   needs_resubscribe?: boolean;
 }
 
-function InkDropIcon({ size = 10 }: { size?: number }) {
-  const h = Math.round(size * 1.2);
-  return (
-    <svg width={size} height={h} viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
-      <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-    </svg>
-  );
-}
-
-function OrnamentDivider() {
-  return (
-    <div className="billing-ornament" aria-hidden="true">
-      · · ·
-    </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="2.5 7 5.5 10 11.5 4" />
-    </svg>
-  );
-}
-
 export default function BillingPage() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<BillingStatus | null>(null);
@@ -193,18 +168,26 @@ export default function BillingPage() {
     );
   }
 
-  // Self-hosted mode
   if (status?.self_hosted) {
     return (
-      <div className="billing-page">
-        <div className="billing-card">
-          <div className="billing-card-header">
-            <h2 className="billing-heading">Self-Hosted Instance</h2>
-            <span className="billing-badge billing-badge--plus">Plus</span>
+      <div>
+        <div
+          className="rounded-xl border p-5"
+          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+              Self-Hosted Instance
+            </h3>
+            <span
+              className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: "var(--accent)", color: "white" }}
+            >
+              Plus
+            </span>
           </div>
-          <p className="billing-text-muted">
-            All Plus features are included with your self-hosted instance.
-            No subscription required.
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            All Plus features are included with your self-hosted instance. No subscription required.
           </p>
         </div>
       </div>
@@ -217,61 +200,112 @@ export default function BillingPage() {
   const donationValid = donationAmount >= 100 && donationAmount <= 50000;
 
   return (
-    <div className="billing-page">
+    <div>
       {/* Banners */}
       {status?.needs_resubscribe && (
-        <div className="billing-banner billing-banner--accent">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm relative"
+          style={{ background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)" }}
+        >
           <strong>Restore your subscription</strong> — We&apos;ve switched payment processors.
           Your previous subscription is no longer active. Re-subscribe below to restore your benefits.
+          <button
+            onClick={async () => {
+              setStatus(prev => prev ? { ...prev, needs_resubscribe: false } : prev);
+              try {
+                await fetch("/api/me", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ settings: { resubscribe_dismissed: true } }),
+                });
+              } catch {}
+            }}
+            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-50 hover:opacity-100 transition-opacity"
+            style={{ color: "var(--foreground)" }}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {justSucceeded && !justDonored && !justDonated && (
-        <div className="billing-banner billing-banner--success">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--success, #22c55e) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent)" }}
+        >
           <strong>Welcome to Inkwell Plus!</strong> Your subscription is now active. Thank you for supporting Inkwell.
         </div>
       )}
       {justDonored && (
-        <div className="billing-banner billing-banner--ink">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)" }}
+        >
           <strong>Thank you, Ink Donor!</strong> Your donation is now active. Every drop helps keep Inkwell ad-free.
         </div>
       )}
       {justDonated && (
-        <div className="billing-banner billing-banner--ink">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)" }}
+        >
           <strong>Thank you for your donation!</strong> Your generosity helps keep Inkwell ad-free and community-owned.
         </div>
       )}
       {justCanceled && (
-        <div className="billing-banner billing-banner--muted">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--muted) 12%, transparent)", border: "1px solid var(--border)" }}
+        >
           Checkout was canceled. No charges were made.
         </div>
       )}
       {isPastDue && (
-        <div className="billing-banner billing-banner--danger">
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent)" }}
+        >
           <strong>Payment issue</strong> — Your last payment failed. Please update your payment method to keep your Plus benefits.
         </div>
       )}
 
       {error && (
-        <div className="billing-banner billing-banner--danger">{error}</div>
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent)" }}
+        >
+          {error}
+        </div>
       )}
 
-      {/* ═══ Your Plan ═══ */}
-      <div className="billing-card">
-        <div className="billing-card-header">
-          <h2 className="billing-heading">Your Plan</h2>
-          <span className={`billing-badge ${isPlus ? "billing-badge--plus" : "billing-badge--free"}`}>
+      {/* Your Plan */}
+      <div
+        className="rounded-xl border p-5"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Your Plan
+          </h3>
+          <span
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+            style={isPlus
+              ? { background: "var(--accent)", color: "white" }
+              : { background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }
+            }
+          >
             {isPlus ? "✦ Plus" : "Free"}
           </span>
         </div>
 
         {isPlus ? (
-          <div className="billing-card-body">
-            <p className="billing-text-muted">
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
               You&apos;re an Inkwell Plus member. Thank you for supporting the platform!
             </p>
             {status?.subscription_expires_at && (
-              <p className="billing-text-detail">
+              <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
                 Current period ends:{" "}
                 {new Date(status.subscription_expires_at).toLocaleDateString("en-US", {
                   year: "numeric", month: "long", day: "numeric",
@@ -279,23 +313,39 @@ export default function BillingPage() {
               </p>
             )}
             {isCanceled ? (
-              <p className="billing-text-muted">
-                Your subscription has been canceled. You&apos;ll retain Plus features until the end of your current billing period.
+              <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+                Your subscription has been canceled. You&apos;ll retain Plus features until the end of your billing period.
               </p>
             ) : !showCancelConfirm ? (
-              <button onClick={() => setShowCancelConfirm(true)} className="billing-btn billing-btn--outline">
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="mt-3 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }}
+              >
                 Cancel subscription
               </button>
             ) : (
-              <div className="billing-confirm-box">
-                <p className="billing-text-sm">
+              <div
+                className="mt-3 rounded-lg p-3"
+                style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 20%, transparent)" }}
+              >
+                <p className="text-xs mb-2" style={{ color: "var(--foreground)" }}>
                   Are you sure? You&apos;ll lose access to Plus features at the end of your billing period.
                 </p>
-                <div className="billing-confirm-actions">
-                  <button onClick={handleCancel} disabled={cancelLoading} className="billing-btn billing-btn--danger">
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelLoading}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "var(--danger, #ef4444)", color: "white", opacity: cancelLoading ? 0.6 : 1 }}
+                  >
                     {cancelLoading ? "Canceling..." : "Yes, cancel"}
                   </button>
-                  <button onClick={() => setShowCancelConfirm(false)} className="billing-btn-text">
+                  <button
+                    onClick={() => setShowCancelConfirm(false)}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "transparent", color: "var(--muted)" }}
+                  >
                     Never mind
                   </button>
                 </div>
@@ -303,12 +353,12 @@ export default function BillingPage() {
             )}
           </div>
         ) : (
-          <div className="billing-card-body">
-            <p className="billing-text-muted" style={{ marginBottom: "1rem" }}>
+          <div>
+            <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
               Upgrade to Inkwell Plus for <strong style={{ color: "var(--foreground)" }}>$5/month</strong> and
               unlock premium features while supporting an ad-free, algorithm-free platform.
             </p>
-            <ul className="billing-feature-list">
+            <ul className="space-y-1.5 mb-4">
               {[
                 "Custom colors, fonts, layouts & themes",
                 "Custom HTML & CSS theming",
@@ -324,56 +374,86 @@ export default function BillingPage() {
                 "Plus badge",
                 "Priority support",
               ].map((item) => (
-                <li key={item} className="billing-feature-item">
-                  <span className="billing-feature-check"><CheckIcon /></span>
+                <li key={item} className="flex items-start gap-2 text-sm" style={{ color: "var(--foreground)" }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                    <polyline points="2.5 7 5.5 10 11.5 4" />
+                  </svg>
                   {item}
                 </li>
               ))}
             </ul>
-            <button onClick={handleCheckout} disabled={checkoutLoading} className="billing-btn billing-btn--primary">
+            <button
+              onClick={handleCheckout}
+              disabled={checkoutLoading}
+              className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+              style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
+            >
               {checkoutLoading ? "Redirecting to checkout..." : "Upgrade to Plus — $5/mo"}
             </button>
           </div>
         )}
       </div>
 
-      <OrnamentDivider />
-
-      {/* ═══ Ink Donor ═══ */}
-      <div className="billing-card billing-card--ink">
-        <div className="billing-card-header">
-          <h2 className="billing-heading">
-            <InkDropIcon size={14} /> Ink Donor
-          </h2>
+      {/* Ink Donor */}
+      <div
+        className="rounded-xl border p-5 mt-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-base font-semibold flex items-center gap-1.5" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            <svg width="14" height="17" viewBox="0 0 10 12" fill="var(--accent)" aria-hidden="true">
+              <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+            </svg>
+            Ink Donor
+          </h3>
           {isDonor && (
-            <span className="billing-badge billing-badge--ink">
-              <InkDropIcon size={8} /> Active
+            <span
+              className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: "var(--accent)", color: "white" }}
+            >
+              Active
             </span>
           )}
         </div>
 
-        <p className="billing-tagline">Keep the ink flowing.</p>
+        <p className="text-xs mb-3" style={{ color: "var(--muted)", fontStyle: "italic" }}>
+          Keep the ink flowing.
+        </p>
 
         {isDonor ? (
-          <div className="billing-card-body">
-            <p className="billing-text-muted">
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
               You&apos;re donating <strong style={{ color: "var(--foreground)" }}>${((status?.ink_donor_amount_cents ?? 0) / 100).toFixed(0)}/month</strong> to
-              help keep Inkwell running. Every drop of ink helps.
+              help keep Inkwell running.
             </p>
             {!showCancelDonorConfirm ? (
-              <button onClick={() => setShowCancelDonorConfirm(true)} className="billing-btn billing-btn--outline">
+              <button
+                onClick={() => setShowCancelDonorConfirm(true)}
+                className="mt-3 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }}
+              >
                 Cancel donation
               </button>
             ) : (
-              <div className="billing-confirm-box">
-                <p className="billing-text-sm">
-                  Are you sure you want to cancel your Ink Donor subscription?
-                </p>
-                <div className="billing-confirm-actions">
-                  <button onClick={handleCancelDonor} disabled={cancelDonorLoading} className="billing-btn billing-btn--danger">
+              <div
+                className="mt-3 rounded-lg p-3"
+                style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 20%, transparent)" }}
+              >
+                <p className="text-xs mb-2">Are you sure you want to cancel your Ink Donor subscription?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancelDonor}
+                    disabled={cancelDonorLoading}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "var(--danger, #ef4444)", color: "white", opacity: cancelDonorLoading ? 0.6 : 1 }}
+                  >
                     {cancelDonorLoading ? "Canceling..." : "Yes, cancel"}
                   </button>
-                  <button onClick={() => setShowCancelDonorConfirm(false)} className="billing-btn-text">
+                  <button
+                    onClick={() => setShowCancelDonorConfirm(false)}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "transparent", color: "var(--muted)" }}
+                  >
                     Never mind
                   </button>
                 </div>
@@ -381,27 +461,34 @@ export default function BillingPage() {
             )}
           </div>
         ) : (
-          <div className="billing-card-body">
-            <p className="billing-text-muted">
+          <div>
+            <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
               A small voluntary donation to help sustain Inkwell. No features unlocked —
               just the satisfaction of keeping an ad-free platform alive, and an Ink Donor badge on your profile.
             </p>
 
             {isDonorPastDue && (
-              <p className="billing-text-danger">
+              <p className="text-xs mb-2" style={{ color: "var(--danger, #ef4444)" }}>
                 Your last donation payment failed. You can start a new donation below.
               </p>
             )}
 
             {/* Monthly recurring */}
-            <div className="billing-amount-section">
-              <p className="billing-section-label">Monthly recurring</p>
-              <div className="billing-pill-row">
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem", marginTop: "0.75rem" }}>
+              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Monthly recurring
+              </p>
+              <div className="flex gap-2 mb-3">
                 {[100, 200, 300].map((cents) => (
                   <button
                     key={cents}
                     onClick={() => setSelectedAmount(cents)}
-                    className={`billing-pill ${selectedAmount === cents ? "billing-pill--active" : ""}`}>
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={selectedAmount === cents
+                      ? { background: "var(--accent)", color: "white" }
+                      : { background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }
+                    }
+                  >
                     ${cents / 100}/mo
                   </button>
                 ))}
@@ -409,26 +496,40 @@ export default function BillingPage() {
               <button
                 onClick={() => handleDonorCheckout(selectedAmount)}
                 disabled={donorLoading}
-                className="billing-btn billing-btn--ink">
-                <InkDropIcon size={10} />
+                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                style={{ background: "var(--accent)", color: "white", opacity: donorLoading ? 0.6 : 1 }}
+              >
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+                  <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
+                </svg>
                 {donorLoading ? "Redirecting..." : "Become an Ink Donor"}
               </button>
             </div>
 
             {/* One-time donation */}
-            <div className="billing-amount-section billing-amount-section--bordered">
-              <p className="billing-section-label">One-time donation</p>
-              <div className="billing-pill-row">
+            <div style={{ borderTop: "1px dashed var(--border)", paddingTop: "0.75rem", marginTop: "0.75rem" }}>
+              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                One-time donation
+              </p>
+              <div className="flex gap-2 flex-wrap mb-3">
                 {[300, 500, 1000].map((cents) => (
                   <button
                     key={cents}
                     onClick={() => { setSelectedDonation(cents); setCustomDonation(""); }}
-                    className={`billing-pill ${selectedDonation === cents && !customDonation ? "billing-pill--active" : ""}`}>
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={selectedDonation === cents && !customDonation
+                      ? { background: "var(--accent)", color: "white" }
+                      : { background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }
+                    }
+                  >
                     ${cents / 100}
                   </button>
                 ))}
-                <div className="billing-custom-amount">
-                  <span className="billing-custom-dollar">$</span>
+                <div
+                  className="flex items-center rounded-full overflow-hidden"
+                  style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
+                >
+                  <span className="pl-3 text-sm" style={{ color: "var(--muted)" }}>$</span>
                   <input
                     type="number"
                     min="1"
@@ -437,19 +538,26 @@ export default function BillingPage() {
                     placeholder="Custom"
                     value={customDonation}
                     onChange={(e) => setCustomDonation(e.target.value)}
-                    className="billing-custom-input"
+                    className="bg-transparent outline-none text-sm py-1.5 pr-3 pl-1 w-20"
+                    style={{ color: "var(--foreground)" }}
                   />
                 </div>
               </div>
               <button
                 onClick={() => handleDonate(donationAmount)}
                 disabled={donateLoading || !donationValid}
-                className="billing-btn billing-btn--ink-outline">
-                <InkDropIcon size={10} />
+                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                style={{
+                  background: "transparent",
+                  color: "var(--accent)",
+                  border: "1px solid var(--accent)",
+                  opacity: (donateLoading || !donationValid) ? 0.5 : 1,
+                }}
+              >
                 {donateLoading ? "Redirecting..." : `Donate${donationValid ? ` $${(donationAmount / 100).toFixed(donationAmount % 100 === 0 ? 0 : 2)}` : ""}`}
               </button>
               {customDonation && !donationValid && (
-                <p className="billing-text-detail" style={{ marginTop: "0.5rem" }}>
+                <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
                   Donations can be between $1 and $500.
                 </p>
               )}
@@ -458,33 +566,51 @@ export default function BillingPage() {
         )}
       </div>
 
-      <OrnamentDivider />
-
-      {/* ═══ Paused Features ═══ */}
-      <div className="billing-card billing-card--muted">
-        <div className="billing-card-header">
-          <h2 className="billing-heading">Postage</h2>
-          <span className="billing-badge billing-badge--paused">Paused</span>
+      {/* Paused Features */}
+      <div
+        className="rounded-xl border p-5 mt-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)", opacity: 0.7 }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Postage
+          </h3>
+          <span
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+            style={{ background: "var(--surface-hover, var(--border))", color: "var(--muted)" }}
+          >
+            Paused
+          </span>
         </div>
-        <p className="billing-text-muted">
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
           Postage (reader support payments) is temporarily unavailable while we switch payment processors.
           It will return soon. Your postage history is preserved.
         </p>
       </div>
 
-      <div className="billing-card billing-card--muted">
-        <div className="billing-card-header">
-          <h2 className="billing-heading">Writer Subscription Plans</h2>
-          <span className="billing-badge billing-badge--paused">Paused</span>
+      <div
+        className="rounded-xl border p-5 mt-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)", opacity: 0.7 }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+            Writer Subscription Plans
+          </h3>
+          <span
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+            style={{ background: "var(--surface-hover, var(--border))", color: "var(--muted)" }}
+          >
+            Paused
+          </span>
         </div>
-        <p className="billing-text-muted">
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
           Writer subscription plans are temporarily unavailable while we switch payment processors.
           They will return soon. Existing paid content remains accessible.
         </p>
       </div>
 
       {/* Footer */}
-      <p className="billing-footer">
+      <p className="text-xs mt-6" style={{ color: "var(--muted)" }}>
         Payments are securely processed by Square. You can cancel anytime from this page.
         Inkwell never sees your card details.
       </p>

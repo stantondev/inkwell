@@ -246,13 +246,22 @@ defmodule InkwellWeb.BillingController do
   def status(conn, _params) do
     user = conn.assigns.current_user
 
-    had_stripe =
-      not is_nil(user.stripe_subscription_id) or
-      not is_nil(user.ink_donor_stripe_subscription_id)
+    dismissed = get_in(user.settings || %{}, ["resubscribe_dismissed"]) == true
 
-    has_square =
-      not is_nil(user.square_subscription_id) or
-      not is_nil(user.square_donor_subscription_id)
+    needs_resubscribe =
+      if dismissed do
+        false
+      else
+        had_stripe =
+          not is_nil(user.stripe_subscription_id) or
+          not is_nil(user.ink_donor_stripe_subscription_id)
+
+        has_square =
+          not is_nil(user.square_subscription_id) or
+          not is_nil(user.square_donor_subscription_id)
+
+        had_stripe and not has_square
+      end
 
     json(conn, %{
       data: %{
@@ -263,7 +272,7 @@ defmodule InkwellWeb.BillingController do
         ink_donor_amount_cents: user.ink_donor_amount_cents,
         self_hosted: Inkwell.SelfHosted.enabled?(),
         processor: "square",
-        needs_resubscribe: had_stripe and not has_square
+        needs_resubscribe: needs_resubscribe
       }
     })
   end
