@@ -104,9 +104,9 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     numeral: "V",
     title: "Billing & Developer",
     items: [
-      { href: "/settings/billing", label: "Subscription", icon: StarIcon },
+      { href: "/settings/billing", label: "Billing", icon: StarIcon },
       { href: "/settings/support", label: "Postage", icon: HeartIcon },
-      { href: "/settings/subscriptions", label: "Subscriptions", icon: DollarIcon },
+      { href: "/settings/subscriptions", label: "Writer Plans", icon: DollarIcon },
       { href: "/settings/api", label: "API Keys", icon: KeyIcon },
     ],
   },
