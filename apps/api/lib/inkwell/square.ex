@@ -24,7 +24,7 @@ defmodule Inkwell.Square do
       {:error, :square_not_configured}
     else
       body = %{
-        "idempotency_key" => "plus-#{user.id}-#{System.system_time(:second)}",
+        "idempotency_key" => "plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
         "quick_pay" => %{
           "name" => "Inkwell Plus",
           "price_money" => %{"amount" => 500, "currency" => "USD"},
@@ -66,7 +66,7 @@ defmodule Inkwell.Square do
       {:error, :square_not_configured}
     else
       body = %{
-        "idempotency_key" => "donor-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "idempotency_key" => "donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
         "quick_pay" => %{
           "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
           "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
@@ -102,7 +102,7 @@ defmodule Inkwell.Square do
       {:error, :square_not_configured}
     else
       body = %{
-        "idempotency_key" => "donation-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "idempotency_key" => "donation-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
         "quick_pay" => %{
           "name" => "Ink Donor — One-time",
           "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
@@ -139,7 +139,7 @@ defmodule Inkwell.Square do
       {:error, :square_not_configured}
     else
       body = %{
-        "idempotency_key" => "onboard-plus-#{user.id}-#{System.system_time(:second)}",
+        "idempotency_key" => "onboard-plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
         "quick_pay" => %{
           "name" => "Inkwell Plus",
           "price_money" => %{"amount" => 500, "currency" => "USD"},
@@ -181,7 +181,7 @@ defmodule Inkwell.Square do
       {:error, :square_not_configured}
     else
       body = %{
-        "idempotency_key" => "onboard-donor-#{user.id}-#{amount_cents}-#{System.system_time(:second)}",
+        "idempotency_key" => "onboard-donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
         "quick_pay" => %{
           "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
           "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
@@ -233,6 +233,15 @@ defmodule Inkwell.Square do
   def get_subscription(subscription_id) do
     case square_get("/subscriptions/#{subscription_id}") do
       {:ok, %{"subscription" => sub}} -> {:ok, sub}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Fetch a Square customer by ID (used for email fallback lookup)."
+  def get_customer(nil), do: {:error, :no_customer}
+  def get_customer(customer_id) do
+    case square_get("/customers/#{customer_id}") do
+      {:ok, %{"customer" => customer}} -> {:ok, customer}
       {:error, reason} -> {:error, reason}
     end
   end

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { PushPrompt } from "@/components/push-prompt";
+import { ResubscribeBanner } from "@/components/resubscribe-banner";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { FilterLink } from "@/components/filter-link";
@@ -471,6 +472,14 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
             <div className="feed-dispatch-rule" />
           </div>
+        </div>
+
+        {/* Re-subscribe banner for former Stripe subscribers */}
+        <div className="mx-auto max-w-7xl px-4">
+          <ResubscribeBanner
+            needsResubscribe={session.user.needs_resubscribe}
+            serverDismissed={!!session.user.settings?.resubscribe_banner_dismissed}
+          />
         </div>
 
         {/* Push notification prompt — shown once, dismissible */}

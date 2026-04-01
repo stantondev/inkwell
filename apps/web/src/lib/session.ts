@@ -30,6 +30,7 @@ export interface SessionUser {
   post_email_enabled?: boolean;
   post_email_address?: string | null;
   self_hosted?: boolean;
+  needs_resubscribe?: boolean;
   settings?: { onboarded?: boolean; [key: string]: unknown };
 }
 

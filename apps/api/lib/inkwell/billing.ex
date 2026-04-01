@@ -6,10 +6,39 @@ defmodule Inkwell.Billing do
   """
 
   alias Inkwell.Accounts.User
+  alias Inkwell.Billing.WebhookEvent
   alias Inkwell.Square
   alias Inkwell.Repo
 
+  import Ecto.Query
+
   require Logger
+
+  # ── Webhook Event Deduplication ─────────────────────────────────────────
+
+  @doc "Check if a webhook event has already been processed."
+  def already_processed?(nil), do: false
+  def already_processed?(event_id) do
+    Repo.exists?(from we in WebhookEvent, where: we.event_id == ^event_id)
+  end
+
+  @doc "Record a processed webhook event for deduplication."
+  def record_event(event_id, event_type, status \\ "processed") do
+    %WebhookEvent{}
+    |> WebhookEvent.changeset(%{event_id: event_id, event_type: event_type, status: status})
+    |> Repo.insert(on_conflict: :nothing)
+  end
+
+  @doc "Clean up webhook events older than 30 days."
+  def cleanup_old_webhook_events do
+    cutoff = DateTime.add(DateTime.utc_now(), -30, :day)
+
+    {count, _} =
+      from(we in WebhookEvent, where: we.inserted_at < ^cutoff)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
 
   # ── Public API ──────────────────────────────────────────────────────────
 
@@ -23,8 +52,9 @@ defmodule Inkwell.Billing do
     Square.create_donor_payment_link(user, amount_cents)
   end
 
-  @doc "Create a checkout session for a one-time Ink Donor donation."
-  def create_donation_checkout_session(%User{} = user, amount_cents) when is_integer(amount_cents) and amount_cents >= 100 do
+  @doc "Create a checkout session for a one-time Ink Donor donation ($1-$500)."
+  def create_donation_checkout_session(%User{} = user, amount_cents)
+      when is_integer(amount_cents) and amount_cents >= 100 and amount_cents <= 50000 do
     Square.create_donation_payment_link(user, amount_cents)
   end
 
@@ -160,7 +190,10 @@ defmodule Inkwell.Billing do
     plan_variation_id = get_in(sub, ["plan_variation_id"])
     config = Application.get_env(:inkwell, :square, [])
 
-    user = find_user_by_square_customer(customer_id)
+    # Try customer ID first, then fall back to email lookup via Square API
+    user =
+      find_user_by_square_customer(customer_id) ||
+        find_user_by_email_from_square(customer_id)
 
     case user do
       nil ->
@@ -347,17 +380,27 @@ defmodule Inkwell.Billing do
 
   defp find_user_by_square_customer(nil), do: nil
   defp find_user_by_square_customer(customer_id) do
-    import Ecto.Query
-    User |> where([u], u.square_customer_id == ^customer_id) |> Repo.one()
+    Repo.one(from u in User, where: u.square_customer_id == ^customer_id)
   end
 
   defp find_user_by_square_subscription(nil), do: nil
   defp find_user_by_square_subscription(sub_id) do
-    import Ecto.Query
+    Repo.one(
+      from u in User,
+        where: u.square_subscription_id == ^sub_id or u.square_donor_subscription_id == ^sub_id
+    )
+  end
 
-    User
-    |> where([u], u.square_subscription_id == ^sub_id or u.square_donor_subscription_id == ^sub_id)
-    |> Repo.one()
+  # Fetch customer from Square API to get email, then look up user by email
+  defp find_user_by_email_from_square(nil), do: nil
+  defp find_user_by_email_from_square(customer_id) do
+    case Square.get_customer(customer_id) do
+      {:ok, %{"email_address" => email}} when is_binary(email) and email != "" ->
+        Repo.one(from u in User, where: u.email == ^email)
+
+      _ ->
+        nil
+    end
   end
 
   defp maybe_set_square_customer(user, customer_id) do

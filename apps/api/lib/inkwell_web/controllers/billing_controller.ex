@@ -5,24 +5,39 @@ defmodule InkwellWeb.BillingController do
 
   require Logger
 
+  @billing_rate_window 900  # 15 minutes
+
   # POST /api/billing/checkout — create a checkout session (Square Payment Link)
   def checkout(conn, _params) do
     user = conn.assigns.current_user
 
-    case Billing.create_checkout_session(user) do
-      {:ok, %{url: url}} ->
-        json(conn, %{url: url})
+    with :ok <- check_billing_rate(user),
+         :ok <- check_no_active_plus(user) do
+      case Billing.create_checkout_session(user) do
+        {:ok, %{url: url}} ->
+          json(conn, %{url: url})
 
-      {:error, :square_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Billing is not yet configured. Coming soon!"})
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Billing is not yet configured. Coming soon!"})
 
-      {:error, reason} ->
-        Logger.error("Checkout session failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("Checkout session failed: #{inspect(reason)}")
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
         conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to start checkout. Please try again."})
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+
+      {:error, :already_subscribed} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "You already have an active Plus subscription."})
     end
   end
 
@@ -81,20 +96,33 @@ defmodule InkwellWeb.BillingController do
   def donor_checkout(conn, %{"amount_cents" => amount_cents}) when amount_cents in [100, 200, 300] do
     user = conn.assigns.current_user
 
-    case Billing.create_donor_checkout_session(user, amount_cents) do
-      {:ok, %{url: url}} ->
-        json(conn, %{url: url})
+    with :ok <- check_billing_rate(user),
+         :ok <- check_no_active_donor(user) do
+      case Billing.create_donor_checkout_session(user, amount_cents) do
+        {:ok, %{url: url}} ->
+          json(conn, %{url: url})
 
-      {:error, :square_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Donations are not yet configured. Coming soon!"})
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Donations are not yet configured. Coming soon!"})
 
-      {:error, reason} ->
-        Logger.error("Donor checkout failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("Donor checkout failed: #{inspect(reason)}")
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
         conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to start checkout. Please try again."})
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+
+      {:error, :already_subscribed} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "You already have an active Ink Donor subscription."})
     end
   end
 
@@ -105,50 +133,72 @@ defmodule InkwellWeb.BillingController do
   end
 
   # POST /api/billing/donate — create a one-time donation checkout
-  def donate(conn, %{"amount_cents" => amount_cents}) when is_integer(amount_cents) and amount_cents in [300, 500, 1000] do
+  # Accepts any amount between $1 and $500 (100-50000 cents)
+  def donate(conn, %{"amount_cents" => amount_cents})
+      when is_integer(amount_cents) and amount_cents >= 100 and amount_cents <= 50000 do
     user = conn.assigns.current_user
 
-    case Billing.create_donation_checkout_session(user, amount_cents) do
-      {:ok, %{url: url}} ->
-        json(conn, %{url: url})
+    with :ok <- check_billing_rate(user) do
+      case Billing.create_donation_checkout_session(user, amount_cents) do
+        {:ok, %{url: url}} ->
+          json(conn, %{url: url})
 
-      {:error, :square_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Donations are not yet configured. Coming soon!"})
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Donations are not yet configured. Coming soon!"})
 
-      {:error, reason} ->
-        Logger.error("Donation checkout failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("Donation checkout failed: #{inspect(reason)}")
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
         conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to start checkout. Please try again."})
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
     end
   end
 
   def donate(conn, _params) do
     conn
     |> put_status(:unprocessable_entity)
-    |> json(%{error: "Invalid amount. Choose $3, $5, or $10."})
+    |> json(%{error: "Invalid amount. Donations can be between $1 and $500."})
   end
 
   # POST /api/billing/onboarding-checkout — create checkout during onboarding
   def onboarding_checkout(conn, %{"type" => "plus"}) do
     user = conn.assigns.current_user
 
-    case Billing.create_onboarding_checkout_session(user, "plus") do
-      {:ok, %{url: url}} ->
-        json(conn, %{url: url})
+    with :ok <- check_billing_rate(user),
+         :ok <- check_no_active_plus(user) do
+      case Billing.create_onboarding_checkout_session(user, "plus") do
+        {:ok, %{url: url}} ->
+          json(conn, %{url: url})
 
-      {:error, :square_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Billing is not yet configured. Coming soon!"})
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Billing is not yet configured. Coming soon!"})
 
-      {:error, reason} ->
-        Logger.error("Onboarding checkout (Plus) failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("Onboarding checkout (Plus) failed: #{inspect(reason)}")
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
         conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to start checkout. Please try again."})
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+
+      {:error, :already_subscribed} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "You already have an active Plus subscription."})
     end
   end
 
@@ -156,20 +206,33 @@ defmodule InkwellWeb.BillingController do
       when amount_cents in [100, 200, 300] do
     user = conn.assigns.current_user
 
-    case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
-      {:ok, %{url: url}} ->
-        json(conn, %{url: url})
+    with :ok <- check_billing_rate(user),
+         :ok <- check_no_active_donor(user) do
+      case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
+        {:ok, %{url: url}} ->
+          json(conn, %{url: url})
 
-      {:error, :square_not_configured} ->
-        conn
-        |> put_status(:service_unavailable)
-        |> json(%{error: "Donations are not yet configured. Coming soon!"})
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Donations are not yet configured. Coming soon!"})
 
-      {:error, reason} ->
-        Logger.error("Onboarding checkout (Donor) failed: #{inspect(reason)}")
+        {:error, reason} ->
+          Logger.error("Onboarding checkout (Donor) failed: #{inspect(reason)}")
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
         conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Unable to start checkout. Please try again."})
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+
+      {:error, :already_subscribed} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "You already have an active Ink Donor subscription."})
     end
   end
 
@@ -183,6 +246,14 @@ defmodule InkwellWeb.BillingController do
   def status(conn, _params) do
     user = conn.assigns.current_user
 
+    had_stripe =
+      not is_nil(user.stripe_subscription_id) or
+      not is_nil(user.ink_donor_stripe_subscription_id)
+
+    has_square =
+      not is_nil(user.square_subscription_id) or
+      not is_nil(user.square_donor_subscription_id)
+
     json(conn, %{
       data: %{
         subscription_tier: Inkwell.SelfHosted.effective_tier(user),
@@ -191,7 +262,8 @@ defmodule InkwellWeb.BillingController do
         ink_donor_status: user.ink_donor_status,
         ink_donor_amount_cents: user.ink_donor_amount_cents,
         self_hosted: Inkwell.SelfHosted.enabled?(),
-        processor: "square"
+        processor: "square",
+        needs_resubscribe: had_stripe and not has_square
       }
     })
   end
@@ -209,8 +281,10 @@ defmodule InkwellWeb.BillingController do
         :ok ->
           case Jason.decode(raw_body) do
             {:ok, event} ->
-              # Process asynchronously to return 200 quickly
-              Task.start(fn -> Billing.handle_webhook_event(event) end)
+              # Process reliably via Oban worker (retries, persistence, dedup)
+              Inkwell.Workers.WebhookProcessingWorker.new(%{"event" => event})
+              |> Oban.insert()
+
               json(conn, %{received: true})
 
             {:error, _} ->
@@ -222,5 +296,46 @@ defmodule InkwellWeb.BillingController do
           conn |> put_status(:bad_request) |> json(%{error: "Invalid signature"})
       end
     end
+  end
+
+  # ── Private: Rate Limiting & Duplicate Prevention ──────────────────────
+
+  defp check_billing_rate(user) do
+    ensure_billing_rate_table()
+    key = {:billing_checkout, user.id}
+    now = System.system_time(:second)
+
+    case :ets.lookup(:billing_rate_limit, key) do
+      [{^key, last_time}] when now - last_time < @billing_rate_window ->
+        {:error, :rate_limited}
+
+      _ ->
+        :ets.insert(:billing_rate_limit, {key, now})
+        :ok
+    end
+  end
+
+  defp check_no_active_plus(user) do
+    if user.square_subscription_id && user.subscription_status == "active" do
+      {:error, :already_subscribed}
+    else
+      :ok
+    end
+  end
+
+  defp check_no_active_donor(user) do
+    if user.square_donor_subscription_id && user.ink_donor_status == "active" do
+      {:error, :already_subscribed}
+    else
+      :ok
+    end
+  end
+
+  defp ensure_billing_rate_table do
+    if :ets.whereis(:billing_rate_limit) == :undefined do
+      :ets.new(:billing_rate_limit, [:named_table, :public, :set])
+    end
+  rescue
+    ArgumentError -> :ok
   end
 end

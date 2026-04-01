@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
+import { ResubscribeBanner } from "@/components/resubscribe-banner";
 import { SignupCta } from "@/components/signup-cta";
 import { FilterLink } from "@/components/filter-link";
 import { FetchError } from "@/components/fetch-error";
@@ -240,6 +241,16 @@ export default async function ExplorePage({ searchParams }: PageProps) {
               variant="banner"
               heading="Discover writers. Start your journal."
               subheading="No algorithms, no ads — just writing, community, and the open social web."
+            />
+          </div>
+        )}
+
+        {/* Re-subscribe banner for former Stripe subscribers */}
+        {session && (
+          <div className="mx-auto max-w-7xl px-4">
+            <ResubscribeBanner
+              needsResubscribe={session.user.needs_resubscribe}
+              serverDismissed={!!session.user.settings?.resubscribe_banner_dismissed}
             />
           </div>
         )}

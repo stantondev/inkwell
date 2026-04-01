@@ -218,8 +218,23 @@ defmodule InkwellWeb.AuthController do
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       has_writer_plan: Inkwell.WriterSubscriptions.has_active_plan?(user.id),
       preferred_language: user.preferred_language,
-      post_email_enabled: not is_nil(user.post_email_token)
+      post_email_enabled: not is_nil(user.post_email_token),
+      needs_resubscribe: needs_resubscribe?(user)
     }
+  end
+
+  # Detects users who had active Stripe subscriptions (Plus or Donor)
+  # but haven't re-subscribed on Square after the processor migration.
+  defp needs_resubscribe?(user) do
+    had_stripe =
+      not is_nil(user.stripe_subscription_id) or
+      not is_nil(user.ink_donor_stripe_subscription_id)
+
+    has_square =
+      not is_nil(user.square_subscription_id) or
+      not is_nil(user.square_donor_subscription_id)
+
+    had_stripe and not has_square
   end
 
   defp derive_username(email) do
