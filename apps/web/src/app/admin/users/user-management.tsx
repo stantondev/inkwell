@@ -16,6 +16,9 @@ interface AdminUser {
   is_admin: boolean;
   subscription_tier: string;
   subscription_status: string | null;
+  subscription_expires_at: string | null;
+  square_subscription_id: string | null;
+  square_donor_subscription_id: string | null;
   stripe_customer_id: string | null;
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
@@ -52,6 +55,27 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function SubStatusBadge({ status, expiresAt }: { status: string; expiresAt: string | null }) {
+  const colors: Record<string, { bg: string; fg: string }> = {
+    active: { bg: "var(--success, #16a34a)", fg: "white" },
+    canceled: { bg: "var(--danger, #dc2626)", fg: "white" },
+    past_due: { bg: "#f59e0b", fg: "white" },
+  };
+  const style = colors[status] || { bg: "var(--muted)", fg: "white" };
+  const label = status === "active" ? "Active" : status === "canceled" ? "Canceled" : status === "past_due" ? "Past due" : status;
+  const title = expiresAt && status === "canceled" ? `Expires ${new Date(expiresAt).toLocaleDateString()}` : undefined;
+
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded font-medium leading-none"
+      style={{ background: style.bg, color: style.fg }}
+      title={title}
+    >
+      {label}
+    </span>
+  );
 }
 
 export function UserManagement({ currentUserId }: { currentUserId: string }) {
@@ -310,15 +334,23 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                         )}
                       </td>
                       <td>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 items-center">
                           {user.subscription_tier === "plus" ? (
                             <span className="admin-badge admin-badge--accent-light">Plus</span>
                           ) : (
                             <span className="text-xs" style={{ color: "var(--muted)" }}>Free</span>
                           )}
+                          {user.subscription_status && user.subscription_status !== "none" && (
+                            <SubStatusBadge status={user.subscription_status} expiresAt={user.subscription_expires_at} />
+                          )}
                           {user.ink_donor_status === "active" && (
                             <span className="admin-badge admin-badge--accent" title={user.ink_donor_amount_cents ? `$${user.ink_donor_amount_cents / 100}/mo` : undefined}>
                               Donor{user.ink_donor_amount_cents ? ` $${user.ink_donor_amount_cents / 100}` : ""}
+                            </span>
+                          )}
+                          {user.ink_donor_status === "canceled" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: "var(--danger, #dc2626)", color: "white" }}>
+                              Donor canceled
                             </span>
                           )}
                         </div>
@@ -364,9 +396,17 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
                 <div className="admin-mobile-card-meta">
                   {user.is_admin && <span className="admin-badge admin-badge--accent">Admin{user.is_env_admin ? " *" : ""}</span>}
                   {user.subscription_tier === "plus" && <span className="admin-badge admin-badge--accent-light">Plus</span>}
+                  {user.subscription_status && user.subscription_status !== "none" && (
+                    <SubStatusBadge status={user.subscription_status} expiresAt={user.subscription_expires_at} />
+                  )}
                   {user.ink_donor_status === "active" && (
                     <span className="admin-badge admin-badge--accent">
                       Donor{user.ink_donor_amount_cents ? ` $${user.ink_donor_amount_cents / 100}` : ""}
+                    </span>
+                  )}
+                  {user.ink_donor_status === "canceled" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: "var(--danger, #dc2626)", color: "white" }}>
+                      Donor canceled
                     </span>
                   )}
                   {user.blocked_at ? (

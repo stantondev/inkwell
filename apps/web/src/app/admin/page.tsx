@@ -13,6 +13,8 @@ interface UserBrief {
   display_name: string;
   avatar_url: string | null;
   subscription_tier: string;
+  subscription_status: string | null;
+  subscription_expires_at: string | null;
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
   created_at: string;
@@ -140,7 +142,35 @@ function StatCard({ label, value, accent, danger }: { label: string; value: numb
   );
 }
 
+function SubscriptionStatusBadge({ status, expiresAt }: { status: string | null; expiresAt: string | null }) {
+  if (!status || status === "none") return null;
+
+  const colors: Record<string, { bg: string; fg: string }> = {
+    active: { bg: "var(--success, #16a34a)", fg: "white" },
+    canceled: { bg: "var(--danger, #dc2626)", fg: "white" },
+    past_due: { bg: "#f59e0b", fg: "white" },
+  };
+  const style = colors[status] || { bg: "var(--muted)", fg: "white" };
+
+  const label = status === "active" ? "Active" : status === "canceled" ? "Canceled" : status === "past_due" ? "Past due" : status;
+  const expiresLabel = expiresAt && status === "canceled"
+    ? ` — expires ${new Date(expiresAt).toLocaleDateString()}`
+    : "";
+
+  return (
+    <span
+      className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
+      style={{ background: style.bg, color: style.fg }}
+      title={expiresLabel ? `Expires ${new Date(expiresAt!).toLocaleDateString()}` : undefined}
+    >
+      {label}
+    </span>
+  );
+}
+
 function UserRow({ user, showDonorAmount }: { user: UserBrief; showDonorAmount?: boolean }) {
+  const statusToShow = showDonorAmount ? user.ink_donor_status : user.subscription_status;
+
   return (
     <Link
       href={`/${user.username}`}
@@ -151,15 +181,18 @@ function UserRow({ user, showDonorAmount }: { user: UserBrief; showDonorAmount?:
         <div className="text-sm font-medium truncate">{user.display_name || user.username}</div>
         <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
       </div>
-      {showDonorAmount && user.ink_donor_amount_cents ? (
-        <span className="text-xs font-medium shrink-0" style={{ color: "var(--accent)" }}>
-          ${user.ink_donor_amount_cents / 100}/mo
-        </span>
-      ) : (
-        <div className="text-xs shrink-0" style={{ color: "var(--muted)" }}>
-          {timeAgo(user.created_at)}
-        </div>
-      )}
+      <div className="flex flex-col items-end gap-0.5 shrink-0">
+        {showDonorAmount && user.ink_donor_amount_cents ? (
+          <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+            ${user.ink_donor_amount_cents / 100}/mo
+          </span>
+        ) : (
+          <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+            {timeAgo(user.created_at)}
+          </span>
+        )}
+        <SubscriptionStatusBadge status={statusToShow} expiresAt={user.subscription_expires_at} />
+      </div>
     </Link>
   );
 }

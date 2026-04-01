@@ -238,6 +238,8 @@ defmodule InkwellWeb.AdminController do
       display_name: user.display_name,
       avatar_url: user.avatar_url,
       subscription_tier: user.subscription_tier || "free",
+      subscription_status: user.subscription_status,
+      subscription_expires_at: user.subscription_expires_at,
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       created_at: user.inserted_at
@@ -258,6 +260,9 @@ defmodule InkwellWeb.AdminController do
       is_admin: Accounts.is_admin?(user),
       subscription_tier: user.subscription_tier || "free",
       subscription_status: user.subscription_status,
+      subscription_expires_at: user.subscription_expires_at,
+      square_subscription_id: user.square_subscription_id,
+      square_donor_subscription_id: user.square_donor_subscription_id,
       stripe_customer_id: user.stripe_customer_id,
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
