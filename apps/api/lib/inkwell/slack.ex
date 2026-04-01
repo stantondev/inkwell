@@ -73,8 +73,9 @@ defmodule Inkwell.Slack do
     notify(":rotating_light: *DISPUTE ALERT!* #{user_label} — #{amount} — reason: #{reason || "unknown"}. User has been auto-blocked.")
   end
 
-  def notify_fraud_block(username) do
-    notify(":no_entry: *Fraud block:* @#{username} was auto-blocked due to suspected fraud")
+  def notify_donation(username, amount_cents) do
+    dollars = if is_integer(amount_cents), do: "$#{trunc(amount_cents / 100)}", else: "unknown"
+    notify(":gift: *One-time donation!* @#{username} donated #{dollars}")
   end
 
   def notify_writer_plan_subscription(writer_username, subscriber_username, amount_cents) do

@@ -166,6 +166,9 @@ defmodule Inkwell.Billing do
       "dispute.created" ->
         handle_dispute_created(object)
 
+      "payment.completed" ->
+        handle_payment_completed(object)
+
       _ ->
         Logger.info("Ignoring Square event: #{type}")
         :ok
@@ -373,6 +376,30 @@ defmodule Inkwell.Billing do
 
   defp handle_dispute_created(_) do
     Logger.warning("dispute.created — missing amount data")
+    :ok
+  end
+
+  # ── Handle One-Time Donation Payments ──────────────────────────────────
+
+  defp handle_payment_completed(%{"payment" => payment}), do: handle_payment_completed(payment)
+
+  defp handle_payment_completed(%{"amount_money" => %{"amount" => amount_cents}} = payment) do
+    # One-time donations have no subscription_id — subscription payments are handled
+    # via invoice.payment_made, so we only notify here for non-subscription payments
+    if is_nil(payment["subscription_id"]) do
+      customer_id = payment["customer_id"]
+      user = if customer_id, do: find_user_by_square_customer(customer_id) || find_user_by_email_from_square(customer_id)
+      username = if user, do: user.username, else: "unknown"
+
+      Logger.info("One-time donation received: #{amount_cents} cents from #{username}")
+      Inkwell.Slack.notify_donation(username, amount_cents)
+    end
+
+    :ok
+  end
+
+  defp handle_payment_completed(_) do
+    Logger.info("payment.completed — no amount data, skipping")
     :ok
   end
 
