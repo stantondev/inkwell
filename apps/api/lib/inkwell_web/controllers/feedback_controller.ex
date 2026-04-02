@@ -1,5 +1,6 @@
 defmodule InkwellWeb.FeedbackController do
   use InkwellWeb, :controller
+  import Ecto.Query
 
   alias Inkwell.{Accounts, Feedback, Email}
 
@@ -134,8 +135,6 @@ defmodule InkwellWeb.FeedbackController do
 
     attachment_ids =
       if raw_ids != [] do
-        import Ecto.Query
-
         Inkwell.Journals.EntryImage
         |> Ecto.Query.where([i], i.id in ^raw_ids and i.user_id == ^user.id)
         |> Ecto.Query.select([i], i.id)

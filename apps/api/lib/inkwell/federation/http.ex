@@ -171,7 +171,7 @@ defmodule Inkwell.Federation.Http do
     body_bytes = :erlang.binary_to_list(body)
 
     case :httpc.request(:post, {url_cl, headers, content_type, body_bytes}, http_opts(), []) do
-      {:ok, {{_, status, _}, _resp_headers, resp_body}} when status in 200..299 ->
+      {:ok, {{_, status, _}, _resp_headers, _resp_body}} when status in 200..299 ->
         Logger.info("Federation POST to #{url} succeeded (#{status})")
         :ok
 

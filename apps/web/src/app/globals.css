@@ -7648,6 +7648,712 @@ html.dark .poll-vote-option--selected {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Photo Gallery — Reader + Editor Styles
+   Gallery layouts for grid and masonry, gallery editor panel overlay.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Reader Gallery Layouts ──────────────────────────────────────────── */
+
+.prose-entry [data-photo-gallery],
+[data-photo-gallery] {
+  margin: 1.5rem 0;
+}
+
+/* Grid layout */
+[data-gallery-layout="grid"] {
+  display: grid;
+  gap: 8px;
+}
+[data-gallery-layout="grid"][data-gallery-columns="2"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+[data-gallery-layout="grid"][data-gallery-columns="3"] {
+  grid-template-columns: repeat(3, 1fr);
+}
+[data-gallery-layout="grid"][data-gallery-columns="4"] {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Masonry layout via CSS columns */
+[data-gallery-layout="masonry"] {
+  column-gap: 8px;
+}
+[data-gallery-layout="masonry"][data-gallery-columns="2"] {
+  column-count: 2;
+}
+[data-gallery-layout="masonry"][data-gallery-columns="3"] {
+  column-count: 3;
+}
+[data-gallery-layout="masonry"][data-gallery-columns="4"] {
+  column-count: 4;
+}
+[data-gallery-layout="masonry"] [data-gallery-photo] {
+  break-inside: avoid;
+  margin-bottom: 8px;
+}
+
+/* Shared figure styles */
+[data-gallery-photo] {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  position: relative;
+}
+[data-gallery-photo] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+[data-gallery-layout="grid"] [data-gallery-photo] img {
+  aspect-ratio: 1;
+}
+[data-gallery-photo] figcaption {
+  padding: 6px 8px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* Single photo — no grid, just centered */
+[data-photo-gallery]:has([data-gallery-photo]:only-child) {
+  display: block !important;
+  column-count: unset !important;
+}
+[data-photo-gallery]:has([data-gallery-photo]:only-child) [data-gallery-photo] {
+  max-width: 560px;
+  margin: 0 auto;
+}
+[data-photo-gallery]:has([data-gallery-photo]:only-child) [data-gallery-photo] img {
+  aspect-ratio: auto;
+  height: auto;
+}
+
+/* Carousel layout (Plus) — horizontal scroll-snap */
+[data-gallery-layout="carousel"] {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+[data-gallery-layout="carousel"]::-webkit-scrollbar {
+  display: none;
+}
+[data-gallery-layout="carousel"] [data-gallery-photo] {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  border-radius: 0;
+}
+[data-gallery-layout="carousel"] [data-gallery-photo] img {
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+/* Filmstrip layout (Plus) — horizontal scroll with sprocket holes */
+[data-gallery-layout="filmstrip"] {
+  display: flex;
+  overflow-x: auto;
+  gap: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  background: #1a1a1a;
+  border-radius: 4px;
+  padding: 18px 8px;
+  position: relative;
+}
+[data-gallery-layout="filmstrip"]::-webkit-scrollbar {
+  display: none;
+}
+[data-gallery-layout="filmstrip"]::before,
+[data-gallery-layout="filmstrip"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 12px,
+    #333 12px,
+    #333 20px,
+    transparent 20px,
+    transparent 28px
+  );
+  z-index: 1;
+}
+[data-gallery-layout="filmstrip"]::before { top: 3px; }
+[data-gallery-layout="filmstrip"]::after { bottom: 3px; }
+[data-gallery-layout="filmstrip"] [data-gallery-photo] {
+  flex: 0 0 220px;
+  margin: 0 4px;
+  border-radius: 2px;
+}
+[data-gallery-layout="filmstrip"] [data-gallery-photo] img {
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+[data-gallery-layout="filmstrip"] figcaption {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 0.75rem !important;
+  padding: 4px 4px 0 !important;
+}
+
+/* Album layout (Plus) — scrapbook / photo album aesthetic */
+[data-gallery-layout="album"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  padding: 32px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;
+}
+/* Paper texture overlay */
+[data-gallery-layout="album"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  opacity: 0.04;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-gallery-layout="album"] [data-gallery-photo] {
+  flex: 0 0 auto;
+  width: calc(33% - 16px);
+  min-width: 160px;
+  max-width: 240px;
+  background: white;
+  padding: 8px 8px 4px;
+  border-radius: 2px;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  position: relative;
+  transition: transform 0.2s ease;
+}
+[data-gallery-layout="album"] [data-gallery-photo]:nth-child(odd) {
+  transform: rotate(-1.5deg);
+}
+[data-gallery-layout="album"] [data-gallery-photo]:nth-child(even) {
+  transform: rotate(1.2deg);
+}
+[data-gallery-layout="album"] [data-gallery-photo]:nth-child(3n) {
+  transform: rotate(0.8deg);
+}
+[data-gallery-layout="album"] [data-gallery-photo]:hover {
+  transform: rotate(0deg) scale(1.02);
+  z-index: 2;
+}
+[data-gallery-layout="album"] [data-gallery-photo] img {
+  aspect-ratio: auto;
+  height: auto;
+  border-radius: 1px;
+}
+/* Decorative tape corners */
+[data-gallery-layout="album"] [data-gallery-photo]::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 10%;
+  width: 40px;
+  height: 14px;
+  background: rgba(210, 190, 150, 0.45);
+  transform: rotate(-3deg);
+  border-radius: 1px;
+  z-index: 3;
+}
+[data-gallery-layout="album"] [data-gallery-photo]:nth-child(even)::before {
+  left: auto;
+  right: 10%;
+  transform: rotate(2deg);
+}
+[data-gallery-layout="album"] figcaption {
+  font-size: 0.75rem !important;
+  padding: 6px 2px 2px !important;
+  color: #555 !important;
+}
+
+/* Dark mode album */
+.dark [data-gallery-layout="album"] {
+  background: color-mix(in srgb, var(--surface) 90%, #1a1a1a);
+}
+.dark [data-gallery-layout="album"] [data-gallery-photo] {
+  background: #2a2a2a;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.dark [data-gallery-layout="album"] [data-gallery-photo]::before {
+  background: rgba(180, 160, 120, 0.25);
+}
+.dark [data-gallery-layout="album"] figcaption {
+  color: var(--muted) !important;
+}
+
+/* Responsive: max 2 columns on mobile */
+@media (max-width: 640px) {
+  [data-gallery-layout="grid"][data-gallery-columns="3"],
+  [data-gallery-layout="grid"][data-gallery-columns="4"] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  [data-gallery-layout="masonry"][data-gallery-columns="3"],
+  [data-gallery-layout="masonry"][data-gallery-columns="4"] {
+    column-count: 2;
+  }
+  [data-gallery-layout="filmstrip"] [data-gallery-photo] {
+    flex: 0 0 180px;
+  }
+  [data-gallery-layout="album"] {
+    padding: 20px 12px;
+    gap: 16px;
+  }
+  [data-gallery-layout="album"] [data-gallery-photo] {
+    width: calc(50% - 12px);
+    min-width: 120px;
+  }
+}
+
+/* Feed card gallery preview — compact 2x2 mosaic in clamped body */
+.journal-body-clamp [data-photo-gallery] {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  column-count: unset !important;
+  gap: 4px;
+  max-height: 200px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.journal-body-clamp [data-photo-gallery] [data-gallery-photo] {
+  break-inside: auto;
+  margin-bottom: 0;
+}
+.journal-body-clamp [data-photo-gallery] [data-gallery-photo] img {
+  aspect-ratio: 1;
+}
+.journal-body-clamp [data-photo-gallery] [data-gallery-photo] figcaption {
+  display: none;
+}
+.journal-body-clamp [data-photo-gallery] [data-gallery-photo]:nth-child(n+5) {
+  display: none;
+}
+
+/* Dark mode subtle border on gallery photos */
+.dark [data-gallery-photo] {
+  border: 1px solid var(--border);
+}
+
+/* Editor: selected gallery node */
+.ProseMirror [data-photo-gallery] {
+  user-select: none;
+  cursor: grab;
+  position: relative;
+}
+.ProseMirror [data-photo-gallery].ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ─── Gallery Editor Panel ────────────────────────────────────────────── */
+
+.gallery-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.gallery-editor-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.gallery-editor-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.gallery-editor-close:hover {
+  color: var(--foreground);
+}
+
+.gallery-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.gallery-upload-zone:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.gallery-editor-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.gallery-editor-photo-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  cursor: grab;
+  transition: box-shadow 0.15s;
+}
+.gallery-editor-photo-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-editor-photo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--border);
+}
+.gallery-editor-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-editor-photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-editor-photo-remove:hover {
+  background: rgba(220, 38, 38, 0.9);
+}
+
+.gallery-editor-photo-order {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.gallery-editor-input {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  background: transparent;
+  color: var(--foreground);
+  outline: none;
+}
+.gallery-editor-input:focus {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.gallery-editor-alt {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.gallery-editor-section {
+  margin-top: 1rem;
+}
+
+.gallery-editor-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.gallery-editor-layout-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gallery-editor-layout-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.gallery-editor-layout-btn:hover {
+  border-color: var(--accent);
+}
+.gallery-editor-layout-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.gallery-editor-layout-btn.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gallery-editor-lock {
+  font-size: 0.7rem;
+  margin-left: 3px;
+}
+
+.gallery-editor-col-options {
+  display: flex;
+  gap: 6px;
+}
+
+.gallery-editor-col-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.gallery-editor-col-btn:hover {
+  border-color: var(--accent);
+}
+.gallery-editor-col-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.gallery-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.gallery-editor-cancel-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.gallery-editor-cancel-btn:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+}
+
+.gallery-editor-done-btn {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.gallery-editor-done-btn:hover {
+  opacity: 0.9;
+}
+.gallery-editor-done-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── Photo Lightbox ──────────────────────────────────────────────────── */
+
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.lightbox-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  z-index: 10;
+}
+
+.lightbox-counter {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+}
+
+.lightbox-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lightbox-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.lightbox-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.lightbox-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  position: relative;
+  padding: 60px 60px 40px;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lightbox-image {
+    animation: lightbox-fade-in 0.2s ease-out;
+  }
+}
+@keyframes lightbox-fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.lightbox-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+  z-index: 5;
+}
+.lightbox-arrow:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+.lightbox-arrow-left {
+  left: 12px;
+}
+.lightbox-arrow-right {
+  right: 12px;
+}
+
+.lightbox-caption {
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 600px;
+  padding: 0 20px 20px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .lightbox-image-wrap {
+    padding: 50px 16px 30px;
+  }
+  .lightbox-arrow {
+    padding: 6px;
+  }
+  .lightbox-arrow-left { left: 6px; }
+  .lightbox-arrow-right { right: 6px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Marginalia — Threaded Comment System
    Comments styled as marginalia: handwritten notes in book margins.
    Serif typography, ink-blue thread connectors, intimate spacing.

@@ -27,6 +27,7 @@ import type { PollData } from "@/components/poll-widget";
 import { SignupCta } from "@/components/signup-cta";
 import { PaywallCard } from "@/components/paywall-card";
 import { TranslatableEntry } from "@/components/translatable-entry";
+import { GalleryHydrator } from "@/components/gallery-hydrator";
 
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
@@ -47,6 +48,7 @@ interface EntryAuthor {
   support_url?: string | null;
   support_label?: string | null;
   stripe_connect_enabled?: boolean;
+  subscription_tier?: string | null;
 }
 
 interface EntryData {
@@ -774,6 +776,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 entryId={entry.id}
                 className={`prose-entry${entry.title ? " drop-cap" : ""}`}
               />
+              <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
             </TranslatableEntry>
           </JournalPage>
 

@@ -29,10 +29,24 @@ defmodule Inkwell.Federation.AttachmentHelper do
         body_html
       else
         image_html =
-          Enum.map_join(new_images, "", fn img ->
-            alt = escape_attr(img[:name] || "")
-            ~s(<div class="fediverse-attachment"><img src="#{escape_attr(img.url)}" alt="#{alt}" loading="lazy" /></div>)
-          end)
+          if length(new_images) >= 3 do
+            # Wrap as a photo gallery for multi-image posts
+            figures =
+              new_images
+              |> Enum.with_index()
+              |> Enum.map_join("", fn {img, idx} ->
+                alt = escape_attr(img[:name] || "")
+                caption_html = if img[:name] && img[:name] != "", do: ~s(<figcaption>#{escape_attr(img[:name])}</figcaption>), else: ""
+                ~s(<figure data-gallery-photo data-image-id="" data-photo-order="#{idx}"><img src="#{escape_attr(img.url)}" alt="#{alt}" loading="lazy" />#{caption_html}</figure>)
+              end)
+
+            ~s(<div data-photo-gallery data-gallery-layout="grid" data-gallery-columns="3">#{figures}</div>)
+          else
+            Enum.map_join(new_images, "", fn img ->
+              alt = escape_attr(img[:name] || "")
+              ~s(<div class="fediverse-attachment"><img src="#{escape_attr(img.url)}" alt="#{alt}" loading="lazy" /></div>)
+            end)
+          end
 
         body_html <> image_html
       end

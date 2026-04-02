@@ -28,6 +28,8 @@ import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
 import { CircleEmbed, type CircleEmbedAttrs } from "@/lib/tiptap-circle-embed";
 import { LinkEmbed, type LinkEmbedAttrs } from "@/lib/tiptap-link-embed";
+import { PhotoGallery, type PhotoGalleryAttrs } from "@/lib/tiptap-photo-gallery";
+import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
@@ -180,13 +182,14 @@ function DropdownItem({ onClick, active, children }: {
 
 // ─── Main Toolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, onInsertCircle, onInsertLinkEmbed }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, onInsertCircle, onInsertLinkEmbed, onInsertGallery }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
   comfortMode: boolean; onToggleComfort: () => void;
   onInsertCircle: () => void;
   onInsertLinkEmbed: () => void;
+  onInsertGallery: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
@@ -548,6 +551,15 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
               <rect x="2" y="4" width="20" height="16" rx="2"/>
               <line x1="7" y1="9" x2="17" y2="9"/>
               <line x1="7" y1="13" x2="13" y2="13"/>
+            </svg>
+          </Btn>
+          <Btn onClick={onInsertGallery} title="Insert photo gallery">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2"/>
+              <rect x="6" y="6" width="4" height="4" rx="0.5"/>
+              <rect x="14" y="6" width="4" height="4" rx="0.5"/>
+              <rect x="6" y="14" width="4" height="4" rx="0.5"/>
+              <rect x="14" y="14" width="4" height="4" rx="0.5"/>
             </svg>
           </Btn>
           <Sep />
@@ -1557,6 +1569,9 @@ export function EditorClient() {
   const [circlePickerOpen, setCirclePickerOpen] = useState(false);
   // Link embed picker
   const [linkEmbedOpen, setLinkEmbedOpen] = useState(false);
+  // Photo gallery editor
+  const [galleryEditorOpen, setGalleryEditorOpen] = useState(false);
+  const [editingGalleryAttrs, setEditingGalleryAttrs] = useState<PhotoGalleryAttrs | undefined>();
 
   // Debug overlay + BubbleMenu tracking
   const [bubbleVisible, setBubbleVisible] = useState(false);
@@ -1742,6 +1757,7 @@ export function EditorClient() {
       Spacing,
       CircleEmbed,
       LinkEmbed,
+      PhotoGallery,
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
@@ -2741,7 +2757,8 @@ export function EditorClient() {
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
                 comfortMode={comfortMode} onToggleComfort={() => setComfortMode((v) => !v)}
                 onInsertCircle={() => setCirclePickerOpen(true)}
-                onInsertLinkEmbed={() => setLinkEmbedOpen(true)} />
+                onInsertLinkEmbed={() => setLinkEmbedOpen(true)}
+                onInsertGallery={() => setGalleryEditorOpen(true)} />
             </div>
 
             {/* ── Bubble menu (below selection, 80px offset to clear native popup) ── */}
@@ -3311,6 +3328,27 @@ export function EditorClient() {
             setLinkEmbedOpen(false);
           }}
           onClose={() => setLinkEmbedOpen(false)}
+        />
+      )}
+
+      {/* Photo gallery editor modal */}
+      {galleryEditorOpen && (
+        <GalleryEditorPanel
+          initialAttrs={editingGalleryAttrs}
+          isPlus={isPlus}
+          onDone={(attrs) => {
+            if (editingGalleryAttrs) {
+              editor?.chain().focus().updatePhotoGallery(attrs).run();
+            } else {
+              editor?.chain().focus().insertPhotoGallery(attrs).run();
+            }
+            setGalleryEditorOpen(false);
+            setEditingGalleryAttrs(undefined);
+          }}
+          onCancel={() => {
+            setGalleryEditorOpen(false);
+            setEditingGalleryAttrs(undefined);
+          }}
         />
       )}
     </div>

@@ -272,9 +272,6 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   @doc """
-  Builds a Person object for a local user (used by the actor endpoint).
-  """
-  @doc """
   Builds a Note object representing a user's guestbook post.
   Fediverse users can search for this URL in Mastodon, then reply to sign the guestbook.
   """
@@ -404,13 +401,14 @@ defmodule Inkwell.Federation.ActivityBuilder do
     "<a href=\"#{html_escape(url)}\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">#{html_escape(url)}</a>"
   end
 
-  defp html_escape(str) do
+  defp html_escape(str) when is_binary(str) do
     str
     |> String.replace("&", "&amp;")
     |> String.replace("<", "&lt;")
     |> String.replace(">", "&gt;")
     |> String.replace("\"", "&quot;")
   end
+  defp html_escape(text), do: text
 
   # ── Federated interactions (stamps/comments on remote entries) ──────────
 
@@ -670,15 +668,6 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
   defp strip_html_tags(_), do: ""
 
-  defp html_escape(text) when is_binary(text) do
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-    |> String.replace("\"", "&quot;")
-  end
-  defp html_escape(text), do: text
-
   # Builds the Article `content` field with a clean text hook prepended.
   # Front-loads title + excerpt + "Read more" link so Mastodon's truncated
   # display shows meaningful text instead of the start of raw HTML body.
@@ -780,14 +769,30 @@ defmodule Inkwell.Federation.ActivityBuilder do
   # Extracts image URLs from <img> tags in HTML content for the `attachment` array.
   defp extract_inline_images(nil), do: []
   defp extract_inline_images(html) do
-    Regex.scan(~r/<img[^>]+src="([^"]+)"/, html)
-    |> Enum.map(fn [_, src] ->
-      %{
-        "type" => "Image",
-        "url" => src,
-        "mediaType" => guess_image_media_type(src)
-      }
-    end)
+    # Extract images with optional figcaption text (for gallery photos and standalone figures)
+    # First try to match images inside <figure> elements with captions
+    figure_images =
+      Regex.scan(~r/<figure[^>]*>.*?<img[^>]+src="([^"]+)"[^>]*>.*?(?:<figcaption[^>]*>(.*?)<\/figcaption>)?.*?<\/figure>/s, html)
+      |> Enum.map(fn
+        [_, src, caption] ->
+          img = %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+          caption = String.trim(caption || "")
+          if caption != "", do: Map.put(img, "name", caption), else: img
+        [_, src] ->
+          %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+      end)
+
+    figure_srcs = MapSet.new(Enum.map(figure_images, & &1["url"]))
+
+    # Then get standalone images not inside figures
+    standalone_images =
+      Regex.scan(~r/<img[^>]+src="([^"]+)"/, html)
+      |> Enum.map(fn [_, src] ->
+        %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+      end)
+      |> Enum.reject(fn img -> MapSet.member?(figure_srcs, img["url"]) end)
+
+    (figure_images ++ standalone_images)
     |> Enum.uniq_by(& &1["url"])
   end
 

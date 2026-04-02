@@ -70,6 +70,102 @@ defmodule InkwellWeb.EntryImageController do
     conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing image parameter"})
   end
 
+  # POST /api/images/batch — upload multiple images at once (authenticated)
+  # Free: max 6 images, Plus: max 20
+  @free_batch_limit 6
+  @plus_batch_limit 20
+
+  def create_batch(conn, %{"images" => images}) when is_list(images) do
+    user = conn.assigns.current_user
+    is_plus = (user.subscription_tier || "free") == "plus"
+    batch_limit = if is_plus, do: @plus_batch_limit, else: @free_batch_limit
+
+    cond do
+      length(images) == 0 ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "No images provided"})
+
+      length(images) > batch_limit ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Too many images — max #{batch_limit} per batch", limit: batch_limit})
+
+      true ->
+        # Parse and validate all images first
+        parsed =
+          Enum.with_index(images)
+          |> Enum.reduce_while([], fn {image_data, idx}, acc ->
+            case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
+              [_, type, base64] ->
+                if byte_size(base64) > 5_600_000 do
+                  {:halt, {:error, "Image #{idx + 1} too large — max 4MB"}}
+                else
+                  case validate_image_magic_bytes(base64, type) do
+                    :ok ->
+                      content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
+                      {:cont, [{image_data, content_type, byte_size(base64)} | acc]}
+
+                    {:error, reason} ->
+                      {:halt, {:error, "Image #{idx + 1}: #{reason}"}}
+                  end
+                end
+
+              _ ->
+                {:halt, {:error, "Image #{idx + 1}: invalid format — must be a data:image/... URI"}}
+            end
+          end)
+
+        case parsed do
+          {:error, reason} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{error: reason})
+
+          valid_images when is_list(valid_images) ->
+            valid_images = Enum.reverse(valid_images)
+            total_bytes = Enum.reduce(valid_images, 0, fn {_, _, size}, acc -> acc + size end)
+
+            limit = if is_plus, do: @plus_storage_limit, else: @free_storage_limit
+            current_usage = Journals.get_total_image_storage(user.id)
+
+            if current_usage + total_bytes > limit do
+              conn |> put_status(:unprocessable_entity) |> json(%{error: "storage_limit_exceeded"})
+            else
+              # Insert all images atomically via Ecto.Multi
+              multi =
+                valid_images
+                |> Enum.with_index()
+                |> Enum.reduce(Ecto.Multi.new(), fn {{data, content_type, byte_size}, idx}, multi ->
+                  attrs = %{
+                    "data" => data,
+                    "content_type" => content_type,
+                    "byte_size" => byte_size,
+                    "user_id" => user.id
+                  }
+
+                  Ecto.Multi.insert(multi, {:image, idx}, Inkwell.Journals.EntryImage.changeset(%Inkwell.Journals.EntryImage{}, attrs))
+                end)
+
+              case Inkwell.Repo.transaction(multi) do
+                {:ok, results} ->
+                  data =
+                    results
+                    |> Enum.sort_by(fn {{:image, idx}, _} -> idx end)
+                    |> Enum.map(fn {{:image, _}, image} ->
+                      %{id: image.id, url: "/api/images/#{image.id}"}
+                    end)
+
+                  conn |> put_status(:created) |> json(%{data: data})
+
+                {:error, _name, _changeset, _changes} ->
+                  conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not save images"})
+              end
+            end
+        end
+    end
+  end
+
+  def create_batch(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing images parameter"})
+  end
+
   # GET /api/images/:id — serve an image (public)
   def show(conn, %{"id" => id}) do
     case Journals.get_entry_image(id) do
