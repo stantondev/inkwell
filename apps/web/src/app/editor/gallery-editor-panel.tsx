@@ -10,9 +10,10 @@ interface GalleryEditorPanelProps {
   isPlus: boolean;
   onDone: (attrs: PhotoGalleryAttrs) => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
-export function GalleryEditorPanel({ initialAttrs, isPlus, onDone, onCancel }: GalleryEditorPanelProps) {
+export function GalleryEditorPanel({ initialAttrs, isPlus, onDone, onCancel, onDelete }: GalleryEditorPanelProps) {
   const maxPhotos = isPlus ? 20 : 6;
 
   const [photos, setPhotos] = useState<GalleryPhoto[]>(initialAttrs?.photos || []);
@@ -271,6 +272,16 @@ export function GalleryEditorPanel({ initialAttrs, isPlus, onDone, onCancel }: G
 
         {/* Actions */}
         <div className="gallery-editor-actions">
+          {initialAttrs && onDelete && (
+            <button
+              onClick={() => { if (confirm("Remove this gallery from the entry?")) onDelete(); }}
+              className="gallery-editor-cancel-btn"
+              style={{ color: "var(--danger, #dc2626)" }}
+            >
+              Delete Gallery
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
           <button onClick={onCancel} className="gallery-editor-cancel-btn">
             Cancel
           </button>

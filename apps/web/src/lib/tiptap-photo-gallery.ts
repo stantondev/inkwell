@@ -32,11 +32,21 @@ export const GALLERY_LAYOUTS: { value: GalleryLayout; label: string; plusOnly: b
   { value: "album", label: "Album", plusOnly: true },
 ];
 
-export const PhotoGallery = Node.create({
+export interface PhotoGalleryOptions {
+  onEdit?: (attrs: PhotoGalleryAttrs) => void;
+}
+
+export const PhotoGallery = Node.create<PhotoGalleryOptions>({
   name: "photoGallery",
   group: "block",
   atom: true,
   draggable: true,
+
+  addOptions() {
+    return {
+      onEdit: undefined,
+    };
+  },
 
   addAttributes() {
     return {
@@ -135,6 +145,96 @@ export const PhotoGallery = Node.create({
           if (node?.type.name !== "photoGallery") return false;
           return commands.updateAttributes("photoGallery", attrs);
         },
+    };
+  },
+
+  addNodeView() {
+    return ({ node: initialNode, getPos, editor: nodeEditor }) => {
+      let currentNode = initialNode;
+      const dom = document.createElement("div");
+      dom.setAttribute("data-photo-gallery-wrapper", "");
+      dom.style.cursor = "pointer";
+      dom.style.position = "relative";
+
+      // Render the gallery HTML inside the wrapper
+      const renderContent = () => {
+        const { layout, columns, photos } = currentNode.attrs as PhotoGalleryAttrs;
+        const inner = document.createElement("div");
+        inner.setAttribute("data-photo-gallery", "");
+        inner.setAttribute("data-gallery-layout", layout);
+        inner.setAttribute("data-gallery-columns", String(columns));
+
+        (photos || []).forEach((photo: GalleryPhoto, idx: number) => {
+          const figure = document.createElement("figure");
+          figure.setAttribute("data-gallery-photo", "");
+          figure.setAttribute("data-image-id", photo.imageId);
+          figure.setAttribute("data-photo-order", String(idx));
+
+          const img = document.createElement("img");
+          img.src = `/api/images/${photo.imageId}`;
+          img.alt = photo.alt || "";
+          img.loading = "lazy";
+          figure.appendChild(img);
+
+          if (photo.caption) {
+            const figcap = document.createElement("figcaption");
+            figcap.textContent = photo.caption;
+            figure.appendChild(figcap);
+          }
+
+          inner.appendChild(figure);
+        });
+
+        // Edit hint overlay
+        const hint = document.createElement("div");
+        hint.style.cssText = "position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fff;padding:2px 8px;border-radius:4px;font-size:0.75rem;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:2;";
+        hint.textContent = "Double-click to edit";
+        hint.setAttribute("data-gallery-hint", "");
+
+        dom.innerHTML = "";
+        dom.appendChild(inner);
+        dom.appendChild(hint);
+      };
+
+      renderContent();
+
+      // Show hint on hover
+      dom.addEventListener("mouseenter", () => {
+        const hint = dom.querySelector("[data-gallery-hint]") as HTMLElement;
+        if (hint) hint.style.opacity = "1";
+      });
+      dom.addEventListener("mouseleave", () => {
+        const hint = dom.querySelector("[data-gallery-hint]") as HTMLElement;
+        if (hint) hint.style.opacity = "0";
+      });
+
+      // Double-click to edit
+      dom.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const onEdit = this.options.onEdit;
+        if (onEdit) {
+          // Select the node first
+          const pos = typeof getPos === "function" ? getPos() : undefined;
+          if (pos !== undefined) {
+            nodeEditor.commands.setNodeSelection(pos);
+          }
+          onEdit(currentNode.attrs as PhotoGalleryAttrs);
+        }
+      });
+
+      return {
+        dom,
+        update: (updatedNode) => {
+          if (updatedNode.type.name !== "photoGallery") return false;
+          currentNode = updatedNode;
+          renderContent();
+          return true;
+        },
+        destroy: () => {
+          // cleanup
+        },
+      };
     };
   },
 });

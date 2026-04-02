@@ -1757,7 +1757,12 @@ export function EditorClient() {
       Spacing,
       CircleEmbed,
       LinkEmbed,
-      PhotoGallery,
+      PhotoGallery.configure({
+        onEdit: (attrs: PhotoGalleryAttrs) => {
+          setEditingGalleryAttrs(attrs);
+          setGalleryEditorOpen(true);
+        },
+      }),
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
@@ -2758,7 +2763,38 @@ export function EditorClient() {
                 comfortMode={comfortMode} onToggleComfort={() => setComfortMode((v) => !v)}
                 onInsertCircle={() => setCirclePickerOpen(true)}
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)}
-                onInsertGallery={() => setGalleryEditorOpen(true)} />
+                onInsertGallery={() => {
+                  // If cursor is on an existing gallery, open editor with its attrs
+                  if (editor) {
+                    const { from } = editor.state.selection;
+                    const node = editor.state.doc.nodeAt(from);
+                    if (node?.type.name === "photoGallery") {
+                      setEditingGalleryAttrs(node.attrs as PhotoGalleryAttrs);
+                      setGalleryEditorOpen(true);
+                      return;
+                    }
+                  }
+                  // Otherwise, open fresh gallery editor (but only if no gallery exists yet)
+                  let hasGallery = false;
+                  editor?.state.doc.descendants((n) => {
+                    if (n.type.name === "photoGallery") hasGallery = true;
+                    return !hasGallery;
+                  });
+                  if (hasGallery) {
+                    // Select the existing gallery and open editor for it
+                    editor?.state.doc.descendants((n, pos) => {
+                      if (n.type.name === "photoGallery") {
+                        editor.commands.setNodeSelection(pos);
+                        setEditingGalleryAttrs(n.attrs as PhotoGalleryAttrs);
+                        setGalleryEditorOpen(true);
+                        return false;
+                      }
+                      return true;
+                    });
+                  } else {
+                    setGalleryEditorOpen(true);
+                  }
+                }} />
             </div>
 
             {/* ── Bubble menu (below selection, 80px offset to clear native popup) ── */}
@@ -3346,6 +3382,11 @@ export function EditorClient() {
             setEditingGalleryAttrs(undefined);
           }}
           onCancel={() => {
+            setGalleryEditorOpen(false);
+            setEditingGalleryAttrs(undefined);
+          }}
+          onDelete={() => {
+            editor?.chain().focus().deleteSelection().run();
             setGalleryEditorOpen(false);
             setEditingGalleryAttrs(undefined);
           }}
