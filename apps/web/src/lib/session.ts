@@ -11,6 +11,8 @@ export interface SessionUser {
   avatar_config?: Record<string, unknown> | null;
   avatar_frame?: string | null;
   avatar_animation?: string | null;
+  profile_effect?: string | null;
+  profile_effect_intensity?: string | null;
   bio: string | null;
   pronouns: string | null;
   ap_id: string;

@@ -8,6 +8,8 @@ import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { AVATAR_FRAMES, AVATAR_ANIMATIONS } from "@/lib/avatar-frames";
+import { PROFILE_EFFECTS, EFFECT_INTENSITIES } from "@/lib/profile-effects-config";
+import { ProfileEffects } from "@/components/profile-effects";
 import { HtmlEditor } from "./html-editor";
 
 interface ProfileUser {
@@ -17,6 +19,8 @@ interface ProfileUser {
   avatar_url: string | null;
   avatar_frame?: string | null;
   avatar_animation?: string | null;
+  profile_effect?: string | null;
+  profile_effect_intensity?: string | null;
   subscription_tier?: string;
   profile_html?: string | null;
   profile_css?: string | null;
@@ -154,6 +158,8 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
   const [form, setForm] = useState({
     avatar_frame: user.avatar_frame ?? "none",
     avatar_animation: user.avatar_animation ?? "none",
+    profile_effect: user.profile_effect ?? "none",
+    profile_effect_intensity: user.profile_effect_intensity ?? "subtle",
     profile_status: user.profile_status ?? "",
     profile_theme: user.profile_theme ?? "default",
     profile_background_color: user.profile_background_color ?? "",
@@ -353,6 +359,8 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       if (isPlus) {
         Object.assign(mainBody, {
           avatar_animation: form.avatar_animation === "none" ? null : form.avatar_animation,
+          profile_effect: form.profile_effect === "none" ? null : form.profile_effect,
+          profile_effect_intensity: form.profile_effect === "none" ? null : form.profile_effect_intensity,
           profile_background_color: form.profile_background_color || null,
           profile_accent_color: form.profile_accent_color || null,
           profile_foreground_color: form.profile_foreground_color || null,
@@ -525,6 +533,109 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+      </Section>
+
+      {/* Profile Effects (Plus only) */}
+      <Section title="Profile Effects" defaultOpen={false}>
+        {!isPlus ? (
+          <div className="text-center py-3">
+            <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+              Ambient particle effects are a Plus feature.
+            </p>
+            <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+              ✦ Upgrade to Plus
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {/* Live preview */}
+            {form.profile_effect !== "none" && (
+              <div
+                className="relative rounded-lg border overflow-hidden"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "var(--surface)",
+                  height: 200,
+                }}
+                data-profile-wrapper
+              >
+                <ProfileEffects
+                  effect={form.profile_effect}
+                  intensity={form.profile_effect_intensity}
+                  preview
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    Live Preview
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Effect grid (None + 10 effects) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {/* None option */}
+              <button
+                type="button"
+                onClick={() => updateForm("profile_effect", "none")}
+                className="rounded-lg border p-3 flex flex-col items-center gap-1 transition-all hover:scale-[1.02]"
+                style={{
+                  borderColor: form.profile_effect === "none" ? "var(--accent)" : "var(--border)",
+                  borderWidth: form.profile_effect === "none" ? 2 : 1,
+                  cursor: "pointer",
+                }}
+              >
+                <span className="text-xs font-medium">None</span>
+                <span className="text-[10px]" style={{ color: "var(--muted)" }}>No effects</span>
+              </button>
+
+              {PROFILE_EFFECTS.map((fx) => (
+                <button
+                  key={fx.id}
+                  type="button"
+                  onClick={() => updateForm("profile_effect", fx.id)}
+                  className="rounded-lg border p-3 flex flex-col items-center gap-1 transition-all hover:scale-[1.02]"
+                  style={{
+                    borderColor: form.profile_effect === fx.id ? "var(--accent)" : "var(--border)",
+                    borderWidth: form.profile_effect === fx.id ? 2 : 1,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span className="text-xs font-medium">{fx.label}</span>
+                  <span className="text-[10px] text-center leading-tight" style={{ color: "var(--muted)" }}>
+                    {fx.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Intensity selector (only when an effect is selected) */}
+            {form.profile_effect !== "none" && (
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
+                  Intensity
+                </label>
+                <div className="flex gap-2">
+                  {EFFECT_INTENSITIES.map((i) => (
+                    <button
+                      key={i.id}
+                      type="button"
+                      onClick={() => updateForm("profile_effect_intensity", i.id)}
+                      className="rounded-full px-4 py-1.5 text-xs font-medium transition-all"
+                      style={{
+                        background: form.profile_effect_intensity === i.id ? "var(--accent)" : "var(--surface)",
+                        color: form.profile_effect_intensity === i.id ? "#fff" : "var(--foreground)",
+                        border: `1px solid ${form.profile_effect_intensity === i.id ? "var(--accent)" : "var(--border)"}`,
+                      }}
+                    >
+                      {i.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Section>

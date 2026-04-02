@@ -22,6 +22,7 @@ import { ProfileSearchFilter } from "./profile-search-filter";
 import { TipButton } from "@/components/tip-button";
 import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
+import { ProfileEffects } from "@/components/profile-effects";
 import type { TemplateContext } from "@/lib/template-tags";
 import { SignupCta } from "@/components/signup-cta";
 import { WriterSubscribeCard } from "@/components/writer-subscribe-card";
@@ -41,6 +42,8 @@ interface ProfileUser {
   avatar_url: string | null;
   avatar_frame?: string | null;
   avatar_animation?: string | null;
+  profile_effect?: string | null;
+  profile_effect_intensity?: string | null;
   ap_id: string;
   subscription_tier?: string;
   created_at: string;
@@ -730,7 +733,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
     const fpBg = fpOverrides["--fp-bg"] || fpOverrides["--background"];
 
     return (
-      <div className={`min-h-screen relative ${styles.themeClass}`} style={{
+      <div className={`min-h-screen relative ${styles.themeClass}`} data-profile-wrapper style={{
         ...styles.page,
         // Spread dark-mode CSS variable overrides so hydrated widgets inherit them
         ...fpOverrides,
@@ -751,6 +754,14 @@ export default async function ProfilePage({ params }: ProfileParams) {
             backgroundAttachment: "fixed",
             backgroundColor: styles.page.background || "var(--background)",
           }} />
+        )}
+
+        {/* Profile particle effects (Plus only) */}
+        {profile.profile_effect && isPlus && (
+          <ProfileEffects
+            effect={profile.profile_effect}
+            intensity={profile.profile_effect_intensity ?? "subtle"}
+          />
         )}
 
         <div className="mx-auto overflow-hidden"
@@ -998,7 +1009,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
   }
 
   return (
-    <div className={`min-h-screen relative ${styles.themeClass}`} style={{
+    <div className={`min-h-screen relative ${styles.themeClass}`} data-profile-wrapper style={{
       ...styles.page,
       ...(hasCustomBackground ? { background: "transparent" } : {}),
     }}>
@@ -1017,6 +1028,14 @@ export default async function ProfilePage({ params }: ProfileParams) {
           backgroundAttachment: "fixed",
           backgroundColor: styles.page.background || "var(--background)",
         }} />
+      )}
+
+      {/* Profile particle effects (Plus only) */}
+      {profile.profile_effect && isPlus && (
+        <ProfileEffects
+          effect={profile.profile_effect}
+          intensity={profile.profile_effect_intensity ?? "subtle"}
+        />
       )}
 
       {/* Custom CSS from profile_css field */}

@@ -115,7 +115,8 @@ defmodule InkwellWeb.UserController do
     plus_fields = [
       "profile_music", "profile_background_color", "profile_accent_color",
       "profile_foreground_color", "profile_font", "profile_layout",
-      "profile_widgets", "avatar_animation"
+      "profile_widgets", "avatar_animation",
+      "profile_effect", "profile_effect_intensity"
     ]
 
     allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
@@ -534,6 +535,8 @@ defmodule InkwellWeb.UserController do
       profile_entry_display: user.profile_entry_display || "cards",
       avatar_frame: user.avatar_frame,
       avatar_animation: user.avatar_animation,
+      profile_effect: user.profile_effect,
+      profile_effect_intensity: user.profile_effect_intensity,
       newsletter_enabled: user.newsletter_enabled || false,
       newsletter_name: user.newsletter_name,
       newsletter_description: user.newsletter_description,
