@@ -86,6 +86,12 @@ defmodule Inkwell.Accounts do
     |> tap_ok(&enqueue_search_index_user/1)
   end
 
+  def update_user_email(%User{} = user, new_email) do
+    user
+    |> User.email_changeset(%{email: new_email})
+    |> Repo.update()
+  end
+
   def update_username(%User{} = user, attrs) do
     user
     |> User.username_changeset(attrs)

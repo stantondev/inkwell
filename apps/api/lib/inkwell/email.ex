@@ -53,6 +53,18 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc "Send an email change verification email to the new address."
+  def send_email_change_verification(to_email, verify_url) do
+    case do_send_email(to_email, "Verify your new email on Inkwell", email_change_verification_html(verify_url)) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — email change verify link: #{verify_url}")
+        {:ok, :no_email_configured, verify_url}
+
+      result ->
+        result
+    end
+  end
+
   @doc "Send a newsletter subscription confirmation email (double opt-in)."
   def send_newsletter_confirmation(to_email, writer, confirm_url) do
     writer_name = writer.display_name || writer.username
@@ -443,6 +455,32 @@ defmodule Inkwell.Email do
            style="display: inline-block; background: #7c5bf0; color: #fff; text-decoration: none;
                   padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 16px;">
           Sign in to Inkwell
+        </a>
+        <p style="color: #707088; font-size: 13px; margin-top: 32px; line-height: 1.5;">
+          This link expires in 15 minutes.<br/>
+          If you didn't request this, you can safely ignore it.
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  defp email_change_verification_html(url) do
+    """
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 40px 20px;">
+      <div style="max-width: 460px; margin: 0 auto; background: #25253e; border-radius: 16px; padding: 40px; text-align: center;">
+        <h1 style="font-size: 24px; margin-bottom: 8px; color: #fff;">✏️ inkwell</h1>
+        <p style="color: #a0a0b8; margin-bottom: 32px;">Verify your new email</p>
+        <p style="color: #e0e0e0; font-size: 15px; line-height: 1.6; margin-bottom: 32px;">
+          Click the button below to confirm this email address for your Inkwell account.
+        </p>
+        <a href="#{url}"
+           style="display: inline-block; background: #7c5bf0; color: #fff; text-decoration: none;
+                  padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 16px;">
+          Verify your new email
         </a>
         <p style="color: #707088; font-size: 13px; margin-top: 32px; line-height: 1.5;">
           This link expires in 15 minutes.<br/>

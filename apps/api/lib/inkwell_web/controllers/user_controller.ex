@@ -1,8 +1,12 @@
 defmodule InkwellWeb.UserController do
   use InkwellWeb, :controller
 
+  require Logger
+
   alias Inkwell.Accounts
+  alias Inkwell.Auth
   alias Inkwell.CustomDomains
+  alias Inkwell.Email
   alias Inkwell.Journals
   alias Inkwell.Social
 
@@ -173,6 +177,44 @@ defmodule InkwellWeb.UserController do
         |> put_status(:unprocessable_entity)
         |> json(%{errors: format_errors(changeset)})
     end
+  end
+
+  # POST /api/me/email — request email change (sends verification to new address)
+  def request_email_change(conn, %{"email" => email}) do
+    user = conn.assigns.current_user
+    email = email |> String.trim() |> String.downcase()
+
+    cond do
+      not Regex.match?(~r/^[^\s]+@[^\s]+$/, email) ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Invalid email format"})
+
+      email == String.downcase(user.email) ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "This is already your current email"})
+
+      Accounts.get_user_by_email(email) != nil ->
+        conn |> put_status(:conflict) |> json(%{error: "This email is already in use by another account"})
+
+      true ->
+        token = Auth.create_email_change_token(user.id, email)
+        frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+        verify_url = "#{frontend_url}/auth/verify-email?token=#{token}"
+
+        case Email.send_email_change_verification(email, verify_url) do
+          {:ok, :no_email_configured, url} ->
+            json(conn, %{ok: true, dev_verify_url: url})
+
+          {:ok, _} ->
+            json(conn, %{ok: true})
+
+          {:error, reason} ->
+            Logger.error("Failed to send email change verification: #{inspect(reason)}")
+            conn |> put_status(:internal_server_error) |> json(%{error: "Failed to send verification email"})
+        end
+    end
+  end
+
+  def request_email_change(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Email is required"})
   end
 
   # GET /api/discover/writers — recently active public writers (authenticated)

@@ -7,8 +7,9 @@ defmodule Inkwell.Auth.AuthToken do
 
   schema "auth_tokens" do
     field :token, :string
-    field :type, :string  # "magic_link" or "api_session"
+    field :type, :string  # "magic_link", "api_session", or "email_change"
     field :expires_at, :utc_datetime_usec
+    field :data, :map
 
     belongs_to :user, Inkwell.Accounts.User
 
@@ -17,9 +18,9 @@ defmodule Inkwell.Auth.AuthToken do
 
   def changeset(auth_token, attrs) do
     auth_token
-    |> cast(attrs, [:token, :user_id, :type, :expires_at])
+    |> cast(attrs, [:token, :user_id, :type, :expires_at, :data])
     |> validate_required([:token, :user_id, :type, :expires_at])
-    |> validate_inclusion(:type, ["magic_link", "api_session"])
+    |> validate_inclusion(:type, ["magic_link", "api_session", "email_change"])
     |> unique_constraint(:token)
   end
 end

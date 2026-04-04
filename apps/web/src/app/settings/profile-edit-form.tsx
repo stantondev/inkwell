@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
@@ -242,8 +242,53 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
   const inputClass = "w-full rounded-lg border px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-[var(--accent)] transition";
   const inputStyle = { borderColor: "var(--border)" };
 
+  // Handle email change query params
+  const searchParams = useSearchParams();
+  const [emailBanner, setEmailBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    const emailUpdated = searchParams.get("email_updated");
+    const emailError = searchParams.get("email_error");
+
+    if (emailUpdated === "true") {
+      const newEmail = searchParams.get("new_email");
+      setEmailBanner({ type: "success", message: newEmail ? `Email updated to ${newEmail}` : "Email updated successfully" });
+      // Clean up URL params
+      const url = new URL(window.location.href);
+      url.searchParams.delete("email_updated");
+      url.searchParams.delete("new_email");
+      window.history.replaceState({}, "", url.toString());
+    } else if (emailError) {
+      const messages: Record<string, string> = {
+        expired: "Verification link has expired. Please request a new one.",
+        taken: "That email is already in use by another account.",
+        missing_token: "Invalid verification link.",
+        server: "Something went wrong. Please try again.",
+      };
+      setEmailBanner({ type: "error", message: messages[emailError] || "Email verification failed." });
+      const url = new URL(window.location.href);
+      url.searchParams.delete("email_error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* Email change banner */}
+      {emailBanner && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm flex items-center justify-between"
+          style={{
+            background: emailBanner.type === "success" ? "var(--success-bg, #f0fdf4)" : "var(--danger-bg, #fef2f2)",
+            color: emailBanner.type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
+            border: `1px solid ${emailBanner.type === "success" ? "var(--success, #16a34a)" : "var(--danger, #dc2626)"}`,
+            opacity: 0.9,
+          }}>
+          <span>{emailBanner.message}</span>
+          <button type="button" onClick={() => setEmailBanner(null)} className="ml-3 font-bold opacity-60 hover:opacity-100">&times;</button>
+        </div>
+      )}
+
       {/* Avatar section */}
       <div>
         <label className="block text-sm font-medium mb-3">Avatar</label>
@@ -521,9 +566,122 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
         )}
       </div>
 
-      <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-        Email: {user.email}
-      </p>
+      {/* Email Change */}
+      <EmailChangeSection email={user.email} />
     </form>
+  );
+}
+
+function EmailChangeSection({ email }: { email: string }) {
+  const [mode, setMode] = useState<"idle" | "editing" | "sent">("idle");
+  const [newEmail, setNewEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSendVerification() {
+    if (!newEmail.trim()) return;
+    setSending(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/me/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newEmail.trim() }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setMode("sent");
+      } else {
+        setError(data.error || "Failed to send verification email");
+      }
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (mode === "sent") {
+    return (
+      <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--border)" }}>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Email: {email}
+        </p>
+        <div className="mt-2 rounded-lg px-4 py-3 text-sm" style={{ background: "var(--surface)", border: "1px solid var(--accent)", color: "var(--foreground)" }}>
+          <p style={{ color: "var(--accent)", fontWeight: 500 }}>Verification email sent</p>
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            Check <strong>{newEmail}</strong> and click the verification link. The link expires in 15 minutes.
+          </p>
+          <button
+            type="button"
+            onClick={() => { setMode("editing"); setError(""); }}
+            className="text-xs mt-2 font-medium"
+            style={{ color: "var(--accent)" }}>
+            Send to a different address
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-3">
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Email: {email}
+        </p>
+        {mode === "idle" && (
+          <button
+            type="button"
+            onClick={() => setMode("editing")}
+            className="text-xs font-medium"
+            style={{ color: "var(--accent)" }}>
+            Change
+          </button>
+        )}
+      </div>
+
+      {mode === "editing" && (
+        <div className="mt-3 space-y-2">
+          <label className="block text-xs font-medium" style={{ color: "var(--muted)" }}>
+            New email address
+          </label>
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => { setNewEmail(e.target.value); setError(""); }}
+            placeholder="new@example.com"
+            className="w-full rounded-lg border px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-[var(--accent)] transition"
+            style={{ borderColor: "var(--border)" }}
+            autoFocus
+          />
+          {error && (
+            <p className="text-xs" style={{ color: "var(--danger)" }}>{error}</p>
+          )}
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            We&apos;ll send a verification link to this address. Your email won&apos;t change until you click it.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSendVerification}
+              disabled={sending || !newEmail.trim()}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition"
+              style={{ background: "var(--accent)", color: "#fff" }}>
+              {sending ? "Sending..." : "Send verification"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("idle"); setNewEmail(""); setError(""); }}
+              className="text-xs font-medium"
+              style={{ color: "var(--muted)" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

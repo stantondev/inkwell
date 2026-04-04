@@ -137,6 +137,40 @@ defmodule InkwellWeb.AuthController do
     conn |> put_status(:bad_request) |> json(%{error: "token is required"})
   end
 
+  # GET /api/auth/verify-email — verify email change token (public, no auth required)
+  def verify_email_change(conn, %{"token" => token}) do
+    case Auth.verify_email_change_token(token) do
+      :error ->
+        conn |> put_status(:unauthorized) |> json(%{error: "Invalid or expired verification link"})
+
+      {:ok, user_id, new_email} ->
+        case Accounts.get_user_admin(user_id) do
+          nil ->
+            conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+          user ->
+            # Re-check email uniqueness (race condition protection)
+            case Accounts.get_user_by_email(new_email) do
+              nil ->
+                case Accounts.update_user_email(user, new_email) do
+                  {:ok, _updated} ->
+                    json(conn, %{ok: true, email: new_email})
+
+                  {:error, _changeset} ->
+                    conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to update email"})
+                end
+
+              _existing ->
+                conn |> put_status(:conflict) |> json(%{error: "This email is already in use by another account"})
+            end
+        end
+    end
+  end
+
+  def verify_email_change(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "token is required"})
+  end
+
   # GET /api/auth/me  (requires Bearer token via RequireAuth plug)
   def me(conn, _params) do
     user = conn.assigns.current_user

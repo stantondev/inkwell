@@ -103,6 +103,52 @@ defmodule Inkwell.Auth do
     :ok
   end
 
+  @doc "Create an email change verification token. Returns the raw token string."
+  def create_email_change_token(user_id, new_email) do
+    # Revoke any existing email change tokens for this user
+    revoke_email_change_tokens(user_id)
+
+    token = generate_token()
+    expires_at = DateTime.add(DateTime.utc_now(), @magic_link_ttl_seconds, :second)
+
+    %AuthToken{}
+    |> AuthToken.changeset(%{
+      token: token,
+      user_id: user_id,
+      type: "email_change",
+      expires_at: expires_at,
+      data: %{"email" => new_email}
+    })
+    |> Repo.insert!()
+
+    token
+  end
+
+  @doc "Verify and consume an email change token. Returns {:ok, user_id, new_email} or :error."
+  def verify_email_change_token(token) do
+    now = DateTime.utc_now()
+
+    case Repo.one(
+           from t in AuthToken,
+             where: t.token == ^token and t.type == "email_change" and t.expires_at > ^now
+         ) do
+      nil ->
+        :error
+
+      auth_token ->
+        Repo.delete!(auth_token)
+        {:ok, auth_token.user_id, auth_token.data["email"]}
+    end
+  end
+
+  @doc "Revoke all email change tokens for a user."
+  def revoke_email_change_tokens(user_id) do
+    from(t in AuthToken, where: t.user_id == ^user_id and t.type == "email_change")
+    |> Repo.delete_all()
+
+    :ok
+  end
+
   @doc "Clean up expired tokens (can be called periodically via Oban)."
   def cleanup_expired_tokens do
     now = DateTime.utc_now()

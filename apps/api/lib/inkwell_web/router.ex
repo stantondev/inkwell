@@ -64,6 +64,7 @@ defmodule InkwellWeb.Router do
 
     # Auth
     get "/auth/verify", AuthController, :verify_magic_link
+    get "/auth/verify-email", AuthController, :verify_email_change
     get "/auth/claim-session", AuthController, :claim_session
     delete "/auth/session", AuthController, :sign_out
     post "/auth/fediverse/callback", FediverseAuthController, :callback
@@ -303,6 +304,7 @@ defmodule InkwellWeb.Router do
 
     # Username
     patch "/me/username", UserController, :update_username
+    post "/me/email", UserController, :request_email_change
 
     # Series (management)
     get "/series", SeriesController, :list_own

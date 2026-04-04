@@ -139,6 +139,14 @@ defmodule Inkwell.Accounts.User do
     |> generate_ap_id()
   end
 
+  def email_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email])
+    |> validate_required([:email])
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
+    |> unique_constraint(:email)
+  end
+
   def reserved_username?(username) do
     downcased = String.downcase(username)
 
