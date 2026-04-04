@@ -253,11 +253,12 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
     if (emailUpdated === "true") {
       const newEmail = searchParams.get("new_email");
       setEmailBanner({ type: "success", message: newEmail ? `Email updated to ${newEmail}` : "Email updated successfully" });
-      // Clean up URL params
+      // Clean up URL params and refresh to pick up new session data
       const url = new URL(window.location.href);
       url.searchParams.delete("email_updated");
       url.searchParams.delete("new_email");
       window.history.replaceState({}, "", url.toString());
+      router.refresh();
     } else if (emailError) {
       const messages: Record<string, string> = {
         expired: "Verification link has expired. Please request a new one.",
@@ -574,15 +575,18 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
 }
 
 function EmailChangeSection({ email }: { email: string }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"idle" | "editing" | "sent">("idle");
   const [newEmail, setNewEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSendVerification() {
     if (!newEmail.trim()) return;
     setSending(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       const res = await fetch("/api/me/email", {
@@ -595,7 +599,18 @@ function EmailChangeSection({ email }: { email: string }) {
       if (res.ok) {
         setMode("sent");
       } else {
-        setError(data.error || "Failed to send verification email");
+        const errMsg = data.error || "Failed to send verification email";
+        // If the backend says this is already the user's email but the UI shows
+        // a different email, the change already succeeded (token was consumed,
+        // email updated in DB) but the session is stale. Refresh to show the update.
+        if (errMsg.includes("already your current email") && newEmail.trim().toLowerCase() !== email.toLowerCase()) {
+          setSuccessMessage(`Your email was already updated to ${newEmail.trim()}. Refreshing...`);
+          setMode("idle");
+          setNewEmail("");
+          setTimeout(() => router.refresh(), 1000);
+        } else {
+          setError(errMsg);
+        }
       }
     } catch {
       setError("Network error — please try again");
@@ -614,13 +629,24 @@ function EmailChangeSection({ email }: { email: string }) {
           <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
             Check <strong>{newEmail}</strong> and click the verification link. The link expires in 15 minutes.
           </p>
-          <button
-            type="button"
-            onClick={() => { setMode("editing"); setError(""); }}
-            className="text-xs mt-2 font-medium"
-            style={{ color: "var(--accent)" }}>
-            Send to a different address
-          </button>
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              type="button"
+              onClick={handleSendVerification}
+              disabled={sending}
+              className="text-xs font-medium"
+              style={{ color: "var(--accent)" }}>
+              {sending ? "Sending..." : "Resend verification email"}
+            </button>
+            <span className="text-xs" style={{ color: "var(--border)" }}>·</span>
+            <button
+              type="button"
+              onClick={() => { setMode("editing"); setError(""); }}
+              className="text-xs font-medium"
+              style={{ color: "var(--muted)" }}>
+              Use a different address
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -641,6 +667,10 @@ function EmailChangeSection({ email }: { email: string }) {
           </button>
         )}
       </div>
+
+      {successMessage && (
+        <p className="text-xs mt-2 font-medium" style={{ color: "var(--success, #16a34a)" }}>{successMessage}</p>
+      )}
 
       {mode === "editing" && (
         <div className="mt-3 space-y-2">
