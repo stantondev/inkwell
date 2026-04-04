@@ -414,6 +414,9 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
         )}
       </div>
 
+      {/* Email */}
+      <EmailChangeSection email={user.email} />
+
       <div>
         <label className="block text-sm font-medium mb-1.5">Display name</label>
         <input type="text" value={form.display_name} required maxLength={80}
@@ -566,8 +569,6 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
         )}
       </div>
 
-      {/* Email Change */}
-      <EmailChangeSection email={user.email} />
     </form>
   );
 }
@@ -605,10 +606,9 @@ function EmailChangeSection({ email }: { email: string }) {
 
   if (mode === "sent") {
     return (
-      <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--border)" }}>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Email: {email}
-        </p>
+      <div>
+        <label className="block text-sm font-medium mb-1.5">Email</label>
+        <p className="text-sm" style={{ color: "var(--foreground)" }}>{email}</p>
         <div className="mt-2 rounded-lg px-4 py-3 text-sm" style={{ background: "var(--surface)", border: "1px solid var(--accent)", color: "var(--foreground)" }}>
           <p style={{ color: "var(--accent)", fontWeight: 500 }}>Verification email sent</p>
           <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
@@ -627,11 +627,10 @@ function EmailChangeSection({ email }: { email: string }) {
   }
 
   return (
-    <div className="border-t pt-4 mt-2" style={{ borderColor: "var(--border)" }}>
+    <div>
+      <label className="block text-sm font-medium mb-1.5">Email</label>
       <div className="flex items-center gap-3">
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Email: {email}
-        </p>
+        <span className="text-sm" style={{ color: "var(--foreground)" }}>{email}</span>
         {mode === "idle" && (
           <button
             type="button"
