@@ -31,6 +31,7 @@ import { LinkEmbed, type LinkEmbedAttrs } from "@/lib/tiptap-link-embed";
 import { PhotoGallery, type PhotoGalleryAttrs } from "@/lib/tiptap-photo-gallery";
 import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
+import { isMarkdown, isPlainTextHtml, markdownToHtml } from "@/lib/markdown-paste";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
 
@@ -1778,6 +1779,8 @@ export function EditorClient() {
       handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
         if (!items) return false;
+
+        // 1. Check for image pastes first (existing behavior)
         for (const item of items) {
           if (item.type.startsWith("image/")) {
             event.preventDefault();
@@ -1789,6 +1792,22 @@ export function EditorClient() {
             return true;
           }
         }
+
+        // 2. Check for Markdown in plain text paste
+        const html = event.clipboardData?.getData("text/html");
+        const text = event.clipboardData?.getData("text/plain");
+
+        // If clipboard has rich HTML (not just a plain-text wrapper), let TipTap handle it
+        if (html && !isPlainTextHtml(html)) return false;
+
+        // If plain text looks like Markdown, convert and insert as rich content
+        if (text && isMarkdown(text)) {
+          event.preventDefault();
+          const converted = markdownToHtml(text);
+          editorRef.current?.commands.insertContent(converted);
+          return true;
+        }
+
         return false;
       },
     },
