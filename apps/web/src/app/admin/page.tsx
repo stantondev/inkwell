@@ -4,6 +4,7 @@ import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
 import { ReindexButton } from "./reindex-button";
+import { BillingHealthPanel } from "./billing-health-panel";
 
 export const metadata: Metadata = { title: "Admin Dashboard · Inkwell" };
 
@@ -81,6 +82,11 @@ export default async function AdminDashboardPage() {
           <StatCard label="Pending Reports" value={stats.pending_reports} danger={stats.pending_reports > 0} />
         </div>
       )}
+
+      {/* Billing Health */}
+      <div className="admin-section">
+        <BillingHealthPanel />
+      </div>
 
       {/* Admin Actions */}
       <div className="admin-section" style={{ marginBottom: "1rem" }}>

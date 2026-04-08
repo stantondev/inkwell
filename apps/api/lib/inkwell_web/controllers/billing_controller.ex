@@ -305,28 +305,80 @@ defmodule InkwellWeb.BillingController do
   def webhook(conn, _params) do
     raw_body = conn.assigns[:raw_body] || conn.private[:raw_body]
     signature = Plug.Conn.get_req_header(conn, "x-square-hmacsha256-signature") |> List.first()
+    remote_ip = remote_ip_string(conn)
+    body_size = if is_binary(raw_body), do: byte_size(raw_body), else: 0
+
+    base_log = %{
+      source: "square",
+      remote_ip: remote_ip,
+      body_size: body_size
+    }
 
     if is_nil(raw_body) do
+      Billing.log_delivery(Map.merge(base_log, %{status: "missing_body", signature_valid: false, error: "no request body"}))
+      Logger.warning("Square webhook received with no body from #{remote_ip}")
       conn |> put_status(:bad_request) |> json(%{error: "Missing request body"})
     else
       case Billing.verify_webhook_signature(raw_body, signature) do
         :ok ->
           case Jason.decode(raw_body) do
             {:ok, event} ->
+              event_type = event["type"] || "unknown"
+
+              Billing.log_delivery(
+                Map.merge(base_log, %{
+                  status: "received",
+                  signature_valid: true,
+                  event_type: event_type
+                })
+              )
+
+              Logger.info("Square webhook received: type=#{event_type} from #{remote_ip}")
+
               # Process reliably via Oban worker (retries, persistence, dedup)
               Inkwell.Workers.WebhookProcessingWorker.new(%{"event" => event})
               |> Oban.insert()
 
               json(conn, %{received: true})
 
-            {:error, _} ->
+            {:error, reason} ->
+              Billing.log_delivery(
+                Map.merge(base_log, %{
+                  status: "parse_failed",
+                  signature_valid: true,
+                  error: "Invalid JSON: #{inspect(reason)}"
+                })
+              )
+
+              Logger.warning("Square webhook JSON parse failed from #{remote_ip}: #{inspect(reason)}")
               conn |> put_status(:bad_request) |> json(%{error: "Invalid JSON"})
           end
 
         {:error, reason} ->
-          Logger.warning("Square webhook signature verification failed: #{inspect(reason)}")
+          Billing.log_delivery(
+            Map.merge(base_log, %{
+              status: "signature_failed",
+              signature_valid: false,
+              error: "Signature verification failed: #{inspect(reason)}"
+            })
+          )
+
+          Logger.warning("Square webhook signature verification failed from #{remote_ip}: #{inspect(reason)}")
           conn |> put_status(:bad_request) |> json(%{error: "Invalid signature"})
       end
+    end
+  end
+
+  defp remote_ip_string(conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
+      [value | _] when is_binary(value) ->
+        value |> String.split(",") |> List.first() |> String.trim()
+
+      _ ->
+        case conn.remote_ip do
+          nil -> "unknown"
+          ip -> :inet.ntoa(ip) |> to_string()
+        end
     end
   end
 

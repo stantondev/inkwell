@@ -485,6 +485,10 @@ defmodule InkwellWeb.Router do
     # Dashboard stats
     get "/stats", AdminController, :stats
 
+    # Billing / Square webhook health + reconciliation
+    get "/billing-health", AdminController, :billing_health
+    post "/reconcile-subscriptions", AdminController, :reconcile_subscriptions
+
     # User management
     get "/users", AdminController, :list_users
     get "/users/:id", AdminController, :show_user

@@ -4,9 +4,46 @@ defmodule InkwellWeb.AdminController do
   require Logger
 
   alias Inkwell.Accounts
+  alias Inkwell.Billing
   alias Inkwell.Journals
   alias Inkwell.Moderation
   alias InkwellWeb.EntryController
+
+  # GET /api/admin/billing-health — Square webhook health + subscription counts
+  def billing_health(conn, _params) do
+    stats = Billing.webhook_stats()
+    recent = Billing.recent_webhook_deliveries(20, "square")
+
+    json(conn, %{
+      stats: stats,
+      recent: Enum.map(recent, &render_webhook_delivery/1)
+    })
+  end
+
+  # POST /api/admin/reconcile-subscriptions — reconcile all users against Square
+  def reconcile_subscriptions(conn, _params) do
+    Logger.info("Admin #{conn.assigns.current_user.username} triggered full subscription reconciliation")
+
+    # Run inline — this is a bounded operation (max ~1000 users) and admins
+    # expect immediate feedback. If it grows beyond that we'll move to Oban.
+    result = Billing.reconcile_all_users(max_users: 1000)
+
+    json(conn, %{ok: true, result: result})
+  end
+
+  defp render_webhook_delivery(delivery) do
+    %{
+      id: delivery.id,
+      source: delivery.source,
+      event_type: delivery.event_type,
+      status: delivery.status,
+      signature_valid: delivery.signature_valid,
+      remote_ip: delivery.remote_ip,
+      body_size: delivery.body_size,
+      error: delivery.error,
+      inserted_at: delivery.inserted_at
+    }
+  end
 
   # GET /api/admin/stats
   def stats(conn, _params) do

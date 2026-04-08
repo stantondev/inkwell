@@ -6,6 +6,7 @@ defmodule Inkwell.Billing do
   """
 
   alias Inkwell.Accounts.User
+  alias Inkwell.Billing.WebhookDelivery
   alias Inkwell.Billing.WebhookEvent
   alias Inkwell.Square
   alias Inkwell.Repo
@@ -38,6 +39,200 @@ defmodule Inkwell.Billing do
       |> Repo.delete_all()
 
     {:ok, count}
+  end
+
+  # ── Webhook Delivery Logging (visibility / admin health widget) ─────────
+
+  @doc """
+  Log an inbound webhook delivery attempt. Always succeeds — failures to log
+  are themselves logged but never raise, so logging can never break webhook
+  processing.
+
+  Call this for every hit to the webhook endpoint, regardless of outcome.
+  """
+  def log_delivery(attrs) do
+    case %WebhookDelivery{}
+         |> WebhookDelivery.changeset(attrs)
+         |> Repo.insert() do
+      {:ok, delivery} ->
+        {:ok, delivery}
+
+      {:error, changeset} ->
+        Logger.error("Failed to log webhook delivery: #{inspect(changeset.errors)}")
+        :error
+    end
+  rescue
+    e ->
+      Logger.error("Exception logging webhook delivery: #{inspect(e)}")
+      :error
+  end
+
+  @doc "Return the most recent N webhook deliveries (newest first)."
+  def recent_webhook_deliveries(limit \\ 20, source \\ "square") do
+    from(d in WebhookDelivery,
+      where: d.source == ^source,
+      order_by: [desc: d.inserted_at],
+      limit: ^limit
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Summary stats for the admin webhook health widget.
+
+  Returns a map with:
+    - last_delivery_at: timestamp of most recent delivery (nil if none)
+    - total_24h: total deliveries in the last 24 hours
+    - by_status_24h: map of status → count for last 24 hours
+    - total_7d: total deliveries in the last 7 days
+    - square_subscribers: count of users with an active Square subscription
+    - square_donors: count of users with an active Square donor subscription
+    - legacy_stripe_users: count of users still on a legacy Stripe subscription
+  """
+  def webhook_stats do
+    cutoff_24h = DateTime.add(DateTime.utc_now(), -24, :hour)
+    cutoff_7d = DateTime.add(DateTime.utc_now(), -7, :day)
+
+    last_delivery_at =
+      Repo.one(
+        from d in WebhookDelivery,
+          where: d.source == "square",
+          order_by: [desc: d.inserted_at],
+          limit: 1,
+          select: d.inserted_at
+      )
+
+    total_24h =
+      Repo.one(
+        from d in WebhookDelivery,
+          where: d.source == "square" and d.inserted_at > ^cutoff_24h,
+          select: count(d.id)
+      ) || 0
+
+    total_7d =
+      Repo.one(
+        from d in WebhookDelivery,
+          where: d.source == "square" and d.inserted_at > ^cutoff_7d,
+          select: count(d.id)
+      ) || 0
+
+    by_status_24h =
+      from(d in WebhookDelivery,
+        where: d.source == "square" and d.inserted_at > ^cutoff_24h,
+        group_by: d.status,
+        select: {d.status, count(d.id)}
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    square_subscribers =
+      Repo.one(
+        from u in User,
+          where: not is_nil(u.square_subscription_id) and u.subscription_status == "active",
+          select: count(u.id)
+      ) || 0
+
+    square_donors =
+      Repo.one(
+        from u in User,
+          where: not is_nil(u.square_donor_subscription_id) and u.ink_donor_status == "active",
+          select: count(u.id)
+      ) || 0
+
+    legacy_stripe_users =
+      Repo.one(
+        from u in User,
+          where:
+            not is_nil(u.stripe_subscription_id) or
+              not is_nil(u.ink_donor_stripe_subscription_id),
+          select: count(u.id)
+      ) || 0
+
+    %{
+      last_delivery_at: last_delivery_at,
+      total_24h: total_24h,
+      total_7d: total_7d,
+      by_status_24h: by_status_24h,
+      square_subscribers: square_subscribers,
+      square_donors: square_donors,
+      legacy_stripe_users: legacy_stripe_users
+    }
+  end
+
+  @doc "Clean up webhook deliveries older than 30 days."
+  def cleanup_old_webhook_deliveries do
+    cutoff = DateTime.add(DateTime.utc_now(), -30, :day)
+
+    {count, _} =
+      from(d in WebhookDelivery, where: d.inserted_at < ^cutoff)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
+  @doc """
+  Reconcile every user that has an email against Square.
+
+  Iterates users in batches, calls `sync_from_square/1` on each, and collects
+  the results. Returns a summary map. Intended for the "Reconcile all users"
+  admin button — safe to run anytime (each sync is idempotent).
+
+  Skips users with no email (extremely rare), blocked users, and deactivated
+  accounts.
+  """
+  def reconcile_all_users(opts \\ []) do
+    max_users = Keyword.get(opts, :max_users, 1000)
+
+    users =
+      from(u in User,
+        where: not is_nil(u.email),
+        where: is_nil(u.blocked_at),
+        order_by: [desc: u.inserted_at],
+        limit: ^max_users,
+        select: u
+      )
+      |> Repo.all()
+
+    initial = %{
+      total_checked: 0,
+      plus_activated: 0,
+      donor_activated: 0,
+      plus_canceled: 0,
+      donor_canceled: 0,
+      errors: 0,
+      error_details: []
+    }
+
+    Enum.reduce(users, initial, fn user, acc ->
+      case sync_from_square(user) do
+        {:ok, _updated, changes} ->
+          acc
+          |> Map.update!(:total_checked, &(&1 + 1))
+          |> update_change_counts(changes)
+
+        {:error, reason} ->
+          %{
+            acc
+            | total_checked: acc.total_checked + 1,
+              errors: acc.errors + 1,
+              error_details:
+                [%{user_id: user.id, username: user.username, reason: inspect(reason)} | acc.error_details]
+                |> Enum.take(20)
+          }
+      end
+    end)
+  end
+
+  defp update_change_counts(acc, changes) do
+    Enum.reduce(changes, acc, fn change, acc ->
+      case change do
+        :plus_activated -> Map.update!(acc, :plus_activated, &(&1 + 1))
+        :donor_activated -> Map.update!(acc, :donor_activated, &(&1 + 1))
+        :plus_canceled -> Map.update!(acc, :plus_canceled, &(&1 + 1))
+        :donor_canceled -> Map.update!(acc, :donor_canceled, &(&1 + 1))
+        _ -> acc
+      end
+    end)
   end
 
   # ── Public API ──────────────────────────────────────────────────────────
