@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Avatar } from "@/components/avatar";
 import { LetterEditor } from "@/components/letter-editor";
+import { StationeryModal } from "./stationery-modal";
 import type { LetterMessage, ThreadData } from "./page";
 
 // Deterministic "random" rotation from message ID — gives each note a slight tilt
@@ -373,199 +374,6 @@ function LetterNote({
 }
 
 // ---------------------------------------------------------------------------
-// ResizeHandle — draggable divider between messages and compose
-// ---------------------------------------------------------------------------
-
-function ResizeHandle({
-  onResize,
-}: {
-  onResize: (deltaX: number) => void;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const startXRef = useRef(0);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setDragging(true);
-      startXRef.current = e.clientX;
-
-      const handleMouseMove = (ev: MouseEvent) => {
-        const delta = startXRef.current - ev.clientX;
-        startXRef.current = ev.clientX;
-        onResize(delta);
-      };
-
-      const handleMouseUp = () => {
-        setDragging(false);
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-    },
-    [onResize]
-  );
-
-  return (
-    <div
-      className={`letter-resize-handle ${dragging ? "dragging" : ""}`}
-      onMouseDown={handleMouseDown}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ComposeArea — TipTap rich text compose
-// ---------------------------------------------------------------------------
-
-function ComposeArea({
-  conversationId,
-  onSend,
-  prefersReducedMotion,
-  composeWidth,
-}: {
-  conversationId: string;
-  onSend: (message: LetterMessage) => void;
-  prefersReducedMotion: boolean;
-  composeWidth: number | null;
-}) {
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [isMac, setIsMac] = useState(false);
-  const htmlRef = useRef("");
-  const editorKeyRef = useRef(0);
-
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-    setIsMac(navigator.platform?.toUpperCase().includes("MAC") || navigator.userAgent?.includes("Mac"));
-  }, []);
-
-  const send = async () => {
-    const html = htmlRef.current;
-    // Check if content is empty (just empty p tags)
-    const stripped = html.replace(/<[^>]*>/g, "").trim();
-    if (!stripped || sending) return;
-
-    setSending(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/letters/${conversationId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body_html: html }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.errors?.body?.[0] ?? json.error ?? "Failed to send letter");
-        return;
-      }
-      htmlRef.current = "";
-      editorKeyRef.current += 1;
-      onSend(json.data);
-    } catch {
-      setError("Failed to send letter — please try again");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const widthStyle = composeWidth
-    ? { width: `${composeWidth}px` }
-    : undefined;
-
-  return (
-    <motion.div
-      className="letter-compose-area"
-      style={widthStyle}
-    >
-      {/* Notepad header */}
-      <div className="letter-compose-header">
-        <span
-          style={{
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            fontStyle: "italic",
-            fontSize: "13px",
-            color: "#8a7a4a",
-          }}
-        >
-          Write a letter&hellip;
-        </span>
-        {!isTouchDevice && (
-          <span className="letter-send-hint" style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.7 }}>
-            {isMac ? "⌘" : "Ctrl+"}↵ to send
-          </span>
-        )}
-      </div>
-
-      {error && (
-        <div
-          style={{
-            margin: "0 18px 8px",
-            fontSize: "12px",
-            color: "var(--danger)",
-            padding: "6px 10px",
-            background: "rgba(220,38,38,0.08)",
-            borderRadius: "6px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div className="letter-compose-body">
-        <LetterEditor
-          key={editorKeyRef.current}
-          content=""
-          onChange={(html) => { htmlRef.current = html; }}
-          onSubmit={send}
-          autoFocus
-        />
-      </div>
-
-      <div className="letter-compose-footer">
-        <div style={{ flex: 1 }} />
-        <motion.button
-          whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
-          onClick={send}
-          disabled={sending}
-          style={{
-            padding: "10px 22px",
-            borderRadius: "9999px",
-            background: sending ? "#d4cbb8" : "var(--accent)",
-            color: sending ? "#9a9080" : "white",
-            border: "none",
-            cursor: sending ? "not-allowed" : "pointer",
-            fontSize: "14px",
-            fontWeight: "600",
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            transition: "background 0.2s, color 0.2s, transform 0.1s",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {sending ? (
-            "Sending..."
-          ) : (
-            <>
-              Seal &amp; Send <span style={{ fontSize: "16px" }}>✉</span>
-            </>
-          )}
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // LetterThread — main thread component
 // ---------------------------------------------------------------------------
 
@@ -575,18 +383,15 @@ interface Props {
   currentUsername: string;
 }
 
-const COMPOSE_MIN = 280;
-const COMPOSE_MAX = 600;
-const COMPOSE_DEFAULT = 340;
-const COMPOSE_STORAGE_KEY = "inkwell-compose-width";
-
-export function LetterThread({ initialThread, conversationId, currentUsername }: Props) {
+export function LetterThread({ initialThread, conversationId }: Props) {
   const [messages, setMessages] = useState<LetterMessage[]>(initialThread.messages);
   const [hasMore, setHasMore] = useState(initialThread.has_more);
   const [page, setPage] = useState(initialThread.page);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [draftHtml, setDraftHtml] = useState("");
   const prefersReducedMotion = usePrefersReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(
@@ -594,27 +399,6 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
   );
   const isAtBottomRef = useRef(true);
   const router = useRouter();
-
-  // Compose width from localStorage
-  const [composeWidth, setComposeWidth] = useState<number | null>(null);
-  useEffect(() => {
-    const saved = localStorage.getItem(COMPOSE_STORAGE_KEY);
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      if (parsed >= COMPOSE_MIN && parsed <= COMPOSE_MAX) {
-        setComposeWidth(parsed);
-      }
-    }
-  }, []);
-
-  const handleResize = useCallback((delta: number) => {
-    setComposeWidth((prev) => {
-      const current = prev ?? COMPOSE_DEFAULT;
-      const next = Math.min(COMPOSE_MAX, Math.max(COMPOSE_MIN, current + delta));
-      localStorage.setItem(COMPOSE_STORAGE_KEY, String(next));
-      return next;
-    });
-  }, []);
 
   // Mark as read on mount and refresh nav badge
   useEffect(() => {
@@ -736,6 +520,15 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
     }
   };
 
+  const handleSent = useCallback((message: LetterMessage) => {
+    setMessages((prev) => [...prev, message]);
+    setNewMessageIds((prev) => new Set([...prev, message.id]));
+    lastMessageIdRef.current = message.id;
+    // Ensure we scroll to the new letter even if the user had scrolled up
+    isAtBottomRef.current = true;
+    router.refresh();
+  }, [router]);
+
   return (
     <div className="letter-thread-container">
       {/* Header */}
@@ -770,7 +563,7 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           size={36}
         />
 
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
               fontFamily: "var(--font-lora, Georgia, serif)",
@@ -790,11 +583,34 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
             </Link>
           </div>
         </div>
+
+        {/* Write a letter button (desktop, hidden on narrow screens) */}
+        <button
+          type="button"
+          className="letter-write-btn letter-write-btn-header"
+          onClick={() => setComposeOpen(true)}
+          title="Write a letter"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          <span>Write a letter</span>
+        </button>
       </div>
 
-      {/* Desktop: side-by-side layout  |  Mobile: stacked */}
+      {/* Messages area — full-width, no sidebar */}
       <div className="letter-thread-body">
-        {/* Message thread */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
@@ -854,37 +670,111 @@ export function LetterThread({ initialThread, conversationId, currentUsername }:
           </AnimatePresence>
 
           {messages.length === 0 && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "40px 20px",
-                color: "var(--muted)",
-                fontFamily: "var(--font-lora, Georgia, serif)",
-                fontStyle: "italic",
-                fontSize: "15px",
-              }}
-            >
-              The envelope is empty — write the first letter!
+            <div className="letter-empty-state">
+              <div className="letter-empty-icon" aria-hidden="true">
+                <svg
+                  width="44"
+                  height="44"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+              </div>
+              <div className="letter-empty-heading">
+                Begin your correspondence
+              </div>
+              <div className="letter-empty-sub">
+                Pull out a sheet of stationery and write the first letter.
+              </div>
+              <button
+                type="button"
+                className="letter-write-btn letter-write-btn-empty"
+                onClick={() => setComposeOpen(true)}
+              >
+                Write the first letter
+              </button>
             </div>
           )}
+
+          {/* Reply prompt — blank stationery waiting to be written on.
+              Appended after the last message so the user's eyes land right on it. */}
+          {messages.length > 0 && (
+            <button
+              type="button"
+              className="letter-reply-prompt"
+              onClick={() => setComposeOpen(true)}
+              aria-label={`Write back to ${initialThread.other_user.display_name}`}
+            >
+              <div className="letter-reply-prompt-inner">
+                <span className="letter-reply-prompt-label">Your turn</span>
+                <span className="letter-reply-prompt-heading">
+                  Write back to{" "}
+                  <em>{initialThread.other_user.display_name}</em>
+                </span>
+                <span className="letter-reply-prompt-cta">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  Open a fresh sheet of stationery
+                </span>
+              </div>
+            </button>
+          )}
         </div>
-
-        {/* Resize handle (desktop only) */}
-        <ResizeHandle onResize={handleResize} />
-
-        {/* Compose area */}
-        <ComposeArea
-          conversationId={conversationId}
-          onSend={(message) => {
-            setMessages((prev) => [...prev, message]);
-            setNewMessageIds((prev) => new Set([...prev, message.id]));
-            lastMessageIdRef.current = message.id;
-            router.refresh();
-          }}
-          prefersReducedMotion={prefersReducedMotion}
-          composeWidth={composeWidth}
-        />
       </div>
+
+      {/* Mobile: floating action button */}
+      <button
+        type="button"
+        className="letter-write-fab"
+        onClick={() => setComposeOpen(true)}
+        aria-label="Write a letter"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+          <polyline points="22,6 12,13 2,6" />
+        </svg>
+      </button>
+
+      {/* Stationery compose modal */}
+      <StationeryModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        conversationId={conversationId}
+        recipientDisplayName={initialThread.other_user.display_name}
+        recipientUsername={initialThread.other_user.username}
+        recipientAvatarUrl={initialThread.other_user.avatar_url}
+        initialDraftHtml={draftHtml}
+        onDraftChange={setDraftHtml}
+        onSent={handleSent}
+      />
     </div>
   );
 }

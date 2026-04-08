@@ -3209,7 +3209,7 @@ body.eye-comfort .editor-paper::before {
   overflow: hidden;
 }
 
-/* Mobile: stacked column (messages then compose footer) */
+/* Single-column body — messages fill full width, compose is a modal */
 .letter-thread-body {
   display: flex;
   flex-direction: column;
@@ -3223,103 +3223,249 @@ body.eye-comfort .editor-paper::before {
   padding: 24px 20px 16px;
 }
 
-/* Compose area — mobile: footer bar */
-.letter-compose-area {
+@media (min-width: 768px) {
+  .letter-thread-messages {
+    padding: 28px 32px 24px;
+  }
+}
+
+/* ─── "Write a letter" button (thread header) ───────────────────────── */
+.letter-write-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(180, 160, 100, 0.35);
+  background: #fdf8ee;
+  color: #6a5a3a;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.1s, box-shadow 0.18s;
+  white-space: nowrap;
   flex-shrink: 0;
-  min-height: 180px;
+  box-shadow: 0 1px 3px rgba(120, 100, 50, 0.08);
+}
+.letter-write-btn:hover {
+  background: #fbf1d8;
+  border-color: rgba(180, 160, 100, 0.55);
+  box-shadow: 0 2px 6px rgba(120, 100, 50, 0.12);
+}
+.letter-write-btn:active {
+  transform: translateY(1px);
+}
+
+/* Header variant — hidden on very narrow screens (mobile uses FAB instead) */
+.letter-write-btn-header {
+  display: none;
+}
+@media (min-width: 640px) {
+  .letter-write-btn-header {
+    display: inline-flex;
+  }
+}
+
+/* Empty-state CTA variant */
+.letter-write-btn-empty {
+  padding: 12px 24px;
+  font-size: 14px;
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(45, 74, 138, 0.22);
+}
+.letter-write-btn-empty:hover {
+  background: var(--accent);
+  opacity: 0.92;
+  border-color: transparent;
+}
+
+/* ─── Mobile FAB ─────────────────────────────────────────────────────── */
+.letter-write-fab {
+  position: fixed;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(20, 10, 0, 0.28), 0 2px 6px rgba(20, 10, 0, 0.18);
+  z-index: 50;
+  transition: transform 0.15s, box-shadow 0.18s;
+}
+.letter-write-fab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(20, 10, 0, 0.32), 0 3px 8px rgba(20, 10, 0, 0.2);
+}
+.letter-write-fab:active { transform: translateY(0); }
+@media (min-width: 640px) {
+  .letter-write-fab { display: none; }
+}
+
+/* ─── Empty thread state ─────────────────────────────────────────────── */
+.letter-empty-state {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--border);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 24px;
+  max-width: 440px;
+  margin: 60px auto 0;
   background: #fdf8ee;
+  border: 1px solid rgba(180, 160, 100, 0.3);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px -4px rgba(120, 100, 50, 0.12);
   background-image:
     repeating-linear-gradient(
       transparent,
       transparent 27px,
-      rgba(180,160,100,0.15) 27px,
-      rgba(180,160,100,0.15) 28px
+      rgba(180, 160, 100, 0.12) 27px,
+      rgba(180, 160, 100, 0.12) 28px
     );
 }
+.letter-empty-icon {
+  color: rgba(180, 160, 100, 0.7);
+  margin-bottom: 16px;
+}
+.letter-empty-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 22px;
+  color: #6a5a3a;
+  margin-bottom: 8px;
+}
+.letter-empty-sub {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 14px;
+  color: #8a7a4a;
+  margin-bottom: 22px;
+}
 
-.letter-compose-header {
+/* ─── Reply prompt card ─────────────────────────────────────────────
+   A blank sheet of stationery that sits after the last letter in a
+   thread. Invites the user to write back. Tapping anywhere on the
+   card opens the stationery modal. */
+.letter-reply-prompt {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  margin: 32px auto 48px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+}
+
+.letter-reply-prompt-inner {
+  position: relative;
+  padding: 28px 32px 26px;
+  background: #fdf8ee;
+  border: 1.5px dashed rgba(180, 160, 100, 0.45);
+  border-radius: 4px;
+  box-shadow: 0 3px 12px -4px rgba(120, 100, 50, 0.12);
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      rgba(180, 160, 100, 0.12) 27px,
+      rgba(180, 160, 100, 0.12) 28px
+    );
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.12s ease;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px 0;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
 }
 
-/* Hide keyboard shortcut hint on mobile — shown via desktop media query below */
-.letter-send-hint {
-  display: none;
+.letter-reply-prompt:hover .letter-reply-prompt-inner {
+  border-color: var(--accent);
+  border-style: solid;
+  box-shadow: 0 6px 20px -6px rgba(45, 74, 138, 0.25);
 }
 
-.letter-compose-body {
-  padding: 8px 18px 4px;
-  flex: 1;
-  min-height: 0;
+.letter-reply-prompt:active .letter-reply-prompt-inner {
+  transform: translateY(1px);
 }
 
-.letter-compose-footer {
-  display: flex;
+.letter-reply-prompt:focus-visible {
+  outline: none;
+}
+.letter-reply-prompt:focus-visible .letter-reply-prompt-inner {
+  border-color: var(--accent);
+  border-style: solid;
+  box-shadow: 0 0 0 3px rgba(45, 74, 138, 0.18);
+}
+
+/* Small "Your turn" label in italic caps, like a letterhead */
+.letter-reply-prompt-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  color: #8a7a4a;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.letter-reply-prompt-heading {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 20px;
+  line-height: 1.3;
+  color: #3a2a10;
+  font-weight: 500;
+}
+.letter-reply-prompt-heading em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.letter-reply-prompt-cta {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 18px 14px;
+  margin-top: 10px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 13px;
+  font-style: italic;
+  color: var(--accent);
+  transition: gap 0.2s ease;
+}
+.letter-reply-prompt:hover .letter-reply-prompt-cta {
+  gap: 12px;
 }
 
-/* Desktop: side-by-side — messages left, compose right as sticky notepad */
-@media (min-width: 768px) {
-  .letter-thread-body {
-    flex-direction: row;
+@media (max-width: 640px) {
+  .letter-reply-prompt {
+    margin: 24px auto 32px;
   }
-
-  .letter-thread-messages {
-    flex: 1;
-    min-width: 0;
-    padding: 24px 28px 16px;
+  .letter-reply-prompt-inner {
+    padding: 22px 24px 20px;
   }
-
-  .letter-compose-area {
-    width: 340px;
-    flex-shrink: 0;
-    border-top: none;
-    border-left: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    align-self: flex-end;
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
-    border-radius: 4px 0 0 0;
-    /* Subtle paper shadow on the left edge */
-    box-shadow: -4px 0 12px -2px rgba(120,100,50,0.06);
-  }
-
-  .letter-send-hint {
-    display: inline;
-  }
-
-  .letter-compose-header {
-    padding: 14px 20px 0;
-  }
-
-  .letter-compose-body {
-    padding: 8px 20px 4px;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .letter-compose-body textarea {
-    min-height: 160px !important;
-  }
-
-  .letter-compose-footer {
-    padding: 4px 20px 16px;
+  .letter-reply-prompt-heading {
+    font-size: 18px;
   }
 }
 
-/* Large desktop: wider compose panel (only when not using custom width) */
-@media (min-width: 1280px) {
-  .letter-compose-area:not([style*="width"]) {
-    width: 380px;
+@media (prefers-reduced-motion: reduce) {
+  .letter-reply-prompt-inner,
+  .letter-reply-prompt-cta {
+    transition: none;
   }
 }
 
@@ -3466,38 +3612,390 @@ body.eye-comfort .editor-paper::before {
   line-height: 24px;
 }
 
-/* ─── Letter Resize Handle ──────────────────────────────────────────── */
-.letter-resize-handle {
-  display: none;
-  width: 6px;
-  cursor: col-resize;
-  background: transparent;
+/* ─── Stationery Compose Modal ──────────────────────────────────────── */
+@keyframes stationery-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.stationery-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(25, 15, 5, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 80;
+  animation: stationery-backdrop-in 140ms ease-out;
+}
+
+.stationery-modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 81;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+.stationery-modal-wrap > * {
+  pointer-events: auto;
+}
+
+@keyframes stationery-modal-in {
+  from { transform: scale(0.97) translateY(6px); }
+  to   { transform: scale(1) translateY(0); }
+}
+
+.stationery-modal {
   position: relative;
-  flex-shrink: 0;
-  transition: background 0.2s;
-  z-index: 5;
+  width: min(720px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  /* Warm paper — radial gradient gives subtle light fall-off from top-left */
+  background:
+    radial-gradient(
+      ellipse at top left,
+      #fefaf0 0%,
+      #fdf8ee 35%,
+      #faf2e0 100%
+    );
+  animation: stationery-modal-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center;
+  border: 1px solid rgba(180, 160, 100, 0.5);
+  border-radius: 4px;
+  /* Layered shadow: deep ambient + crisp contact + warm inner vignette */
+  box-shadow:
+    0 30px 80px -20px rgba(20, 10, 0, 0.55),
+    0 8px 24px -8px rgba(20, 10, 0, 0.3),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 0 80px rgba(180, 140, 60, 0.1) inset;
+  overflow: hidden;
 }
-.letter-resize-handle:hover,
-.letter-resize-handle.dragging {
-  background: rgba(180,160,100,0.15);
-}
-.letter-resize-handle::after {
-  content: "⋮";
+
+/* Paper texture — subtle fiber grain overlay */
+.stationery-modal::before {
+  content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--muted);
-  font-size: 14px;
-  opacity: 0;
-  transition: opacity 0.2s;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 0;
 }
-.letter-resize-handle:hover::after,
-.letter-resize-handle.dragging::after {
+
+/* Soft corner vignette — darkens edges slightly for depth */
+.stationery-modal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(120, 90, 30, 0.08) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Lift modal children above the texture/vignette pseudo-elements */
+.stationery-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.stationery-modal-header {
+  position: relative;
+  padding: 20px 26px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+/* Letterpress hairline divider beneath the "To" row —
+   continuous, fading at both ends for a classic letterhead feel. */
+.stationery-modal-header::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(180, 140, 60, 0.4) 18%,
+    rgba(180, 140, 60, 0.4) 82%,
+    transparent
+  );
+}
+
+.stationery-salutation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stationery-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 14px;
+  color: #8a6a2a;
+  letter-spacing: 0.04em;
+}
+.stationery-label::after {
+  content: " —";
   opacity: 0.6;
 }
-@media (min-width: 768px) {
-  .letter-resize-handle { display: block; }
+
+.stationery-recipient-name {
+  font-weight: 600 !important;
+  color: #2a1a08 !important;
+}
+
+.stationery-recipient {
+  min-width: 0;
+}
+
+.stationery-recipient-name {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a100a;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stationery-recipient-username {
+  font-size: 12px;
+  color: #8a7a4a;
+  font-style: italic;
+}
+
+.stationery-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: #8a7a4a;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.stationery-close:hover {
+  background: rgba(180, 160, 100, 0.15);
+  color: #3a2a10;
+}
+
+.stationery-paper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 6px 10px;
+}
+
+/* Toolbar styled as letterpress hairline divider */
+.stationery-paper .letter-editor-toolbar {
+  padding: 4px 22px 10px;
+  border-bottom: 1px solid rgba(180, 140, 60, 0.22);
+  margin: 0 0 0;
+  background: transparent;
+}
+
+/* Editor content is the "ruled paper" surface. Matches the ruled-line
+   style of the sent/received letter notecards exactly: 24px period, 1px
+   thick warm-tan stripes at 20% alpha, font 14px / line-height 24px.
+   Calibrated so the first ruled stripe sits just below the first text
+   baseline (like handwriting on real paper). */
+.stationery-paper .letter-editor-content {
+  padding: 0;
+  margin: 0;
+}
+.stationery-paper .letter-editor-content .tiptap {
+  min-height: 288px; /* 12 × 24px lines */
+  padding: 12px 26px 24px;
+  font-size: 14px;
+  line-height: 24px;
+  font-family: var(--font-lora, Georgia, serif);
+  color: #1a100a;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 23px,
+      rgba(180, 160, 100, 0.2) 23px,
+      rgba(180, 160, 100, 0.2) 24px
+    );
+  background-position: 0 12px; /* matches padding-top so lines align with text baselines */
+  background-repeat: repeat;
+  background-origin: padding-box;
+  background-clip: padding-box;
+}
+
+/* Kill margins on block elements inside the modal editor — they would
+   break the 28px ruled-line grid. Paragraphs flow line-by-line like
+   real handwriting on notebook paper. */
+.stationery-paper .letter-editor-content .tiptap p,
+.stationery-paper .letter-editor-content .tiptap ul,
+.stationery-paper .letter-editor-content .tiptap ol,
+.stationery-paper .letter-editor-content .tiptap blockquote,
+.stationery-paper .letter-editor-content .tiptap hr {
+  margin: 0;
+}
+/* Keep the placeholder looking like an invitation rather than live text */
+.stationery-paper .letter-editor-content .tiptap p.is-editor-empty:first-child::before {
+  color: #b8a47a;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.stationery-modal-footer {
+  position: relative;
+  padding: 16px 26px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  background: transparent;
+}
+/* Matching letterpress divider above the footer */
+.stationery-modal-footer::before {
+  content: "";
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(180, 140, 60, 0.3) 20%,
+    rgba(180, 140, 60, 0.3) 80%,
+    transparent
+  );
+}
+
+.stationery-hint {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  color: #8a7a4a;
+  opacity: 0.85;
+}
+
+.stationery-error {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 6px 10px;
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: 6px;
+  font-family: var(--font-lora, Georgia, serif);
+  flex: 1;
+}
+
+.stationery-send-btn {
+  padding: 11px 26px;
+  border-radius: 9999px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 100%, white 8%) 0%,
+      var(--accent) 55%,
+      color-mix(in srgb, var(--accent) 90%, black 15%) 100%
+    );
+  color: white;
+  border: 1px solid color-mix(in srgb, var(--accent) 80%, black 20%);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.22s ease, filter 0.22s ease;
+  box-shadow:
+    0 6px 16px rgba(45, 74, 138, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 -2px 6px rgba(0, 0, 0, 0.12) inset;
+}
+.stationery-send-btn:hover:not(:disabled) {
+  box-shadow:
+    0 8px 22px rgba(45, 74, 138, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 -2px 6px rgba(0, 0, 0, 0.12) inset;
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+.stationery-send-btn:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.96);
+}
+.stationery-send-btn:disabled {
+  background: #d4cbb8;
+  color: #9a9080;
+  border-color: #c0b598;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+/* Mobile: full-bleed paper */
+@media (max-width: 640px) {
+  .stationery-modal-wrap {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  .stationery-modal {
+    width: 100%;
+    max-height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+  }
+  .stationery-modal-header {
+    padding: 14px 18px 12px;
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+  .stationery-modal-footer {
+    padding: 12px 18px 14px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  .stationery-paper .letter-editor-content .tiptap {
+    min-height: 200px;
+    padding: 0 18px 10px;
+    font-size: 15px;
+  }
+  .stationery-paper .letter-editor-toolbar {
+    padding: 4px 14px 8px;
+  }
+}
+
+/* Dark mode: paper stays warm cream (notecard aesthetic unchanged); darker backdrop */
+@media (prefers-color-scheme: dark) {
+  .stationery-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stationery-modal,
+  .stationery-backdrop {
+    animation: none;
+  }
 }
 
 /* ─── Sidebar — "The Contents Page" ─────────────────────────────────── */
