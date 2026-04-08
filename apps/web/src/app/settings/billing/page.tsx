@@ -152,10 +152,14 @@ export default function BillingPage() {
     }
   }
 
-  const isPlus = status?.subscription_tier === "plus";
+  const needsResubscribe = !!status?.needs_resubscribe;
+  // Legacy Stripe users with needs_resubscribe are effectively free — hide the
+  // "Plus member" UI so they can see the Square upgrade form and re-subscribe.
+  const isPlus = status?.subscription_tier === "plus" && !needsResubscribe;
   const isPastDue = status?.subscription_status === "past_due";
   const isCanceled = status?.subscription_status === "canceled";
-  const isDonor = status?.ink_donor_status === "active";
+  // Same treatment for legacy donor subscribers.
+  const isDonor = status?.ink_donor_status === "active" && !needsResubscribe;
   const isDonorPastDue = status?.ink_donor_status === "past_due";
 
   if (loading) {

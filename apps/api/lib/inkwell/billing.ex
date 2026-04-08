@@ -85,8 +85,18 @@ defmodule Inkwell.Billing do
         end
 
       user.stripe_subscription_id ->
-        # Legacy Stripe subscription — cancel via Stripe API if still active
-        cancel_stripe_subscription(user.stripe_subscription_id)
+        # Legacy Stripe subscription — Stripe account is closed, so these are
+        # already defunct. Clear local state so the user can re-subscribe via Square.
+        Logger.info("Cancelled legacy Stripe subscription locally for user #{user.id}")
+
+        user
+        |> User.subscription_changeset(%{
+          stripe_subscription_id: nil,
+          subscription_tier: "free",
+          subscription_status: "canceled",
+          subscription_expires_at: nil
+        })
+        |> Repo.update()
 
       true ->
         {:error, :no_subscription}
@@ -108,7 +118,17 @@ defmodule Inkwell.Billing do
         end
 
       user.ink_donor_stripe_subscription_id ->
-        cancel_stripe_subscription(user.ink_donor_stripe_subscription_id)
+        # Legacy Stripe donor subscription — Stripe account is closed.
+        # Clear local state so the user can re-donate via Square.
+        Logger.info("Cancelled legacy Stripe donor subscription locally for user #{user.id}")
+
+        user
+        |> User.ink_donor_changeset(%{
+          ink_donor_stripe_subscription_id: nil,
+          ink_donor_status: "canceled",
+          ink_donor_amount_cents: nil
+        })
+        |> Repo.update()
 
       true ->
         :ok
