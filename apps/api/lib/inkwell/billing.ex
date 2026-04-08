@@ -355,11 +355,24 @@ defmodule Inkwell.Billing do
       "invoice.payment_made" ->
         handle_invoice_payment_made(object)
 
+      # Square renamed this event — support both old and current names
       "invoice.payment_failed" ->
+        handle_invoice_payment_failed(object)
+
+      "invoice.scheduled_charge_failed" ->
         handle_invoice_payment_failed(object)
 
       "dispute.created" ->
         handle_dispute_created(object)
+
+      "dispute.state.changed" ->
+        handle_dispute_created(object)
+
+      # payment.completed isn't a real Square event — payment.updated is emitted
+      # when a payment reaches COMPLETED status. We filter by status inside the
+      # handler so we only act on actually-completed payments.
+      "payment.updated" ->
+        handle_payment_completed(object)
 
       "payment.completed" ->
         handle_payment_completed(object)
@@ -578,7 +591,8 @@ defmodule Inkwell.Billing do
 
   defp handle_payment_completed(%{"payment" => payment}), do: handle_payment_completed(payment)
 
-  defp handle_payment_completed(%{"amount_money" => %{"amount" => amount_cents}} = payment) do
+  defp handle_payment_completed(%{"amount_money" => %{"amount" => amount_cents}, "status" => status} = payment)
+       when status in ["COMPLETED", "APPROVED"] do
     # One-time donations have no subscription_id — subscription payments are handled
     # via invoice.payment_made, so we only notify here for non-subscription payments
     if is_nil(payment["subscription_id"]) do
@@ -590,6 +604,12 @@ defmodule Inkwell.Billing do
       Inkwell.Slack.notify_donation(username, amount_cents)
     end
 
+    :ok
+  end
+
+  defp handle_payment_completed(%{"status" => status}) do
+    # payment.updated fires on every status change; only act on completed payments
+    Logger.debug("Ignoring payment.updated with status #{status}")
     :ok
   end
 
