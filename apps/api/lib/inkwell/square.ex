@@ -246,6 +246,54 @@ defmodule Inkwell.Square do
     end
   end
 
+  @doc """
+  Search Square customers by exact email address.
+  Returns a list of matching customers (usually 0 or 1).
+  Used by the on-demand subscription sync (fallback when webhooks fail).
+  """
+  def search_customers_by_email(nil), do: {:ok, []}
+  def search_customers_by_email(""), do: {:ok, []}
+  def search_customers_by_email(email) when is_binary(email) do
+    body = %{
+      "query" => %{
+        "filter" => %{
+          "email_address" => %{"exact" => email}
+        }
+      }
+    }
+
+    case square_post("/customers/search", body) do
+      {:ok, %{"customers" => customers}} when is_list(customers) -> {:ok, customers}
+      {:ok, _no_customers} -> {:ok, []}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Search Square subscriptions for a given customer ID.
+  Returns a list of all subscriptions (active and inactive) for that customer.
+  """
+  def search_subscriptions_by_customer(nil), do: {:ok, []}
+  def search_subscriptions_by_customer(customer_id) when is_binary(customer_id) do
+    config = square_config()
+    location_id = config[:location_id]
+
+    body = %{
+      "query" => %{
+        "filter" => %{
+          "customer_ids" => [customer_id],
+          "location_ids" => [location_id]
+        }
+      }
+    }
+
+    case square_post("/subscriptions/search", body) do
+      {:ok, %{"subscriptions" => subs}} when is_list(subs) -> {:ok, subs}
+      {:ok, _no_subs} -> {:ok, []}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   # ── Webhook Verification ──────────────────────────────────────────────
 
   @doc """

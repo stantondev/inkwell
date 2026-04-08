@@ -158,6 +158,181 @@ defmodule Inkwell.Billing do
     :ok
   end
 
+  @doc """
+  On-demand reconciliation from Square → local DB.
+
+  Looks up the user's Square customer by email, finds any active Plus or Donor
+  subscriptions, and updates the local user record to match. This is the fallback
+  when Square webhooks don't reach us (either misconfigured in Square dashboard
+  or lost in transit). Safe to call repeatedly — idempotent.
+
+  Returns `{:ok, user, changes}` where `changes` is a list of atoms describing
+  what was updated: `[:plus_activated, :donor_activated, :plus_canceled, :donor_canceled]`.
+  Empty list means the local state already matched Square.
+  """
+  def sync_from_square(%User{} = user) do
+    config = Application.get_env(:inkwell, :square, [])
+
+    with {:ok, customers} <- Square.search_customers_by_email(user.email),
+         customer when not is_nil(customer) <- List.first(customers),
+         customer_id = customer["id"],
+         {:ok, subscriptions} <- Square.search_subscriptions_by_customer(customer_id) do
+      # Categorize subscriptions by plan variation
+      {plus_subs, donor_subs} =
+        Enum.split_with(subscriptions, fn sub ->
+          not is_donor_plan?(sub["plan_variation_id"], config)
+        end)
+
+      # Pick the newest active (or pending) subscription of each type
+      plus_sub = pick_newest_active(plus_subs)
+      donor_sub = pick_newest_active(donor_subs)
+
+      {user, changes} =
+        user
+        |> reconcile_plus(plus_sub, customer_id)
+        |> reconcile_donor(donor_sub, customer_id, config)
+
+      {:ok, user, changes}
+    else
+      {:ok, []} ->
+        # No customer record in Square for this email — nothing to reconcile
+        {:ok, user, []}
+
+      nil ->
+        {:ok, user, []}
+
+      {:error, reason} ->
+        Logger.warning("sync_from_square failed for user #{user.id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp pick_newest_active([]), do: nil
+  defp pick_newest_active(subs) do
+    subs
+    |> Enum.filter(fn sub -> sub["status"] in ["ACTIVE", "PENDING"] end)
+    |> Enum.sort_by(fn sub -> sub["created_at"] || "" end, :desc)
+    |> List.first()
+  end
+
+  # Reconcile Plus subscription state. Returns {updated_user, changes_list}.
+  defp reconcile_plus(user, nil, _customer_id) do
+    # No active Plus subscription in Square. If local state says we have one,
+    # clear it. Otherwise leave alone.
+    if user.square_subscription_id && user.subscription_status == "active" do
+      {:ok, updated} =
+        user
+        |> User.subscription_changeset(%{
+          square_subscription_id: nil,
+          subscription_status: "canceled",
+          subscription_tier: "free"
+        })
+        |> Repo.update()
+
+      Logger.info("sync_from_square: cleared stale Plus state for user #{user.id}")
+      {updated, [:plus_canceled]}
+    else
+      {user, []}
+    end
+  end
+
+  defp reconcile_plus(user, plus_sub, customer_id) do
+    sub_id = plus_sub["id"]
+    square_status = plus_sub["status"]
+    inkwell_status = Square.map_subscription_status(square_status)
+
+    already_matches =
+      user.square_subscription_id == sub_id and
+        user.subscription_tier == "plus" and
+        user.subscription_status == "active" and
+        not is_nil(user.square_customer_id)
+
+    if already_matches do
+      {user, []}
+    else
+      # Also clear legacy Stripe state if present — they're now on Square
+      attrs = %{
+        stripe_subscription_id: nil,
+        square_customer_id: customer_id,
+        square_subscription_id: sub_id,
+        subscription_tier: "plus",
+        subscription_status: inkwell_status
+      }
+
+      {:ok, updated} =
+        user
+        |> User.subscription_changeset(attrs)
+        |> Repo.update()
+
+      Logger.info("sync_from_square: activated Plus for user #{user.id} (sub #{sub_id})")
+
+      # Notify Slack (first-time activation only)
+      if is_nil(user.square_subscription_id) do
+        Inkwell.Slack.notify_plus_subscription(updated.username)
+      end
+
+      {updated, [:plus_activated]}
+    end
+  end
+
+  # Reconcile Donor subscription state.
+  defp reconcile_donor(user_tuple, nil, _customer_id, _config) do
+    {user, changes} = user_tuple
+
+    if user.square_donor_subscription_id && user.ink_donor_status == "active" do
+      {:ok, updated} =
+        user
+        |> User.ink_donor_changeset(%{
+          square_donor_subscription_id: nil,
+          ink_donor_status: "canceled",
+          ink_donor_amount_cents: nil
+        })
+        |> Repo.update()
+
+      Logger.info("sync_from_square: cleared stale Donor state for user #{user.id}")
+      {updated, changes ++ [:donor_canceled]}
+    else
+      {user, changes}
+    end
+  end
+
+  defp reconcile_donor(user_tuple, donor_sub, _customer_id, config) do
+    {user, changes} = user_tuple
+    sub_id = donor_sub["id"]
+    square_status = donor_sub["status"]
+    inkwell_status = Square.map_subscription_status(square_status)
+    plan_variation_id = donor_sub["plan_variation_id"]
+    amount_cents = donor_amount_for_plan(plan_variation_id, config)
+
+    already_matches =
+      user.square_donor_subscription_id == sub_id and
+        user.ink_donor_status == "active"
+
+    if already_matches do
+      {user, changes}
+    else
+      attrs = %{
+        ink_donor_stripe_subscription_id: nil,
+        square_donor_subscription_id: sub_id,
+        ink_donor_status: inkwell_status,
+        ink_donor_amount_cents: amount_cents
+      }
+
+      {:ok, updated} =
+        user
+        |> User.ink_donor_changeset(attrs)
+        |> Repo.update()
+
+      Logger.info("sync_from_square: activated Donor for user #{user.id} (sub #{sub_id}, $#{(amount_cents || 0) / 100}/mo)")
+
+      if is_nil(user.square_donor_subscription_id) do
+        Inkwell.Slack.notify_ink_donor(updated.username, amount_cents)
+      end
+
+      {updated, changes ++ [:donor_activated]}
+    end
+  end
+
   # ── Webhook Processing (Square) ─────────────────────────────────────────
 
   @doc "Verify a Square webhook signature."

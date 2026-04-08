@@ -277,6 +277,29 @@ defmodule InkwellWeb.BillingController do
     })
   end
 
+  # POST /api/billing/sync — reconcile local state from Square
+  # Fallback when Square webhooks fail to reach us. Safe to call repeatedly.
+  def sync(conn, _params) do
+    user = conn.assigns.current_user
+
+    case Billing.sync_from_square(user) do
+      {:ok, updated_user, changes} ->
+        json(conn, %{
+          ok: true,
+          changes: Enum.map(changes, &Atom.to_string/1),
+          subscription_tier: updated_user.subscription_tier,
+          subscription_status: updated_user.subscription_status,
+          ink_donor_status: updated_user.ink_donor_status
+        })
+
+      {:error, reason} ->
+        Logger.warning("Sync from Square failed for user #{user.id}: #{inspect(reason)}")
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Unable to reach Square right now. Please try again in a moment."})
+    end
+  end
+
   # POST /api/billing/webhook — receive Square webhook events
   # Raw body is cached by endpoint plug before JSON parsing
   def webhook(conn, _params) do

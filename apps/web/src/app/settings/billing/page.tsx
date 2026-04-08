@@ -29,27 +29,76 @@ export default function BillingPage() {
   const [customDonation, setCustomDonation] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCancelDonorConfirm, setShowCancelDonorConfirm] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
 
   const justSucceeded = searchParams.get("success") === "true" || searchParams.get("checkout") === "success";
   const justCanceled = searchParams.get("canceled") === "true";
   const justDonored = justSucceeded && searchParams.get("donor") === "true";
   const justDonated = searchParams.get("donation") === "success";
 
-  useEffect(() => {
-    async function fetchStatus() {
-      try {
-        const res = await fetch("/api/billing/status");
-        if (res.ok) {
-          const data = await res.json();
-          setStatus(data.data);
+  async function fetchStatus() {
+    try {
+      const res = await fetch("/api/billing/status");
+      if (res.ok) {
+        const data = await res.json();
+        setStatus(data.data);
+        return data.data as BillingStatus;
+      }
+    } catch {
+      // silently fail — will show as free
+    }
+    return null;
+  }
+
+  async function handleSync({ silent = false }: { silent?: boolean } = {}) {
+    if (!silent) {
+      setSyncing(true);
+      setSyncMessage("");
+      setError("");
+    }
+    try {
+      const res = await fetch("/api/billing/sync", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchStatus();
+        if (!silent) {
+          const changes: string[] = data.changes || [];
+          if (changes.length === 0) {
+            setSyncMessage("Everything's already in sync with Square.");
+          } else {
+            setSyncMessage("Your subscription has been updated from Square.");
+          }
         }
-      } catch {
-        // silently fail — will show as free
-      } finally {
-        setLoading(false);
+        return data.changes as string[] || [];
+      } else if (!silent) {
+        setError(data.error || "Unable to sync from Square.");
+      }
+    } catch {
+      if (!silent) setError("Network error while syncing from Square.");
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+    return [];
+  }
+
+  useEffect(() => {
+    async function init() {
+      const initial = await fetchStatus();
+      setLoading(false);
+
+      // Auto-reconcile when the user is returning from a Square checkout, OR
+      // when they look stranded (legacy Stripe with no Square record). This
+      // self-heals the common case where a webhook failed to reach us.
+      const shouldAutoSync =
+        justSucceeded || (initial?.needs_resubscribe === true);
+
+      if (shouldAutoSync) {
+        await handleSync({ silent: !justSucceeded });
       }
     }
-    fetchStatus();
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCheckout() {
@@ -206,6 +255,22 @@ export default function BillingPage() {
   return (
     <div>
       {/* Banners */}
+      {syncing && (
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--accent) 8%, transparent)", border: "1px solid var(--border)" }}
+        >
+          Checking with Square for your latest subscription status…
+        </div>
+      )}
+      {syncMessage && !syncing && (
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--success, #22c55e) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent)" }}
+        >
+          {syncMessage}
+        </div>
+      )}
       {status?.needs_resubscribe && (
         <div
           className="rounded-lg p-4 mb-4 text-sm relative"
@@ -213,6 +278,16 @@ export default function BillingPage() {
         >
           <strong>Restore your subscription</strong> — We&apos;ve switched payment processors.
           Your previous subscription is no longer active. Re-subscribe below to restore your benefits.
+          <div className="mt-2">
+            <button
+              onClick={() => handleSync()}
+              disabled={syncing}
+              className="text-xs underline opacity-80 hover:opacity-100"
+              style={{ color: "var(--foreground)" }}
+            >
+              Already paid? Sync from Square
+            </button>
+          </div>
           <button
             onClick={async () => {
               setStatus(prev => prev ? { ...prev, needs_resubscribe: false } : prev);

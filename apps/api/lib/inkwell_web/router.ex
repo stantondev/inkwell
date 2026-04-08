@@ -343,6 +343,7 @@ defmodule InkwellWeb.Router do
     post "/billing/cancel", BillingController, :cancel
     post "/billing/cancel-donor", BillingController, :cancel_donor
     post "/billing/donate", BillingController, :donate
+    post "/billing/sync", BillingController, :sync
     get "/billing/status", BillingController, :status
 
     # Remote entry interactions (federated)
