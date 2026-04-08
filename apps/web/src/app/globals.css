@@ -3952,7 +3952,12 @@ body.eye-comfort .editor-paper::before {
   transform: none;
 }
 
-/* Mobile: full-bleed paper */
+/* ─── Mobile stationery layout ─────────────────────────────────────
+   On phones the modal goes full-bleed and restructures into a flex
+   column: header → toolbar → editor (fills) → footer. The editor
+   grows to fill all remaining vertical space so ruled lines run
+   edge-to-edge. Footer becomes a single full-width "Seal & Send"
+   button and the desktop keyboard hint is hidden. */
 @media (max-width: 640px) {
   .stationery-modal-wrap {
     padding: 0;
@@ -3965,22 +3970,106 @@ body.eye-comfort .editor-paper::before {
     height: 100dvh;
     border-radius: 0;
     border: none;
+    /* Soften the inner glow on mobile — less depth on a full-bleed surface */
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 0 100px rgba(180, 140, 60, 0.08) inset;
   }
+
+  /* Compact header — back arrow + recipient in one tight row */
   .stationery-modal-header {
-    padding: 14px 18px 12px;
-    padding-top: calc(14px + env(safe-area-inset-top));
+    padding: 12px 16px 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    flex-shrink: 0;
   }
-  .stationery-modal-footer {
-    padding: 12px 18px 14px;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  .stationery-modal-header::after {
+    left: 16px;
+    right: 16px;
   }
-  .stationery-paper .letter-editor-content .tiptap {
-    min-height: 200px;
-    padding: 0 18px 10px;
-    font-size: 15px;
+
+  /* Paper is a flex column so the editor content can stretch */
+  .stationery-paper {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
+
+  /* The LetterEditor component renders an unclassed wrapper div
+     (holding toolbar + content). Make it a flex column too so its
+     children — the toolbar (fixed height) and the content (grows) —
+     can distribute the paper's vertical space properly. */
+  .stationery-paper > div {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Toolbar stays fixed at top of paper area */
   .stationery-paper .letter-editor-toolbar {
-    padding: 4px 14px 8px;
+    padding: 6px 14px 8px;
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  /* Editor content stretches to fill all remaining space */
+  .stationery-paper .letter-editor-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+  /* TipTap's <EditorContent> renders another unclassed wrapper div
+     inside .letter-editor-content. Make it stretch too so the
+     ProseMirror surface below inherits the full height. */
+  .stationery-paper .letter-editor-content > div {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TipTap surface fills the flex child so ruled lines repeat the
+     full height of the available area — no blank space below the text. */
+  .stationery-paper .letter-editor-content .tiptap {
+    flex: 1;
+    min-height: 0;
+    padding: 12px 20px 20px;
+    font-size: 15px;
+    line-height: 24px;
+    background-position: 0 12px;
+  }
+
+  /* Hide the desktop-only keyboard hint on mobile */
+  .stationery-hint {
+    display: none;
+  }
+
+  /* Footer becomes a single full-width send bar */
+  .stationery-modal-footer {
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    flex-shrink: 0;
+    justify-content: stretch;
+    gap: 0;
+  }
+  .stationery-modal-footer::before {
+    left: 16px;
+    right: 16px;
+  }
+  .stationery-send-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 15px 24px;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+  /* Error messages need to push the button aside cleanly */
+  .stationery-error + .stationery-send-btn {
+    width: auto;
+    flex-shrink: 0;
   }
 }
 
