@@ -1,5 +1,7 @@
 // Inkwell Service Worker — asset caching + offline fallback + push notifications
-const CACHE_NAME = "inkwell-v2";
+// Bump CACHE_NAME when SW logic changes to force re-activation in browsers
+// that still have an older SW running.
+const CACHE_NAME = "inkwell-v3";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [OFFLINE_URL, "/favicon.svg", "/inkwell-logo.svg"];
@@ -9,6 +11,14 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
   self.skipWaiting();
+});
+
+// Allow the page to tell a waiting SW to activate now (used by sw-register.tsx
+// to avoid waiting for all tabs to close before a new SW takes over).
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
