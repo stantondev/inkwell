@@ -30,29 +30,125 @@ export interface GazetteEntry {
   gazette_topic?: string | null;
 }
 
-function extractHeadline(entry: GazetteEntry): string {
-  if (entry.title) return entry.title;
-  // Extract first sentence from body text
-  const text = entry.body_html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&[a-zA-Z]+;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const match = text.match(/^(.{30,200}?[.!?])\s/);
-  return match ? match[1] : text.slice(0, 150) + (text.length > 150 ? "..." : "");
+// ── Text cleaning ──────────────────────────────────────────────────
+//
+// Mastodon and other fediverse servers emit HTML with a lot of noise
+// that reads fine in a timeline but is ugly in a newspaper card:
+//   - HTML entities (&#39;, &amp;, &quot;)
+//   - URLs with forced spaces ("https:// foo.com/bar") for line wrapping
+//   - @mentions rendered as "@ username" with a space after @
+//   - Trailing hashtag blocks ("# politics # war # news #...")
+// We strip all of this for the card preview. The full formatted HTML
+// still displays correctly on the /fediverse/[id] detail page.
+
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    )
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&hellip;/g, "…")
+    .replace(/&[a-zA-Z]+;/g, " "); // strip any remaining named entities
 }
 
-function extractExcerpt(entry: GazetteEntry, maxLength = 200): string {
-  const text = entry.body_html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&[a-zA-Z]+;/g, " ")
-    .replace(/\s+/g, " ")
+function cleanFediverseText(html: string): string {
+  let text = html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/p>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+
+  text = decodeEntities(text);
+
+  // Mastodon inserts a space after https:// for line wrapping display
+  // ("https:// foo.com/bar" → full URL). Remove these URLs — they're noise
+  // in a preview and readers can click through to see the real post.
+  text = text.replace(/https?:\/\/\s*[^\s]+/g, "");
+
+  // "@ username" → strip entirely (Mastodon's spaced-mention rendering)
+  // Also strip common conversational openers that follow mentions
+  // ("reports:", "says:", "writes:") since they read as orphans
+  text = text.replace(
+    /@\s+[\w.-]+(?:@[\w.-]+)?(?:\s+(?:reports?|says?|writes?|notes?|tweets?|posts?|responds?)\s*:?)?/gi,
+    ""
+  );
+
+  // Trailing hashtag soup: "# foo # bar # baz" at end of post
+  text = text.replace(/(?:\s*#\s+[\w-]+)+\s*$/, "");
+
+  // Inline "# word" (with space) → just "#word"
+  text = text.replace(/#\s+(\w)/g, "#$1");
+
+  // Normalize whitespace
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+function stripLeadingEmoji(text: string): string {
+  // Strip leading emoji + whitespace so the headline starts with words.
+  // Covers most emoji blocks; not exhaustive but catches the common ones
+  // seen in fediverse news posts (🚨, 🔴, ⛽, 🕊️, ✈️, 🇺🇸 flags, etc.)
+  return text
+    .replace(
+      /^(?:[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{1F1E0}-\u{1F1FF}\u{200D}\uFE0F\s]+)/u,
+      ""
+    )
     .trim();
-  // Skip past the headline if we used first sentence as headline
-  const headline = entry.title ? "" : extractHeadline(entry);
-  const remaining = headline ? text.replace(headline, "").trim() : text;
-  if (remaining.length <= maxLength) return remaining;
-  return remaining.slice(0, maxLength).replace(/\s\S*$/, "") + "...";
+}
+
+function extractHeadline(cleanText: string, title: string | null): string {
+  if (title) return decodeEntities(title);
+
+  const stripped = stripLeadingEmoji(cleanText);
+
+  // Try to find a natural sentence break in the first 30-200 chars
+  const sentenceMatch = stripped.match(/^(.{30,180}?[.!?])\s/);
+  if (sentenceMatch) return sentenceMatch[1];
+
+  // No early sentence break — cut at a word boundary near 140 chars
+  if (stripped.length <= 140) return stripped;
+  const cut = stripped.slice(0, 140).replace(/\s\S*$/, "");
+  return cut + "…";
+}
+
+function extractExcerpt(
+  cleanText: string,
+  headline: string,
+  title: string | null,
+  maxLength = 220
+): string {
+  // Figure out where in the clean text the headline ends so we can
+  // show content *after* it (not duplicate it).
+  let rest: string;
+
+  if (title) {
+    // Headline came from the title field, not from body text. Show full body.
+    rest = cleanText;
+  } else {
+    // Headline came from body. Strip leading emoji + headline content from start.
+    const stripped = stripLeadingEmoji(cleanText);
+    // Match by prefix rather than substring replace so ellipsis doesn't break
+    const headlineNoEllipsis = headline.replace(/…$/, "").trim();
+    if (stripped.startsWith(headlineNoEllipsis)) {
+      rest = stripped.slice(headlineNoEllipsis.length).trim();
+      // Remove leading punctuation that may have been the sentence terminator
+      rest = rest.replace(/^[.!?…]+\s*/, "");
+    } else {
+      rest = stripped;
+    }
+  }
+
+  if (!rest) return "";
+  if (rest.length <= maxLength) return rest;
+  return rest.slice(0, maxLength).replace(/\s\S*$/, "") + "…";
 }
 
 function timeAgo(dateStr: string): string {
@@ -70,8 +166,9 @@ function timeAgo(dateStr: string): string {
 }
 
 export function GazetteEntryCard({ entry }: { entry: GazetteEntry }) {
-  const headline = extractHeadline(entry);
-  const excerpt = extractExcerpt(entry);
+  const cleanText = cleanFediverseText(entry.body_html);
+  const headline = extractHeadline(cleanText, entry.title);
+  const excerpt = extractExcerpt(cleanText, headline, entry.title);
   const totalEngagement = entry.engagement.boosts + entry.engagement.likes;
 
   return (
@@ -104,34 +201,29 @@ export function GazetteEntryCard({ entry }: { entry: GazetteEntry }) {
               className="gazette-card-avatar"
             />
           )}
-          <span className="gazette-card-author">
-            {entry.author.display_name || entry.author.username}
-          </span>
-          <span className="gazette-card-domain">
-            @{entry.author.domain}
+          <span className="gazette-card-byline">
+            <span className="gazette-card-author">
+              {entry.author.display_name || entry.author.username}
+            </span>
+            <span className="gazette-card-domain">
+              {entry.author.domain}
+            </span>
           </span>
         </div>
 
         <div className="gazette-card-engagement">
           {totalEngagement > 0 && (
             <span title={`${entry.engagement.boosts} boosts, ${entry.engagement.likes} likes`}>
-              {totalEngagement} engagements
+              ✦ {totalEngagement}
             </span>
           )}
           {entry.engagement.replies > 0 && (
-            <span>{entry.engagement.replies} replies</span>
+            <span title={`${entry.engagement.replies} replies`}>
+              ↳ {entry.engagement.replies}
+            </span>
           )}
         </div>
       </div>
-
-      <a
-        href={entry.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="gazette-card-external"
-      >
-        View on {entry.author.domain}
-      </a>
     </article>
   );
 }

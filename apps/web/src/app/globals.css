@@ -12075,46 +12075,66 @@ a, button, [role="tab"], [role="button"] {
 }
 
 .gazette-card {
-  padding: 1.25rem 0;
+  padding: 1.75rem 0;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 
 .gazette-card:first-child {
-  padding-top: 0;
+  padding-top: 0.5rem;
+}
+
+.gazette-card:last-child {
+  border-bottom: none;
 }
 
 .gazette-card-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .gazette-topic-badge {
-  font-size: 0.7rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   color: var(--accent);
-  background: var(--accent-light, rgba(45, 74, 138, 0.08));
-  padding: 0.15rem 0.5rem;
-  border-radius: 3px;
+  padding: 0;
+  position: relative;
+}
+
+.gazette-topic-badge::after {
+  content: "·";
+  margin-left: 0.75rem;
+  color: var(--muted);
+  font-weight: normal;
 }
 
 .gazette-time {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   color: var(--muted);
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
 }
 
 .gazette-card-headline {
   display: block;
   font-family: var(--font-lora, Georgia, serif);
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   color: var(--foreground);
   text-decoration: none;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+  transition: color 0.15s ease;
 }
 
 .gazette-card-headline:hover {
@@ -12124,19 +12144,24 @@ a, button, [role="tab"], [role="button"] {
 .gazette-card-summary {
   font-family: var(--font-lora, Georgia, serif);
   font-style: italic;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.95rem;
+  line-height: 1.55;
   color: var(--accent);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.65rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .gazette-card-excerpt {
-  font-size: 0.88rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.92rem;
   line-height: 1.55;
   color: var(--muted);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -12153,20 +12178,31 @@ a, button, [role="tab"], [role="button"] {
 .gazette-card-source {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   min-width: 0;
+  flex: 1;
 }
 
 .gazette-card-avatar {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.gazette-card-byline {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
 }
 
 .gazette-card-author {
+  font-family: var(--font-lora, Georgia, serif);
   font-weight: 500;
+  font-size: 0.78rem;
   color: var(--foreground);
   white-space: nowrap;
   overflow: hidden;
@@ -12174,27 +12210,21 @@ a, button, [role="tab"], [role="button"] {
 }
 
 .gazette-card-domain {
+  font-size: 0.68rem;
   color: var(--muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
 }
 
 .gazette-card-engagement {
   display: flex;
   gap: 0.75rem;
   flex-shrink: 0;
-  font-size: 0.75rem;
-}
-
-.gazette-card-external {
-  display: inline-block;
-  font-size: 0.75rem;
-  color: var(--accent);
-  text-decoration: none;
-  margin-top: 0.35rem;
-}
-
-.gazette-card-external:hover {
-  text-decoration: underline;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Topic picker */
