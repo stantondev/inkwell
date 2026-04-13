@@ -28,9 +28,15 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Never cache API requests, auth flows, RSC data, or non-GET requests
+  // Never touch requests we can't/shouldn't cache:
+  //  - non-GET
+  //  - non-http(s) schemes (chrome-extension://, blob:, data:, etc.)
+  //    Cache.put() throws TypeError on these — they surface as loud console
+  //    errors from browser extensions that inject fetches into the page.
+  //  - API requests, auth flows, RSC data
   if (
     request.method !== "GET" ||
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/auth/") ||
     url.pathname.startsWith("/_next/data/")

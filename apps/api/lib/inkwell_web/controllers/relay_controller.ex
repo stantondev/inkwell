@@ -27,17 +27,28 @@ defmodule InkwellWeb.RelayController do
       {:error, :fetch_failed} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Failed to fetch relay actor. Check the URL and try again."})
+        |> json(%{
+          error:
+            "Couldn't reach the relay at any standard path. Make sure the URL is correct and the relay is online. Try the actor URL directly (e.g. https://relay.fedi.buzz/actor)."
+        })
+
+      {:error, :not_an_actor} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          error:
+            "The URL returned a document, but it doesn't look like an ActivityPub actor. Try providing the relay's actor URL directly (usually ends in /actor or /inbox)."
+        })
 
       {:error, :no_inbox} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Relay actor has no inbox URL"})
+        |> json(%{error: "The relay actor has no inbox URL. This isn't a relay we can subscribe to."})
 
       {:error, :invalid_url} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Invalid relay URL"})
+        |> json(%{error: "Invalid relay URL — make sure it starts with https://"})
 
       {:error, :invalid_json} ->
         conn

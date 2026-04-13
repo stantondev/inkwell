@@ -20,20 +20,31 @@ defmodule Inkwell.Federation.Relays do
   and sends a Follow activity.
   """
   def subscribe(relay_url) do
-    # Check for existing subscription
-    case Repo.get_by(RelaySubscription, relay_url: relay_url) do
-      %RelaySubscription{} ->
-        {:error, :already_subscribed}
+    # Normalize the URL: trim whitespace and strip trailing slash
+    relay_url =
+      relay_url
+      |> String.trim()
+      |> String.trim_trailing("/")
 
-      nil ->
-        with {:ok, relay_user} <- InstanceActor.get_or_create(),
-             {:ok, actor_doc} <- fetch_relay_actor(relay_url),
-             {:ok, inbox} <- extract_inbox(actor_doc),
-             {:ok, domain} <- extract_domain(relay_url),
-             {:ok, subscription} <- create_subscription(relay_url, inbox, domain, relay_user.id),
-             :ok <- send_follow(relay_url, relay_user) do
-          {:ok, subscription}
-        end
+    # Check for existing subscription against the normalized URL *and* any
+    # discovered canonical actor URL (handled inside discover_actor)
+    with :ok <- validate_not_subscribed(relay_url),
+         {:ok, relay_user} <- InstanceActor.get_or_create(),
+         {:ok, {canonical_url, actor_doc}} <- discover_actor(relay_url),
+         :ok <- validate_not_subscribed(canonical_url),
+         {:ok, inbox} <- extract_inbox(actor_doc),
+         {:ok, domain} <- extract_domain(canonical_url),
+         {:ok, subscription} <-
+           create_subscription(canonical_url, inbox, domain, relay_user.id),
+         :ok <- send_follow(canonical_url, relay_user) do
+      {:ok, subscription}
+    end
+  end
+
+  defp validate_not_subscribed(relay_url) do
+    case Repo.get_by(RelaySubscription, relay_url: relay_url) do
+      %RelaySubscription{} -> {:error, :already_subscribed}
+      nil -> :ok
     end
   end
 
@@ -156,25 +167,105 @@ defmodule Inkwell.Federation.Relays do
 
   # ── Private helpers ─────────────────────────────────────────────────────
 
-  defp fetch_relay_actor(relay_url) do
+  # Tries to discover the relay's ActivityPub actor document starting from
+  # the URL the user provided. Relay operators follow different conventions:
+  #
+  #   https://relay.fedi.buzz/actor            ← reiver's buzz relay
+  #   https://relay.toot.io/actor              ← toot.io
+  #   https://relay.fediverse.blog/inbox       ← some Pleroma-based relays
+  #   https://relay.example.com/relay          ← ActivityRelay
+  #   https://relay.example.com/               ← content-negotiated root
+  #
+  # Users naturally paste the root URL ("https://relay.fedi.buzz") and expect
+  # it to work. We try common actor paths in order and return the first one
+  # that resolves to a valid ActivityPub actor document.
+  #
+  # Returns {:ok, {canonical_url, actor_doc}} — canonical_url is the URL that
+  # actually served the actor JSON, which we store in the subscription so
+  # future operations (Undo, comparisons) use the authoritative path.
+  @actor_path_candidates ["/actor", "/inbox", "/instance/actor", "/relay"]
+
+  defp discover_actor(relay_url) do
+    candidates = build_candidate_urls(relay_url)
+
+    Enum.reduce_while(candidates, {:error, :no_candidates}, fn url, _acc ->
+      case try_fetch_actor(url) do
+        {:ok, doc} ->
+          if valid_actor_doc?(doc) do
+            {:halt, {:ok, {url, doc}}}
+          else
+            {:cont, {:error, :not_an_actor}}
+          end
+
+        {:error, reason} ->
+          {:cont, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, result} -> {:ok, result}
+      {:error, :no_candidates} -> {:error, :fetch_failed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Build candidate URLs to try, in order of likelihood:
+  # 1. The user's URL as-is (they may have already provided the actor URL)
+  # 2. Root + each known actor path suffix
+  # 3. If user provided a URL with a path, also try root + each suffix
+  defp build_candidate_urls(relay_url) do
+    parsed = URI.parse(relay_url)
+    root = "#{parsed.scheme}://#{parsed.host}#{port_suffix(parsed)}"
+
+    paths =
+      if parsed.path in [nil, "", "/"] do
+        @actor_path_candidates
+      else
+        # User gave us a path — try it first, then fall back to standard ones
+        [parsed.path | @actor_path_candidates]
+      end
+
+    paths
+    |> Enum.map(&(root <> &1))
+    |> Enum.uniq()
+  end
+
+  defp port_suffix(%URI{port: nil}), do: ""
+  defp port_suffix(%URI{scheme: "https", port: 443}), do: ""
+  defp port_suffix(%URI{scheme: "http", port: 80}), do: ""
+  defp port_suffix(%URI{port: port}), do: ":#{port}"
+
+  defp try_fetch_actor(url) do
     headers = [{~c"accept", ~c"application/activity+json, application/ld+json"}]
 
-    case Http.get(relay_url, headers) do
+    case Http.get(url, headers) do
       {:ok, {status, body}} when status in 200..299 ->
         case Jason.decode(body) do
-          {:ok, doc} -> {:ok, doc}
-          _ -> {:error, :invalid_json}
+          {:ok, doc} ->
+            {:ok, doc}
+
+          _ ->
+            Logger.debug("Relay candidate #{url} returned non-JSON (status #{status})")
+            {:error, :invalid_json}
         end
 
       {:ok, {status, _}} ->
-        Logger.warning("Failed to fetch relay actor #{relay_url}: HTTP #{status}")
+        Logger.debug("Relay candidate #{url} returned HTTP #{status}")
         {:error, :fetch_failed}
 
       {:error, reason} ->
-        Logger.warning("Failed to fetch relay actor #{relay_url}: #{inspect(reason)}")
+        Logger.debug("Relay candidate #{url} network error: #{inspect(reason)}")
         {:error, :fetch_failed}
     end
   end
+
+  # An ActivityPub actor document must have at least an `id` and a `type`
+  # that's one of the Actor types. We accept the common ones used by relays.
+  defp valid_actor_doc?(%{"id" => id, "type" => type})
+       when is_binary(id) and is_binary(type) do
+    type in ~w(Application Service Person Group Organization)
+  end
+
+  defp valid_actor_doc?(_), do: false
 
   defp extract_inbox(actor_doc) do
     inbox =
