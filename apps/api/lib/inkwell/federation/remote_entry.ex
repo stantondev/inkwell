@@ -23,6 +23,14 @@ defmodule Inkwell.Federation.RemoteEntry do
     field :engagement_refreshed_at, :utc_datetime_usec
     field :source, :string
 
+    # Gazette AI scoring fields (populated on-demand for Plus users)
+    field :gazette_is_news, :boolean
+    field :gazette_relevance, :float
+    field :gazette_topic, :string
+    field :gazette_summary, :string
+    field :gazette_cluster_id, :string
+    field :gazette_scored_at, :utc_datetime_usec
+
     belongs_to :remote_actor, Inkwell.Federation.RemoteActorSchema
     belongs_to :relay_subscription, Inkwell.Federation.RelaySubscription
 
@@ -31,7 +39,7 @@ defmodule Inkwell.Federation.RemoteEntry do
 
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id, :replies_fetched_at, :reply_count, :likes_count, :boosts_count, :engagement_refreshed_at])
+    |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id, :replies_fetched_at, :reply_count, :likes_count, :boosts_count, :engagement_refreshed_at, :gazette_is_news, :gazette_relevance, :gazette_topic, :gazette_summary, :gazette_cluster_id, :gazette_scored_at])
     |> validate_required([:ap_id, :body_html, :remote_actor_id])
     |> unique_constraint(:ap_id)
   end

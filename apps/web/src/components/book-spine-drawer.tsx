@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AvatarWithFrame } from "./avatar-with-frame";
 import {
-  FeedIcon, ExploreIcon, PenPalsIcon, LettersIcon,
+  FeedIcon, ExploreIcon, GazetteIcon, PenPalsIcon, LettersIcon,
   SearchIcon, SavedIcon, PostsIcon, DraftsIcon, CirclesIcon, PollsIcon,
   RoadmapIcon, HelpIcon, InviteIcon, SettingsIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
@@ -161,6 +161,7 @@ export function BookSpineDrawer({
             </div>
             <DrawerLink href="/feed" icon={<FeedIcon />} label="Feed" active={isActive("/feed")} onClick={handleLinkClick} />
             <DrawerLink href="/explore" icon={<ExploreIcon />} label="Explore" active={isActive("/explore")} onClick={handleLinkClick} />
+            <DrawerLink href="/gazette" icon={<GazetteIcon />} label="Gazette" active={isActive("/gazette")} onClick={handleLinkClick} />
             <DrawerLink href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} onClick={handleLinkClick} />
             <DrawerLink href="/manage" icon={<PostsIcon />} label="Posts" active={isActive("/manage")} onClick={handleLinkClick} />
             <DrawerLink href="/drafts" icon={<DraftsIcon />} label="Drafts" active={isActive("/drafts")} badge={draftCount} badgeStyle="muted" onClick={handleLinkClick} />
