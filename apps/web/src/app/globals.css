@@ -12397,3 +12397,364 @@ a, button, [role="tab"], [role="button"] {
   text-decoration: underline;
   font-weight: 500;
 }
+/* ─── The Gazette: Newspaper Layout ─────────────────────────────────
+ *
+ * Real newspaper front-page aesthetic:
+ *   • Lead story above the fold with large headline + drop cap
+ *   • "Also Today" row: 3-column secondary stories with vertical rules
+ *   • "In Brief" grid: dense multi-column digest for remaining entries
+ *   • Section dividers with inline label (like newspaper section heads)
+ */
+
+/* Wider container for the newspaper layout */
+.gazette-paper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Section dividers ─────────────────────────────────────────── */
+.gazette-section-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2.5rem 0 1.5rem;
+  position: relative;
+}
+
+.gazette-section-divider::before,
+.gazette-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--foreground);
+  opacity: 0.35;
+}
+
+.gazette-section-divider-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--foreground);
+  padding: 0 1rem;
+  letter-spacing: 0.02em;
+}
+
+/* ── Lead story (front page feature) ───────────────────────────── */
+.gazette-frontpage {
+  padding: 0.5rem 0 1rem;
+  border-bottom: 3px double var(--border);
+}
+
+.gazette-lead {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.gazette-lead-kicker {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.gazette-lead-kicker-dot {
+  color: var(--muted);
+  font-weight: normal;
+  margin: 0 0.25rem;
+}
+
+.gazette-lead-headline {
+  display: block;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+  text-decoration: none;
+  margin: 0 0 0.75rem;
+  transition: color 0.15s ease;
+}
+
+.gazette-lead-headline:hover {
+  color: var(--accent);
+}
+
+.gazette-lead-deck {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 1.1rem;
+  line-height: 1.45;
+  color: var(--accent);
+  margin: 0 0 1rem;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.gazette-lead-lede {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: var(--foreground);
+  text-align: left;
+  margin: 1rem auto 1rem;
+  max-width: 640px;
+  /* Real-newspaper feel: first-line indent on overflow lines */
+  text-indent: 0;
+}
+
+/* Drop cap: Guardian/NYT style — 3-line initial letter */
+.gazette-drop-cap {
+  font-family: var(--font-lora, Georgia, serif);
+  float: left;
+  font-size: 3.8rem;
+  line-height: 0.85;
+  font-weight: 700;
+  padding: 0.35rem 0.35rem 0 0;
+  margin-top: 0.35rem;
+  color: var(--accent);
+}
+
+.gazette-lead-byline {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.gazette-lead-byline-label {
+  font-style: italic;
+}
+
+.gazette-lead-byline-name {
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.gazette-lead-byline-sep {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.gazette-lead-byline-domain {
+  font-style: italic;
+}
+
+.gazette-lead-byline-engagement {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Secondary row: 3 stories side-by-side with column rules ──── */
+.gazette-secondary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-bottom: 1rem;
+}
+
+.gazette-secondary > .gazette-card {
+  padding: 0.25rem 1.25rem 1.5rem;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.gazette-secondary > .gazette-card:first-child {
+  padding-left: 0;
+  padding-top: 0.25rem;
+}
+
+.gazette-secondary > .gazette-card:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+/* Slightly smaller headline in the secondary row */
+.gazette-secondary .gazette-card-headline {
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+/* ── Digest grid (In Brief) ───────────────────────────────────── */
+.gazette-digest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.gazette-digest {
+  padding: 1rem 1rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+/* Remove the right border from every third card (end of row) */
+.gazette-digest:nth-child(3n) {
+  border-right: none;
+}
+
+/* Remove bottom border from the last row's items */
+.gazette-digest:last-child,
+.gazette-digest:nth-last-child(2):nth-child(3n + 1),
+.gazette-digest:nth-last-child(3):nth-child(3n + 1) {
+  /* best-effort — the grid may have fewer than 3 items in last row */
+}
+
+.gazette-digest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.gazette-digest-kicker {
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.gazette-digest-time {
+  color: var(--muted);
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}
+
+.gazette-digest-headline {
+  display: block;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--foreground);
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+  transition: color 0.15s ease;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gazette-digest-headline:hover {
+  color: var(--accent);
+}
+
+.gazette-digest-byline {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.7rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.gazette-digest-byline-name {
+  color: var(--foreground);
+}
+
+.gazette-digest-byline-sep {
+  opacity: 0.5;
+}
+
+.gazette-digest-byline-domain {
+  font-style: italic;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .gazette-secondary,
+  .gazette-digest-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gazette-secondary > .gazette-card:nth-child(2) {
+    border-right: none;
+  }
+
+  .gazette-secondary > .gazette-card:nth-child(3) {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    border-right: none;
+    padding-top: 1.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .gazette-digest:nth-child(3n) {
+    border-right: 1px solid var(--border);
+  }
+
+  .gazette-digest:nth-child(2n) {
+    border-right: none;
+  }
+
+  .gazette-lead-headline {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .gazette-paper {
+    padding: 0 0.5rem;
+  }
+
+  .gazette-secondary,
+  .gazette-digest-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gazette-secondary > .gazette-card {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+  }
+
+  .gazette-secondary > .gazette-card:nth-child(3) {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 1rem;
+  }
+
+  .gazette-digest {
+    border-right: none !important;
+    padding: 1rem 0;
+  }
+
+  .gazette-lead {
+    padding: 0;
+  }
+
+  .gazette-lead-headline {
+    font-size: 1.65rem;
+  }
+
+  .gazette-lead-deck {
+    font-size: 1rem;
+  }
+
+  .gazette-drop-cap {
+    font-size: 3rem;
+  }
+}

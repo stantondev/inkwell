@@ -94,8 +94,6 @@ function cleanFediverseText(html: string): string {
 
 function stripLeadingEmoji(text: string): string {
   // Strip leading emoji + whitespace so the headline starts with words.
-  // Covers most emoji blocks; not exhaustive but catches the common ones
-  // seen in fediverse news posts (🚨, 🔴, ⛽, 🕊️, ✈️, 🇺🇸 flags, etc.)
   return text
     .replace(
       /^(?:[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{1F1E0}-\u{1F1FF}\u{200D}\uFE0F\s]+)/u,
@@ -108,12 +106,9 @@ function extractHeadline(cleanText: string, title: string | null): string {
   if (title) return decodeEntities(title);
 
   const stripped = stripLeadingEmoji(cleanText);
-
-  // Try to find a natural sentence break in the first 30-200 chars
   const sentenceMatch = stripped.match(/^(.{30,180}?[.!?])\s/);
   if (sentenceMatch) return sentenceMatch[1];
 
-  // No early sentence break — cut at a word boundary near 140 chars
   if (stripped.length <= 140) return stripped;
   const cut = stripped.slice(0, 140).replace(/\s\S*$/, "");
   return cut + "…";
@@ -125,21 +120,15 @@ function extractExcerpt(
   title: string | null,
   maxLength = 220
 ): string {
-  // Figure out where in the clean text the headline ends so we can
-  // show content *after* it (not duplicate it).
   let rest: string;
 
   if (title) {
-    // Headline came from the title field, not from body text. Show full body.
     rest = cleanText;
   } else {
-    // Headline came from body. Strip leading emoji + headline content from start.
     const stripped = stripLeadingEmoji(cleanText);
-    // Match by prefix rather than substring replace so ellipsis doesn't break
     const headlineNoEllipsis = headline.replace(/…$/, "").trim();
     if (stripped.startsWith(headlineNoEllipsis)) {
       rest = stripped.slice(headlineNoEllipsis.length).trim();
-      // Remove leading punctuation that may have been the sentence terminator
       rest = rest.replace(/^[.!?…]+\s*/, "");
     } else {
       rest = stripped;
@@ -165,64 +154,187 @@ function timeAgo(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function GazetteEntryCard({ entry }: { entry: GazetteEntry }) {
+function formattedDate(dateStr: string): string {
+  const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Every Gazette card deep-links to the fediverse detail page with ?from=gazette
+// so the detail page can render a "Back to The Gazette" link instead of "Back to Explore".
+function entryHref(id: string): string {
+  return `/fediverse/${id}?from=gazette`;
+}
+
+interface CardProps {
+  entry: GazetteEntry;
+}
+
+// ── Prepared card content ────────────────────────────────────────
+interface PreparedEntry {
+  headline: string;
+  excerpt: string;
+  summary: string | null;
+  topicLabel: string | null;
+  byline: string;
+  bylineDomain: string;
+  time: string;
+  fullDate: string;
+  totalEngagement: number;
+  replies: number;
+  avatarUrl: string | null;
+  href: string;
+}
+
+function prepare(entry: GazetteEntry): PreparedEntry {
   const cleanText = cleanFediverseText(entry.body_html);
   const headline = extractHeadline(cleanText, entry.title);
   const excerpt = extractExcerpt(cleanText, headline, entry.title);
-  const totalEngagement = entry.engagement.boosts + entry.engagement.likes;
+
+  return {
+    headline,
+    excerpt,
+    summary: entry.gazette_summary ?? null,
+    topicLabel: entry.gazette_topic ? getTopicLabel(entry.gazette_topic) : null,
+    byline: entry.author.display_name || entry.author.username,
+    bylineDomain: entry.author.domain,
+    time: timeAgo(entry.published_at),
+    fullDate: formattedDate(entry.published_at),
+    totalEngagement: entry.engagement.boosts + entry.engagement.likes,
+    replies: entry.engagement.replies,
+    avatarUrl: entry.author.avatar_url,
+    href: entryHref(entry.id),
+  };
+}
+
+// ── LEAD card: above-the-fold feature story ─────────────────────
+// Large serif headline, deck subtitle, drop-cap first paragraph,
+// byline underneath. Used for the single top story on page 1.
+
+export function GazetteLeadCard({ entry }: CardProps) {
+  const p = prepare(entry);
+
+  return (
+    <article className="gazette-lead">
+      {p.topicLabel && (
+        <div className="gazette-lead-kicker">
+          {p.topicLabel} <span className="gazette-lead-kicker-dot">·</span>{" "}
+          {p.fullDate}
+        </div>
+      )}
+
+      <Link href={p.href} className="gazette-lead-headline">
+        {p.headline}
+      </Link>
+
+      {p.summary && <p className="gazette-lead-deck">{p.summary}</p>}
+
+      {p.excerpt && (
+        <p className="gazette-lead-lede">
+          <span className="gazette-drop-cap">{p.excerpt.charAt(0)}</span>
+          {p.excerpt.slice(1)}
+        </p>
+      )}
+
+      <div className="gazette-lead-byline">
+        <span className="gazette-lead-byline-label">By</span>{" "}
+        <span className="gazette-lead-byline-name">{p.byline}</span>
+        <span className="gazette-lead-byline-sep">·</span>
+        <span className="gazette-lead-byline-domain">{p.bylineDomain}</span>
+        {p.totalEngagement > 0 && (
+          <>
+            <span className="gazette-lead-byline-sep">·</span>
+            <span className="gazette-lead-byline-engagement">
+              ✦ {p.totalEngagement}
+            </span>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ── STANDARD card: 2-column secondary stories ───────────────────
+// Medium headline, 2-3 line excerpt, compact byline.
+
+export function GazetteEntryCard({ entry }: CardProps) {
+  const p = prepare(entry);
 
   return (
     <article className="gazette-card">
       <div className="gazette-card-header">
-        {entry.gazette_topic && (
-          <span className="gazette-topic-badge">
-            {getTopicLabel(entry.gazette_topic)}
-          </span>
+        {p.topicLabel && (
+          <span className="gazette-topic-badge">{p.topicLabel}</span>
         )}
-        <span className="gazette-time">{timeAgo(entry.published_at)}</span>
+        <span className="gazette-time">{p.time}</span>
       </div>
 
-      <Link href={`/fediverse/${entry.id}`} className="gazette-card-headline">
-        {headline}
+      <Link href={p.href} className="gazette-card-headline">
+        {p.headline}
       </Link>
 
-      {entry.gazette_summary ? (
-        <p className="gazette-card-summary">{entry.gazette_summary}</p>
-      ) : excerpt ? (
-        <p className="gazette-card-excerpt">{excerpt}</p>
+      {p.summary ? (
+        <p className="gazette-card-summary">{p.summary}</p>
+      ) : p.excerpt ? (
+        <p className="gazette-card-excerpt">{p.excerpt}</p>
       ) : null}
 
       <div className="gazette-card-footer">
         <div className="gazette-card-source">
-          {entry.author.avatar_url && (
+          {p.avatarUrl && (
             <img
-              src={entry.author.avatar_url}
+              src={p.avatarUrl}
               alt=""
               className="gazette-card-avatar"
             />
           )}
           <span className="gazette-card-byline">
-            <span className="gazette-card-author">
-              {entry.author.display_name || entry.author.username}
-            </span>
-            <span className="gazette-card-domain">
-              {entry.author.domain}
-            </span>
+            <span className="gazette-card-author">{p.byline}</span>
+            <span className="gazette-card-domain">{p.bylineDomain}</span>
           </span>
         </div>
 
         <div className="gazette-card-engagement">
-          {totalEngagement > 0 && (
-            <span title={`${entry.engagement.boosts} boosts, ${entry.engagement.likes} likes`}>
-              ✦ {totalEngagement}
+          {p.totalEngagement > 0 && (
+            <span
+              title={`${entry.engagement.boosts} boosts, ${entry.engagement.likes} likes`}
+            >
+              ✦ {p.totalEngagement}
             </span>
           )}
-          {entry.engagement.replies > 0 && (
-            <span title={`${entry.engagement.replies} replies`}>
-              ↳ {entry.engagement.replies}
-            </span>
+          {p.replies > 0 && (
+            <span title={`${p.replies} replies`}>↳ {p.replies}</span>
           )}
         </div>
+      </div>
+    </article>
+  );
+}
+
+// ── DIGEST card: compact list item for "In Brief" grid ──────────
+// Just headline + kicker + time. No excerpt. Dense multi-column layout.
+
+export function GazetteDigestCard({ entry }: CardProps) {
+  const p = prepare(entry);
+
+  return (
+    <article className="gazette-digest">
+      <div className="gazette-digest-header">
+        {p.topicLabel && (
+          <span className="gazette-digest-kicker">{p.topicLabel}</span>
+        )}
+        <span className="gazette-digest-time">{p.time}</span>
+      </div>
+      <Link href={p.href} className="gazette-digest-headline">
+        {p.headline}
+      </Link>
+      <div className="gazette-digest-byline">
+        <span className="gazette-digest-byline-name">{p.byline}</span>
+        <span className="gazette-digest-byline-sep">·</span>
+        <span className="gazette-digest-byline-domain">{p.bylineDomain}</span>
       </div>
     </article>
   );

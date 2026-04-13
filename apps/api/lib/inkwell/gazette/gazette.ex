@@ -89,10 +89,13 @@ defmodule Inkwell.Gazette do
     end
   end
 
-  # Base query: relay-sourced entries with published_at
+  # Base query: relay- or follow-sourced entries with published_at.
+  # - `relay`: broad sweep of fediverse content from relay subscriptions (14-day TTL)
+  # - `follow`: content from fediverse accounts directly followed by Inkwell users (90-day TTL)
+  #   This means following a journalist from Inkwell feeds the Gazette with their posts.
   defp base_query do
     RemoteEntry
-    |> where([e], e.source == "relay")
+    |> where([e], e.source in ["relay", "follow"])
     |> where([e], not is_nil(e.published_at))
   end
 

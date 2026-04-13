@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { GazetteEntryCard, type GazetteEntry } from "@/components/gazette-entry-card";
+import { useState, useCallback } from "react";
+import {
+  GazetteEntryCard,
+  GazetteLeadCard,
+  GazetteDigestCard,
+  type GazetteEntry,
+} from "@/components/gazette-entry-card";
 import { GazetteTopicPicker } from "@/components/gazette-topic-picker";
-import { getTopicLabel, GAZETTE_TOPICS } from "@/lib/gazette-topics";
+import { getTopicLabel } from "@/lib/gazette-topics";
 
 interface GazetteClientProps {
   initialEntries: GazetteEntry[];
@@ -171,10 +176,43 @@ export function GazetteClient({
       )}
 
       {!loading && entries.length > 0 && (
-        <div className="gazette-entries">
-          {entries.map((entry) => (
-            <GazetteEntryCard key={entry.id} entry={entry} />
-          ))}
+        <div className="gazette-paper">
+          {/* Lead story — the top entry, above the fold */}
+          {entries[0] && (
+            <section className="gazette-frontpage">
+              <GazetteLeadCard entry={entries[0]} />
+            </section>
+          )}
+
+          {/* Secondary row — entries 2-4 in a 3-column grid with vertical rules */}
+          {entries.length > 1 && (
+            <>
+              <div className="gazette-section-divider" role="presentation">
+                <span className="gazette-section-divider-label">
+                  Also Today
+                </span>
+              </div>
+              <section className="gazette-secondary">
+                {entries.slice(1, 4).map((entry) => (
+                  <GazetteEntryCard key={entry.id} entry={entry} />
+                ))}
+              </section>
+            </>
+          )}
+
+          {/* In Brief — remaining entries in a dense multi-column digest */}
+          {entries.length > 4 && (
+            <>
+              <div className="gazette-section-divider" role="presentation">
+                <span className="gazette-section-divider-label">In Brief</span>
+              </div>
+              <section className="gazette-digest-grid">
+                {entries.slice(4).map((entry) => (
+                  <GazetteDigestCard key={entry.id} entry={entry} />
+                ))}
+              </section>
+            </>
+          )}
         </div>
       )}
 

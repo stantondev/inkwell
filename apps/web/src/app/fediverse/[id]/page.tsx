@@ -16,6 +16,7 @@ import type { Comment } from "@/lib/comment-utils";
 
 interface FediverseEntryParams {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 interface RemoteEntryAuthor {
@@ -98,10 +99,15 @@ export async function generateMetadata({ params }: FediverseEntryParams): Promis
   }
 }
 
-export default async function FediverseEntryPage({ params }: FediverseEntryParams) {
+export default async function FediverseEntryPage({ params, searchParams }: FediverseEntryParams) {
   const { id } = await params;
+  const { from } = await searchParams;
   const token = await getToken();
   const session = await getSession();
+
+  const cameFromGazette = from === "gazette";
+  const backHref = cameFromGazette ? "/gazette" : "/explore?source=fediverse";
+  const backLabel = cameFromGazette ? "The Gazette" : "Explore";
 
   let entry: RemoteEntryData;
   let enrichingPreview = false;
@@ -146,10 +152,10 @@ export default async function FediverseEntryPage({ params }: FediverseEntryParam
           />
         </div>
 
-        {/* Nav row — back to explore */}
+        {/* Nav row — context-aware back link */}
         <div className="flex flex-col gap-3 mb-6">
           <Link
-            href="/explore?source=fediverse"
+            href={backHref}
             className="text-sm transition-colors hover:underline flex items-center gap-1.5"
             style={{ color: "var(--muted)" }}
           >
@@ -157,7 +163,7 @@ export default async function FediverseEntryPage({ params }: FediverseEntryParam
               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M19 12H5M12 5l-7 7 7 7"/>
             </svg>
-            Explore
+            {backLabel}
           </Link>
 
           {/* Action buttons */}
