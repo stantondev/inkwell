@@ -40,6 +40,7 @@ defmodule Inkwell.Accounts.User do
     # Admin
     field :role, :string, default: "user"
     field :blocked_at, :utc_datetime_usec
+    field :strike_count, :integer, default: 0
 
     # Subscription / billing
     field :stripe_customer_id, :string

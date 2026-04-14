@@ -95,6 +95,34 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc """
+  Send a warning email to a user who has violated the Community Guidelines.
+
+  `target` — the user receiving the warning (must have an email).
+  `issuer` — the admin issuing the warning.
+  `warning` — the %UserWarning{} record, which carries the strike number, reason,
+  details, and escalated_to_block flag.
+  """
+  def send_user_warning(target, issuer, warning) do
+    subject =
+      if warning.escalated_to_block do
+        "Your Inkwell account has been suspended"
+      else
+        "A formal warning from Inkwell (strike #{warning.strike_number} of #{Inkwell.Moderation.auto_block_threshold()})"
+      end
+
+    html = user_warning_html(target, issuer, warning)
+
+    case do_send_email(target.email, subject, html) do
+      {:ok, :no_email_configured} ->
+        Logger.warning("No email configured — warning email for #{target.email}")
+        {:ok, :no_email_configured}
+
+      result ->
+        result
+    end
+  end
+
   @doc "Send a support request email from the contact form."
   def send_support_request(from_email, category, subject, message, username \\ nil) do
     support_to = Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social")
@@ -772,4 +800,128 @@ defmodule Inkwell.Email do
     </html>
     """
   end
+
+  defp user_warning_html(target, _issuer, warning) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    threshold = Inkwell.Moderation.auto_block_threshold()
+    reason_label = warning_reason_label(warning.reason)
+    target_name = escape_html(target.display_name || target.username)
+
+    # Strike banner — colour shifts by severity
+    strike_color =
+      cond do
+        warning.escalated_to_block -> "#b00020"
+        warning.strike_number >= threshold - 1 -> "#b97b00"
+        true -> "#2d4a8a"
+      end
+
+    heading =
+      if warning.escalated_to_block do
+        "Your account has been suspended"
+      else
+        "A formal warning from Inkwell"
+      end
+
+    lead =
+      if warning.escalated_to_block do
+        """
+        <p style="font-size: 15px; color: #444; line-height: 1.7; margin: 0 0 16px 0;">
+          Hi #{target_name},
+        </p>
+        <p style="font-size: 15px; color: #444; line-height: 1.7; margin: 0 0 16px 0;">
+          After <strong>#{warning.strike_number}</strong> violations of our Community Guidelines,
+          your Inkwell account has been suspended. You can no longer sign in or post content.
+        </p>
+        """
+      else
+        """
+        <p style="font-size: 15px; color: #444; line-height: 1.7; margin: 0 0 16px 0;">
+          Hi #{target_name},
+        </p>
+        <p style="font-size: 15px; color: #444; line-height: 1.7; margin: 0 0 16px 0;">
+          This is a formal warning that content you posted on Inkwell violates our
+          Community Guidelines. No action is required from you right now, but please
+          read the note below carefully.
+        </p>
+        """
+      end
+
+    details_block =
+      if warning.details && String.trim(warning.details) != "" do
+        """
+        <div style="background: #f5f0e6; border-left: 3px solid #{strike_color}; padding: 16px 20px; margin: 16px 0 24px 0; border-radius: 0 8px 8px 0;">
+          <p style="font-family: Georgia, serif; color: #4a4a4a; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">#{escape_html(warning.details)}</p>
+        </div>
+        """
+      else
+        ""
+      end
+
+    footer_text =
+      if warning.escalated_to_block do
+        """
+        <p style="font-size: 13px; color: #666; line-height: 1.6; margin: 24px 0 0 0;">
+          You may appeal this decision by replying to this email or writing to
+          <a href="mailto:hello@inkwell.social" style="color: #2d4a8a;">hello@inkwell.social</a>.
+          We're human too and we'd rather have a conversation than make a mistake.
+        </p>
+        """
+      else
+        """
+        <p style="font-size: 13px; color: #666; line-height: 1.6; margin: 24px 0 0 0;">
+          Our enforcement is graduated: a friendly reminder, then a formal warning, then
+          suspension. If you accumulate <strong>#{threshold}</strong> warnings your
+          account will be automatically suspended. If you believe this warning was issued
+          in error, reply to this email or write to
+          <a href="mailto:hello@inkwell.social" style="color: #2d4a8a;">hello@inkwell.social</a>.
+        </p>
+        """
+      end
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Georgia, serif; background: #faf9f6; color: #333; padding: 40px 20px; margin: 0;">
+      <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 40px; border: 1px solid #e8e4de;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <p style="font-family: Georgia, serif; font-size: 14px; color: #2d4a8a; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 8px 0;">Inkwell</p>
+          <h1 style="font-family: Georgia, serif; font-size: 22px; color: #{strike_color}; margin: 0 0 12px 0; font-weight: normal;">
+            #{heading}
+          </h1>
+          <hr style="border: none; border-top: 1px solid #e8e4de; margin: 0 80px;" />
+        </div>
+
+        <div style="background: #{strike_color}; color: #fff; padding: 12px 20px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;">
+            Strike #{warning.strike_number} of #{threshold} &middot; #{reason_label}
+          </p>
+        </div>
+
+        #{lead}
+
+        #{details_block}
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="#{frontend_url}/guidelines"
+             style="display: inline-block; background: #2d4a8a; color: #fff; text-decoration: none;
+                    padding: 12px 28px; border-radius: 24px; font-weight: 600; font-size: 15px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+            Read the Community Guidelines
+          </a>
+        </div>
+
+        #{footer_text}
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  defp warning_reason_label("spam"), do: "Spam"
+  defp warning_reason_label("harassment"), do: "Harassment"
+  defp warning_reason_label("hate_speech"), do: "Hate speech"
+  defp warning_reason_label("unlabeled_sensitive"), do: "Unlabeled sensitive content"
+  defp warning_reason_label("csam_illegal"), do: "Prohibited content"
+  defp warning_reason_label(other) when is_binary(other), do: String.capitalize(other)
+  defp warning_reason_label(_), do: "Community Guidelines violation"
 end

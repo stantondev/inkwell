@@ -508,6 +508,8 @@ defmodule InkwellWeb.Router do
     patch "/users/:id/rename", AdminController, :rename_user
     post "/users/:id/block", AdminController, :block_user
     post "/users/:id/unblock", AdminController, :unblock_user
+    post "/users/:id/warn", AdminController, :warn_user
+    get "/users/:id/warnings", AdminController, :list_user_warnings
     delete "/users/:id", AdminController, :delete_user
 
     # Entry management

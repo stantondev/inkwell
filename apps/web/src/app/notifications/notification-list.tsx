@@ -176,6 +176,16 @@ function notificationText(n: Notification): string {
     }
     case "report":
       return "reported an entry";
+    case "warning": {
+      const strikeNumber = n.data?.strike_number as number | undefined;
+      const escalated = n.data?.escalated_to_block as boolean | undefined;
+      if (escalated) {
+        return `issued a final warning — your account has been suspended`;
+      }
+      return strikeNumber
+        ? `issued a formal warning (strike ${strikeNumber})`
+        : "issued a formal warning";
+    }
     default:
       return "interacted with your content";
   }
@@ -609,6 +619,26 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "warning") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--danger)" }}
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -707,6 +737,11 @@ function getNotificationHref(n: Notification): string | null {
   // Report notifications link to the admin reports queue
   if (n.type === "report") {
     return "/admin/reports";
+  }
+  // Warning notifications link to the Community Guidelines so users can read
+  // what they violated. (The warning text in the notification row is the headline.)
+  if (n.type === "warning") {
+    return "/guidelines";
   }
   const entryHref = getEntryHref(n);
   if (entryHref) return entryHref;
@@ -1216,9 +1251,9 @@ export function NotificationList({
                           </span>
                         </p>
 
-                        {/* Entry link — suppressed for report notifications so
-                            the reported entry title doesn't look like the admin's own content */}
-                        {entryHref && n.entry && n.type !== "report" && (
+                        {/* Entry link — suppressed for report and warning notifications so
+                            the reported/warned entry title doesn't look like the admin's or user's own content */}
+                        {entryHref && n.entry && n.type !== "report" && n.type !== "warning" && (
                           <a
                             href={entryHref}
                             onClick={(e) => e.stopPropagation()}

@@ -34,6 +34,12 @@ interface Report {
   entry: ReportEntry | null;
 }
 
+interface WarnResult {
+  blocked: boolean;
+  warning: { strike_number: number; escalated_to_block: boolean };
+  user: { strike_count: number; username: string };
+}
+
 const REASON_LABELS: Record<string, string> = {
   spam: "Spam",
   harassment: "Harassment",
@@ -71,6 +77,8 @@ export default function AdminReportsPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [status, setStatus] = useState<string>("pending");
   const [loading, setLoading] = useState(true);
+  const [warnModal, setWarnModal] = useState<Report | null>(null);
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -102,6 +110,46 @@ export default function AdminReportsPage() {
       await fetch(`/api/admin/entries/${entryId}/mark-sensitive`, { method: "POST" });
     }
 
+    fetchReports();
+  };
+
+  // Warn: issues a graduated warning, optionally also deletes the entry,
+  // and marks the report as actioned. Server also auto-blocks at strike threshold.
+  const handleWarn = async (
+    report: Report,
+    opts: { details: string; deleteEntry: boolean }
+  ) => {
+    if (!report.entry?.author) return;
+
+    const res = await fetch(`/api/admin/users/${report.entry.author.id}/warn`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: report.reason,
+        details: opts.details,
+        report_id: report.id,
+        entry_id: report.entry.id,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setLastAction(`Failed to warn user: ${err.error || res.statusText}`);
+      return;
+    }
+
+    const json: { data: WarnResult } = await res.json();
+    const { blocked, warning, user } = json.data;
+
+    if (opts.deleteEntry) {
+      await fetch(`/api/admin/entries/${report.entry.id}`, { method: "DELETE" });
+    }
+
+    const strikeText = `Strike ${warning.strike_number} issued to @${user.username}`;
+    const extra = blocked ? " — account auto-blocked (threshold reached)" : "";
+    const entryText = opts.deleteEntry ? " · entry deleted" : "";
+    setLastAction(`${strikeText}${extra}${entryText}`);
+    setWarnModal(null);
     fetchReports();
   };
 
@@ -202,9 +250,18 @@ export default function AdminReportsPage() {
                       Mark sensitive
                     </button>
                   )}
+                  {report.entry?.author && (
+                    <button
+                      onClick={() => setWarnModal(report)}
+                      className="admin-btn admin-btn--danger admin-btn--sm"
+                      title="Issue a graduated warning to the author and auto-escalate on repeat offenses"
+                    >
+                      Warn user
+                    </button>
+                  )}
                   <button
                     onClick={() => handleAction(report.id, "actioned")}
-                    className="admin-btn admin-btn--danger admin-btn--sm"
+                    className="admin-btn admin-btn--outline admin-btn--sm"
                   >
                     Action taken
                   </button>
@@ -222,6 +279,170 @@ export default function AdminReportsPage() {
           ))}
         </div>
       )}
+
+      {/* Action toast */}
+      {lastAction && (
+        <div
+          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border px-4 py-3 shadow-lg"
+          style={{
+            borderColor: "var(--border)",
+            background: "var(--surface)",
+            color: "var(--foreground)",
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-sm flex-1">{lastAction}</span>
+            <button
+              onClick={() => setLastAction(null)}
+              className="text-xs opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Warn modal */}
+      {warnModal && (
+        <WarnModal
+          report={warnModal}
+          onCancel={() => setWarnModal(null)}
+          onConfirm={(details, deleteEntry) =>
+            handleWarn(warnModal, { details, deleteEntry })
+          }
+        />
+      )}
     </div>
   );
+}
+
+// ─── Warn modal component ──────────────────────────────────────────────────
+
+function WarnModal({
+  report,
+  onCancel,
+  onConfirm,
+}: {
+  report: Report;
+  onCancel: () => void;
+  onConfirm: (details: string, deleteEntry: boolean) => void;
+}) {
+  const [details, setDetails] = useState<string>(
+    defaultWarningText(report.reason, report.entry?.title || null)
+  );
+  const [deleteEntry, setDeleteEntry] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onConfirm(details, deleteEntry);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border p-6 shadow-2xl"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--surface)",
+          color: "var(--foreground)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2
+          className="text-xl font-semibold mb-2"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+        >
+          Warn @{report.entry?.author?.username}
+        </h2>
+        <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+          The user receives an in-app notification and an email with the
+          message below. Their strike count goes up by one. At 3 strikes
+          their account is automatically suspended.
+        </p>
+
+        <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--muted)" }}>
+          Warning message to the user
+        </label>
+        <textarea
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          rows={6}
+          maxLength={2000}
+          className="w-full rounded-lg border p-3 text-sm mb-4"
+          style={{
+            borderColor: "var(--border)",
+            background: "var(--background)",
+            color: "var(--foreground)",
+            fontFamily: "Georgia, serif",
+          }}
+          placeholder="Explain what the user did wrong and what they should change."
+        />
+
+        <label className="flex items-center gap-2 mb-6 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={deleteEntry}
+            onChange={(e) => setDeleteEntry(e.target.checked)}
+          />
+          <span>
+            Also delete the reported entry
+            {report.entry?.title && (
+              <span className="ml-1 italic" style={{ color: "var(--muted)" }}>
+                &ldquo;{report.entry.title.slice(0, 50)}
+                {report.entry.title.length > 50 ? "…" : ""}&rdquo;
+              </span>
+            )}
+          </span>
+        </label>
+
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="admin-btn admin-btn--outline admin-btn--sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || details.trim().length === 0}
+            className="admin-btn admin-btn--danger admin-btn--sm"
+          >
+            {submitting ? "Sending…" : "Send warning"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function defaultWarningText(reason: string, entryTitle: string | null): string {
+  const titleRef = entryTitle ? ` ("${entryTitle.slice(0, 80)}")` : "";
+  switch (reason) {
+    case "spam":
+      return `Your recent entry${titleRef} was reported and reviewed as commercial spam. Per our Community Guidelines, Inkwell does not allow spam, scams, or commercial solicitation disguised as journal entries. Please only publish personal writing you created. Further violations will lead to account suspension.`;
+    case "harassment":
+      return `Your recent entry${titleRef} was reported and reviewed as harassment. Per our Community Guidelines, Inkwell is a space for kindness and good faith. Please remove or revise any content that targets another person. Further violations will lead to account suspension.`;
+    case "hate_speech":
+      return `Your recent entry${titleRef} was reported and reviewed as hate speech. Per our Community Guidelines, Inkwell does not permit content that targets people based on their identity. Further violations will lead to account suspension.`;
+    case "unlabeled_sensitive":
+      return `Your recent entry${titleRef} contains sensitive content without a content warning. Please add a content warning so readers can make an informed choice before reading.`;
+    case "csam_illegal":
+      return `Your recent entry${titleRef} was reported as prohibited content. This is a serious matter and further violations will lead to immediate and permanent suspension.`;
+    default:
+      return `Your recent entry${titleRef} was reported and reviewed for violating our Community Guidelines. Please review the guidelines and avoid further violations — repeated offenses lead to account suspension.`;
+  }
 }

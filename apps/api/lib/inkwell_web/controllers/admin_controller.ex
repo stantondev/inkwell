@@ -181,6 +181,95 @@ defmodule InkwellWeb.AdminController do
     end
   end
 
+  # POST /api/admin/users/:id/warn
+  # Body: { reason, details?, report_id?, entry_id? }
+  def warn_user(conn, %{"id" => id} = params) do
+    current_user = conn.assigns.current_user
+    reason = params["reason"]
+
+    cond do
+      is_nil(reason) or reason == "" ->
+        conn |> put_status(:bad_request) |> json(%{error: "Reason is required"})
+
+      true ->
+        case Accounts.get_user_admin(id) do
+          nil ->
+            conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+          target ->
+            cond do
+              current_user.id == target.id ->
+                conn |> put_status(:forbidden) |> json(%{error: "You cannot warn yourself"})
+
+              Accounts.is_env_admin?(target) ->
+                conn |> put_status(:forbidden) |> json(%{error: "You cannot warn a system admin"})
+
+              true ->
+                opts =
+                  [
+                    details: params["details"],
+                    report_id: params["report_id"],
+                    entry_id: params["entry_id"]
+                  ]
+                  |> Enum.reject(fn {_, v} -> is_nil(v) or v == "" end)
+
+                case Moderation.warn_user(target, current_user, reason, opts) do
+                  {:ok, %{warning: warning, user: user, blocked: blocked}} ->
+                    Logger.info(
+                      "Admin #{current_user.username} warned @#{target.username} (strike #{warning.strike_number}, reason: #{reason}, blocked: #{blocked})"
+                    )
+
+                    json(conn, %{
+                      data: %{
+                        user: render_user_admin(user),
+                        warning: render_warning(warning),
+                        blocked: blocked
+                      }
+                    })
+
+                  {:error, reason} ->
+                    conn
+                    |> put_status(:unprocessable_entity)
+                    |> json(%{error: "Failed to warn user", detail: inspect(reason)})
+                end
+            end
+        end
+    end
+  end
+
+  # GET /api/admin/users/:id/warnings
+  def list_user_warnings(conn, %{"id" => id}) do
+    case Accounts.get_user_admin(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      _user ->
+        warnings = Moderation.list_warnings_for_user(id)
+        json(conn, %{data: Enum.map(warnings, &render_warning/1)})
+    end
+  end
+
+  defp render_warning(warning) do
+    %{
+      id: warning.id,
+      reason: warning.reason,
+      details: warning.details,
+      strike_number: warning.strike_number,
+      escalated_to_block: warning.escalated_to_block,
+      report_id: warning.report_id,
+      entry_id: warning.entry_id,
+      issued_by:
+        case Map.get(warning, :issued_by) do
+          %{username: username, display_name: display_name} ->
+            %{username: username, display_name: display_name}
+
+          _ ->
+            nil
+        end,
+      inserted_at: warning.inserted_at
+    }
+  end
+
   # DELETE /api/admin/users/:id
   def delete_user(conn, %{"id" => id}) do
     current_user = conn.assigns.current_user
@@ -304,6 +393,7 @@ defmodule InkwellWeb.AdminController do
       ink_donor_status: user.ink_donor_status,
       ink_donor_amount_cents: user.ink_donor_amount_cents,
       blocked_at: user.blocked_at,
+      strike_count: Map.get(user, :strike_count, 0),
       last_active_at: user.last_active_at,
       is_inactive: Accounts.user_inactive?(user),
       created_at: user.inserted_at,
