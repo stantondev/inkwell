@@ -28,6 +28,7 @@ import { SignupCta } from "@/components/signup-cta";
 import { PaywallCard } from "@/components/paywall-card";
 import { TranslatableEntry } from "@/components/translatable-entry";
 import { GalleryHydrator } from "@/components/gallery-hydrator";
+import { MarginaliaReader } from "@/components/marginalia/marginalia-reader";
 
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
@@ -87,8 +88,11 @@ interface EntryData {
   is_sensitive?: boolean;
   ink_count?: number;
   reprint_count?: number;
+  margin_note_count?: number;
   my_ink?: boolean;
   my_reprint?: boolean;
+  marginalia?: import("@/lib/marginalia/types").MarginNote[];
+  orphaned_marginalia?: import("@/lib/marginalia/types").MarginNote[];
   tip_total_cents?: number;
   tip_count?: number;
   poll?: PollData | null;
@@ -763,22 +767,33 @@ export default async function EntryPage({ params }: EntryParams) {
           </div>
         ) : (
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
-          <JournalPage corner className="p-6 lg:p-10">
-            <TranslatableEntry
-              type="entry"
-              id={entry.id}
-              originalBodyHtml={entry.body_html}
-              preferredLanguage={session?.user.preferred_language}
-              isLoggedIn={!!session}
-            >
-              <EntryContent
-                html={entry.body_html}
-                entryId={entry.id}
-                className={`prose-entry${entry.title ? " drop-cap" : ""}`}
-              />
-              <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
-            </TranslatableEntry>
-          </JournalPage>
+          <MarginaliaReader
+            entryId={entry.id}
+            entryUserId={entry.author.id}
+            initialNotes={entry.marginalia ?? []}
+            initialOrphaned={entry.orphaned_marginalia ?? []}
+            viewer={{
+              id: session?.user.id ?? "",
+              isLoggedIn: !!session,
+            }}
+          >
+            <JournalPage corner className="p-6 lg:p-10">
+              <TranslatableEntry
+                type="entry"
+                id={entry.id}
+                originalBodyHtml={entry.body_html}
+                preferredLanguage={session?.user.preferred_language}
+                isLoggedIn={!!session}
+              >
+                <EntryContent
+                  html={entry.body_html}
+                  entryId={entry.id}
+                  className={`prose-entry${entry.title ? " drop-cap" : ""}`}
+                />
+                <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
+              </TranslatableEntry>
+            </JournalPage>
+          </MarginaliaReader>
 
           {/* Quoted / Reprinted entry — full original post embedded */}
           {entry.quoted_entry && (

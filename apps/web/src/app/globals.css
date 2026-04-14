@@ -12397,6 +12397,7 @@ a, button, [role="tab"], [role="button"] {
   text-decoration: underline;
   font-weight: 500;
 }
+
 /* ─── The Gazette: Newspaper Layout ─────────────────────────────────
  *
  * Real newspaper front-page aesthetic:
@@ -12758,3 +12759,547 @@ a, button, [role="tab"], [role="button"] {
     font-size: 3rem;
   }
 }
+
+/* ─── Inline Marginalia ──────────────────────────────────────────────
+   Reader annotations anchored to text ranges in a published entry,
+   rendered as handwritten-looking notes in the page margin.
+   See CLAUDE.md > "Inline Marginalia".
+*/
+
+@layer marginalia {
+  /* ── Highlighted passages ── */
+  /* Custom element name <ink-mark> prevents collision with entry-author
+     custom CSS. Author CSS is scoped under #entry-{id}, so our layer
+     rules here are unscoped and take precedence when specific. */
+  ink-mark,
+  ink-mark.inkwell-marginalia-mark {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    padding: 0 1px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  ink-mark:hover,
+  ink-mark[data-focused="true"] {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--accent) 75%, transparent);
+  }
+
+  /* ── Layout wrapper + prose + aside ── */
+  .entry-marginalia-wrapper {
+    position: relative;
+  }
+  .entry-marginalia-prose {
+    /* Inherits existing entry layout */
+  }
+
+  /* Cursor affordance: when the viewer is logged in and can annotate,
+     hint at it by showing a subtle dashed underline under entry text on
+     hover of any paragraph in the prose body. Keeps the browser-default
+     I-beam cursor for selection (no custom cursor — those are often
+     jittery across browsers). */
+  .entry-marginalia-wrapper[data-marginalia-active="true"] .prose-entry p:hover,
+  .entry-marginalia-wrapper[data-marginalia-active="true"] .prose-entry blockquote:hover {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--accent) 22%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 6px;
+  }
+
+  /* ── One-time reader hint ── */
+  .marginalia-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 18px 0;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 13px;
+    color: var(--foreground);
+    line-height: 1.4;
+    max-width: fit-content;
+  }
+  .marginalia-hint svg {
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .marginalia-hint em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .marginalia-hint-dismiss {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 4px;
+  }
+  .marginalia-hint-dismiss:hover {
+    color: var(--foreground);
+  }
+
+  /* Desktop ≥1280px: reserve 280px of padding on the right of the
+     marginalia wrapper so the aside fits INSIDE the existing entry-wide
+     container alongside the prose column. This works on a 13" laptop
+     (1280–1440px CSS viewports) without needing room outside the page.
+
+     The trade-off: the prose column gets narrower (roughly 744px on a
+     1024px entry-wide at 1280px viewport, 872px on a 1152px entry-wide
+     at 1536px+). That's still comfortably within long-form reading
+     width and preserves the book-margin aesthetic without requiring
+     ultra-wide monitors.
+
+     When marginalia is active, siblings of the prose (hint, orphaned
+     section, etc.) also sit inside the narrowed content area. */
+  .marginalia-aside {
+    display: none;
+  }
+  @media (min-width: 1280px) {
+    /* Layout math (intentional balance):
+         prose content box  → 18px gap → aside (240) → 24px gap → wrapper right edge
+       so padding-right = 18 + 240 + 24 = 282px
+       and aside is offset 24px in from the wrapper's right edge.
+       This pulls the note card close to the entry body on the left
+       and leaves breathing room against the viewport edge on the right. */
+    .entry-marginalia-wrapper--with-aside {
+      padding-right: 282px;
+    }
+    .entry-marginalia-wrapper--with-aside .marginalia-aside {
+      display: block;
+      position: absolute;
+      top: 0;
+      right: 24px;
+      width: 240px;
+      min-height: 1px;
+    }
+  }
+
+  /* Tablet (1024–1279px): inline cards stacked after the entry body */
+  .marginalia-tablet-list {
+    display: none;
+  }
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    .marginalia-tablet-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--border);
+    }
+    .marginalia-tablet-list::before {
+      content: "Marginalia";
+      display: block;
+      font-family: var(--font-lora, Georgia, serif);
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+  }
+
+  /* ── Note card ── */
+  .marginalia-note-card {
+    background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+    border-left: 3px solid color-mix(in srgb, var(--accent) 70%, var(--border));
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--foreground);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.03);
+    transform-origin: top left;
+    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  }
+  .marginalia-note-card.is-focused {
+    border-left-color: var(--accent);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  .marginalia-note-card.is-displaced::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 14px;
+    width: 10px;
+    height: 1px;
+    background: color-mix(in srgb, var(--accent) 50%, transparent);
+  }
+  .marginalia-note-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .marginalia-note-byline {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    min-width: 0;
+  }
+  .marginalia-note-name {
+    font-weight: 600;
+    font-size: 12.5px;
+    color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .marginalia-note-handle {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .marginalia-note-body {
+    color: var(--foreground);
+  }
+  .marginalia-note-body p {
+    margin: 0 0 4px 0;
+  }
+  .marginalia-note-body p:last-child {
+    margin-bottom: 0;
+  }
+  .marginalia-note-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+  .marginalia-note-actions button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--muted) 40%, transparent);
+  }
+  .marginalia-note-actions button:hover {
+    color: var(--accent);
+  }
+  .marginalia-note-actions .marginalia-note-delete:hover {
+    color: var(--danger);
+  }
+  .marginalia-note-edited {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 10.5px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .marginalia-note-edit textarea {
+    width: 100%;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 13.5px;
+    color: var(--foreground);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 6px 8px;
+    resize: vertical;
+    min-height: 60px;
+  }
+  .marginalia-note-edit-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    justify-content: flex-end;
+  }
+  .marginalia-note-edit-buttons button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .marginalia-note-edit-buttons button.marginalia-compose-submit {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .marginalia-note-edit-buttons button.marginalia-compose-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ── Floating "Add marginalia" button (appears above a text selection) ── */
+  .marginalia-add-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: white;
+    border: 1px solid color-mix(in srgb, var(--accent) 80%, black);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 12.5px;
+    font-style: italic;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .marginalia-add-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.22), 0 2px 4px rgba(0, 0, 0, 0.25);
+  }
+  .marginalia-add-button::before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--accent);
+  }
+
+  /* ── Compose popover (margin note editor) ── */
+  .marginalia-compose-popover {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.18),
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    font-family: var(--font-lora, Georgia, serif);
+  }
+  .marginalia-compose-textarea {
+    width: 100%;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--accent) 2%, var(--surface));
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    resize: vertical;
+    min-height: 80px;
+  }
+  .marginalia-compose-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  .marginalia-compose-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  .marginalia-compose-count {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .marginalia-compose-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .marginalia-compose-buttons button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 5px 12px;
+    font-size: 12.5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .marginalia-compose-buttons button:hover {
+    background: var(--surface-hover);
+  }
+  .marginalia-compose-submit {
+    background: var(--accent) !important;
+    color: white !important;
+    border-color: var(--accent) !important;
+  }
+  .marginalia-compose-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .marginalia-compose-hint {
+    margin-top: 6px;
+    font-size: 10.5px;
+    font-style: italic;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* ── Orphaned notes section (foot of entry) ── */
+  .marginalia-orphaned-section {
+    margin-top: 32px;
+    padding: 14px 16px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--muted) 5%, var(--surface));
+    font-family: var(--font-lora, Georgia, serif);
+  }
+  .marginalia-orphaned-section summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--muted);
+  }
+  .marginalia-orphaned-section summary:hover {
+    color: var(--foreground);
+  }
+  .marginalia-orphaned-list {
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .marginalia-orphaned-item {
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .marginalia-orphaned-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .marginalia-orphaned-name {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .marginalia-orphaned-quote {
+    margin: 0 0 6px 0;
+    padding: 4px 8px;
+    border-left: 2px solid var(--border);
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+  }
+  .marginalia-orphaned-body {
+    font-size: 13.5px;
+    color: var(--foreground);
+  }
+  .marginalia-orphaned-body p {
+    margin: 0 0 4px 0;
+  }
+  .marginalia-orphaned-delete {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 0;
+    font-family: inherit;
+    text-decoration: underline;
+  }
+
+  /* ── Mobile bottom sheet ── */
+  .marginalia-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .marginalia-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  .marginalia-sheet-panel {
+    position: relative;
+    width: 100%;
+    max-height: 70vh;
+    background: var(--surface);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.25);
+    padding: 12px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: marginalia-sheet-slide-up 200ms ease;
+  }
+  @keyframes marginalia-sheet-slide-up {
+    from { transform: translateY(16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .marginalia-sheet-handle {
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 10px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+  .marginalia-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .marginalia-sheet-header h2 {
+    margin: 0;
+    font-family: var(--font-lora, Georgia, serif);
+    font-size: 18px;
+    font-style: italic;
+  }
+  .marginalia-sheet-header button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .marginalia-sheet-body {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ── Print: collapse margin notes into footnotes ── */
+  @media print {
+    .marginalia-aside,
+    .marginalia-tablet-list,
+    .marginalia-sheet-root,
+    .marginalia-compose-popover,
+    .marginalia-add-wrapper,
+    .marginalia-add-button {
+      display: none !important;
+    }
+    ink-mark {
+      background: none;
+      border-bottom: 1px solid #888;
+    }
+    ink-mark::after {
+      content: " [" attr(data-marginalia-id) "]";
+      font-size: 0.65em;
+      vertical-align: super;
+    }
+  }
+}
+/* ─── End Inline Marginalia ───────────────────────────────────────── */

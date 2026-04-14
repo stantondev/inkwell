@@ -111,6 +111,10 @@ defmodule Inkwell.Social do
     |> where([r], r.user_id == ^blocked_id and r.entry_id in subquery(entry_ids_by_blocker))
     |> Repo.delete_all()
 
+    # Delete margin notes between the two users (both directions) and
+    # decrement the denormalized counter on each affected entry
+    Inkwell.MarginNotes.cascade_delete_for_block(blocker_id, blocked_id)
+
     # Remove from top friends (both directions)
     TopFriend
     |> where([tf],

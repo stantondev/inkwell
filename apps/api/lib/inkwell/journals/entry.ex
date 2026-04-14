@@ -42,6 +42,7 @@ defmodule Inkwell.Journals.Entry do
     # Discovery
     field :ink_count, :integer, default: 0
     field :reprint_count, :integer, default: 0
+    field :margin_note_count, :integer, default: 0
 
     # Content moderation
     field :sensitive, :boolean, default: false

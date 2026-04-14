@@ -10,7 +10,7 @@ defmodule Inkwell.Push do
   @pushable_types ~w(
     comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
-    feedback_mention poll_mention writer_plan_subscribe guestbook
+    feedback_mention poll_mention writer_plan_subscribe guestbook margin_note
   )a
 
   @doc "Returns true if VAPID keys are configured."
@@ -127,6 +127,7 @@ defmodule Inkwell.Push do
   defp build_text("feedback_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you on the roadmap"}
   defp build_text("poll_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a poll comment"}
   defp build_text("writer_plan_subscribe", actor, _), do: {"New subscriber", "#{actor} subscribed to your writer plan"}
+  defp build_text("margin_note", actor, _), do: {"New marginalia", "#{actor} annotated your entry"}
   defp build_text(_, actor, _), do: {"Inkwell", "#{actor} interacted with your content"}
 
   defp build_url("letter", _), do: "/letters"
@@ -146,6 +147,18 @@ defmodule Inkwell.Push do
   defp build_url("circle_mention", n) do
     slug = get_in_data(n, "circle_slug")
     if slug, do: "/circles/#{slug}", else: "/notifications"
+  end
+
+  defp build_url("margin_note", n) do
+    username = get_in_data(n, "entry_username")
+    slug = get_in_data(n, "entry_slug")
+    note_id = get_in_data(n, "margin_note_id")
+
+    cond do
+      username && slug && note_id -> "/#{username}/#{slug}#marginalia-#{note_id}"
+      username && slug -> "/#{username}/#{slug}"
+      true -> "/notifications"
+    end
   end
 
   defp build_url(_, _), do: "/notifications"

@@ -173,6 +173,9 @@ defmodule InkwellWeb.Router do
     # Stamps (optional auth: author sees who stamped)
     get "/entries/:entry_id/stamps", StampController, :index
 
+    # Margin notes (inline marginalia — optional auth to filter blocked users)
+    get "/entries/:entry_id/margin-notes", MarginNoteController, :index
+
     # @mention search (must be before /users/:username to avoid matching as username)
     get "/users/mention-search", UserController, :mention_search
 
@@ -264,6 +267,11 @@ defmodule InkwellWeb.Router do
 
     # Inks (discovery signal)
     post "/entries/:entry_id/ink", InkController, :toggle
+
+    # Inline marginalia (reader annotations anchored to text ranges)
+    post "/entries/:entry_id/margin-notes", MarginNoteController, :create
+    patch "/margin-notes/:id", MarginNoteController, :update
+    delete "/margin-notes/:id", MarginNoteController, :delete
 
     # Reprints (simple toggle + quote reposts)
     post "/entries/:entry_id/reprint/toggle", ReprintController, :toggle

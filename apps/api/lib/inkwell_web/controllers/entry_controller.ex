@@ -1,10 +1,10 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, Newsletter, OAuth, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, MarginNotes, Newsletter, OAuth, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
-  alias InkwellWeb.{Helpers.MentionHelper, UserController}
+  alias InkwellWeb.{Helpers.MentionHelper, MarginNoteController, UserController}
 
   @free_draft_limit 10
 
@@ -111,6 +111,22 @@ defmodule InkwellWeb.EntryController do
         my_ink = if viewer, do: Inks.has_inked?(viewer.id, entry.id), else: false
         my_reprint = if viewer, do: Reprints.has_reprinted?(viewer.id, entry.id), else: false
 
+        # Eagerly load margin notes (inline marginalia) so the detail page
+        # doesn't need a second round trip. Filter out blocked users' notes
+        # for the viewer.
+        marginalia_exclude_ids =
+          if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
+
+        marginalia =
+          entry.id
+          |> MarginNotes.list_for_entry(exclude_user_ids: marginalia_exclude_ids)
+          |> Enum.map(&MarginNoteController.render_note/1)
+
+        orphaned_marginalia =
+          entry.id
+          |> MarginNotes.list_for_entry(orphaned: true, exclude_user_ids: marginalia_exclude_ids)
+          |> Enum.map(&MarginNoteController.render_note/1)
+
         entry_with_user = %{entry | user: user}
         series_nav = Journals.get_series_navigation(entry_with_user)
 
@@ -139,6 +155,8 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:series, series_nav)
           |> Map.put(:poll, poll_data)
           |> Map.put(:custom_domain, author_custom_domain)
+          |> Map.put(:marginalia, marginalia)
+          |> Map.put(:orphaned_marginalia, orphaned_marginalia)
 
         # Include per-entry postage stats for the author only
         if viewer && viewer.id == user.id do
@@ -904,6 +922,7 @@ defmodule InkwellWeb.EntryController do
       is_sensitive: (entry.sensitive || false) || (entry.admin_sensitive || false),
       ink_count: entry.ink_count || 0,
       reprint_count: entry.reprint_count || 0,
+      margin_note_count: entry.margin_note_count || 0,
       quoted_entry_id: entry.quoted_entry_id,
       quoted_remote_entry_id: entry.quoted_remote_entry_id,
       quoted_entry: render_quoted_entry(entry),

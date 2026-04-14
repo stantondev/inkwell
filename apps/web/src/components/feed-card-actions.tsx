@@ -170,7 +170,7 @@ function CommentPopupContent({
             fontWeight: 600,
           }}
         >
-          Marginalia
+          Footnotes
           {isRemote && (
             <span
               className="ml-1.5 font-normal text-[10px]"
@@ -271,7 +271,7 @@ function CommentPopupContent({
         <div className="border-t px-3 py-2" style={{ borderColor: "var(--border)" }}>
           <CommentEditor
             onSubmit={(html) => onSubmit(html)}
-            placeholder="Write in the margins…"
+            placeholder="Add a footnote…"
             compact
             maxLength={2000}
             disabled={submitting}
@@ -482,7 +482,7 @@ export function FeedCardActions({
             <span>{commentCount}</span>
           </button>
 
-          {/* Comment popup/sheet — Marginalia design */}
+          {/* Comment popup/sheet — Footnotes design */}
           {commentPopupOpen && isMobile
             ? /* Mobile: bottom sheet via portal */
               createPortal(

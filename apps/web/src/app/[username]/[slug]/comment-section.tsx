@@ -107,7 +107,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
       <div className="comment-section-header">
         <div className="comment-section-ornament" />
         <h2 className="comment-section-title">
-          Marginalia
+          Footnotes
           {totalCount > 0 && (
             <span className="comment-section-count">{totalCount}</span>
           )}
@@ -140,7 +140,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
         <div className="comment-root-editor">
           <CommentEditor
             onSubmit={(html) => handleSubmitComment(html)}
-            placeholder="Write in the margins…"
+            placeholder="Add a footnote…"
             disabled={submitting}
           />
         </div>

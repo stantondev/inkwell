@@ -24,7 +24,7 @@ interface CommentEditorProps {
 
 export function CommentEditor({
   onSubmit,
-  placeholder = "Write in the margins…",
+  placeholder = "Add a footnote…",
   compact = false,
   maxLength = 2000,
   autoFocus = false,

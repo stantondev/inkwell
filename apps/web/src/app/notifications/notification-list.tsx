@@ -145,6 +145,10 @@ function notificationText(n: Notification): string {
       return "inked your entry";
     case "reprint":
       return "reprinted your entry";
+    case "margin_note": {
+      const snippet = n.data?.quote_snippet as string | undefined;
+      return snippet ? `annotated "${snippet}"` : "annotated your entry";
+    }
     case "invite_accepted":
       return "joined Inkwell from your invitation";
     case "fediverse_follow":
@@ -402,6 +406,26 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "margin_note") {
+    // Pen nib / writing icon
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--accent)" }}
+        aria-hidden="true"
+      >
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    );
+  }
   if (type === "invite_accepted") {
     return (
       <svg
@@ -629,6 +653,13 @@ function getNotificationHref(n: Notification): string | null {
   if (n.type === "reply") {
     const entryHref = getEntryHref(n);
     if (entryHref) return `${entryHref}#comments`;
+  }
+  // Margin note notifications link to the specific margin note anchor
+  if (n.type === "margin_note") {
+    const entryHref = getEntryHref(n);
+    const noteId = n.data?.margin_note_id as string | undefined;
+    if (entryHref && noteId) return `${entryHref}#marginalia-${noteId}`;
+    if (entryHref) return entryHref;
   }
   // Poll notifications link to the poll
   if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {
