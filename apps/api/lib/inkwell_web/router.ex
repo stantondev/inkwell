@@ -528,6 +528,9 @@ defmodule InkwellWeb.Router do
     get "/reports", ReportController, :index
     patch "/reports/:id", ReportController, :update
 
+    # Warnings audit log (admin) — platform-wide list
+    get "/warnings", AdminController, :list_warnings
+
     # Relay management (admin)
     get "/relays", RelayController, :index
     post "/relays", RelayController, :create

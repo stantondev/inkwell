@@ -249,6 +249,38 @@ defmodule InkwellWeb.AdminController do
     end
   end
 
+  # GET /api/admin/warnings — platform-wide audit log of every warning issued
+  def list_warnings(conn, params) do
+    page = parse_int(params["page"], 1)
+    per_page = parse_int(params["per_page"], 50)
+
+    {warnings, total} = Moderation.list_all_warnings(page: page, per_page: per_page)
+
+    json(conn, %{
+      data: Enum.map(warnings, &render_warning_with_user/1),
+      pagination: %{page: page, per_page: per_page, total: total}
+    })
+  end
+
+  defp render_warning_with_user(warning) do
+    warning
+    |> render_warning()
+    |> Map.put(:user, render_warning_target(Map.get(warning, :user)))
+  end
+
+  defp render_warning_target(nil), do: nil
+
+  defp render_warning_target(user) do
+    %{
+      id: user.id,
+      username: user.username,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      strike_count: Map.get(user, :strike_count, 0),
+      blocked_at: Map.get(user, :blocked_at)
+    }
+  end
+
   defp render_warning(warning) do
     %{
       id: warning.id,

@@ -161,6 +161,35 @@ defmodule Inkwell.Moderation do
     |> Repo.all()
   end
 
+  @doc """
+  List warnings across all users for the admin audit view.
+
+  ## Opts
+    * `:page` — 1-based page number (default 1)
+    * `:per_page` — page size (default 50, max 200)
+
+  Preloads both the recipient (:user) and the issuing admin (:issued_by) so
+  the UI can render them without additional queries. Returns `{warnings, total}`.
+  """
+  def list_all_warnings(opts \\ []) do
+    page = Keyword.get(opts, :page, 1) |> max(1)
+    per_page = Keyword.get(opts, :per_page, 50) |> min(200) |> max(1)
+
+    base = from(w in UserWarning)
+
+    total = Repo.aggregate(base, :count)
+
+    warnings =
+      base
+      |> order_by(desc: :inserted_at)
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> preload([:user, :issued_by])
+      |> Repo.all()
+
+    {warnings, total}
+  end
+
   # ── Private helpers ──────────────────────────────────────────────────────
 
   defp deliver_warning_notification(warning, target, issuer) do
