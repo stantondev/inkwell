@@ -1161,6 +1161,8 @@ defmodule InkwellWeb.FederationController do
     Accounts.create_notification(%{
       user_id: entry.user_id,
       type: :comment,
+      target_type: "entry",
+      target_id: entry.id,
       data: %{
         entry_id: entry.id,
         entry_title: entry.title,

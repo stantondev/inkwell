@@ -174,6 +174,8 @@ function notificationText(n: Notification): string {
       const subAmt = subAmountCents ? `$${(subAmountCents / 100).toFixed(2)}/mo` : "";
       return `subscribed to your plan${subAmt ? ` (${subAmt})` : ""}`;
     }
+    case "report":
+      return "reported an entry";
     default:
       return "interacted with your content";
   }
@@ -588,6 +590,25 @@ function NotificationIcon({
       </svg>
     );
   }
+  if (type === "report") {
+    return (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ color: "var(--danger)" }}
+        aria-hidden="true"
+      >
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+        <line x1="4" y1="22" x2="4" y2="15" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -682,6 +703,10 @@ function getNotificationHref(n: Notification): string | null {
     n.data?.post_id
   ) {
     return `/roadmap/${n.data.post_id}`;
+  }
+  // Report notifications link to the admin reports queue
+  if (n.type === "report") {
+    return "/admin/reports";
   }
   const entryHref = getEntryHref(n);
   if (entryHref) return entryHref;
@@ -1191,8 +1216,9 @@ export function NotificationList({
                           </span>
                         </p>
 
-                        {/* Entry link */}
-                        {entryHref && n.entry && (
+                        {/* Entry link — suppressed for report notifications so
+                            the reported entry title doesn't look like the admin's own content */}
+                        {entryHref && n.entry && n.type !== "report" && (
                           <a
                             href={entryHref}
                             onClick={(e) => e.stopPropagation()}
