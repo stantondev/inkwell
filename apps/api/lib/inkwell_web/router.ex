@@ -500,6 +500,8 @@ defmodule InkwellWeb.Router do
     # Billing / Square webhook health + reconciliation
     get "/billing-health", AdminController, :billing_health
     post "/reconcile-subscriptions", AdminController, :reconcile_subscriptions
+    post "/sync-user-by-email", AdminController, :sync_user_by_email
+    get "/plus-users", AdminController, :plus_users
 
     # User management
     get "/users", AdminController, :list_users

@@ -358,26 +358,14 @@ defmodule Inkwell.Square do
       :ssl.start()
       :inets.start()
 
-      case :httpc.request(
-             :post,
-             {url, headers, ~c"application/json", json_body},
-             [ssl: Inkwell.SSL.httpc_opts()],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
-          case Jason.decode(to_string(resp_body)) do
-            {:ok, data} -> {:ok, data}
-            error -> {:error, {:parse_error, error}}
-          end
-
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          Logger.error("Square API error #{status} on #{path}: #{to_string(resp_body)}")
-          {:error, {:square_error, status, to_string(resp_body)}}
-
-        {:error, reason} ->
-          Logger.error("Square HTTP error on #{path}: #{inspect(reason)}")
-          {:error, :http_error}
-      end
+      with_retry(path, fn ->
+        :httpc.request(
+          :post,
+          {url, headers, ~c"application/json", json_body},
+          [ssl: Inkwell.SSL.httpc_opts()],
+          []
+        )
+      end)
     end
   end
 
@@ -398,26 +386,41 @@ defmodule Inkwell.Square do
       :ssl.start()
       :inets.start()
 
-      case :httpc.request(
-             :get,
-             {url, headers},
-             [ssl: Inkwell.SSL.httpc_opts()],
-             []
-           ) do
-        {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
-          case Jason.decode(to_string(resp_body)) do
-            {:ok, data} -> {:ok, data}
-            error -> {:error, {:parse_error, error}}
-          end
+      with_retry(path, fn ->
+        :httpc.request(
+          :get,
+          {url, headers},
+          [ssl: Inkwell.SSL.httpc_opts()],
+          []
+        )
+      end)
+    end
+  end
 
-        {:ok, {{_, status, _}, _headers, resp_body}} ->
-          Logger.error("Square API error #{status} on GET #{path}: #{to_string(resp_body)}")
-          {:error, {:square_error, status, to_string(resp_body)}}
+  # Retry a Square HTTP call on 429 (rate limited) with exponential backoff.
+  # On 429: sleep 1000ms and retry. Second 429: sleep 2000ms and retry.
+  # After 2 retries, return the 429 normally. Other status codes are NOT retried.
+  defp with_retry(path, request_fn, attempt \\ 0) do
+    case request_fn.() do
+      {:ok, {{_, status, _}, _headers, resp_body}} when status in 200..299 ->
+        case Jason.decode(to_string(resp_body)) do
+          {:ok, data} -> {:ok, data}
+          error -> {:error, {:parse_error, error}}
+        end
 
-        {:error, reason} ->
-          Logger.error("Square HTTP error on GET #{path}: #{inspect(reason)}")
-          {:error, :http_error}
-      end
+      {:ok, {{_, 429, _}, _headers, _resp_body}} when attempt < 2 ->
+        delay = (attempt + 1) * 1000
+        Logger.warning("Square API 429 on #{path}, retrying in #{delay}ms (attempt #{attempt + 1}/2)")
+        Process.sleep(delay)
+        with_retry(path, request_fn, attempt + 1)
+
+      {:ok, {{_, status, _}, _headers, resp_body}} ->
+        Logger.error("Square API error #{status} on #{path}: #{to_string(resp_body)}")
+        {:error, {:square_error, status, to_string(resp_body)}}
+
+      {:error, reason} ->
+        Logger.error("Square HTTP error on #{path}: #{inspect(reason)}")
+        {:error, :http_error}
     end
   end
 

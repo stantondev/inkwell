@@ -22,6 +22,9 @@ interface WebhookStats {
   square_subscribers: number;
   square_donors: number;
   legacy_stripe_users: number;
+  plus_square_active: number;
+  plus_legacy_stripe: number;
+  plus_orphaned: number;
 }
 
 interface HealthData {
@@ -35,9 +38,52 @@ interface ReconcileResult {
   donor_activated: number;
   plus_canceled: number;
   donor_canceled: number;
+  not_found: number;
+  rate_limited: number;
   errors: number;
   error_details: Array<{ user_id: string; username: string; reason: string }>;
 }
+
+interface SyncUserResult {
+  ok: boolean;
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+    subscription_tier: string;
+    subscription_status: string | null;
+    square_subscription_id: string | null;
+    square_donor_subscription_id: string | null;
+    ink_donor_status: string | null;
+    ink_donor_amount_cents: number | null;
+  };
+  changes?: string[];
+  error?: string;
+  detail?: string;
+}
+
+interface PlusUser {
+  id: string;
+  username: string;
+  email: string;
+  inserted_at: string;
+  subscription_status: string | null;
+  subscription_expires_at: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  square_customer_id: string | null;
+  square_subscription_id: string | null;
+  ink_donor_status: string | null;
+  ink_donor_amount_cents: number | null;
+}
+
+interface PlusUsersData {
+  square_active: PlusUser[];
+  legacy_stripe: PlusUser[];
+  orphaned: PlusUser[];
+}
+
+const EXPECTED_WEBHOOK_URL = "https://api.inkwell.social/api/billing/webhook";
 
 function parseUtc(iso: string): number {
   // Phoenix's NaiveDateTime serializes without a timezone suffix. Force UTC
@@ -60,6 +106,15 @@ function timeAgo(iso: string | null): string {
   return `${days}d ago`;
 }
 
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(parseUtc(iso));
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
 function statusColor(status: string): { bg: string; fg: string } {
   switch (status) {
     case "received":
@@ -80,9 +135,22 @@ export function BillingHealthPanel() {
   const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Reconcile state
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
+
+  // Sync-by-email state
+  const [syncEmail, setSyncEmail] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncUserResult | null>(null);
+
+  // Plus user breakdown state
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownData, setBreakdownData] = useState<PlusUsersData | null>(null);
+  const [breakdownError, setBreakdownError] = useState<string | null>(null);
 
   async function fetchHealth() {
     try {
@@ -106,7 +174,7 @@ export function BillingHealthPanel() {
   }, []);
 
   async function handleReconcile() {
-    if (!confirm("Reconcile all users with Square? This checks each active user's subscription status against Square and updates the local database. Safe to run anytime.")) {
+    if (!confirm("Reconcile all users with billing history against Square? Filtered to ~10-30 users with existing Plus/Donor/Stripe state. Safe to run anytime.")) {
       return;
     }
     setReconciling(true);
@@ -129,6 +197,57 @@ export function BillingHealthPanel() {
       setReconcileError("Network error during reconciliation");
     } finally {
       setReconciling(false);
+    }
+  }
+
+  async function handleSyncByEmail(e: React.FormEvent) {
+    e.preventDefault();
+    const email = syncEmail.trim();
+    if (!email) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-user-by-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+        cache: "no-store",
+      });
+      const json: SyncUserResult = await res.json();
+      setSyncResult(json);
+      if (json.ok) {
+        // Refresh health stats so the count cards reflect the new state
+        fetchHealth();
+      }
+    } catch {
+      setSyncResult({ ok: false, error: "Network error during sync" });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleToggleBreakdown() {
+    if (breakdownOpen) {
+      setBreakdownOpen(false);
+      return;
+    }
+    setBreakdownOpen(true);
+    if (breakdownData) return; // already loaded
+
+    setBreakdownLoading(true);
+    setBreakdownError(null);
+    try {
+      const res = await fetch("/api/admin/plus-users", { cache: "no-store" });
+      if (!res.ok) {
+        setBreakdownError(`Failed to load Plus users (HTTP ${res.status})`);
+        return;
+      }
+      const json = await res.json();
+      setBreakdownData(json);
+    } catch {
+      setBreakdownError("Network error loading Plus user breakdown");
+    } finally {
+      setBreakdownLoading(false);
     }
   }
 
@@ -156,6 +275,8 @@ export function BillingHealthPanel() {
   // Warning state: zero webhooks in 24h but we have active subscribers
   const hasActiveSubs = stats.square_subscribers > 0 || stats.square_donors > 0;
   const silentDeath = hasActiveSubs && stats.total_24h === 0;
+  // Webhook never received at all — separate from silent death
+  const webhookNeverReceived = stats.last_delivery_at === null;
 
   return (
     <div className="admin-card" style={{ marginBottom: "1rem" }}>
@@ -184,7 +305,35 @@ export function BillingHealthPanel() {
         </div>
       )}
 
-      {/* Top-level metrics */}
+      {/* Webhook URL diagnostic — always show, but emphasize when never received */}
+      <div
+        className="rounded-lg p-3 mb-3 text-xs"
+        style={{
+          background: webhookNeverReceived
+            ? "color-mix(in srgb, #f59e0b 12%, transparent)"
+            : "color-mix(in srgb, var(--accent) 5%, transparent)",
+          border: webhookNeverReceived
+            ? "1px solid color-mix(in srgb, #f59e0b 35%, transparent)"
+            : "1px solid var(--border)",
+        }}
+      >
+        <div className="font-medium mb-1">
+          {webhookNeverReceived ? "⚠ " : ""}Square webhook must be configured to:
+        </div>
+        <code
+          className="block px-2 py-1 rounded font-mono text-[11px] mb-1.5"
+          style={{ background: "var(--surface-hover, rgba(0,0,0,0.05))", color: "var(--foreground)" }}
+        >
+          {EXPECTED_WEBHOOK_URL}
+        </code>
+        <div style={{ color: "var(--muted)" }}>
+          {webhookNeverReceived
+            ? "Last webhook shows never — this is the most likely cause. Verify the URL and signature key match in your Square dashboard webhook subscription."
+            : "Verify the URL matches in your Square dashboard webhook subscription."}
+        </div>
+      </div>
+
+      {/* Top-level webhook + Square sub metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <HealthStat label="Last webhook" value={lastDeliveryAgo} />
         <HealthStat label="Events (24h)" value={stats.total_24h.toString()} />
@@ -193,6 +342,74 @@ export function BillingHealthPanel() {
         <HealthStat label="Square donors" value={stats.square_donors.toString()} />
         <HealthStat label="Legacy Stripe" value={stats.legacy_stripe_users.toString()} muted />
       </div>
+
+      {/* Ghost Plus detection metrics */}
+      <div className="mb-4">
+        <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
+          Plus users by payment source
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <HealthStat
+            label="On Square"
+            value={stats.plus_square_active.toString()}
+            tone={stats.plus_square_active > 0 ? "success" : undefined}
+          />
+          <HealthStat
+            label="Legacy Stripe ⚠"
+            value={stats.plus_legacy_stripe.toString()}
+            tone={stats.plus_legacy_stripe > 0 ? "warning" : undefined}
+          />
+          <HealthStat
+            label="Orphaned ⚠"
+            value={stats.plus_orphaned.toString()}
+            tone={stats.plus_orphaned > 0 ? "warning" : undefined}
+          />
+        </div>
+        <button
+          onClick={handleToggleBreakdown}
+          className="text-xs underline mt-2 opacity-70 hover:opacity-100"
+          style={{ color: "var(--foreground)" }}
+        >
+          {breakdownOpen ? "Hide" : "View"} Plus user breakdown
+        </button>
+      </div>
+
+      {/* Plus user breakdown (expandable) */}
+      {breakdownOpen && (
+        <div
+          className="rounded-lg p-3 mb-4"
+          style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
+        >
+          {breakdownLoading && (
+            <p className="text-xs" style={{ color: "var(--muted)" }}>Loading…</p>
+          )}
+          {breakdownError && (
+            <p className="text-xs" style={{ color: "var(--danger, #dc2626)" }}>{breakdownError}</p>
+          )}
+          {breakdownData && (
+            <div className="space-y-3">
+              <PlusUserGroup
+                label="Square active"
+                tone="success"
+                users={breakdownData.square_active}
+                emptyText="No Plus users on Square."
+              />
+              <PlusUserGroup
+                label="Legacy Stripe (Stripe is dead — getting Plus for free)"
+                tone="warning"
+                users={breakdownData.legacy_stripe}
+                emptyText="No legacy Stripe Plus users."
+              />
+              <PlusUserGroup
+                label="Orphaned (tier=plus, no payment source)"
+                tone="warning"
+                users={breakdownData.orphaned}
+                emptyText="No orphaned Plus users."
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* By status breakdown */}
       {Object.keys(stats.by_status_24h).length > 0 && (
@@ -217,6 +434,70 @@ export function BillingHealthPanel() {
         </div>
       )}
 
+      {/* Sync user by email */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid var(--border)" }}
+      >
+        <div className="text-sm font-medium mb-1">Sync user by email</div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Look up a user by email and pull their current Square subscription state. Use this when you know someone paid via Square but their Plus status hasn&apos;t synced (webhook didn&apos;t fire). 2 API calls per use, no rate limit risk.
+        </div>
+        <form onSubmit={handleSyncByEmail} className="flex items-center gap-2">
+          <input
+            type="email"
+            value={syncEmail}
+            onChange={(e) => setSyncEmail(e.target.value)}
+            placeholder="user@example.com"
+            disabled={syncing}
+            required
+            className="flex-1 px-2 py-1.5 rounded text-xs"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={syncing || !syncEmail.trim()}
+            className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{
+              background: "var(--accent)",
+              color: "white",
+              opacity: syncing || !syncEmail.trim() ? 0.5 : 1,
+            }}
+          >
+            {syncing ? "Syncing…" : "Sync"}
+          </button>
+        </form>
+
+        {syncResult && (
+          <div className="mt-2 text-xs">
+            {syncResult.ok && syncResult.user ? (
+              <div>
+                <div style={{ color: "var(--success, #16a34a)" }} className="font-medium">
+                  ✓ Synced @{syncResult.user.username}
+                </div>
+                <div style={{ color: "var(--muted)" }} className="mt-0.5">
+                  tier: {syncResult.user.subscription_tier}
+                  {syncResult.user.subscription_status &&
+                    ` · status: ${syncResult.user.subscription_status}`}
+                  {syncResult.changes && syncResult.changes.length > 0
+                    ? ` · changes: ${syncResult.changes.join(", ")}`
+                    : " · no changes (already in sync, or no Square record)"}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "var(--danger, #dc2626)" }}>
+                {syncResult.error || "Sync failed"}
+                {syncResult.detail && <span style={{ color: "var(--muted)" }}> — {syncResult.detail}</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Reconciliation section */}
       <div
         className="rounded-lg p-3 mb-4"
@@ -224,9 +505,9 @@ export function BillingHealthPanel() {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
-            <div className="text-sm font-medium mb-1">Reconcile all users</div>
+            <div className="text-sm font-medium mb-1">Reconcile users with billing history</div>
             <div className="text-xs" style={{ color: "var(--muted)" }}>
-              Actively pull subscription status from Square for every user. Safe fallback when webhooks fail. Idempotent.
+              Pulls Square state for users with existing Plus/Donor/Stripe state (not all users — that&apos;d hit rate limits). 300ms delay between users + automatic 429 retry. Idempotent.
             </div>
           </div>
           <button
@@ -247,22 +528,40 @@ export function BillingHealthPanel() {
           <div className="mt-3 text-xs" style={{ color: "var(--foreground)" }}>
             <div className="font-medium mb-1">
               Checked {reconcileResult.total_checked} users
-              {reconcileResult.errors > 0 && (
-                <span style={{ color: "var(--danger, #dc2626)" }}> · {reconcileResult.errors} errors</span>
-              )}
             </div>
-            <div style={{ color: "var(--muted)" }}>
-              Plus activated: {reconcileResult.plus_activated} · Donor activated: {reconcileResult.donor_activated}
-              {(reconcileResult.plus_canceled > 0 || reconcileResult.donor_canceled > 0) && (
-                <>
-                  {" · "}Plus canceled: {reconcileResult.plus_canceled} · Donor canceled: {reconcileResult.donor_canceled}
-                </>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: "var(--muted)" }}>
+              {reconcileResult.plus_activated > 0 && (
+                <span style={{ color: "var(--success, #16a34a)" }}>
+                  Plus activated: {reconcileResult.plus_activated}
+                </span>
+              )}
+              {reconcileResult.donor_activated > 0 && (
+                <span style={{ color: "var(--success, #16a34a)" }}>
+                  Donor activated: {reconcileResult.donor_activated}
+                </span>
+              )}
+              {reconcileResult.plus_canceled > 0 && (
+                <span>Plus canceled: {reconcileResult.plus_canceled}</span>
+              )}
+              {reconcileResult.donor_canceled > 0 && (
+                <span>Donor canceled: {reconcileResult.donor_canceled}</span>
+              )}
+              <span>Not found: {reconcileResult.not_found}</span>
+              {reconcileResult.rate_limited > 0 && (
+                <span style={{ color: "#f59e0b" }}>
+                  Rate limited: {reconcileResult.rate_limited}
+                </span>
+              )}
+              {reconcileResult.errors > 0 && (
+                <span style={{ color: "var(--danger, #dc2626)" }}>
+                  Errors: {reconcileResult.errors}
+                </span>
               )}
             </div>
             {reconcileResult.error_details.length > 0 && (
               <details className="mt-1">
                 <summary className="cursor-pointer" style={{ color: "var(--muted)" }}>
-                  Error details
+                  Error details ({reconcileResult.error_details.length})
                 </summary>
                 <ul className="mt-1 space-y-0.5" style={{ color: "var(--muted)" }}>
                   {reconcileResult.error_details.slice(0, 10).map((e, i) => (
@@ -327,18 +626,106 @@ export function BillingHealthPanel() {
   );
 }
 
-function HealthStat({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function HealthStat({
+  label,
+  value,
+  muted,
+  tone,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  tone?: "success" | "warning";
+}) {
+  let color = "var(--foreground)";
+  if (muted) color = "var(--muted)";
+  else if (tone === "success") color = "var(--success, #16a34a)";
+  else if (tone === "warning") color = "#f59e0b";
+
   return (
     <div>
       <div
         className="text-lg font-semibold"
-        style={{ color: muted ? "var(--muted)" : "var(--foreground)", fontFamily: "var(--font-lora, Georgia, serif)" }}
+        style={{ color, fontFamily: "var(--font-lora, Georgia, serif)" }}
       >
         {value}
       </div>
       <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>
         {label}
       </div>
+    </div>
+  );
+}
+
+function PlusUserGroup({
+  label,
+  tone,
+  users,
+  emptyText,
+}: {
+  label: string;
+  tone: "success" | "warning";
+  users: PlusUser[];
+  emptyText: string;
+}) {
+  const headerColor = tone === "success" ? "var(--success, #16a34a)" : "#f59e0b";
+
+  return (
+    <div>
+      <div
+        className="text-[11px] uppercase tracking-wider mb-1 font-medium"
+        style={{ color: headerColor }}
+      >
+        {label} ({users.length})
+      </div>
+      {users.length === 0 ? (
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          {emptyText}
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {users.map((u) => (
+            <div
+              key={u.id}
+              className="flex items-center gap-2 text-xs px-2 py-1 rounded"
+              style={{ background: "var(--surface, rgba(255,255,255,0.5))", border: "1px solid var(--border)" }}
+            >
+              <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
+                @{u.username}
+              </span>
+              <span className="truncate flex-1" style={{ color: "var(--muted)" }}>
+                {u.email}
+              </span>
+              <span className="shrink-0" style={{ color: "var(--muted)" }}>
+                joined {formatDate(u.inserted_at)}
+              </span>
+              {u.subscription_status && (
+                <span
+                  className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                  style={{
+                    background: u.subscription_status === "active"
+                      ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
+                      : "var(--surface-hover, rgba(0,0,0,0.06))",
+                    color: u.subscription_status === "active"
+                      ? "var(--success, #16a34a)"
+                      : "var(--muted)",
+                  }}
+                >
+                  {u.subscription_status}
+                </span>
+              )}
+              <button
+                onClick={() => navigator.clipboard.writeText(u.email)}
+                className="shrink-0 underline opacity-60 hover:opacity-100"
+                style={{ color: "var(--foreground)" }}
+                title="Copy email"
+              >
+                copy
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

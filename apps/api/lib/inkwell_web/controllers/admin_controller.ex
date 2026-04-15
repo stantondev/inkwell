@@ -31,6 +31,76 @@ defmodule InkwellWeb.AdminController do
     json(conn, %{ok: true, result: result})
   end
 
+  # POST /api/admin/sync-user-by-email — sync a single user's Square state
+  # Body: %{"email" => "user@example.com"}
+  def sync_user_by_email(conn, %{"email" => email}) when is_binary(email) do
+    Logger.info("Admin #{conn.assigns.current_user.username} syncing user by email: #{email}")
+
+    case Billing.sync_user_by_email(email) do
+      {:ok, user, changes} ->
+        json(conn, %{
+          ok: true,
+          user: %{
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            subscription_tier: user.subscription_tier,
+            subscription_status: user.subscription_status,
+            square_subscription_id: user.square_subscription_id,
+            square_donor_subscription_id: user.square_donor_subscription_id,
+            ink_donor_status: user.ink_donor_status,
+            ink_donor_amount_cents: user.ink_donor_amount_cents
+          },
+          changes: Enum.map(changes, &Atom.to_string/1)
+        })
+
+      {:error, :user_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
+
+      {:error, :invalid_email} ->
+        conn |> put_status(:bad_request) |> json(%{error: "Invalid email"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Square sync failed", detail: inspect(reason)})
+    end
+  end
+
+  def sync_user_by_email(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "email is required"})
+  end
+
+  # GET /api/admin/plus-users — list all Plus users grouped by payment source
+  def plus_users(conn, _params) do
+    buckets = Billing.plus_users_by_source()
+
+    json(conn, %{
+      square_active: render_plus_users(Map.get(buckets, :square_active, [])),
+      legacy_stripe: render_plus_users(Map.get(buckets, :legacy_stripe, [])),
+      orphaned: render_plus_users(Map.get(buckets, :orphaned, []))
+    })
+  end
+
+  defp render_plus_users(users) do
+    Enum.map(users, fn u ->
+      %{
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        inserted_at: u.inserted_at,
+        subscription_status: u.subscription_status,
+        subscription_expires_at: u.subscription_expires_at,
+        stripe_customer_id: u.stripe_customer_id,
+        stripe_subscription_id: u.stripe_subscription_id,
+        square_customer_id: u.square_customer_id,
+        square_subscription_id: u.square_subscription_id,
+        ink_donor_status: u.ink_donor_status,
+        ink_donor_amount_cents: u.ink_donor_amount_cents
+      }
+    end)
+  end
+
   defp render_webhook_delivery(delivery) do
     %{
       id: delivery.id,

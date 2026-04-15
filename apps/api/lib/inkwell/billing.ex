@@ -148,6 +148,13 @@ defmodule Inkwell.Billing do
           select: count(u.id)
       ) || 0
 
+    # Ghost Plus detection: categorize all tier=plus users by payment source.
+    # Pure DB read, no Square API calls.
+    plus_buckets = plus_users_by_source()
+    plus_square_active = length(Map.get(plus_buckets, :square_active, []))
+    plus_legacy_stripe = length(Map.get(plus_buckets, :legacy_stripe, []))
+    plus_orphaned = length(Map.get(plus_buckets, :orphaned, []))
+
     %{
       last_delivery_at: last_delivery_at,
       total_24h: total_24h,
@@ -155,8 +162,43 @@ defmodule Inkwell.Billing do
       by_status_24h: by_status_24h,
       square_subscribers: square_subscribers,
       square_donors: square_donors,
-      legacy_stripe_users: legacy_stripe_users
+      legacy_stripe_users: legacy_stripe_users,
+      plus_square_active: plus_square_active,
+      plus_legacy_stripe: plus_legacy_stripe,
+      plus_orphaned: plus_orphaned
     }
+  end
+
+  @doc """
+  Categorize every user with `subscription_tier = "plus"` by their payment
+  source of record. Pure DB read, no Square API calls — runs in <100ms even
+  on large user tables.
+
+  Returns a map with three buckets (each a list of `%User{}` structs):
+
+  - `:square_active` — `square_subscription_id` is set (paying via Square)
+  - `:legacy_stripe` — no Square sub, but `stripe_subscription_id` is set
+    (Stripe is dead, so they're effectively getting Plus for free)
+  - `:orphaned` — no Square sub, no Stripe sub (marked Plus through some
+    other path — these are the most concerning)
+
+  All three buckets together = total Plus users.
+  """
+  def plus_users_by_source do
+    users =
+      from(u in User,
+        where: u.subscription_tier == "plus",
+        order_by: [desc: u.inserted_at]
+      )
+      |> Repo.all()
+
+    Enum.group_by(users, fn u ->
+      cond do
+        not is_nil(u.square_subscription_id) -> :square_active
+        not is_nil(u.stripe_subscription_id) -> :legacy_stripe
+        true -> :orphaned
+      end
+    end)
   end
 
   @doc "Clean up webhook deliveries older than 30 days."
@@ -171,14 +213,22 @@ defmodule Inkwell.Billing do
   end
 
   @doc """
-  Reconcile every user that has an email against Square.
+  Reconcile users with billing-relevant state against Square.
 
-  Iterates users in batches, calls `sync_from_square/1` on each, and collects
-  the results. Returns a summary map. Intended for the "Reconcile all users"
-  admin button — safe to run anytime (each sync is idempotent).
+  Iterates users with an existing or historical billing relationship (Plus tier,
+  Donor active, or any Stripe/Square subscription/customer ID), calls
+  `sync_from_square/1` on each with a 300ms delay between calls (~6.67 QPS,
+  comfortably under Square's 10 QPS limit), and collects categorized results.
 
-  Skips users with no email (extremely rare), blocked users, and deactivated
-  accounts.
+  Skips free users with no billing history — they sync naturally on their
+  next billing page visit, OR the admin uses `sync_user_by_email/1` for known
+  new Square signups whose webhook didn't fire.
+
+  Returns a summary map with categorized error counts so the admin sees
+  "10 rate limited (retry), 65 not found (expected), 0 real errors" instead
+  of a wall of raw 429 messages.
+
+  Skips users with no email (extremely rare) and blocked users.
   """
   def reconcile_all_users(opts \\ []) do
     max_users = Keyword.get(opts, :max_users, 1000)
@@ -187,6 +237,14 @@ defmodule Inkwell.Billing do
       from(u in User,
         where: not is_nil(u.email),
         where: is_nil(u.blocked_at),
+        where:
+          u.subscription_tier == "plus" or
+            not is_nil(u.ink_donor_amount_cents) or
+            not is_nil(u.square_customer_id) or
+            not is_nil(u.square_subscription_id) or
+            not is_nil(u.square_donor_subscription_id) or
+            not is_nil(u.stripe_subscription_id) or
+            not is_nil(u.ink_donor_stripe_subscription_id),
         order_by: [desc: u.inserted_at],
         limit: ^max_users,
         select: u
@@ -199,16 +257,41 @@ defmodule Inkwell.Billing do
       donor_activated: 0,
       plus_canceled: 0,
       donor_canceled: 0,
+      not_found: 0,
+      rate_limited: 0,
       errors: 0,
       error_details: []
     }
 
-    Enum.reduce(users, initial, fn user, acc ->
+    users
+    |> Enum.with_index()
+    |> Enum.reduce(initial, fn {user, idx}, acc ->
+      # Per-user 300ms delay to stay under Square's 10 QPS rate limit.
+      # Skip the delay before the first user.
+      if idx > 0, do: Process.sleep(300)
+
       case sync_from_square(user) do
+        {:ok, _updated, []} ->
+          # No changes made to this user. Two possible causes (both non-actionable):
+          # 1) Customer not found in Square (legacy Stripe users, etc.)
+          # 2) Local state already matches Square (already-synced users)
+          # Either way the admin has nothing to do, so we lump them together
+          # under :not_found for display purposes.
+          acc
+          |> Map.update!(:total_checked, &(&1 + 1))
+          |> Map.update!(:not_found, &(&1 + 1))
+
         {:ok, _updated, changes} ->
           acc
           |> Map.update!(:total_checked, &(&1 + 1))
           |> update_change_counts(changes)
+
+        {:error, {:square_error, 429, _body}} ->
+          %{
+            acc
+            | total_checked: acc.total_checked + 1,
+              rate_limited: acc.rate_limited + 1
+          }
 
         {:error, reason} ->
           %{
@@ -401,6 +484,31 @@ defmodule Inkwell.Billing do
         {:error, reason}
     end
   end
+
+  @doc """
+  Look up a user by email and sync their Square state.
+
+  Single-purpose admin tool for users whose Square webhook didn't fire and
+  who haven't returned to their billing page to trigger the auto-sync. Two
+  Square API calls per invocation, no rate limit risk.
+
+  Email matching is case-insensitive (downcased before lookup).
+
+  Returns:
+  - `{:ok, user, changes}` — same shape as `sync_from_square/1`
+  - `{:error, :user_not_found}` — no user with that email
+  - `{:error, reason}` — Square API or other error
+  """
+  def sync_user_by_email(email) when is_binary(email) do
+    normalized = email |> String.trim() |> String.downcase()
+
+    case Repo.get_by(User, email: normalized) do
+      nil -> {:error, :user_not_found}
+      %User{} = user -> sync_from_square(user)
+    end
+  end
+
+  def sync_user_by_email(_), do: {:error, :invalid_email}
 
   defp pick_newest_active([]), do: nil
   defp pick_newest_active(subs) do
