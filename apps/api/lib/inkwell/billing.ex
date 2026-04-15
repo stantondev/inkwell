@@ -152,6 +152,7 @@ defmodule Inkwell.Billing do
     # Pure DB read, no Square API calls.
     plus_buckets = plus_users_by_source()
     plus_square_active = length(Map.get(plus_buckets, :square_active, []))
+    plus_manually_granted = length(Map.get(plus_buckets, :manually_granted, []))
     plus_legacy_stripe = length(Map.get(plus_buckets, :legacy_stripe, []))
     plus_orphaned = length(Map.get(plus_buckets, :orphaned, []))
 
@@ -164,6 +165,7 @@ defmodule Inkwell.Billing do
       square_donors: square_donors,
       legacy_stripe_users: legacy_stripe_users,
       plus_square_active: plus_square_active,
+      plus_manually_granted: plus_manually_granted,
       plus_legacy_stripe: plus_legacy_stripe,
       plus_orphaned: plus_orphaned
     }
@@ -174,15 +176,18 @@ defmodule Inkwell.Billing do
   source of record. Pure DB read, no Square API calls — runs in <100ms even
   on large user tables.
 
-  Returns a map with three buckets (each a list of `%User{}` structs):
+  Returns a map with four buckets (each a list of `%User{}` structs):
 
   - `:square_active` — `square_subscription_id` is set (paying via Square)
-  - `:legacy_stripe` — no Square sub, but `stripe_subscription_id` is set
-    (Stripe is dead, so they're effectively getting Plus for free)
-  - `:orphaned` — no Square sub, no Stripe sub (marked Plus through some
-    other path — these are the most concerning)
+  - `:manually_granted` — `subscription_expires_at` is set and no Square sub
+    (admin manually granted Plus via the grant_plus_until form, e.g., to
+    compensate for a payment that didn't create a subscription due to a bug)
+  - `:legacy_stripe` — no Square sub, no manual grant, but `stripe_subscription_id`
+    is set (Stripe is dead, so they're effectively getting Plus for free)
+  - `:orphaned` — none of the above (tier=plus through some other path)
 
-  All three buckets together = total Plus users.
+  Priority order: square_active > manually_granted > legacy_stripe > orphaned.
+  All four buckets together = total Plus users.
   """
   def plus_users_by_source do
     users =
@@ -195,6 +200,7 @@ defmodule Inkwell.Billing do
     Enum.group_by(users, fn u ->
       cond do
         not is_nil(u.square_subscription_id) -> :square_active
+        not is_nil(u.subscription_expires_at) -> :manually_granted
         not is_nil(u.stripe_subscription_id) -> :legacy_stripe
         true -> :orphaned
       end
@@ -464,10 +470,15 @@ defmodule Inkwell.Billing do
         {:error, :user_not_found}
 
       %User{} = user ->
+        # Also clear stale legacy Stripe ID since Stripe is dead and the ID
+        # would otherwise misclassify the user as :legacy_stripe in the
+        # plus_users_by_source bucket. After grant, they should appear in
+        # :manually_granted.
         attrs = %{
           subscription_tier: "plus",
           subscription_status: "active",
-          subscription_expires_at: expires_at
+          subscription_expires_at: expires_at,
+          stripe_subscription_id: nil
         }
 
         case user |> User.subscription_changeset(attrs) |> Repo.update() do

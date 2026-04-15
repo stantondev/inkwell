@@ -23,6 +23,7 @@ interface WebhookStats {
   square_donors: number;
   legacy_stripe_users: number;
   plus_square_active: number;
+  plus_manually_granted: number;
   plus_legacy_stripe: number;
   plus_orphaned: number;
 }
@@ -79,6 +80,7 @@ interface PlusUser {
 
 interface PlusUsersData {
   square_active: PlusUser[];
+  manually_granted: PlusUser[];
   legacy_stripe: PlusUser[];
   orphaned: PlusUser[];
 }
@@ -592,11 +594,16 @@ export function BillingHealthPanel() {
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
           Plus users by payment source
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <HealthStat
             label="On Square"
             value={stats.plus_square_active.toString()}
             tone={stats.plus_square_active > 0 ? "success" : undefined}
+          />
+          <HealthStat
+            label="Manually granted"
+            value={stats.plus_manually_granted.toString()}
+            tone={stats.plus_manually_granted > 0 ? "info" : undefined}
           />
           <HealthStat
             label="Legacy Stripe ⚠"
@@ -637,6 +644,12 @@ export function BillingHealthPanel() {
                 tone="success"
                 users={breakdownData.square_active}
                 emptyText="No Plus users on Square."
+              />
+              <PlusUserGroup
+                label="Manually granted (admin set explicit expiration)"
+                tone="info"
+                users={breakdownData.manually_granted}
+                emptyText="No manually granted Plus users."
               />
               <PlusUserGroup
                 label="Legacy Stripe (Stripe is dead — getting Plus for free)"
@@ -1142,12 +1155,13 @@ function HealthStat({
   label: string;
   value: string;
   muted?: boolean;
-  tone?: "success" | "warning";
+  tone?: "success" | "warning" | "info";
 }) {
   let color = "var(--foreground)";
   if (muted) color = "var(--muted)";
   else if (tone === "success") color = "var(--success, #16a34a)";
   else if (tone === "warning") color = "#f59e0b";
+  else if (tone === "info") color = "var(--accent)";
 
   return (
     <div>
@@ -1171,11 +1185,16 @@ function PlusUserGroup({
   emptyText,
 }: {
   label: string;
-  tone: "success" | "warning";
+  tone: "success" | "warning" | "info";
   users: PlusUser[];
   emptyText: string;
 }) {
-  const headerColor = tone === "success" ? "var(--success, #16a34a)" : "#f59e0b";
+  const headerColor =
+    tone === "success"
+      ? "var(--success, #16a34a)"
+      : tone === "info"
+      ? "var(--accent)"
+      : "#f59e0b";
 
   return (
     <div>
@@ -1191,46 +1210,66 @@ function PlusUserGroup({
         </p>
       ) : (
         <div className="space-y-1">
-          {users.map((u) => (
-            <div
-              key={u.id}
-              className="flex items-center gap-2 text-xs px-2 py-1 rounded"
-              style={{ background: "var(--surface, rgba(255,255,255,0.5))", border: "1px solid var(--border)" }}
-            >
-              <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
-                @{u.username}
-              </span>
-              <span className="truncate flex-1" style={{ color: "var(--muted)" }}>
-                {u.email}
-              </span>
-              <span className="shrink-0" style={{ color: "var(--muted)" }}>
-                joined {formatDate(u.inserted_at)}
-              </span>
-              {u.subscription_status && (
-                <span
-                  className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
-                  style={{
-                    background: u.subscription_status === "active"
-                      ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
-                      : "var(--surface-hover, rgba(0,0,0,0.06))",
-                    color: u.subscription_status === "active"
-                      ? "var(--success, #16a34a)"
-                      : "var(--muted)",
-                  }}
-                >
-                  {u.subscription_status}
-                </span>
-              )}
-              <button
-                onClick={() => navigator.clipboard.writeText(u.email)}
-                className="shrink-0 underline opacity-60 hover:opacity-100"
-                style={{ color: "var(--foreground)" }}
-                title="Copy email"
+          {users.map((u) => {
+            const expiresAt = u.subscription_expires_at;
+            const expiresMs = expiresAt ? parseUtc(expiresAt) : null;
+            const isExpired = expiresMs !== null && expiresMs < Date.now();
+
+            return (
+              <div
+                key={u.id}
+                className="flex items-center gap-2 text-xs px-2 py-1 rounded flex-wrap"
+                style={{ background: "var(--surface, rgba(255,255,255,0.5))", border: "1px solid var(--border)" }}
               >
-                copy
-              </button>
-            </div>
-          ))}
+                <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
+                  @{u.username}
+                </span>
+                <span className="truncate flex-1 min-w-0" style={{ color: "var(--muted)" }}>
+                  {u.email}
+                </span>
+                <span className="shrink-0" style={{ color: "var(--muted)" }}>
+                  joined {formatDate(u.inserted_at)}
+                </span>
+                {u.subscription_status && (
+                  <span
+                    className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                    style={{
+                      background: u.subscription_status === "active"
+                        ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
+                        : "var(--surface-hover, rgba(0,0,0,0.06))",
+                      color: u.subscription_status === "active"
+                        ? "var(--success, #16a34a)"
+                        : "var(--muted)",
+                    }}
+                  >
+                    {u.subscription_status}
+                  </span>
+                )}
+                {expiresAt && (
+                  <span
+                    className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                    style={{
+                      background: isExpired
+                        ? "color-mix(in srgb, var(--danger, #dc2626) 18%, transparent)"
+                        : "color-mix(in srgb, var(--accent) 15%, transparent)",
+                      color: isExpired ? "var(--danger, #dc2626)" : "var(--accent)",
+                    }}
+                    title={`Expires at ${expiresAt}`}
+                  >
+                    {isExpired ? "expired" : "expires"} {formatDate(expiresAt)}
+                  </span>
+                )}
+                <button
+                  onClick={() => navigator.clipboard.writeText(u.email)}
+                  className="shrink-0 underline opacity-60 hover:opacity-100"
+                  style={{ color: "var(--foreground)" }}
+                  title="Copy email"
+                >
+                  copy
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

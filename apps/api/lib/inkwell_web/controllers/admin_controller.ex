@@ -77,6 +77,7 @@ defmodule InkwellWeb.AdminController do
 
     json(conn, %{
       square_active: render_plus_users(Map.get(buckets, :square_active, [])),
+      manually_granted: render_plus_users(Map.get(buckets, :manually_granted, [])),
       legacy_stripe: render_plus_users(Map.get(buckets, :legacy_stripe, [])),
       orphaned: render_plus_users(Map.get(buckets, :orphaned, []))
     })
