@@ -657,18 +657,60 @@ defmodule Inkwell.Billing do
     {plain, html}
   end
 
-  # Template for users who paid via Stripe before the April 1 migration.
-  # Their Stripe subscription stopped renewing when the Stripe account closed,
-  # but we kept them on Plus while sorting out the migration. They need to
-  # re-subscribe via Square to keep Plus going forward.
+  # Template for users who paid via Stripe before the April 1 migration and
+  # have now been downgraded to free because their Stripe subscription
+  # stopped renewing when the Stripe account closed. Past tense — the
+  # downgrade has already happened by the time they read this letter.
+  #
+  # Donor-aware: detects `ink_donor_status` on the user (which must still be
+  # readable at the time the letter is built, so the caller MUST send the
+  # letter BEFORE clearing donor state). Adds a donor paragraph when
+  # applicable.
   defp build_stripe_migration_letter(%User{} = recipient) do
     name = recipient.display_name || "@#{recipient.username}"
     upgrade_url = "https://square.link/u/iPjis6IE"
 
+    was_donor = recipient.ink_donor_status in ["active", "canceled"]
+    donor_amount_str = donor_amount_for_letter(recipient.ink_donor_amount_cents)
+
+    donor_stopped_plain =
+      if was_donor do
+        "\n    You also had an active Ink Donor subscription (#{donor_amount_str}) " <>
+          "running through the same Stripe account, which stopped at the same time.\n"
+      else
+        ""
+      end
+
+    donor_stopped_html =
+      if was_donor do
+        "<p>You also had an active Ink Donor subscription (<strong>#{donor_amount_str}</strong>) " <>
+          "running through the same Stripe account, which stopped at the same time.</p>"
+      else
+        ""
+      end
+
+    donor_restore_plain =
+      if was_donor do
+        "\n    If you'd also like to resume your Ink Donor support, you can \
+    do that from your billing settings page (there's an Ink Donor section \
+    below the Plus upgrade). Thank you — your support meant a lot.\n"
+      else
+        ""
+      end
+
+    donor_restore_html =
+      if was_donor do
+        "<p>If you'd also like to resume your Ink Donor support, you can do " <>
+          "that from your billing settings page (there's an Ink Donor section " <>
+          "below the Plus upgrade). Thank you — your support meant a lot.</p>"
+      else
+        ""
+      end
+
     plain = """
     Hi #{name},
 
-    I owe you an apology and an update on your Inkwell Plus subscription.
+    I owe you an apology and a heads-up about your Inkwell account.
 
     A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
     abruptly shut down after a bad actor exploited it with stolen credit \
@@ -676,27 +718,26 @@ defmodule Inkwell.Billing do
     (Square) on extremely short notice. Because your original Plus \
     subscription was processed by Stripe, your monthly billing stopped when \
     the Stripe account closed.
+    #{donor_stopped_plain}
+    Since the migration, you continued to have access to Plus features at \
+    no charge while I worked through the transition. That time has ended — \
+    your account has now been set back to the free tier. You didn't do \
+    anything wrong, and you don't owe Inkwell anything for the months you \
+    had Plus during this period.
 
-    Since the migration, you've continued to have Plus features at no \
-    charge while I worked through the transition. That's on me — I should \
-    have communicated sooner. You didn't do anything wrong, and you don't \
-    owe Inkwell anything for the time you've had Plus during this period.
-
-    Going forward, if you'd like to keep your Plus subscription active, \
-    I need to ask you to re-subscribe through our new Square checkout. \
-    The new link is here:
+    If you'd like to restore your Plus subscription, you can re-subscribe \
+    via our new Square checkout here:
 
     #{upgrade_url}
 
-    This sets up a real $5/month recurring subscription that will renew \
+    This sets up a real $5/month recurring subscription that renews \
     automatically. You can cancel anytime from your billing settings.
-
-    If you decide not to re-subscribe, no problem at all — just don't \
-    click the link. Your account will gracefully downgrade to the free \
-    tier in the next week or so. All your existing entries, follows, \
-    pen pals, and content stay exactly where they are. The only things \
-    that pause are Plus-only features like custom CSS, the First Class \
-    stamp, and unlimited drafts.
+    #{donor_restore_plain}
+    If you decide not to re-subscribe, no problem at all. All your existing \
+    entries, follows, pen pals, guestbook signatures, and content stay \
+    exactly where they are. The only things that are paused are Plus-only \
+    features like custom CSS, the First Class stamp, custom themes, and \
+    unlimited drafts.
 
     Sorry for the disruption, and thanks for being one of Inkwell's \
     earliest paying members. If you have any questions or just want to \
@@ -708,7 +749,7 @@ defmodule Inkwell.Billing do
     html = """
     <p>Hi #{name},</p>
 
-    <p>I owe you an apology and an update on your Inkwell Plus subscription.</p>
+    <p>I owe you an apology and a heads-up about your Inkwell account.</p>
 
     <p>A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
     abruptly shut down after a bad actor exploited it with stolen credit \
@@ -717,26 +758,29 @@ defmodule Inkwell.Billing do
     subscription was processed by Stripe, your monthly billing stopped when \
     the Stripe account closed.</p>
 
-    <p>Since the migration, you've continued to have Plus features at no \
-    charge while I worked through the transition. That's on me — I should \
-    have communicated sooner. You didn't do anything wrong, and you don't \
-    owe Inkwell anything for the time you've had Plus during this period.</p>
+    #{donor_stopped_html}
 
-    <p>Going forward, if you'd like to keep your Plus subscription active, \
-    I need to ask you to re-subscribe through our new Square checkout. \
-    The new link is here:</p>
+    <p>Since the migration, you continued to have access to Plus features \
+    at no charge while I worked through the transition. That time has \
+    ended — your account has now been set back to the free tier. You \
+    didn't do anything wrong, and you don't owe Inkwell anything for the \
+    months you had Plus during this period.</p>
+
+    <p>If you'd like to restore your Plus subscription, you can re-subscribe \
+    via our new Square checkout here:</p>
 
     <p><a href="#{upgrade_url}">#{upgrade_url}</a></p>
 
-    <p>This sets up a real $5/month recurring subscription that will renew \
+    <p>This sets up a real $5/month recurring subscription that renews \
     automatically. You can cancel anytime from your billing settings.</p>
 
-    <p>If you decide not to re-subscribe, no problem at all — just don't \
-    click the link. Your account will gracefully downgrade to the free \
-    tier in the next week or so. All your existing entries, follows, \
-    pen pals, and content stay exactly where they are. The only things \
-    that pause are Plus-only features like custom CSS, the First Class \
-    stamp, and unlimited drafts.</p>
+    #{donor_restore_html}
+
+    <p>If you decide not to re-subscribe, no problem at all. All your \
+    existing entries, follows, pen pals, guestbook signatures, and content \
+    stay exactly where they are. The only things that are paused are \
+    Plus-only features like custom CSS, the First Class stamp, custom \
+    themes, and unlimited drafts.</p>
 
     <p>Sorry for the disruption, and thanks for being one of Inkwell's \
     earliest paying members. If you have any questions or just want to \
@@ -746,6 +790,11 @@ defmodule Inkwell.Billing do
     """
 
     {plain, html}
+  end
+
+  defp donor_amount_for_letter(nil), do: "the amount you selected"
+  defp donor_amount_for_letter(cents) when is_integer(cents) do
+    "$#{div(cents, 100)}/mo"
   end
 
   defp format_expires_for_letter(nil), do: "the end of your paid month"
