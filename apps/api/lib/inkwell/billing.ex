@@ -213,6 +213,121 @@ defmodule Inkwell.Billing do
   end
 
   @doc """
+  List every subscription in Square for the admin's raw view, enriched with:
+  - The Square customer's email (fetched one-per-unique-customer)
+  - The matched local Inkwell user (if any), looked up by normalized email
+  - Plus/Donor classification based on plan_variation_id
+
+  Returns a list of maps suitable for JSON encoding. If Square isn't configured
+  (no access token / location ID), returns `{:error, :square_not_configured}`.
+
+  Bounded by `Square.list_all_subscriptions/1` (max 500 subs, 5 pages) so this
+  is safe to run on demand from the admin panel.
+  """
+  def list_square_subscriptions_raw do
+    config = Application.get_env(:inkwell, :square, [])
+
+    case Square.list_all_subscriptions() do
+      {:ok, all_subs} ->
+        # Fetch each unique customer once
+        unique_customer_ids =
+          all_subs
+          |> Enum.map(& &1["customer_id"])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+
+        customer_map =
+          Enum.into(unique_customer_ids, %{}, fn customer_id ->
+            case Square.get_customer(customer_id) do
+              {:ok, customer} -> {customer_id, customer}
+              {:error, _} -> {customer_id, nil}
+            end
+          end)
+
+        # Build one lowercase-email → user map in a single DB query
+        normalized_emails =
+          customer_map
+          |> Map.values()
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(&Map.get(&1, "email_address"))
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(&normalize_email/1)
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.uniq()
+
+        user_map =
+          case normalized_emails do
+            [] ->
+              %{}
+
+            emails ->
+              from(u in User, where: u.email in ^emails, select: u)
+              |> Repo.all()
+              |> Enum.into(%{}, fn u -> {normalize_email(u.email), u} end)
+          end
+
+        enriched =
+          Enum.map(all_subs, fn sub ->
+            customer = Map.get(customer_map, sub["customer_id"])
+            customer_email = customer && Map.get(customer, "email_address")
+            customer_name = customer && build_customer_name(customer)
+            matched_user = customer_email && Map.get(user_map, normalize_email(customer_email))
+
+            plan_variation_id = sub["plan_variation_id"]
+
+            plan_type =
+              cond do
+                is_nil(plan_variation_id) -> "unknown"
+                is_donor_plan?(plan_variation_id, config) -> "donor"
+                true -> "plus"
+              end
+
+            %{
+              subscription_id: sub["id"],
+              status: sub["status"],
+              plan_variation_id: plan_variation_id,
+              plan_type: plan_type,
+              customer_id: sub["customer_id"],
+              customer_email: customer_email,
+              customer_name: customer_name,
+              created_at: sub["created_at"],
+              start_date: sub["start_date"],
+              canceled_date: sub["canceled_date"],
+              matched_user:
+                if matched_user do
+                  %{
+                    id: matched_user.id,
+                    username: matched_user.username,
+                    email: matched_user.email,
+                    subscription_tier: matched_user.subscription_tier,
+                    square_subscription_id: matched_user.square_subscription_id,
+                    square_donor_subscription_id: matched_user.square_donor_subscription_id
+                  }
+                end
+            }
+          end)
+
+        {:ok, enriched}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp build_customer_name(customer) when is_map(customer) do
+    given = Map.get(customer, "given_name") || ""
+    family = Map.get(customer, "family_name") || ""
+    full = String.trim("#{given} #{family}")
+
+    case full do
+      "" -> nil
+      name -> name
+    end
+  end
+
+  defp build_customer_name(_), do: nil
+
+  @doc """
   Reconcile users with billing-relevant state against Square.
 
   Iterates users with an existing or historical billing relationship (Plus tier,
@@ -444,39 +559,43 @@ defmodule Inkwell.Billing do
   when Square webhooks don't reach us (either misconfigured in Square dashboard
   or lost in transit). Safe to call repeatedly — idempotent.
 
+  Lookup strategy (tries each until a subscription is found):
+  1. Fuzzy email search on Square customers, then check subscriptions for
+     EACH matched customer (not just the first — Square creates duplicate
+     customer records on retries).
+  2. Full-scan fallback: list all subscriptions for our location, fetch the
+     customer for each, match by normalized email. Runs only when step 1
+     returns nothing, so per-user API cost is bounded in the normal case.
+
   Returns `{:ok, user, changes}` where `changes` is a list of atoms describing
   what was updated: `[:plus_activated, :donor_activated, :plus_canceled, :donor_canceled]`.
   Empty list means the local state already matched Square.
   """
   def sync_from_square(%User{} = user) do
     config = Application.get_env(:inkwell, :square, [])
+    normalized_email = normalize_email(user.email)
 
-    with {:ok, customers} <- Square.search_customers_by_email(user.email),
-         customer when not is_nil(customer) <- List.first(customers),
-         customer_id = customer["id"],
-         {:ok, subscriptions} <- Square.search_subscriptions_by_customer(customer_id) do
-      # Categorize subscriptions by plan variation
-      {plus_subs, donor_subs} =
-        Enum.split_with(subscriptions, fn sub ->
-          not is_donor_plan?(sub["plan_variation_id"], config)
-        end)
+    case find_user_subscriptions(user, normalized_email) do
+      {:ok, customer_id, subscriptions} ->
+        # Categorize subscriptions by plan variation
+        {plus_subs, donor_subs} =
+          Enum.split_with(subscriptions, fn sub ->
+            not is_donor_plan?(sub["plan_variation_id"], config)
+          end)
 
-      # Pick the newest active (or pending) subscription of each type
-      plus_sub = pick_newest_active(plus_subs)
-      donor_sub = pick_newest_active(donor_subs)
+        # Pick the newest active (or pending) subscription of each type
+        plus_sub = pick_newest_active(plus_subs)
+        donor_sub = pick_newest_active(donor_subs)
 
-      {user, changes} =
-        user
-        |> reconcile_plus(plus_sub, customer_id)
-        |> reconcile_donor(donor_sub, customer_id, config)
+        {updated_user, changes} =
+          user
+          |> reconcile_plus(plus_sub, customer_id)
+          |> reconcile_donor(donor_sub, customer_id, config)
 
-      {:ok, user, changes}
-    else
-      {:ok, []} ->
+        {:ok, updated_user, changes}
+
+      {:ok, :not_found} ->
         # No customer record in Square for this email — nothing to reconcile
-        {:ok, user, []}
-
-      nil ->
         {:ok, user, []}
 
       {:error, reason} ->
@@ -484,6 +603,108 @@ defmodule Inkwell.Billing do
         {:error, reason}
     end
   end
+
+  # Find Square subscriptions for a user. Tries email-based lookup first
+  # (cheap), falls back to full subscription scan if email search misses.
+  # Returns {:ok, customer_id, [subs]} on success, {:ok, :not_found} on miss,
+  # or {:error, reason} on API failure.
+  defp find_user_subscriptions(user, normalized_email) do
+    with {:ok, customers} <- Square.search_customers_by_email(user.email),
+         {:ok, customer_id, subs} <- check_matched_customers(customers) do
+      {:ok, customer_id, subs}
+    else
+      {:ok, :no_match} ->
+        # Email search returned customers but none had subscriptions, OR
+        # email search returned nothing. Fall back to full scan.
+        full_scan_for_user(normalized_email)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Check each returned customer for subscriptions. Returns the first customer
+  # that has any subscriptions. If none of the matched customers have subs,
+  # returns {:ok, :no_match} so the caller can fall back to full scan.
+  defp check_matched_customers([]), do: {:ok, :no_match}
+
+  defp check_matched_customers([customer | rest]) do
+    customer_id = customer["id"]
+
+    case Square.search_subscriptions_by_customer(customer_id) do
+      {:ok, []} ->
+        check_matched_customers(rest)
+
+      {:ok, subs} when is_list(subs) ->
+        {:ok, customer_id, subs}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Fallback: list all subscriptions for the location, fetch the customer for
+  # each one, match by normalized email (case-insensitive, whitespace-trimmed).
+  # Returns {:ok, customer_id, [subs]} if the normalized email matches any
+  # subscription's customer, {:ok, :not_found} if nothing matches.
+  #
+  # Deduplicates customer IDs before fetching to bound API calls: a user with
+  # both Plus and Donor has 2 subs sharing one customer, so we only fetch
+  # each customer once.
+  defp full_scan_for_user(normalized_email) when is_binary(normalized_email) and normalized_email != "" do
+    case Square.list_all_subscriptions() do
+      {:ok, all_subs} ->
+        # Build customer_id → email map (one fetch per unique customer)
+        customer_emails =
+          all_subs
+          |> Enum.map(& &1["customer_id"])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+          |> Enum.into(%{}, fn customer_id ->
+            email =
+              case fetch_customer_email(customer_id) do
+                {:ok, email} -> email
+                _ -> nil
+              end
+
+            {customer_id, email}
+          end)
+
+        # Find the customer_id whose email matches
+        matching_customer_id =
+          Enum.find_value(customer_emails, fn {customer_id, email} ->
+            if normalize_email(email) == normalized_email, do: customer_id, else: nil
+          end)
+
+        case matching_customer_id do
+          nil ->
+            {:ok, :not_found}
+
+          customer_id ->
+            # Filter subs to just this customer's subs
+            matching_subs = Enum.filter(all_subs, fn sub -> sub["customer_id"] == customer_id end)
+            {:ok, customer_id, matching_subs}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp full_scan_for_user(_), do: {:ok, :not_found}
+
+  defp fetch_customer_email(nil), do: {:ok, nil}
+
+  defp fetch_customer_email(customer_id) do
+    case Square.get_customer(customer_id) do
+      {:ok, customer} -> {:ok, Map.get(customer, "email_address")}
+      {:error, _} -> {:ok, nil}
+    end
+  end
+
+  defp normalize_email(nil), do: ""
+  defp normalize_email(email) when is_binary(email), do: email |> String.trim() |> String.downcase()
+  defp normalize_email(_), do: ""
 
   @doc """
   Look up a user by email and sync their Square state.
@@ -509,6 +730,83 @@ defmodule Inkwell.Billing do
   end
 
   def sync_user_by_email(_), do: {:error, :invalid_email}
+
+  @doc """
+  Manually attach a Square subscription ID to a local user record — safety net
+  for cases where the automatic sync can't find a user but the admin has
+  verified the subscription exists in their Square dashboard.
+
+  Looks up the user by email (case-insensitive), fetches the subscription from
+  Square to confirm it exists and get its plan_variation_id, then sets the
+  correct local field (square_subscription_id OR square_donor_subscription_id)
+  based on whether the plan is Plus or Donor.
+
+  Returns `{:ok, user, type}` where type is `:plus` or `:donor`, or an error.
+  """
+  def attach_square_subscription(email, subscription_id)
+      when is_binary(email) and is_binary(subscription_id) do
+    normalized = email |> String.trim() |> String.downcase()
+    sub_id = String.trim(subscription_id)
+
+    with {:user, %User{} = user} <- {:user, Repo.get_by(User, email: normalized)},
+         {:sub, {:ok, sub}} <- {:sub, Square.get_subscription(sub_id)},
+         {:active, true} <- {:active, sub["status"] in ["ACTIVE", "PENDING"]} do
+      config = Application.get_env(:inkwell, :square, [])
+      plan_variation_id = sub["plan_variation_id"]
+      customer_id = sub["customer_id"]
+      square_status = sub["status"]
+      inkwell_status = Square.map_subscription_status(square_status)
+
+      cond do
+        is_donor_plan?(plan_variation_id, config) ->
+          amount_cents = amount_from_donor_plan(plan_variation_id, config)
+
+          {:ok, updated} =
+            user
+            |> User.ink_donor_changeset(%{
+              square_customer_id: customer_id,
+              square_donor_subscription_id: sub_id,
+              ink_donor_status: inkwell_status,
+              ink_donor_amount_cents: amount_cents
+            })
+            |> Repo.update()
+
+          Logger.info("Manually attached Square Donor subscription #{sub_id} to user #{user.id}")
+          {:ok, updated, :donor}
+
+        true ->
+          {:ok, updated} =
+            user
+            |> User.subscription_changeset(%{
+              square_customer_id: customer_id,
+              square_subscription_id: sub_id,
+              subscription_tier: "plus",
+              subscription_status: "active",
+              stripe_subscription_id: nil
+            })
+            |> Repo.update()
+
+          Logger.info("Manually attached Square Plus subscription #{sub_id} to user #{user.id}")
+          {:ok, updated, :plus}
+      end
+    else
+      {:user, nil} -> {:error, :user_not_found}
+      {:sub, {:error, reason}} -> {:error, {:subscription_fetch_failed, reason}}
+      {:active, false} -> {:error, :subscription_not_active}
+      err -> {:error, err}
+    end
+  end
+
+  def attach_square_subscription(_, _), do: {:error, :invalid_params}
+
+  defp amount_from_donor_plan(plan_variation_id, config) do
+    cond do
+      plan_variation_id == config[:donor_plan_variation_1] -> 100
+      plan_variation_id == config[:donor_plan_variation_2] -> 200
+      plan_variation_id == config[:donor_plan_variation_3] -> 300
+      true -> nil
+    end
+  end
 
   defp pick_newest_active([]), do: nil
   defp pick_newest_active(subs) do

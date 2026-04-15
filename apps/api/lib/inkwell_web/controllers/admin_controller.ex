@@ -82,6 +82,81 @@ defmodule InkwellWeb.AdminController do
     })
   end
 
+  # GET /api/admin/square-subscriptions — raw Square view (what's actually in
+  # Square, not what's in our local DB). Use this to verify whether a payment
+  # actually exists in Square when the local sync fails to find it.
+  def square_subscriptions(conn, _params) do
+    Logger.info("Admin #{conn.assigns.current_user.username} fetching raw Square subscriptions")
+
+    case Billing.list_square_subscriptions_raw() do
+      {:ok, subscriptions} ->
+        json(conn, %{ok: true, subscriptions: subscriptions, total: length(subscriptions)})
+
+      {:error, :square_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Square is not configured (no access token or location ID)"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Failed to fetch Square subscriptions", detail: inspect(reason)})
+    end
+  end
+
+  # POST /api/admin/attach-square-subscription — safety net for cases where
+  # automatic sync fails to find a user's Square payment. Admin provides the
+  # user's email + the subscription ID from the Square dashboard, we fetch the
+  # sub from Square to verify it exists, then write it to the user record.
+  # Body: %{"email" => "...", "subscription_id" => "sub_xxx"}
+  def attach_square_subscription(conn, %{"email" => email, "subscription_id" => sub_id})
+      when is_binary(email) and is_binary(sub_id) do
+    Logger.info("Admin #{conn.assigns.current_user.username} manually attaching Square sub #{sub_id} to #{email}")
+
+    case Billing.attach_square_subscription(email, sub_id) do
+      {:ok, user, type} ->
+        json(conn, %{
+          ok: true,
+          type: Atom.to_string(type),
+          user: %{
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            subscription_tier: user.subscription_tier,
+            subscription_status: user.subscription_status,
+            square_subscription_id: user.square_subscription_id,
+            square_donor_subscription_id: user.square_donor_subscription_id,
+            ink_donor_status: user.ink_donor_status,
+            ink_donor_amount_cents: user.ink_donor_amount_cents
+          }
+        })
+
+      {:error, :user_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
+
+      {:error, :subscription_not_active} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Square subscription is not active (canceled/deactivated)"})
+
+      {:error, {:subscription_fetch_failed, reason}} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Couldn't find that subscription in Square", detail: inspect(reason)})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Attach failed", detail: inspect(reason)})
+    end
+  end
+
+  def attach_square_subscription(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "email and subscription_id are required"})
+  end
+
   defp render_plus_users(users) do
     Enum.map(users, fn u ->
       %{

@@ -83,6 +83,48 @@ interface PlusUsersData {
   orphaned: PlusUser[];
 }
 
+interface SquareSubscriptionRaw {
+  subscription_id: string;
+  status: string;
+  plan_variation_id: string | null;
+  plan_type: "plus" | "donor" | "unknown";
+  customer_id: string | null;
+  customer_email: string | null;
+  customer_name: string | null;
+  created_at: string | null;
+  start_date: string | null;
+  canceled_date: string | null;
+  matched_user: {
+    id: string;
+    username: string;
+    email: string;
+    subscription_tier: string;
+    square_subscription_id: string | null;
+    square_donor_subscription_id: string | null;
+  } | null;
+}
+
+interface SquareSubscriptionsData {
+  ok: boolean;
+  subscriptions: SquareSubscriptionRaw[];
+  total: number;
+  error?: string;
+}
+
+interface AttachResult {
+  ok: boolean;
+  type?: "plus" | "donor";
+  user?: {
+    username: string;
+    email: string;
+    subscription_tier: string;
+    square_subscription_id: string | null;
+    square_donor_subscription_id: string | null;
+  };
+  error?: string;
+  detail?: string;
+}
+
 const EXPECTED_WEBHOOK_URL = "https://api.inkwell.social/api/billing/webhook";
 
 function parseUtc(iso: string): number {
@@ -151,6 +193,18 @@ export function BillingHealthPanel() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownData, setBreakdownData] = useState<PlusUsersData | null>(null);
   const [breakdownError, setBreakdownError] = useState<string | null>(null);
+
+  // Raw Square data state
+  const [rawOpen, setRawOpen] = useState(false);
+  const [rawLoading, setRawLoading] = useState(false);
+  const [rawData, setRawData] = useState<SquareSubscriptionsData | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
+
+  // Manual attach subscription ID state
+  const [attachEmail, setAttachEmail] = useState("");
+  const [attachSubId, setAttachSubId] = useState("");
+  const [attaching, setAttaching] = useState(false);
+  const [attachResult, setAttachResult] = useState<AttachResult | null>(null);
 
   async function fetchHealth() {
     try {
@@ -248,6 +302,68 @@ export function BillingHealthPanel() {
       setBreakdownError("Network error loading Plus user breakdown");
     } finally {
       setBreakdownLoading(false);
+    }
+  }
+
+  async function handleToggleRaw() {
+    if (rawOpen) {
+      setRawOpen(false);
+      return;
+    }
+    setRawOpen(true);
+    if (rawData) return;
+
+    setRawLoading(true);
+    setRawError(null);
+    try {
+      const res = await fetch("/api/admin/square-subscriptions", { cache: "no-store" });
+      const json = await res.json();
+      if (res.ok) {
+        setRawData(json);
+      } else {
+        setRawError(json.error || `Failed to load Square subscriptions (HTTP ${res.status})`);
+      }
+    } catch {
+      setRawError("Network error loading raw Square data");
+    } finally {
+      setRawLoading(false);
+    }
+  }
+
+  async function handleRefreshRaw() {
+    setRawData(null);
+    setRawError(null);
+    await handleToggleRaw();
+  }
+
+  async function handleAttachSubscription(e: React.FormEvent) {
+    e.preventDefault();
+    const email = attachEmail.trim();
+    const subId = attachSubId.trim();
+    if (!email || !subId) return;
+    if (!confirm(`Manually attach Square subscription ${subId} to ${email}?\n\nThis verifies the subscription exists in Square, then writes it to the user record. Use only when automatic sync can't find the payment.`)) {
+      return;
+    }
+    setAttaching(true);
+    setAttachResult(null);
+    try {
+      const res = await fetch("/api/admin/attach-square-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, subscription_id: subId }),
+        cache: "no-store",
+      });
+      const json: AttachResult = await res.json();
+      setAttachResult(json);
+      if (json.ok) {
+        setAttachEmail("");
+        setAttachSubId("");
+        fetchHealth();
+      }
+    } catch {
+      setAttachResult({ ok: false, error: "Network error during attach" });
+    } finally {
+      setAttaching(false);
     }
   }
 
@@ -582,6 +698,139 @@ export function BillingHealthPanel() {
         )}
       </div>
 
+      {/* Raw Square Data — what's actually in Square, independent of our DB */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-medium">Raw Square data</div>
+          {rawOpen && (
+            <button
+              onClick={handleRefreshRaw}
+              className="text-xs underline opacity-70 hover:opacity-100"
+              style={{ color: "var(--foreground)" }}
+            >
+              refresh
+            </button>
+          )}
+        </div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Lists every subscription in your Square account and which local user it maps to (if any). Use this to verify a payment exists in Square when the local sync can&apos;t find it. Read-only, no side effects.
+        </div>
+        <button
+          onClick={handleToggleRaw}
+          className="text-xs underline opacity-80 hover:opacity-100"
+          style={{ color: "var(--foreground)" }}
+        >
+          {rawOpen ? "Hide" : "View"} raw Square subscriptions
+        </button>
+
+        {rawOpen && (
+          <div className="mt-3">
+            {rawLoading && <p className="text-xs" style={{ color: "var(--muted)" }}>Loading…</p>}
+            {rawError && <p className="text-xs" style={{ color: "var(--danger, #dc2626)" }}>{rawError}</p>}
+            {rawData && (
+              <div>
+                <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+                  {rawData.total} subscription{rawData.total === 1 ? "" : "s"} in Square
+                </div>
+                {rawData.subscriptions.length === 0 ? (
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    Square has no subscriptions for this location. If you expect payments to be here, check that SQUARE_LOCATION_ID matches the location in your Square dashboard.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {rawData.subscriptions.map((sub) => (
+                      <SquareSubRow key={sub.subscription_id} sub={sub} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Manual attach Square subscription ID — safety net */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid var(--border)" }}
+      >
+        <div className="text-sm font-medium mb-1">Manually attach Square subscription</div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Safety net for when automatic sync can&apos;t find a payment. Look up the subscription ID in your Square dashboard (under Subscriptions → click the customer → copy the subscription ID, looks like <code>sub_...</code>), then paste it here. We&apos;ll verify it exists in Square and attach it to the user record.
+        </div>
+        <form onSubmit={handleAttachSubscription} className="space-y-2">
+          <input
+            type="email"
+            value={attachEmail}
+            onChange={(e) => setAttachEmail(e.target.value)}
+            placeholder="user@example.com"
+            disabled={attaching}
+            required
+            className="w-full px-2 py-1.5 rounded text-xs"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={attachSubId}
+              onChange={(e) => setAttachSubId(e.target.value)}
+              placeholder="Square subscription ID"
+              disabled={attaching}
+              required
+              className="flex-1 px-2 py-1.5 rounded text-xs font-mono"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={attaching || !attachEmail.trim() || !attachSubId.trim()}
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              style={{
+                background: "var(--accent)",
+                color: "white",
+                opacity: attaching || !attachEmail.trim() || !attachSubId.trim() ? 0.5 : 1,
+              }}
+            >
+              {attaching ? "Attaching…" : "Attach"}
+            </button>
+          </div>
+        </form>
+
+        {attachResult && (
+          <div className="mt-2 text-xs">
+            {attachResult.ok && attachResult.user ? (
+              <div>
+                <div style={{ color: "var(--success, #16a34a)" }} className="font-medium">
+                  ✓ Attached {attachResult.type} subscription to @{attachResult.user.username}
+                </div>
+                <div style={{ color: "var(--muted)" }} className="mt-0.5">
+                  tier: {attachResult.user.subscription_tier} · sub:{" "}
+                  {attachResult.user.square_subscription_id ||
+                    attachResult.user.square_donor_subscription_id}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "var(--danger, #dc2626)" }}>
+                {attachResult.error || "Attach failed"}
+                {attachResult.detail && (
+                  <span style={{ color: "var(--muted)" }}> — {attachResult.detail}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recent deliveries */}
       <div>
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
@@ -726,6 +975,84 @@ function PlusUserGroup({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SquareSubRow({ sub }: { sub: SquareSubscriptionRaw }) {
+  const isActive = sub.status === "ACTIVE" || sub.status === "PENDING";
+  const statusBg = isActive
+    ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
+    : "var(--surface-hover, rgba(0,0,0,0.06))";
+  const statusFg = isActive ? "var(--success, #16a34a)" : "var(--muted)";
+
+  const planBg =
+    sub.plan_type === "plus"
+      ? "color-mix(in srgb, var(--accent) 15%, transparent)"
+      : sub.plan_type === "donor"
+      ? "color-mix(in srgb, #f59e0b 18%, transparent)"
+      : "var(--surface-hover, rgba(0,0,0,0.06))";
+
+  return (
+    <div
+      className="text-xs px-2 py-1.5 rounded space-y-1"
+      style={{ background: "var(--surface, rgba(255,255,255,0.5))", border: "1px solid var(--border)" }}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+          style={{ background: statusBg, color: statusFg }}
+        >
+          {sub.status}
+        </span>
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+          style={{ background: planBg, color: "var(--foreground)" }}
+        >
+          {sub.plan_type}
+        </span>
+        <span className="font-mono text-[10px] truncate" style={{ color: "var(--muted)" }}>
+          {sub.subscription_id}
+        </span>
+        <button
+          onClick={() => navigator.clipboard.writeText(sub.subscription_id)}
+          className="shrink-0 underline opacity-60 hover:opacity-100"
+          style={{ color: "var(--foreground)" }}
+          title="Copy subscription ID"
+        >
+          copy
+        </button>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+        {sub.customer_email && (
+          <span className="truncate">
+            {sub.customer_name ? `${sub.customer_name} <${sub.customer_email}>` : sub.customer_email}
+          </span>
+        )}
+        {sub.created_at && <span>· created {formatDate(sub.created_at)}</span>}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {sub.matched_user ? (
+          <span style={{ color: "var(--success, #16a34a)" }}>
+            ✓ matches local user{" "}
+            <span className="font-mono" style={{ color: "var(--foreground)" }}>
+              @{sub.matched_user.username}
+            </span>
+            {sub.matched_user.subscription_tier === "plus" &&
+              (sub.matched_user.square_subscription_id === sub.subscription_id ||
+                sub.matched_user.square_donor_subscription_id === sub.subscription_id) && (
+                <span style={{ color: "var(--muted)" }}> · already attached</span>
+              )}
+            {sub.matched_user.subscription_tier === "plus" &&
+              sub.matched_user.square_subscription_id !== sub.subscription_id &&
+              sub.matched_user.square_donor_subscription_id !== sub.subscription_id && (
+                <span style={{ color: "#f59e0b" }}> · NOT attached to local record</span>
+              )}
+          </span>
+        ) : (
+          <span style={{ color: "#f59e0b" }}>⚠ no matching local user</span>
+        )}
+      </div>
     </div>
   );
 }

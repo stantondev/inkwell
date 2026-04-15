@@ -247,9 +247,16 @@ defmodule Inkwell.Square do
   end
 
   @doc """
-  Search Square customers by exact email address.
-  Returns a list of matching customers (usually 0 or 1).
-  Used by the on-demand subscription sync (fallback when webhooks fail).
+  Search Square customers by email address.
+
+  Uses `fuzzy` matching (case-insensitive, tolerant of small variations) because
+  Square stores emails as the buyer typed them at checkout, while Inkwell
+  normalizes to lowercase on signup. An `exact` filter misses anything with
+  case differences, which hides real payments from the sync flow.
+
+  Returns a list of matching customers (often multiple for the same email —
+  Square creates new customer records on retries). Callers should check all
+  returned customers, not just the first.
   """
   def search_customers_by_email(nil), do: {:ok, []}
   def search_customers_by_email(""), do: {:ok, []}
@@ -257,7 +264,7 @@ defmodule Inkwell.Square do
     body = %{
       "query" => %{
         "filter" => %{
-          "email_address" => %{"exact" => email}
+          "email_address" => %{"fuzzy" => email}
         }
       }
     }
@@ -268,6 +275,65 @@ defmodule Inkwell.Square do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  List every subscription for our location, paginating through the cursor.
+
+  Returns `{:ok, [subscription, ...]}` with all subscriptions regardless of
+  status (active, canceled, deactivated, paused). Used by the admin raw-Square
+  view and as the fallback scan when email-based lookup fails.
+
+  Capped at 500 subscriptions across 5 pages to bound API usage; realistic
+  Inkwell scale is ~dozens, so this is effectively unlimited in practice.
+  """
+  def list_all_subscriptions(opts \\ []) do
+    max_pages = Keyword.get(opts, :max_pages, 5)
+    config = square_config()
+    location_id = config[:location_id]
+
+    if is_nil(location_id) or location_id == "" do
+      {:error, :square_not_configured}
+    else
+      fetch_subscription_page(location_id, nil, [], 0, max_pages)
+    end
+  end
+
+  defp fetch_subscription_page(_location_id, _cursor, acc, page, max_pages) when page >= max_pages do
+    {:ok, Enum.reverse(acc)}
+  end
+
+  defp fetch_subscription_page(location_id, cursor, acc, page, max_pages) do
+    body =
+      %{
+        "query" => %{
+          "filter" => %{
+            "location_ids" => [location_id]
+          }
+        },
+        "limit" => 100
+      }
+      |> maybe_put_cursor(cursor)
+
+    case square_post("/subscriptions/search", body) do
+      {:ok, response} ->
+        subs = Map.get(response, "subscriptions", []) |> List.wrap()
+        next_cursor = Map.get(response, "cursor")
+        new_acc = Enum.reverse(subs) ++ acc
+
+        if is_nil(next_cursor) or next_cursor == "" do
+          {:ok, Enum.reverse(new_acc)}
+        else
+          fetch_subscription_page(location_id, next_cursor, new_acc, page + 1, max_pages)
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp maybe_put_cursor(body, nil), do: body
+  defp maybe_put_cursor(body, ""), do: body
+  defp maybe_put_cursor(body, cursor), do: Map.put(body, "cursor", cursor)
 
   @doc """
   Search Square subscriptions for a given customer ID.
