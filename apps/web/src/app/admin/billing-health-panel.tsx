@@ -173,6 +173,27 @@ interface GrantPlusResult {
   detail?: string;
 }
 
+interface GraceUserSummary {
+  id: string;
+  username: string;
+  email: string;
+  subscription_expires_at: string | null;
+}
+
+interface GraceExpirationResult {
+  dry_run: boolean;
+  checked_at: string;
+  candidates: GraceUserSummary[];
+  downgraded: GraceUserSummary[];
+  errors: Array<{ user_id: string; username: string; reason: string }>;
+}
+
+interface GraceExpirationResponse {
+  ok: boolean;
+  result?: GraceExpirationResult;
+  error?: string;
+}
+
 const EXPECTED_WEBHOOK_URL = "https://api.inkwell.social/api/billing/webhook";
 
 function parseUtc(iso: string): number {
@@ -265,6 +286,11 @@ export function BillingHealthPanel() {
   const [grantDate, setGrantDate] = useState("");
   const [granting, setGranting] = useState(false);
   const [grantResult, setGrantResult] = useState<GrantPlusResult | null>(null);
+
+  // Grace expiration worker state
+  const [graceLoading, setGraceLoading] = useState(false);
+  const [graceResult, setGraceResult] = useState<GraceExpirationResult | null>(null);
+  const [graceError, setGraceError] = useState<string | null>(null);
 
   async function fetchHealth() {
     try {
@@ -425,6 +451,54 @@ export function BillingHealthPanel() {
     setPaymentsData(null);
     setPaymentsError(null);
     await handleTogglePayments();
+  }
+
+  async function handleGracePreview() {
+    setGraceLoading(true);
+    setGraceError(null);
+    try {
+      const res = await fetch("/api/admin/grace-expiration-preview", { cache: "no-store" });
+      const json: GraceExpirationResponse = await res.json();
+      if (res.ok && json.result) {
+        setGraceResult(json.result);
+      } else {
+        setGraceError(json.error || `Preview failed (HTTP ${res.status})`);
+      }
+    } catch {
+      setGraceError("Network error fetching grace expiration preview");
+    } finally {
+      setGraceLoading(false);
+    }
+  }
+
+  async function handleGraceRunNow() {
+    const preview = graceResult;
+    const candidateCount = preview?.candidates.length ?? 0;
+    const msg = preview
+      ? `Run grace expiration now? This will DOWNGRADE ${candidateCount} user(s) whose grace period has expired. They will be set to tier=free immediately.`
+      : `Run grace expiration now? This will downgrade any user whose grace period has expired — you haven't previewed the list yet, so consider clicking Preview first.`;
+
+    if (!confirm(msg)) return;
+
+    setGraceLoading(true);
+    setGraceError(null);
+    try {
+      const res = await fetch("/api/admin/run-grace-expiration", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const json: GraceExpirationResponse = await res.json();
+      if (res.ok && json.result) {
+        setGraceResult(json.result);
+        fetchHealth();
+      } else {
+        setGraceError(json.error || `Run failed (HTTP ${res.status})`);
+      }
+    } catch {
+      setGraceError("Network error running grace expiration");
+    } finally {
+      setGraceLoading(false);
+    }
   }
 
   async function handleGrantPlus(e: React.FormEvent) {
@@ -1099,6 +1173,152 @@ export function BillingHealthPanel() {
                   <span style={{ color: "var(--muted)" }}> — {grantResult.detail}</span>
                 )}
               </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Grace expiration worker — daily cron + admin preview/run */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
+      >
+        <div className="text-sm font-medium mb-1">Grace expiration worker</div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Runs automatically every 4 hours via Oban. Downgrades any Plus user whose <code>subscription_expires_at</code> has passed AND whose subscription status is <code>canceled</code> (manually granted Plus users + users who cancelled at period end). Fires a Slack notification on every non-empty run. Use Preview to see what the next run would do, or Run Now to fire it immediately.
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGracePreview}
+            disabled={graceLoading}
+            className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{
+              background: "var(--surface)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+              opacity: graceLoading ? 0.5 : 1,
+            }}
+          >
+            {graceLoading ? "Loading…" : "Preview"}
+          </button>
+          <button
+            onClick={handleGraceRunNow}
+            disabled={graceLoading}
+            className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{
+              background: "var(--accent)",
+              color: "white",
+              opacity: graceLoading ? 0.5 : 1,
+            }}
+          >
+            {graceLoading ? "Running…" : "Run now"}
+          </button>
+        </div>
+
+        {graceError && (
+          <div className="mt-2 text-xs" style={{ color: "var(--danger, #dc2626)" }}>
+            {graceError}
+          </div>
+        )}
+
+        {graceResult && (
+          <div className="mt-3 text-xs">
+            <div className="font-medium mb-1" style={{ color: "var(--foreground)" }}>
+              {graceResult.dry_run ? "Preview" : "Run result"} · checked at{" "}
+              {formatDate(graceResult.checked_at)}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-2" style={{ color: "var(--muted)" }}>
+              <span>
+                Candidates: <strong>{graceResult.candidates.length}</strong>
+              </span>
+              {!graceResult.dry_run && (
+                <span style={{ color: graceResult.downgraded.length > 0 ? "var(--success, #16a34a)" : undefined }}>
+                  Downgraded: <strong>{graceResult.downgraded.length}</strong>
+                </span>
+              )}
+              {graceResult.errors.length > 0 && (
+                <span style={{ color: "var(--danger, #dc2626)" }}>
+                  Errors: <strong>{graceResult.errors.length}</strong>
+                </span>
+              )}
+            </div>
+
+            {graceResult.candidates.length === 0 ? (
+              <p style={{ color: "var(--muted)" }}>
+                No users currently match the expiration criteria. The worker would be a no-op right now.
+              </p>
+            ) : (
+              <div
+                className="rounded p-2 space-y-1"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                {graceResult.candidates.map((u) => {
+                  const wasDowngraded = graceResult.downgraded.some((d) => d.id === u.id);
+                  const hadError = graceResult.errors.some((e) => e.user_id === u.id);
+
+                  return (
+                    <div key={u.id} className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
+                        @{u.username}
+                      </span>
+                      <span className="truncate flex-1 min-w-0" style={{ color: "var(--muted)" }}>
+                        {u.email}
+                      </span>
+                      {u.subscription_expires_at && (
+                        <span className="shrink-0" style={{ color: "var(--muted)" }}>
+                          expired {formatDate(u.subscription_expires_at)}
+                        </span>
+                      )}
+                      {graceResult.dry_run ? (
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                          style={{
+                            background: "color-mix(in srgb, #f59e0b 18%, transparent)",
+                            color: "#f59e0b",
+                          }}
+                        >
+                          would downgrade
+                        </span>
+                      ) : wasDowngraded ? (
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          style={{
+                            background: "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)",
+                            color: "var(--success, #16a34a)",
+                          }}
+                        >
+                          ✓ downgraded
+                        </span>
+                      ) : hadError ? (
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                          style={{
+                            background: "color-mix(in srgb, var(--danger, #dc2626) 18%, transparent)",
+                            color: "var(--danger, #dc2626)",
+                          }}
+                        >
+                          error
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {graceResult.errors.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer" style={{ color: "var(--muted)" }}>
+                  Error details ({graceResult.errors.length})
+                </summary>
+                <ul className="mt-1 space-y-0.5" style={{ color: "var(--muted)" }}>
+                  {graceResult.errors.map((e) => (
+                    <li key={e.user_id}>
+                      @{e.username}: {e.reason}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </div>
         )}

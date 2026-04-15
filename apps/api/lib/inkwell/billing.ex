@@ -474,9 +474,14 @@ defmodule Inkwell.Billing do
         # would otherwise misclassify the user as :legacy_stripe in the
         # plus_users_by_source bucket. After grant, they should appear in
         # :manually_granted.
+        #
+        # Status is "canceled" (not "active") to match the semantic: the user
+        # is not actively paying; they have access until expires_at and will
+        # be auto-downgraded on that date by SubscriptionExpirationWorker.
+        # This mirrors how a Stripe cancel-at-period-end would look.
         attrs = %{
           subscription_tier: "plus",
-          subscription_status: "active",
+          subscription_status: "canceled",
           subscription_expires_at: expires_at,
           stripe_subscription_id: nil
         }
@@ -747,6 +752,125 @@ defmodule Inkwell.Billing do
 
   defp format_expires_for_letter(%DateTime{} = dt) do
     dt |> DateTime.to_date() |> Date.to_string()
+  end
+
+  @doc """
+  Expire the grace period for Plus users whose subscription has been canceled
+  (manually via grant_plus_until, via admin cancel, or via a user-initiated
+  cancel-at-period-end flow) and whose `subscription_expires_at` has passed.
+
+  Used by the `SubscriptionExpirationWorker` to auto-downgrade expired users.
+  Also invoked by the admin preview (dry_run: true) and manual-run
+  (dry_run: false) endpoints on the billing health panel.
+
+  Supports a `:dry_run` option (default false). In dry run mode, returns the
+  list of candidates without actually downgrading them — used by the preview
+  endpoint so the admin can audit what the worker would do before the cron
+  fires.
+
+  The filter matches any user who is in "cancel-at-period-end" state:
+  - `subscription_tier == "plus"` — only Plus users (donors are separate)
+  - `subscription_status == "canceled"` — cancel flow has been triggered
+    (either by grant_plus_until, admin cancel, or user cancel)
+  - `subscription_expires_at < now()` — the paid/granted period has passed
+
+  Donor status is intentionally not touched — donors are independent of Plus
+  and expire via a separate code path in SubscriptionExpirationWorker.
+
+  Returns a map:
+
+      %{
+        dry_run: boolean,
+        checked_at: DateTime.t(),
+        candidates: [user_summary, ...],
+        downgraded: [user_summary, ...],  # empty if dry_run
+        errors: [%{user_id, username, reason}, ...]
+      }
+  """
+  def expire_grace_periods(opts \\ []) do
+    dry_run = Keyword.get(opts, :dry_run, false)
+    now = DateTime.utc_now()
+
+    candidates =
+      from(u in User,
+        where: u.subscription_tier == "plus",
+        where: u.subscription_status == "canceled",
+        where: not is_nil(u.subscription_expires_at),
+        where: u.subscription_expires_at < ^now,
+        order_by: [asc: u.subscription_expires_at],
+        select: u
+      )
+      |> Repo.all()
+
+    candidate_summaries = Enum.map(candidates, &grace_user_summary/1)
+
+    if dry_run do
+      %{
+        dry_run: true,
+        checked_at: now,
+        candidates: candidate_summaries,
+        downgraded: [],
+        errors: []
+      }
+    else
+      {downgraded, errors} =
+        Enum.reduce(candidates, {[], []}, fn user, {ok_acc, err_acc} ->
+          case downgrade_expired_plus(user) do
+            {:ok, updated} ->
+              {[grace_user_summary(updated) | ok_acc], err_acc}
+
+            {:error, changeset} ->
+              error = %{
+                user_id: user.id,
+                username: user.username,
+                reason: inspect(changeset.errors)
+              }
+
+              {ok_acc, [error | err_acc]}
+          end
+        end)
+
+      %{
+        dry_run: false,
+        checked_at: now,
+        candidates: candidate_summaries,
+        downgraded: Enum.reverse(downgraded),
+        errors: Enum.reverse(errors)
+      }
+    end
+  end
+
+  defp grace_user_summary(%User{} = u) do
+    %{
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      subscription_expires_at: u.subscription_expires_at
+    }
+  end
+
+  defp downgrade_expired_plus(%User{} = user) do
+    attrs = %{
+      subscription_tier: "free",
+      subscription_status: "canceled",
+      subscription_expires_at: nil
+    }
+
+    case user |> User.subscription_changeset(attrs) |> Repo.update() do
+      {:ok, updated} ->
+        Logger.info(
+          "[grace expiration] Downgraded @#{updated.username} (#{updated.id}) — grace expired at #{DateTime.to_iso8601(user.subscription_expires_at)}"
+        )
+
+        {:ok, updated}
+
+      error ->
+        Logger.error(
+          "[grace expiration] Failed to downgrade @#{user.username} (#{user.id}): #{inspect(error)}"
+        )
+
+        error
+    end
   end
 
   @doc """
@@ -1197,6 +1321,8 @@ defmodule Inkwell.Billing do
           {:ok, updated, :donor}
 
         true ->
+          # Clear subscription_expires_at to wipe any stale grace-period
+          # grant — user is now properly on Square so the grant is superseded.
           {:ok, updated} =
             user
             |> User.subscription_changeset(%{
@@ -1204,6 +1330,7 @@ defmodule Inkwell.Billing do
               square_subscription_id: sub_id,
               subscription_tier: "plus",
               subscription_status: "active",
+              subscription_expires_at: nil,
               stripe_subscription_id: nil
             })
             |> Repo.update()
@@ -1273,13 +1400,17 @@ defmodule Inkwell.Billing do
     if already_matches do
       {user, []}
     else
-      # Also clear legacy Stripe state if present — they're now on Square
+      # Also clear legacy Stripe state if present — they're now on Square.
+      # Also clear subscription_expires_at to wipe any stale manual grant
+      # date from a previous recovery flow, so the user no longer shows
+      # an "expires on X" chip after they've properly re-subscribed.
       attrs = %{
         stripe_subscription_id: nil,
         square_customer_id: customer_id,
         square_subscription_id: sub_id,
         subscription_tier: "plus",
-        subscription_status: inkwell_status
+        subscription_status: inkwell_status,
+        subscription_expires_at: nil
       }
 
       {:ok, updated} =

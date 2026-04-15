@@ -273,6 +273,27 @@ defmodule InkwellWeb.AdminController do
     conn |> put_status(:bad_request) |> json(%{error: "email is required"})
   end
 
+  # GET /api/admin/grace-expiration-preview — preview which users would be
+  # downgraded by the next run of SubscriptionExpirationWorker. Read-only, no
+  # side effects. Admin can audit before the daily cron fires (or before
+  # clicking the manual run button).
+  def grace_expiration_preview(conn, _params) do
+    result = Billing.expire_grace_periods(dry_run: true)
+    json(conn, %{ok: true, result: result})
+  end
+
+  # POST /api/admin/run-grace-expiration — force-run the grace expiration
+  # downgrade inline. Used for testing or to fire the downgrade between cron
+  # cycles. Same logic as the daily worker.
+  def run_grace_expiration(conn, _params) do
+    Logger.info(
+      "Admin #{conn.assigns.current_user.username} manually triggered grace expiration"
+    )
+
+    result = Billing.expire_grace_periods(dry_run: false)
+    json(conn, %{ok: true, result: result})
+  end
+
   defp render_plus_users(users) do
     Enum.map(users, fn u ->
       %{
