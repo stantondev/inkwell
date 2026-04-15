@@ -650,12 +650,14 @@ export function BillingHealthPanel() {
                 tone="info"
                 users={breakdownData.manually_granted}
                 emptyText="No manually granted Plus users."
+                showLetterButton
               />
               <PlusUserGroup
                 label="Legacy Stripe (Stripe is dead — getting Plus for free)"
                 tone="warning"
                 users={breakdownData.legacy_stripe}
                 emptyText="No legacy Stripe Plus users."
+                showLetterButton
               />
               <PlusUserGroup
                 label="Orphaned (tier=plus, no payment source)"
@@ -1183,11 +1185,13 @@ function PlusUserGroup({
   tone,
   users,
   emptyText,
+  showLetterButton,
 }: {
   label: string;
   tone: "success" | "warning" | "info";
   users: PlusUser[];
   emptyText: string;
+  showLetterButton?: boolean;
 }) {
   const headerColor =
     tone === "success"
@@ -1195,6 +1199,56 @@ function PlusUserGroup({
       : tone === "info"
       ? "var(--accent)"
       : "#f59e0b";
+
+  // Per-row state: which user is currently being sent, and the inline result.
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  async function handleSend(u: PlusUser) {
+    const confirmText =
+      `Send the billing apology letter to @${u.username} (${u.email})?\n\n` +
+      `They'll receive a letter in their Inkwell letterbox immediately, ` +
+      `apologizing for the Stripe migration bug, confirming we manually granted ` +
+      `them Plus through their expiration date, and providing the new Square ` +
+      `upgrade link. Letters are delivered internally so they work for ` +
+      `fediverse-placeholder accounts where email would bounce.`;
+    if (!confirm(confirmText)) return;
+
+    setSendingId(u.id);
+    setResults((r) => {
+      const next = { ...r };
+      delete next[u.id];
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/admin/send-billing-apology", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: u.email }),
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setResults((r) => ({
+          ...r,
+          [u.id]: { ok: true, text: `✓ Letter sent to @${json.recipient_username}` },
+        }));
+      } else {
+        setResults((r) => ({
+          ...r,
+          [u.id]: { ok: false, text: json.error || `Failed (HTTP ${res.status})` },
+        }));
+      }
+    } catch {
+      setResults((r) => ({
+        ...r,
+        [u.id]: { ok: false, text: "Network error" },
+      }));
+    } finally {
+      setSendingId(null);
+    }
+  }
 
   return (
     <div>
@@ -1214,59 +1268,92 @@ function PlusUserGroup({
             const expiresAt = u.subscription_expires_at;
             const expiresMs = expiresAt ? parseUtc(expiresAt) : null;
             const isExpired = expiresMs !== null && expiresMs < Date.now();
+            const sending = sendingId === u.id;
+            const result = results[u.id];
 
             return (
               <div
                 key={u.id}
-                className="flex items-center gap-2 text-xs px-2 py-1 rounded flex-wrap"
-                style={{ background: "var(--surface, rgba(255,255,255,0.5))", border: "1px solid var(--border)" }}
+                className="rounded"
+                style={{
+                  background: "var(--surface, rgba(255,255,255,0.5))",
+                  border: "1px solid var(--border)",
+                }}
               >
-                <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
-                  @{u.username}
-                </span>
-                <span className="truncate flex-1 min-w-0" style={{ color: "var(--muted)" }}>
-                  {u.email}
-                </span>
-                <span className="shrink-0" style={{ color: "var(--muted)" }}>
-                  joined {formatDate(u.inserted_at)}
-                </span>
-                {u.subscription_status && (
-                  <span
-                    className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                <div className="flex items-center gap-2 text-xs px-2 py-1 flex-wrap">
+                  <span className="font-mono shrink-0" style={{ color: "var(--foreground)" }}>
+                    @{u.username}
+                  </span>
+                  <span className="truncate flex-1 min-w-0" style={{ color: "var(--muted)" }}>
+                    {u.email}
+                  </span>
+                  <span className="shrink-0" style={{ color: "var(--muted)" }}>
+                    joined {formatDate(u.inserted_at)}
+                  </span>
+                  {u.subscription_status && (
+                    <span
+                      className="shrink-0 px-1.5 py-0.5 rounded text-[10px]"
+                      style={{
+                        background: u.subscription_status === "active"
+                          ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
+                          : "var(--surface-hover, rgba(0,0,0,0.06))",
+                        color: u.subscription_status === "active"
+                          ? "var(--success, #16a34a)"
+                          : "var(--muted)",
+                      }}
+                    >
+                      {u.subscription_status}
+                    </span>
+                  )}
+                  {expiresAt && (
+                    <span
+                      className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                      style={{
+                        background: isExpired
+                          ? "color-mix(in srgb, var(--danger, #dc2626) 18%, transparent)"
+                          : "color-mix(in srgb, var(--accent) 15%, transparent)",
+                        color: isExpired ? "var(--danger, #dc2626)" : "var(--accent)",
+                      }}
+                      title={`Expires at ${expiresAt}`}
+                    >
+                      {isExpired ? "expired" : "expires"} {formatDate(expiresAt)}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => navigator.clipboard.writeText(u.email)}
+                    className="shrink-0 underline opacity-60 hover:opacity-100"
+                    style={{ color: "var(--foreground)" }}
+                    title="Copy email"
+                  >
+                    copy
+                  </button>
+                  {showLetterButton && (
+                    <button
+                      onClick={() => handleSend(u)}
+                      disabled={sending}
+                      className="shrink-0 px-2 py-0.5 rounded text-[10px] font-medium"
+                      style={{
+                        background: "var(--accent)",
+                        color: "white",
+                        opacity: sending ? 0.5 : 1,
+                      }}
+                      title="Send the standard billing apology letter to this user"
+                    >
+                      {sending ? "Sending…" : "send letter"}
+                    </button>
+                  )}
+                </div>
+                {result && (
+                  <div
+                    className="px-2 py-1 text-[11px]"
                     style={{
-                      background: u.subscription_status === "active"
-                        ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
-                        : "var(--surface-hover, rgba(0,0,0,0.06))",
-                      color: u.subscription_status === "active"
-                        ? "var(--success, #16a34a)"
-                        : "var(--muted)",
+                      color: result.ok ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
+                      borderTop: "1px solid var(--border)",
                     }}
                   >
-                    {u.subscription_status}
-                  </span>
+                    {result.text}
+                  </div>
                 )}
-                {expiresAt && (
-                  <span
-                    className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                    style={{
-                      background: isExpired
-                        ? "color-mix(in srgb, var(--danger, #dc2626) 18%, transparent)"
-                        : "color-mix(in srgb, var(--accent) 15%, transparent)",
-                      color: isExpired ? "var(--danger, #dc2626)" : "var(--accent)",
-                    }}
-                    title={`Expires at ${expiresAt}`}
-                  >
-                    {isExpired ? "expired" : "expires"} {formatDate(expiresAt)}
-                  </span>
-                )}
-                <button
-                  onClick={() => navigator.clipboard.writeText(u.email)}
-                  className="shrink-0 underline opacity-60 hover:opacity-100"
-                  style={{ color: "var(--foreground)" }}
-                  title="Copy email"
-                >
-                  copy
-                </button>
               </div>
             );
           })}

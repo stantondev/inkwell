@@ -238,6 +238,41 @@ defmodule InkwellWeb.AdminController do
     end
   end
 
+  # POST /api/admin/send-billing-apology — send a billing apology letter via
+  # the Letters (DM) system. Better than email because it works for fediverse
+  # placeholder accounts (.fediverse.inkwell.social) where email would bounce.
+  # Body: %{"email" => "...", "custom_body" => "..."}  (custom_body optional)
+  def send_billing_apology(conn, %{"email" => email} = params) when is_binary(email) do
+    sender_id = conn.assigns.current_user.id
+    custom_body = Map.get(params, "custom_body")
+
+    Logger.info(
+      "Admin #{conn.assigns.current_user.username} sending billing apology letter to #{email}"
+    )
+
+    opts = if is_binary(custom_body) and custom_body != "", do: [custom_body: custom_body], else: []
+
+    case Billing.send_billing_apology_letter(sender_id, email, opts) do
+      {:ok, %{message_id: message_id, recipient_username: username}} ->
+        json(conn, %{ok: true, message_id: message_id, recipient_username: username})
+
+      {:error, :user_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
+
+      {:error, :cannot_message_self} ->
+        conn |> put_status(:bad_request) |> json(%{error: "You can't send an apology to yourself"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Failed to send letter", detail: inspect(reason)})
+    end
+  end
+
+  def send_billing_apology(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "email is required"})
+  end
+
   defp render_plus_users(users) do
     Enum.map(users, fn u ->
       %{

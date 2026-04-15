@@ -498,6 +498,134 @@ defmodule Inkwell.Billing do
   def grant_plus_until(_, _), do: {:error, :invalid_params}
 
   @doc """
+  Send a billing apology letter to a user via the Letters (DM) system.
+
+  Used to reach users who paid via the broken Payment Link flow and got a
+  one-time charge instead of a subscription. Letters work for fediverse-
+  placeholder-email users (eve, tim) where regular email would bounce.
+
+  Sender is the admin who triggered the action. Recipient is looked up by
+  email (case-insensitive). The letter body is generated from a template
+  unless `custom_body` is provided.
+
+  Returns `{:ok, message}` on success.
+  """
+  def send_billing_apology_letter(sender_user_id, recipient_email, opts \\ [])
+
+  def send_billing_apology_letter(sender_user_id, recipient_email, opts)
+      when is_binary(sender_user_id) and is_binary(recipient_email) do
+    normalized = recipient_email |> String.trim() |> String.downcase()
+    custom_body = Keyword.get(opts, :custom_body)
+
+    case Repo.get_by(User, email: normalized) do
+      nil ->
+        {:error, :user_not_found}
+
+      %User{} = recipient ->
+        {body, body_html} = build_apology_letter(recipient, custom_body)
+
+        case Inkwell.Letters.send_admin_letter(sender_user_id, recipient.id, body, body_html) do
+          {:ok, message} ->
+            Logger.info(
+              "Sent billing apology letter to user #{recipient.id} (@#{recipient.username}) from admin #{sender_user_id}"
+            )
+
+            {:ok, %{message_id: message.id, recipient_username: recipient.username}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
+  end
+
+  def send_billing_apology_letter(_, _, _), do: {:error, :invalid_params}
+
+  # Build the apology letter body. Returns {plain_text, html} tuple.
+  defp build_apology_letter(%User{} = recipient, nil) do
+    name = recipient.display_name || "@#{recipient.username}"
+    expires = format_expires_for_letter(recipient.subscription_expires_at)
+    upgrade_url = "https://square.link/u/iPjis6IE"
+
+    plain = """
+    Hi #{name},
+
+    I owe you an apology and an explanation.
+
+    Earlier this year, Inkwell's previous payment processor (Stripe) was \
+    shut down after a bad actor exploited it with stolen cards, forcing us \
+    to migrate to Square on short notice. During that migration I introduced \
+    a bug in our Plus signup flow — instead of creating a real $5/month \
+    subscription, Square processed your payment as a one-time charge. You \
+    paid in good faith for a recurring subscription and got billed once \
+    with no recurring billing set up. That's on me, not you, and I'm sorry.
+
+    To make this right:
+
+    1. I've manually granted your account Plus tier through #{expires} — \
+    the time you originally paid for. Plus features should be active for \
+    you right now.
+
+    2. The signup flow is now fixed. If you'd like to continue Plus after \
+    #{expires}, you can re-subscribe at this link: #{upgrade_url}
+
+    If you'd prefer a refund instead of the month of service, just reply \
+    to this letter and I'll process it.
+
+    Thanks for your patience and for being one of Inkwell's earliest \
+    paying members.
+
+    — Stanton
+    """
+
+    html = """
+    <p>Hi #{name},</p>
+
+    <p>I owe you an apology and an explanation.</p>
+
+    <p>Earlier this year, Inkwell's previous payment processor (Stripe) was \
+    shut down after a bad actor exploited it with stolen cards, forcing us \
+    to migrate to Square on short notice. During that migration I introduced \
+    a bug in our Plus signup flow — instead of creating a real $5/month \
+    subscription, Square processed your payment as a one-time charge. You \
+    paid in good faith for a recurring subscription and got billed once \
+    with no recurring billing set up. That's on me, not you, and I'm sorry.</p>
+
+    <p>To make this right:</p>
+
+    <ol>
+      <li>I've manually granted your account Plus tier through <strong>#{expires}</strong> \
+    — the time you originally paid for. Plus features should be active for \
+    you right now.</li>
+      <li>The signup flow is now fixed. If you'd like to continue Plus after \
+    #{expires}, you can re-subscribe at this link: \
+    <a href="#{upgrade_url}">#{upgrade_url}</a></li>
+    </ol>
+
+    <p>If you'd prefer a refund instead of the month of service, just reply \
+    to this letter and I'll process it.</p>
+
+    <p>Thanks for your patience and for being one of Inkwell's earliest \
+    paying members.</p>
+
+    <p>— Stanton</p>
+    """
+
+    {plain, html}
+  end
+
+  defp build_apology_letter(_recipient, custom_body) when is_binary(custom_body) do
+    # For custom bodies, send as plain text only. The Letters renderer falls
+    # back to whitespace-pre-wrap rendering when body_html is nil.
+    {custom_body, nil}
+  end
+
+  defp format_expires_for_letter(nil), do: "the end of your paid month"
+
+  defp format_expires_for_letter(%DateTime{} = dt) do
+    dt |> DateTime.to_date() |> Date.to_string()
+  end
+
+  @doc """
   Reconcile users with billing-relevant state against Square.
 
   Iterates users with an existing or historical billing relationship (Plus tier,

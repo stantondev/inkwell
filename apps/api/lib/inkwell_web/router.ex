@@ -506,6 +506,7 @@ defmodule InkwellWeb.Router do
     get "/square-payments", AdminController, :square_payments
     post "/attach-square-subscription", AdminController, :attach_square_subscription
     post "/grant-plus-until", AdminController, :grant_plus_until
+    post "/send-billing-apology", AdminController, :send_billing_apology
 
     # User management
     get "/users", AdminController, :list_users

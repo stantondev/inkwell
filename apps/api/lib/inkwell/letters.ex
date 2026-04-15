@@ -201,6 +201,57 @@ defmodule Inkwell.Letters do
   end
 
   @doc """
+  Send a letter from an admin (or system account) to any user, bypassing the
+  pen-pal requirement and block check. Used for billing apologies, account
+  notices, and other admin communications that need to reach users regardless
+  of their existing relationship.
+
+  This skips the normal `send_letter` constraints because:
+  - Admins need to reach users they aren't pen pals with (e.g., for billing
+    issues affecting a small group).
+  - The recipient still controls their letterbox: they can reply or ignore
+    the letter via the standard letter UI.
+
+  Logs every admin letter for audit. Returns `{:ok, message}` on success.
+  """
+  def send_admin_letter(sender_id, recipient_id, body, body_html \\ nil)
+      when is_binary(sender_id) and is_binary(recipient_id) do
+    if sender_id == recipient_id do
+      {:error, :cannot_message_self}
+    else
+      case find_or_create(sender_id, recipient_id) do
+        {:ok, conv} ->
+          attrs = %{
+            conversation_id: conv.id,
+            sender_id: sender_id,
+            body: String.trim(body),
+            body_html: body_html
+          }
+
+          case %DirectMessage{} |> DirectMessage.changeset(attrs) |> Repo.insert() do
+            {:ok, message} ->
+              conv
+              |> Ecto.Changeset.change(last_message_at: message.inserted_at)
+              |> Repo.update()
+
+              maybe_notify_recipient(conv, message, sender_id, recipient_id)
+
+              require Logger
+              Logger.info("[admin letter] #{sender_id} -> #{recipient_id} (conv #{conv.id}, msg #{message.id})")
+
+              {:ok, Repo.preload(message, :sender)}
+
+            error ->
+              error
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
   Soft-delete a letter on the sender's side.
   """
   def delete_letter(message_id, deleter_id) do
