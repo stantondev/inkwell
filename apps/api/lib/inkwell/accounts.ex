@@ -733,11 +733,28 @@ defmodule Inkwell.Accounts do
     }
   end
 
-  @doc "Recent Plus subscribers (latest N users who have Plus)."
+  @doc """
+  Recent Plus subscribers. Ordered so that active paying subscribers appear
+  first, then canceled (granted/cancel-at-period-end), then everything else,
+  with each group ordered by most recently updated.
+
+  The obvious `order_by(desc: :updated_at)` puts whoever was most recently
+  touched in the DB at the top, which is confusing — an admin rpc that sets
+  a user to `canceled` would push that user above an active paying subscriber,
+  making it look like the canceled user is "more Plus" than the active one.
+  """
   def recent_plus_subscribers(limit \\ 10) do
     User
     |> where([u], u.subscription_tier == "plus")
-    |> order_by(desc: :updated_at)
+    |> order_by([u],
+      asc:
+        fragment(
+          "CASE WHEN ? = 'active' THEN 0 WHEN ? = 'canceled' THEN 1 ELSE 2 END",
+          u.subscription_status,
+          u.subscription_status
+        ),
+      desc: u.updated_at
+    )
     |> limit(^limit)
     |> Repo.all()
   end

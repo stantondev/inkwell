@@ -292,6 +292,12 @@ export function BillingHealthPanel() {
   const [graceResult, setGraceResult] = useState<GraceExpirationResult | null>(null);
   const [graceError, setGraceError] = useState<string | null>(null);
 
+  // Advanced tools toggle — hides all the one-time cleanup / debugging
+  // sections (ghost Plus, raw Square data, manual attach, raw payments,
+  // grace worker, recent deliveries log). Keeps the panel usable for
+  // day-to-day admin tasks (reconcile, sync user, grant Plus).
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   async function fetchHealth() {
     try {
       const res = await fetch("/api/admin/billing-health", { cache: "no-store" });
@@ -663,7 +669,8 @@ export function BillingHealthPanel() {
         <HealthStat label="Legacy Stripe" value={stats.legacy_stripe_users.toString()} muted />
       </div>
 
-      {/* Ghost Plus detection metrics */}
+      {/* Ghost Plus detection metrics — advanced tool (hidden by default) */}
+      {showAdvanced && (
       <div className="mb-4">
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
           Plus users by payment source
@@ -698,9 +705,10 @@ export function BillingHealthPanel() {
           {breakdownOpen ? "Hide" : "View"} Plus user breakdown
         </button>
       </div>
+      )}
 
-      {/* Plus user breakdown (expandable) */}
-      {breakdownOpen && (
+      {/* Plus user breakdown (expandable) — advanced */}
+      {showAdvanced && breakdownOpen && (
         <div
           className="rounded-lg p-3 mb-4"
           style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
@@ -744,8 +752,8 @@ export function BillingHealthPanel() {
         </div>
       )}
 
-      {/* By status breakdown */}
-      {Object.keys(stats.by_status_24h).length > 0 && (
+      {/* By status breakdown — advanced (webhook status pills for last 24h) */}
+      {showAdvanced && Object.keys(stats.by_status_24h).length > 0 && (
         <div className="mb-4">
           <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
             Status (24h)
@@ -915,7 +923,8 @@ export function BillingHealthPanel() {
         )}
       </div>
 
-      {/* Raw Square Data — what's actually in Square, independent of our DB */}
+      {/* Raw Square Data — advanced (debugging Square state) */}
+      {showAdvanced && (
       <div
         className="rounded-lg p-3 mb-4"
         style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
@@ -968,8 +977,10 @@ export function BillingHealthPanel() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Manual attach Square subscription ID — safety net */}
+      {/* Manual attach Square subscription ID — advanced (safety net) */}
+      {showAdvanced && (
       <div
         className="rounded-lg p-3 mb-4"
         style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid var(--border)" }}
@@ -1047,8 +1058,10 @@ export function BillingHealthPanel() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Raw Payments — find one-time charges that never became subscriptions */}
+      {/* Raw Payments — advanced (find one-time charges that never became subscriptions) */}
+      {showAdvanced && (
       <div
         className="rounded-lg p-3 mb-4"
         style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
@@ -1101,6 +1114,7 @@ export function BillingHealthPanel() {
           </div>
         )}
       </div>
+      )}
 
       {/* Grant Plus until date — manual recovery for users with one-time payments */}
       <div
@@ -1178,7 +1192,8 @@ export function BillingHealthPanel() {
         )}
       </div>
 
-      {/* Grace expiration worker — daily cron + admin preview/run */}
+      {/* Grace expiration worker — advanced (daily cron + admin preview/run) */}
+      {showAdvanced && (
       <div
         className="rounded-lg p-3 mb-4"
         style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
@@ -1323,8 +1338,10 @@ export function BillingHealthPanel() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Recent deliveries */}
+      {/* Recent deliveries — advanced (webhook audit log) */}
+      {showAdvanced && (
       <div>
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
           Recent deliveries
@@ -1363,6 +1380,20 @@ export function BillingHealthPanel() {
             })}
           </div>
         )}
+      </div>
+      )}
+
+      {/* Advanced tools toggle — keeps the debugging/cleanup sections
+          hidden by default so the panel is usable day-to-day. */}
+      <div className="mt-2 pt-3" style={{ borderTop: "1px dashed var(--border)" }}>
+        <button
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="text-xs underline opacity-70 hover:opacity-100"
+          style={{ color: "var(--foreground)" }}
+          title="Show or hide ghost Plus detection, raw Square data/payments views, manual subscription attach, and the grace expiration worker controls"
+        >
+          {showAdvanced ? "▲ Hide advanced tools" : "▼ Show advanced tools"}
+        </button>
       </div>
     </div>
   );
