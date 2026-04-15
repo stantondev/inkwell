@@ -541,7 +541,44 @@ defmodule Inkwell.Billing do
   def send_billing_apology_letter(_, _, _), do: {:error, :invalid_params}
 
   # Build the apology letter body. Returns {plain_text, html} tuple.
+  #
+  # Auto-selects between two templates based on the recipient's state:
+  #
+  # 1. **Square bug template** — for users who paid via the broken April 2026
+  #    Square Payment Link flow and got a one-time charge instead of a sub.
+  #    Detected by: subscription_expires_at IS NOT NULL (admin already granted
+  #    them their paid month). Currently this only matches @zaexpcake.
+  #
+  # 2. **Stripe migration template** — for users who paid via Stripe before
+  #    the April 1 migration and have been getting Plus for free since the
+  #    Stripe account closed. Detected by: stripe_subscription_id IS NOT NULL
+  #    AND no expires_at. These users never tried the broken Square flow —
+  #    their billing just stopped when Stripe went dark.
   defp build_apology_letter(%User{} = recipient, nil) do
+    cond do
+      not is_nil(recipient.subscription_expires_at) ->
+        build_square_bug_letter(recipient)
+
+      not is_nil(recipient.stripe_subscription_id) ->
+        build_stripe_migration_letter(recipient)
+
+      true ->
+        # Fallback for unusual states (no expires_at, no stripe_id but still
+        # tier=plus). Send the generic stripe-migration template since it's
+        # less specific and won't make false claims.
+        build_stripe_migration_letter(recipient)
+    end
+  end
+
+  defp build_apology_letter(_recipient, custom_body) when is_binary(custom_body) do
+    # For custom bodies, send as plain text only. The Letters renderer falls
+    # back to whitespace-pre-wrap rendering when body_html is nil.
+    {custom_body, nil}
+  end
+
+  # Template for users who paid via the broken Square Payment Link flow.
+  # Used for @zaexpcake (and any future user who hits the same bug).
+  defp build_square_bug_letter(%User{} = recipient) do
     name = recipient.display_name || "@#{recipient.username}"
     expires = format_expires_for_letter(recipient.subscription_expires_at)
     upgrade_url = "https://square.link/u/iPjis6IE"
@@ -551,13 +588,14 @@ defmodule Inkwell.Billing do
 
     I owe you an apology and an explanation.
 
-    Earlier this year, Inkwell's previous payment processor (Stripe) was \
+    A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
     shut down after a bad actor exploited it with stolen cards, forcing us \
-    to migrate to Square on short notice. During that migration I introduced \
-    a bug in our Plus signup flow — instead of creating a real $5/month \
-    subscription, Square processed your payment as a one-time charge. You \
-    paid in good faith for a recurring subscription and got billed once \
-    with no recurring billing set up. That's on me, not you, and I'm sorry.
+    to migrate to Square on very short notice. During that migration I \
+    introduced a bug in our Plus signup flow — instead of creating a real \
+    $5/month subscription, Square processed your payment as a one-time \
+    charge. You paid in good faith for a recurring subscription and got \
+    billed once with no recurring billing set up. That's on me, not you, \
+    and I'm sorry.
 
     To make this right:
 
@@ -582,13 +620,14 @@ defmodule Inkwell.Billing do
 
     <p>I owe you an apology and an explanation.</p>
 
-    <p>Earlier this year, Inkwell's previous payment processor (Stripe) was \
+    <p>A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
     shut down after a bad actor exploited it with stolen cards, forcing us \
-    to migrate to Square on short notice. During that migration I introduced \
-    a bug in our Plus signup flow — instead of creating a real $5/month \
-    subscription, Square processed your payment as a one-time charge. You \
-    paid in good faith for a recurring subscription and got billed once \
-    with no recurring billing set up. That's on me, not you, and I'm sorry.</p>
+    to migrate to Square on very short notice. During that migration I \
+    introduced a bug in our Plus signup flow — instead of creating a real \
+    $5/month subscription, Square processed your payment as a one-time \
+    charge. You paid in good faith for a recurring subscription and got \
+    billed once with no recurring billing set up. That's on me, not you, \
+    and I'm sorry.</p>
 
     <p>To make this right:</p>
 
@@ -613,10 +652,95 @@ defmodule Inkwell.Billing do
     {plain, html}
   end
 
-  defp build_apology_letter(_recipient, custom_body) when is_binary(custom_body) do
-    # For custom bodies, send as plain text only. The Letters renderer falls
-    # back to whitespace-pre-wrap rendering when body_html is nil.
-    {custom_body, nil}
+  # Template for users who paid via Stripe before the April 1 migration.
+  # Their Stripe subscription stopped renewing when the Stripe account closed,
+  # but we kept them on Plus while sorting out the migration. They need to
+  # re-subscribe via Square to keep Plus going forward.
+  defp build_stripe_migration_letter(%User{} = recipient) do
+    name = recipient.display_name || "@#{recipient.username}"
+    upgrade_url = "https://square.link/u/iPjis6IE"
+
+    plain = """
+    Hi #{name},
+
+    I owe you an apology and an update on your Inkwell Plus subscription.
+
+    A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
+    abruptly shut down after a bad actor exploited it with stolen credit \
+    cards. We had very little warning and had to migrate to a new processor \
+    (Square) on extremely short notice. Because your original Plus \
+    subscription was processed by Stripe, your monthly billing stopped when \
+    the Stripe account closed.
+
+    Since the migration, you've continued to have Plus features at no \
+    charge while I worked through the transition. That's on me — I should \
+    have communicated sooner. You didn't do anything wrong, and you don't \
+    owe Inkwell anything for the time you've had Plus during this period.
+
+    Going forward, if you'd like to keep your Plus subscription active, \
+    I need to ask you to re-subscribe through our new Square checkout. \
+    The new link is here:
+
+    #{upgrade_url}
+
+    This sets up a real $5/month recurring subscription that will renew \
+    automatically. You can cancel anytime from your billing settings.
+
+    If you decide not to re-subscribe, no problem at all — just don't \
+    click the link. Your account will gracefully downgrade to the free \
+    tier in the next week or so. All your existing entries, follows, \
+    pen pals, and content stay exactly where they are. The only things \
+    that pause are Plus-only features like custom CSS, the First Class \
+    stamp, and unlimited drafts.
+
+    Sorry for the disruption, and thanks for being one of Inkwell's \
+    earliest paying members. If you have any questions or just want to \
+    reply to this letter, I'll see it.
+
+    — Stanton
+    """
+
+    html = """
+    <p>Hi #{name},</p>
+
+    <p>I owe you an apology and an update on your Inkwell Plus subscription.</p>
+
+    <p>A couple weeks ago, Inkwell's previous payment processor (Stripe) was \
+    abruptly shut down after a bad actor exploited it with stolen credit \
+    cards. We had very little warning and had to migrate to a new processor \
+    (Square) on extremely short notice. Because your original Plus \
+    subscription was processed by Stripe, your monthly billing stopped when \
+    the Stripe account closed.</p>
+
+    <p>Since the migration, you've continued to have Plus features at no \
+    charge while I worked through the transition. That's on me — I should \
+    have communicated sooner. You didn't do anything wrong, and you don't \
+    owe Inkwell anything for the time you've had Plus during this period.</p>
+
+    <p>Going forward, if you'd like to keep your Plus subscription active, \
+    I need to ask you to re-subscribe through our new Square checkout. \
+    The new link is here:</p>
+
+    <p><a href="#{upgrade_url}">#{upgrade_url}</a></p>
+
+    <p>This sets up a real $5/month recurring subscription that will renew \
+    automatically. You can cancel anytime from your billing settings.</p>
+
+    <p>If you decide not to re-subscribe, no problem at all — just don't \
+    click the link. Your account will gracefully downgrade to the free \
+    tier in the next week or so. All your existing entries, follows, \
+    pen pals, and content stay exactly where they are. The only things \
+    that pause are Plus-only features like custom CSS, the First Class \
+    stamp, and unlimited drafts.</p>
+
+    <p>Sorry for the disruption, and thanks for being one of Inkwell's \
+    earliest paying members. If you have any questions or just want to \
+    reply to this letter, I'll see it.</p>
+
+    <p>— Stanton</p>
+    """
+
+    {plain, html}
   end
 
   defp format_expires_for_letter(nil), do: "the end of your paid month"
