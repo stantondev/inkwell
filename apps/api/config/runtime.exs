@@ -98,6 +98,7 @@ if config_env() == :prod do
     location_id: System.get_env("SQUARE_LOCATION_ID"),
     webhook_signature_key: System.get_env("SQUARE_WEBHOOK_SIGNATURE_KEY"),
     plus_plan_variation_id: System.get_env("SQUARE_PLUS_PLAN_VARIATION_ID"),
+    plus_payment_link_override: System.get_env("SQUARE_PLUS_PAYMENT_LINK_OVERRIDE"),
     donor_plan_variation_1: System.get_env("SQUARE_DONOR_PLAN_VARIATION_1"),
     donor_plan_variation_2: System.get_env("SQUARE_DONOR_PLAN_VARIATION_2"),
     donor_plan_variation_3: System.get_env("SQUARE_DONOR_PLAN_VARIATION_3")

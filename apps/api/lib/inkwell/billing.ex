@@ -328,6 +328,165 @@ defmodule Inkwell.Billing do
   defp build_customer_name(_), do: nil
 
   @doc """
+  List recent Square payments (one-time charges, not subscriptions), enriched
+  with matched local user. Used by the admin to find users who paid via the
+  broken Payment Link flow but never got a recurring subscription created.
+
+  Each entry includes: payment ID, amount, status, created_at, card brand/last4,
+  buyer email/name (if Square captured them), and a guess at whether this looks
+  like a Plus or Donor signup based on the amount.
+  """
+  def list_square_payments_raw(opts \\ []) do
+    case Square.list_recent_payments(opts) do
+      {:ok, payments} ->
+        # Collect customer IDs to fetch in batch (deduplicated)
+        unique_customer_ids =
+          payments
+          |> Enum.map(& &1["customer_id"])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+
+        customer_map =
+          Enum.into(unique_customer_ids, %{}, fn customer_id ->
+            case Square.get_customer(customer_id) do
+              {:ok, customer} -> {customer_id, customer}
+              {:error, _} -> {customer_id, nil}
+            end
+          end)
+
+        # Build user lookup table from customer emails AND payment buyer_emails
+        normalized_emails =
+          payments
+          |> Enum.flat_map(fn p ->
+            customer = Map.get(customer_map, p["customer_id"])
+            customer_email = customer && Map.get(customer, "email_address")
+            [Map.get(p, "buyer_email_address"), customer_email]
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(&normalize_email/1)
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.uniq()
+
+        user_map =
+          case normalized_emails do
+            [] ->
+              %{}
+
+            emails ->
+              from(u in User, where: u.email in ^emails, select: u)
+              |> Repo.all()
+              |> Enum.into(%{}, fn u -> {normalize_email(u.email), u} end)
+          end
+
+        enriched =
+          Enum.map(payments, fn payment ->
+            customer = Map.get(customer_map, payment["customer_id"])
+            customer_email = customer && Map.get(customer, "email_address")
+            customer_name = customer && build_customer_name(customer)
+            buyer_email = Map.get(payment, "buyer_email_address")
+
+            # Try buyer_email first, fall back to customer_email
+            lookup_email = buyer_email || customer_email
+
+            matched_user = lookup_email && Map.get(user_map, normalize_email(lookup_email))
+
+            amount = get_in(payment, ["amount_money", "amount"]) || 0
+            currency = get_in(payment, ["amount_money", "currency"]) || "USD"
+
+            looks_like =
+              cond do
+                amount == 500 -> "plus"
+                amount in [100, 200, 300] -> "donor"
+                amount in [300, 500, 1000] -> "donation"
+                true -> "unknown"
+              end
+
+            card_details = Map.get(payment, "card_details") || %{}
+            card = Map.get(card_details, "card") || %{}
+
+            %{
+              payment_id: payment["id"],
+              status: payment["status"],
+              amount_cents: amount,
+              currency: currency,
+              created_at: payment["created_at"],
+              note: payment["note"],
+              looks_like: looks_like,
+              card_brand: Map.get(card, "card_brand"),
+              card_last4: Map.get(card, "last_4"),
+              receipt_url: payment["receipt_url"],
+              order_id: payment["order_id"],
+              customer_id: payment["customer_id"],
+              customer_email: customer_email,
+              customer_name: customer_name,
+              buyer_email: buyer_email,
+              matched_user:
+                if matched_user do
+                  %{
+                    id: matched_user.id,
+                    username: matched_user.username,
+                    email: matched_user.email,
+                    subscription_tier: matched_user.subscription_tier,
+                    square_subscription_id: matched_user.square_subscription_id,
+                    square_donor_subscription_id: matched_user.square_donor_subscription_id
+                  }
+                end
+            }
+          end)
+
+        {:ok, enriched}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Manually grant Plus tier to a user with an explicit expiration date.
+
+  Used for recovery cases like the 2026-04-15 quick_pay bug where users paid
+  via a broken Payment Link, got charged once, but never had a subscription
+  created. We give them the time they paid for, then they re-subscribe via
+  the corrected flow.
+
+  Sets `subscription_tier="plus"`, `subscription_status="active"`,
+  `subscription_expires_at=<expires_at>`. Does NOT touch any Square or Stripe
+  IDs. Phase 2's grace-period worker will downgrade the user when
+  `subscription_expires_at` passes if they haven't re-subscribed.
+
+  Returns `{:ok, user}` or an error.
+  """
+  def grant_plus_until(email, %DateTime{} = expires_at) when is_binary(email) do
+    normalized = email |> String.trim() |> String.downcase()
+
+    case Repo.get_by(User, email: normalized) do
+      nil ->
+        {:error, :user_not_found}
+
+      %User{} = user ->
+        attrs = %{
+          subscription_tier: "plus",
+          subscription_status: "active",
+          subscription_expires_at: expires_at
+        }
+
+        case user |> User.subscription_changeset(attrs) |> Repo.update() do
+          {:ok, updated} ->
+            Logger.info(
+              "Manually granted Plus to user #{updated.id} (@#{updated.username}) until #{DateTime.to_iso8601(expires_at)}"
+            )
+
+            {:ok, updated}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  def grant_plus_until(_, _), do: {:error, :invalid_params}
+
+  @doc """
   Reconcile users with billing-relevant state against Square.
 
   Iterates users with an existing or historical billing relationship (Plus tier,

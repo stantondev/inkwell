@@ -503,7 +503,9 @@ defmodule InkwellWeb.Router do
     post "/sync-user-by-email", AdminController, :sync_user_by_email
     get "/plus-users", AdminController, :plus_users
     get "/square-subscriptions", AdminController, :square_subscriptions
+    get "/square-payments", AdminController, :square_payments
     post "/attach-square-subscription", AdminController, :attach_square_subscription
+    post "/grant-plus-until", AdminController, :grant_plus_until
 
     # User management
     get "/users", AdminController, :list_users

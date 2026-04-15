@@ -16,8 +16,25 @@ defmodule Inkwell.Square do
   @doc "Create a Square Payment Link for Plus $5/mo subscription."
   def create_plus_payment_link(%User{} = user) do
     config = square_config()
-    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
+    # Emergency override: if SQUARE_PLUS_PAYMENT_LINK_OVERRIDE is set, return
+    # that URL directly without calling Square's API. Used as a band-aid when
+    # the auto-generated Payment Link flow is broken — admin sets a manually-
+    # created Square Payment Link URL via Fly secret, and Inkwell uses it for
+    # all Plus signups until the override is unset. Loses email pre-population
+    # and per-user idempotency, but is safe to set/unset on the fly.
+    case config[:plus_payment_link_override] do
+      url when is_binary(url) and url != "" ->
+        Logger.info("[Square Payment Link] Using PLUS override URL for user #{user.id}")
+        {:ok, %{url: url}}
+
+      _ ->
+        create_plus_payment_link_via_api(user, config)
+    end
+  end
+
+  defp create_plus_payment_link_via_api(%User{} = user, config) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
     plan_variation_id = config[:plus_plan_variation_id]
 
     if is_nil(plan_variation_id) or plan_variation_id == "" do
@@ -31,7 +48,7 @@ defmodule Inkwell.Square do
           "location_id" => config[:location_id]
         },
         "checkout_options" => %{
-          "subscription_plan_variation_id" => plan_variation_id,
+          "subscription_plan_id" => plan_variation_id,
           "redirect_url" => "#{frontend_url}/settings/billing?checkout=success",
           "accepted_payment_methods" => %{
             "apple_pay" => true,
@@ -43,11 +60,7 @@ defmodule Inkwell.Square do
         }
       }
 
-      case square_post("/online-checkout/payment-links", body) do
-        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
-        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
-        {:error, reason} -> {:error, reason}
-      end
+      post_payment_link(body, "plus", user.id)
     end
   end
 
@@ -73,7 +86,7 @@ defmodule Inkwell.Square do
           "location_id" => config[:location_id]
         },
         "checkout_options" => %{
-          "subscription_plan_variation_id" => plan_variation_id,
+          "subscription_plan_id" => plan_variation_id,
           "redirect_url" => "#{frontend_url}/settings/billing?checkout=success&donor=true",
           "accepted_payment_methods" => %{
             "apple_pay" => true,
@@ -85,11 +98,7 @@ defmodule Inkwell.Square do
         }
       }
 
-      case square_post("/online-checkout/payment-links", body) do
-        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
-        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
-        {:error, reason} -> {:error, reason}
-      end
+      post_payment_link(body, "donor-#{div(amount_cents, 100)}", user.id)
     end
   end
 
@@ -120,11 +129,7 @@ defmodule Inkwell.Square do
         }
       }
 
-      case square_post("/online-checkout/payment-links", body) do
-        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
-        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
-        {:error, reason} -> {:error, reason}
-      end
+      post_payment_link(body, "donation-#{amount_cents}", user.id)
     end
   end
 
@@ -146,7 +151,7 @@ defmodule Inkwell.Square do
           "location_id" => config[:location_id]
         },
         "checkout_options" => %{
-          "subscription_plan_variation_id" => plan_variation_id,
+          "subscription_plan_id" => plan_variation_id,
           "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
           "accepted_payment_methods" => %{
             "apple_pay" => true,
@@ -158,11 +163,7 @@ defmodule Inkwell.Square do
         }
       }
 
-      case square_post("/online-checkout/payment-links", body) do
-        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
-        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
-        {:error, reason} -> {:error, reason}
-      end
+      post_payment_link(body, "onboard-plus", user.id)
     end
   end
 
@@ -188,7 +189,7 @@ defmodule Inkwell.Square do
           "location_id" => config[:location_id]
         },
         "checkout_options" => %{
-          "subscription_plan_variation_id" => plan_variation_id,
+          "subscription_plan_id" => plan_variation_id,
           "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
           "accepted_payment_methods" => %{
             "apple_pay" => true,
@@ -200,13 +201,70 @@ defmodule Inkwell.Square do
         }
       }
 
-      case square_post("/online-checkout/payment-links", body) do
-        {:ok, %{"payment_link" => %{"url" => url}}} -> {:ok, %{url: url}}
-        {:ok, %{"payment_link" => %{"long_url" => url}}} -> {:ok, %{url: url}}
-        {:error, reason} -> {:error, reason}
-      end
+      post_payment_link(body, "onboard-donor-#{div(amount_cents, 100)}", user.id)
     end
   end
+
+  # Shared helper for all Payment Link creators. Logs the request body, the
+  # response shape, and explicitly checks whether Square actually attached a
+  # subscription. The "subscription_plan_id" field bug (2026-04-15) caused
+  # Square to silently process Payment Links as one-time charges, returning
+  # a successful URL with NO subscription attached. This logging makes that
+  # state immediately visible going forward.
+  defp post_payment_link(body, link_type, user_id) do
+    Logger.info("[Square Payment Link] Creating #{link_type} link for user #{user_id}")
+
+    case square_post("/online-checkout/payment-links", body) do
+      {:ok, response} ->
+        log_payment_link_response(response, link_type, user_id)
+        extract_payment_link_url(response)
+
+      {:error, reason} ->
+        Logger.error("[Square Payment Link] #{link_type} create FAILED for user #{user_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp log_payment_link_response(response, link_type, user_id) do
+    payment_link = Map.get(response, "payment_link", %{})
+    related = Map.get(response, "related_resources", %{})
+    order = Map.get(payment_link, "order_id") || Map.get(related, "orders", []) |> List.first()
+    has_subscription_field = Map.has_key?(payment_link, "subscription_id")
+
+    has_subscription_in_options =
+      case Map.get(payment_link, "checkout_options") do
+        %{"subscription_plan_id" => spid} when is_binary(spid) and spid != "" -> true
+        _ -> false
+      end
+
+    looks_like_subscription = has_subscription_field or has_subscription_in_options
+
+    Logger.info(
+      "[Square Payment Link] #{link_type} response for user #{user_id}: " <>
+        "id=#{Map.get(payment_link, "id", "?")}, " <>
+        "url=#{Map.get(payment_link, "url", "?")}, " <>
+        "has_subscription=#{looks_like_subscription}, " <>
+        "order_id=#{inspect(order)}"
+    )
+
+    unless looks_like_subscription do
+      Logger.warning(
+        "[Square Payment Link] #{link_type} for user #{user_id} returned a Payment Link " <>
+          "WITHOUT a subscription attached. This was the 2026-04-15 quick_pay bug. " <>
+          "Verify SQUARE_PLUS_PLAN_VARIATION_ID secret matches a real plan variation in your Square catalog."
+      )
+    end
+
+    Logger.debug("[Square Payment Link] Full response: #{inspect(response)}")
+  end
+
+  defp extract_payment_link_url(%{"payment_link" => %{"url" => url}}) when is_binary(url),
+    do: {:ok, %{url: url}}
+
+  defp extract_payment_link_url(%{"payment_link" => %{"long_url" => url}}) when is_binary(url),
+    do: {:ok, %{url: url}}
+
+  defp extract_payment_link_url(_), do: {:error, :no_url_in_response}
 
   # ── Subscription Management ───────────────────────────────────────────
 
@@ -334,6 +392,43 @@ defmodule Inkwell.Square do
   defp maybe_put_cursor(body, nil), do: body
   defp maybe_put_cursor(body, ""), do: body
   defp maybe_put_cursor(body, cursor), do: Map.put(body, "cursor", cursor)
+
+  @doc """
+  List recent Square payments (one-time charges, NOT subscriptions).
+
+  Uses `GET /v2/payments` with date filter. Returns up to `:limit` payments
+  (default 100) sorted by created_at descending. Filters to our location.
+
+  Critical for diagnosing the 2026-04-15 quick_pay bug, where Plus signups
+  silently became one-time payments instead of subscriptions. The admin can
+  use this to find any user who paid via the broken Payment Link.
+  """
+  def list_recent_payments(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 100)
+    days = Keyword.get(opts, :days, 90)
+    config = square_config()
+    location_id = config[:location_id]
+
+    if is_nil(location_id) or location_id == "" do
+      {:error, :square_not_configured}
+    else
+      begin_time = DateTime.utc_now() |> DateTime.add(-days, :day) |> DateTime.to_iso8601()
+
+      query =
+        URI.encode_query(%{
+          "begin_time" => begin_time,
+          "sort_order" => "DESC",
+          "location_id" => location_id,
+          "limit" => limit
+        })
+
+      case square_get("/payments?#{query}") do
+        {:ok, %{"payments" => payments}} when is_list(payments) -> {:ok, payments}
+        {:ok, _} -> {:ok, []}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
 
   @doc """
   Search Square subscriptions for a given customer ID.

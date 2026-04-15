@@ -125,6 +125,52 @@ interface AttachResult {
   detail?: string;
 }
 
+interface SquarePaymentRaw {
+  payment_id: string;
+  status: string;
+  amount_cents: number;
+  currency: string;
+  created_at: string | null;
+  note: string | null;
+  looks_like: "plus" | "donor" | "donation" | "unknown";
+  card_brand: string | null;
+  card_last4: string | null;
+  receipt_url: string | null;
+  order_id: string | null;
+  customer_id: string | null;
+  customer_email: string | null;
+  customer_name: string | null;
+  buyer_email: string | null;
+  matched_user: {
+    id: string;
+    username: string;
+    email: string;
+    subscription_tier: string;
+    square_subscription_id: string | null;
+    square_donor_subscription_id: string | null;
+  } | null;
+}
+
+interface SquarePaymentsData {
+  ok: boolean;
+  payments: SquarePaymentRaw[];
+  total: number;
+  error?: string;
+}
+
+interface GrantPlusResult {
+  ok: boolean;
+  user?: {
+    username: string;
+    email: string;
+    subscription_tier: string;
+    subscription_status: string | null;
+    subscription_expires_at: string | null;
+  };
+  error?: string;
+  detail?: string;
+}
+
 const EXPECTED_WEBHOOK_URL = "https://api.inkwell.social/api/billing/webhook";
 
 function parseUtc(iso: string): number {
@@ -205,6 +251,18 @@ export function BillingHealthPanel() {
   const [attachSubId, setAttachSubId] = useState("");
   const [attaching, setAttaching] = useState(false);
   const [attachResult, setAttachResult] = useState<AttachResult | null>(null);
+
+  // Raw payments state
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsData, setPaymentsData] = useState<SquarePaymentsData | null>(null);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+
+  // Grant Plus until date state
+  const [grantEmail, setGrantEmail] = useState("");
+  const [grantDate, setGrantDate] = useState("");
+  const [granting, setGranting] = useState(false);
+  const [grantResult, setGrantResult] = useState<GrantPlusResult | null>(null);
 
   async function fetchHealth() {
     try {
@@ -334,6 +392,76 @@ export function BillingHealthPanel() {
     setRawData(null);
     setRawError(null);
     await handleToggleRaw();
+  }
+
+  async function handleTogglePayments() {
+    if (paymentsOpen) {
+      setPaymentsOpen(false);
+      return;
+    }
+    setPaymentsOpen(true);
+    if (paymentsData) return;
+
+    setPaymentsLoading(true);
+    setPaymentsError(null);
+    try {
+      const res = await fetch("/api/admin/square-payments", { cache: "no-store" });
+      const json = await res.json();
+      if (res.ok) {
+        setPaymentsData(json);
+      } else {
+        setPaymentsError(json.error || `Failed to load Square payments (HTTP ${res.status})`);
+      }
+    } catch {
+      setPaymentsError("Network error loading raw Square payments");
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }
+
+  async function handleRefreshPayments() {
+    setPaymentsData(null);
+    setPaymentsError(null);
+    await handleTogglePayments();
+  }
+
+  async function handleGrantPlus(e: React.FormEvent) {
+    e.preventDefault();
+    const email = grantEmail.trim();
+    const date = grantDate.trim();
+    if (!email || !date) return;
+
+    // Convert YYYY-MM-DD to ISO 8601 at end of day UTC
+    const isoDate = date.includes("T") ? date : `${date}T23:59:59Z`;
+
+    if (
+      !confirm(
+        `Manually grant ${email} Plus tier until ${date}?\n\nThis writes subscription_tier="plus", subscription_status="active", and subscription_expires_at to their user record. Use only when you've verified they paid (e.g., via the Raw Payments view) but no Square subscription was created.`
+      )
+    ) {
+      return;
+    }
+    setGranting(true);
+    setGrantResult(null);
+    try {
+      const res = await fetch("/api/admin/grant-plus-until", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, expires_at: isoDate }),
+        cache: "no-store",
+      });
+      const json: GrantPlusResult = await res.json();
+      setGrantResult(json);
+      if (json.ok) {
+        setGrantEmail("");
+        setGrantDate("");
+        fetchHealth();
+      }
+    } catch {
+      setGrantResult({ ok: false, error: "Network error during grant" });
+    } finally {
+      setGranting(false);
+    }
   }
 
   async function handleAttachSubscription(e: React.FormEvent) {
@@ -831,6 +959,136 @@ export function BillingHealthPanel() {
         )}
       </div>
 
+      {/* Raw Payments — find one-time charges that never became subscriptions */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-medium">Raw Square payments</div>
+          {paymentsOpen && (
+            <button
+              onClick={handleRefreshPayments}
+              className="text-xs underline opacity-70 hover:opacity-100"
+              style={{ color: "var(--foreground)" }}
+            >
+              refresh
+            </button>
+          )}
+        </div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Lists every <strong>one-time payment</strong> in your Square account from the last 90 days, including charges that did NOT create a subscription. Use this to find users who paid via the broken Payment Link flow (one-time $5 receipts that should have been $5/mo subscriptions).
+        </div>
+        <button
+          onClick={handleTogglePayments}
+          className="text-xs underline opacity-80 hover:opacity-100"
+          style={{ color: "var(--foreground)" }}
+        >
+          {paymentsOpen ? "Hide" : "View"} raw Square payments
+        </button>
+
+        {paymentsOpen && (
+          <div className="mt-3">
+            {paymentsLoading && <p className="text-xs" style={{ color: "var(--muted)" }}>Loading…</p>}
+            {paymentsError && <p className="text-xs" style={{ color: "var(--danger, #dc2626)" }}>{paymentsError}</p>}
+            {paymentsData && (
+              <div>
+                <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+                  {paymentsData.total} payment{paymentsData.total === 1 ? "" : "s"} in the last 90 days
+                </div>
+                {paymentsData.payments.length === 0 ? (
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    No payments. Either nobody has paid via Square yet, or location_id is misconfigured.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {paymentsData.payments.map((p) => (
+                      <SquarePaymentRow key={p.payment_id} payment={p} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Grant Plus until date — manual recovery for users with one-time payments */}
+      <div
+        className="rounded-lg p-3 mb-4"
+        style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid var(--border)" }}
+      >
+        <div className="text-sm font-medium mb-1">Grant Plus until date</div>
+        <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Manually grant a user Plus tier with an explicit expiration date. For recovery cases like users who paid via the broken Payment Link flow and got a one-time charge instead of a subscription. Sets <code>tier=plus</code> + <code>status=active</code> + <code>subscription_expires_at</code>. Phase 2&apos;s grace-period worker (when built) will downgrade them when the date passes if they haven&apos;t re-subscribed.
+        </div>
+        <form onSubmit={handleGrantPlus} className="space-y-2">
+          <input
+            type="email"
+            value={grantEmail}
+            onChange={(e) => setGrantEmail(e.target.value)}
+            placeholder="user@example.com"
+            disabled={granting}
+            required
+            className="w-full px-2 py-1.5 rounded text-xs"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={grantDate}
+              onChange={(e) => setGrantDate(e.target.value)}
+              disabled={granting}
+              required
+              className="flex-1 px-2 py-1.5 rounded text-xs"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={granting || !grantEmail.trim() || !grantDate.trim()}
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              style={{
+                background: "var(--accent)",
+                color: "white",
+                opacity: granting || !grantEmail.trim() || !grantDate.trim() ? 0.5 : 1,
+              }}
+            >
+              {granting ? "Granting…" : "Grant Plus"}
+            </button>
+          </div>
+        </form>
+
+        {grantResult && (
+          <div className="mt-2 text-xs">
+            {grantResult.ok && grantResult.user ? (
+              <div>
+                <div style={{ color: "var(--success, #16a34a)" }} className="font-medium">
+                  ✓ Granted Plus to @{grantResult.user.username}
+                </div>
+                <div style={{ color: "var(--muted)" }} className="mt-0.5">
+                  expires: {grantResult.user.subscription_expires_at || "—"}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "var(--danger, #dc2626)" }}>
+                {grantResult.error || "Grant failed"}
+                {grantResult.detail && (
+                  <span style={{ color: "var(--muted)" }}> — {grantResult.detail}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recent deliveries */}
       <div>
         <div className="text-[11px] uppercase tracking-wider mb-1.5" style={{ color: "var(--muted)" }}>
@@ -975,6 +1233,103 @@ function PlusUserGroup({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SquarePaymentRow({ payment: p }: { payment: SquarePaymentRaw }) {
+  const isCompleted = p.status === "COMPLETED" || p.status === "APPROVED";
+  const statusBg = isCompleted
+    ? "color-mix(in srgb, var(--success, #16a34a) 18%, transparent)"
+    : "var(--surface-hover, rgba(0,0,0,0.06))";
+  const statusFg = isCompleted ? "var(--success, #16a34a)" : "var(--muted)";
+
+  const looksBg =
+    p.looks_like === "plus"
+      ? "color-mix(in srgb, var(--accent) 15%, transparent)"
+      : p.looks_like === "donor" || p.looks_like === "donation"
+      ? "color-mix(in srgb, #f59e0b 18%, transparent)"
+      : "var(--surface-hover, rgba(0,0,0,0.06))";
+
+  const dollars = (p.amount_cents / 100).toFixed(2);
+
+  // Email shown to admin: prefer buyer_email, fall back to customer_email
+  const displayEmail = p.buyer_email || p.customer_email;
+
+  // Whether this payment is "orphaned" — succeeded but has no matched local user OR
+  // user has no Square subscription attached (this is the bug case)
+  const isOrphan =
+    isCompleted &&
+    (!p.matched_user ||
+      (!p.matched_user.square_subscription_id && !p.matched_user.square_donor_subscription_id));
+
+  return (
+    <div
+      className="text-xs px-2 py-1.5 rounded space-y-1"
+      style={{
+        background: "var(--surface, rgba(255,255,255,0.5))",
+        border: isOrphan ? "1px solid #f59e0b" : "1px solid var(--border)",
+      }}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+          style={{ background: statusBg, color: statusFg }}
+        >
+          {p.status}
+        </span>
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+          style={{ background: looksBg, color: "var(--foreground)" }}
+        >
+          looks like {p.looks_like}
+        </span>
+        <span className="font-medium" style={{ color: "var(--foreground)" }}>
+          ${dollars} {p.currency}
+        </span>
+        {p.card_brand && p.card_last4 && (
+          <span style={{ color: "var(--muted)" }}>
+            · {p.card_brand} •{p.card_last4}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+        {p.customer_name && <span>{p.customer_name}</span>}
+        {displayEmail && <span>&lt;{displayEmail}&gt;</span>}
+        {p.created_at && <span>· {formatDate(p.created_at)}</span>}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {p.matched_user ? (
+          <>
+            <span style={{ color: "var(--success, #16a34a)" }}>
+              ✓ matches{" "}
+              <span className="font-mono" style={{ color: "var(--foreground)" }}>
+                @{p.matched_user.username}
+              </span>
+            </span>
+            {isOrphan && (
+              <span style={{ color: "#f59e0b" }} className="font-medium">
+                ⚠ NO Square subscription attached — this is a one-time charge that should have been recurring
+              </span>
+            )}
+          </>
+        ) : (
+          <span style={{ color: "#f59e0b" }}>
+            ⚠ no matching local user — orphan payment, may be from a checkout that never completed account creation
+          </span>
+        )}
+        {p.receipt_url && (
+          <a
+            href={p.receipt_url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline opacity-70 hover:opacity-100"
+            style={{ color: "var(--foreground)" }}
+          >
+            receipt
+          </a>
+        )}
+      </div>
     </div>
   );
 }

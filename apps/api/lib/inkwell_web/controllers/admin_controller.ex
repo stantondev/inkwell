@@ -157,6 +157,86 @@ defmodule InkwellWeb.AdminController do
     |> json(%{error: "email and subscription_id are required"})
   end
 
+  # GET /api/admin/square-payments — raw view of one-time payments in Square
+  # (Receipts/Orders, NOT subscriptions). Use this to find users who paid via
+  # the broken Payment Link flow and never had a subscription created.
+  def square_payments(conn, _params) do
+    Logger.info("Admin #{conn.assigns.current_user.username} fetching raw Square payments")
+
+    case Billing.list_square_payments_raw() do
+      {:ok, payments} ->
+        json(conn, %{ok: true, payments: payments, total: length(payments)})
+
+      {:error, :square_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Square is not configured (no access token or location ID)"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Failed to fetch Square payments", detail: inspect(reason)})
+    end
+  end
+
+  # POST /api/admin/grant-plus-until — manually grant a user Plus tier with
+  # an explicit expiration date. Used for recovery cases (e.g., users who paid
+  # via a broken Payment Link and got a one-time charge instead of a sub).
+  # Body: %{"email" => "...", "expires_at" => "2026-05-08T00:00:00Z"}
+  def grant_plus_until(conn, %{"email" => email, "expires_at" => expires_at_iso})
+      when is_binary(email) and is_binary(expires_at_iso) do
+    Logger.info(
+      "Admin #{conn.assigns.current_user.username} granting Plus to #{email} until #{expires_at_iso}"
+    )
+
+    with {:ok, expires_at, _} <- DateTime.from_iso8601(expires_at_iso),
+         :future <- check_future(expires_at),
+         {:ok, user} <- Billing.grant_plus_until(email, expires_at) do
+      json(conn, %{
+        ok: true,
+        user: %{
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          subscription_tier: user.subscription_tier,
+          subscription_status: user.subscription_status,
+          subscription_expires_at: user.subscription_expires_at
+        }
+      })
+    else
+      {:error, :user_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
+
+      :past ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "expires_at must be in the future"})
+
+      {:error, :invalid_format} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "expires_at must be ISO 8601 (e.g., 2026-05-08T00:00:00Z)"})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Failed to grant Plus", detail: inspect(reason)})
+    end
+  end
+
+  def grant_plus_until(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "email and expires_at are required"})
+  end
+
+  defp check_future(%DateTime{} = dt) do
+    case DateTime.compare(dt, DateTime.utc_now()) do
+      :gt -> :future
+      _ -> :past
+    end
+  end
+
   defp render_plus_users(users) do
     Enum.map(users, fn u ->
       %{
