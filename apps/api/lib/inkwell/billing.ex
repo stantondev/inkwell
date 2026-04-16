@@ -1791,34 +1791,104 @@ defmodule Inkwell.Billing do
   end
 
   # ── Handle One-Time Donation Payments ──────────────────────────────────
+  #
+  # Square's `payment.updated` webhook fires on every status transition of a
+  # Payment (PENDING → APPROVED → COMPLETED, etc.), and fires for BOTH
+  # subscription renewals and one-time donations — the Payment object has no
+  # direct `subscription_id` field to distinguish them. The link from a
+  # payment to a subscription goes through its parent Order's line items.
+  #
+  # To keep this simple and fast (no extra Square API calls per webhook),
+  # we use a three-part filter:
+  #
+  #   1. Only match status="COMPLETED" (drop APPROVED — that's an
+  #      intermediate state that also fires payment.updated).
+  #   2. Look up the user by Square customer_id. If they have an active
+  #      `square_subscription_id` locally, this payment is their subscription
+  #      renewal — not a separate donation. Skip the Slack notification.
+  #   3. Deduplicate by payment_id using the webhook_events table so the
+  #      same final-state payment can't fire multiple notifications even if
+  #      Square sends duplicate events.
+  #
+  # Prior bug (2026-04-15): the handler matched [COMPLETED, APPROVED],
+  # checked a non-existent `payment["subscription_id"]` field (always nil),
+  # had no dedup, and fired 4 false "one-time donation" Slack alerts when
+  # @stanton subscribed via Square (one per state transition).
 
   defp handle_payment_completed(%{"payment" => payment}), do: handle_payment_completed(payment)
 
-  defp handle_payment_completed(%{"amount_money" => %{"amount" => amount_cents}, "status" => status} = payment)
-       when status in ["COMPLETED", "APPROVED"] do
-    # One-time donations have no subscription_id — subscription payments are handled
-    # via invoice.payment_made, so we only notify here for non-subscription payments
-    if is_nil(payment["subscription_id"]) do
-      customer_id = payment["customer_id"]
-      user = if customer_id, do: find_user_by_square_customer(customer_id) || find_user_by_email_from_square(customer_id)
-      username = if user, do: user.username, else: "unknown"
+  defp handle_payment_completed(
+         %{
+           "id" => payment_id,
+           "amount_money" => %{"amount" => amount_cents},
+           "status" => "COMPLETED"
+         } = payment
+       ) do
+    customer_id = payment["customer_id"]
 
-      Logger.info("One-time donation received: #{amount_cents} cents from #{username}")
-      Inkwell.Slack.notify_donation(username, amount_cents)
+    user =
+      if customer_id,
+        do:
+          find_user_by_square_customer(customer_id) ||
+            find_user_by_email_from_square(customer_id)
+
+    cond do
+      subscription_renewal?(user) ->
+        Logger.info(
+          "Payment #{payment_id} (#{amount_cents} cents) is a subscription renewal for @#{user.username} — skipping donation notification"
+        )
+
+        :ok
+
+      true ->
+        notify_donation_once(payment_id, user, amount_cents)
     end
-
-    :ok
   end
 
   defp handle_payment_completed(%{"status" => status}) do
-    # payment.updated fires on every status change; only act on completed payments
-    Logger.debug("Ignoring payment.updated with status #{status}")
+    # payment.updated fires on every status change; we already handled
+    # COMPLETED above, everything else is intermediate or terminal-error.
+    Logger.debug("Ignoring payment event with status #{status}")
     :ok
   end
 
   defp handle_payment_completed(_) do
-    Logger.info("payment.completed — no amount data, skipping")
+    Logger.info("payment event — unrecognized structure, skipping")
     :ok
+  end
+
+  # True if this user has an active Square subscription (Plus OR Donor),
+  # meaning a recent completed payment is most likely their recurring charge
+  # rather than a separate one-time donation.
+  defp subscription_renewal?(nil), do: false
+
+  defp subscription_renewal?(%User{} = user) do
+    (user.square_subscription_id != nil and user.subscription_status == "active") or
+      (user.square_donor_subscription_id != nil and user.ink_donor_status == "active")
+  end
+
+  # Fire the donation Slack notification exactly once per payment_id. Uses
+  # the existing webhook_events table (unique index on event_id) as a
+  # dedup cache — the first insert succeeds and fires the notification,
+  # subsequent inserts for the same payment_id silently no-op via
+  # on_conflict: :nothing.
+  defp notify_donation_once(payment_id, user, amount_cents) do
+    dedup_key = "donation_notified:#{payment_id}"
+
+    if already_processed?(dedup_key) do
+      Logger.debug("Already notified for payment #{payment_id}, skipping duplicate")
+      :ok
+    else
+      username = if user, do: user.username, else: "unknown"
+
+      Logger.info(
+        "One-time donation received: #{amount_cents} cents from #{username} (payment #{payment_id})"
+      )
+
+      Inkwell.Slack.notify_donation(username, amount_cents)
+      record_event(dedup_key, "donation_notified", "processed")
+      :ok
+    end
   end
 
   # ── Private: Helpers ───────────────────────────────────────────────────
