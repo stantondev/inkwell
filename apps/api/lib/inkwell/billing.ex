@@ -457,7 +457,8 @@ defmodule Inkwell.Billing do
 
   Sets `subscription_tier="plus"`, `subscription_status="active"`,
   `subscription_expires_at=<expires_at>`. Does NOT touch any Square or Stripe
-  IDs. Phase 2's grace-period worker will downgrade the user when
+  IDs. The admin can manually run grace expiration from the admin panel's
+  advanced tools, or the user naturally sees the free tier when
   `subscription_expires_at` passes if they haven't re-subscribed.
 
   Returns `{:ok, user}` or an error.
@@ -477,7 +478,8 @@ defmodule Inkwell.Billing do
         #
         # Status is "canceled" (not "active") to match the semantic: the user
         # is not actively paying; they have access until expires_at and will
-        # be auto-downgraded on that date by SubscriptionExpirationWorker.
+        # be downgraded on that date (manually via admin panel, or when
+        # the admin runs the grace expiration tool from advanced settings).
         # This mirrors how a Stripe cancel-at-period-end would look.
         attrs = %{
           subscription_tier: "plus",
@@ -808,7 +810,8 @@ defmodule Inkwell.Billing do
   (manually via grant_plus_until, via admin cancel, or via a user-initiated
   cancel-at-period-end flow) and whose `subscription_expires_at` has passed.
 
-  Used by the `SubscriptionExpirationWorker` to auto-downgrade expired users.
+  Called manually from the admin panel's "Grace expiration worker" advanced
+  tools section (preview + run). No automatic cron — admin triggers when needed.
   Also invoked by the admin preview (dry_run: true) and manual-run
   (dry_run: false) endpoints on the billing health panel.
 
@@ -824,7 +827,7 @@ defmodule Inkwell.Billing do
   - `subscription_expires_at < now()` — the paid/granted period has passed
 
   Donor status is intentionally not touched — donors are independent of Plus
-  and expire via a separate code path in SubscriptionExpirationWorker.
+  and expire via the admin panel's manual grace expiration tool.
 
   Returns a map:
 

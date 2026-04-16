@@ -52,6 +52,12 @@ defmodule Inkwell.Workers.CleanupExpiredTokensWorker do
       Logger.info("Cleaned up #{webhook_count} old webhook event(s)")
     end
 
+    {:ok, delivery_count} = Inkwell.Billing.cleanup_old_webhook_deliveries()
+
+    if delivery_count > 0 do
+      Logger.info("Cleaned up #{delivery_count} old webhook delivery log(s)")
+    end
+
     Inkwell.Workers.Heartbeat.ping(:cleanup_expired_tokens)
     :ok
   end

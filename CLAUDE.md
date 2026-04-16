@@ -61,6 +61,7 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 - `SQUARE_LOCATION_ID` — Square location ID
 - `SQUARE_WEBHOOK_SIGNATURE_KEY` — Square webhook HMAC-SHA256 signature key
 - `SQUARE_PLUS_PLAN_VARIATION_ID` — Square plan variation ID for Plus $5/mo
+- `SQUARE_PLUS_PAYMENT_LINK_OVERRIDE` — (optional) Emergency override URL for Plus checkout. When set, `create_plus_payment_link/1` returns this URL directly instead of calling Square's API. Used when the API-generated flow is broken — admin manually creates a Square Payment Link in the dashboard and sets this secret. Safe to set/unset on the fly without redeploys.
 - `SQUARE_DONOR_PLAN_VARIATION_1` — Square plan variation ID for Ink Donor $1/mo
 - `SQUARE_DONOR_PLAN_VARIATION_2` — Square plan variation ID for Ink Donor $2/mo
 - `SQUARE_DONOR_PLAN_VARIATION_3` — Square plan variation ID for Ink Donor $3/mo
@@ -102,7 +103,7 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 
 Inkwell migrated from Stripe to **Square** as a bridge payment processor (April 2026). Square handles Plus subscriptions ($5/mo), Ink Donor recurring ($1/$2/$3/mo), and one-time donations ($3/$5/$10). Square does NOT support marketplace split payments, which is why Postage and Writer Subscriptions are paused.
 
-**Architecture**: Square Payment Links (hosted checkout pages, like Stripe Checkout) — no frontend SDK needed. Card data never touches Inkwell's server. Backend creates a Payment Link URL via `POST /v2/online-checkout/payment-links` with `subscription_plan_variation_id`, redirects user to Square-hosted page, Square handles card storage + customer creation + subscription creation, then redirects back to Inkwell.
+**Architecture**: Square Payment Links (hosted checkout pages, like Stripe Checkout) — no frontend SDK needed. Card data never touches Inkwell's server. Backend creates a Payment Link URL via `POST /v2/online-checkout/payment-links` with `subscription_plan_id` (which takes the plan **variation** ID, despite the field name), redirects user to Square-hosted page, Square handles card storage + customer creation + subscription creation, then redirects back to Inkwell. Emergency override: `SQUARE_PLUS_PAYMENT_LINK_OVERRIDE` Fly secret bypasses the API call and uses a manually-created Square Payment Link URL directly.
 
 **Square subscription plans** (created in Square Dashboard):
 - Plus: $5/mo recurring
@@ -433,7 +434,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Postage (reader support payments)** — **TEMPORARILY PAUSED**. Requires Stripe Connect for marketplace split payments. UI shows "temporarily unavailable" messages. Read-only endpoints (history, stats) still work. See "Postage & Writer Subscriptions (Temporarily Paused)" section above
 - **Ink Donor (voluntary donations)** — $1/$2/$3 per month recurring donation, separate from Plus. Grants "Ink Donor" badge on profile and feed cards. Users can be both Plus and Ink Donor simultaneously. Tagline: "Keep the ink flowing."
   - `POST /api/billing/donor-checkout` — accepts `%{"amount_cents" => 100|200|300}`, creates Square Payment Link for the matching donor plan variation
-  - Webhook handlers distinguish Plus vs Donor by matching `subscription_plan_variation_id` against configured plan variation IDs
+  - Webhook handlers distinguish Plus vs Donor by matching `plan_variation_id` from the subscription object against configured plan variation IDs
   - User model has: `square_donor_subscription_id`, `ink_donor_status` ("active"/"canceled"/"past_due"/nil), `ink_donor_amount_cents` (100/200/300/nil) (legacy field `ink_donor_stripe_subscription_id` retained)
   - `ink_donor_status` and `ink_donor_amount_cents` exposed in auth session, user profile, billing status, feed/explore author maps
   - Account deletion cancels donor subscription alongside Plus
@@ -442,6 +443,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **One-time donations** (NEW with Square) — $3/$5/$10 single payments via Square Payment Link. No subscription created. Available from billing settings page. Donations fire a Slack admin notification via `Inkwell.Slack.notify_donation/2` triggered by the `payment.completed` webhook handler in `Billing.handle_payment_completed/1`
 - **Onboarding checkout** — `POST /api/billing/onboarding-checkout` creates Square Payment Link that redirects back to `/welcome?checkout=success&type={plus|donor}&step=5` instead of `/settings/billing`. Accepts `%{"type" => "plus"}` or `%{"type" => "donor", "amount_cents" => 100|200|300}`. Frontend proxy: `apps/web/src/app/api/billing/onboarding-checkout/route.ts`
 - Key files: `apps/api/lib/inkwell/billing.ex`, `apps/api/lib/inkwell/square.ex`, `apps/api/lib/inkwell_web/controllers/billing_controller.ex`
+- **Admin billing endpoints** (all in `AdminController`, require auth + admin role): `GET /api/admin/billing-health` (webhook stats + recent deliveries), `POST /api/admin/reconcile-subscriptions` (bulk sync from Square), `POST /api/admin/sync-user-by-email` (single-user sync), `GET /api/admin/plus-users` (categorized Plus users by payment source), `GET /api/admin/square-subscriptions` (raw Square subscription list), `GET /api/admin/square-payments` (raw Square payments list), `POST /api/admin/attach-square-subscription` (manual subscription attach), `POST /api/admin/grant-plus-until` (manual Plus grant with expiration), `POST /api/admin/send-billing-apology` (send apology letter via DM), `GET /api/admin/grace-expiration-preview` + `POST /api/admin/run-grace-expiration` (manual grace period enforcement). Admin panel UI in `apps/web/src/app/admin/billing-health-panel.tsx` (visible sections) + `billing-advanced-tools.tsx` (debugging sections behind toggle) + `billing-shared.tsx` (shared types/utilities).
 - Frontend proxy routes: `apps/web/src/app/api/billing/` — `checkout/route.ts`, `cancel/route.ts`, `cancel-donor/route.ts`, `donor-checkout/route.ts`, `donate/route.ts`, `onboarding-checkout/route.ts`, `webhook/route.ts`, `status/route.ts`
 - **Writer Subscription Plans** — **TEMPORARILY PAUSED**. Requires Stripe Connect for marketplace split payments. Backend returns 503 "feature unavailable". Frontend shows paused message. Code intact for re-enablement when Stripe returns.
   - **Frontend**: `apps/web/src/app/settings/subscriptions/page.tsx` is a ~60-line static "Paused" card (reduced from the prior 662-line CRUD UI — create form, edit, archive, subscriber list, stats) explaining the Stripe Connect dependency. Previous CRUD logic was removed — when re-enabling, restore from git history
@@ -1285,6 +1287,8 @@ Key files:
 - `push_subscriptions` — web push notification subscriptions (user_id FK → users delete_all, endpoint text unique NOT NULL, p256dh text NOT NULL, auth text NOT NULL, user_agent string 500 nullable)
 - `blocked_remote_actors` — per-user fediverse actor blocks (user_id FK → users delete_all, remote_actor_id FK → remote_actors delete_all; unique on [user_id, remote_actor_id])
 - `blocked_domains` — per-user domain blocks + admin instance-level defederation (user_id FK → users delete_all nullable, domain string NOT NULL, reason string nullable, blocked_by_admin boolean default false; unique on [user_id, domain] for user blocks, unique on [domain] where blocked_by_admin for admin blocks)
+- `webhook_deliveries` — audit log of every Square webhook hit (source, event_type, status: received/signature_failed/parse_failed/handler_failed/missing_body, signature_valid, remote_ip, body_size, error; 30-day retention via CleanupExpiredTokensWorker)
+- `webhook_events` — dedup table for processed Square webhook events (event_id unique, prevents duplicate processing; 30-day retention via CleanupExpiredTokensWorker)
 - `oban_jobs` / `oban_peers` — background job queue
 
 ## Data Retention & Cleanup
