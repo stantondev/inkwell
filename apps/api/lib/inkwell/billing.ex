@@ -467,42 +467,65 @@ defmodule Inkwell.Billing do
     normalized = email |> String.trim() |> String.downcase()
 
     case Repo.get_by(User, email: normalized) do
-      nil ->
-        {:error, :user_not_found}
-
-      %User{} = user ->
-        # Also clear stale legacy Stripe ID since Stripe is dead and the ID
-        # would otherwise misclassify the user as :legacy_stripe in the
-        # plus_users_by_source bucket. After grant, they should appear in
-        # :manually_granted.
-        #
-        # Status is "canceled" (not "active") to match the semantic: the user
-        # is not actively paying; they have access until expires_at and will
-        # be downgraded on that date (manually via admin panel, or when
-        # the admin runs the grace expiration tool from advanced settings).
-        # This mirrors how a Stripe cancel-at-period-end would look.
-        attrs = %{
-          subscription_tier: "plus",
-          subscription_status: "canceled",
-          subscription_expires_at: expires_at,
-          stripe_subscription_id: nil
-        }
-
-        case user |> User.subscription_changeset(attrs) |> Repo.update() do
-          {:ok, updated} ->
-            Logger.info(
-              "Manually granted Plus to user #{updated.id} (@#{updated.username}) until #{DateTime.to_iso8601(expires_at)}"
-            )
-
-            {:ok, updated}
-
-          {:error, changeset} ->
-            {:error, changeset}
-        end
+      nil -> {:error, :user_not_found}
+      %User{} = user -> apply_grant_plus(user, expires_at)
     end
   end
 
   def grant_plus_until(_, _), do: {:error, :invalid_params}
+
+  @doc """
+  Same as `grant_plus_until/2` but looks up the user by username instead of
+  email. Useful for the admin UI when the admin doesn't know or doesn't want
+  to look up the user's email (e.g., extending Plus for a known user by
+  their handle). A leading `@` is stripped if present.
+  """
+  def grant_plus_to_username_until(username, %DateTime{} = expires_at) when is_binary(username) do
+    normalized =
+      username
+      |> String.trim()
+      |> String.trim_leading("@")
+      |> String.downcase()
+
+    case Repo.get_by(User, username: normalized) do
+      nil -> {:error, :user_not_found}
+      %User{} = user -> apply_grant_plus(user, expires_at)
+    end
+  end
+
+  def grant_plus_to_username_until(_, _), do: {:error, :invalid_params}
+
+  # Shared grant logic used by both email and username lookup paths.
+  #
+  # Also clears stale legacy Stripe ID since Stripe is dead and the ID would
+  # otherwise misclassify the user as :legacy_stripe in the plus_users_by_source
+  # bucket. After grant, they should appear in :manually_granted.
+  #
+  # Status is "canceled" (not "active") to match the semantic: the user is not
+  # actively paying; they have access until expires_at and will be downgraded
+  # on that date (manually via admin panel, or when the admin runs the grace
+  # expiration tool from advanced settings). This mirrors how a Stripe
+  # cancel-at-period-end would look.
+  defp apply_grant_plus(%User{} = user, %DateTime{} = expires_at) do
+    attrs = %{
+      subscription_tier: "plus",
+      subscription_status: "canceled",
+      subscription_expires_at: expires_at,
+      stripe_subscription_id: nil
+    }
+
+    case user |> User.subscription_changeset(attrs) |> Repo.update() do
+      {:ok, updated} ->
+        Logger.info(
+          "Manually granted Plus to user #{updated.id} (@#{updated.username}) until #{DateTime.to_iso8601(expires_at)}"
+        )
+
+        {:ok, updated}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
 
   @doc """
   Send a billing apology letter to a user via the Letters (DM) system.

@@ -182,17 +182,56 @@ defmodule InkwellWeb.AdminController do
 
   # POST /api/admin/grant-plus-until — manually grant a user Plus tier with
   # an explicit expiration date. Used for recovery cases (e.g., users who paid
-  # via a broken Payment Link and got a one-time charge instead of a sub).
-  # Body: %{"email" => "...", "expires_at" => "2026-05-08T00:00:00Z"}
-  def grant_plus_until(conn, %{"email" => email, "expires_at" => expires_at_iso})
-      when is_binary(email) and is_binary(expires_at_iso) do
-    Logger.info(
-      "Admin #{conn.assigns.current_user.username} granting Plus to #{email} until #{expires_at_iso}"
-    )
+  # via a broken Payment Link and got a one-time charge instead of a sub) and
+  # for comp/gift access.
+  #
+  # Accepts either `username` or `email` to identify the user.
+  # Body: %{"username" => "eve", "expires_at" => "2026-05-01T23:59:59Z"}
+  #    or %{"email" => "...",  "expires_at" => "2026-05-08T00:00:00Z"}
+  def grant_plus_until(conn, %{"expires_at" => expires_at_iso} = params)
+      when is_binary(expires_at_iso) do
+    username = normalize_string(params["username"])
+    email = normalize_string(params["email"])
 
+    cond do
+      username != "" ->
+        Logger.info(
+          "Admin #{conn.assigns.current_user.username} granting Plus to @#{username} until #{expires_at_iso}"
+        )
+
+        do_grant_plus(conn, expires_at_iso, fn expires_at ->
+          Billing.grant_plus_to_username_until(username, expires_at)
+        end)
+
+      email != "" ->
+        Logger.info(
+          "Admin #{conn.assigns.current_user.username} granting Plus to #{email} until #{expires_at_iso}"
+        )
+
+        do_grant_plus(conn, expires_at_iso, fn expires_at ->
+          Billing.grant_plus_until(email, expires_at)
+        end)
+
+      true ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "username or email is required"})
+    end
+  end
+
+  def grant_plus_until(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "username or email, plus expires_at, are required"})
+  end
+
+  defp normalize_string(value) when is_binary(value), do: String.trim(value)
+  defp normalize_string(_), do: ""
+
+  defp do_grant_plus(conn, expires_at_iso, grant_fun) do
     with {:ok, expires_at, _} <- DateTime.from_iso8601(expires_at_iso),
          :future <- check_future(expires_at),
-         {:ok, user} <- Billing.grant_plus_until(email, expires_at) do
+         {:ok, user} <- grant_fun.(expires_at) do
       json(conn, %{
         ok: true,
         user: %{
@@ -206,7 +245,7 @@ defmodule InkwellWeb.AdminController do
       })
     else
       {:error, :user_not_found} ->
-        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
+        conn |> put_status(:not_found) |> json(%{error: "No user with that username or email"})
 
       :past ->
         conn
@@ -223,12 +262,6 @@ defmodule InkwellWeb.AdminController do
         |> put_status(:unprocessable_entity)
         |> json(%{error: "Failed to grant Plus", detail: inspect(reason)})
     end
-  end
-
-  def grant_plus_until(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "email and expires_at are required"})
   end
 
   defp check_future(%DateTime{} = dt) do

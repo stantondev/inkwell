@@ -88,7 +88,10 @@ export function BillingHealthPanel() {
   const [syncResult, setSyncResult] = useState<SyncUserResult | null>(null);
 
   // Grant Plus until date state
-  const [grantEmail, setGrantEmail] = useState("");
+  // Accepts either an Inkwell @username or an email address — auto-detected
+  // on submit based on whether the input contains an `@` followed by a
+  // domain (i.e., looks like an email).
+  const [grantIdentifier, setGrantIdentifier] = useState("");
   const [grantDate, setGrantDate] = useState("");
   const [granting, setGranting] = useState(false);
   const [grantResult, setGrantResult] = useState<GrantPlusResult | null>(null);
@@ -174,15 +177,26 @@ export function BillingHealthPanel() {
 
   async function handleGrantPlus(e: React.FormEvent) {
     e.preventDefault();
-    const email = grantEmail.trim();
+    const identifier = grantIdentifier.trim();
     const date = grantDate.trim();
-    if (!email || !date) return;
+    if (!identifier || !date) return;
 
     const isoDate = date.includes("T") ? date : `${date}T23:59:59Z`;
 
+    // Treat as email only if it looks like one (contains @ AND a dot after
+    // the @). Otherwise treat as an Inkwell username. A leading @ is stripped
+    // in both cases since usernames don't include it and emails can't start
+    // with one.
+    const stripped = identifier.replace(/^@+/, "");
+    const isEmail = /.+@.+\..+/.test(stripped);
+    const body = isEmail
+      ? { email: stripped, expires_at: isoDate }
+      : { username: stripped, expires_at: isoDate };
+    const label = isEmail ? stripped : `@${stripped}`;
+
     if (
       !confirm(
-        `Manually grant ${email} Plus tier until ${date}?\n\nThis sets subscription_tier="plus", subscription_status="canceled" (cancel-at-period-end semantic), and subscription_expires_at to the chosen date. The grace expiration worker will auto-downgrade them on that date if they haven't re-subscribed.`
+        `Manually grant ${label} Plus tier until ${date}?\n\nThis sets subscription_tier="plus", subscription_status="canceled" (cancel-at-period-end semantic), and subscription_expires_at to the chosen date. The grace expiration worker will auto-downgrade them on that date if they haven't re-subscribed.`
       )
     ) {
       return;
@@ -193,13 +207,13 @@ export function BillingHealthPanel() {
       const res = await fetch("/api/admin/grant-plus-until", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, expires_at: isoDate }),
+        body: JSON.stringify(body),
         cache: "no-store",
       });
       const json: GrantPlusResult = await res.json();
       setGrantResult(json);
       if (json.ok) {
-        setGrantEmail("");
+        setGrantIdentifier("");
         setGrantDate("");
         fetchHealth();
       }
@@ -474,18 +488,22 @@ export function BillingHealthPanel() {
         <div className="text-sm font-medium mb-1">Grant Plus until date</div>
         <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
           Manually grant a user Plus tier with an explicit expiration date. Useful for comp
-          accounts, gifts, or manually extending Plus for a specific user. Sets{" "}
-          <code>status=canceled</code> + <code>subscription_expires_at</code>. The grace
-          expiration worker will auto-downgrade them on that date.
+          accounts, gifts, or manually extending Plus for a specific user. Accepts an Inkwell{" "}
+          <code>@username</code> or an email. Sets <code>status=canceled</code> +{" "}
+          <code>subscription_expires_at</code>. The grace expiration worker will auto-downgrade
+          them on that date.
         </div>
         <form onSubmit={handleGrantPlus} className="space-y-2">
           <input
-            type="email"
-            value={grantEmail}
-            onChange={(e) => setGrantEmail(e.target.value)}
-            placeholder="user@example.com"
+            type="text"
+            value={grantIdentifier}
+            onChange={(e) => setGrantIdentifier(e.target.value)}
+            placeholder="@eve  or  user@example.com"
             disabled={granting}
             required
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
             className="w-full px-2 py-1.5 rounded text-xs"
             style={{
               background: "var(--surface)",
@@ -509,12 +527,12 @@ export function BillingHealthPanel() {
             />
             <button
               type="submit"
-              disabled={granting || !grantEmail.trim() || !grantDate.trim()}
+              disabled={granting || !grantIdentifier.trim() || !grantDate.trim()}
               className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
               style={{
                 background: "var(--accent)",
                 color: "white",
-                opacity: granting || !grantEmail.trim() || !grantDate.trim() ? 0.5 : 1,
+                opacity: granting || !grantIdentifier.trim() || !grantDate.trim() ? 0.5 : 1,
               }}
             >
               {granting ? "Granting…" : "Grant Plus"}
