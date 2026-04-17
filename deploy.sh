@@ -12,6 +12,12 @@
 #   ./deploy.sh api      Deploy only the API
 #   ./deploy.sh web      Deploy only the frontend
 #   ./deploy.sh status   Check deployment status
+#   ./deploy.sh pause    Pause Sentinel alerts (default 10 min)
+#   ./deploy.sh unpause  Resume Sentinel alerts immediately
+#
+# The `api`, `web`, and `deploy` subcommands automatically pause Sentinel
+# for the deploy window and unpause on completion (or interrupt). Set
+# SENTINEL_DISABLE=1 to skip.
 # ──────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -30,6 +36,91 @@ ok()   { echo -e "  ${GREEN}✓${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; }
 info() { echo -e "  ${YELLOW}…${NC} $1"; }
 step() { echo -e "\n${CYAN}${BOLD}$1${NC}\n"; }
+
+# ── Sentinel Maintenance Mode ────────────────────────────────
+# Pauses Sentinel incident creation / alerts for the duration of a deploy.
+# Writes a maintenance.json file to the Sentinel repo's gh-pages branch.
+# Sentinel's workflow reads this file and skips alerting when paused_until
+# is in the future. The file auto-expires, so a dropped unpause just
+# means alerts return in SENTINEL_PAUSE_MIN minutes naturally.
+#
+# Override via env: SENTINEL_REPO (default stantondev/sentinel),
+# SENTINEL_PAUSE_MIN (default 10), SENTINEL_DISABLE=1 to skip.
+
+SENTINEL_REPO="${SENTINEL_REPO:-stantondev/sentinel}"
+SENTINEL_PAUSE_MIN="${SENTINEL_PAUSE_MIN:-10}"
+
+sentinel_pause() {
+  [ "${SENTINEL_DISABLE:-0}" = "1" ] && return 0
+  if ! command -v gh &>/dev/null; then
+    info "gh CLI not found — skipping Sentinel pause (alerts may fire during deploy)"
+    return 0
+  fi
+
+  local until
+  if date -u -v +"${SENTINEL_PAUSE_MIN}"M +"%Y-%m-%dT%H:%M:%SZ" &>/dev/null; then
+    until=$(date -u -v +"${SENTINEL_PAUSE_MIN}"M +"%Y-%m-%dT%H:%M:%SZ")  # BSD/macOS
+  else
+    until=$(date -u -d "+${SENTINEL_PAUSE_MIN} minutes" +"%Y-%m-%dT%H:%M:%SZ")  # GNU/Linux
+  fi
+
+  info "Pausing Sentinel until ${until} (${SENTINEL_PAUSE_MIN}m)"
+  local content
+  content=$(printf '{"paused_until":"%s","reason":"Inkwell deploy","set_by":"deploy.sh"}\n' "$until" | base64)
+
+  local sha
+  sha=$(gh api "/repos/${SENTINEL_REPO}/contents/maintenance.json?ref=gh-pages" --jq '.sha' 2>/dev/null || echo "")
+
+  local args=(
+    --method PUT "/repos/${SENTINEL_REPO}/contents/maintenance.json"
+    -f "message=Pause for Inkwell deploy"
+    -f "branch=gh-pages"
+    -f "content=${content}"
+  )
+  [ -n "$sha" ] && args+=(-f "sha=${sha}")
+
+  if gh api "${args[@]}" >/dev/null 2>&1; then
+    ok "Sentinel paused"
+  else
+    info "Sentinel pause failed — alerts may fire; proceeding anyway"
+  fi
+}
+
+sentinel_unpause() {
+  [ "${SENTINEL_DISABLE:-0}" = "1" ] && return 0
+  if ! command -v gh &>/dev/null; then
+    return 0
+  fi
+
+  local sha
+  sha=$(gh api "/repos/${SENTINEL_REPO}/contents/maintenance.json?ref=gh-pages" --jq '.sha' 2>/dev/null || echo "")
+  if [ -z "$sha" ]; then
+    return 0  # already unpaused or never paused
+  fi
+
+  if gh api --method DELETE "/repos/${SENTINEL_REPO}/contents/maintenance.json" \
+       -f "message=Deploy complete — unpause Sentinel" \
+       -f "branch=gh-pages" \
+       -f "sha=${sha}" >/dev/null 2>&1; then
+    ok "Sentinel unpaused"
+  else
+    info "Sentinel unpause failed — will auto-expire in ${SENTINEL_PAUSE_MIN}m"
+  fi
+}
+
+# Wrap a deploy function so Sentinel is paused before and unpaused after
+# (even on failure or interrupt).
+with_sentinel_pause() {
+  local fn="$1"
+  sentinel_pause
+  # shellcheck disable=SC2064
+  trap "sentinel_unpause; trap - EXIT INT TERM" EXIT INT TERM
+  "$fn"
+  local rc=$?
+  sentinel_unpause
+  trap - EXIT INT TERM
+  return $rc
+}
 
 # ── Preflight Checks ─────────────────────────────────────────
 
@@ -247,8 +338,14 @@ full_deploy() {
   provision_postgres
   provision_redis
   set_secrets
+  # One pause window covers both API and web. Manual unpause happens after
+  # both deploys succeed (or on interrupt via trap).
+  sentinel_pause
+  trap "sentinel_unpause; trap - EXIT INT TERM" EXIT INT TERM
   deploy_api
   deploy_web
+  sentinel_unpause
+  trap - EXIT INT TERM
 
   echo ""
   echo -e "${GREEN}═══════════════════════════════════════════${NC}"
@@ -271,16 +368,22 @@ full_deploy() {
 
 case "${1:-deploy}" in
   deploy)  full_deploy ;;
-  api)     preflight && deploy_api ;;
-  web)     preflight && deploy_web ;;
+  api)     preflight && with_sentinel_pause deploy_api ;;
+  web)     preflight && with_sentinel_pause deploy_web ;;
   status)  show_status ;;
+  pause)   sentinel_pause ;;
+  unpause) sentinel_unpause ;;
   *)
-    echo "Usage: ./deploy.sh [deploy|api|web|status]"
+    echo "Usage: ./deploy.sh [deploy|api|web|status|pause|unpause]"
     echo ""
     echo "  deploy   Full first-time deployment (default)"
     echo "  api      Deploy only the Phoenix API"
     echo "  web      Deploy only the Next.js frontend"
     echo "  status   Check deployment status"
+    echo "  pause    Manually pause Sentinel alerts (\$SENTINEL_PAUSE_MIN min, default 10)"
+    echo "  unpause  Clear the Sentinel maintenance file immediately"
+    echo ""
+    echo "Env: SENTINEL_DISABLE=1 to skip pause entirely"
     exit 1
     ;;
 esac
