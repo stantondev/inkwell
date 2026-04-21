@@ -45,17 +45,19 @@ export default function AdminPollsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "platform" | "entry">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
 
   const fetchPolls = useCallback(async () => {
     try {
       const typeParam = typeFilter !== "all" ? `&type=${typeFilter}` : "";
-      const res = await fetch(`/api/admin/polls?per_page=50${typeParam}`);
+      const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
+      const res = await fetch(`/api/admin/polls?per_page=50${typeParam}${statusParam}`);
       const data = await res.json();
       if (data.data) setPolls(data.data);
     } catch {} finally {
       setLoading(false);
     }
-  }, [typeFilter]);
+  }, [typeFilter, statusFilter]);
 
   useEffect(() => { fetchPolls(); }, [fetchPolls]);
 
@@ -93,8 +95,8 @@ export default function AdminPollsPage() {
     }
   };
 
-  const handleClose = async (pollId: string) => {
-    if (!confirm("Close this poll? Voting will be disabled.")) return;
+  const handleArchive = async (pollId: string) => {
+    if (!confirm("Archive this poll? Voting will be disabled and it will be moved to the archive.")) return;
     await fetch(`/api/admin/polls/${pollId}/close`, { method: "POST" });
     fetchPolls();
   };
@@ -183,7 +185,7 @@ export default function AdminPollsPage() {
       </div>
 
       {/* Poll list */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h2 className="admin-card-header" style={{ margin: 0 }}>All Polls</h2>
         <div style={{ display: "flex", gap: "4px" }}>
           {(["all", "platform", "entry"] as const).map((t) => (
@@ -192,7 +194,18 @@ export default function AdminPollsPage() {
               onClick={() => { setTypeFilter(t); setLoading(true); }}
               className={`admin-btn admin-btn--sm ${typeFilter === t ? "admin-btn--primary" : "admin-btn--outline"}`}
             >
-              {t === "all" ? "All" : t === "platform" ? "Platform" : "Entry"}
+              {t === "all" ? "All types" : t === "platform" ? "Platform" : "Entry"}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: "4px" }}>
+          {(["all", "active", "archived"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => { setStatusFilter(s); setLoading(true); }}
+              className={`admin-btn admin-btn--sm ${statusFilter === s ? "admin-btn--primary" : "admin-btn--outline"}`}
+            >
+              {s === "all" ? "All status" : s === "active" ? "Active" : "Archived"}
             </button>
           ))}
         </div>
@@ -225,8 +238,8 @@ export default function AdminPollsPage() {
 
                 <div className="admin-action-row">
                   {poll.status === "open" && (
-                    <button onClick={() => handleClose(poll.id)} className="admin-btn admin-btn--outline admin-btn--sm">
-                      Close
+                    <button onClick={() => handleArchive(poll.id)} className="admin-btn admin-btn--outline admin-btn--sm">
+                      Archive
                     </button>
                   )}
                   <button onClick={() => handleDelete(poll.id)} className="admin-btn admin-btn--danger admin-btn--sm">

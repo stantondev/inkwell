@@ -877,10 +877,11 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 - Two poll types sharing one underlying system: **Entry polls** (authors embed in journal entries, Plus-only creation) and **Platform polls** (admin-created sitewide community decisions)
 - One vote per user per poll (unique constraint), no vote changes. Results visible to everyone.
 - Polls editable until first vote, then permanently locked.
-- Optional close date or open indefinitely; admins can close/delete any poll
-- **Community Voice page** at `/polls` — lists platform polls (open first, then closed) with pagination
+- Optional close date or open indefinitely; admins can archive/delete any poll
+- **Archive semantics**: closed polls are the archive. `GET /api/polls` (default) returns only active polls; closed and expired polls are at `/polls/history`. Queries in `list_platform_polls/1` and `list_closed_polls/1` handle the expired-but-not-yet-DB-closed window via `status == :open AND closes_at <= now`. `PollCloseWorker` (Oban cron, every 5 min) flips expired polls from `:open` to `:closed` in DB so column state matches reality.
+- **Community Voice page** at `/polls` — lists active platform polls with pagination + "View poll archives →" link to `/polls/history`
 - **Sidebar widget** — most recent open platform poll shown in compact mode in Section IV (Community)
-- **Admin Polls tab** — create platform polls (question + 2-10 dynamic options + optional close date), list/close/delete
+- **Admin Polls tab** — create platform polls (question + 2-10 dynamic options + optional close date), list/archive/delete with Active/Archived/All status filter pills. "Archive" manually sets a poll to closed (preserves votes/comments — use Delete to remove permanently).
 - **Entry polls in editor** — Plus-gated "Poll" section in editor settings panel. Toggleable, with question/options/close date inputs. Creates poll on publish via `POST /api/entries/:entry_id/poll`. Editable while no votes; locked after votes.
 - **Entry detail page** — renders `PollWidget` after entry body when `entry.poll` exists
 - **Poll comments**: flat comments with @mention autocomplete on poll detail pages. `poll_comments` table with denormalized `comment_count` on `polls`. @mentions processed via shared `MentionHelper` (plain text → HTML → mention links). `:poll_comment` and `:poll_mention` notification types. Comment count shown on `/polls` listing with link to poll detail. Poll creators notified of new comments; mentioned users notified separately. Comments deletable by author or admin.

@@ -32,6 +32,7 @@ defmodule Inkwell.Polls do
     page = Map.get(opts, :page, 1)
     per_page = Map.get(opts, :per_page, 20)
     status_filter = Map.get(opts, :status)
+    now = DateTime.utc_now()
 
     query =
       Poll
@@ -40,18 +41,26 @@ defmodule Inkwell.Polls do
 
     query =
       case status_filter do
-        "open" -> where(query, status: :open)
-        "closed" -> where(query, status: :closed)
-        _ -> query
+        "open" ->
+          query
+          |> where([p], p.status == :open)
+          |> where([p], is_nil(p.closes_at) or p.closes_at > ^now)
+
+        "closed" ->
+          query
+          |> where(
+            [p],
+            p.status == :closed or
+              (p.status == :open and not is_nil(p.closes_at) and p.closes_at <= ^now)
+          )
+
+        _ ->
+          query
+          |> where([p], p.status == :open)
+          |> where([p], is_nil(p.closes_at) or p.closes_at > ^now)
       end
 
-    # Open polls first, then by most recent
-    query =
-      query
-      |> order_by([p], [
-        fragment("CASE WHEN ? = 'open' THEN 0 ELSE 1 END", p.status),
-        desc: p.inserted_at
-      ])
+    query = order_by(query, [p], desc: p.inserted_at)
 
     total = Repo.aggregate(query, :count)
 
@@ -78,14 +87,29 @@ defmodule Inkwell.Polls do
 
   def count_platform_polls(opts \\ %{}) do
     status_filter = Map.get(opts, :status)
+    now = DateTime.utc_now()
 
     query = Poll |> where(type: :platform)
 
     query =
       case status_filter do
-        "open" -> where(query, status: :open)
-        "closed" -> where(query, status: :closed)
-        _ -> query
+        "open" ->
+          query
+          |> where([p], p.status == :open)
+          |> where([p], is_nil(p.closes_at) or p.closes_at > ^now)
+
+        "closed" ->
+          query
+          |> where(
+            [p],
+            p.status == :closed or
+              (p.status == :open and not is_nil(p.closes_at) and p.closes_at <= ^now)
+          )
+
+        _ ->
+          query
+          |> where([p], p.status == :open)
+          |> where([p], is_nil(p.closes_at) or p.closes_at > ^now)
       end
 
     Repo.aggregate(query, :count)
@@ -269,6 +293,8 @@ defmodule Inkwell.Polls do
     page = Map.get(opts, :page, 1)
     per_page = Map.get(opts, :per_page, 20)
     type_filter = Map.get(opts, :type)
+    status_filter = Map.get(opts, :status)
+    now = DateTime.utc_now()
 
     query =
       Poll
@@ -280,6 +306,25 @@ defmodule Inkwell.Polls do
         "platform" -> where(query, type: :platform)
         "entry" -> where(query, type: :entry)
         _ -> query
+      end
+
+    query =
+      case status_filter do
+        "active" ->
+          query
+          |> where([p], p.status == :open)
+          |> where([p], is_nil(p.closes_at) or p.closes_at > ^now)
+
+        "archived" ->
+          query
+          |> where(
+            [p],
+            p.status == :closed or
+              (p.status == :open and not is_nil(p.closes_at) and p.closes_at <= ^now)
+          )
+
+        _ ->
+          query
       end
 
     total = Repo.aggregate(query, :count)
@@ -322,12 +367,17 @@ defmodule Inkwell.Polls do
     page = Map.get(opts, :page, 1)
     per_page = Map.get(opts, :per_page, 20)
     type_filter = Map.get(opts, :type)
+    now = DateTime.utc_now()
 
     query =
       Poll
-      |> where(status: :closed)
+      |> where(
+        [p],
+        p.status == :closed or
+          (p.status == :open and not is_nil(p.closes_at) and p.closes_at <= ^now)
+      )
       |> preload([:creator, options: ^from(o in PollOption, order_by: o.position)])
-      |> order_by(desc: :closed_at)
+      |> order_by([p], desc: coalesce(p.closed_at, p.closes_at))
 
     query =
       case type_filter do

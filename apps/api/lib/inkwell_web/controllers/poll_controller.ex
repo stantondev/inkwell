@@ -313,8 +313,10 @@ defmodule InkwellWeb.PollController do
     per_page = parse_int(params["per_page"], 20)
 
     type = params["type"]
+    status = params["status"]
 
-    {polls, total} = Polls.list_all_polls(%{page: page, per_page: per_page, type: type})
+    {polls, total} =
+      Polls.list_all_polls(%{page: page, per_page: per_page, type: type, status: status})
 
     rendered = Enum.map(polls, fn poll -> render_poll(poll, nil) end)
 
