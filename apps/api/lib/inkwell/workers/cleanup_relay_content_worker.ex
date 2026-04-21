@@ -1,7 +1,8 @@
 defmodule Inkwell.Workers.CleanupRelayContentWorker do
   @moduledoc """
-  Deletes relay-sourced remote entries older than 14 days.
-  Relay content has a shorter TTL than follow-sourced content.
+  Deletes ephemeral-source remote entries (relay- and hashtag-sourced) older
+  than 14 days. These discovery/Gazette sources have a shorter TTL than
+  follow-sourced content.
   Scheduled via Oban cron to run daily at 5:15am UTC.
   """
 
@@ -13,7 +14,7 @@ defmodule Inkwell.Workers.CleanupRelayContentWorker do
 
     if count > 0 do
       require Logger
-      Logger.info("Cleaned up #{count} old relay entry/entries")
+      Logger.info("Cleaned up #{count} old relay/hashtag entry/entries")
     end
 
     :ok

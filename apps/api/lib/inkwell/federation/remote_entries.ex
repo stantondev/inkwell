@@ -210,28 +210,34 @@ defmodule Inkwell.Federation.RemoteEntries do
     |> Repo.all()
   end
 
+  # Sources with a shorter TTL than the general 90-day follow-content window.
+  # These are ingested for discovery/Gazette purposes and don't need long
+  # retention — `cleanup_relay_entries/1` handles them on a 14-day schedule.
+  @ephemeral_sources ["relay", "hashtag"]
+
   def cleanup_old_entries(days \\ 90) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 
     {count, _} =
       RemoteEntry
       |> where([e], e.inserted_at < ^cutoff)
-      |> where([e], is_nil(e.source) or e.source != "relay")
+      |> where([e], is_nil(e.source) or e.source not in ^@ephemeral_sources)
       |> Repo.delete_all()
 
     {:ok, count}
   end
 
   @doc """
-  Deletes relay-sourced remote entries older than the given number of days.
-  Relay content has a shorter TTL (default 14 days) than follow-sourced content.
+  Deletes ephemeral-source remote entries (relay- and hashtag-sourced) older
+  than the given number of days. These sources have a shorter TTL (default
+  14 days) than follow-sourced content.
   """
   def cleanup_relay_entries(days \\ 14) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 
     {count, _} =
       RemoteEntry
-      |> where([e], e.source == "relay" and e.inserted_at < ^cutoff)
+      |> where([e], e.source in ^@ephemeral_sources and e.inserted_at < ^cutoff)
       |> Repo.delete_all()
 
     {:ok, count}

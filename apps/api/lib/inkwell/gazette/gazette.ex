@@ -89,13 +89,17 @@ defmodule Inkwell.Gazette do
     end
   end
 
-  # Base query: relay- or follow-sourced entries with published_at.
-  # - `relay`: broad sweep of fediverse content from relay subscriptions (14-day TTL)
-  # - `follow`: content from fediverse accounts directly followed by Inkwell users (90-day TTL)
-  #   This means following a journalist from Inkwell feeds the Gazette with their posts.
+  # Base query: relay-, follow-, or hashtag-sourced entries with published_at.
+  # - `relay`: broad sweep from relay subscriptions (14-day TTL). Dormant when
+  #   no active relays are subscribed.
+  # - `follow`: content from fediverse accounts Inkwell users follow (90-day
+  #   TTL). Useful when users follow journalists directly.
+  # - `hashtag`: sweep of public hashtag timelines from trusted Mastodon
+  #   instances (14-day TTL). Primary Gazette source, ingested by
+  #   `Inkwell.Workers.GazetteHashtagPollingWorker`.
   defp base_query do
     RemoteEntry
-    |> where([e], e.source in ["relay", "follow"])
+    |> where([e], e.source in ["relay", "follow", "hashtag"])
     |> where([e], not is_nil(e.published_at))
   end
 

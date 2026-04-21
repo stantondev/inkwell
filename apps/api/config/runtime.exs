@@ -179,6 +179,30 @@ if config_env() == :prod do
   config :inkwell, :muse_enabled, System.get_env("MUSE_ENABLED") == "true"
   config :inkwell, :muse_username, System.get_env("MUSE_ACCOUNT_USERNAME") || "muse"
 
+  # Gazette hashtag ingestion (optional, disabled by default).
+  # Kill switch: flip GAZETTE_INGESTION_ENABLED to "true" to activate the
+  # hourly cron that polls Mastodon public hashtag timelines for news-topic
+  # content. Flip back to anything else (or unset) to disable — takes effect
+  # at the next cron tick (<=1h) with no deploy.
+  config :inkwell, :gazette_ingestion_enabled,
+    System.get_env("GAZETTE_INGESTION_ENABLED") == "true"
+
+  # Optional override for which instances to poll. Comma-separated hostnames.
+  # Example: `GAZETTE_SOURCES=mastodon.social,mstdn.social,fosstodon.org`
+  gazette_sources_env = System.get_env("GAZETTE_SOURCES")
+
+  if is_binary(gazette_sources_env) and gazette_sources_env != "" do
+    list =
+      gazette_sources_env
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    if list != [] do
+      config :inkwell, :gazette_sources, list
+    end
+  end
+
   # Fly.io API token (for custom domain certificate management)
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 

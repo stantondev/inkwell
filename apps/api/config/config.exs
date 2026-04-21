@@ -26,7 +26,8 @@ config :inkwell, Oban,
     default: 5,
     federation: 5,
     search_indexing: 3,
-    email: 5
+    email: 5,
+    gazette_ingestion: 2
   ],
   plugins: [
     {Oban.Plugins.Cron,
@@ -47,7 +48,8 @@ config :inkwell, Oban,
        {"0 10 * * 0", Inkwell.Workers.MuseWorker, args: %{"type" => "weekly_roundup"}},
        {"0 11 1 * *", Inkwell.Workers.MuseWorker, args: %{"type" => "monthly_update"}},
        {"*/5 * * * *", Inkwell.Workers.CustomDomainCheckWorker},
-       {"*/5 * * * *", Inkwell.Workers.PollCloseWorker}
+       {"*/5 * * * *", Inkwell.Workers.PollCloseWorker},
+       {"0 * * * *", Inkwell.Workers.GazetteIngestionScheduler}
      ]}
   ]
 
