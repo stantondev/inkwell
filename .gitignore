@@ -8,6 +8,9 @@ _build/
 out/
 dist/
 
+# macOS/cloud-sync duplicate directories (e.g., ".next 2/")
+**/.next [0-9]*/
+
 # Environment
 .env
 .env.local
@@ -49,3 +52,21 @@ setup-supervisor.sh
 # Claude Code
 CLAUDE.md
 .claude/
+
+# R console history
+.Rhistory
+
+# Local reference library (FEPs kept per CLAUDE.md policy)
+FEPs/
+
+# Marketing / outreach (kept local, not versioned)
+inkwell-outreach/
+inkwell-outreach-posts.md
+fediverse-party-submission/
+
+# Personal profile test files
+stanton-profile*.html
+stanton-profile*.css
+
+# Private feedback drafts
+vibefed-feedback-*.md
