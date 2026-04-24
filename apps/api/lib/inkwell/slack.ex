@@ -86,6 +86,16 @@ defmodule Inkwell.Slack do
     )
   end
 
+  def notify_unmatched_donation(payment_id, customer_id, amount_cents) do
+    dollars = if is_integer(amount_cents), do: "$#{trunc(amount_cents / 100)}", else: "unknown"
+
+    notify(
+      ":rotating_light: *Unmatched donation!* " <>
+        "payment=`#{payment_id}` customer=`#{customer_id}` amount=#{dollars} — order looked " <>
+        "like a one-time donation but no Inkwell user could be resolved. Investigate in admin panel."
+    )
+  end
+
   def notify_writer_plan_subscription(writer_username, subscriber_username, amount_cents) do
     dollars = trunc((amount_cents || 0) / 100)
     notify(":moneybag: *New plan subscriber!* @#{subscriber_username} subscribed to @#{writer_username}'s plan ($#{dollars}/mo)")

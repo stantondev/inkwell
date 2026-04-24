@@ -1991,27 +1991,34 @@ defmodule Inkwell.Billing do
   # ── Handle One-Time Donation Payments ──────────────────────────────────
   #
   # Square's `payment.updated` webhook fires on every status transition of a
-  # Payment (PENDING → APPROVED → COMPLETED, etc.), and fires for BOTH
-  # subscription renewals and one-time donations — the Payment object has no
-  # direct `subscription_id` field to distinguish them. The link from a
-  # payment to a subscription goes through its parent Order's line items.
+  # Payment. We act only on status=COMPLETED, deduplicated by payment_id.
   #
-  # To keep this simple and fast (no extra Square API calls per webhook),
-  # we use a three-part filter:
+  # Classifying donation vs. subscription is done via the parent Order's
+  # first line_item name, NOT by checking whether the user has an active
+  # subscription. Our donation Payment Links tag the line item
+  # "Ink Donor — One-time"; subscription signup/renewal orders use
+  # "Inkwell Plus" or "Ink Donor — $N/mo". This correctly fires for a Plus
+  # subscriber making a separate one-time donation (which a naive
+  # "user-has-sub" check would silently skip) and correctly suppresses
+  # alerts on sub renewals.
   #
-  #   1. Only match status="COMPLETED" (drop APPROVED — that's an
-  #      intermediate state that also fires payment.updated).
-  #   2. Look up the user by Square customer_id. If they have an active
-  #      `square_subscription_id` locally, this payment is their subscription
-  #      renewal — not a separate donation. Skip the Slack notification.
-  #   3. Deduplicate by payment_id using the webhook_events table so the
-  #      same final-state payment can't fire multiple notifications even if
-  #      Square sends duplicate events.
+  # User resolution: Square's payment.updated fires multiple times per
+  # payment as state transitions, and early firings can arrive before
+  # customer_id is populated on the Payment object. The order_id is always
+  # present from the first firing, so we fetch the order and use it both
+  # for line-item classification AND as a reliable secondary lookup path
+  # (order.reference_id = user.id on every Inkwell-initiated order).
   #
-  # Prior bug (2026-04-15): the handler matched [COMPLETED, APPROVED],
-  # checked a non-existent `payment["subscription_id"]` field (always nil),
-  # had no dedup, and fired 4 false "one-time donation" Slack alerts when
-  # @stanton subscribed via Square (one per state transition).
+  # Prior bugs fixed here:
+  #   * 2026-04-15: handler matched [COMPLETED, APPROVED] and fired Slack
+  #     repeatedly per state transition. Now dedups by payment_id.
+  #   * 2026-04-24 (Tim): classified as donation when webhook couldn't
+  #     find the user. Fixed by expanding user-resolution fallback chain.
+  #   * 2026-04-24 (stanton @unknown $1 donation): first payment.updated
+  #     firing had no customer_id yet. Fixed by using order_id path.
+  #   * 2026-04-24 (latent): subscription_renewal? skipped donation alerts
+  #     for any Plus subscriber, silently losing legitimate donations.
+  #     Fixed by classifying via order.line_items[0].name.
 
   defp handle_payment_completed(%{"payment" => payment}), do: handle_payment_completed(payment)
 
@@ -2023,19 +2030,49 @@ defmodule Inkwell.Billing do
          } = payment
        ) do
     customer_id = payment["customer_id"]
+    order_id = payment["order_id"]
+
+    # Fetch the order once — we need it for both user resolution and for
+    # classifying the payment as donation vs. subscription.
+    order =
+      case order_id do
+        oid when is_binary(oid) ->
+          case Square.get_order(oid) do
+            {:ok, o} -> o
+            _ -> nil
+          end
+
+        _ ->
+          nil
+      end
 
     user =
-      if customer_id,
-        do:
-          find_user_by_square_customer(customer_id) ||
-            find_user_by_email_from_square(customer_id)
+      find_user_by_square_customer(customer_id) ||
+        find_user_by_order(order) ||
+        find_user_by_customer_reference_id(customer_id) ||
+        find_user_by_email_from_square(customer_id)
 
     cond do
-      subscription_renewal?(user) ->
+      not donation_order?(order) ->
+        # Subscription signup/renewal order OR order we can't classify —
+        # don't fire donation alert either way. Subscription.created
+        # handles subscription activation separately.
         Logger.info(
-          "Payment #{payment_id} (#{amount_cents} cents) is a subscription renewal for @#{user.username} — skipping donation notification"
+          "Payment #{payment_id} (#{amount_cents} cents) is not a donation order — skipping donation notification"
         )
 
+        :ok
+
+      is_nil(user) ->
+        # Donation order but we couldn't resolve the user. This is rare
+        # — all four fallbacks failed. Alert admin instead of attributing
+        # the donation to "unknown".
+        Logger.error(
+          "Payment #{payment_id} (#{amount_cents} cents) is a donation order but no Inkwell user could be resolved " <>
+            "(customer_id=#{inspect(customer_id)}, order_id=#{inspect(order_id)}) — alerting admin"
+        )
+
+        Inkwell.Slack.notify_unmatched_donation(payment_id, customer_id, amount_cents)
         :ok
 
       true ->
@@ -2044,8 +2081,6 @@ defmodule Inkwell.Billing do
   end
 
   defp handle_payment_completed(%{"status" => status}) do
-    # payment.updated fires on every status change; we already handled
-    # COMPLETED above, everything else is intermediate or terminal-error.
     Logger.debug("Ignoring payment event with status #{status}")
     :ok
   end
@@ -2055,85 +2090,38 @@ defmodule Inkwell.Billing do
     :ok
   end
 
-  # True if this user has an active Square subscription (Plus OR Donor),
-  # meaning a recent completed payment is most likely their recurring charge
-  # rather than a separate one-time donation.
-  #
-  # Checks the local DB first (fast path). If the local record shows no
-  # subscription, falls back to a real-time Square API lookup — this closes
-  # the webhook race window where payment.updated can arrive before
-  # subscription.created, which previously caused subscription signups to
-  # be misclassified as one-time donations. The fallback also self-heals
-  # the local user record so subsequent payments classify correctly without
-  # a repeat API call.
-  defp subscription_renewal?(nil), do: false
+  # Resolve an Inkwell user from an order's reference_id. Our Payment Links
+  # stamp reference_id = user.id on every order (via build_order/1 in
+  # Inkwell.Square); Square-generated subscription-renewal orders don't
+  # have reference_id set.
+  defp find_user_by_order(nil), do: nil
 
-  defp subscription_renewal?(%User{} = user) do
-    has_local_sub =
-      (user.square_subscription_id != nil and user.subscription_status == "active") or
-        (user.square_donor_subscription_id != nil and user.ink_donor_status == "active")
-
-    has_local_sub or check_square_for_active_subscription(user)
-  end
-
-  defp check_square_for_active_subscription(%User{square_customer_id: nil}), do: false
-
-  defp check_square_for_active_subscription(%User{square_customer_id: customer_id} = user) do
-    case Square.search_subscriptions_by_customer(customer_id) do
-      {:ok, subs} ->
-        active_sub = Enum.find(subs, fn s -> s["status"] in ["ACTIVE", "PENDING"] end)
-
-        case active_sub do
-          nil ->
-            false
-
-          sub ->
-            Logger.info(
-              "subscription_renewal? — found active Square subscription #{sub["id"]} for " <>
-                "@#{user.username} that wasn't in our DB (likely subscription.created " <>
-                "webhook race) — backfilling and treating this payment as a renewal"
-            )
-
-            backfill_subscription_from_square(user, sub)
-            true
+  defp find_user_by_order(order) do
+    case order["reference_id"] do
+      ref when is_binary(ref) and ref != "" ->
+        case Ecto.UUID.cast(ref) do
+          {:ok, uuid} -> Repo.get(User, uuid)
+          :error -> nil
         end
 
-      {:error, reason} ->
-        Logger.warning(
-          "subscription_renewal? — Square API lookup failed for @#{user.username}: " <>
-            "#{inspect(reason)} — cannot verify, falling back to local DB answer"
-        )
-
-        false
+      _ ->
+        nil
     end
   end
 
-  # Mirror handle_subscription_created's writes so future payments for this
-  # user don't need the fallback. Matches the Plus-vs-Donor plan check
-  # already used by the subscription.created handler.
-  defp backfill_subscription_from_square(%User{} = user, sub) do
-    sub_id = sub["id"]
-    plan_variation_id = sub["plan_variation_id"]
-    config = Application.get_env(:inkwell, :square, [])
+  # True if the order looks like an Inkwell one-time donation. Our donation
+  # Payment Link sets the line item name to "Ink Donor — One-time" (see
+  # Inkwell.Square.create_donation_payment_link/3). Subscription orders use
+  # "Inkwell Plus" or "Ink Donor — $N/mo" so they don't match.
+  defp donation_order?(nil), do: false
 
-    if is_donor_plan?(plan_variation_id, config) do
-      amount_cents = donor_amount_for_plan(plan_variation_id, config)
+  defp donation_order?(order) do
+    case order["line_items"] do
+      [%{"name" => name} | _] when is_binary(name) ->
+        String.contains?(name, "One-time")
 
-      user
-      |> User.ink_donor_changeset(%{
-        square_donor_subscription_id: sub_id,
-        ink_donor_status: "active",
-        ink_donor_amount_cents: amount_cents
-      })
-      |> Repo.update()
-    else
-      user
-      |> User.subscription_changeset(%{
-        square_subscription_id: sub_id,
-        subscription_tier: "plus",
-        subscription_status: "active"
-      })
-      |> Repo.update()
+      _ ->
+        false
     end
   end
 

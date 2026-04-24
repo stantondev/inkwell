@@ -117,7 +117,7 @@ Inkwell migrated from Stripe to **Square** as a bridge payment processor (April 
 
 **Square status mapping**: `ACTIVE` → `active`, `CANCELED` → `canceled`, `DEACTIVATED` → `canceled`, `PAUSED` → `past_due`, `PENDING` → `active`.
 
-**Square webhook events**: `subscription.created`, `subscription.updated`, `invoice.payment_made`, `invoice.payment_failed`, `dispute.created` (auto-block user), `payment.completed` (detects one-time donations — payments with nil `subscription_id` — and fires Slack notification).
+**Square webhook events**: `subscription.created`, `subscription.updated`, `invoice.payment_made`, `invoice.payment_failed`, `dispute.created` (auto-block user), `payment.updated` (classifies donations by fetching the payment's order and checking `order.line_items[0].name` for the "One-time" marker — this is more reliable than user-state heuristics because it distinguishes a Plus subscriber's separate one-time donation from their monthly renewal). Unmatched donations fire `Slack.notify_unmatched_donation/3`.
 
 **Database fields** (alongside legacy Stripe fields): `square_customer_id`, `square_subscription_id`, `square_donor_subscription_id` on users table. Migration `20260401000074`.
 

@@ -1,0 +1,189 @@
+<!--
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║  Stanton's Inkwell Profile Page                              ║
+  ║  Last updated: 2026-03-05                                    ║
+  ║                                                              ║
+  ║  MODE: Full-page custom HTML                                 ║
+  ║  This replaces the entire profile page layout.               ║
+  ║  Template tags like {{entries}} render platform widgets.      ║
+  ║                                                              ║
+  ║  THEME SWITCHING:                                            ║
+  ║  Change class on the outermost <div> below:                  ║
+  ║    class="sp theme-midnight"  → dark navy/charcoal           ║
+  ║    class="sp theme-paper"     → cream/off-white              ║
+  ║                                                              ║
+  ║  THE CLASSIC WEB SECTION:                                    ║
+  ║  The retro effects at the bottom are intentional. They       ║
+  ║  exist to show what was possible when people hand-coded      ║
+  ║  their own corners of the internet. Every effect has         ║
+  ║  detailed comments so you can copy and adapt them for        ║
+  ║  your own Inkwell profile.                                   ║
+  ╚═══════════════════════════════════════════════════════════════╝
+-->
+
+<div class="sp theme-midnight">
+
+  <!-- ABOUT: Avatar, name, bio, stats, follow button -->
+  <div class="sp-about-wrap">
+    {{about}}
+  </div>
+
+  <!-- TWO-COLUMN LAYOUT: Entries left, sidebar right -->
+  <div class="sp-grid">
+
+    <!-- LEFT: Journal entries -->
+    <div class="sp-main">
+      {{entries}}
+    </div>
+
+    <!-- RIGHT: Custom content + widgets -->
+    <div class="sp-sidebar">
+
+      <!-- WHAT I'M BUILDING -->
+      <div class="sp-section">
+        <h2 class="sp-heading">What I'm building</h2>
+        <div class="sp-callout">
+          <p><strong>Inkwell</strong> is a social journaling platform. Think LiveJournal meets MySpace, rebuilt for 2026. No algorithms, no ads, no engagement hacks. You own your space and you write what you want.</p>
+          <p>It runs on ActivityPub, which means your profile is part of the fediverse. People on Mastodon and other platforms can follow you, read your writing, and interact with your posts without needing an Inkwell account.</p>
+          <p>The code is open source. The product is opinionated. The goal is to build something worth using, not the next social media platform.</p>
+          <div class="sp-tag-list">
+            <span class="sp-tag">Federated</span>
+            <span class="sp-tag">ActivityPub</span>
+            <span class="sp-tag">No ads</span>
+            <span class="sp-tag">No algorithm</span>
+            <span class="sp-tag">Writing-first</span>
+            <span class="sp-tag">Open source</span>
+            <span class="sp-tag">User-owned</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOW -->
+      <div class="sp-section">
+        <h2 class="sp-heading">Now</h2>
+        <div class="sp-now">
+          <p>Shipping features based on what the community asks for on the roadmap.</p>
+          <p>Growing the early user base. Making the platform more useful every week.</p>
+        </div>
+      </div>
+
+      <!-- LINKS -->
+      <div class="sp-section">
+        <h2 class="sp-heading">Find me</h2>
+        <div class="sp-links">
+          <a href="https://inkwell.social" class="sp-link">Inkwell</a>
+          <a href="https://github.com/stantondev/inkwell" class="sp-link">GitHub</a>
+          <a href="https://www.stantonmelvin.com" class="sp-link">Personal site</a>
+          <a href="https://inkwell.social/stanton" class="sp-link">@stanton@inkwell.social</a>
+        </div>
+      </div>
+
+      <!-- TAG CLOUD (platform widget) -->
+      <div class="sp-section">
+        <h2 class="sp-heading">Topics</h2>
+        {{tags}}
+      </div>
+
+      <!-- GUESTBOOK (platform widget) -->
+      <div class="sp-section">
+        {{guestbook}}
+      </div>
+
+      <!-- NEWSLETTER (platform widget) -->
+      <div class="sp-section">
+        {{newsletter}}
+      </div>
+
+      <!-- MUSIC (platform widget) -->
+      {{music}}
+
+      <!-- SUPPORT / POSTAGE (platform widget) -->
+      {{support}}
+
+    </div>
+  </div>
+
+  <div class="sp-ornament">· · ·</div>
+
+
+  <!-- ======================================================
+       CLASSIC WEB SHOWCASE
+
+       This section is a mini museum of early-web HTML/CSS
+       tricks. Everything here is just HTML and CSS. No
+       JavaScript, no frameworks, no build tools.
+
+       If you're on Inkwell Plus, your profile supports
+       custom HTML. Copy any of these effects, open
+       Settings → Customize, scroll to "Custom HTML",
+       and paste them in.
+
+       View source on this section to see exactly how
+       each effect works. Every technique is commented.
+       ====================================================== -->
+
+  <div class="sp-retro-section">
+    <h2 class="sp-retro-heading">This Page Was Hand-Coded</h2>
+    <p class="sp-retro-subhead">A small museum of the old ways</p>
+
+    <div class="sp-retro-intro">
+      <p>There was a time when having a homepage meant writing your own HTML. You picked your colors, your fonts, your background tile. You added a visitor counter and a guestbook and a "best viewed in Netscape" badge. It was messy and it was yours.</p>
+      <p>The effects below are all pure HTML and CSS. They work in every modern browser. If you want any of them on your own Inkwell profile, view source and take what you want.</p>
+    </div>
+
+
+    <!-- EFFECT 1: MARQUEE -->
+    <p class="sp-retro-label">01 — The Marquee</p>
+    <div class="sp-marquee-wrap">
+      <marquee scrollamount="3" class="sp-marquee-text">
+        ★ welcome to my page ★ you've got a visitor ★ thanks for stopping by ★ leave a note in the guestbook ★ welcome to my page ★
+      </marquee>
+    </div>
+
+
+    <hr class="sp-retro-divider" />
+
+
+    <!-- EFFECT 2: FIRE TEXT -->
+    <p class="sp-retro-label">02 — Fire Text</p>
+    <div class="sp-fire-bg">
+      <div class="sp-fire-text">The Internet Is Alive</div>
+    </div>
+
+
+    <hr class="sp-retro-divider" />
+
+
+    <!-- EFFECT 3: RAINBOW TEXT -->
+    <p class="sp-retro-label">03 — Rainbow Text</p>
+    <div class="sp-rainbow-text">Make it yours.</div>
+
+
+    <hr class="sp-retro-divider" />
+
+
+    <!-- EFFECT 4: BLINKING TEXT -->
+    <p class="sp-retro-label">04 — RIP &lt;blink&gt;</p>
+    <div class="sp-blink">the blink tag did nothing wrong</div>
+
+
+    <hr class="sp-retro-divider" />
+
+
+    <!-- EFFECT 5: VISITOR COUNTER -->
+    <p class="sp-retro-label">05 — Visitor Counter</p>
+    <div class="sp-visitor-counter">
+      <span class="sp-counter-label">You are visitor</span>
+      <span class="sp-counter-display">{{visitor_count}}</span>
+    </div>
+
+  </div>
+  <!-- END CLASSIC WEB SHOWCASE -->
+
+
+  <p class="sp-footer-note">
+    This profile page is just HTML and CSS, running on <a href="https://inkwell.social">Inkwell</a>.<br />
+    If you can view source, you can build this.
+  </p>
+
+</div>
