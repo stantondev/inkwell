@@ -13,128 +13,128 @@ defmodule Inkwell.Square do
 
   # ── Payment Links (Checkout) ──────────────────────────────────────────
 
+  # Payment Link creators use Square `order` mode (not `quick_pay`) so we can
+  # attach `customer_id` and `reference_id` to the underlying order. This is
+  # our Stripe-parity equivalent of Stripe Checkout's `metadata` field: the
+  # user identity is encoded into Square-native fields that survive the round
+  # trip through checkout and into webhook payloads, so a buyer typing a
+  # different email at checkout (or having no real email at all, as with
+  # fediverse users) can't break attribution.
+  #
+  # Required inputs beyond the user:
+  #   * customer_id — pre-created by Billing.ensure_square_customer/1 so the
+  #     subscription is bound to a customer we control (tagged with
+  #     reference_id = user.id).
+  #
+  # The `order.reference_id` is a belt-and-suspenders backup so even in the
+  # rare case Square ignores our customer_id, the webhook handler can follow
+  # subscription → invoice → order → reference_id to find the user.
+
   @doc "Create a Square Payment Link for Plus $5/mo subscription."
-  def create_plus_payment_link(%User{} = user) do
+  def create_plus_payment_link(%User{} = user, customer_id) when is_binary(customer_id) do
     config = square_config()
 
     # Emergency override: if SQUARE_PLUS_PAYMENT_LINK_OVERRIDE is set, return
     # that URL directly without calling Square's API. Used as a band-aid when
     # the auto-generated Payment Link flow is broken — admin sets a manually-
     # created Square Payment Link URL via Fly secret, and Inkwell uses it for
-    # all Plus signups until the override is unset. Loses email pre-population
-    # and per-user idempotency, but is safe to set/unset on the fly.
+    # all Plus signups until the override is unset. Loses customer_id binding
+    # and per-user idempotency — any user who pays this way WILL need manual
+    # subscription attachment. Safe to set/unset on the fly.
     case config[:plus_payment_link_override] do
       url when is_binary(url) and url != "" ->
         Logger.info("[Square Payment Link] Using PLUS override URL for user #{user.id}")
         {:ok, %{url: url}}
 
       _ ->
-        create_plus_payment_link_via_api(user, config)
+        create_plus_payment_link_via_api(user, customer_id, config)
     end
   end
 
-  defp create_plus_payment_link_via_api(%User{} = user, config) do
+  defp create_plus_payment_link_via_api(%User{} = user, customer_id, config) do
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
     plan_variation_id = config[:plus_plan_variation_id]
 
     if is_nil(plan_variation_id) or plan_variation_id == "" do
       {:error, :square_not_configured}
     else
-      body = %{
-        "idempotency_key" => "plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
-        "quick_pay" => %{
-          "name" => "Inkwell Plus",
-          "price_money" => %{"amount" => 500, "currency" => "USD"},
-          "location_id" => config[:location_id]
-        },
-        "checkout_options" => %{
-          "subscription_plan_id" => plan_variation_id,
-          "redirect_url" => "#{frontend_url}/settings/billing?checkout=success",
-          "accepted_payment_methods" => %{
-            "apple_pay" => true,
-            "google_pay" => true
-          }
-        },
-        "pre_populated_data" => %{
-          "buyer_email" => user.email
-        }
-      }
+      body =
+        subscription_payment_link_body(
+          idempotency_key: "plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Inkwell Plus",
+          amount_cents: 500,
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: "#{frontend_url}/settings/billing?checkout=success",
+          config: config
+        )
 
       post_payment_link(body, "plus", user.id)
     end
   end
 
   @doc "Create a Square Payment Link for Ink Donor subscription ($1/$2/$3/mo)."
-  def create_donor_payment_link(%User{} = user, amount_cents) when amount_cents in [100, 200, 300] do
+  def create_donor_payment_link(%User{} = user, amount_cents, customer_id)
+      when amount_cents in [100, 200, 300] and is_binary(customer_id) do
     config = square_config()
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
-    plan_variation_id = case amount_cents do
-      100 -> config[:donor_plan_variation_1]
-      200 -> config[:donor_plan_variation_2]
-      300 -> config[:donor_plan_variation_3]
-    end
+    plan_variation_id =
+      case amount_cents do
+        100 -> config[:donor_plan_variation_1]
+        200 -> config[:donor_plan_variation_2]
+        300 -> config[:donor_plan_variation_3]
+      end
 
     if is_nil(plan_variation_id) or plan_variation_id == "" do
       {:error, :square_not_configured}
     else
-      body = %{
-        "idempotency_key" => "donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
-        "quick_pay" => %{
-          "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
-          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
-          "location_id" => config[:location_id]
-        },
-        "checkout_options" => %{
-          "subscription_plan_id" => plan_variation_id,
-          "redirect_url" => "#{frontend_url}/settings/billing?checkout=success&donor=true",
-          "accepted_payment_methods" => %{
-            "apple_pay" => true,
-            "google_pay" => true
-          }
-        },
-        "pre_populated_data" => %{
-          "buyer_email" => user.email
-        }
-      }
+      body =
+        subscription_payment_link_body(
+          idempotency_key:
+            "donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Ink Donor — $#{div(amount_cents, 100)}/mo",
+          amount_cents: amount_cents,
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: "#{frontend_url}/settings/billing?checkout=success&donor=true",
+          config: config
+        )
 
       post_payment_link(body, "donor-#{div(amount_cents, 100)}", user.id)
     end
   end
 
   @doc "Create a Square Payment Link for one-time donation."
-  def create_donation_payment_link(%User{} = user, amount_cents) when is_integer(amount_cents) and amount_cents >= 100 do
+  def create_donation_payment_link(%User{} = user, amount_cents, customer_id)
+      when is_integer(amount_cents) and amount_cents >= 100 and is_binary(customer_id) do
     config = square_config()
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
     if is_nil(config[:location_id]) or config[:location_id] == "" do
       {:error, :square_not_configured}
     else
-      body = %{
-        "idempotency_key" => "donation-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
-        "quick_pay" => %{
-          "name" => "Ink Donor — One-time",
-          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
-          "location_id" => config[:location_id]
-        },
-        "checkout_options" => %{
-          "redirect_url" => "#{frontend_url}/settings/billing?donation=success",
-          "accepted_payment_methods" => %{
-            "apple_pay" => true,
-            "google_pay" => true
-          }
-        },
-        "pre_populated_data" => %{
-          "buyer_email" => user.email
-        }
-      }
+      body =
+        one_off_payment_link_body(
+          idempotency_key:
+            "donation-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Ink Donor — One-time",
+          amount_cents: amount_cents,
+          user: user,
+          customer_id: customer_id,
+          redirect_url: "#{frontend_url}/settings/billing?donation=success",
+          config: config
+        )
 
       post_payment_link(body, "donation-#{amount_cents}", user.id)
     end
   end
 
   @doc "Create a Square Payment Link for Plus during onboarding (redirects to /welcome)."
-  def create_onboarding_payment_link(%User{} = user, "plus") do
+  def create_onboarding_payment_link(%User{} = user, "plus", customer_id)
+      when is_binary(customer_id) do
     config = square_config()
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
@@ -143,67 +143,155 @@ defmodule Inkwell.Square do
     if is_nil(plan_variation_id) or plan_variation_id == "" do
       {:error, :square_not_configured}
     else
-      body = %{
-        "idempotency_key" => "onboard-plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
-        "quick_pay" => %{
-          "name" => "Inkwell Plus",
-          "price_money" => %{"amount" => 500, "currency" => "USD"},
-          "location_id" => config[:location_id]
-        },
-        "checkout_options" => %{
-          "subscription_plan_id" => plan_variation_id,
-          "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
-          "accepted_payment_methods" => %{
-            "apple_pay" => true,
-            "google_pay" => true
-          }
-        },
-        "pre_populated_data" => %{
-          "buyer_email" => user.email
-        }
-      }
+      body =
+        subscription_payment_link_body(
+          idempotency_key: "onboard-plus-#{user.id}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Inkwell Plus",
+          amount_cents: 500,
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: "#{frontend_url}/welcome?checkout=success&type=plus&step=5",
+          config: config
+        )
 
       post_payment_link(body, "onboard-plus", user.id)
     end
   end
 
   @doc "Create a Square Payment Link for Ink Donor during onboarding."
-  def create_onboarding_payment_link(%User{} = user, "donor", amount_cents) when amount_cents in [100, 200, 300] do
+  def create_onboarding_payment_link(%User{} = user, "donor", amount_cents, customer_id)
+      when amount_cents in [100, 200, 300] and is_binary(customer_id) do
     config = square_config()
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
-    plan_variation_id = case amount_cents do
-      100 -> config[:donor_plan_variation_1]
-      200 -> config[:donor_plan_variation_2]
-      300 -> config[:donor_plan_variation_3]
-    end
+    plan_variation_id =
+      case amount_cents do
+        100 -> config[:donor_plan_variation_1]
+        200 -> config[:donor_plan_variation_2]
+        300 -> config[:donor_plan_variation_3]
+      end
 
     if is_nil(plan_variation_id) or plan_variation_id == "" do
       {:error, :square_not_configured}
     else
-      body = %{
-        "idempotency_key" => "onboard-donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
-        "quick_pay" => %{
-          "name" => "Ink Donor — $#{div(amount_cents, 100)}/mo",
-          "price_money" => %{"amount" => amount_cents, "currency" => "USD"},
-          "location_id" => config[:location_id]
-        },
-        "checkout_options" => %{
-          "subscription_plan_id" => plan_variation_id,
-          "redirect_url" => "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
-          "accepted_payment_methods" => %{
-            "apple_pay" => true,
-            "google_pay" => true
-          }
-        },
-        "pre_populated_data" => %{
-          "buyer_email" => user.email
-        }
-      }
+      body =
+        subscription_payment_link_body(
+          idempotency_key:
+            "onboard-donor-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Ink Donor — $#{div(amount_cents, 100)}/mo",
+          amount_cents: amount_cents,
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: "#{frontend_url}/welcome?checkout=success&type=donor&step=5",
+          config: config
+        )
 
       post_payment_link(body, "onboard-donor-#{div(amount_cents, 100)}", user.id)
     end
   end
+
+  # Shared builder for recurring-subscription Payment Link bodies. Produces
+  # an `order`-mode request with customer_id + reference_id on the order, so
+  # the subscription Square creates is bound to a customer we control and
+  # the order carries a fallback user identifier readable from webhooks.
+  defp subscription_payment_link_body(opts) do
+    user = Keyword.fetch!(opts, :user)
+    customer_id = Keyword.fetch!(opts, :customer_id)
+    plan_variation_id = Keyword.fetch!(opts, :plan_variation_id)
+    config = Keyword.fetch!(opts, :config)
+
+    %{
+      "idempotency_key" => Keyword.fetch!(opts, :idempotency_key),
+      "order" =>
+        build_order(
+          customer_id: customer_id,
+          user_id: user.id,
+          line_item_name: Keyword.fetch!(opts, :line_item_name),
+          amount_cents: Keyword.fetch!(opts, :amount_cents),
+          config: config
+        ),
+      "checkout_options" => %{
+        "subscription_plan_id" => plan_variation_id,
+        "redirect_url" => Keyword.fetch!(opts, :redirect_url),
+        "accepted_payment_methods" => %{
+          "apple_pay" => true,
+          "google_pay" => true
+        }
+      },
+      "pre_populated_data" => pre_populated_data_for(user)
+    }
+  end
+
+  # Shared builder for one-off (non-subscription) Payment Link bodies.
+  defp one_off_payment_link_body(opts) do
+    user = Keyword.fetch!(opts, :user)
+    customer_id = Keyword.fetch!(opts, :customer_id)
+    config = Keyword.fetch!(opts, :config)
+
+    %{
+      "idempotency_key" => Keyword.fetch!(opts, :idempotency_key),
+      "order" =>
+        build_order(
+          customer_id: customer_id,
+          user_id: user.id,
+          line_item_name: Keyword.fetch!(opts, :line_item_name),
+          amount_cents: Keyword.fetch!(opts, :amount_cents),
+          config: config
+        ),
+      "checkout_options" => %{
+        "redirect_url" => Keyword.fetch!(opts, :redirect_url),
+        "accepted_payment_methods" => %{
+          "apple_pay" => true,
+          "google_pay" => true
+        }
+      },
+      "pre_populated_data" => pre_populated_data_for(user)
+    }
+  end
+
+  defp build_order(opts) do
+    config = Keyword.fetch!(opts, :config)
+
+    # reference_id is the bare user UUID (36 chars). Square's Order.reference_id
+    # has a 40-char limit, so we can't prefix with "inkwell_user_" here (would
+    # be 49 chars). The webhook handler casts the raw string as a UUID —
+    # same pattern used for Customer.reference_id.
+    %{
+      "location_id" => config[:location_id],
+      "customer_id" => Keyword.fetch!(opts, :customer_id),
+      "reference_id" => Keyword.fetch!(opts, :user_id),
+      "line_items" => [
+        %{
+          "name" => Keyword.fetch!(opts, :line_item_name),
+          "quantity" => "1",
+          "base_price_money" => %{
+            "amount" => Keyword.fetch!(opts, :amount_cents),
+            "currency" => "USD"
+          }
+        }
+      ]
+    }
+  end
+
+  # Pre-populate buyer_email only if we have a real email. Fediverse users
+  # have placeholder emails like user@domain.fediverse.inkwell.social that
+  # aren't deliverable, so we skip pre-population for them rather than
+  # show a fake address in Square's checkout form.
+  defp pre_populated_data_for(%User{email: email}) do
+    if fediverse_placeholder_email?(email) do
+      %{}
+    else
+      %{"buyer_email" => email}
+    end
+  end
+
+  defp fediverse_placeholder_email?(email) when is_binary(email) do
+    String.ends_with?(email, ".fediverse.inkwell.social")
+  end
+
+  defp fediverse_placeholder_email?(_), do: false
 
   # Shared helper for all Payment Link creators. Logs the request body, the
   # response shape, and explicitly checks whether Square actually attached a
@@ -300,6 +388,52 @@ defmodule Inkwell.Square do
   def get_customer(customer_id) do
     case square_get("/customers/#{customer_id}") do
       {:ok, %{"customer" => customer}} -> {:ok, customer}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Create a Square customer. Accepts a plain map matching Square's CreateCustomer
+  body (email_address, given_name, family_name, reference_id, note, etc.). All
+  fields are optional — Square will generate a customer with whatever is provided.
+
+  Idempotency is NOT enforced here (no `idempotency_key` by default). Callers
+  that need idempotency should pass it in the attrs map. In practice this is
+  called from Billing.ensure_square_customer/1 which pre-checks for an existing
+  customer_id on the user, so double-creation is already avoided at that layer.
+  """
+  def create_customer(attrs) when is_map(attrs) do
+    case square_post("/customers", attrs) do
+      {:ok, %{"customer" => customer}} -> {:ok, customer}
+      {:ok, other} -> {:error, {:unexpected_response, other}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Fetch a Square invoice by ID. Used by the webhook fallback chain."
+  def get_invoice(nil), do: {:error, :no_invoice}
+  def get_invoice(invoice_id) when is_binary(invoice_id) do
+    case square_get("/invoices/#{invoice_id}") do
+      {:ok, %{"invoice" => invoice}} -> {:ok, invoice}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Fetch a Square order by ID. Used by the webhook fallback chain to recover
+  the order's reference_id when the customer_id path fails.
+
+  Uses BatchRetrieveOrders because the plain GET /orders/:id endpoint
+  requires a location_id and isn't always available for subscription-generated
+  orders — BatchRetrieveOrders takes just order_ids and works universally.
+  """
+  def get_order(nil), do: {:error, :no_order}
+  def get_order(order_id) when is_binary(order_id) do
+    body = %{"order_ids" => [order_id]}
+
+    case square_post("/orders/batch-retrieve", body) do
+      {:ok, %{"orders" => [order | _]}} -> {:ok, order}
+      {:ok, _} -> {:error, :not_found}
       {:error, reason} -> {:error, reason}
     end
   end

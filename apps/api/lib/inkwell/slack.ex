@@ -78,6 +78,14 @@ defmodule Inkwell.Slack do
     notify(":gift: *One-time donation!* @#{username} donated #{dollars}")
   end
 
+  def notify_unmatched_subscription(sub_id, customer_id) do
+    notify(
+      ":rotating_light: *Unmatched Square subscription!* " <>
+        "sub=`#{sub_id}` customer=`#{customer_id}` — no Inkwell user resolved via " <>
+        "customer_id, reference_id, invoice→order, or email. Manually attach via admin panel."
+    )
+  end
+
   def notify_writer_plan_subscription(writer_username, subscriber_username, amount_cents) do
     dollars = trunc((amount_cents || 0) / 100)
     notify(":moneybag: *New plan subscriber!* @#{subscriber_username} subscribed to @#{writer_username}'s plan ($#{dollars}/mo)")

@@ -1056,30 +1056,144 @@ defmodule Inkwell.Billing do
 
   # ── Public API ──────────────────────────────────────────────────────────
 
+  @doc """
+  Ensure the user has a Square customer record. Idempotent — returns existing
+  `square_customer_id` if set, otherwise creates a new Square customer tagged
+  with `reference_id = user.id` and persists the ID on the user.
+
+  This is the Stripe-parity equivalent of pre-creating a Stripe customer
+  before checkout: it gives us a stable Square-native identifier that binds
+  subsequent subscription/payment webhooks back to the Inkwell user,
+  regardless of what email the buyer types at Square checkout.
+
+  Returns:
+    * `{:ok, customer_id, user}` — success (user is updated if we just
+      created the customer)
+    * `{:error, :square_not_configured}` — Square credentials missing
+    * `{:error, reason}` — Square API error
+  """
+  def ensure_square_customer(%User{square_customer_id: cid} = user)
+      when is_binary(cid) and cid != "" do
+    {:ok, cid, user}
+  end
+
+  def ensure_square_customer(%User{} = user) do
+    attrs = build_square_customer_attrs(user)
+
+    case Square.create_customer(attrs) do
+      {:ok, %{"id" => customer_id}} ->
+        case user
+             |> User.subscription_changeset(%{square_customer_id: customer_id})
+             |> Repo.update() do
+          {:ok, updated} ->
+            Logger.info(
+              "[Billing] Pre-created Square customer #{customer_id} for @#{user.username} (user #{user.id})"
+            )
+
+            {:ok, customer_id, updated}
+
+          {:error, changeset} ->
+            Logger.error(
+              "[Billing] Created Square customer #{customer_id} but failed to persist on user #{user.id}: #{inspect(changeset.errors)}"
+            )
+
+            {:error, :persist_failed}
+        end
+
+      {:error, reason} ->
+        Logger.error(
+          "[Billing] Failed to create Square customer for user #{user.id} (@#{user.username}): #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  # Build the Square CreateCustomer payload from an Inkwell user. Tags the
+  # customer with `reference_id = user.id` so webhook handlers can resolve
+  # the Inkwell user from any Square customer record we've created, even
+  # when the email doesn't match.
+  defp build_square_customer_attrs(%User{} = user) do
+    base = %{
+      "reference_id" => user.id,
+      "note" => "Inkwell user @#{user.username}"
+    }
+
+    base =
+      if fediverse_placeholder_email?(user.email) do
+        base
+      else
+        Map.put(base, "email_address", user.email)
+      end
+
+    cond do
+      is_binary(user.display_name) and user.display_name != "" ->
+        case String.split(user.display_name, " ", parts: 2) do
+          [given] ->
+            Map.put(base, "given_name", given)
+
+          [given, family] ->
+            base
+            |> Map.put("given_name", given)
+            |> Map.put("family_name", family)
+        end
+
+      true ->
+        Map.put(base, "given_name", user.username)
+    end
+  end
+
+  defp fediverse_placeholder_email?(email) when is_binary(email) do
+    String.ends_with?(email, ".fediverse.inkwell.social")
+  end
+
+  defp fediverse_placeholder_email?(_), do: false
+
   @doc "Create a checkout session for upgrading to Plus."
   def create_checkout_session(%User{} = user) do
-    Square.create_plus_payment_link(user)
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_plus_payment_link(user, customer_id)
+    end)
   end
 
   @doc "Create a checkout session for an Ink Donor donation (recurring)."
-  def create_donor_checkout_session(%User{} = user, amount_cents) when amount_cents in [100, 200, 300] do
-    Square.create_donor_payment_link(user, amount_cents)
+  def create_donor_checkout_session(%User{} = user, amount_cents)
+      when amount_cents in [100, 200, 300] do
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_donor_payment_link(user, amount_cents, customer_id)
+    end)
   end
 
   @doc "Create a checkout session for a one-time Ink Donor donation ($1-$500)."
   def create_donation_checkout_session(%User{} = user, amount_cents)
       when is_integer(amount_cents) and amount_cents >= 100 and amount_cents <= 50000 do
-    Square.create_donation_payment_link(user, amount_cents)
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_donation_payment_link(user, amount_cents, customer_id)
+    end)
   end
 
   @doc "Create a checkout session for Plus during onboarding."
   def create_onboarding_checkout_session(%User{} = user, "plus") do
-    Square.create_onboarding_payment_link(user, "plus")
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_onboarding_payment_link(user, "plus", customer_id)
+    end)
   end
 
   @doc "Create a checkout session for Ink Donor during onboarding."
-  def create_onboarding_checkout_session(%User{} = user, "donor", amount_cents) when amount_cents in [100, 200, 300] do
-    Square.create_onboarding_payment_link(user, "donor", amount_cents)
+  def create_onboarding_checkout_session(%User{} = user, "donor", amount_cents)
+      when amount_cents in [100, 200, 300] do
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_onboarding_payment_link(user, "donor", amount_cents, customer_id)
+    end)
+  end
+
+  # Run `fun` with a guaranteed Square customer_id. Bubbles up errors from
+  # ensure_square_customer/1 so callers don't have to handle them explicitly.
+  defp with_square_customer(%User{} = user, fun) when is_function(fun, 2) do
+    case ensure_square_customer(user) do
+      {:ok, customer_id, user} -> fun.(customer_id, user)
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc "Cancel a Plus subscription."
@@ -1630,14 +1744,31 @@ defmodule Inkwell.Billing do
     plan_variation_id = get_in(sub, ["plan_variation_id"])
     config = Application.get_env(:inkwell, :square, [])
 
-    # Try customer ID first, then fall back to email lookup via Square API
+    # Four-layer resolution chain, in order of reliability + speed:
+    #
+    #   1. `square_customer_id` on the user (pre-created by
+    #      Billing.ensure_square_customer/1 before checkout)
+    #   2. Square Customer.reference_id (set when we pre-created the customer —
+    #      this catches the case where our local DB write didn't land yet but
+    #      Square has the customer with our user.id on it)
+    #   3. Subscription → Invoice → Order.reference_id (belt-and-suspenders for
+    #      when Square ignores order.customer_id and creates a fresh customer)
+    #   4. Legacy email match (last resort, retained so existing pre-customer-
+    #      pre-creation subscriptions still resolve)
     user =
       find_user_by_square_customer(customer_id) ||
+        find_user_by_customer_reference_id(customer_id) ||
+        find_user_by_subscription_reference_id(sub) ||
         find_user_by_email_from_square(customer_id)
 
     case user do
       nil ->
-        Logger.error("subscription.created — no user found for Square customer #{customer_id}")
+        Logger.error(
+          "subscription.created — no user found for sub #{sub_id} / customer #{customer_id} " <>
+            "(tried square_customer_id, customer.reference_id, invoice→order.reference_id, email)"
+        )
+
+        Inkwell.Slack.notify_unmatched_subscription(sub_id, customer_id)
         :error
 
       user ->
@@ -1652,10 +1783,14 @@ defmodule Inkwell.Billing do
           })
           |> Repo.update()
 
-          # Also store customer ID if not set
+          # Also store customer ID if not set (covers the reference_id-based
+          # fallback paths where local square_customer_id wasn't pre-set)
           maybe_set_square_customer(user, customer_id)
 
-          Logger.info("User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo via Square)")
+          Logger.info(
+            "User #{user.username} became an Ink Donor ($#{(amount_cents || 0) / 100}/mo via Square)"
+          )
+
           Inkwell.Slack.notify_ink_donor(user.username, amount_cents)
         else
           user
@@ -1676,6 +1811,43 @@ defmodule Inkwell.Billing do
   end
 
   defp handle_subscription_created(_), do: :ok
+
+  # Fallback 2: look up user by the reference_id we stamped on the Square
+  # customer at pre-creation time. This closes a race where our local
+  # square_customer_id write didn't commit (or didn't propagate fast enough)
+  # but Square has already fired subscription.created.
+  defp find_user_by_customer_reference_id(nil), do: nil
+
+  defp find_user_by_customer_reference_id(customer_id) do
+    case Square.get_customer(customer_id) do
+      {:ok, %{"reference_id" => ref_id}} when is_binary(ref_id) and ref_id != "" ->
+        # reference_id is the raw user UUID (see build_square_customer_attrs/1)
+        case Ecto.UUID.cast(ref_id) do
+          {:ok, user_id} -> Repo.get(User, user_id)
+          :error -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  # Fallback 3: follow the subscription's first invoice to its order, and
+  # read the order's reference_id (bare user UUID — Square's Order.reference_id
+  # has a 40-char limit, so we can't prefix it). Works even if Square created
+  # a fresh customer at checkout that has no reference_id of its own.
+  defp find_user_by_subscription_reference_id(%{"invoice_ids" => [invoice_id | _]})
+       when is_binary(invoice_id) do
+    with {:ok, %{"order_id" => order_id}} <- Square.get_invoice(invoice_id),
+         {:ok, %{"reference_id" => ref_id}} when is_binary(ref_id) <- Square.get_order(order_id),
+         {:ok, uuid} <- Ecto.UUID.cast(ref_id) do
+      Repo.get(User, uuid)
+    else
+      _ -> nil
+    end
+  end
+
+  defp find_user_by_subscription_reference_id(_), do: nil
 
   defp handle_square_subscription_updated(%{"subscription" => sub}) do
     handle_square_subscription_updated(sub)
@@ -1886,11 +2058,83 @@ defmodule Inkwell.Billing do
   # True if this user has an active Square subscription (Plus OR Donor),
   # meaning a recent completed payment is most likely their recurring charge
   # rather than a separate one-time donation.
+  #
+  # Checks the local DB first (fast path). If the local record shows no
+  # subscription, falls back to a real-time Square API lookup — this closes
+  # the webhook race window where payment.updated can arrive before
+  # subscription.created, which previously caused subscription signups to
+  # be misclassified as one-time donations. The fallback also self-heals
+  # the local user record so subsequent payments classify correctly without
+  # a repeat API call.
   defp subscription_renewal?(nil), do: false
 
   defp subscription_renewal?(%User{} = user) do
-    (user.square_subscription_id != nil and user.subscription_status == "active") or
-      (user.square_donor_subscription_id != nil and user.ink_donor_status == "active")
+    has_local_sub =
+      (user.square_subscription_id != nil and user.subscription_status == "active") or
+        (user.square_donor_subscription_id != nil and user.ink_donor_status == "active")
+
+    has_local_sub or check_square_for_active_subscription(user)
+  end
+
+  defp check_square_for_active_subscription(%User{square_customer_id: nil}), do: false
+
+  defp check_square_for_active_subscription(%User{square_customer_id: customer_id} = user) do
+    case Square.search_subscriptions_by_customer(customer_id) do
+      {:ok, subs} ->
+        active_sub = Enum.find(subs, fn s -> s["status"] in ["ACTIVE", "PENDING"] end)
+
+        case active_sub do
+          nil ->
+            false
+
+          sub ->
+            Logger.info(
+              "subscription_renewal? — found active Square subscription #{sub["id"]} for " <>
+                "@#{user.username} that wasn't in our DB (likely subscription.created " <>
+                "webhook race) — backfilling and treating this payment as a renewal"
+            )
+
+            backfill_subscription_from_square(user, sub)
+            true
+        end
+
+      {:error, reason} ->
+        Logger.warning(
+          "subscription_renewal? — Square API lookup failed for @#{user.username}: " <>
+            "#{inspect(reason)} — cannot verify, falling back to local DB answer"
+        )
+
+        false
+    end
+  end
+
+  # Mirror handle_subscription_created's writes so future payments for this
+  # user don't need the fallback. Matches the Plus-vs-Donor plan check
+  # already used by the subscription.created handler.
+  defp backfill_subscription_from_square(%User{} = user, sub) do
+    sub_id = sub["id"]
+    plan_variation_id = sub["plan_variation_id"]
+    config = Application.get_env(:inkwell, :square, [])
+
+    if is_donor_plan?(plan_variation_id, config) do
+      amount_cents = donor_amount_for_plan(plan_variation_id, config)
+
+      user
+      |> User.ink_donor_changeset(%{
+        square_donor_subscription_id: sub_id,
+        ink_donor_status: "active",
+        ink_donor_amount_cents: amount_cents
+      })
+      |> Repo.update()
+    else
+      user
+      |> User.subscription_changeset(%{
+        square_subscription_id: sub_id,
+        subscription_tier: "plus",
+        subscription_status: "active"
+      })
+      |> Repo.update()
+    end
   end
 
   # Fire the donation Slack notification exactly once per payment_id. Uses
