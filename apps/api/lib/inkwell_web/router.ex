@@ -575,7 +575,9 @@ defmodule InkwellWeb.Router do
   # ActivityPub / Federation endpoints
   scope "/", InkwellWeb do
     get "/.well-known/webfinger", FederationController, :webfinger
+    get "/.well-known/host-meta", FederationController, :host_meta
     get "/.well-known/nodeinfo", FederationController, :nodeinfo
+    get "/nodeinfo/2.0", FederationController, :nodeinfo_schema_20
     get "/nodeinfo/2.1", FederationController, :nodeinfo_schema
 
     # Entry AP object (Article) — by slug (for Mastodon URL search) and by UUID

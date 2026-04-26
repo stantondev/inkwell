@@ -125,6 +125,8 @@ defmodule InkwellWeb.FederationController do
   # ── NodeInfo ────────────────────────────────────────────────────────────
 
   # GET /.well-known/nodeinfo
+  # Advertise both 2.0 and 2.1 so older stats crawlers (fedidb,
+  # the-federation.info) that only speak 2.0 can still discover us.
   def nodeinfo(conn, _params) do
     instance_host = federation_config(:instance_host)
 
@@ -133,6 +135,10 @@ defmodule InkwellWeb.FederationController do
     |> json(%{
       links: [
         %{
+          rel: "http://nodeinfo.diaspora.software/ns/schema/2.0",
+          href: "https://#{instance_host}/nodeinfo/2.0"
+        },
+        %{
           rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
           href: "https://#{instance_host}/nodeinfo/2.1"
         }
@@ -140,8 +146,51 @@ defmodule InkwellWeb.FederationController do
     })
   end
 
+  # GET /nodeinfo/2.0
+  # 2.0 differs from 2.1: software{} cannot include homepage/repository,
+  # and services{} is required (we bridge to nothing, so both are []).
+  def nodeinfo_schema_20(conn, _params) do
+    stats = nodeinfo_stats()
+
+    conn
+    |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.0\"")
+    |> json(%{
+      version: "2.0",
+      software: %{
+        name: "inkwell",
+        version: "0.1.0"
+      },
+      protocols: ["activitypub"],
+      services: %{inbound: [], outbound: []},
+      usage: stats,
+      openRegistrations: true,
+      metadata: %{}
+    })
+  end
+
   # GET /nodeinfo/2.1
   def nodeinfo_schema(conn, _params) do
+    stats = nodeinfo_stats()
+
+    conn
+    |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.1\"")
+    |> json(%{
+      version: "2.1",
+      software: %{
+        name: "inkwell",
+        version: "0.1.0",
+        repository: "https://github.com/stantondev/inkwell",
+        homepage: "https://inkwell.social"
+      },
+      protocols: ["activitypub"],
+      services: %{inbound: [], outbound: []},
+      usage: stats,
+      openRegistrations: true,
+      metadata: %{}
+    })
+  end
+
+  defp nodeinfo_stats do
     user_count = Repo.aggregate(Inkwell.Accounts.User, :count)
     post_count = Repo.aggregate(Inkwell.Journals.Entry, :count)
     comment_count = Repo.aggregate(Inkwell.Journals.Comment, :count)
@@ -150,7 +199,6 @@ defmodule InkwellWeb.FederationController do
     six_months_ago = DateTime.add(now, -180, :day)
     one_month_ago = DateTime.add(now, -30, :day)
 
-    # Active users = distinct authors who published entries in the period
     active_halfyear =
       from(e in Inkwell.Journals.Entry,
         where: e.status == :published and e.inserted_at >= ^six_months_ago,
@@ -165,29 +213,33 @@ defmodule InkwellWeb.FederationController do
       )
       |> Repo.one()
 
+    %{
+      users: %{
+        total: user_count,
+        activeHalfyear: active_halfyear,
+        activeMonth: active_month
+      },
+      localPosts: post_count,
+      localComments: comment_count
+    }
+  end
+
+  # GET /.well-known/host-meta
+  # XRD pointer to WebFinger. Some older Mastodon clients and discovery
+  # tools probe this before falling back to /.well-known/webfinger directly.
+  def host_meta(conn, _params) do
+    instance_host = federation_config(:instance_host)
+
+    body = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+      <Link rel="lrdd" type="application/xrd+xml" template="https://#{instance_host}/.well-known/webfinger?resource={uri}"/>
+    </XRD>
+    """
+
     conn
-    |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.1\"")
-    |> json(%{
-      version: "2.1",
-      software: %{
-        name: "inkwell",
-        version: "0.1.0",
-        repository: "https://github.com/stantondev/inkwell",
-        homepage: "https://inkwell.social"
-      },
-      protocols: ["activitypub"],
-      usage: %{
-        users: %{
-          total: user_count,
-          activeHalfyear: active_halfyear,
-          activeMonth: active_month
-        },
-        localPosts: post_count,
-        localComments: comment_count
-      },
-      openRegistrations: true,
-      metadata: %{}
-    })
+    |> put_resp_content_type("application/xrd+xml")
+    |> send_resp(200, body)
   end
 
   # ── Outbox ──────────────────────────────────────────────────────────────
