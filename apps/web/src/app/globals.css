@@ -2483,21 +2483,26 @@ body[data-focus-mode] footer {
 .editor-settings-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: none;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
-.editor-settings-toggle:hover,
+.editor-settings-toggle:hover {
+  border-color: var(--accent);
+  color: var(--foreground);
+}
+
 .editor-settings-toggle[aria-pressed="true"] {
   background: var(--accent-light);
   color: var(--accent);
+  border-color: var(--accent);
 }
 
 .editor-history-link {
@@ -2665,6 +2670,45 @@ body[data-focus-mode] footer {
   font-family: inherit;
   color: var(--foreground);
   background: var(--surface);
+}
+
+/* Mobile: replaces the inline category picker — opens the settings sheet */
+button.editor-inline-margins-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  font-style: italic;
+  font-family: var(--serif), Georgia, serif;
+  line-height: 1.2;
+  cursor: pointer;
+  padding: 2px 0;
+  margin: 0;
+  text-decoration: none;
+  text-align: left;
+  letter-spacing: normal;
+  transition: color 150ms ease;
+}
+
+button.editor-inline-margins-link:hover,
+button.editor-inline-margins-link:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+button.editor-inline-margins-link svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 150ms ease;
+}
+
+button.editor-inline-margins-link:hover svg {
+  transform: translateX(2px);
+  opacity: 1;
 }
 
 .editor-meta-strip {
@@ -3169,17 +3213,87 @@ body.eye-comfort .editor-paper::before {
   }
 }
 
-/* Mobile: settings panel goes full-width below the editor */
+/* Mobile: settings panel renders inside a slide-up bottom sheet (via portal) */
 @media (max-width: 767px) {
   .editor-settings-panel {
     border-left: none;
-    border-top: 1px solid var(--border);
+    border-top: none;
     box-shadow: none;
+    /* fill the sheet wrapper */
+    flex: 1;
+    min-height: 0;
   }
 
   .editor-settings-panel::before {
     display: none;
   }
+
+  .editor-settings-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+    animation: editor-settings-sheet-fade-in 0.2s ease;
+  }
+
+  .editor-settings-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-radius: 16px 16px 0 0;
+    border-top: 2px solid var(--accent);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: editor-settings-sheet-slide-up 0.25s ease;
+    /* Safe area for notched phones */
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow: hidden;
+  }
+
+  .editor-settings-sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .editor-settings-sheet-handle-bar {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+
+  .editor-settings-sheet-handle:hover .editor-settings-sheet-handle-bar {
+    background: var(--muted);
+  }
+
+  @keyframes editor-settings-sheet-slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes editor-settings-sheet-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .editor-settings-sheet-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+}
+
+[data-theme="dark"] .editor-settings-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 /* ─── Letter thread layout ───────────────────────────────────────────── */

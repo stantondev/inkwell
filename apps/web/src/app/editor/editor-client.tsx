@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -1502,6 +1503,7 @@ export function EditorClient() {
   const [saveStatus, setSaveStatus] = useState<SaveStatusType>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
   const settingsInitialized = useRef(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasContent, setHasContent] = useState(false);
@@ -1618,12 +1620,15 @@ export function EditorClient() {
   const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorWrapRef = useRef<HTMLDivElement>(null);
 
-  // Open settings panel by default on all screen sizes (persisted in localStorage)
+  // Settings panel defaults to CLOSED. On desktop, restore the user's
+  // previously-opened state from localStorage. On mobile, never auto-open —
+  // the bottom sheet is always a deliberate action, not a remembered preference.
   useEffect(() => {
     if (settingsInitialized.current) return;
     settingsInitialized.current = true;
-    const stored = localStorage.getItem("inkwell-editor-panel");
-    if (stored !== "collapsed") {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth < 768) return;
+    if (localStorage.getItem("inkwell-editor-panel") === "open") {
       setShowSettings(true);
     }
   }, []);
@@ -2310,6 +2315,35 @@ export function EditorClient() {
     });
   }, []);
 
+  // Track mobile layout (matches CSS breakpoint that switches the panel from a
+  // side-panel to a bottom sheet)
+  useEffect(() => {
+    const check = () => setIsMobileLayout(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Lock body scroll while the mobile bottom sheet is open
+  useEffect(() => {
+    if (!(showSettings && isMobileLayout)) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showSettings, isMobileLayout]);
+
+  // Close the mobile sheet on Escape
+  useEffect(() => {
+    if (!(showSettings && isMobileLayout)) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSettings(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showSettings, isMobileLayout]);
+
   const musicEmbed = parseMusicUrl(state.music);
 
   // Toggle between visual (Tiptap) and HTML source editing
@@ -2552,21 +2586,15 @@ export function EditorClient() {
             {/* Settings panel toggle */}
             <button type="button" onClick={toggleSettings}
               className="editor-settings-toggle"
-              title={showSettings ? "Hide settings" : "Show settings"}
-              aria-pressed={showSettings}>
-              {showSettings ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="13 17 18 12 13 7"/>
-                  <polyline points="6 17 11 12 6 7"/>
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="11 17 6 12 11 7"/>
-                  <polyline points="18 17 13 12 18 7"/>
-                </svg>
-              )}
+              title={showSettings ? "Hide entry settings" : "Open entry settings (privacy, tags, summary…)"}
+              aria-pressed={showSettings}
+              aria-label={showSettings ? "Hide entry settings" : "Open entry settings"}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span className="hidden sm:inline">Settings</span>
             </button>
             {!isDraft && savedEntryId && (
               <NextLink
@@ -2724,20 +2752,40 @@ export function EditorClient() {
               aria-label="Entry title"
             />
 
-            {/* ── Inline category picker ─────────────── */}
+            {/* ── Inline category picker (desktop) / settings link (mobile) ─── */}
             {!focusMode && (
               <div className="editor-inline-category">
-                <select
-                  value={state.category ?? ""}
-                  onChange={(e) => update({ category: e.target.value || null })}
-                  className="editor-inline-category-select"
-                  aria-label="Category"
-                >
-                  <option value="">+ Add category</option>
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
+                {isMobileLayout ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(true)}
+                    className="editor-inline-margins-link"
+                    aria-label="Open entry settings (privacy, category, tags, summary)"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Entry settings
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="9 6 15 12 9 18"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <select
+                    value={state.category ?? ""}
+                    onChange={(e) => update({ category: e.target.value || null })}
+                    className="editor-inline-category-select"
+                    aria-label="Category"
+                  >
+                    <option value="">+ Add category</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
 
@@ -2933,7 +2981,8 @@ export function EditorClient() {
         </main>
 
         {/* ── Settings panel — "The Margins" ──────────────── */}
-        {showSettings && (
+        {showSettings && (() => {
+          const settingsPanelInner = (
           <aside className="editor-settings-panel">
             <div className="editor-settings-header">
               <span className="editor-settings-heading">Entry Settings</span>
@@ -3361,7 +3410,32 @@ export function EditorClient() {
 
             </div>
           </aside>
-        )}
+          );
+          if (isMobileLayout && typeof document !== "undefined") {
+            return createPortal(
+              <>
+                <div
+                  className="editor-settings-sheet-backdrop"
+                  onClick={() => setShowSettings(false)}
+                  aria-hidden="true"
+                />
+                <div
+                  className="editor-settings-sheet"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Entry settings"
+                >
+                  <div className="editor-settings-sheet-handle" onClick={() => setShowSettings(false)}>
+                    <div className="editor-settings-sheet-handle-bar" />
+                  </div>
+                  {settingsPanelInner}
+                </div>
+              </>,
+              document.body,
+            );
+          }
+          return settingsPanelInner;
+        })()}
       </div>
 
       {/* Circle embed picker modal */}

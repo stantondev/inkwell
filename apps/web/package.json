@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "mkdir -p .next && touch .next/.metadata_never_index",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
