@@ -190,7 +190,31 @@ defmodule InkwellWeb.FederationController do
     })
   end
 
+  # Cache NodeInfo aggregates for 10 minutes. The 5 sequential aggregate
+  # queries here cost ~150-300ms; fediverse stats crawlers (fedidb,
+  # the-federation.info) poll this on schedules of minutes-to-hours, so
+  # serving stale-by-up-to-10-minutes counts is fine and the spec allows it.
+  @nodeinfo_cache_table :inkwell_nodeinfo_cache
+  @nodeinfo_cache_ttl_seconds 600
+
   defp nodeinfo_stats do
+    ensure_nodeinfo_cache_table()
+    now = System.system_time(:second)
+
+    case :ets.lookup(@nodeinfo_cache_table, :stats) do
+      [{:stats, stats, expires_at}] when expires_at > now ->
+        stats
+
+      _ ->
+        stats = compute_nodeinfo_stats()
+        :ets.insert(@nodeinfo_cache_table, {:stats, stats, now + @nodeinfo_cache_ttl_seconds})
+        stats
+    end
+  rescue
+    ArgumentError -> compute_nodeinfo_stats()
+  end
+
+  defp compute_nodeinfo_stats do
     user_count = Repo.aggregate(Inkwell.Accounts.User, :count)
     post_count = Repo.aggregate(Inkwell.Journals.Entry, :count)
     comment_count = Repo.aggregate(Inkwell.Journals.Comment, :count)
@@ -222,6 +246,14 @@ defmodule InkwellWeb.FederationController do
       localPosts: post_count,
       localComments: comment_count
     }
+  end
+
+  defp ensure_nodeinfo_cache_table do
+    if :ets.whereis(@nodeinfo_cache_table) == :undefined do
+      :ets.new(@nodeinfo_cache_table, [:set, :public, :named_table])
+    end
+  rescue
+    ArgumentError -> :ok
   end
 
   # GET /.well-known/host-meta

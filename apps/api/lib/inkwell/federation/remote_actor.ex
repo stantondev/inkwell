@@ -11,6 +11,12 @@ defmodule Inkwell.Federation.RemoteActor do
 
   @cache_ttl_seconds 14_400  # 4 hours (reduced from 24h for faster key rotation detection)
 
+  # Negative cache: remembers actors that returned 404/410 so repeated Delete
+  # activities from gone accounts don't pay a full HTTP round-trip every time.
+  # ETS table is created lazily on first access.
+  @negative_cache_table :remote_actor_negative_cache
+  @negative_cache_ttl_seconds 3_600  # 1 hour
+
   @doc """
   Fetches a remote actor by their AP ID.
   Returns from cache if fresh, otherwise fetches from the remote server.
@@ -21,14 +27,19 @@ defmodule Inkwell.Federation.RemoteActor do
   def fetch(actor_uri, opts \\ [])
 
   def fetch(actor_uri, opts) when is_binary(actor_uri) do
-    if Keyword.get(opts, :force, false) do
-      refresh(actor_uri)
-    else
-      case get_cached(actor_uri) do
-        {:ok, actor} -> {:ok, actor}
-        :stale -> refresh(actor_uri)
-        :miss -> refresh(actor_uri)
-      end
+    cond do
+      Keyword.get(opts, :force, false) ->
+        refresh(actor_uri)
+
+      gone = check_negative_cache(actor_uri) ->
+        {:error, {:http_error, gone}}
+
+      true ->
+        case get_cached(actor_uri) do
+          {:ok, actor} -> {:ok, actor}
+          :stale -> refresh(actor_uri)
+          :miss -> refresh(actor_uri)
+        end
     end
   end
 
@@ -62,6 +73,17 @@ defmodule Inkwell.Federation.RemoteActor do
       {:ok, data} ->
         upsert_actor(data)
 
+      {:error, {:http_error, status}} = error when status in [404, 410] ->
+        # Actor is permanently gone. Negative-cache the URI so repeat Delete
+        # activities from this gone-actor reject in microseconds instead of
+        # paying another full HTTP round-trip.
+        put_negative_cache(actor_uri, status)
+
+        case Repo.get_by(RemoteActorSchema, ap_id: actor_uri) do
+          nil -> error
+          stale -> {:ok, stale}
+        end
+
       {:error, reason} ->
         # If we have a stale cache, return it as fallback
         case Repo.get_by(RemoteActorSchema, ap_id: actor_uri) do
@@ -69,6 +91,46 @@ defmodule Inkwell.Federation.RemoteActor do
           stale -> {:ok, stale}
         end
     end
+  end
+
+  # ── Negative cache ─────────────────────────────────────────────────────
+
+  # Returns the cached HTTP status (404 | 410) if the URI is known-gone and
+  # within the TTL, or nil otherwise. Self-prunes expired entries.
+  defp check_negative_cache(ap_id) do
+    ensure_negative_cache_table()
+    now = System.system_time(:second)
+
+    case :ets.lookup(@negative_cache_table, ap_id) do
+      [{^ap_id, status, expires_at}] when expires_at > now ->
+        status
+
+      [{^ap_id, _status, _expires_at}] ->
+        :ets.delete(@negative_cache_table, ap_id)
+        nil
+
+      [] ->
+        nil
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp put_negative_cache(ap_id, status) do
+    ensure_negative_cache_table()
+    expires_at = System.system_time(:second) + @negative_cache_ttl_seconds
+    :ets.insert(@negative_cache_table, {ap_id, status, expires_at})
+    :ok
+  rescue
+    ArgumentError -> :ok
+  end
+
+  defp ensure_negative_cache_table do
+    if :ets.whereis(@negative_cache_table) == :undefined do
+      :ets.new(@negative_cache_table, [:set, :public, :named_table])
+    end
+  rescue
+    ArgumentError -> :ok
   end
 
   # ── HTTP fetch ─────────────────────────────────────────────────────────
