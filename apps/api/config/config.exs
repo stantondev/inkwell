@@ -63,9 +63,11 @@ config :inkwell, Oban,
        # Poll close — was every 5m, now every 15m at :11. Polls expire on
        # their own; this just flips the DB status column.
        {"11-59/15 * * * *", Inkwell.Workers.PollCloseWorker},
-       # Gazette ingestion — staggered to :23 to avoid the top-of-hour pile-up.
-       # Effectively disabled in prod via GAZETTE_INGESTION_ENABLED=false.
-       {"23 * * * *", Inkwell.Workers.GazetteIngestionScheduler}
+       # Gazette ingestion — every 6h at :23. With 1 source instance configured
+       # (GAZETTE_SOURCES) and 24 topics, each tick enqueues ~24 jobs which
+       # drain in ~1 minute. Yields 4 content refreshes/day, sized for current
+       # traffic. Increase frequency or add instances when scale warrants.
+       {"23 */6 * * *", Inkwell.Workers.GazetteIngestionScheduler}
      ]}
   ]
 
