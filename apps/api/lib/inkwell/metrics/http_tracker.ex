@@ -33,27 +33,46 @@ defmodule Inkwell.Metrics.HttpTracker do
   @doc false
   def handle_event(_event, %{duration: duration}, metadata, _config) do
     conn = Map.get(metadata, :conn, %{})
-    status = Map.get(conn, :status, 0) || 0
-    duration_ms = System.convert_time_unit(duration, :native, :millisecond)
+    path = Map.get(conn, :request_path, "") || ""
 
-    # Total counters
-    :ets.update_counter(@ets_table, :total_requests, {2, 1}, {:total_requests, 0})
-    :ets.update_counter(@ets_table, :total_duration_ms, {2, duration_ms}, {:total_duration_ms, 0})
+    if track_path?(path) do
+      status = Map.get(conn, :status, 0) || 0
+      duration_ms = System.convert_time_unit(duration, :native, :millisecond)
 
-    # By status class
-    status_key =
-      cond do
-        status >= 500 -> :status_5xx
-        status >= 400 -> :status_4xx
-        status >= 300 -> :status_3xx
-        status >= 200 -> :status_2xx
-        true -> :status_other
-      end
+      # Total counters
+      :ets.update_counter(@ets_table, :total_requests, {2, 1}, {:total_requests, 0})
 
-    :ets.update_counter(@ets_table, status_key, {2, 1}, {status_key, 0})
+      :ets.update_counter(
+        @ets_table,
+        :total_duration_ms,
+        {2, duration_ms},
+        {:total_duration_ms, 0}
+      )
+
+      # By status class
+      status_key =
+        cond do
+          status >= 500 -> :status_5xx
+          status >= 400 -> :status_4xx
+          status >= 300 -> :status_3xx
+          status >= 200 -> :status_2xx
+          true -> :status_other
+        end
+
+      :ets.update_counter(@ets_table, status_key, {2, 1}, {status_key, 0})
+    end
   rescue
     _ -> :ok
   end
+
+  # Only track user-facing API requests in the latency metric. Federation
+  # endpoints (/inbox, /users/:u/*, /.well-known/*, /nodeinfo/*, /entries/:id)
+  # have inherently high latency from HTTP signature verification and remote
+  # actor fetches we don't control — including them in the average makes the
+  # alert flap on federation noise instead of user experience.
+  defp track_path?("/api/" <> _), do: true
+  defp track_path?("/health" <> _), do: true
+  defp track_path?(_), do: false
 
   @doc """
   Atomically reads and resets all HTTP metric counters.
