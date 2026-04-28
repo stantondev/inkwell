@@ -426,21 +426,25 @@ defmodule InkwellWeb.FederationController do
   end
 
   # ── Inbox (ActivityPub processing) ──────────────────────────────────────
+  #
+  # Inbox endpoints verify HTTP signature + validate origin synchronously
+  # (the security boundary), then enqueue the activity for async processing
+  # and return 202 immediately. All DB writes, remote actor fetches, and
+  # downstream fan-out happen in `Inkwell.Federation.Workers.ProcessInboxActivityWorker`,
+  # decoupled from the request lifecycle.
+  #
+  # This matches how Mastodon, Pleroma, Akkoma, GoToSocial all handle inbox
+  # traffic. It prevents Delete fan-outs and signature retry storms from
+  # tying up the Phoenix request pool.
 
   # POST /users/:username/inbox
   def inbox(conn, %{"username" => username} = params) do
     case verify_inbox_signature(conn) do
       :ok ->
-        # Validate that the signing key's domain matches the activity actor's domain
         case validate_actor_origin(conn, params) do
           :ok ->
-            case Accounts.get_user_by_username(username) do
-              nil ->
-                conn |> put_status(:not_found) |> json(%{error: "Not found"})
-
-              user ->
-                process_activity(conn, params, user)
-            end
+            enqueue_inbox_activity(params, username)
+            conn |> put_status(:accepted) |> json(%{ok: true})
 
           {:error, :domain_mismatch} ->
             Logger.warning("Inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
@@ -460,7 +464,8 @@ defmodule InkwellWeb.FederationController do
       :ok ->
         case validate_actor_origin(conn, params) do
           :ok ->
-            process_activity(conn, params, nil)
+            enqueue_inbox_activity(params, nil)
+            conn |> put_status(:accepted) |> json(%{ok: true})
 
           {:error, :domain_mismatch} ->
             Logger.warning("Shared inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
@@ -474,56 +479,55 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
-  # ── Activity processing ─────────────────────────────────────────────────
+  defp enqueue_inbox_activity(activity, target_username) do
+    %{"activity" => activity, "target_username" => target_username}
+    |> Inkwell.Federation.Workers.ProcessInboxActivityWorker.new()
+    |> Oban.insert()
+  end
 
-  defp process_activity(conn, activity, target_user) do
+  # ── Activity processing (called from ProcessInboxActivityWorker) ────────
+  #
+  # `process_activity_async/2` is the public entry point used by the worker.
+  # It dispatches to the per-type `handle_*` private functions below. None of
+  # these functions take a `conn` — they just process the activity and return
+  # `:ok` or `{:error, reason}`. Errors are logged and the Oban job retries
+  # with backoff.
+
+  @doc false
+  def process_activity_async(activity, target_user) do
     activity_type = activity["type"]
     actor_uri = activity["actor"]
     Logger.info("Inbox received #{activity_type} activity from #{actor_uri}")
     Inkwell.Federation.FederationStats.track_inbound(activity_type)
 
-    # Check instance-level domain defederation before processing any activity
-    actor_domain = case URI.parse(actor_uri || "") do
-      %URI{host: host} when is_binary(host) -> String.downcase(host)
-      _ -> nil
+    actor_domain =
+      case URI.parse(actor_uri || "") do
+        %URI{host: host} when is_binary(host) -> String.downcase(host)
+        _ -> nil
+      end
+
+    cond do
+      actor_domain && Inkwell.Moderation.FediverseBlocks.is_domain_defederated?(actor_domain) ->
+        Logger.info("Dropping #{activity_type} from defederated domain #{actor_domain}")
+        :ok
+
+      true ->
+        dispatch_activity(activity_type, activity, target_user)
     end
+  end
 
-    if actor_domain && Inkwell.Moderation.FediverseBlocks.is_domain_defederated?(actor_domain) do
-      Logger.info("Dropping #{activity_type} from defederated domain #{actor_domain}")
-      conn |> put_status(:accepted) |> json(%{ok: true})
-    else
+  defp dispatch_activity("Follow", activity, target_user), do: handle_follow(activity, target_user)
+  defp dispatch_activity("Undo", activity, target_user), do: handle_undo(activity, target_user)
+  defp dispatch_activity("Create", activity, target_user), do: handle_create(activity, target_user)
+  defp dispatch_activity("Accept", activity, target_user), do: handle_accept(activity, target_user)
+  defp dispatch_activity("Like", activity, target_user), do: handle_like(activity, target_user)
+  defp dispatch_activity("Update", activity, target_user), do: handle_update(activity, target_user)
+  defp dispatch_activity("Delete", activity, target_user), do: handle_delete(activity, target_user)
+  defp dispatch_activity("Announce", activity, target_user), do: handle_announce(activity, target_user)
 
-    case activity_type do
-      "Follow" ->
-        handle_follow(conn, activity, target_user)
-
-      "Undo" ->
-        handle_undo(conn, activity, target_user)
-
-      "Create" ->
-        handle_create(conn, activity, target_user)
-
-      "Accept" ->
-        handle_accept(conn, activity, target_user)
-
-      "Like" ->
-        handle_like(conn, activity, target_user)
-
-      "Update" ->
-        handle_update(conn, activity, target_user)
-
-      "Delete" ->
-        handle_delete(conn, activity, target_user)
-
-      "Announce" ->
-        handle_announce(conn, activity, target_user)
-
-      _ ->
-        Logger.info("Ignoring unsupported activity type: #{activity_type}")
-        conn |> put_status(:accepted) |> json(%{ok: true})
-    end
-
-    end  # end defederation check
+  defp dispatch_activity(other, _activity, _target_user) do
+    Logger.info("Ignoring unsupported activity type: #{other}")
+    :ok
   end
 
   # ── Signature verification ──────────────────────────────────────────────
@@ -666,7 +670,7 @@ defmodule InkwellWeb.FederationController do
 
   # ── Follow handling ─────────────────────────────────────────────────────
 
-  defp handle_follow(conn, activity, target_user) do
+  defp handle_follow(activity, target_user) do
     actor_uri = activity["actor"]
 
     with true <- target_user != nil,
@@ -702,11 +706,11 @@ defmodule InkwellWeb.FederationController do
           Logger.warning("Failed to create follow relationship: #{inspect(reason)}")
       end
 
-      conn |> put_status(:accepted) |> json(%{ok: true})
+      :ok
     else
       _ ->
         Logger.warning("Follow handling failed for #{actor_uri}")
-        conn |> put_status(:accepted) |> json(%{ok: true})
+        :ok
     end
   end
 
@@ -765,7 +769,7 @@ defmodule InkwellWeb.FederationController do
 
   # ── Undo handling ───────────────────────────────────────────────────────
 
-  defp handle_undo(conn, activity, target_user) do
+  defp handle_undo(activity, target_user) do
     case activity["object"] do
       %{"type" => "Follow"} ->
         actor_uri = activity["actor"]
@@ -835,12 +839,12 @@ defmodule InkwellWeb.FederationController do
         :ok
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Accept handling (outbound follow accepted) ──────────────────────────
 
-  defp handle_accept(conn, activity, _target_user) do
+  defp handle_accept(activity, _target_user) do
     case activity["object"] do
       %{"type" => "Follow", "actor" => local_actor_url} when is_binary(local_actor_url) ->
         # This is a remote server accepting our follow request
@@ -884,12 +888,12 @@ defmodule InkwellWeb.FederationController do
         :ok
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Create handling (inbound Notes) ─────────────────────────────────────
 
-  defp handle_create(conn, activity, target_user) do
+  defp handle_create(activity, target_user) do
     object = activity["object"]
     object_type = if is_map(object), do: object["type"], else: "non-map: #{inspect(object)}"
     in_reply_to = if is_map(object), do: object["inReplyTo"], else: nil
@@ -912,12 +916,12 @@ defmodule InkwellWeb.FederationController do
         :ok
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Update handling (inbound edits) ────────────────────────────────────
 
-  defp handle_update(conn, activity, _target_user) do
+  defp handle_update(activity, _target_user) do
     case activity["object"] do
       %{"type" => type, "inReplyTo" => _} = object when type in ["Note", "Article", "Page"] ->
         # This is an edited comment — find and update it
@@ -931,7 +935,7 @@ defmodule InkwellWeb.FederationController do
         :ok
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   defp handle_updated_comment(note) do
@@ -1100,7 +1104,7 @@ defmodule InkwellWeb.FederationController do
 
   # ── Like handling ───────────────────────────────────────────────────────
 
-  defp handle_like(conn, activity, _target_user) do
+  defp handle_like(activity, _target_user) do
     object_uri = activity["object"]
     actor_uri = activity["actor"]
     like_id = activity["id"]
@@ -1131,12 +1135,12 @@ defmodule InkwellWeb.FederationController do
       end
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Announce handling (inbound boost → ink) ─────────────────────────
 
-  defp handle_announce(conn, activity, _target_user) do
+  defp handle_announce(activity, _target_user) do
     # Announce object can be a bare string URI or %{"id" => id}
     object_uri =
       case activity["object"] do
@@ -1197,12 +1201,12 @@ defmodule InkwellWeb.FederationController do
       end
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Delete handling ─────────────────────────────────────────────────────
 
-  defp handle_delete(conn, activity, _target_user) do
+  defp handle_delete(activity, _target_user) do
     object_id =
       case activity["object"] do
         %{"id" => id} -> id
@@ -1230,7 +1234,7 @@ defmodule InkwellWeb.FederationController do
       Inkwell.Guestbook.delete_by_ap_id(object_id)
     end
 
-    conn |> put_status(:accepted) |> json(%{ok: true})
+    :ok
   end
 
   # ── Notification helpers ────────────────────────────────────────────────
