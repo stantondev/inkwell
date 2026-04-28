@@ -43,15 +43,31 @@ export async function apiFetch<T = unknown>(
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   for (let attempt = 0; attempt < 2; attempt++) {
+    // Bound the *connection*, not the body.
+    //
+    // We use an AbortController that we cancel as soon as fetch() resolves
+    // (headers received). The previous `AbortSignal.timeout(8000)` stayed
+    // attached to the body stream — so if response body parsing took longer
+    // than the remaining timeout window, the stream was aborted mid-parse,
+    // crashing Next.js SSR with `controller[kState].transformAlgorithm is
+    // not a function`. Clearing the timeout after headers arrive keeps the
+    // safety against hanging connects without poisoning streaming reads.
+    const controller = options.signal ? null : new AbortController();
+    const timeoutId = controller
+      ? setTimeout(() => controller.abort(), 8000)
+      : null;
+
     let res: Response;
     try {
       res = await fetch(`${SERVER_API}${path}`, {
         ...options,
         headers,
         cache: "no-store", // always fresh for auth-sensitive data
-        signal: options.signal ?? AbortSignal.timeout(8000),
+        signal: options.signal ?? controller!.signal,
       });
+      if (timeoutId) clearTimeout(timeoutId);
     } catch (err) {
+      if (timeoutId) clearTimeout(timeoutId);
       // Treat AbortError / network errors as a 504 so the retry-on-5xx path
       // applies. After the second timeout, surface a real error.
       if (attempt === 0) {
