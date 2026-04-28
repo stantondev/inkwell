@@ -43,9 +43,10 @@ config :inkwell, Oban,
        {"0 6 * * *", Inkwell.Workers.CleanupExpiredExportsWorker},
        {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
        {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
-       # Newsletter scheduler — staggered to :07 so it doesn't collide with
-       # the every-15min workers below.
-       {"7-59/15 * * * *", Inkwell.Workers.NewsletterScheduleWorker},
+       # Newsletter scheduler — every 5 minutes. Healthchecks.io is configured
+       # to expect a ping every 5 minutes; changing this cadence requires
+       # updating the Healthchecks check period to match.
+       {"*/5 * * * *", Inkwell.Workers.NewsletterScheduleWorker},
        # Verify remote entries — was every 4h at :30, now every 8h. Deletion
        # detection latency goes from ~4h → ~8h; fine at this scale.
        {"30 1-23/8 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
