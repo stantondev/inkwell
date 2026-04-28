@@ -26,6 +26,10 @@ export class ApiError extends Error {
  *
  * Retries once on 5xx errors to handle Fly.io Postgres cold starts
  * where the DB machine needs a moment to unsuspend.
+ *
+ * Has an 8-second timeout on the underlying fetch so a slow API can't
+ * hang an entire SSR render — Fly's web health check times out at 15s,
+ * so an unbounded fetch here can take down the whole web machine.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -39,11 +43,25 @@ export async function apiFetch<T = unknown>(
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(`${SERVER_API}${path}`, {
-      ...options,
-      headers,
-      cache: "no-store", // always fresh for auth-sensitive data
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${SERVER_API}${path}`, {
+        ...options,
+        headers,
+        cache: "no-store", // always fresh for auth-sensitive data
+        signal: options.signal ?? AbortSignal.timeout(8000),
+      });
+    } catch (err) {
+      // Treat AbortError / network errors as a 504 so the retry-on-5xx path
+      // applies. After the second timeout, surface a real error.
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      const message =
+        err instanceof Error ? err.message : "Network request failed";
+      throw new ApiError(`Upstream API timeout: ${message}`, 504);
+    }
 
     // Retry once on server errors (likely DB cold start)
     if (res.status >= 500 && attempt === 0) {

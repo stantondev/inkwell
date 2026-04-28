@@ -23,9 +23,15 @@ const APP_ROUTES = [
   "/help", "/ai", "/gazette",
 ];
 
-// In-memory cache for custom domain resolution (60-second TTL)
+// In-memory cache for custom domain resolution.
+// Positive results (real custom domain → username) cached for 5 minutes.
+// Negative results (unknown host or API failure) cached for 60 seconds so
+// crawlers / scanners hammering bogus hostnames don't all hit the API on
+// each request. Without negative caching, a botnet probing arbitrary Host
+// headers can saturate the API in a few seconds.
 const domainCache = new Map<string, { username: string | null; expiry: number }>();
-const CACHE_TTL = 60_000; // 60 seconds
+const POSITIVE_TTL = 5 * 60_000; // 5 minutes
+const NEGATIVE_TTL = 60_000;      // 1 minute
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -37,16 +43,20 @@ async function resolveCustomDomain(hostname: string): Promise<string | null> {
   try {
     const res = await fetch(
       `${API_URL}/api/custom-domain/resolve?hostname=${encodeURIComponent(hostname)}`,
-      { cache: "no-store" }
+      { cache: "no-store", signal: AbortSignal.timeout(2500) }
     );
     if (res.ok) {
       const data = await res.json();
       const username = data.found ? data.username : null;
-      domainCache.set(hostname, { username, expiry: now + CACHE_TTL });
+      const ttl = username ? POSITIVE_TTL : NEGATIVE_TTL;
+      domainCache.set(hostname, { username, expiry: now + ttl });
       return username;
     }
   } catch {
-    // API unreachable — don't cache failure
+    // API unreachable or timed out — cache the negative briefly so we don't
+    // pile on while it recovers. A failing custom-domain check shouldn't be
+    // able to take down the entire web tier.
+    domainCache.set(hostname, { username: null, expiry: now + NEGATIVE_TTL });
   }
   return null;
 }
