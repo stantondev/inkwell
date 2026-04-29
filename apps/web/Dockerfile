@@ -13,7 +13,7 @@
 # apps/web/server.js inside the standalone dir, not at the root.
 # ──────────────────────────────────────────────────────────────
 
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 
 # ── Stage 1: Build ────────────────────────────────────────────
 FROM base AS builder

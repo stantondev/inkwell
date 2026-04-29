@@ -113,11 +113,21 @@ defmodule Inkwell.Federation.Http do
 
   # Build SSL options once at module load — :public_key.cacerts_get() is OTP 25+
   # (Dockerfile uses Erlang 27, so this is safe)
+  #
+  # Aggressive timeouts: 5s end-to-end, 3s connect. These bound the worst case
+  # for a synchronous outbound fetch inside an inbox POST. A healthy fediverse
+  # server responds in <1s; anything slower is broken or hostile and we should
+  # reject the activity (Mastodon will retry with backoff). Mastodon, Pleroma,
+  # and GoToSocial all use 5-10s outbound timeouts for federation fetches.
+  #
+  # The 30s/15s previous values let a single slow remote tie up a Phoenix
+  # process for 30 seconds, contributing to the multi-endpoint slowdowns
+  # observed at peak fan-out times.
   defp http_opts do
     [
       {:ssl, Inkwell.SSL.httpc_opts()},
-      {:timeout, 30_000},
-      {:connect_timeout, 15_000}
+      {:timeout, 5_000},
+      {:connect_timeout, 3_000}
     ]
   end
 
