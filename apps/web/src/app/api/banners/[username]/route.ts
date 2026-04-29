@@ -16,13 +16,13 @@ export async function GET(
   }
 
   const contentType = res.headers.get("content-type") || "image/jpeg";
-  const buffer = await res.arrayBuffer();
 
-  return new NextResponse(buffer, {
+  // Stream rather than buffer — banners can be larger than avatars (200KB-2MB).
+  return new NextResponse(res.body, {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
     },
   });
 }

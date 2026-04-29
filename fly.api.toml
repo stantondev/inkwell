@@ -15,7 +15,12 @@ primary_region = "ord"
 [env]
   PORT = "4000"
   PHX_HOST = "inkwell-api.fly.dev"
-  POOL_SIZE = "7"
+  # Bumped 7 -> 12: Oban runs default+federation+search+email queues at
+  # combined concurrency 18, plus telemetry pusher and ad-hoc Repo calls.
+  # With pool_size=7, brief bursts could starve user requests waiting for a
+  # connection. Each Postgres connection is ~10MB on the Fly Postgres side,
+  # well within the shared-cpu-1x:2GB headroom.
+  POOL_SIZE = "12"
 
 [http_service]
   internal_port = 4000

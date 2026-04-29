@@ -1,27 +1,15 @@
-"use client";
-
-import { motion } from "motion/react";
-import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+// Pure CSS page-enter animation. Previously used `motion/react` which pulled
+// the full Framer Motion library (~30-50KB gzipped) into every entry page
+// just for a one-time fade-and-slide-in. The same effect is achieved with
+// a CSS @keyframes rule (defined in globals.css as `.entry-template-enter`)
+// and a `prefers-reduced-motion` media query also handled in CSS.
+//
+// No "use client" needed — this is a pure server component now.
 
 export default function EntryTemplate({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-
-  if (prefersReducedMotion) {
-    return <>{children}</>;
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 24, rotateY: -3 }}
-      animate={{ opacity: 1, x: 0, rotateY: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      style={{ perspective: 1200 }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className="entry-template-enter">{children}</div>;
 }

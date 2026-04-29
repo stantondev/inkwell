@@ -455,7 +455,12 @@ defmodule InkwellWeb.UserController do
 
             conn
             |> put_resp_content_type(content_type)
-            |> put_resp_header("cache-control", "public, max-age=86400")
+            # 7 days fresh + 1 day stale-while-revalidate. Avatars/banners
+            # rarely change; the etag still allows revalidation when they do.
+            |> put_resp_header(
+              "cache-control",
+              "public, max-age=604800, stale-while-revalidate=86400"
+            )
             |> put_resp_header("etag", ~s("#{etag}"))
             |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
             |> put_resp_header("x-content-type-options", "nosniff")

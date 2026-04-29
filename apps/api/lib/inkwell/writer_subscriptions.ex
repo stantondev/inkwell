@@ -14,6 +14,20 @@ defmodule Inkwell.WriterSubscriptions do
 
   require Logger
 
+  # Writer Subscriptions are PAUSED. They require Stripe Connect for
+  # marketplace split-payments, and the Stripe account was closed.
+  # See CLAUDE.md "Writer Subscription Plans (Temporarily Paused)".
+  #
+  # While paused, the read functions short-circuit to empty/false/nil so they
+  # don't run DB queries on every /api/auth/me poll, profile load, or feed
+  # render. Each of these endpoints called `has_active_plan?` or
+  # `get_active_plan_for_writer` per request, even though the result is
+  # guaranteed nil while paused.
+  #
+  # When Stripe access returns, set @paused to false and the original
+  # implementations below will run.
+  @paused true
+
   @commission_percent 8
   @stripe_api "https://api.stripe.com/v1"
 
@@ -121,10 +135,14 @@ defmodule Inkwell.WriterSubscriptions do
   def get_plan(id), do: Repo.get(WriterPlan, id)
 
   def get_active_plan_for_writer(writer_id) do
-    WriterPlan
-    |> where([p], p.writer_id == ^writer_id and p.status == "active")
-    |> limit(1)
-    |> Repo.one()
+    if @paused do
+      nil
+    else
+      WriterPlan
+      |> where([p], p.writer_id == ^writer_id and p.status == "active")
+      |> limit(1)
+      |> Repo.one()
+    end
   end
 
   @doc "Get any plan for a writer (active preferred, falls back to most recent archived)."
@@ -138,9 +156,13 @@ defmodule Inkwell.WriterSubscriptions do
   end
 
   def has_active_plan?(writer_id) do
-    WriterPlan
-    |> where([p], p.writer_id == ^writer_id and p.status == "active")
-    |> Repo.exists?()
+    if @paused do
+      false
+    else
+      WriterPlan
+      |> where([p], p.writer_id == ^writer_id and p.status == "active")
+      |> Repo.exists?()
+    end
   end
 
   # ── Subscription Management ──────────────────────────────────────────
@@ -239,17 +261,25 @@ defmodule Inkwell.WriterSubscriptions do
 
   @doc "Check if a subscriber has an active subscription to a writer."
   def is_subscribed?(subscriber_id, writer_id) do
-    PlanSubscription
-    |> where([s], s.subscriber_id == ^subscriber_id and s.writer_id == ^writer_id and s.status == "active")
-    |> Repo.exists?()
+    if @paused do
+      false
+    else
+      PlanSubscription
+      |> where([s], s.subscriber_id == ^subscriber_id and s.writer_id == ^writer_id and s.status == "active")
+      |> Repo.exists?()
+    end
   end
 
   @doc "Get list of writer IDs the subscriber has active subscriptions to."
   def get_subscribed_writer_ids(subscriber_id) do
-    PlanSubscription
-    |> where([s], s.subscriber_id == ^subscriber_id and s.status == "active")
-    |> select([s], s.writer_id)
-    |> Repo.all()
+    if @paused do
+      []
+    else
+      PlanSubscription
+      |> where([s], s.subscriber_id == ^subscriber_id and s.status == "active")
+      |> select([s], s.writer_id)
+      |> Repo.all()
+    end
   end
 
   @doc "Get list of subscriber IDs for a writer's active plan."

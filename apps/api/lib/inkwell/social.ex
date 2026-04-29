@@ -155,21 +155,30 @@ defmodule Inkwell.Social do
     |> Repo.exists?()
   end
 
-  @doc "Get all user IDs blocked in both directions (users I blocked + users who blocked me)."
+  @doc """
+  Get all user IDs blocked in both directions (users I blocked + users who blocked me).
+
+  Single query — runs on every feed/explore page load, so the previous
+  two-roundtrip implementation was paying double the network overhead.
+  """
   def get_blocked_user_ids(user_id) do
-    blocked_by_me =
-      Relationship
-      |> where([r], r.follower_id == ^user_id and r.status == :blocked)
-      |> select([r], r.following_id)
-      |> Repo.all()
-
-    blocked_me =
-      Relationship
-      |> where([r], r.following_id == ^user_id and r.status == :blocked)
-      |> select([r], r.follower_id)
-      |> Repo.all()
-
-    Enum.uniq(blocked_by_me ++ blocked_me)
+    Relationship
+    |> where(
+      [r],
+      r.status == :blocked and
+        (r.follower_id == ^user_id or r.following_id == ^user_id)
+    )
+    |> select([r], {r.follower_id, r.following_id})
+    |> Repo.all()
+    |> Enum.flat_map(fn {follower_id, following_id} ->
+      # Pick the OTHER side of the relationship (the user who isn't us).
+      cond do
+        follower_id == user_id -> [following_id]
+        following_id == user_id -> [follower_id]
+        true -> []
+      end
+    end)
+    |> Enum.uniq()
   end
 
   @doc "Get directional block status between two users."

@@ -1064,6 +1064,31 @@ a.mention:hover,
   pointer-events: none;
 }
 
+/* Entry-page enter animation. Replaces the previous motion/react component
+   in [username]/[slug]/template.tsx so we don't ship Framer Motion for a
+   one-time page-load fade. */
+@keyframes entry-template-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px) rotateY(-3deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotateY(0);
+  }
+}
+
+.entry-template-enter {
+  perspective: 1200px;
+  animation: entry-template-in 350ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-template-enter {
+    animation: none;
+  }
+}
+
 /* Disable all avatar animations when user prefers reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .avatar-anim-float,

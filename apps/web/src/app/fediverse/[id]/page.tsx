@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { getRemoteEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
 import { ContentWarning } from "@/components/content-warning";
 import { EnrichableContent } from "./enrichable-content";
@@ -65,7 +66,9 @@ function readingTime(html: string): number {
 export async function generateMetadata({ params }: FediverseEntryParams): Promise<Metadata> {
   const { id } = await params;
   try {
-    const data = await apiFetch<{ data: RemoteEntryData }>(`/api/remote-entries/${id}`);
+    // Pass the same token the page component uses so react.cache() dedupes.
+    const token = await getToken();
+    const data = await getRemoteEntry<{ data: RemoteEntryData }>(id, token);
     const entry = data.data;
     const plainText = entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const description = entry.title ? `${entry.title} — ${plainText}` : plainText;
@@ -112,7 +115,8 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
   let entry: RemoteEntryData;
   let enrichingPreview = false;
   try {
-    const data = await apiFetch<{ data: RemoteEntryData; enriching_preview?: boolean }>(`/api/remote-entries/${id}`, {}, token);
+    // Cached — generateMetadata above already fetched this with the same token.
+    const data = await getRemoteEntry<{ data: RemoteEntryData; enriching_preview?: boolean }>(id, token);
     entry = data.data;
     enrichingPreview = data.enriching_preview ?? false;
   } catch {

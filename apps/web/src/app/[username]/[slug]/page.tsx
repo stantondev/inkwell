@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { getEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
 import { parseMusicUrl, type MusicService } from "@/lib/music";
 import { Avatar } from "@/components/avatar";
@@ -299,9 +300,9 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
 
   try {
     const token = await getToken();
-    const data = await apiFetch<{ data: EntryData }>(
-      `/api/users/${username}/entries/${slug}`, {}, token
-    );
+    // Cached via react.cache() — the page component below hits the same key
+    // and shares this fetch's result.
+    const data = await getEntry<{ data: EntryData }>(username, slug, token);
     const entry = data.data;
     const description = entry.excerpt
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
@@ -450,9 +451,8 @@ export default async function EntryPage({ params }: EntryParams) {
 
   let entry: EntryData;
   try {
-    const data = await apiFetch<{ data: EntryData }>(
-      `/api/users/${username}/entries/${slug}`, {}, token
-    );
+    // Cached — generateMetadata above already fetched this with the same token.
+    const data = await getEntry<{ data: EntryData }>(username, slug, token);
     entry = data.data;
   } catch {
     notFound();

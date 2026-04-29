@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@apache-annotator/dom": "^0.2.0",
-    "@apache-annotator/selector": "^0.2.0",
     "@dicebear/core": "^9.3.2",
     "@dicebear/croodles": "^9.3.2",
     "@dicebear/croodles-neutral": "^9.3.2",

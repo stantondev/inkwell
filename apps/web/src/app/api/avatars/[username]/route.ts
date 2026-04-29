@@ -16,13 +16,18 @@ export async function GET(
   }
 
   const contentType = res.headers.get("content-type") || "image/jpeg";
-  const buffer = await res.arrayBuffer();
 
-  return new NextResponse(buffer, {
+  // Stream the body instead of buffering into Node's heap. Avatars decode to
+  // 50-200KB JPEGs but cumulative buffering under load adds up; streaming
+  // also lets the browser start rendering sooner.
+  return new NextResponse(res.body, {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
+      // 7 days fresh + 1 day stale-while-revalidate. Avatars rarely change;
+      // when they do, the URL contains the username and the upstream ETag
+      // still bypasses cache on `If-None-Match` revalidation.
+      "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
     },
   });
 }

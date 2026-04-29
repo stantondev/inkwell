@@ -3,7 +3,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { apiFetch, SERVER_API } from "@/lib/api";
-import { getSession } from "@/lib/session";
+import { getProfile } from "@/lib/queries";
+import { getSession, getToken } from "@/lib/session";
 import { buildProfileStyles } from "@/lib/profile-styles";
 import { PROFILE_FONTS } from "@/lib/profile-themes";
 import { scopeEntryHtml } from "@/lib/scope-styles";
@@ -376,7 +377,9 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
   const customDomain = headersList.get("x-custom-domain");
 
   try {
-    const data = await apiFetch<{ data: ProfileUser; meta?: { custom_domain?: string } }>(`/api/users/${username}`);
+    // Pass the same token the page component uses so react.cache() dedupes.
+    const token = await getToken();
+    const data = await getProfile<{ data: ProfileUser; meta?: { custom_domain?: string } }>(username, token);
     const profile = data.data;
     const displayName = profile.display_name || `@${username}`;
     const bio = profile.bio
@@ -472,7 +475,9 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let writerPlan: { id: string; name: string; description: string | null; price_cents: number; subscriber_count: number; is_subscribed: boolean } | null = null;
 
   try {
-    const data = await apiFetch<{
+    // Uses react.cache() — generateMetadata above hits the same key with the
+    // same token, so this returns from the in-render cache (no second roundtrip).
+    const data = await getProfile<{
       data: ProfileUser;
       meta: {
         entry_count: number;
@@ -488,7 +493,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         entry_categories?: { category: string; count: number }[];
         incoming_request?: boolean;
       };
-    }>(`/api/users/${username}`, {}, session?.token);
+    }>(username, session?.token);
 
     profile = data.data;
     entryCount = data.meta.entry_count;
@@ -507,17 +512,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
     notFound();
   }
 
-  // Fetch writer subscription plan (if any)
-  try {
-    const planData = await apiFetch<{ data: typeof writerPlan }>(
-      `/api/writer-plans/by-writer/${username}`,
-      {},
-      session?.token
-    );
-    writerPlan = planData.data;
-  } catch {
-    // no plan or fetch failed — ignore
-  }
+  // Writer subscription plans are paused (Stripe Connect requirement, account
+  // closed). Backend short-circuits to nil — skip the round-trip entirely
+  // until the feature returns. Restore this block when un-pausing.
+  // const planData = await apiFetch<{ data: typeof writerPlan }>(
+  //   `/api/writer-plans/by-writer/${username}`, {}, session?.token
+  // );
+  // writerPlan = planData.data;
 
   // Fetch custom domain for own profile (to show "Visit your site" link)
   let customDomainName: string | null = null;

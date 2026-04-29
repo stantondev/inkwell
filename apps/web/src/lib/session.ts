@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { apiFetch } from "./api";
 
@@ -48,12 +49,18 @@ export async function getToken(): Promise<string | null> {
  * Validate the token against Phoenix and return the current user.
  * Returns null if the token is missing, invalid, or the API is unreachable.
  *
+ * Wrapped in `react.cache()` so multiple `getSession()` calls within the same
+ * SSR render share a single API roundtrip. Without this, every server
+ * component that needs the session (root layout + page + nested components)
+ * would each make their own `/api/auth/me` request — `apiFetch` uses
+ * `cache: "no-store"` which defeats Next's automatic dedup.
+ *
  * apiFetch handles retry on 5xx for Fly.io cold starts automatically.
  */
-export async function getSession(): Promise<{
+export const getSession = cache(async (): Promise<{
   user: SessionUser;
   token: string;
-} | null> {
+} | null> => {
   const token = await getToken();
   if (!token) return null;
 
@@ -67,4 +74,4 @@ export async function getSession(): Promise<{
   } catch {
     return null;
   }
-}
+});

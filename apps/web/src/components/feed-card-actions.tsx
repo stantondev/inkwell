@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { StampPicker } from "@/components/stamp-picker";
@@ -12,7 +13,12 @@ import { FloatingPopup } from "@/components/floating-popup";
 import { ReportModal } from "@/components/report-modal";
 import { ShareButton } from "@/components/share-button";
 import { TranslateButton } from "@/components/translate-button";
-import { CommentEditor } from "@/components/comment-editor";
+// Lazy-load CommentEditor — pulls in TipTap (~80-100KB gzipped). Only needed
+// when a user actually opens the comment popup, not on every Feed/Explore render.
+const CommentEditor = dynamic(
+  () => import("@/components/comment-editor").then((m) => ({ default: m.CommentEditor })),
+  { ssr: false }
+);
 import { CommentNode } from "@/app/[username]/[slug]/comment-node";
 import { buildThreadTree, countThreadComments, timeAgo } from "@/lib/comment-utils";
 import type { Comment, CommentThread } from "@/lib/comment-utils";

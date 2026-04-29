@@ -16,9 +16,11 @@ export async function GET(
   }
 
   const contentType = res.headers.get("content-type") || "image/jpeg";
-  const buffer = await res.arrayBuffer();
 
-  return new NextResponse(buffer, {
+  // Stream rather than buffer — entry images can be up to ~5MB cover photos.
+  // Cache headers stay aggressive (1 year, immutable) — entry images are
+  // content-addressed by ID and don't change.
+  return new NextResponse(res.body, {
     status: 200,
     headers: {
       "Content-Type": contentType,

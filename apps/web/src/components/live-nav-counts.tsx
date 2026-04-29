@@ -9,8 +9,13 @@ interface NavCounts {
   unreadLetterCount: number;
 }
 
-const POLL_INTERVAL = 15_000; // 15 seconds — fast enough to feel near-instant
-const BACKGROUND_POLL_INTERVAL = 15_000; // same in background so sounds fire promptly
+const POLL_INTERVAL = 15_000; // 15 seconds when tab is in foreground — fast enough to feel near-instant
+// 60 seconds when tab is in background. The visibilitychange handler refetches
+// immediately on focus so users still see updates within milliseconds when
+// they return to the tab. Backgrounded tabs polling at 15s burned 4× the
+// `/api/auth/me` traffic for zero user benefit (notification sounds firing
+// for a tab they're not looking at).
+const BACKGROUND_POLL_INTERVAL = 60_000;
 const BLINK_INTERVAL = 1500; // title blink speed (ms)
 
 // --- Module-level shared state ---
