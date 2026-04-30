@@ -1009,11 +1009,13 @@ defmodule InkwellWeb.FederationController do
       {:ok, remote_actor} ->
         profile_url = remote_actor_profile_url(remote_actor)
 
+        # Use string keys throughout — `Journals.create_comment/1`'s
+        # depth-enforcement step adds string keys, and Ecto rejects mixed maps.
         comment_attrs = %{
-          entry_id: entry.id,
-          body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
-          ap_id: note["id"],
-          remote_author: build_remote_author_data(remote_actor, profile_url)
+          "entry_id" => entry.id,
+          "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+          "ap_id" => note["id"],
+          "remote_author" => build_remote_author_data(remote_actor, profile_url)
         }
 
         case Journals.create_comment(comment_attrs) do
@@ -1047,13 +1049,16 @@ defmodule InkwellWeb.FederationController do
       {:ok, remote_actor} ->
         profile_url = remote_actor_profile_url(remote_actor)
 
+        # String keys throughout: `Journals.create_comment/1`'s
+        # `compute_and_enforce_depth/1` adds `"depth"` and `"parent_comment_id"`
+        # as strings, and Ecto's cast rejects maps that mix atom and string keys.
         comment_attrs = %{
-          body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
-          ap_id: note["id"],
-          parent_comment_id: parent_comment.id,
-          entry_id: parent_comment.entry_id,
-          remote_entry_id: parent_comment.remote_entry_id,
-          remote_author: build_remote_author_data(remote_actor, profile_url)
+          "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+          "ap_id" => note["id"],
+          "parent_comment_id" => parent_comment.id,
+          "entry_id" => parent_comment.entry_id,
+          "remote_entry_id" => parent_comment.remote_entry_id,
+          "remote_author" => build_remote_author_data(remote_actor, profile_url)
         }
 
         case Journals.create_comment(comment_attrs) do
