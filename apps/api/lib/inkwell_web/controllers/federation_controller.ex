@@ -957,6 +957,18 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  @doc """
+  Public entry point for the reply-backfill module to ingest a fediverse reply
+  Note as if it had arrived via the inbox. Used only by
+  `Inkwell.Federation.ReplyBackfill` for one-time recovery of replies that
+  were dropped before the comment-lookup fix landed.
+  """
+  def process_incoming_reply_for_backfill(note, actor_uri) when is_map(note) and is_binary(actor_uri) do
+    handle_incoming_reply(note, actor_uri)
+  end
+
+  def process_incoming_reply_for_backfill(_, _), do: :error
+
   defp handle_incoming_reply(note, actor_uri) do
     # Accept all replies to known local entries regardless of visibility scope.
     # Many Mastodon replies are "unlisted" (addressed to author + followers, no Public URI).
@@ -967,54 +979,142 @@ defmodule InkwellWeb.FederationController do
 
     case find_entry_by_ap_url(in_reply_to) do
       nil ->
-        # Not a reply to an entry — check if it's a reply to a guestbook post
-        Logger.info("handle_incoming_reply: no local entry found for #{in_reply_to}, checking guestbook")
-        case find_guestbook_owner(in_reply_to) do
+        # Not a reply to an entry — try comment lookup (for replies-to-comments,
+        # i.e. nested fediverse threads), then guestbook
+        case find_comment_by_ap_url(in_reply_to) do
           nil ->
-            Logger.info("Ignoring reply to unknown content: #{in_reply_to}")
+            Logger.info("handle_incoming_reply: no local entry/comment found for #{in_reply_to}, checking guestbook")
+            case find_guestbook_owner(in_reply_to) do
+              nil ->
+                Logger.info("Ignoring reply to unknown content: #{in_reply_to}")
 
-          user ->
-            handle_guestbook_reply(note, actor_uri, user)
+              user ->
+                handle_guestbook_reply(note, actor_uri, user)
+            end
+
+          parent_comment ->
+            handle_reply_to_comment(note, actor_uri, parent_comment)
         end
 
       entry ->
-        Logger.info("handle_incoming_reply: matched entry #{entry.id} (#{entry.title})")
-        case RemoteActor.fetch(actor_uri) do
-          {:ok, remote_actor} ->
-            profile_url =
-              case remote_actor.raw_data do
-                %{"url" => url} when is_binary(url) -> url
-                _ -> remote_actor.ap_id
-              end
-
-            comment_attrs = %{
-              entry_id: entry.id,
-              body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
-              ap_id: note["id"],
-              remote_author: %{
-                ap_id: remote_actor.ap_id,
-                username: remote_actor.username,
-                domain: remote_actor.domain,
-                display_name: remote_actor.display_name,
-                avatar_url: remote_actor.avatar_url,
-                profile_url: profile_url
-              }
-            }
-
-            case Journals.create_comment(comment_attrs) do
-              {:ok, comment} ->
-                Logger.info("Created federated comment #{comment.id} on entry #{entry.id} from #{actor_uri}")
-                create_reply_notification(entry, remote_actor)
-
-              {:error, reason} ->
-                Logger.warning("Failed to create federated comment: #{inspect(reason)}")
-            end
-
-          {:error, reason} ->
-            Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
-        end
+        handle_reply_to_entry(note, actor_uri, entry)
     end
   end
+
+  # Reply targets a local entry — create a top-level federated comment on the entry.
+  defp handle_reply_to_entry(note, actor_uri, entry) do
+    Logger.info("handle_incoming_reply: matched entry #{entry.id} (#{entry.title})")
+
+    case RemoteActor.fetch(actor_uri) do
+      {:ok, remote_actor} ->
+        profile_url = remote_actor_profile_url(remote_actor)
+
+        comment_attrs = %{
+          entry_id: entry.id,
+          body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+          ap_id: note["id"],
+          remote_author: build_remote_author_data(remote_actor, profile_url)
+        }
+
+        case Journals.create_comment(comment_attrs) do
+          {:ok, comment} ->
+            Logger.info("Created federated comment #{comment.id} on entry #{entry.id} from #{actor_uri}")
+            create_reply_notification(entry, remote_actor)
+
+          {:error, reason} ->
+            Logger.warning("Failed to create federated comment: #{inspect(reason)}")
+        end
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
+    end
+  end
+
+  # Reply targets one of our comments — create a threaded reply, inheriting the
+  # entry/remote_entry context from the parent comment. Notifies the parent's
+  # local author (if any) so they see the response in their notifications feed.
+  defp handle_reply_to_comment(note, actor_uri, parent_comment) do
+    target_label =
+      cond do
+        parent_comment.entry_id -> "entry:#{parent_comment.entry_id}"
+        parent_comment.remote_entry_id -> "remote_entry:#{parent_comment.remote_entry_id}"
+        true -> "(no entry context)"
+      end
+
+    Logger.info("handle_incoming_reply: matched comment #{parent_comment.id} (parent target: #{target_label})")
+
+    case RemoteActor.fetch(actor_uri) do
+      {:ok, remote_actor} ->
+        profile_url = remote_actor_profile_url(remote_actor)
+
+        comment_attrs = %{
+          body_html: Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+          ap_id: note["id"],
+          parent_comment_id: parent_comment.id,
+          entry_id: parent_comment.entry_id,
+          remote_entry_id: parent_comment.remote_entry_id,
+          remote_author: build_remote_author_data(remote_actor, profile_url)
+        }
+
+        case Journals.create_comment(comment_attrs) do
+          {:ok, comment} ->
+            Logger.info("Created federated reply-to-comment #{comment.id} parent=#{parent_comment.id} from #{actor_uri}")
+            maybe_notify_parent_comment_author(parent_comment, remote_actor, profile_url)
+
+          {:error, reason} ->
+            Logger.warning("Failed to create federated reply-to-comment: #{inspect(reason)}")
+        end
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
+    end
+  end
+
+  defp remote_actor_profile_url(%{raw_data: %{"url" => url}}) when is_binary(url), do: url
+  defp remote_actor_profile_url(remote_actor), do: remote_actor.ap_id
+
+  defp build_remote_author_data(remote_actor, profile_url) do
+    %{
+      ap_id: remote_actor.ap_id,
+      username: remote_actor.username,
+      domain: remote_actor.domain,
+      display_name: remote_actor.display_name,
+      avatar_url: remote_actor.avatar_url,
+      profile_url: profile_url
+    }
+  end
+
+  # Notify the local author of the parent comment that a fediverse user replied.
+  # Skip silently if the parent is itself a remote comment (no local user to notify).
+  defp maybe_notify_parent_comment_author(%Comment{user_id: user_id} = parent, remote_actor, profile_url)
+       when not is_nil(user_id) do
+    {target_type, target_id} =
+      cond do
+        parent.entry_id -> {"entry", parent.entry_id}
+        parent.remote_entry_id -> {"remote_entry", parent.remote_entry_id}
+        true -> {nil, nil}
+      end
+
+    Accounts.create_notification(%{
+      user_id: user_id,
+      type: :reply,
+      target_type: target_type,
+      target_id: target_id,
+      data: %{
+        parent_comment_id: parent.id,
+        remote_actor: %{
+          display_name: remote_actor.display_name || remote_actor.username,
+          username: remote_actor.username,
+          domain: remote_actor.domain,
+          avatar_url: remote_actor.avatar_url,
+          profile_url: profile_url,
+          ap_id: remote_actor.ap_id
+        }
+      }
+    })
+  end
+
+  defp maybe_notify_parent_comment_author(_parent, _remote_actor, _profile_url), do: :ok
 
   # ── Standalone Note ingestion ───────────────────────────────────────────
 
@@ -1456,6 +1556,38 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp find_entry_by_ap_url(_), do: nil
+
+  # Find a comment by AP URL. Used for inbound replies-to-comments (nested
+  # fediverse threads) where Mastodon's `inReplyTo` points to one of our
+  # comment URLs (e.g. `https://inkwell.social/comments/{uuid}`).
+  #
+  # Note on URL matching: our outbound activity builder constructs comment
+  # URLs as `{host}/comments/{comment.id}` (using the DB UUID), which is what
+  # Mastodon stores and uses when replying. The `ap_id` column in our DB,
+  # however, can hold a *different* generated UUID/integer (legacy quirk in
+  # comment_controller and remote_entry_controller). So we extract the UUID
+  # from the URL path and match by DB id, which is reliable for both old and
+  # new comments.
+  defp find_comment_by_ap_url(url) when is_binary(url) do
+    case Repo.get_by(Comment, ap_id: url) do
+      nil ->
+        case Regex.run(~r|/comments/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$|, url) do
+          [_, id] ->
+            case Ecto.UUID.cast(id) do
+              {:ok, valid_id} -> Repo.get(Comment, valid_id)
+              :error -> nil
+            end
+
+          _ ->
+            nil
+        end
+
+      comment ->
+        comment
+    end
+  end
+
+  defp find_comment_by_ap_url(_), do: nil
 
   # Match slug URLs like https://inkwell.social/username/slug
   # The path has exactly 2 segments: /{username}/{slug}
