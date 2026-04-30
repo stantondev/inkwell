@@ -1005,6 +1005,14 @@ defmodule InkwellWeb.FederationController do
   defp handle_reply_to_entry(note, actor_uri, entry) do
     Logger.info("handle_incoming_reply: matched entry #{entry.id} (#{entry.title})")
 
+    if reply_already_ingested?(note["id"]) do
+      Logger.info("Skipping duplicate reply (ap_id=#{note["id"]}) on entry #{entry.id}")
+    else
+      do_handle_reply_to_entry(note, actor_uri, entry)
+    end
+  end
+
+  defp do_handle_reply_to_entry(note, actor_uri, entry) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
         profile_url = remote_actor_profile_url(remote_actor)
@@ -1045,6 +1053,14 @@ defmodule InkwellWeb.FederationController do
 
     Logger.info("handle_incoming_reply: matched comment #{parent_comment.id} (parent target: #{target_label})")
 
+    if reply_already_ingested?(note["id"]) do
+      Logger.info("Skipping duplicate reply-to-comment (ap_id=#{note["id"]}) parent=#{parent_comment.id}")
+    else
+      do_handle_reply_to_comment(note, actor_uri, parent_comment)
+    end
+  end
+
+  defp do_handle_reply_to_comment(note, actor_uri, parent_comment) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
         profile_url = remote_actor_profile_url(remote_actor)
@@ -1073,6 +1089,16 @@ defmodule InkwellWeb.FederationController do
       {:error, reason} ->
         Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
     end
+  end
+
+  # Idempotency guard: skip ingesting a reply if we already have a comment with
+  # that AP id. Protects against (a) duplicate inbox deliveries from Mastodon,
+  # (b) Oban worker retries, and (c) the backfill module re-discovering replies
+  # whose Mastodon-API URL didn't match our stored ap_id format.
+  defp reply_already_ingested?(nil), do: false
+
+  defp reply_already_ingested?(ap_id) when is_binary(ap_id) do
+    Repo.exists?(from c in Comment, where: c.ap_id == ^ap_id)
   end
 
   defp remote_actor_profile_url(%{raw_data: %{"url" => url}}) when is_binary(url), do: url
