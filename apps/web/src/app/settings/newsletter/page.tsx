@@ -263,7 +263,7 @@ export default function NewsletterSettingsPage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., The Weekly Muse"
+                    placeholder="e.g., The Weekly Letter"
                     maxLength={200}
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                     style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--foreground)" }}

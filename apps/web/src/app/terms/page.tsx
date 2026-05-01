@@ -263,8 +263,8 @@ export default function TermsPage() {
 
           <h3 className="font-semibold mt-4 mb-2">7.4 Inkwell&apos;s Use of AI</h3>
           <p>
-            Inkwell uses AI tools in the development and operation of the platform, including the Muse writing prompt bot
-            (which is clearly labeled as AI-generated). Our full AI practices are disclosed in our{" "}
+            Inkwell uses AI tools in the development and operation of the platform. Our full AI practices are
+            disclosed in our{" "}
             <Link href="/ai" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>AI Policy</Link>.
           </p>
         </section>

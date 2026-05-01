@@ -65,16 +65,6 @@ export default function AIPage() {
               every decision is made by a human.
             </li>
             <li>
-              <strong>Inkwell Muse (@muse).</strong> Muse is our official
-              AI-powered writing prompt bot. It uses Claude Haiku to generate
-              daily writing prompts, weekly community roundups, and monthly
-              platform updates. Every Muse entry is{" "}
-              <strong>clearly labeled as AI-generated</strong> with a visible
-              badge on all feed cards and entry pages. Muse exists to spark your
-              writing &mdash; it is not a ghostwriter, and it does not create
-              content on behalf of users.
-            </li>
-            <li>
               <strong>Content translation.</strong> We use the DeepL API to
               provide on-demand translation of entries and comments. DeepL
               processes text for translation only &mdash; it does not store or
@@ -163,9 +153,8 @@ export default function AIPage() {
               <strong>
                 Fully automated AI accounts are not permitted.
               </strong>{" "}
-              The only automated AI account on Inkwell is the official Muse bot,
-              which is clearly identified. Accounts that post AI-generated
-              content without human curation may be removed.
+              Accounts that post AI-generated content without human curation may
+              be removed.
             </li>
           </ul>
           <p className="mt-3">

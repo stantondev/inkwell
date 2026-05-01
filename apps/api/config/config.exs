@@ -53,10 +53,6 @@ config :inkwell, Oban,
        # Refresh engagement — was every 2h at :00 (collided with Gazette).
        # Now every 6h at :17 so it lands in a quiet bucket.
        {"17 */6 * * *", Inkwell.Workers.RefreshEngagementWorker},
-       # Muse content bot — gated behind MUSE_ENABLED, no-op when off.
-       {"0 9 * * *", Inkwell.Workers.MuseWorker, args: %{"type" => "daily_prompt"}},
-       {"0 10 * * 0", Inkwell.Workers.MuseWorker, args: %{"type" => "weekly_roundup"}},
-       {"0 11 1 * *", Inkwell.Workers.MuseWorker, args: %{"type" => "monthly_update"}},
        # Custom-domain DNS/cert polling — was every 5m, now every 15m at :03.
        # Means a user adding a domain waits up to 15min for the first check
        # instead of 5min; acceptable since they're already waiting on DNS TTLs.

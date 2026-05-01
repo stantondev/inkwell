@@ -174,11 +174,6 @@ if config_env() == :prod do
       private_key: vapid_private
   end
 
-  # Muse — AI content bot (optional, disabled by default)
-  config :inkwell, :anthropic_api_key, System.get_env("ANTHROPIC_API_KEY")
-  config :inkwell, :muse_enabled, System.get_env("MUSE_ENABLED") == "true"
-  config :inkwell, :muse_username, System.get_env("MUSE_ACCOUNT_USERNAME") || "muse"
-
   # Gazette hashtag ingestion (optional, disabled by default).
   # Kill switch: flip GAZETTE_INGESTION_ENABLED to "true" to activate the
   # hourly cron that polls Mastodon public hashtag timelines for news-topic
