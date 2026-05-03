@@ -102,13 +102,13 @@ defmodule Inkwell.Federation.RemoteEntries do
 
       query =
         if is_list(filter_tags) && filter_tags != [] do
-          where(query, [e],
-            fragment(
-              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ANY(?))",
-              e.tags,
-              ^filter_tags
-            )
-          )
+          # `&&` is the array-overlap operator — uses the GIN index on tags
+          # directly. Tags are already lowercase at ingestion (see
+          # extract_hashtags/1 in federation_controller, relay_content_worker,
+          # and fetch_outbox_worker), so the previous LOWER() unnest pattern
+          # was both unnecessary and bypassed the index.
+          lowered = Enum.map(filter_tags, &String.downcase/1)
+          where(query, [e], fragment("? && ?", e.tags, ^lowered))
         else
           query
         end
@@ -134,25 +134,15 @@ defmodule Inkwell.Federation.RemoteEntries do
     query =
       cond do
         is_list(filter_tags) && filter_tags != [] ->
-          # Category filter: match if any of the entry's tags overlap with the hashtag list
-          where(query, [e],
-            fragment(
-              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ANY(?))",
-              e.tags,
-              ^filter_tags
-            )
-          )
+          # Category filter: any-overlap with the hashtag list. Uses GIN index
+          # on tags via `&&` operator — millisecond instead of seq-scan.
+          lowered = Enum.map(filter_tags, &String.downcase/1)
+          where(query, [e], fragment("? && ?", e.tags, ^lowered))
 
         is_binary(filter_tag) && filter_tag != "" ->
-          # Single tag filter: match if the entry's tags contain this tag
+          # Single tag filter: contains the tag. `@>` uses the GIN index.
           lower_tag = String.downcase(filter_tag)
-          where(query, [e],
-            fragment(
-              "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ?)",
-              e.tags,
-              ^lower_tag
-            )
-          )
+          where(query, [e], fragment("? @> ?", e.tags, ^[lower_tag]))
 
         true ->
           query
