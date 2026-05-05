@@ -162,6 +162,17 @@ export function CommentNode({
                 (edited)
               </span>
             )}
+            {isRemote && comment.url && comment.remote_author && (
+              <a
+                href={comment.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="comment-fediverse-source"
+                title={`View original on ${comment.remote_author.domain}`}
+              >
+                View on {comment.remote_author.domain} ↗
+              </a>
+            )}
           </div>
 
           {/* Comment body or edit form */}

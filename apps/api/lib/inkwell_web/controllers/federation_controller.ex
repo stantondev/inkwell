@@ -1023,6 +1023,7 @@ defmodule InkwellWeb.FederationController do
           "entry_id" => entry.id,
           "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
           "ap_id" => note["id"],
+          "url" => extract_note_url(note),
           "remote_author" => build_remote_author_data(remote_actor, profile_url)
         }
 
@@ -1071,6 +1072,7 @@ defmodule InkwellWeb.FederationController do
         comment_attrs = %{
           "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
           "ap_id" => note["id"],
+          "url" => extract_note_url(note),
           "parent_comment_id" => parent_comment.id,
           "entry_id" => parent_comment.entry_id,
           "remote_entry_id" => parent_comment.remote_entry_id,
@@ -1103,6 +1105,15 @@ defmodule InkwellWeb.FederationController do
 
   defp remote_actor_profile_url(%{raw_data: %{"url" => url}}) when is_binary(url), do: url
   defp remote_actor_profile_url(remote_actor), do: remote_actor.ap_id
+
+  # Extract the human-readable URL from an AP Note. Per AS spec, `url` is
+  # distinct from `id` — `id` is the canonical AP identifier, `url` is the
+  # browser-viewable page (e.g., https://mastodon.social/@user/12345).
+  # Mastodon sends a string; some implementations may omit it. Fall back to
+  # the AP id, which is also browser-resolvable on Mastodon.
+  defp extract_note_url(%{"url" => url}) when is_binary(url), do: url
+  defp extract_note_url(%{"id" => id}) when is_binary(id), do: id
+  defp extract_note_url(_), do: nil
 
   defp build_remote_author_data(remote_actor, profile_url) do
     %{

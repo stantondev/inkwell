@@ -26,6 +26,7 @@ export interface Comment {
   depth: number;
   author: CommentAuthor | null;
   remote_author: CommentRemoteAuthor | null;
+  url?: string | null;
   created_at: string;
   edited_at: string | null;
 }

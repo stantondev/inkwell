@@ -248,6 +248,7 @@ defmodule InkwellWeb.CommentController do
       body_html: comment.body_html,
       user_icon_id: comment.user_icon_id,
       ap_id: comment.ap_id,
+      url: comment.url,
       depth: comment.depth,
       author: author,
       remote_author: remote_author,

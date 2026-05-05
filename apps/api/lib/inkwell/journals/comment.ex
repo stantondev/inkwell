@@ -8,6 +8,7 @@ defmodule Inkwell.Journals.Comment do
   schema "comments" do
     field :body_html, :string
     field :ap_id, :string
+    field :url, :string
     field :remote_author, :map
     field :depth, :integer, default: 0
     field :edited_at, :utc_datetime_usec
@@ -24,7 +25,7 @@ defmodule Inkwell.Journals.Comment do
 
   def changeset(comment, attrs) do
     comment
-    |> cast(attrs, [:body_html, :entry_id, :remote_entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id])
+    |> cast(attrs, [:body_html, :entry_id, :remote_entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id, :url])
     |> validate_required([:body_html])
     |> validate_entry_target()
     |> validate_has_author()

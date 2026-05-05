@@ -339,6 +339,7 @@ defmodule InkwellWeb.RemoteEntryController do
       parent_comment_id: comment.parent_comment_id,
       body_html: comment.body_html,
       ap_id: comment.ap_id,
+      url: comment.url,
       depth: comment.depth || 0,
       author: author,
       remote_author: remote_author,

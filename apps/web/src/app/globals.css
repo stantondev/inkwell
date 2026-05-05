@@ -9275,6 +9275,21 @@ a.comment-author-name:hover {
   cursor: help;
 }
 
+.comment-fediverse-source {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.comment-fediverse-source:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 /* Comment body prose */
 .prose-comment {
   font-family: var(--font-lora, Georgia, serif);
