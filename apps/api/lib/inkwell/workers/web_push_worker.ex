@@ -6,6 +6,11 @@ defmodule Inkwell.Workers.WebPushWorker do
 
   use Oban.Worker, queue: :default, max_attempts: 3
 
+  # Delivers to an arbitrary push endpoint (FCM/Mozilla/etc). On the shared
+  # :default queue, so bound it tightly to protect the cleanup crons.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(1)
+
   alias Inkwell.Push
   alias Inkwell.Push.PushSubscription
   alias Inkwell.Repo

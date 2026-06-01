@@ -10,6 +10,11 @@ defmodule Inkwell.Workers.VerifyRemoteEntriesWorker do
 
   use Oban.Worker, queue: :federation, max_attempts: 1
 
+  # Batches up to 50 HEAD requests to arbitrary fediverse hosts. Bound the worst
+  # case so a stalled remote can never hold this slot indefinitely.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(10)
+
   require Logger
 
   @impl Oban.Worker

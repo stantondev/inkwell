@@ -30,6 +30,17 @@ config :inkwell, Oban,
     gazette_ingestion: 2
   ],
   plugins: [
+    # Rescue jobs orphaned in the `executing` state — e.g. a worker process that
+    # hung on a stalled remote, or died without releasing its slot. Without this,
+    # a stuck job holds its queue slot indefinitely; that once wedged the
+    # `default` queue and starved the daily cleanup crons until a manual machine
+    # restart (site "down", Healthchecks.io alerts). rescue_after is set longer
+    # than our longest legitimate job (newsletter batch sends, full search
+    # reindex) so a slow-but-healthy job is never double-run.
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(60)},
+    # Keep the oban_jobs table from growing unbounded — trim completed/discarded
+    # jobs older than 7 days.
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
        # Daily cleanups — kept on their original UTC slots (low-traffic hours,

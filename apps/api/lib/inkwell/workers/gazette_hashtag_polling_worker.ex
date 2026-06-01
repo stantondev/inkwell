@@ -18,6 +18,11 @@ defmodule Inkwell.Workers.GazetteHashtagPollingWorker do
     max_attempts: 1,
     priority: 5
 
+  # Polls an arbitrary Mastodon instance's public timeline. Bound the worst case
+  # so a slow/stalled upstream can't hold a gazette slot indefinitely.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(5)
+
   require Logger
 
   alias Inkwell.Federation.Http

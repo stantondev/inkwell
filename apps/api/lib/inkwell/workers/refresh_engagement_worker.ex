@@ -12,6 +12,11 @@ defmodule Inkwell.Workers.RefreshEngagementWorker do
     max_attempts: 1,
     unique: [period: 300]
 
+  # Re-fetches up to 100 AP objects from arbitrary remote hosts. Bound the worst
+  # case so a stalled remote can't hold this federation slot indefinitely.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(10)
+
   alias Inkwell.Federation.RemoteEntries
 
   require Logger

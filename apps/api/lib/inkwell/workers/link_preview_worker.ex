@@ -14,6 +14,11 @@ defmodule Inkwell.Workers.LinkPreviewWorker do
     priority: 4,
     unique: [keys: [:remote_entry_id], period: 300]
 
+  # Fetches an arbitrary external URL for OG/Twitter Card metadata. Bound the
+  # worst case so a slow page load can't hold this slot indefinitely.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(2)
+
   require Logger
 
   alias Inkwell.Federation.RemoteEntries

@@ -18,6 +18,11 @@ defmodule Inkwell.Workers.GazetteIngestionScheduler do
 
   use Oban.Worker, queue: :default, max_attempts: 1
 
+  # Fans out child jobs; should be quick. On the shared :default queue, so cap
+  # it so a pathological fan-out can't starve the cleanup crons.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(5)
+
   require Logger
 
   alias Inkwell.Gazette.{Sources, Topics}

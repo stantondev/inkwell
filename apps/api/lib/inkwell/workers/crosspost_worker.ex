@@ -11,6 +11,12 @@ defmodule Inkwell.Workers.CrosspostWorker do
 
   use Oban.Worker, queue: :default, max_attempts: 3
 
+  # Posts a status + uploads media to an arbitrary Mastodon instance. On the
+  # shared :default queue, so a stall here would starve the cleanup crons —
+  # bound it tightly.
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(3)
+
   alias Inkwell.{Journals, OAuth, Repo}
   alias Inkwell.Federation.MastodonClient
 
