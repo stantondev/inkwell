@@ -79,12 +79,36 @@ defmodule InkwellWeb.Plugs.RateLimit do
   end
 
   defp client_ip(conn) do
-    # Use the LAST IP in X-Forwarded-For — it's appended by the trusted proxy (Fly.io).
-    # The first IP is client-controlled and can be spoofed to bypass rate limits.
+    # Use the FIRST IP in X-Forwarded-For.
+    #
+    # This previously used List.last on the theory that the trailing entry is
+    # appended by the trusted proxy. That is wrong for our topology, and the
+    # consequence is severe. Browsers never reach Phoenix directly — they hit
+    # the Next.js proxy on inkwell.social, which server-side fetches
+    # https://api.inkwell.social, so the request crosses Fly's edge twice.
+    # Measured in production, the header arriving here is:
+    #
+    #   "69.108.42.204, 66.241.124.129, 172.19.34.138, 66.241.125.222"
+    #    ^ real client   ^ Fly edge      ^ web machine  ^ Fly edge
+    #
+    # List.last is therefore a Fly edge address that is IDENTICAL for every
+    # user on the platform — one shared bucket, so the 5-req/5-min auth limit
+    # would throttle all signups and logins site-wide rather than per person.
+    # (This went unnoticed because the ETS table was previously created inside
+    # the request process and died with it, so the limiter never actually
+    # fired. Making the table persistent is what surfaced this.)
+    #
+    # The first entry is the real client. It is client-controlled — a forged
+    # header prepends, giving "1.2.3.4, 69.108.42.204, ..." — so an attacker
+    # can rotate it to evade their OWN limit. That is an acceptable trade
+    # against bucketing every user together, and it is no worse than today,
+    # where the limiter does not function at all. Hardening this properly means
+    # having the Next.js proxy forward Fly's authoritative `Fly-Client-IP` in a
+    # dedicated header that we only trust when the immediate peer is internal.
     case get_req_header(conn, "x-forwarded-for") do
       [forwarded | _] ->
         ips = forwarded |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
-        List.last(ips) || (conn.remote_ip |> :inet.ntoa() |> to_string())
+        List.first(ips) || (conn.remote_ip |> :inet.ntoa() |> to_string())
 
       [] ->
         conn.remote_ip |> :inet.ntoa() |> to_string()

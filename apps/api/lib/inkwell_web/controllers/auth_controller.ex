@@ -7,6 +7,8 @@ defmodule InkwellWeb.AuthController do
   alias Inkwell.FraudDetection
   alias Inkwell.Invitations
 
+  require Logger
+
   # POST /api/auth/magic-link
   def send_magic_link(conn, %{"email" => email} = params) do
     # Honeypot: if the hidden "website" field is filled, silently reject (bots fill hidden fields)
@@ -85,10 +87,21 @@ defmodule InkwellWeb.AuthController do
                 # No email service configured — return the link directly for dev/testing
                 json(conn, %{ok: true, dev_magic_link: magic_link, login_session_id: login_session_id})
 
-              {:error, _reason} ->
-                # Email sending failed — fall back to showing the magic link directly
-                # so the user isn't locked out. They can click it to sign in.
-                json(conn, %{ok: true, dev_magic_link: magic_link, login_session_id: login_session_id})
+              {:error, reason} ->
+                # Email is configured but delivery failed. Do NOT return the
+                # magic link here: the frontend renders `dev_magic_link` as a
+                # clickable "sign in instantly" box, so anyone who could induce
+                # a send failure for someone else's address would be handed a
+                # working session for that account. The {:ok, :no_email_configured}
+                # branch above is the only legitimate source of that field.
+                Logger.error("Magic link delivery failed for #{email}: #{inspect(reason)}")
+
+                conn
+                |> put_status(:internal_server_error)
+                |> json(%{
+                  error:
+                    "We couldn't send your sign-in email just now. Please try again in a moment."
+                })
             end
 
           {:error, changeset} ->
@@ -303,14 +316,34 @@ defmodule InkwellWeb.AuthController do
     |> String.slice(0, 25)
   end
 
-  defp unique_username(base, attempts \\ 0)
-  defp unique_username(_base, attempts) when attempts >= 5, do: "user_#{:rand.uniform(999_999)}"
-  defp unique_username(base, 0) do
-    if Accounts.get_user_by_username(base), do: unique_username(base, 1), else: base
+  # A derived username is only usable if it satisfies the same rules
+  # registration_changeset enforces. This used to check uniqueness ONLY, so
+  # anyone whose email local-part was reserved (support@, admin@, noreply@, or
+  # anything starting with "inkwell") or shorter than 3 characters (jo@, jd@)
+  # got "username is reserved" / "must be 3-30 characters" on a signup form
+  # that has no username field — with no way to correct it. Those addresses
+  # could never create an account at all.
+  defp acceptable_username?(name) do
+    String.match?(name, ~r/^[a-zA-Z0-9_]{3,30}$/) and not Accounts.User.reserved_username?(name)
   end
+
+  defp usable_username?(name) do
+    acceptable_username?(name) and is_nil(Accounts.get_user_by_username(name))
+  end
+
+  defp unique_username(base, attempts \\ 0)
+
+  # Appending digits can't rescue a protected prefix — "inkwellfan_1234" is
+  # still reserved — so fall back to a generated name rather than loop.
+  defp unique_username(_base, attempts) when attempts >= 5, do: "user_#{:rand.uniform(999_999)}"
+
+  defp unique_username(base, 0) do
+    if usable_username?(base), do: base, else: unique_username(base, 1)
+  end
+
   defp unique_username(base, attempts) do
     candidate = "#{base}_#{:rand.uniform(9999)}"
-    if Accounts.get_user_by_username(candidate), do: unique_username(base, attempts + 1), else: candidate
+    if usable_username?(candidate), do: candidate, else: unique_username(base, attempts + 1)
   end
 
   defp format_changeset_errors(changeset) do
