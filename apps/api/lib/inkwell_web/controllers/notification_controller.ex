@@ -36,16 +36,17 @@ defmodule InkwellWeb.NotificationController do
   def mark_read(conn, params) do
     user = conn.assigns.current_user
 
-    ids = Map.get(params, "ids", :all)
+    # No "ids" means "mark everything". This used to resolve to the 200 newest
+    # notifications and mark those, so anything older stayed unread and kept the
+    # badge lit with no way to clear it.
+    case Map.get(params, "ids") do
+      ids when is_list(ids) and ids != [] ->
+        Accounts.mark_notifications_read(user.id, ids)
 
-    notification_ids =
-      if ids == :all do
-        Accounts.list_notifications(user.id, per_page: 200) |> Enum.map(& &1.id)
-      else
-        ids
-      end
+      _ ->
+        Accounts.mark_all_notifications_read(user.id)
+    end
 
-    Accounts.mark_notifications_read(user.id, notification_ids)
     json(conn, %{ok: true})
   end
 

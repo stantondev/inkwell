@@ -991,40 +991,55 @@ function FediverseFollowBackButton({
 export function NotificationList({
   initialNotifications,
   autoMarkRead = false,
+  serverUnreadCount = 0,
 }: {
   initialNotifications: Notification[];
   autoMarkRead?: boolean;
+  serverUnreadCount?: number;
 }) {
   const router = useRouter();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [markingAll, setMarkingAll] = useState(false);
   const autoMarkDoneRef = useRef(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Unread notifications can sit beyond the loaded page, so counting only what's
+  // on screen under-reports and hides the "Mark all read" button — leaving the
+  // sidebar badge (which uses the server's full count) stuck with no way to
+  // clear it. Track the server total alongside the loaded one.
+  const [serverUnread, setServerUnread] = useState(serverUnreadCount);
+  const loadedUnread = notifications.filter((n) => !n.read).length;
+  const unreadCount = Math.max(loadedUnread, serverUnread);
   const groups = useMemo(() => groupByDate(notifications), [notifications]);
 
   // Auto-mark all notifications as read on mount when setting is enabled
   useEffect(() => {
     if (!autoMarkRead || autoMarkDoneRef.current) return;
-    const unreadIds = initialNotifications.filter((n) => !n.read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
+    const hasUnread =
+      initialNotifications.some((n) => !n.read) || serverUnreadCount > 0;
+    if (!hasUnread) return;
     autoMarkDoneRef.current = true;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setServerUnread(0);
+    // Same as the button: no ids means "all", including notifications older
+    // than the loaded page.
     fetch("/api/notifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: unreadIds }),
+      body: JSON.stringify({}),
     })
       .then(() => {
         window.dispatchEvent(new Event("inkwell-nav-refresh"));
       })
       .catch(() => {});
-  }, [autoMarkRead, initialNotifications]);
+  }, [autoMarkRead, initialNotifications, serverUnreadCount]);
 
   const markOneRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    // Keep the server-side total in step so the header count and the "Mark all
+    // read" button don't linger after the last visible unread is cleared.
+    setServerUnread((v) => Math.max(0, v - 1));
   }, []);
 
   function handleRowClick(n: Notification) {
@@ -1048,18 +1063,20 @@ export function NotificationList({
   }
 
   async function handleMarkAllRead() {
-    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
-
     setMarkingAll(true);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setServerUnread(0);
 
     try {
+      // Send no ids so the server marks EVERY unread notification. Sending the
+      // loaded page's ids left anything older still unread, which is what
+      // pinned the badge.
       await fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: unreadIds }),
+        body: JSON.stringify({}),
       });
+      window.dispatchEvent(new Event("inkwell-nav-refresh"));
       router.refresh();
     } finally {
       setMarkingAll(false);

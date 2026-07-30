@@ -56,7 +56,14 @@ export default async function NotificationsPage() {
         {fetchFailed ? (
           <FetchError message="We couldn't load your notifications." />
         ) : (
-          <NotificationList initialNotifications={notifications} autoMarkRead={autoMarkRead} />
+          <NotificationList
+            initialNotifications={notifications}
+            autoMarkRead={autoMarkRead}
+            // The list only loads the first page (20). The badge counts every
+            // unread notification, so without the true total the UI can't tell
+            // there's an older unread one and hides "Mark all read" entirely.
+            serverUnreadCount={session.user.unread_notification_count ?? 0}
+          />
         )}
       </div>
     </div>

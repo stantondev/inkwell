@@ -499,6 +499,22 @@ defmodule Inkwell.Accounts do
   end
 
   @doc """
+  Mark every unread notification for a user as read, regardless of age.
+
+  The controller's "mark all" path used to fetch `list_notifications(per_page: 200)`
+  and mark those ids, which silently left anything older than the 200 newest
+  unread forever. Combined with the frontend only sending the ids on the
+  currently loaded page (20), a single old unread notification would pin the
+  sidebar badge permanently with no way to clear it from the UI. This updates in
+  place with no cap and no intermediate fetch.
+  """
+  def mark_all_notifications_read(user_id) do
+    Notification
+    |> where([n], n.user_id == ^user_id and n.read == false)
+    |> Repo.update_all(set: [read: true])
+  end
+
+  @doc """
   Mark all follow_request notifications from a given actor as read.
   Called when accepting or rejecting a follow request so the notification
   doesn't reappear with action buttons after page refresh.
