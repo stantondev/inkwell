@@ -5,7 +5,16 @@ defmodule InkwellWeb.BillingController do
 
   require Logger
 
-  @billing_rate_window 900  # 15 minutes
+  # How long after we successfully hand a user a checkout URL before we'll mint
+  # another one. This exists only to stop a double-clicked button from creating
+  # duplicate Payment Links — it is NOT a penalty box, so it is deliberately
+  # short and is only ever recorded on SUCCESS (see record_billing_checkout/1).
+  #
+  # This used to be 900s (15 min) AND was recorded before the attempt ran, so a
+  # single failed checkout locked the user out for a quarter of an hour behind
+  # the message "You can only process one purchase at a time" — which reads like
+  # a card decline. At least one prospective subscriber gave up because of it.
+  @billing_checkout_throttle 60
 
   # POST /api/billing/checkout — create a checkout session (Square Payment Link)
   def checkout(conn, _params) do
@@ -15,6 +24,7 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_plus(user) do
       case Billing.create_checkout_session(user) do
         {:ok, %{url: url}} ->
+          record_billing_checkout(user)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -32,7 +42,7 @@ defmodule InkwellWeb.BillingController do
       {:error, :rate_limited} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
       {:error, :already_subscribed} ->
         conn
@@ -100,6 +110,7 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_donor(user) do
       case Billing.create_donor_checkout_session(user, amount_cents) do
         {:ok, %{url: url}} ->
+          record_billing_checkout(user)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -117,7 +128,7 @@ defmodule InkwellWeb.BillingController do
       {:error, :rate_limited} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
       {:error, :already_subscribed} ->
         conn
@@ -141,6 +152,7 @@ defmodule InkwellWeb.BillingController do
     with :ok <- check_billing_rate(user) do
       case Billing.create_donation_checkout_session(user, amount_cents) do
         {:ok, %{url: url}} ->
+          record_billing_checkout(user)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -158,7 +170,7 @@ defmodule InkwellWeb.BillingController do
       {:error, :rate_limited} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
     end
   end
 
@@ -176,6 +188,7 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_plus(user) do
       case Billing.create_onboarding_checkout_session(user, "plus") do
         {:ok, %{url: url}} ->
+          record_billing_checkout(user)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -193,7 +206,7 @@ defmodule InkwellWeb.BillingController do
       {:error, :rate_limited} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
       {:error, :already_subscribed} ->
         conn
@@ -210,6 +223,7 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_donor(user) do
       case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
         {:ok, %{url: url}} ->
+          record_billing_checkout(user)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -227,7 +241,7 @@ defmodule InkwellWeb.BillingController do
       {:error, :rate_limited} ->
         conn
         |> put_status(:too_many_requests)
-        |> json(%{error: "Please wait a few minutes before starting another checkout. You can only process one purchase at a time."})
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
       {:error, :already_subscribed} ->
         conn
@@ -384,19 +398,28 @@ defmodule InkwellWeb.BillingController do
 
   # ── Private: Rate Limiting & Duplicate Prevention ──────────────────────
 
+  # Check only — never records. A user whose checkout fails must be able to
+  # retry immediately, so the throttle is recorded exclusively on success by
+  # record_billing_checkout/1 in each action's {:ok, %{url: url}} branch.
   defp check_billing_rate(user) do
     ensure_billing_rate_table()
     key = {:billing_checkout, user.id}
     now = System.system_time(:second)
 
     case :ets.lookup(:billing_rate_limit, key) do
-      [{^key, last_time}] when now - last_time < @billing_rate_window ->
+      [{^key, last_time}] when now - last_time < @billing_checkout_throttle ->
         {:error, :rate_limited}
 
       _ ->
-        :ets.insert(:billing_rate_limit, {key, now})
         :ok
     end
+  end
+
+  # Called only after we've successfully handed the user a checkout URL.
+  defp record_billing_checkout(user) do
+    ensure_billing_rate_table()
+    :ets.insert(:billing_rate_limit, {{:billing_checkout, user.id}, System.system_time(:second)})
+    :ok
   end
 
   defp check_no_active_plus(user) do
