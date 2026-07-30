@@ -164,6 +164,7 @@ function CheckEmailStep({
 }) {
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendError, setResendError] = useState("");
   const [manualCheckFailed, setManualCheckFailed] = useState(false);
   const isPwa = useIsPwa();
   const { status, destination, manualCheck } = useSessionPoll(true, loginSessionId);
@@ -175,16 +176,36 @@ function CheckEmailStep({
     }
   }, [status, destination]);
 
+  // res.ok was never checked, so "Sent!" appeared even when the resend was
+  // rate-limited or failed to send — leaving the user waiting on mail that was
+  // never going to arrive.
   const handleResend = async () => {
     setResending(true);
+    setResendError("");
     try {
-      await fetch("/api/auth/magic-link", {
+      const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      setResent(true);
-      setTimeout(() => setResent(false), 4000);
+
+      if (res.ok) {
+        setResent(true);
+        setTimeout(() => setResent(false), 4000);
+      } else if (res.status === 429) {
+        setResendError("Please wait a moment before requesting another link.");
+      } else {
+        let message = "We couldn't resend the email. Please try again.";
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {
+          // Non-JSON response — keep the generic message.
+        }
+        setResendError(message);
+      }
+    } catch {
+      setResendError("Could not reach the server. Please try again.");
     } finally {
       setResending(false);
     }
@@ -300,6 +321,12 @@ function CheckEmailStep({
         </button>
         .
       </p>
+
+      {resendError && (
+        <p className="text-xs" style={{ color: "var(--danger)" }}>
+          {resendError}
+        </p>
+      )}
 
       <button type="button" onClick={onReset} className="text-sm transition-colors"
         style={{ color: "var(--muted)" }}>

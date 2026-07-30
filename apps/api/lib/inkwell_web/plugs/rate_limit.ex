@@ -105,6 +105,30 @@ defmodule InkwellWeb.Plugs.RateLimit do
     # where the limiter does not function at all. Hardening this properly means
     # having the Next.js proxy forward Fly's authoritative `Fly-Client-IP` in a
     # dedicated header that we only trust when the immediate peer is internal.
+    trusted_client_ip(conn) || first_forwarded_ip(conn)
+  end
+
+  # Preferred signal: the client IP our own Next.js proxy observed, forwarded as
+  # X-Inkwell-Client-IP. The proxy fills it from Fly-Client-IP, which Fly sets to
+  # the real connecting peer and which a caller cannot control — unlike
+  # X-Forwarded-For, where a forged header prepends.
+  #
+  # Only honoured when THIS request's immediate peer is itself internal, i.e. it
+  # actually arrived from our web tier. api.inkwell.social is publicly reachable,
+  # so without that check anyone could forge the header directly.
+  defp trusted_client_ip(conn) do
+    with [claimed | _] <- get_req_header(conn, "x-inkwell-client-ip"),
+         claimed = String.trim(claimed),
+         true <- claimed != "",
+         [peer | _] <- get_req_header(conn, "fly-client-ip"),
+         true <- internal_address?(String.trim(peer)) do
+      claimed
+    else
+      _ -> nil
+    end
+  end
+
+  defp first_forwarded_ip(conn) do
     case get_req_header(conn, "x-forwarded-for") do
       [forwarded | _] ->
         ips = forwarded |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
@@ -113,5 +137,17 @@ defmodule InkwellWeb.Plugs.RateLimit do
       [] ->
         conn.remote_ip |> :inet.ntoa() |> to_string()
     end
+  end
+
+  # Fly's internal network: RFC1918 v4 plus fdaa::/16 (Fly's private v6 range).
+  # Measured in production, a request routed through our own proxy arrives with
+  # fly-client-ip = 172.19.34.138.
+  defp internal_address?(ip) do
+    String.starts_with?(ip, "10.") or
+      String.starts_with?(ip, "192.168.") or
+      String.starts_with?(ip, "127.") or
+      String.starts_with?(ip, "fdaa:") or
+      String.starts_with?(ip, "::1") or
+      Regex.match?(~r/^172\.(1[6-9]|2\d|3[01])\./, ip)
   end
 end

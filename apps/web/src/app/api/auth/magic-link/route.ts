@@ -19,6 +19,16 @@ export async function POST(request: NextRequest) {
           request.headers.get("x-forwarded-for") ??
           request.headers.get("x-real-ip") ??
           "unknown",
+        // Fly sets Fly-Client-IP to the actual connecting peer and it is not
+        // client-controllable, unlike X-Forwarded-For (a forged XFF prepends,
+        // so its first entry can be anything the caller wants). Forward it
+        // under our own name so the API can rate-limit on a trustworthy client
+        // identity. The API only honours this header when the request's own
+        // immediate peer is internal, i.e. it really came from this proxy.
+        "X-Inkwell-Client-IP":
+          request.headers.get("fly-client-ip") ??
+          request.headers.get("x-real-ip") ??
+          "",
       },
       body: JSON.stringify(body),
       cache: "no-store",

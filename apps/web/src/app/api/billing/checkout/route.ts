@@ -11,6 +11,16 @@ export async function POST() {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  // Guard against non-JSON (Fly returns HTML 502/503 while the single API
+  // machine restarts). res.json() threw here, 500ing the route, and the
+  // billing page's catch then showed a misleading "Network error."
+  const text = await res.text();
+  try {
+    return NextResponse.json(JSON.parse(text), { status: res.status });
+  } catch {
+    return NextResponse.json(
+      { error: "Unexpected server response" },
+      { status: res.status >= 400 ? res.status : 502 }
+    );
+  }
 }

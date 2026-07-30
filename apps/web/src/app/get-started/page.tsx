@@ -125,15 +125,34 @@ export default function GetStartedPage() {
     }
   };
 
-  const handleResend = async () => {
+  // Returns the outcome so the button can tell the truth. This used to swallow
+  // every failure, and the caller reported "Sent!" unconditionally — so a user
+  // who never got the first email would click resend, get rate-limited or hit a
+  // delivery failure, be told it was sent, and wait for mail that never came.
+  const handleResend = async (): Promise<{ ok: boolean; error?: string }> => {
     try {
-      await fetch("/api/auth/magic-link", {
+      const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), terms_accepted: true }),
       });
+
+      if (res.ok) return { ok: true };
+
+      if (res.status === 429) {
+        return { ok: false, error: "Please wait a moment before requesting another link." };
+      }
+
+      let message = "We couldn't resend the email. Please try again.";
+      try {
+        const data = await res.json();
+        if (data?.error) message = data.error;
+      } catch {
+        // Non-JSON response — keep the generic message.
+      }
+      return { ok: false, error: message };
     } catch {
-      // silently fail on resend
+      return { ok: false, error: "Could not reach the server. Please try again." };
     }
   };
 
@@ -314,11 +333,12 @@ function CheckEmailStep({
   email: string;
   devLink?: string;
   loginSessionId?: string;
-  onResend: () => void;
+  onResend: () => Promise<{ ok: boolean; error?: string }>;
   onReset: () => void;
 }) {
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendError, setResendError] = useState("");
   const [manualCheckFailed, setManualCheckFailed] = useState(false);
   const isPwa = useIsPwa();
   const { status, destination, manualCheck } = useSessionPoll(true, loginSessionId);
@@ -332,10 +352,17 @@ function CheckEmailStep({
 
   const handleResend = async () => {
     setResending(true);
+    setResendError("");
     try {
-      onResend();
-      setResent(true);
-      setTimeout(() => setResent(false), 4000);
+      // Must be awaited — this used to fire and forget, so "Sent!" appeared
+      // before the request had even resolved, success or not.
+      const result = await onResend();
+      if (result.ok) {
+        setResent(true);
+        setTimeout(() => setResent(false), 4000);
+      } else {
+        setResendError(result.error ?? "We couldn't resend the email.");
+      }
     } finally {
       setResending(false);
     }
@@ -450,6 +477,12 @@ function CheckEmailStep({
         </button>
         .
       </p>
+
+      {resendError && (
+        <p className="text-xs" style={{ color: "var(--danger)" }}>
+          {resendError}
+        </p>
+      )}
 
       <button type="button" onClick={onReset} className="text-sm transition-colors"
         style={{ color: "var(--muted)" }}>
