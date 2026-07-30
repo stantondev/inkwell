@@ -124,11 +124,27 @@ export default function WelcomePage() {
     const returnStep = params.get("step");
 
     if (checkout && returnStep) {
-      setStep(parseInt(returnStep, 10));
+      // Guard the parse: a malformed ?step= yielded NaN, which matched no step
+      // block and rendered a blank card with both nav buttons dead.
+      const parsedStep = parseInt(returnStep, 10);
+      if (Number.isInteger(parsedStep) && parsedStep >= 0 && parsedStep < TOTAL_STEPS) {
+        setStep(parsedStep);
+      }
       setCheckoutReturned(checkout as "success" | "canceled");
       setCheckoutType(type);
       // Clean URL params
       window.history.replaceState({}, "", "/welcome");
+
+      // Restore the fields the session endpoint can't give us back.
+      try {
+        const draft = sessionStorage.getItem("inkwell_onboarding_draft");
+        if (draft) {
+          sessionStorage.removeItem("inkwell_onboarding_draft");
+          const parsed = JSON.parse(draft);
+          if (typeof parsed?.status === "string") setStatus(parsed.status);
+          if (typeof parsed?.theme === "string") setTheme(parsed.theme);
+        }
+      } catch { /* non-fatal */ }
     }
 
     fetch("/api/session")
@@ -237,6 +253,11 @@ export default function WelcomePage() {
       return;
     }
     setCheckingUsername(true);
+    // Clear the previous verdict while re-checking. This used to keep the old
+    // value on a failed or non-ok response, so a single network blip after a
+    // "taken" result latched `false` — and canProceedStep0 (usernameAvailable
+    // !== false) then disabled Next with no way forward but a reload.
+    setUsernameAvailable(null);
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/username-available?username=${encodeURIComponent(username)}`);
@@ -244,8 +265,10 @@ export default function WelcomePage() {
           const data = await res.json();
           setUsernameAvailable(data.available);
         }
+        // Non-ok: leave null. The server validates on submit anyway, so an
+        // unreachable availability check must not block the user.
       } catch {
-        // ignore
+        // Same reasoning — stay null rather than falling back to false.
       } finally {
         setCheckingUsername(false);
       }
@@ -349,6 +372,28 @@ export default function WelcomePage() {
     setCheckoutLoading(true);
     setError("");
 
+    // Persist steps 0-3 BEFORE the redirect. Square checkout is a full-page
+    // navigation, so anything still sitting in React state is gone when the
+    // user comes back. If saving fails, stop here and show the error rather
+    // than sending them off to pay and losing their profile.
+    const persisted = await saveProfile({ markOnboarded: false });
+    if (!persisted) {
+      setCheckoutLoading(false);
+      return;
+    }
+
+    // The session endpoint doesn't return profile_status/profile_theme, so the
+    // prefill on return can't restore them from the DB even though they were
+    // just saved there. Stash them for the round trip so the UI redisplays
+    // what the user chose. (sessionStorage survives the Square redirect — the
+    // donor-amount handoff below already relies on this.)
+    try {
+      sessionStorage.setItem(
+        "inkwell_onboarding_draft",
+        JSON.stringify({ status, theme })
+      );
+    } catch { /* non-fatal */ }
+
     try {
       // Determine what to checkout for
       // If Plus is selected and not already Plus, checkout Plus first
@@ -412,7 +457,13 @@ export default function WelcomePage() {
     }
   }, [currentTier, activatingSubscription, step, currentDonorStatus]);
 
-  async function saveProfile(): Promise<boolean> {
+  // `markOnboarded: false` persists everything the user has entered so far
+  // WITHOUT completing onboarding. Used before sending them to Square: the
+  // checkout is a full-page navigation, so all of steps 0-3 (username, avatar,
+  // bio, pronouns, status, theme) lived only in React state and was silently
+  // destroyed the moment they paid. They'd come back to an empty wizard with
+  // their handle reverted to the email-derived default.
+  async function saveProfile({ markOnboarded = true }: { markOnboarded?: boolean } = {}): Promise<boolean> {
     setSaving(true);
     setError("");
 
@@ -456,7 +507,11 @@ export default function WelcomePage() {
           ...(status.trim() ? { profile_status: status.trim() } : {}),
           ...(theme !== "default" ? { profile_theme: theme } : {}),
           ...(avatarConfig ? { avatar_config: avatarConfig } : {}),
-          settings: { onboarded: true, guidelines_accepted: true },
+          // `settings` is merged server-side, so omitting `onboarded` leaves
+          // any existing value untouched rather than clearing it.
+          settings: markOnboarded
+            ? { onboarded: true, guidelines_accepted: true }
+            : { guidelines_accepted: true },
         }),
       });
 
@@ -483,12 +538,15 @@ export default function WelcomePage() {
     }
   }
 
+  // "Skip all" is rendered on the tier screen too, where it reads as "skip the
+  // payment part" rather than "discard my profile". It used to PATCH only
+  // `{onboarded: true}`, throwing away everything the user had typed. Keep
+  // whatever they've entered, then finish. Still always advances, even if the
+  // save fails — skipping must never trap them.
   function handleSkip() {
-    fetch("/api/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ settings: { onboarded: true } }),
-    }).then(() => setStep(TOTAL_STEPS - 1)).catch(() => setStep(TOTAL_STEPS - 1));
+    saveProfile()
+      .then(() => setStep(TOTAL_STEPS - 1))
+      .catch(() => setStep(TOTAL_STEPS - 1));
   }
 
   function nextStep() {
