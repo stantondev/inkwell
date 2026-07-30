@@ -1263,27 +1263,83 @@ defmodule Inkwell.Billing do
     end
   end
 
-  @doc "Cancel all subscriptions for a user (used during account deletion)."
+  @doc """
+  Cancel every subscription attached to a user — Square Plus, Square Ink Donor,
+  and both legacy Stripe subscriptions. Used during account deletion and when a
+  dispute is filed.
+
+  Best-effort by design: a billing failure must never block a user from deleting
+  their account, so this always returns `:ok` and never raises. But it no longer
+  fails *silently* — a Square cancel that doesn't take means the card keeps being
+  charged after the account is gone, so those failures are logged loudly and sent
+  to Slack for manual cleanup in the Square dashboard.
+
+  Legacy Stripe failures are expected (the Stripe account is closed) and are
+  logged at info level without alerting.
+  """
   def cancel_all_subscriptions(%User{} = user) do
-    # Cancel Plus
-    if user.square_subscription_id do
-      Square.cancel_subscription(user.square_subscription_id)
-    end
+    cancel_square_subscription(user, user.square_subscription_id, "Plus")
+    cancel_square_subscription(user, user.square_donor_subscription_id, "Ink Donor")
 
-    if user.stripe_subscription_id do
-      cancel_stripe_subscription(user.stripe_subscription_id)
-    end
-
-    # Cancel Donor
-    if user.square_donor_subscription_id do
-      Square.cancel_subscription(user.square_donor_subscription_id)
-    end
-
-    if user.ink_donor_stripe_subscription_id do
-      cancel_stripe_subscription(user.ink_donor_stripe_subscription_id)
-    end
+    cancel_legacy_stripe(user.stripe_subscription_id)
+    cancel_legacy_stripe(user.ink_donor_stripe_subscription_id)
 
     :ok
+  end
+
+  defp cancel_square_subscription(_user, nil, _label), do: :ok
+
+  defp cancel_square_subscription(%User{} = user, subscription_id, label) do
+    case Square.cancel_subscription(subscription_id) do
+      :ok ->
+        Logger.info(
+          "[Billing] Canceled Square #{label} subscription #{subscription_id} for @#{user.username}"
+        )
+
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[Billing] FAILED to cancel Square #{label} subscription #{subscription_id} for " <>
+            "@#{user.username} (user #{user.id}): #{inspect(reason)} — this subscription is " <>
+            "still LIVE and will keep billing. Cancel it manually in the Square dashboard."
+        )
+
+        Inkwell.Slack.notify_cancel_failed(user.username, label, subscription_id)
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error(
+        "[Billing] Exception canceling Square #{label} subscription #{subscription_id}: " <>
+          Exception.message(e)
+      )
+
+      :ok
+  end
+
+  defp cancel_legacy_stripe(nil), do: :ok
+
+  defp cancel_legacy_stripe(subscription_id) do
+    case cancel_stripe_subscription(subscription_id) do
+      :ok ->
+        :ok
+
+      other ->
+        Logger.info(
+          "[Billing] Legacy Stripe cancel skipped for #{subscription_id} " <>
+            "(Stripe account is closed): #{inspect(other)}"
+        )
+
+        :ok
+    end
+  rescue
+    e ->
+      Logger.info(
+        "[Billing] Legacy Stripe cancel raised for #{subscription_id}: " <> Exception.message(e)
+      )
+
+      :ok
   end
 
   @doc """

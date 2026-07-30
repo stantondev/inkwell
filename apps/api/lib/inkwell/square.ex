@@ -359,11 +359,17 @@ defmodule Inkwell.Square do
   @doc "Cancel a Square subscription (at end of billing cycle)."
   def cancel_subscription(nil), do: :ok
   def cancel_subscription(subscription_id) do
-    body = %{
-      "action" => "CANCEL"
-    }
-
-    case square_post("/subscriptions/#{subscription_id}/actions/cancel", body) do
+    # Square's cancel endpoint is POST /v2/subscriptions/{id}/cancel and takes
+    # NO request body. It schedules cancellation for the end of the current
+    # billing period (sets canceled_date); it does not terminate immediately.
+    #
+    # This previously posted to `/subscriptions/{id}/actions/cancel` with an
+    # {"action":"CANCEL"} body — that route does not exist in the Square API,
+    # so every cancel 404'd and no Square subscriber could ever cancel. The
+    # two routes are distinguishable by their 404 bodies: the bogus one
+    # returns a generic "Resource not found.", the real one validates the
+    # subscription id ("The provided subscription ID ... was not found.").
+    case square_post("/subscriptions/#{subscription_id}/cancel", %{}) do
       {:ok, _} ->
         Logger.info("Canceled Square subscription #{subscription_id}")
         :ok

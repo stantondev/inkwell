@@ -58,6 +58,19 @@ defmodule Inkwell.Slack do
     notify(":wave: *Ink Donor canceled.* @#{username} stopped their donation")
   end
 
+  @doc """
+  A Square cancel call failed. The subscription is still live and will keep
+  billing — usually after the user has already deleted their account, so there
+  is no longer any in-app way to stop it. Needs manual cancellation in Square.
+  """
+  def notify_cancel_failed(username, label, subscription_id) do
+    notify(
+      ":rotating_light: *Subscription cancel FAILED* — @#{username}'s #{label} subscription " <>
+        "`#{subscription_id}` is still LIVE and will keep billing. " <>
+        "Cancel it manually in the Square dashboard."
+    )
+  end
+
   def notify_payment_failed(username, type) do
     label = if type == :donor, do: "Ink Donor", else: "Plus"
     notify(":warning: *Payment failed.* @#{username}'s #{label} payment didn't go through")

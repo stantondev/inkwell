@@ -541,15 +541,19 @@ defmodule Inkwell.Accounts do
   # Account deletion
 
   def delete_account(%User{} = user) do
-    # Cancel Stripe Plus subscription if active
-    if user.stripe_subscription_id do
-      Inkwell.Billing.cancel_subscription(user.stripe_subscription_id)
-    end
-
-    # Cancel Stripe Ink Donor subscription if active
-    if user.ink_donor_stripe_subscription_id do
-      Inkwell.Billing.cancel_donor_subscription(user.ink_donor_stripe_subscription_id)
-    end
+    # Cancel every billing relationship this user has — Square Plus, Square
+    # Ink Donor, and both legacy Stripe subscriptions.
+    #
+    # This used to check only the two `stripe_*` fields, so a Square subscriber
+    # who deleted their account kept getting charged forever with no account
+    # left to cancel from. It also passed a subscription-id String into
+    # Billing.cancel_subscription/1, which only accepts a %User{} — a
+    # FunctionClauseError that made deletion impossible for legacy Stripe users.
+    #
+    # cancel_all_subscriptions/1 handles all four fields and never raises, so a
+    # billing failure can't block a user from deleting their account. Failures
+    # are logged and sent to Slack for manual cleanup in the Square dashboard.
+    Inkwell.Billing.cancel_all_subscriptions(user)
 
     # Cancel writer plan subscriptions (both as writer and subscriber)
     Inkwell.WriterSubscriptions.cancel_all_for_writer(user.id)
