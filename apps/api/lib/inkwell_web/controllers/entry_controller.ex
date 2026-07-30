@@ -450,7 +450,11 @@ defmodule InkwellWeb.EntryController do
           |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
                         "excerpt", "cover_image_id", "category", "series_id",
-                        "sensitive", "content_warning"])
+                        "sensitive", "content_warning",
+                        # Lets an author backdate on publish. Omitted here, the
+                        # draft's own published_at (e.g. an imported post's
+                        # original date) is preserved by publish_changeset.
+                        "published_at"])
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> put_word_count()

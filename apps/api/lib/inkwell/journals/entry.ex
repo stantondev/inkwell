@@ -91,9 +91,15 @@ defmodule Inkwell.Journals.Entry do
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
       :word_count, :excerpt, :cover_image_id, :category,
-      :series_id, :series_order, :sensitive, :content_warning
+      :series_id, :series_order, :sensitive, :content_warning,
+      # Imports carry the post's original date. This wasn't cast, so the date
+      # was silently dropped the moment an imported post landed in drafts —
+      # and publishing then stamped it with today. A WordPress migration of 226
+      # posts came out dated as if all written on the same day.
+      :published_at
     ])
     |> validate_required([:user_id])
+    |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
@@ -109,9 +115,11 @@ defmodule Inkwell.Journals.Entry do
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
       :word_count, :excerpt, :cover_image_id, :category,
-      :series_id, :series_order, :sensitive, :content_warning
+      :series_id, :series_order, :sensitive, :content_warning,
+      :published_at
     ])
     |> validate_required([:body_html, :privacy])
+    |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
@@ -121,7 +129,37 @@ defmodule Inkwell.Journals.Entry do
     |> put_change(:status, :published)
     |> force_generate_slug()
     |> generate_ap_id()
-    |> put_change(:published_at, DateTime.utc_now())
+    |> put_published_at()
+  end
+
+  # Publishing used to unconditionally stamp `DateTime.utc_now()`, so a draft
+  # imported with its original date — or one the author had backdated — always
+  # came out dated today. Honour an explicit or already-present date, and only
+  # fall back to "now" when there genuinely isn't one.
+  defp put_published_at(changeset) do
+    case get_field(changeset, :published_at) do
+      nil -> put_change(changeset, :published_at, DateTime.utc_now())
+      _ -> changeset
+    end
+  end
+
+  # Backdating is supported; scheduling is not. A future date would simply make
+  # the entry live immediately while displaying a date that hasn't happened, so
+  # reject it rather than silently behave like a scheduler. Small tolerance
+  # absorbs clock skew between the client and server.
+  defp validate_not_future(changeset, field) do
+    validate_change(changeset, field, fn ^field, value ->
+      cond do
+        is_nil(value) ->
+          []
+
+        DateTime.compare(value, DateTime.add(DateTime.utc_now(), 300, :second)) == :gt ->
+          [{field, "cannot be in the future"}]
+
+        true ->
+          []
+      end
+    end)
   end
 
   defp generate_slug(changeset) do

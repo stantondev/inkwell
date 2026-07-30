@@ -3,6 +3,28 @@
 import { useEffect, useState } from "react";
 import { ErrorReportButton } from "@/components/error-report-button";
 
+// A chunk that 404s almost always means the user had the page open across a
+// deploy: their HTML references hashed bundles that no longer exist on the
+// server. Nothing is actually broken — a reload fetches the new manifest — but
+// the user just sees a crash. This was reported from /login, i.e. it was
+// blocking sign-ins.
+//
+// We reload once and mark it in sessionStorage, so a genuine, repeating chunk
+// failure still surfaces the error screen instead of looping.
+const CHUNK_RELOAD_KEY = "inkwell-chunk-reloaded";
+
+function isChunkLoadError(error: Error): boolean {
+  const name = error?.name ?? "";
+  const message = error?.message ?? "";
+  return (
+    name === "ChunkLoadError" ||
+    /Loading chunk [\d]+ failed/i.test(message) ||
+    /Failed to load chunk/i.test(message) ||
+    /Loading CSS chunk/i.test(message) ||
+    /error loading dynamically imported module/i.test(message)
+  );
+}
+
 export default function Error({
   error,
   reset,
@@ -11,10 +33,53 @@ export default function Error({
   reset: () => void;
 }) {
   const [url, setUrl] = useState("");
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     setUrl(window.location.pathname + window.location.search);
   }, []);
+
+  useEffect(() => {
+    if (!isChunkLoadError(error)) return;
+
+    let alreadyTried = false;
+    try {
+      alreadyTried = sessionStorage.getItem(CHUNK_RELOAD_KEY) === "1";
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+    } catch {
+      // sessionStorage unavailable (private mode) — fall through to the error UI
+      // rather than risking a reload loop we can't detect.
+      return;
+    }
+
+    if (alreadyTried) return;
+
+    setRecovering(true);
+    window.location.reload();
+  }, [error]);
+
+  // Clear the guard once a page renders successfully after recovery.
+  useEffect(() => {
+    if (isChunkLoadError(error)) return;
+    try {
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+    } catch {
+      // ignore
+    }
+  }, [error]);
+
+  if (recovering) {
+    return (
+      <div
+        className="min-h-[60vh] flex items-center justify-center px-4"
+        style={{ background: "var(--background)" }}
+      >
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Updating to the latest version…
+        </p>
+      </div>
+    );
+  }
 
   // Use the error message, falling back to digest if the message is generic
   const displayMessage = error.message && error.message !== "An error occurred in the Server Components render."
