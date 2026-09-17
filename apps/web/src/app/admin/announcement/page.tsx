@@ -9,7 +9,7 @@ const DRAFT_BODY = `Hi,
 
 I'm Stanton. I build and run Inkwell by myself, around a day job, and I wanted to write to you directly.
 
-Inkwell has grown to more than 300 people without any ads or marketing — just people finding it and telling friends. That still amazes me. But it doesn't pay for itself yet. It costs about $67 a month to run, and right now members cover almost none of that. You can see the real numbers here: https://inkwell.social/transparency
+Inkwell has grown to more than 200 people without any ads or marketing — just people finding it and telling friends. That still amazes me. But it doesn't pay for itself yet. It costs about $67 a month to run, and right now members cover almost none of that. You can see the real numbers here: https://inkwell.social/transparency
 
 I don't want to add ads, sell your data, or chase engagement. So I'm asking the people who write here to help keep it going, in whatever way works for you:
 
