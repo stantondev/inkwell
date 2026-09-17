@@ -46,6 +46,17 @@ export function GuidelinesBook({ onAgree }: GuidelinesBookProps) {
   const currentStop = isDesktop ? effectivePage / 2 : currentPage;
   const lastStop = totalStops - 1;
 
+  // `isAnimating` is cleared by framer-motion's onAnimationComplete, which never
+  // fires if the animation is interrupted or the tab is backgrounded mid-flip
+  // (requestAnimationFrame pauses). Both arrows are disabled while it's true,
+  // so a missed callback locked new users out of onboarding for good. Always
+  // release the lock shortly after it's taken.
+  useEffect(() => {
+    if (!isAnimating) return;
+    const t = setTimeout(() => setIsAnimating(false), 900);
+    return () => clearTimeout(t);
+  }, [isAnimating]);
+
   // Track if user has reached the last spread/page
   useEffect(() => {
     if (currentStop >= lastStop) {

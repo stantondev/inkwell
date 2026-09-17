@@ -46,7 +46,13 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
     # Strip <h1> from content — FEP-b2b8 allowed HTML starts at <h2>;
     # the title belongs in `name`, not in the HTML body
-    sanitized_content = strip_h1_tags(entry.body_html)
+    # The editor stores uploaded images as root-relative `/api/images/:id` and
+    # mentions as `/username`. Remote servers resolve those against their own
+    # host, so every inline image in a federated post was broken on Mastodon.
+    sanitized_content =
+      entry.body_html
+      |> strip_h1_tags()
+      |> absolutize_urls(frontend_host)
 
     # Build content with a clean text hook prepended before the full body.
     # Mastodon truncates Article content aggressively (~100-150 chars displayed),
@@ -566,7 +572,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
         "type" => "Note",
         "id" => comment_url,
         "attributedTo" => actor_url,
-        "content" => body_html,
+        "content" => absolutize_urls(body_html, federation_config(:frontend_host)),
         "inReplyTo" => in_reply_to_ap_id,
         "published" => format_datetime(DateTime.utc_now()),
         "to" => [remote_author_ap_id],
@@ -756,6 +762,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   defp auto_generate_summary(_, _), do: nil
+
+  @doc false
+  # Rewrites root-relative `src="/..."` and `href="/..."` attributes to absolute
+  # URLs on `base`. Leaves absolute, protocol-relative (`//`), fragment and
+  # other schemes untouched.
+  def absolutize_urls(nil, _base), do: nil
+  def absolutize_urls(html, nil), do: html
+
+  def absolutize_urls(html, base) when is_binary(html) and is_binary(base) do
+    base = String.trim_trailing(base, "/")
+
+    Regex.replace(~r/\b(src|href)=(["'])\/(?!\/)/i, html, fn _, attr, quote ->
+      "#{attr}=#{quote}#{base}/"
+    end)
+  end
 
   # Strips <h1> tags from content — FEP-b2b8 allowed HTML starts at <h2>.
   # Replaces <h1> with <h2> to preserve structure rather than removing content.

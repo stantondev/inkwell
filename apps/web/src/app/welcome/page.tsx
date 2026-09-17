@@ -16,6 +16,18 @@ const AvatarBuilder = dynamic(
 );
 const TOTAL_STEPS = 9;
 
+const STEP_SUBTITLES = [
+  "Choose your identity",
+  "Set your avatar and pronouns",
+  "Tell people about yourself",
+  "Pick your vibe",
+  "Our community standards",
+  "Every writer’s journey is different",
+  "Find some writers",
+  "Bring your friends along",
+  "You’re all set!",
+];
+
 type SuggestedUser = {
   id: string;
   username: string;
@@ -549,11 +561,13 @@ export default function WelcomePage() {
       .catch(() => setStep(TOTAL_STEPS - 1));
   }
 
+  // Clear any error when moving between steps so e.g. a checkout failure on
+  // the tier screen doesn't keep showing on every later step.
   function nextStep() {
-    if (step < TOTAL_STEPS - 1) setStep(step + 1);
+    if (step < TOTAL_STEPS - 1) { setError(""); setStep(step + 1); }
   }
   function prevStep() {
-    if (step > 0) setStep(step - 1);
+    if (step > 0) { setError(""); setStep(step - 1); }
   }
 
   const canProceedStep0 = !username.trim() || (username.length >= 3 && usernameAvailable !== false);
@@ -585,16 +599,10 @@ export default function WelcomePage() {
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
             Welcome to Inkwell
           </h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {step === 0 && "Choose your identity"}
-            {step === 1 && "Set your avatar and pronouns"}
-            {step === 2 && "Tell people about yourself"}
-            {step === 3 && "Pick your vibe"}
-            {step === 4 && "Our community standards"}
-            {step === 5 && "Every writer\u2019s journey is different"}
-            {step === 6 && "Find some writers"}
-            {step === 7 && "Bring your friends along"}
-            {step === 8 && "You\u2019re all set!"}
+          {/* One text node, keyed by step. Nine sibling `{step === n && "..."}`
+              text nodes crashed the page under browser translation. */}
+          <p key={step} className="text-sm" style={{ color: "var(--muted)" }}>
+            {STEP_SUBTITLES[step] ?? ""}
           </p>
         </div>
 
@@ -939,7 +947,7 @@ export default function WelcomePage() {
                         <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>Active</p>
                       )}
                       <ul className="space-y-1.5 text-xs" style={{ color: "var(--muted)" }}>
-                        {["Everything in Free", "Custom colors & fonts", "Unlimited newsletter", "Postage (reader support)", "Custom HTML & CSS", "Plus badge"].map((item) => (
+                        {["Everything in Free", "Custom colors, fonts & layouts", "Your own domain", "Custom HTML & CSS", "Unlimited newsletter subscribers", "Plus badge"].map((item) => (
                           <li key={item} className="flex gap-1.5 items-start">
                             <span style={{ color: "var(--accent)" }}>&#10003;</span>
                             {item}

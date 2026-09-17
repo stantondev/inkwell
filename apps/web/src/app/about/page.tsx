@@ -243,8 +243,10 @@ export default function AboutPage() {
             >
               paid subscription plans
             </Link>
-            , one-time Postage tips, and email newsletters — all with 92%
-            payouts. We take 8% to keep the platform running.
+
+            and one-time Postage tips, with 92% payouts. Both are paused while we
+            set up a payment processor that supports them; email newsletters work
+            today.
           </p>
 
           {/* ── Ink Donor callout ── */}

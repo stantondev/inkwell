@@ -92,6 +92,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className={`${inter.variable} ${lora.variable} antialiased`} suppressHydrationWarning>
+        {/*
+          Browser page translation (Chrome's built-in Google Translate, very
+          common on Android) replaces text nodes with <font> wrappers. React
+          then tries to remove or insert relative to nodes that are no longer
+          where it left them and throws "Failed to execute 'removeChild' on
+          'Node'", crashing the whole page. This took down /welcome for
+          non-English signups. Tolerate the mismatch instead of throwing — the
+          worst case is a stale translated string, not a dead page.
+          See facebook/react#11538.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){if(typeof Node!=="function"||!Node.prototype)return;var r=Node.prototype.removeChild;Node.prototype.removeChild=function(c){if(c.parentNode!==this){return c}return r.apply(this,arguments)};var i=Node.prototype.insertBefore;Node.prototype.insertBefore=function(n,ref){if(ref&&ref.parentNode!==this){return i.call(this,n,null)}return i.apply(this,arguments)}})();`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var o=localStorage.getItem("inkwell-sidebar-collapsed");if(o==="true"){localStorage.removeItem("inkwell-sidebar-collapsed");localStorage.setItem("inkwell-sidebar-hidden","true")}if(localStorage.getItem("inkwell-sidebar-hidden")==="true")document.body.setAttribute("data-sidebar-hidden","");if(localStorage.getItem("inkwell-eye-comfort")==="true")document.body.classList.add("eye-comfort")}catch(e){}`,

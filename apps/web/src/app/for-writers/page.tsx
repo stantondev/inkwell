@@ -46,13 +46,16 @@ export default function ForWritersPage() {
             Create a monthly subscription plan. Publish entries for paid subscribers only.
             Build a sustainable income from the writing you love.
           </p>
-          <Link
-            href="/settings/billing"
-            className="inline-flex rounded-full px-8 py-3 text-base font-medium transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#fff" }}
+          <div
+            className="rounded-xl border p-4 text-sm text-left max-w-xl mx-auto"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
           >
-            Get started
-          </Link>
+            <strong>Paused for now.</strong> Paid writer plans and Postage need a payment
+            processor that can split payments between readers and writers. Our previous
+            processor closed our account after fraudulent charges from stolen cards, so these
+            features are switched off until we can set one up again. Nothing you&apos;ve earned
+            or subscribed to has been lost.
+          </div>
         </div>
       </section>
 
