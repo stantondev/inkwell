@@ -157,4 +157,22 @@ defmodule Inkwell.Moderation.AutoModerationTest do
     {:ok, _} = Inkwell.Accounts.block_user(commenter)
     assert Journals.list_comments(entry.id) == []
   end
+
+  test "admin block hides posts and admin unblock restores them" do
+    real = writer()
+    admin = create_user() |> Ecto.Changeset.change(role: "admin") |> Repo.update!()
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      {:ok, blocked} = Inkwell.Accounts.block_user(real)
+      AutoModeration.after_manual_block(blocked, "blocked by @admin")
+      assert Repo.all(from e in Entry, where: e.user_id == ^real.id, select: e.status) == [:hidden]
+
+      {:ok, unblocked} = Inkwell.Accounts.unblock_user(Repo.reload!(real))
+      assert {:ok, 1} = AutoModeration.after_manual_unblock(unblocked, admin)
+    end)
+
+    assert Repo.all(from e in Entry, where: e.user_id == ^real.id, select: e.status) == [:published]
+    assert is_nil(Repo.reload!(real).blocked_at)
+  end
+
 end

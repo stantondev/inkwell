@@ -475,7 +475,10 @@ defmodule InkwellWeb.AdminController do
           conn |> put_status(:forbidden) |> json(%{error: "You cannot block yourself"})
         else
           case Accounts.block_user(target) do
-            {:ok, user} -> json(conn, %{data: render_user_admin(user)})
+            {:ok, user} ->
+              Inkwell.Moderation.AutoModeration.after_manual_block(user, "blocked by @#{current_user.username}")
+              json(conn, %{data: render_user_admin(user)})
+
             {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to block user"})
           end
         end
@@ -490,7 +493,10 @@ defmodule InkwellWeb.AdminController do
 
       user ->
         case Accounts.unblock_user(user) do
-          {:ok, user} -> json(conn, %{data: render_user_admin(user)})
+          {:ok, user} ->
+            Inkwell.Moderation.AutoModeration.after_manual_unblock(user, conn.assigns.current_user)
+            json(conn, %{data: render_user_admin(Accounts.get_user_admin(user.id) || user)})
+
           {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Failed to unblock user"})
         end
     end

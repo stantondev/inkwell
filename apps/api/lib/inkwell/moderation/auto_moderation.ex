@@ -306,20 +306,50 @@ defmodule Inkwell.Moderation.AutoModeration do
   end
 
   @doc "Block an account for spam and hide all of its published entries."
-  def block!(%User{} = user, result, opts \\ []) do
+  def block!(%User{} = user, result) do
     {:ok, blocked} = Accounts.block_user(user)
-    hidden_ids = hide_published_entries(user)
-    resolve_pending_reports(user, "Auto-moderation: account blocked for spam")
-
-    action = record(blocked, "block", result, hidden_ids, automated: Keyword.get(opts, :automated, true))
-
-    Inkwell.Workers.SearchIndexWorker.new(%{"action" => "delete_user_entries", "user_id" => user.id})
-    |> Oban.insert()
-
+    action = hide_content(blocked, result, true, "Auto-moderation: account blocked for spam")
     send_suspension_email(blocked)
 
     Logger.warning("[AutoMod] Blocked @#{user.username} (score #{result.score}): #{Enum.join(result.reasons, "; ")}")
     {:ok, action}
+  end
+
+  @doc """
+  Call after any non-automated block (admin Block button, third strike,
+  payment dispute) so the account's posts disappear too and the block can be
+  undone from Admin → Moderation.
+  """
+  def after_manual_block(%User{} = user, reason) do
+    hide_content(user, %{score: nil, reasons: [reason]}, false, reason)
+  rescue
+    e ->
+      Logger.error("[AutoMod] after_manual_block failed for #{user.id}: #{Exception.message(e)}")
+      nil
+  end
+
+  @doc "Call after an admin unblocks someone: restores posts hidden by their latest block."
+  def after_manual_unblock(%User{} = user, %User{} = admin) do
+    case Repo.one(
+           from(a in ModerationAction,
+             where: a.user_id == ^user.id and a.action == "block" and is_nil(a.reversed_at),
+             order_by: [desc: a.inserted_at],
+             limit: 1
+           )
+         ) do
+      nil -> {:ok, 0}
+      action -> undo(action, admin)
+    end
+  end
+
+  defp hide_content(user, result, automated?, report_note) do
+    hidden_ids = hide_published_entries(user)
+    resolve_pending_reports(user, report_note)
+
+    Inkwell.Workers.SearchIndexWorker.new(%{"action" => "delete_user_entries", "user_id" => user.id})
+    |> Oban.insert()
+
+    record(user, "block", result, hidden_ids, automated: automated?)
   end
 
   @doc "Keep an account out of Explore/trending without hiding anything."

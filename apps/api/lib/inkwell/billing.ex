@@ -2039,7 +2039,9 @@ defmodule Inkwell.Billing do
 
       user ->
         # Auto-block the user immediately
-        Inkwell.Accounts.block_user(user)
+        with {:ok, blocked} <- Inkwell.Accounts.block_user(user) do
+          Inkwell.Moderation.AutoModeration.after_manual_block(blocked, "blocked after a payment dispute")
+        end
         Logger.error("FRAUD: Auto-blocked user #{user.username} due to Square dispute")
 
         # Cancel all subscriptions

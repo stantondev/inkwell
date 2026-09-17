@@ -112,7 +112,9 @@ defmodule Inkwell.Moderation do
     |> Multi.run(:maybe_block, fn _repo, %{increment_strike: user} ->
       if user.strike_count >= @auto_block_threshold do
         case Accounts.block_user(user) do
-          {:ok, blocked} -> {:ok, blocked}
+          {:ok, blocked} ->
+            Inkwell.Moderation.AutoModeration.after_manual_block(blocked, "blocked after #{user.strike_count} warnings")
+            {:ok, blocked}
           other -> other
         end
       else
