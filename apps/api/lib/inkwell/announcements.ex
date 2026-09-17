@@ -20,6 +20,8 @@ defmodule Inkwell.Announcements do
   def recipients_query do
     from(u in User,
       where: is_nil(u.blocked_at),
+      # Accounts limited by spam moderation don't get founder emails either.
+      where: is_nil(u.moderation_state),
       where: not is_nil(u.email),
       where: not like(u.email, "%.fediverse.inkwell.social"),
       where:

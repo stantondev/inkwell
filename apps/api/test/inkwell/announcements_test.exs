@@ -16,6 +16,10 @@ defmodule Inkwell.AnnouncementsTest do
     create_user(%{email: "someone@mastodon.social.fediverse.inkwell.social"})
 
     create_user()
+    |> Ecto.Changeset.change(moderation_state: "limited")
+    |> Repo.update!()
+
+    create_user()
     |> Ecto.Changeset.change(settings: %{"email_notifications_disabled" => true})
     |> Repo.update!()
 
