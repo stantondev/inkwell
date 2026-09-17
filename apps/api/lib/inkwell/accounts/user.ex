@@ -77,6 +77,14 @@ defmodule Inkwell.Accounts.User do
     field :square_subscription_id, :string
     field :square_donor_subscription_id, :string
 
+    # Founding Members (one-time purchase, Plus for as long as Inkwell runs)
+    field :founding_member_number, :integer
+    field :founding_member_at, :utc_datetime_usec
+    field :founding_member_payment_id, :string
+
+    # Free Plus trial (subscription_status "trialing" while active)
+    field :plus_trial_started_at, :utc_datetime_usec
+
     # Profile improvements
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}
@@ -111,6 +119,7 @@ defmodule Inkwell.Accounts.User do
     api auth login signup register settings notifications
     feed explore search admin inbox outbox users
     newsletter billing noreply postmaster webmaster abuse
+    switch transparency founding
   )
 
   # Brand-related prefixes — any username starting with these is blocked
@@ -170,9 +179,38 @@ defmodule Inkwell.Accounts.User do
     |> cast(attrs, [
       :stripe_customer_id, :stripe_subscription_id,
       :square_customer_id, :square_subscription_id,
-      :subscription_tier, :subscription_status, :subscription_expires_at
+      :subscription_tier, :subscription_status, :subscription_expires_at,
+      :plus_trial_started_at
     ])
+    |> keep_founding_member_plus()
   end
+
+  # Founding Members paid once for Plus for as long as Inkwell runs. Every
+  # subscription write in the app goes through subscription_changeset/2 —
+  # cancel handlers, Square reconciliation, grace/trial expiry — so this is
+  # the single place that guarantees none of them can downgrade one.
+  defp keep_founding_member_plus(changeset) do
+    if get_field(changeset, :founding_member_number) do
+      changeset
+      |> put_change(:subscription_tier, "plus")
+      |> put_change(:subscription_status, "active")
+      |> put_change(:subscription_expires_at, nil)
+    else
+      changeset
+    end
+  end
+
+  def founding_member_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:founding_member_number, :founding_member_at, :founding_member_payment_id])
+    |> validate_required([:founding_member_number, :founding_member_at])
+    |> unique_constraint(:founding_member_number)
+    |> unique_constraint(:founding_member_payment_id)
+    |> keep_founding_member_plus()
+  end
+
+  def founding_member?(%__MODULE__{founding_member_number: n}), do: not is_nil(n)
+  def founding_member?(_), do: false
 
   def stripe_connect_changeset(user, attrs) do
     user

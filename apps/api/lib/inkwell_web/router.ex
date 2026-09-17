@@ -82,6 +82,7 @@ defmodule InkwellWeb.Router do
 
     # Sitemap data (public, for Next.js sitemap generation)
     get "/sitemap-data", SitemapController, :index
+    get "/transparency", TransparencyController, :show
 
     # Images (public serving)
     get "/images/:id", EntryImageController, :show
@@ -356,6 +357,8 @@ defmodule InkwellWeb.Router do
     post "/billing/cancel-donor", BillingController, :cancel_donor
     post "/billing/donate", BillingController, :donate
     post "/billing/sync", BillingController, :sync
+    post "/billing/founding-checkout", BillingController, :founding_checkout
+    post "/billing/start-trial", BillingController, :start_trial
     get "/billing/status", BillingController, :status
 
     # Remote entry interactions (federated)
@@ -493,6 +496,11 @@ defmodule InkwellWeb.Router do
   # Admin API (requires auth + admin role)
   scope "/api/admin", InkwellWeb do
     pipe_through [:api, :authenticated, :admin]
+
+    # Founder announcement emails
+    get "/announcement", AnnouncementController, :show
+    post "/announcement/test", AnnouncementController, :test
+    post "/announcement/send", AnnouncementController, :send_all
 
     # Dashboard stats
     get "/stats", AdminController, :stats

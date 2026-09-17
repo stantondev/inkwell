@@ -72,6 +72,7 @@ interface ProfileUser {
   pinned_entry_ids?: string[];
   social_links?: Record<string, string> | null;
   ink_donor_status?: string | null;
+  founding_member_number?: number | null;
   ink_donor_amount_cents?: number | null;
   visitor_count?: number;
   entries_per_page?: Record<string, number> | null;
@@ -1129,7 +1130,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
             <div className="mb-2">
               <h1 className="text-2xl font-semibold leading-tight">
                 {profile.display_name}
-                {profile.subscription_tier === "plus" && (
+                {profile.founding_member_number ? (
+                  <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium align-middle"
+                    style={{ background: styles.accent, color: "#fff" }}
+                    title="Helped fund Inkwell as one of its first 50 Founding Members">
+                    Founding Member #{profile.founding_member_number}
+                  </span>
+                ) : profile.subscription_tier === "plus" && (
                   <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium align-middle"
                     style={{ background: styles.accent, color: "#fff" }}>
                     Plus

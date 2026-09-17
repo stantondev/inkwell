@@ -102,7 +102,16 @@ export default function WelcomePage() {
   const [inviteCopied, setInviteCopied] = useState(false);
 
   // Step 5: Choose your path (tier selection)
-  const [selectedTier, setSelectedTier] = useState<"free" | "plus">("free");
+  const [selectedTier, setSelectedTier] = useState<"free" | "plus" | "founding">("free");
+  const [plusInterval, setPlusInterval] = useState<"month" | "year">("month");
+  const [billingInfo, setBillingInfo] = useState<{
+    trialEligible: boolean;
+    trialDays: number;
+    annualAvailable: boolean;
+    annualPrice: number;
+    founding: { cap: number; sold: number; remaining: number; price_cents: number } | null;
+    foundingNumber: number | null;
+  }>({ trialEligible: false, trialDays: 14, annualAvailable: false, annualPrice: 50, founding: null, foundingNumber: null });
   const [selectedDonorAmount, setSelectedDonorAmount] = useState<number | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutReturned, setCheckoutReturned] = useState<"success" | "canceled" | null>(null);
@@ -159,6 +168,22 @@ export default function WelcomePage() {
       } catch { /* non-fatal */ }
     }
 
+    fetch("/api/billing/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const b = d?.data;
+        if (!b) return;
+        setBillingInfo({
+          trialEligible: !!b.trial_eligible,
+          trialDays: b.trial_days ?? 14,
+          annualAvailable: !!b.plus_annual_available,
+          annualPrice: Math.round((b.plus_annual_cents ?? 5000) / 100),
+          founding: b.founding ?? null,
+          foundingNumber: b.founding_member_number ?? null,
+        });
+      })
+      .catch(() => {});
+
     fetch("/api/session")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -192,6 +217,9 @@ export default function WelcomePage() {
     const poll = async () => {
       attempts++;
       try {
+        if (checkoutType === "founding" || checkoutType === "plus") {
+          await fetch("/api/billing/sync", { method: "POST" }).catch(() => {});
+        }
         const res = await fetch("/api/session");
         if (res.ok) {
           const data = await res.json();
@@ -199,6 +227,13 @@ export default function WelcomePage() {
           if (checkoutType === "plus" && user?.subscription_tier === "plus") {
             setCurrentTier("plus");
             setSelectedTier("plus");
+            setActivatingSubscription(false);
+            setCheckoutReturned(null);
+            return;
+          }
+          if (checkoutType === "founding" && user?.founding_member_number) {
+            setCurrentTier("plus");
+            setBillingInfo((b) => ({ ...b, foundingNumber: user.founding_member_number, trialEligible: false }));
             setActivatingSubscription(false);
             setCheckoutReturned(null);
             return;
@@ -216,7 +251,7 @@ export default function WelcomePage() {
         setTimeout(poll, 2000);
       } else {
         // Give up polling but show success anyway — webhook will catch up
-        if (checkoutType === "plus") setCurrentTier("plus");
+        if (checkoutType === "plus" || checkoutType === "founding") setCurrentTier("plus");
         if (checkoutType === "donor") setCurrentDonorStatus("active");
         setActivatingSubscription(false);
         setCheckoutReturned(null);
@@ -380,7 +415,7 @@ export default function WelcomePage() {
     }
   }
 
-  async function handleTierCheckout() {
+  async function handleTierCheckout({ useTrial = false }: { useTrial?: boolean } = {}) {
     setCheckoutLoading(true);
     setError("");
 
@@ -407,13 +442,47 @@ export default function WelcomePage() {
     } catch { /* non-fatal */ }
 
     try {
-      // Determine what to checkout for
-      // If Plus is selected and not already Plus, checkout Plus first
-      if (selectedTier === "plus" && currentTier !== "plus") {
+      // Free trial: no card. Start it here, then fall through to a donor
+      // checkout if one was also chosen, otherwise continue the wizard.
+      if (selectedTier === "plus" && currentTier !== "plus" && useTrial) {
+        const res = await fetch("/api/billing/start-trial", { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || "Couldn't start your trial. Please try again.");
+          setCheckoutLoading(false);
+          return;
+        }
+        setCurrentTier("plus");
+        setBillingInfo((b) => ({ ...b, trialEligible: false }));
+        if (!selectedDonorAmount || currentDonorStatus === "active") {
+          setCheckoutLoading(false);
+          nextStep();
+          return;
+        }
+      } else if (selectedTier === "founding" && !billingInfo.foundingNumber) {
         const res = await fetch("/api/billing/onboarding-checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "plus" }),
+          body: JSON.stringify({ type: "founding" }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          if (selectedDonorAmount) {
+            sessionStorage.setItem("inkwell_donor_amount", String(selectedDonorAmount));
+          }
+          window.location.href = data.url;
+          return;
+        }
+        setError(data.error || "Unable to start checkout. Please try again.");
+        setCheckoutLoading(false);
+        return;
+      } else if (selectedTier === "plus" && currentTier !== "plus") {
+        // Determine what to checkout for
+        // If Plus is selected and not already Plus, checkout Plus first
+        const res = await fetch("/api/billing/onboarding-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "plus", interval: plusInterval }),
         });
         const data = await res.json();
         if (data.url) {
@@ -872,7 +941,7 @@ export default function WelcomePage() {
                     <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
                   </svg>
                   <p className="text-sm" style={{ color: "var(--muted)" }}>
-                    {checkoutType === "plus" ? "Activating your Plus subscription..." : "Activating your Ink Donor badge..."}
+                    {checkoutType === "plus" ? "Activating your Plus subscription..." : checkoutType === "founding" ? "Confirming your Founding Membership..." : "Activating your Ink Donor badge..."}
                   </p>
                 </div>
               )}
@@ -890,7 +959,7 @@ export default function WelcomePage() {
                     {/* Free tier */}
                     <button
                       type="button"
-                      onClick={() => { if (currentTier !== "plus") setSelectedTier("free"); }}
+                      onClick={() => { if (currentTier !== "plus" && !billingInfo.foundingNumber) setSelectedTier("free"); }}
                       className="onboarding-tier-card rounded-xl border-2 p-4 text-left transition-all"
                       style={{
                         borderColor: selectedTier === "free" ? "var(--accent)" : "var(--border)",
@@ -942,7 +1011,15 @@ export default function WelcomePage() {
                           </svg>
                         )}
                       </div>
-                      <p className="text-2xl font-bold mb-3">$5<span className="text-xs font-normal" style={{ color: "var(--muted)" }}> /month</span></p>
+                      <p className="text-2xl font-bold mb-1">
+                        {plusInterval === "year" ? `$${billingInfo.annualPrice}` : "$5"}
+                        <span className="text-xs font-normal" style={{ color: "var(--muted)" }}>{plusInterval === "year" ? " /year" : " /month"}</span>
+                      </p>
+                      {billingInfo.trialEligible && currentTier !== "plus" ? (
+                        <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>
+                          Free for {billingInfo.trialDays} days &middot; no card needed
+                        </p>
+                      ) : <div className="mb-2" />}
                       {currentTier === "plus" && (
                         <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>Active</p>
                       )}
@@ -956,6 +1033,63 @@ export default function WelcomePage() {
                       </ul>
                     </button>
                   </div>
+
+                  {/* Monthly / yearly */}
+                  {billingInfo.annualAvailable && selectedTier === "plus" && currentTier !== "plus" && (
+                    <div className="flex items-center justify-center gap-2 text-xs" role="radiogroup" aria-label="Billing interval">
+                      {(["month", "year"] as const).map((iv) => (
+                        <button
+                          key={iv}
+                          type="button"
+                          role="radio"
+                          aria-checked={plusInterval === iv}
+                          onClick={() => setPlusInterval(iv)}
+                          className="rounded-full border px-3 py-1 transition-colors"
+                          style={{
+                            borderColor: plusInterval === iv ? "var(--accent)" : "var(--border)",
+                            color: plusInterval === iv ? "var(--accent)" : "var(--muted)",
+                          }}
+                        >
+                          {iv === "month" ? "Monthly" : `Yearly — two months free`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Founding Member */}
+                  {billingInfo.founding && (billingInfo.founding.remaining > 0 || billingInfo.foundingNumber) && currentTier !== "plus" || billingInfo.foundingNumber ? (
+                    <button
+                      type="button"
+                      onClick={() => { if (!billingInfo.foundingNumber) setSelectedTier("founding"); }}
+                      className="onboarding-tier-card rounded-xl border-2 p-4 text-left transition-all"
+                      style={{
+                        borderColor: selectedTier === "founding" || billingInfo.foundingNumber ? "var(--accent)" : "var(--border)",
+                        background: "var(--background)",
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-1">
+                        <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                          {billingInfo.foundingNumber ? `Founding Member #${billingInfo.foundingNumber}` : "Founding Member"}
+                        </p>
+                        <span className="text-xs whitespace-nowrap" style={{ color: "var(--accent)" }}>
+                          {billingInfo.foundingNumber
+                            ? "Thank you"
+                            : `$${(billingInfo.founding?.price_cents ?? 9900) / 100} once · ${billingInfo.founding?.remaining} of ${billingInfo.founding?.cap} left`}
+                        </span>
+                      </div>
+                      <p className="text-xs" style={{ color: "var(--muted)" }}>
+                        Inkwell is run by one person. Pay once to help fund it and get Plus for as long as Inkwell runs,
+                        plus a numbered badge.
+                      </p>
+                    </button>
+                  ) : null}
+                  {billingInfo.founding && !billingInfo.foundingNumber && currentTier !== "plus" && billingInfo.founding.remaining > 0 && (
+                    <p className="text-xs text-center -mt-2" style={{ color: "var(--muted)" }}>
+                      <a href="/transparency" target="_blank" rel="noopener noreferrer" className="underline">
+                        See what Inkwell costs to run
+                      </a>
+                    </p>
+                  )}
 
                   {/* Ink Donor section */}
                   <div className="flex items-center gap-3 mt-1">
@@ -1033,10 +1167,29 @@ export default function WelcomePage() {
                           style={{ background: "var(--accent)", color: "#fff" }}>
                           Continue
                         </button>
+                      ) : selectedTier === "plus" && currentTier !== "plus" && billingInfo.trialEligible ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleTierCheckout({ useTrial: true })}
+                            disabled={checkoutLoading}
+                            className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                            style={{ background: "var(--accent)", color: "#fff" }}>
+                            {checkoutLoading ? "Loading..." : `Start ${billingInfo.trialDays}-day free trial`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTierCheckout()}
+                            disabled={checkoutLoading}
+                            className="text-xs hover:underline disabled:opacity-40"
+                            style={{ color: "var(--muted)" }}>
+                            or pay now
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
-                          onClick={handleTierCheckout}
+                          onClick={() => handleTierCheckout()}
                           disabled={checkoutLoading}
                           className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
                           style={{ background: "var(--accent)", color: "#fff" }}>

@@ -20,7 +20,7 @@ const APP_ROUTES = [
   "/settings", "/login", "/get-started", "/welcome", "/explore",
   "/search", "/notifications", "/roadmap", "/polls", "/circles",
   "/pen-pals", "/developers", "/category", "/tag", "/manage", "/fediverse",
-  "/help", "/ai", "/gazette",
+  "/help", "/ai", "/gazette", "/switch",
 ];
 
 // In-memory cache for custom domain resolution.

@@ -565,6 +565,7 @@ defmodule InkwellWeb.UserController do
       avatar_config: user.avatar_config,
       ap_id: user.ap_id,
       subscription_tier: Inkwell.SelfHosted.effective_tier(user),
+      founding_member_number: user.founding_member_number,
       created_at: user.inserted_at,
       profile_html: user.profile_html,
       profile_css: user.profile_css,

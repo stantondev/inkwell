@@ -74,6 +74,99 @@ defmodule Inkwell.Square do
     end
   end
 
+  @plus_annual_cents 5000
+  @founding_member_cents 9900
+  @founding_line_item "Inkwell Founding Member"
+
+  def plus_annual_cents, do: @plus_annual_cents
+  def founding_member_cents, do: @founding_member_cents
+  def founding_line_item_name, do: @founding_line_item
+
+  @doc "True when the yearly Plus plan variation is configured."
+  def plus_annual_configured? do
+    case square_config()[:plus_annual_plan_variation_id] do
+      id when is_binary(id) and id != "" -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Create a Square Payment Link for Plus billed yearly ($50/yr).
+
+  `return_to` is `:billing` or `:onboarding` and only changes the redirect.
+  Square treats the annual variation as just another Plus plan variation, so
+  webhook handling is the same as monthly (anything not a donor variation is
+  Plus).
+  """
+  def create_plus_annual_payment_link(%User{} = user, customer_id, return_to \\ :billing)
+      when is_binary(customer_id) do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+    plan_variation_id = config[:plus_annual_plan_variation_id]
+
+    redirect_url =
+      case return_to do
+        :onboarding -> "#{frontend_url}/welcome?checkout=success&type=plus&step=5"
+        _ -> "#{frontend_url}/settings/billing?checkout=success"
+      end
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body =
+        subscription_payment_link_body(
+          idempotency_key:
+            "plus-annual-#{return_to}-#{user.id}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: "Inkwell Plus (Yearly)",
+          amount_cents: @plus_annual_cents,
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: redirect_url,
+          config: config
+        )
+
+      post_payment_link(body, "plus-annual", user.id)
+    end
+  end
+
+  @doc """
+  Create a Square Payment Link for a one-time Founding Member purchase ($99).
+
+  The line item name is how the payment webhook recognises the purchase (see
+  `Inkwell.Billing.founding_order?/1`), so it must stay in sync with
+  `founding_line_item_name/0`.
+  """
+  def create_founding_member_payment_link(%User{} = user, customer_id, return_to \\ :billing)
+      when is_binary(customer_id) do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+
+    redirect_url =
+      case return_to do
+        :onboarding -> "#{frontend_url}/welcome?checkout=success&type=founding&step=5"
+        _ -> "#{frontend_url}/settings/billing?checkout=success&type=founding"
+      end
+
+    if is_nil(config[:location_id]) or config[:location_id] == "" do
+      {:error, :square_not_configured}
+    else
+      body =
+        one_off_payment_link_body(
+          idempotency_key:
+            "founding-#{return_to}-#{user.id}-#{div(System.system_time(:second), 3600)}",
+          line_item_name: @founding_line_item,
+          amount_cents: @founding_member_cents,
+          user: user,
+          customer_id: customer_id,
+          redirect_url: redirect_url,
+          config: config
+        )
+
+      post_payment_link(body, "founding", user.id)
+    end
+  end
+
   @doc "Create a Square Payment Link for Ink Donor subscription ($1/$2/$3/mo)."
   def create_donor_payment_link(%User{} = user, amount_cents, customer_id)
       when amount_cents in [100, 200, 300] and is_binary(customer_id) do
@@ -335,7 +428,9 @@ defmodule Inkwell.Square do
         "order_id=#{inspect(order)}"
     )
 
-    unless looks_like_subscription do
+    one_off? = String.starts_with?(link_type, ["founding", "donation"])
+
+    unless looks_like_subscription or one_off? do
       Logger.warning(
         "[Square Payment Link] #{link_type} for user #{user_id} returned a Payment Link " <>
           "WITHOUT a subscription attached. This was the 2026-04-15 quick_pay bug. " <>

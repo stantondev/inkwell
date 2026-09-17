@@ -22,6 +22,7 @@ export function Footer({ selfHosted }: { selfHosted?: boolean }) {
           <Link href="/about" className="hover:underline">About</Link>
           <Link href="/guide" className="hover:underline">Guide</Link>
           <Link href="/help" className="hover:underline">Help</Link>
+          <Link href="/switch" className="hover:underline">Switch to Inkwell</Link>
           <Link href="/roadmap" className="hover:underline">Roadmap</Link>
           <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
           <Link href="/developers" className="hover:underline">API</Link>

@@ -1,23 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 
-// Body (optional): { interval: "year" } for yearly Plus. Forwarded as-is.
-export async function POST(req: NextRequest) {
+export async function POST() {
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  const body = await req.text().catch(() => "");
-
-  const res = await fetch(`${SERVER_API}/api/billing/checkout`, {
+  const res = await fetch(`${SERVER_API}/api/billing/start-trial`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: body || "{}",
+    body: "{}",
     cache: "no-store",
   });
-  // Guard against non-JSON (Fly returns HTML 502/503 while the single API
-  // machine restarts). res.json() threw here, 500ing the route, and the
-  // billing page's catch then showed a misleading "Network error."
+  // Fly returns HTML while the API restarts; don't let res.json() throw.
   const text = await res.text();
   try {
     return NextResponse.json(JSON.parse(text), { status: res.status });

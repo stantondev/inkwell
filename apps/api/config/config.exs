@@ -20,6 +20,13 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Monthly running costs shown on the public /transparency page, in cents.
+# {label, monthly_cents, note}. Update these when a bill changes.
+config :inkwell, :transparency_costs, [
+  {"Hosting (Fly.io)", 4700, "Website, API, database and search servers"},
+  {"Email (Resend)", 2000, "Sign-in links, notifications and newsletters"}
+]
+
 config :inkwell, Oban,
   repo: Inkwell.Repo,
   queues: [
@@ -54,6 +61,8 @@ config :inkwell, Oban,
        {"0 6 * * *", Inkwell.Workers.CleanupExpiredExportsWorker},
        {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
        {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
+       # End free Plus trials whose 14 days are up — hourly at :41.
+       {"41 * * * *", Inkwell.Workers.ExpirePlusTrialsWorker},
        # Newsletter scheduler — every 5 minutes. Healthchecks.io is configured
        # to expect a ping every 5 minutes; changing this cadence requires
        # updating the Healthchecks check period to match.

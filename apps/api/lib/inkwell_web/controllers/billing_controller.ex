@@ -17,12 +17,18 @@ defmodule InkwellWeb.BillingController do
   @billing_checkout_throttle 60
 
   # POST /api/billing/checkout — create a checkout session (Square Payment Link)
-  def checkout(conn, _params) do
+  # Body: {"interval": "year"} for yearly Plus; anything else is monthly.
+  def checkout(conn, params) do
     user = conn.assigns.current_user
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
-      case Billing.create_checkout_session(user) do
+      result =
+        if params["interval"] == "year",
+          do: Billing.create_plus_annual_checkout_session(user, :billing),
+          else: Billing.create_checkout_session(user)
+
+      case result do
         {:ok, %{url: url}} ->
           record_billing_checkout(user)
           json(conn, %{url: url})
@@ -181,12 +187,17 @@ defmodule InkwellWeb.BillingController do
   end
 
   # POST /api/billing/onboarding-checkout — create checkout during onboarding
-  def onboarding_checkout(conn, %{"type" => "plus"}) do
+  def onboarding_checkout(conn, %{"type" => "plus"} = params) do
     user = conn.assigns.current_user
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
-      case Billing.create_onboarding_checkout_session(user, "plus") do
+      result =
+        if params["interval"] == "year",
+          do: Billing.create_plus_annual_checkout_session(user, :onboarding),
+          else: Billing.create_onboarding_checkout_session(user, "plus")
+
+      case result do
         {:ok, %{url: url}} ->
           record_billing_checkout(user)
           json(conn, %{url: url})
@@ -250,10 +261,86 @@ defmodule InkwellWeb.BillingController do
     end
   end
 
+  def onboarding_checkout(conn, %{"type" => "founding"}) do
+    founding_checkout_response(conn, :onboarding)
+  end
+
   def onboarding_checkout(conn, _params) do
     conn
     |> put_status(:unprocessable_entity)
     |> json(%{error: "Invalid checkout parameters."})
+  end
+
+  # POST /api/billing/founding-checkout — one-time Founding Member purchase
+  def founding_checkout(conn, _params), do: founding_checkout_response(conn, :billing)
+
+  defp founding_checkout_response(conn, return_to) do
+    user = conn.assigns.current_user
+
+    with :ok <- check_billing_rate(user) do
+      case Inkwell.Billing.Founding.create_checkout_session(user, return_to) do
+        {:ok, %{url: url}} ->
+          record_billing_checkout(user)
+          json(conn, %{url: url})
+
+        {:error, :already_founding_member} ->
+          conn
+          |> put_status(:conflict)
+          |> json(%{error: "You're already a Founding Member — thank you!"})
+
+        {:error, :founding_sold_out} ->
+          conn
+          |> put_status(:gone)
+          |> json(%{error: "All Founding Memberships have been claimed. Plus is still available monthly or yearly."})
+
+        {:error, :square_not_configured} ->
+          conn
+          |> put_status(:service_unavailable)
+          |> json(%{error: "Billing is not yet configured. Coming soon!"})
+
+        {:error, reason} ->
+          Logger.error("Founding checkout failed: #{inspect(reason)}")
+
+          conn
+          |> put_status(:internal_server_error)
+          |> json(%{error: "Unable to start checkout. Please try again."})
+      end
+    else
+      {:error, :rate_limited} ->
+        conn
+        |> put_status(:too_many_requests)
+        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
+    end
+  end
+
+  # POST /api/billing/start-trial — free 14-day Plus trial, no card
+  def start_trial(conn, _params) do
+    user = conn.assigns.current_user
+
+    case Inkwell.Billing.Trials.start(user) do
+      {:ok, updated} ->
+        json(conn, %{
+          ok: true,
+          subscription_tier: updated.subscription_tier,
+          subscription_status: updated.subscription_status,
+          subscription_expires_at: updated.subscription_expires_at
+        })
+
+      {:error, :already_plus} ->
+        conn |> put_status(:conflict) |> json(%{error: "You already have Plus."})
+
+      {:error, :trial_already_used} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "You've already used your free trial."})
+
+      {:error, reason} ->
+        Logger.error("Start trial failed for #{user.id}: #{inspect(reason)}")
+
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Couldn't start your trial. Please try again."})
+    end
   end
 
   # GET /api/billing/status — return current subscription status
@@ -286,7 +373,14 @@ defmodule InkwellWeb.BillingController do
         ink_donor_amount_cents: user.ink_donor_amount_cents,
         self_hosted: Inkwell.SelfHosted.enabled?(),
         processor: "square",
-        needs_resubscribe: needs_resubscribe
+        needs_resubscribe: needs_resubscribe,
+        founding_member_number: user.founding_member_number,
+        founding_member_at: user.founding_member_at,
+        founding: Inkwell.Billing.Founding.status(),
+        trial_eligible: Inkwell.Billing.Trials.eligible?(user),
+        trial_days: Inkwell.Billing.Trials.trial_days(),
+        plus_annual_available: Inkwell.Square.plus_annual_configured?(),
+        plus_annual_cents: Inkwell.Square.plus_annual_cents()
       }
     })
   end
@@ -296,8 +390,19 @@ defmodule InkwellWeb.BillingController do
   def sync(conn, _params) do
     user = conn.assigns.current_user
 
+    # Founding purchases are one-time payments, not subscriptions, so the
+    # subscription sync below can't see them. Check them first; a failure
+    # here must not block the subscription sync.
+    {user, founding_changes} =
+      case Inkwell.Billing.Founding.sync_from_square(user) do
+        {:ok, u, changes} -> {u, changes}
+        _ -> {user, []}
+      end
+
     case Billing.sync_from_square(user) do
       {:ok, updated_user, changes} ->
+        changes = founding_changes ++ changes
+
         json(conn, %{
           ok: true,
           changes: Enum.map(changes, &Atom.to_string/1),
@@ -423,7 +528,8 @@ defmodule InkwellWeb.BillingController do
   end
 
   defp check_no_active_plus(user) do
-    if user.square_subscription_id && user.subscription_status == "active" do
+    if Inkwell.Accounts.User.founding_member?(user) or
+         (user.square_subscription_id && user.subscription_status == "active") do
       {:error, :already_subscribed}
     else
       :ok

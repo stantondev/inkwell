@@ -193,6 +193,69 @@ defmodule Inkwell.Email do
   end
 
   @doc """
+  Send a founder announcement to one user. `body` is plain text: blank lines
+  separate paragraphs and bare https:// URLs become links. Carries the same
+  one-click unsubscribe as notification emails, which turns off all
+  non-essential Inkwell email for that person.
+  """
+  def send_announcement(user, subject, body) when is_binary(subject) and is_binary(body) do
+    unsubscribe_url = build_unsubscribe_url(user.id)
+
+    headers = %{
+      "List-Unsubscribe" => "<#{unsubscribe_url}>",
+      "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click"
+    }
+
+    do_send_email(user.email, subject, announcement_html(body, unsubscribe_url),
+      headers: headers,
+      from: Application.get_env(:inkwell, :announcement_from_email) ||
+        Application.get_env(:inkwell, :from_email, "Inkwell <noreply@inkwell.social>")
+    )
+  end
+
+  @doc false
+  def announcement_html(body, unsubscribe_url) do
+    paragraphs =
+      body
+      |> String.replace("\r\n", "\n")
+      |> String.split(~r/\n\s*\n/, trim: true)
+      |> Enum.map(fn para ->
+        text =
+          para
+          |> escape_html()
+          |> String.replace("\n", "<br>")
+          |> then(
+            &Regex.replace(~r{(https://[^\s<]+[^\s<.,;:!?)])}, &1, fn _, url ->
+              ~s(<a href="#{url}" style="color: #2d4a8a;">#{url}</a>)
+            end)
+          )
+
+        ~s(<p style="margin: 0 0 16px; font-size: 16px; line-height: 1.65; color: #2a2a2a;">#{text}</p>)
+      end)
+      |> Enum.join("\n")
+
+    """
+    <!DOCTYPE html>
+    <html><body style="margin: 0; padding: 0; background: #faf8f5;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #faf8f5;">
+        <tr><td align="center" style="padding: 32px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background: #ffffff; border: 1px solid #e8e4de; border-radius: 12px;">
+            <tr><td style="padding: 32px 32px 8px; font-family: Georgia, 'Times New Roman', serif;">
+              <p style="margin: 0 0 24px; font-size: 20px; color: #2d4a8a; font-style: italic;">Inkwell</p>
+              #{paragraphs}
+            </td></tr>
+          </table>
+          <p style="max-width: 560px; margin: 16px auto 0; font-family: Arial, sans-serif; font-size: 12px; color: #8a8a8a; line-height: 1.5;">
+            You're getting this because you have an account on Inkwell.
+            <a href="#{unsubscribe_url}" style="color: #8a8a8a;">Unsubscribe from Inkwell emails</a>.
+          </p>
+        </td></tr>
+      </table>
+    </body></html>
+    """
+  end
+
+  @doc """
   Build the HTML for a newsletter email from a journal entry.
   The `{{UNSUBSCRIBE_URL}}` placeholder must be replaced per-recipient by the delivery worker.
   """
@@ -280,6 +343,9 @@ defmodule Inkwell.Email do
           <p style="margin: 0 0 8px;">
             You received this because you subscribed to #{escape_html(writer_name)}'s newsletter on
             <a href="https://inkwell.social" style="color: #2d4a8a; text-decoration: none;">Inkwell</a>.
+          </p>
+          <p style="margin: 0 0 8px;">
+            <a href="https://inkwell.social/get-started?ref=newsletter" style="color: #2d4a8a; text-decoration: none;">Start your own journal on Inkwell</a> &mdash; free, no ads, no algorithms.
           </p>
           <p style="margin: 0;">
             <a href="{{UNSUBSCRIBE_URL}}" style="color: #999; text-decoration: underline;">Unsubscribe</a> &middot;

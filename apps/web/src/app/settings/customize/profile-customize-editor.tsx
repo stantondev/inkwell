@@ -10,6 +10,7 @@ import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { AVATAR_FRAMES, AVATAR_ANIMATIONS } from "@/lib/avatar-frames";
 import { PROFILE_EFFECTS, EFFECT_INTENSITIES } from "@/lib/profile-effects-config";
 import { ProfileEffects } from "@/components/profile-effects";
+import { usePlusTrial } from "@/hooks/use-plus-trial";
 import { HtmlEditor } from "./html-editor";
 
 interface ProfileUser {
@@ -84,6 +85,7 @@ const PLUS_GATE_COPY: Record<string, { headline: string; detail: string }> = {
 
 function PlusGate({ feature }: { feature: string }) {
   const copy = PLUS_GATE_COPY[feature];
+  const trial = usePlusTrial();
   return (
     <div className="text-center py-6">
       {copy ? (
@@ -101,13 +103,34 @@ function PlusGate({ feature }: { feature: string }) {
       ) : (
         <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>{feature} requires Plus</p>
       )}
-      <a
-        href="/settings/billing"
-        className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-        style={{ background: "var(--accent)", color: "#fff" }}
-      >
-        Upgrade to Plus &middot; $5/mo
-      </a>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {trial.eligible && (
+          <button
+            type="button"
+            onClick={trial.start}
+            disabled={trial.starting}
+            className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            {trial.starting ? "Starting…" : `Try free for ${trial.days} days`}
+          </button>
+        )}
+        <a
+          href="/settings/billing"
+          className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+          style={
+            trial.eligible
+              ? { border: "1px solid var(--accent)", color: "var(--accent)" }
+              : { background: "var(--accent)", color: "#fff" }
+          }
+        >
+          Upgrade to Plus &middot; $5/mo
+        </a>
+      </div>
+      {trial.eligible && (
+        <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>No card needed. Ends on its own.</p>
+      )}
+      {trial.error && <p className="text-xs mt-2" style={{ color: "var(--danger)" }}>{trial.error}</p>}
     </div>
   );
 }

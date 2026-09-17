@@ -12,6 +12,17 @@ interface BillingStatus {
   self_hosted?: boolean;
   processor?: string;
   needs_resubscribe?: boolean;
+  founding_member_number?: number | null;
+  founding_member_at?: string | null;
+  founding?: { cap: number; sold: number; remaining: number; price_cents: number };
+  trial_eligible?: boolean;
+  trial_days?: number;
+  plus_annual_available?: boolean;
+  plus_annual_cents?: number;
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export default function BillingPage() {
@@ -31,11 +42,15 @@ export default function BillingPage() {
   const [showCancelDonorConfirm, setShowCancelDonorConfirm] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  const [foundingLoading, setFoundingLoading] = useState(false);
+  const [trialLoading, setTrialLoading] = useState(false);
 
   const justSucceeded = searchParams.get("success") === "true" || searchParams.get("checkout") === "success";
   const justCanceled = searchParams.get("canceled") === "true";
   const justDonored = justSucceeded && searchParams.get("donor") === "true";
   const justDonated = searchParams.get("donation") === "success";
+  const justFounded = justSucceeded && searchParams.get("type") === "founding";
 
   async function fetchStatus() {
     try {
@@ -105,7 +120,11 @@ export default function BillingPage() {
     setCheckoutLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: billingInterval }),
+      });
       const data = await res.json();
       if (res.ok && data.url) {
         window.location.href = data.url;
@@ -138,6 +157,44 @@ export default function BillingPage() {
     } catch {
       setError("Network error. Please try again.");
       setDonorLoading(false);
+    }
+  }
+
+  async function handleFoundingCheckout() {
+    setFoundingLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/billing/founding-checkout", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "Unable to start checkout");
+        setFoundingLoading(false);
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setFoundingLoading(false);
+    }
+  }
+
+  async function handleStartTrial() {
+    setTrialLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/billing/start-trial", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchStatus();
+        // Refresh sidebar/nav so Plus-only UI unlocks without a reload.
+        window.dispatchEvent(new Event("inkwell-nav-refresh"));
+      } else {
+        setError(data.error || "Couldn't start your trial.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setTrialLoading(false);
     }
   }
 
@@ -210,6 +267,12 @@ export default function BillingPage() {
   // Same treatment for legacy donor subscribers.
   const isDonor = status?.ink_donor_status === "active" && !needsResubscribe;
   const isDonorPastDue = status?.ink_donor_status === "past_due";
+  const isFounding = !!status?.founding_member_number;
+  const isTrialing = isPlus && !isFounding && status?.subscription_status === "trialing";
+  const isPaidPlus = isPlus && !isFounding && !isTrialing;
+  const founding = status?.founding;
+  const annualAvailable = !!status?.plus_annual_available;
+  const annualPrice = Math.round((status?.plus_annual_cents ?? 5000) / 100);
 
   if (loading) {
     return (
@@ -308,7 +371,19 @@ export default function BillingPage() {
         </div>
       )}
 
-      {justSucceeded && !justDonored && !justDonated && (
+      {justFounded && (
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--success, #22c55e) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent)" }}
+        >
+          {isFounding ? (
+            <><strong>Welcome, Founding Member #{status?.founding_member_number}.</strong> You have Plus for as long as Inkwell runs. Thank you — this genuinely keeps the lights on.</>
+          ) : (
+            <><strong>Thank you!</strong> We&apos;re confirming your payment with Square. This usually takes a few seconds — refresh this page if your membership doesn&apos;t appear.</>
+          )}
+        </div>
+      )}
+      {justSucceeded && !justDonored && !justDonated && !justFounded && (
         <div
           className="rounded-lg p-4 mb-4 text-sm"
           style={{ background: "color-mix(in srgb, var(--success, #22c55e) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent)" }}
@@ -374,11 +449,48 @@ export default function BillingPage() {
               : { background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }
             }
           >
-            {isPlus ? "✦ Plus" : "Free"}
+            {isFounding ? `✦ Founding #${status?.founding_member_number}` : isTrialing ? "✦ Plus trial" : isPlus ? "✦ Plus" : "Free"}
           </span>
         </div>
 
-        {isPlus ? (
+        {isFounding ? (
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              You&apos;re Founding Member <strong style={{ color: "var(--foreground)" }}>#{status?.founding_member_number}</strong>.
+              You have every Plus feature for as long as Inkwell runs — nothing to renew, nothing to cancel.
+            </p>
+            {status?.founding_member_at && (
+              <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+                Joined {formatDate(status.founding_member_at)}
+              </p>
+            )}
+          </div>
+        ) : isTrialing ? (
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              You&apos;re trying Plus for free
+              {status?.subscription_expires_at && <> until <strong style={{ color: "var(--foreground)" }}>{formatDate(status.subscription_expires_at)}</strong></>}.
+              Nothing will be charged. When the trial ends your account goes back to Free, and anything
+              you customized is kept — it comes back if you subscribe.
+            </p>
+            <div className="mt-4">
+              <PlusIntervalPicker
+                interval={billingInterval}
+                onChange={setBillingInterval}
+                annualAvailable={annualAvailable}
+                annualPrice={annualPrice}
+              />
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
+              >
+                {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Keep Plus — $${annualPrice}/year` : "Keep Plus — $5/month"}
+              </button>
+            </div>
+          </div>
+        ) : isPaidPlus ? (
           <div>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
               You&apos;re an Inkwell Plus member. Thank you for supporting the platform!
@@ -461,17 +573,80 @@ export default function BillingPage() {
                 </li>
               ))}
             </ul>
+            <PlusIntervalPicker
+              interval={billingInterval}
+              onChange={setBillingInterval}
+              annualAvailable={annualAvailable}
+              annualPrice={annualPrice}
+            />
             <button
               onClick={handleCheckout}
               disabled={checkoutLoading}
               className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
               style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
             >
-              {checkoutLoading ? "Redirecting to checkout..." : "Upgrade to Plus — $5/mo"}
+              {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Upgrade to Plus — $${annualPrice}/year` : "Upgrade to Plus — $5/mo"}
             </button>
+            {status?.trial_eligible && (
+              <button
+                onClick={handleStartTrial}
+                disabled={trialLoading}
+                className="w-full mt-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "transparent", color: "var(--accent)", border: "1px solid var(--accent)", opacity: trialLoading ? 0.6 : 1 }}
+              >
+                {trialLoading ? "Starting your trial..." : `Try Plus free for ${status.trial_days ?? 14} days — no card needed`}
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Founding Members */}
+      {founding && (!isFounding) && (
+        <div
+          className="rounded-xl border p-5 mt-6"
+          style={{ borderColor: "var(--accent)", background: "var(--surface)" }}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+              Become a Founding Member
+            </h3>
+            <span
+              className="px-2.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: "var(--accent-light, var(--surface-hover))", color: "var(--accent)" }}
+            >
+              {founding.remaining > 0 ? `${founding.remaining} of ${founding.cap} left` : "All claimed"}
+            </span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: "var(--muted)", fontStyle: "italic" }}>
+            ${founding.price_cents / 100} once. Plus for as long as Inkwell runs.
+          </p>
+          <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
+            Inkwell is run by one person and doesn&apos;t cover its own costs yet. Founding Members pay once
+            to fund it up front, and get every Plus feature for as long as Inkwell runs, a numbered Founding
+            Member badge on their profile, and our real gratitude.
+            {isPaidPlus && " Your monthly Plus subscription is canceled automatically, so you won't be charged twice."}
+          </p>
+          {founding.remaining > 0 ? (
+            <button
+              onClick={handleFoundingCheckout}
+              disabled={foundingLoading}
+              className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+              style={{ background: "var(--accent)", color: "white", opacity: foundingLoading ? 0.6 : 1 }}
+            >
+              {foundingLoading ? "Redirecting to checkout..." : `Become Founding Member #${founding.sold + 1} — $${founding.price_cents / 100}`}
+            </button>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              All {founding.cap} Founding Memberships have been claimed. Thank you to everyone who joined.
+            </p>
+          )}
+          <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
+            <a href="/transparency" className="underline" style={{ color: "var(--accent)" }}>See what Inkwell costs to run</a>
+            {" "}and where the money goes.
+          </p>
+        </div>
+      )}
 
       {/* Ink Donor */}
       <div
@@ -693,6 +868,46 @@ export default function BillingPage() {
         Payments are securely processed by Square. You can cancel anytime from this page.
         Inkwell never sees your card details.
       </p>
+    </div>
+  );
+}
+
+function PlusIntervalPicker({
+  interval,
+  onChange,
+  annualAvailable,
+  annualPrice,
+}: {
+  interval: "month" | "year";
+  onChange: (i: "month" | "year") => void;
+  annualAvailable: boolean;
+  annualPrice: number;
+}) {
+  if (!annualAvailable) return null;
+  const options: { id: "month" | "year"; label: string; note: string }[] = [
+    { id: "month", label: "$5 / month", note: "Cancel anytime" },
+    { id: "year", label: `$${annualPrice} / year`, note: `Two months free` },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-label="Billing interval">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={interval === o.id}
+          onClick={() => onChange(o.id)}
+          className="rounded-lg border px-3 py-2 text-left transition-colors"
+          style={{
+            borderColor: interval === o.id ? "var(--accent)" : "var(--border)",
+            borderWidth: interval === o.id ? 2 : 1,
+            background: "var(--background)",
+          }}
+        >
+          <span className="block text-sm font-medium">{o.label}</span>
+          <span className="block text-xs" style={{ color: "var(--muted)" }}>{o.note}</span>
+        </button>
+      ))}
     </div>
   );
 }

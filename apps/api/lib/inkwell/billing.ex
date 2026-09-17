@@ -1156,6 +1156,13 @@ defmodule Inkwell.Billing do
     end)
   end
 
+  @doc "Create a checkout session for yearly Plus. `return_to` is :billing or :onboarding."
+  def create_plus_annual_checkout_session(%User{} = user, return_to) do
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_plus_annual_payment_link(user, customer_id, return_to)
+    end)
+  end
+
   @doc "Create a checkout session for an Ink Donor donation (recurring)."
   def create_donor_checkout_session(%User{} = user, amount_cents)
       when amount_cents in [100, 200, 300] do
@@ -1854,7 +1861,11 @@ defmodule Inkwell.Billing do
             square_customer_id: customer_id,
             square_subscription_id: sub_id,
             subscription_tier: "plus",
-            subscription_status: "active"
+            subscription_status: "active",
+            # Clears a free-trial end date (or stale grant) — the paid
+            # subscription replaces it. subscription.updated sets the real
+            # charged-through date later.
+            subscription_expires_at: nil
           })
           |> Repo.update()
 
@@ -2109,6 +2120,9 @@ defmodule Inkwell.Billing do
         find_user_by_email_from_square(customer_id)
 
     cond do
+      Inkwell.Billing.Founding.founding_order?(order) ->
+        Inkwell.Billing.Founding.handle_completed_payment(payment_id, user, customer_id)
+
       not donation_order?(order) ->
         # Subscription signup/renewal order OR order we can't classify —
         # don't fire donation alert either way. Subscription.created
@@ -2256,7 +2270,19 @@ defmodule Inkwell.Billing do
     end
   end
 
+  @doc false
+  # Public so trial expiry can reuse it. Founding members keep Plus, so their
+  # domain stays up even if some old subscription for them is canceled.
+  def deactivate_custom_domain_unless_plus(user_id), do: maybe_deactivate_custom_domain(user_id)
+
   defp maybe_deactivate_custom_domain(user_id) do
+    case Repo.get(User, user_id) do
+      %User{} = u when u.founding_member_number != nil -> :ok
+      _ -> do_deactivate_custom_domain(user_id)
+    end
+  end
+
+  defp do_deactivate_custom_domain(user_id) do
     case Inkwell.CustomDomains.get_domain_by_user(user_id) do
       nil ->
         :ok

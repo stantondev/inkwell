@@ -20,6 +20,10 @@ export interface SessionUser {
   created_at: string;
   is_admin?: boolean;
   subscription_tier?: string;
+  subscription_status?: string | null;
+  subscription_expires_at?: string | null;
+  founding_member_number?: number | null;
+  plus_trial_eligible?: boolean;
   unread_notification_count?: number;
   unread_letter_count?: number;
   draft_count?: number;

@@ -20,6 +20,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/roadmap/releases`, changeFrequency: "weekly", priority: 0.4, lastModified: now },
     { url: `${BASE}/polls`, changeFrequency: "weekly", priority: 0.4, lastModified: now },
     { url: `${BASE}/developers`, changeFrequency: "monthly", priority: 0.4, lastModified: "2026-02-28" },
+    { url: `${BASE}/switch`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
+    { url: `${BASE}/switch/wordpress`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
+    { url: `${BASE}/switch/substack`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
+    { url: `${BASE}/switch/medium`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
   ];
 
   // Category pages
