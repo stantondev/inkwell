@@ -1525,6 +1525,29 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  @entities %{
+    "&amp;" => "&", "&lt;" => "<", "&gt;" => ">", "&quot;" => "\"",
+    "&#39;" => "'", "&#x27;" => "'", "&apos;" => "'", "&nbsp;" => " ",
+    "&hellip;" => "…", "&mdash;" => "—", "&ndash;" => "–"
+  }
+
+  @doc false
+  def decode_html_entities(text) when is_binary(text) do
+    text
+    |> then(fn t -> Enum.reduce(@entities, t, fn {e, c}, acc -> String.replace(acc, e, c) end) end)
+    |> then(fn t ->
+      # Any remaining numeric entities (&#8217; / &#x2019;)
+      Regex.replace(~r/&#(x[0-9a-fA-F]+|\d+);/, t, fn _, code ->
+        case Integer.parse(String.trim_leading(code, "x"), if(String.starts_with?(code, "x"), do: 16, else: 10)) do
+          {n, _} when n > 0 and n <= 0x10FFFF -> <<n::utf8>>
+          _ -> ""
+        end
+      end)
+    end)
+  end
+
+  def decode_html_entities(other), do: other
+
   # Create a fediverse_mention notification for a specific user
   defp create_mention_notification_for_user(object, actor_uri, user) do
     case RemoteActor.fetch(actor_uri) do
@@ -1535,10 +1558,17 @@ defmodule InkwellWeb.FederationController do
             _ -> remote_actor.ap_id
           end
 
+        raw_content = object["content"] || ""
+
+        # Plain-text preview. HTML entities have to be decoded after stripping
+        # tags, or the notification shows "haven&#39;t" instead of "haven't".
         content_preview =
-          (object["content"] || "")
-          |> String.replace(~r/<[^>]+>/, "")
-          |> String.slice(0, 200)
+          raw_content
+          |> String.replace(~r/<[^>]+>/, " ")
+          |> decode_html_entities()
+          |> String.replace(~r/\s+/, " ")
+          |> String.trim()
+          |> String.slice(0, 500)
 
         post_url =
           case object do
@@ -1546,6 +1576,14 @@ defmodule InkwellWeb.FederationController do
             %{"id" => id} when is_binary(id) -> id
             _ -> nil
           end
+
+        # Direct and followers-only posts 404 for anyone who isn't signed in
+        # on the remote server, so only link out when the post is public.
+        public? =
+          [object["to"], object["cc"]]
+          |> List.flatten()
+          |> Enum.filter(&is_binary/1)
+          |> Enum.any?(&(&1 == "https://www.w3.org/ns/activitystreams#Public"))
 
         Accounts.create_notification(%{
           user_id: user.id,
@@ -1560,7 +1598,9 @@ defmodule InkwellWeb.FederationController do
               ap_id: remote_actor.ap_id
             },
             content_preview: content_preview,
-            post_url: post_url
+            content_html: Inkwell.HtmlSanitizer.sanitize(raw_content) |> String.slice(0, 5000),
+            post_url: post_url,
+            public: public?
           }
         })
 

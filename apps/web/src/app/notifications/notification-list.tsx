@@ -643,6 +643,15 @@ function NotificationIcon({
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
+// Older fediverse notifications stored the preview with HTML entities still in
+// it ("haven&#39;t"). Decode them for display.
+function decodeEntities(text: string): string {
+  if (typeof window === "undefined" || !text.includes("&")) return text;
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
 function getEntryHref(n: Notification): string | null {
   if (n.entry) return `/${n.entry.user.username}/${n.entry.slug}`;
   return null;
@@ -716,9 +725,13 @@ function getNotificationHref(n: Notification): string | null {
   if ((n.type === "poll_comment" || n.type === "poll_mention") && n.target_id) {
     return `/polls/${n.target_id}`;
   }
-  // Fediverse mention — open remote post URL in new tab (handled by isRemote)
-  if (n.type === "fediverse_mention" && n.data?.post_url) {
-    return n.data.post_url as string;
+  // Fediverse mention. Direct and followers-only posts 404 for anyone who
+  // isn't signed in on the remote server, so only link to the post when it's
+  // public; otherwise send people to the sender's profile.
+  if (n.type === "fediverse_mention") {
+    const actor = n.data?.remote_actor as { profile_url?: string } | undefined;
+    if (n.data?.public === true && n.data?.post_url) return n.data.post_url as string;
+    return actor?.profile_url ?? null;
   }
   // Guestbook notification — link to the profile's guestbook section
   if (n.type === "guestbook" && n.data?.profile_username) {
@@ -1314,15 +1327,24 @@ export function NotificationList({
                             </a>
                           )}
 
-                        {/* Fediverse mention content preview */}
+                        {/* Fediverse mention — show the message itself, since
+                            a direct message can't be opened anywhere else. */}
                         {n.type === "fediverse_mention" &&
                           !!n.data?.content_preview && (
-                            <p
-                              className="text-xs mt-1 italic truncate max-w-[200px] sm:max-w-[300px]"
-                              style={{ color: "var(--muted)" }}
-                            >
-                              {"\u201C"}{String(n.data.content_preview).slice(0, 100)}{String(n.data.content_preview).length > 100 ? "\u2026" : ""}{"\u201D"}
-                            </p>
+                            <>
+                              <p
+                                className="text-xs mt-1 italic whitespace-pre-line"
+                                style={{ color: "var(--muted)" }}
+                              >
+                                {"\u201C"}{decodeEntities(String(n.data.content_preview))}{"\u201D"}
+                              </p>
+                              {n.data?.public === false && (
+                                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                                  Sent privately &mdash; it can only be opened on{" "}
+                                  {(n.data?.remote_actor as { domain?: string } | undefined)?.domain ?? "their server"}.
+                                </p>
+                              )}
+                            </>
                           )}
 
                         <p
