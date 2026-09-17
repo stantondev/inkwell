@@ -1,35 +1,83 @@
 import Link from "next/link";
 
+const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Inkwell",
+    links: [
+      { href: "/about", label: "About" },
+      { href: "/transparency", label: "Transparency" },
+      { href: "/roadmap", label: "Roadmap" },
+      { href: "/roadmap/new", label: "Submit Feedback" },
+    ],
+  },
+  {
+    title: "Help",
+    links: [
+      { href: "/guide", label: "Guide" },
+      { href: "/help", label: "Help Center" },
+      { href: "/switch", label: "Switch to Inkwell" },
+    ],
+  },
+  {
+    title: "Policies",
+    links: [
+      { href: "/terms", label: "Terms" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/ai", label: "AI Policy" },
+      { href: "/guidelines", label: "Guidelines" },
+      { href: "/brand", label: "Brand" },
+    ],
+  },
+  {
+    title: "Developers",
+    links: [
+      { href: "/developers", label: "API" },
+      { href: "/open-source", label: "Open Source" },
+    ],
+  },
+];
+
 export function Footer({ selfHosted }: { selfHosted?: boolean }) {
   return (
-    <footer
-      className="border-t py-8 mt-auto"
-      style={{ borderColor: "var(--border)" }}
-    >
-      <div
-        className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm"
-        style={{ color: "var(--muted)" }}
-      >
-        <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600 }}>
-          Inkwell
-        </span>
-        <div className="flex flex-wrap gap-3 sm:gap-5">
-          <Link href="/terms" className="hover:underline">Terms</Link>
-          <Link href="/privacy" className="hover:underline">Privacy</Link>
-          <Link href="/ai" className="hover:underline">AI Policy</Link>
-          <Link href="/guidelines" className="hover:underline">Guidelines</Link>
-          <Link href="/brand" className="hover:underline">Brand</Link>
-          <Link href="/about" className="hover:underline">About</Link>
-          <Link href="/transparency" className="hover:underline">Transparency</Link>
-          <Link href="/guide" className="hover:underline">Guide</Link>
-          <Link href="/help" className="hover:underline">Help</Link>
-          <Link href="/switch" className="hover:underline">Switch to Inkwell</Link>
-          <Link href="/roadmap" className="hover:underline">Roadmap</Link>
-          <Link href="/roadmap/new" className="hover:underline">Submit Feedback</Link>
-          <Link href="/developers" className="hover:underline">API</Link>
-          <Link href="/open-source" className="hover:underline">Open Source</Link>
+    <footer className="border-t mt-auto" style={{ borderColor: "var(--border)" }}>
+      <div className="mx-auto max-w-5xl px-4 pt-10 pb-6 text-sm" style={{ color: "var(--muted)" }}>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-[1.4fr_repeat(4,1fr)]">
+          <div className="col-span-2 md:col-span-1">
+            <p
+              className="text-base"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600, color: "var(--foreground)" }}
+            >
+              Inkwell
+            </p>
+            <p className="mt-1 max-w-[20rem] leading-relaxed">
+              A social journal. No algorithms, no ads.
+            </p>
+          </div>
+
+          {SECTIONS.map((section) => (
+            <nav key={section.title} aria-label={section.title}>
+              <p
+                className="text-xs font-medium uppercase tracking-widest mb-3"
+                style={{ color: "var(--foreground)" }}
+              >
+                {section.title}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {section.links.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="hover:underline hover:text-[var(--foreground)]">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
-        <span>{selfHosted ? "Self-Hosted Instance" : "\u00A9 2026 Inkwell"}</span>
+
+        <div className="mt-8 pt-5 border-t text-xs" style={{ borderColor: "var(--border)" }}>
+          {selfHosted ? "Self-Hosted Instance" : "© 2026 Inkwell"}
+        </div>
       </div>
     </footer>
   );
