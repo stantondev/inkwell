@@ -810,7 +810,7 @@ defmodule Inkwell.Email do
   # Short action text without the actor name (actor shown separately above)
   defp build_notification_action_text("comment"), do: "commented on your entry"
   defp build_notification_action_text("reply"), do: "replied to your comment"
-  defp build_notification_action_text("mention"), do: "mentioned you in a comment"
+  defp build_notification_action_text("mention"), do: "mentioned you"
   defp build_notification_action_text("feedback_mention"), do: "mentioned you on the roadmap"
   defp build_notification_action_text("poll_mention"), do: "mentioned you in a poll comment"
   defp build_notification_action_text("circle_mention"), do: "mentioned you in a circle discussion"

@@ -367,8 +367,53 @@ defmodule Inkwell.Accounts do
 
   @emailable_types ~w(comment reply mention feedback_mention poll_mention circle_mention)a
 
+  @doc """
+  True when this person has already been told they were mentioned in this
+  thing. Mentions are per-item, so re-saving an entry (the editor autosaves)
+  must not notify or email again.
+  """
+  def already_notified_mention?(user_id, target_type, target_id) do
+    Repo.exists?(
+      from(n in Notification,
+        where:
+          n.user_id == ^user_id and n.type == :mention and
+            n.target_type == ^target_type and n.target_id == ^target_id
+      )
+    )
+  end
+
+  # Hard cap on notification emails per person per hour. A dedup bug (or a
+  # genuinely frantic thread) must never turn into an inbox flood; in-app
+  # notifications still arrive normally.
+  @max_notification_emails_per_hour 6
+
+  defp email_flood?(user_id) do
+    hour_ago = DateTime.add(DateTime.utc_now(), -1, :hour)
+
+    count =
+      Repo.aggregate(
+        from(n in Notification,
+          where: n.user_id == ^user_id and n.type in @emailable_types and n.inserted_at >= ^hour_ago
+        ),
+        :count,
+        :id
+      )
+
+    if count > @max_notification_emails_per_hour do
+      require Logger
+
+      Logger.warning(
+        "[EmailNotification] Skipping email for user #{user_id}: #{count} notification emails in the last hour"
+      )
+
+      true
+    else
+      false
+    end
+  end
+
   defp maybe_send_email_notification(notification, _attrs) do
-    if notification.type in @emailable_types do
+    if notification.type in @emailable_types and not email_flood?(notification.user_id) do
       user = Repo.get(Inkwell.Accounts.User, notification.user_id)
 
       email_disabled =

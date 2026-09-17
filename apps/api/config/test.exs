@@ -16,3 +16,11 @@ config :inkwell, InkwellWeb.Endpoint,
 config :logger, level: :warning
 
 config :inkwell, Oban, testing: :inline
+
+# Federation host config so activity building (Mention tags, absolute URLs)
+# behaves like production in tests.
+config :inkwell, :federation,
+  instance_host: "inkwell.test",
+  frontend_host: "https://inkwell.test"
+
+config :inkwell, :frontend_url, "https://inkwell.test"

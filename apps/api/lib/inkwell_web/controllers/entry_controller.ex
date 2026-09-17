@@ -1140,15 +1140,25 @@ defmodule InkwellWeb.EntryController do
             entry
           end
 
-        # Create notifications for mentioned users (skip self)
-        for user <- mentioned_users, user.id != author_id do
-          Accounts.create_notification(%{
-            type: :mention,
-            user_id: user.id,
-            actor_id: author_id,
-            target_type: "entry",
-            target_id: entry.id
-          })
+        # Notify mentioned users — but only once per entry, and only for
+        # published entries.
+        #
+        # This ran on every save. The editor autosaves while you write, so
+        # mentioning someone in a post sent them a fresh notification *and
+        # email* every few seconds (one entry produced 35 of each before this
+        # was fixed). Drafts notified too, before anyone could read the post.
+        if entry.status == :published do
+          for user <- mentioned_users,
+              user.id != author_id,
+              not Accounts.already_notified_mention?(user.id, "entry", entry.id) do
+            Accounts.create_notification(%{
+              type: :mention,
+              user_id: user.id,
+              actor_id: author_id,
+              target_type: "entry",
+              target_id: entry.id
+            })
+          end
         end
 
         entry
