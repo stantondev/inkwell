@@ -230,6 +230,8 @@ defmodule InkwellWeb.EntryController do
       end
     else
       :draft -> conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+      # Hidden by moderation
+      :hidden -> conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
       nil -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
     end
   end
@@ -342,6 +344,8 @@ defmodule InkwellWeb.EntryController do
               |> FanOutWorker.new()
               |> Oban.insert()
             end
+
+            maybe_queue_spam_check(user, entry)
 
             # Send as newsletter if requested
             maybe_send_newsletter(entry, user, params)
@@ -482,6 +486,8 @@ defmodule InkwellWeb.EntryController do
                 |> FanOutWorker.new()
                 |> Oban.insert()
               end
+
+              maybe_queue_spam_check(user, published)
 
               # Send as newsletter if requested
               maybe_send_newsletter(published, user, params)
@@ -1160,4 +1166,18 @@ defmodule InkwellWeb.EntryController do
     |> SearchIndexWorker.new()
     |> Oban.insert()
   end
+
+  # New accounts publishing publicly get a spam check within a minute instead
+  # of waiting for the hourly scan (spam posts land within minutes of signup).
+  defp maybe_queue_spam_check(user, %{status: :published, privacy: privacy})
+       when privacy in [:public, :paid] do
+    if DateTime.diff(DateTime.utc_now(), user.inserted_at, :day) < 7 do
+      Inkwell.Workers.AutoModerationWorker.enqueue_user(user.id)
+    end
+
+    :ok
+  end
+
+  defp maybe_queue_spam_check(_, _), do: :ok
+
 end

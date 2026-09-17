@@ -343,6 +343,13 @@ export default function AboutPage() {
               </li>
             ))}
           </ol>
+          <p className="text-sm mt-5" style={{ color: "var(--muted)" }}>
+            You can see exactly what Inkwell costs to run and how much members cover on the{" "}
+            <Link href="/transparency" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+              transparency page
+            </Link>
+            .
+          </p>
         </div>
       </FadeInSection>
 

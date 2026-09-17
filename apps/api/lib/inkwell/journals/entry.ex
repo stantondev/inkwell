@@ -17,7 +17,9 @@ defmodule Inkwell.Journals.Entry do
     field :tags, {:array, :string}, default: []
     field :published_at, :utc_datetime_usec
     field :ap_id, :string
-    field :status, Ecto.Enum, values: [:draft, :published], default: :published
+    # :hidden = removed from public view by moderation (restorable). Every public
+    # query filters on status == :published, so hidden entries drop out everywhere.
+    field :status, Ecto.Enum, values: [:draft, :published, :hidden], default: :published
     field :word_count, :integer, default: 0
     field :excerpt, :string
     field :cover_image_id, :binary_id

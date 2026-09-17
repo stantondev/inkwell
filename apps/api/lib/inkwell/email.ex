@@ -192,6 +192,21 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc "Tell someone their account was suspended by automated spam checks, and how to appeal."
+  def send_spam_suspension(user) do
+    body = """
+    Hi,
+
+    Your Inkwell account @#{user.username} has been suspended because our automated spam checks flagged it. Your posts are hidden, not deleted.
+
+    If this is a mistake, we're sorry. Email hello@inkwell.social from this address and a person will review it and restore your account.
+
+    — Inkwell
+    """
+
+    do_send_email(user.email, "Your Inkwell account has been suspended", announcement_html(body, "https://inkwell.social/help/contact"))
+  end
+
   @doc """
   Send a founder announcement to one user. `body` is plain text: blank lines
   separate paragraphs and bare https:// URLs become links. Carries the same

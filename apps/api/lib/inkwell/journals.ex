@@ -778,6 +778,17 @@ defmodule Inkwell.Journals do
 
   # ── Public queries ─────────────────────────────────────────────────────────
 
+  @doc """
+  Users kept out of Explore and trending: suspended accounts and accounts
+  limited by moderation (see Inkwell.Moderation.AutoModeration).
+  """
+  def hidden_from_discovery_user_ids do
+    from(u in Inkwell.Accounts.User,
+      where: not is_nil(u.blocked_at) or u.moderation_state == "limited",
+      select: u.id
+    )
+  end
+
   def list_public_explore_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
@@ -792,6 +803,7 @@ defmodule Inkwell.Journals do
       |> where([e], e.privacy in [:public, :paid])
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
+      |> where([e], e.user_id not in subquery(hidden_from_discovery_user_ids()))
 
     query =
       case sort do
@@ -1061,6 +1073,9 @@ defmodule Inkwell.Journals do
   def list_comments(entry_id) do
     Comment
     |> where(entry_id: ^entry_id)
+    # Hide comments from suspended accounts (federated comments have no user_id)
+    |> join(:left, [c], u in assoc(c, :user))
+    |> where([c, u], is_nil(c.user_id) or is_nil(u.blocked_at))
     |> order_by(:inserted_at)
     |> preload([:user, :user_icon])
     |> Repo.all()

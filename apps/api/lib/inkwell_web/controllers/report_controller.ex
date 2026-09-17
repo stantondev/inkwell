@@ -15,8 +15,9 @@ defmodule InkwellWeb.ReportController do
     }
 
     case Moderation.create_report(attrs) do
-      {:ok, _report} ->
+      {:ok, report} ->
         notify_admins_of_report(user, entry_id)
+        Inkwell.Moderation.AutoModeration.handle_new_report(report, user)
         json(conn, %{ok: true})
 
       {:error, %Ecto.Changeset{errors: errors}} ->

@@ -1,5 +1,9 @@
 import Config
 
+if mode = System.get_env("AUTO_MODERATION_MODE") do
+  config :inkwell, :auto_moderation_mode, String.to_atom(mode)
+end
+
 if config_env() == :prod do
   config :inkwell, :env, :prod
 

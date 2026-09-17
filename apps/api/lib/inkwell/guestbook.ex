@@ -11,6 +11,9 @@ defmodule Inkwell.Guestbook do
 
     GuestbookEntry
     |> where(profile_user_id: ^profile_user_id)
+    # Hide signatures from suspended accounts (remote signers have no author_id)
+    |> join(:left, [e], a in assoc(e, :author))
+    |> where([e, a], is_nil(e.author_id) or is_nil(a.blocked_at))
     |> order_by([e], desc: e.inserted_at)
     |> limit(^limit)
     |> offset(^offset)

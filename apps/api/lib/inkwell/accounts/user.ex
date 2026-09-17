@@ -85,6 +85,11 @@ defmodule Inkwell.Accounts.User do
     # Free Plus trial (subscription_status "trialing" while active)
     field :plus_trial_started_at, :utc_datetime_usec
 
+    # Automated moderation: nil or "limited" (kept out of Explore/discovery).
+    # moderation_cleared_at is set when an admin undoes an automated action.
+    field :moderation_state, :string
+    field :moderation_cleared_at, :utc_datetime_usec
+
     # Profile improvements
     field :pinned_entry_ids, {:array, :string}, default: []
     field :social_links, :map, default: %{}

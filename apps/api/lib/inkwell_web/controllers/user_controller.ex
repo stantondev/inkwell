@@ -24,8 +24,14 @@ defmodule InkwellWeb.UserController do
 
   # GET /api/users/:username — public profile
   def show(conn, %{"username" => username}) do
+    viewer = conn.assigns[:current_user]
+
     case Accounts.get_user_by_username(username) do
       nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      # Suspended accounts (spam, abuse) disappear publicly; admins can still look.
+      %{blocked_at: blocked_at} when not is_nil(blocked_at) and (is_nil(viewer) or viewer.role != "admin") ->
         conn |> put_status(:not_found) |> json(%{error: "User not found"})
 
       user ->

@@ -104,6 +104,7 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
     body: [
       "If you see something that violates these guidelines, let us know. You can reach us at hello@inkwell.social or through the community roadmap.",
       "We investigate every report fairly and act proportionally. Our graduated response is: a friendly reminder, then a formal warning, then a temporary suspension, and finally a permanent ban.",
+      "Spam is the exception. Accounts that clearly exist to advertise or post link spam are suspended automatically by rule-based checks (not AI), and their posts are hidden rather than deleted. If that happens to you by mistake, email hello@inkwell.social and a person will review it.",
       "You may appeal any moderation decision. We\u2019re human too, and we\u2019d rather have a conversation than make a mistake.",
       "Our goal is to guide, not to punish. Most issues resolve with a simple conversation \u2014 and we\u2019d like to keep it that way.",
     ],

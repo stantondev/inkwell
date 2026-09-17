@@ -20,6 +20,10 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Automated spam moderation: :dry_run (score + Slack "would block", change
+# nothing) or :enforce. Overridden by AUTO_MODERATION_MODE in runtime.exs.
+config :inkwell, :auto_moderation_mode, :dry_run
+
 # Monthly running costs shown on the public /transparency page, in cents.
 # {label, monthly_cents, note}. Update these when a bill changes.
 config :inkwell, :transparency_costs, [
@@ -61,6 +65,11 @@ config :inkwell, Oban,
        {"0 6 * * *", Inkwell.Workers.CleanupExpiredExportsWorker},
        {"30 6 * * *", Inkwell.Workers.CleanupExpiredImportsWorker},
        {"0 7 * * *", Inkwell.Workers.CleanupUnconfirmedSubscribersWorker},
+       # Automated spam moderation: hourly scan of new/reported/active
+       # accounts, a daily sweep, and a daily Slack digest (14:00 UTC).
+       {"27 * * * *", Inkwell.Workers.AutoModerationWorker, args: %{"scope" => "recent"}},
+       {"45 6 * * *", Inkwell.Workers.AutoModerationWorker, args: %{"scope" => "all"}},
+       {"0 14 * * *", Inkwell.Workers.AutoModerationWorker, args: %{"scope" => "digest"}},
        # End free Plus trials whose 14 days are up — hourly at :41.
        {"41 * * * *", Inkwell.Workers.ExpirePlusTrialsWorker},
        # Newsletter scheduler — every 5 minutes. Healthchecks.io is configured
