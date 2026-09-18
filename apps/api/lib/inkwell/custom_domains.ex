@@ -20,6 +20,20 @@ defmodule Inkwell.CustomDomains do
     |> Repo.preload(:user)
   end
 
+  @doc """
+  True when `hostname` belongs to a user's custom domain (any status).
+
+  A custom domain is a vanity address for one profile on this instance, never
+  a separate server, so server-level endpoints like NodeInfo must not answer
+  on it.
+  """
+  def custom_domain_host?(hostname) when is_binary(hostname) do
+    hostname = hostname |> String.replace(~r/:\d+$/, "") |> normalize()
+    hostname != "" and Repo.exists?(from cd in CustomDomain, where: cd.domain == ^hostname)
+  end
+
+  def custom_domain_host?(_), do: false
+
   def get_active_domain_by_hostname(hostname) do
     hostname = normalize(hostname)
 

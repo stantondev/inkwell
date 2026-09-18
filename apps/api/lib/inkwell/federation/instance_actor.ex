@@ -13,6 +13,9 @@ defmodule Inkwell.Federation.InstanceActor do
 
   @relay_username "relay"
 
+  @doc "Reserved username of the relay actor (a machine account, not a member)."
+  def username, do: @relay_username
+
   @doc """
   Returns the relay user, creating it if it doesn't exist.
   """

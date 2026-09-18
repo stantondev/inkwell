@@ -127,67 +127,109 @@ defmodule InkwellWeb.FederationController do
   # GET /.well-known/nodeinfo
   # Advertise both 2.0 and 2.1 so older stats crawlers (fedidb,
   # the-federation.info) that only speak 2.0 can still discover us.
+  #
+  # NodeInfo describes the *server*. Custom domains (a Plus member's vanity
+  # address for their profile) reach these routes too, and answering there
+  # made stats sites list each one as a separate Inkwell server reporting the
+  # whole instance's user count. The Next.js proxy forwards the requested host
+  # in X-Original-Host; on a custom domain every NodeInfo route 404s.
   def nodeinfo(conn, _params) do
-    instance_host = federation_config(:instance_host)
+    if custom_domain_request?(conn) do
+      nodeinfo_not_found(conn)
+    else
+      instance_host = federation_config(:instance_host)
 
-    conn
-    |> put_resp_content_type("application/json")
-    |> json(%{
-      links: [
-        %{
-          rel: "http://nodeinfo.diaspora.software/ns/schema/2.0",
-          href: "https://#{instance_host}/nodeinfo/2.0"
-        },
-        %{
-          rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
-          href: "https://#{instance_host}/nodeinfo/2.1"
-        }
-      ]
-    })
+      conn
+      |> put_resp_content_type("application/json")
+      |> json(%{
+        links: [
+          %{
+            rel: "http://nodeinfo.diaspora.software/ns/schema/2.0",
+            href: "https://#{instance_host}/nodeinfo/2.0"
+          },
+          %{
+            rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
+            href: "https://#{instance_host}/nodeinfo/2.1"
+          }
+        ]
+      })
+    end
   end
 
   # GET /nodeinfo/2.0
   # 2.0 differs from 2.1: software{} cannot include homepage/repository,
   # and services{} is required (we bridge to nothing, so both are []).
   def nodeinfo_schema_20(conn, _params) do
-    stats = nodeinfo_stats()
-
-    conn
-    |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.0\"")
-    |> json(%{
-      version: "2.0",
-      software: %{
-        name: "inkwell",
-        version: "0.1.0"
-      },
-      protocols: ["activitypub"],
-      services: %{inbound: [], outbound: []},
-      usage: stats,
-      openRegistrations: true,
-      metadata: %{}
-    })
+    if custom_domain_request?(conn) do
+      nodeinfo_not_found(conn)
+    else
+      conn
+      |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.0\"")
+      |> json(%{
+        version: "2.0",
+        software: %{
+          name: "inkwell",
+          version: "0.1.0"
+        },
+        protocols: ["activitypub"],
+        services: %{inbound: [], outbound: []},
+        usage: nodeinfo_stats(),
+        openRegistrations: true,
+        metadata: nodeinfo_metadata()
+      })
+    end
   end
 
   # GET /nodeinfo/2.1
   def nodeinfo_schema(conn, _params) do
-    stats = nodeinfo_stats()
+    if custom_domain_request?(conn) do
+      nodeinfo_not_found(conn)
+    else
+      conn
+      |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.1\"")
+      |> json(%{
+        version: "2.1",
+        software: %{
+          name: "inkwell",
+          version: "0.1.0",
+          repository: "https://github.com/stantondev/inkwell",
+          homepage: "https://inkwell.social"
+        },
+        protocols: ["activitypub"],
+        services: %{inbound: [], outbound: []},
+        usage: nodeinfo_stats(),
+        openRegistrations: true,
+        metadata: nodeinfo_metadata()
+      })
+    end
+  end
 
-    conn
-    |> put_resp_content_type("application/json; profile=\"http://nodeinfo.diaspora.software/ns/schema/2.1\"")
-    |> json(%{
-      version: "2.1",
-      software: %{
-        name: "inkwell",
-        version: "0.1.0",
-        repository: "https://github.com/stantondev/inkwell",
-        homepage: "https://inkwell.social"
-      },
-      protocols: ["activitypub"],
-      services: %{inbound: [], outbound: []},
-      usage: stats,
-      openRegistrations: true,
-      metadata: %{}
-    })
+  defp custom_domain_request?(conn) do
+    case get_req_header(conn, "x-original-host") do
+      [host | _] -> Inkwell.CustomDomains.custom_domain_host?(host)
+      _ -> false
+    end
+  end
+
+  defp nodeinfo_not_found(conn) do
+    conn |> put_status(:not_found) |> json(%{error: "not_found"})
+  end
+
+  # FEP-0151 `metadata`: the widely used, non-standardized properties.
+  # staffAccounts are the admins' actor IDs (the people accountable for the
+  # server), so remote admins know whom to contact.
+  defp nodeinfo_metadata do
+    %{
+      nodeName: Application.get_env(:inkwell, :instance_name, "Inkwell"),
+      nodeDescription:
+        Application.get_env(
+          :inkwell,
+          :instance_description,
+          "A social journal. No algorithms, no ads."
+        ),
+      staffAccounts: Enum.map(Accounts.list_admins(), &ActivityBuilder.actor_url/1),
+      federation: %{enabled: true}
+    }
   end
 
   # Cache NodeInfo aggregates for 10 minutes. The 5 sequential aggregate
@@ -214,34 +256,48 @@ defmodule InkwellWeb.FederationController do
     ArgumentError -> compute_nodeinfo_stats()
   end
 
-  defp compute_nodeinfo_stats do
-    user_count = Repo.aggregate(Inkwell.Accounts.User, :count)
-    post_count = Repo.aggregate(Inkwell.Journals.Entry, :count)
-    comment_count = Repo.aggregate(Inkwell.Journals.Comment, :count)
+  # FEP-0151: servers MUST NOT publish skewed usage statistics. These count
+  # real people and their real writing:
+  #   * users — excludes suspended accounts (mostly spam) and the relay
+  #     instance actor, which is a machine, not a member
+  #   * localPosts — published entries only (no drafts, no entries hidden by
+  #     moderation)
+  #   * localComments — comments written here, not fediverse replies we store
+  @doc false
+  def compute_nodeinfo_stats do
+    members =
+      from(u in Inkwell.Accounts.User,
+        where: is_nil(u.blocked_at) and u.username != ^Inkwell.Federation.InstanceActor.username()
+      )
+
+    published =
+      from(e in Inkwell.Journals.Entry,
+        join: u in subquery(members),
+        on: u.id == e.user_id,
+        where: e.status == :published
+      )
+
+    user_count = Repo.aggregate(members, :count)
+    post_count = Repo.aggregate(published, :count)
+
+    comment_count =
+      from(c in Comment, where: is_nil(c.remote_author))
+      |> Repo.aggregate(:count)
 
     now = DateTime.utc_now()
     six_months_ago = DateTime.add(now, -180, :day)
     one_month_ago = DateTime.add(now, -30, :day)
 
-    active_halfyear =
-      from(e in Inkwell.Journals.Entry,
-        where: e.status == :published and e.inserted_at >= ^six_months_ago,
-        select: count(e.user_id, :distinct)
-      )
+    active_since = fn since ->
+      from(e in published, where: e.inserted_at >= ^since, select: count(e.user_id, :distinct))
       |> Repo.one()
-
-    active_month =
-      from(e in Inkwell.Journals.Entry,
-        where: e.status == :published and e.inserted_at >= ^one_month_ago,
-        select: count(e.user_id, :distinct)
-      )
-      |> Repo.one()
+    end
 
     %{
       users: %{
         total: user_count,
-        activeHalfyear: active_halfyear,
-        activeMonth: active_month
+        activeHalfyear: active_since.(six_months_ago),
+        activeMonth: active_since.(one_month_ago)
       },
       localPosts: post_count,
       localComments: comment_count
