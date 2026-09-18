@@ -16,8 +16,10 @@ defmodule Inkwell.Moderation.AutoModeration do
       an admin looks; nothing is deleted or hidden from followers.
 
   Never acts on: admins, paying members (Plus subscription or Founding),
-  accounts an admin already cleared (unless reported again since), or
-  established accounts — those raise a Slack "needs review" alert instead.
+  accounts an admin already cleared, or established accounts — those raise a
+  Slack "needs review" alert instead. An admin-cleared account is only
+  alerted on again if someone reports it after the clearance; otherwise it's
+  left alone for good.
 
   Every action is recorded in `moderation_actions` and can be undone with
   `undo/2`, which restores exactly the entries it hid.
@@ -138,7 +140,7 @@ defmodule Inkwell.Moderation.AutoModeration do
 
     cond do
       exempt_reason = exemption(user, facts) ->
-        if decision == :block,
+        if decision == :block and not quietly_cleared?(user, facts),
           do: {:review, Map.update!(result, :reasons, &(&1 ++ ["not acted on: #{exempt_reason}"]))},
           else: {:exempt, result}
 
@@ -156,14 +158,17 @@ defmodule Inkwell.Moderation.AutoModeration do
       not is_nil(user.founding_member_number) -> "Founding Member"
       not is_nil(user.square_subscription_id) and user.subscription_status == "active" -> "paying member"
       user.ink_donor_status == "active" -> "Ink Donor"
-      cleared_without_new_reports?(user, facts) -> "cleared by an admin"
+      not is_nil(user.moderation_cleared_at) -> "cleared by an admin"
       SpamSignals.established?(facts) -> "established account"
       true -> nil
     end
   end
 
-  defp cleared_without_new_reports?(%User{moderation_cleared_at: nil}, _), do: false
-  defp cleared_without_new_reports?(user, facts),
+  # An admin already looked at this account and decided it's fine. Stay
+  # silent unless someone has reported it since.
+  defp quietly_cleared?(%User{moderation_cleared_at: nil}, _), do: false
+
+  defp quietly_cleared?(user, facts),
     do: not Enum.any?(facts[:reports] || [], &(DateTime.compare(&1.at, user.moderation_cleared_at) == :gt))
 
   @doc false
@@ -195,10 +200,10 @@ defmodule Inkwell.Moderation.AutoModeration do
       from(e in Entry, where: e.user_id == ^user.id and not is_nil(e.published_at), select: min(e.published_at))
       |> Repo.one()
 
-    published_days =
+    {published_days, first_published, last_published} =
       from(e in Entry,
         where: e.user_id == ^user.id and e.status == :published,
-        select: count(fragment("DISTINCT date(?)", e.published_at))
+        select: {count(fragment("DISTINCT date(?)", e.published_at)), min(e.published_at), max(e.published_at)}
       )
       |> Repo.one()
 
@@ -244,7 +249,8 @@ defmodule Inkwell.Moderation.AutoModeration do
       reports: reports,
       spam_warnings: spam_warnings,
       account_age_days: DateTime.diff(now, user.inserted_at, :day),
-      published_entry_days: published_days
+      published_entry_days: published_days,
+      writing_span_days: if(first_published, do: DateTime.diff(last_published, first_published, :day), else: 0)
     }
   end
 

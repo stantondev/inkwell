@@ -76,10 +76,74 @@ defmodule Inkwell.Moderation.SpamSignalsTest do
     assert newer.score == 4
   end
 
+  # @wiesakerboom, Sept 2026: a real music writer blocked for photos hosted on
+  # Blogger, cited Dutch news articles, a link-in-bio page and a quiet style.
+  test "a long-running writer with photos and cited sources is never blocked" do
+    body = """
+    <p>Streaming services are filling up with AI songs.</p>
+    <a href="https://blogger.googleusercontent.com/img/b/x/w345/photo.jpg"><img src="https://blogger.googleusercontent.com/img/b/x/w345/photo.jpg"></a>
+    <a href="https://blogger.googleusercontent.com/img/b/y/w380/guitar.jpg"><img src="https://blogger.googleusercontent.com/img/b/y/w380/guitar.jpg"></a>
+    <p>Sources: <a href="https://www.telegraaf.nl/buitenland/ai-band">De Telegraaf</a>,
+    <a href="https://www.nu.nl/muziek/ai-muziek">NU.nl</a>,
+    <a href="https://www.hartvannederland.nl/muziek/tim-knol">Hart van Nederland</a></p>
+    """
+
+    facts = %{
+      email_domain: "protonmail.com",
+      texts: ["AI Music vs. Human Music - 2026 Edition", "Streaming services are filling up with AI songs."],
+      links: SpamSignals.extract_links(body),
+      profile_links: ["https://allmylinks.com/wies"],
+      minutes_to_first_post: 12,
+      interactions: 0,
+      account_age_days: 179,
+      published_entry_days: 19,
+      writing_span_days: 148
+    }
+
+    refute Enum.any?(facts.links, &(&1 =~ "googleusercontent"))
+    r = SpamSignals.score(facts)
+    assert SpamSignals.decision(r) == :none
+    assert SpamSignals.established?(facts)
+
+    # Even brand new, the same posts can't get past a limit.
+    new = SpamSignals.score(%{facts | account_age_days: 3, published_entry_days: 2, writing_span_days: 1})
+    assert SpamSignals.decision(new) in [:none, :limit]
+  end
+
+  test "links, speed and quietness alone limit at most, never block" do
+    r =
+      SpamSignals.score(%{
+        email_domain: "gmail.com",
+        texts: ["Buy aged accounts"],
+        links: ["https://shop.example/a", "https://shop.example/b", "https://shop.example/c", "https://other.example"],
+        profile_links: ["https://shop.example"],
+        minutes_to_first_post: 3,
+        interactions: 0
+      })
+
+    assert r.score >= SpamSignals.block_threshold()
+    refute r.strong
+    assert SpamSignals.decision(r) == :limit
+  end
+
+  test "imported posts dated before signup don't count as posting fast" do
+    r = SpamSignals.score(%{minutes_to_first_post: -9_656_344, texts: ["old post"], interactions: 5})
+    refute Enum.any?(r.reasons, &(&1 =~ "after signing up"))
+  end
+
+  test "a burst of posts isn't long-running writing" do
+    refute SpamSignals.established?(%{account_age_days: 90, published_entry_days: 8, writing_span_days: 12, interactions: 0})
+    assert SpamSignals.established?(%{account_age_days: 90, published_entry_days: 6, writing_span_days: 60, interactions: 0})
+  end
+
   test "link helpers" do
     assert SpamSignals.link_domain("https://www.Example.com/x") == "example.com"
     assert SpamSignals.benign?("en.wikipedia.org")
     refute SpamSignals.benign?("slopegamefree.com")
     assert SpamSignals.extract_links(~s(<a href="https://a.com/x">y</a> and http://b.org)) == ["https://a.com/x", "http://b.org"]
+    # Link text that repeats the URL counts once; images don't count.
+    assert SpamSignals.extract_links(~s(<a href="https://a.com/x">https://a.com/x</a><img src="https://c.com/p.png">)) == ["https://a.com/x"]
+    assert SpamSignals.extract_links(~s(<a href="https://c.com/big.JPG?w=2"><img src="https://c.com/small.jpg"></a>)) == []
+    assert SpamSignals.benign?("blogger.googleusercontent.com")
   end
 end

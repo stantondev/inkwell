@@ -11,6 +11,13 @@ defmodule Inkwell.Moderation.SpamSignals do
   (onboarding ends with "write your first entry"), so no single signal is
   enough to act on — actions need several together.
 
+  Blocking also needs at least one *strong* signal (throwaway email, several
+  commercial phrases, reports, or an admin spam warning). Links, posting
+  speed and not interacting are things real writers do too, so on their own
+  they can only limit an account, never block it. Fitted after a real music
+  writer (@wiesakerboom, Sept 2026) was blocked for images hosted on Blogger,
+  cited news articles, and a quiet posting style.
+
   Keep `reasons` specific: they're shown to the admin and logged forever.
   """
 
@@ -49,7 +56,13 @@ defmodule Inkwell.Moderation.SpamSignals do
     reddit.com nytimes.com theguardian.com bbc.co.uk bbc.com npr.org apnews.com
     reuters.com washingtonpost.com ko-fi.com patreon.com buymeacoffee.com
     creativecommons.org w3.org mozilla.org peertube.tv funkwhale.audio
+    googleusercontent.com gstatic.com imgur.com pixabay.com unsplash.com pexels.com
+    pinterest.com wp.com gravatar.com
   )
+
+  # Links straight to a picture are images people embedded or link to at full
+  # size (Blogger does this for every photo), not promotion.
+  @image_link ~r/\.(jpe?g|png|gif|webp|avif|svg|bmp|heic)(\?.*)?$/i
 
   # Commercial / SEO / scam vocabulary from real spam on Inkwell and common
   # link-spam. Multi-word phrases on purpose — single words like "business"
@@ -83,9 +96,12 @@ defmodule Inkwell.Moderation.SpamSignals do
     * `:interactions` — count of comments, inks, stamps and follows *given*
     * `:reports` — list of `%{trusted: boolean}` for distinct reporters on pending reports
     * `:spam_warnings` — spam warnings an admin has issued
-    * `:account_age_days`, `:published_entry_days` — for established-account trust
+    * `:account_age_days`, `:published_entry_days`, `:writing_span_days` — for
+      established-account trust
 
-  Returns `%{score: integer, reasons: [String.t()]}`.
+  Returns `%{score: integer, strong: boolean, reasons: [String.t()]}`.
+  `strong` is true when at least one signal that real writers don't trigger
+  fired; `decision/1` never blocks without it.
   """
   def score(facts) do
     {score, reasons} =
@@ -100,12 +116,22 @@ defmodule Inkwell.Moderation.SpamSignals do
       |> warning_signal(facts)
       |> established_signal(facts)
 
-    %{score: max(score, 0), reasons: Enum.reverse(reasons)}
+    %{score: max(score, 0), strong: strong_signal?(facts), reasons: Enum.reverse(reasons)}
   end
 
-  def decision(%{score: s}) when s >= @block_threshold, do: :block
+  def decision(%{score: s, strong: true}) when s >= @block_threshold, do: :block
   def decision(%{score: s}) when s >= @limit_threshold, do: :limit
   def decision(_), do: :none
+
+  # Signals that point at spam specifically rather than at "new and quiet".
+  defp strong_signal?(facts) do
+    domain = facts[:email_domain]
+
+    (is_binary(domain) and (disposable_domain?(domain) or MapSet.member?(facts[:learned_spam_domains] || MapSet.new(), domain))) or
+      length(phrase_hits(facts)) >= 2 or
+      (facts[:reports] || []) != [] or
+      (facts[:spam_warnings] || 0) > 0
+  end
 
   def disposable_domain?(domain), do: domain in @disposable_domains
   def common_provider?(domain), do: domain in @common_providers
@@ -160,12 +186,13 @@ defmodule Inkwell.Moderation.SpamSignals do
       else: acc
   end
 
-  defp phrase_signal(acc, facts) do
+  defp phrase_hits(facts) do
     text = facts |> Map.get(:texts, []) |> Enum.join(" \n ") |> String.downcase()
+    Enum.filter(@spam_phrases, &String.contains?(text, &1))
+  end
 
-    hits = Enum.filter(@spam_phrases, &String.contains?(text, &1))
-
-    case hits do
+  defp phrase_signal(acc, facts) do
+    case phrase_hits(facts) do
       [] -> acc
       [one] -> add(acc, 2, "commercial wording: \"#{one}\"")
       many -> add(acc, 4, "commercial wording: #{many |> Enum.take(4) |> Enum.map(&"\"#{&1}\"") |> Enum.join(", ")}")
@@ -183,7 +210,8 @@ defmodule Inkwell.Moderation.SpamSignals do
 
   defp speed_signal(acc, facts) do
     case facts[:minutes_to_first_post] do
-      m when is_number(m) and m <= 30 -> add(acc, 1, "posted publicly #{round(m)} min after signing up")
+      # Negative means imported posts dated before the account existed.
+      m when is_number(m) and m >= 0 and m <= 30 -> add(acc, 1, "posted publicly #{round(m)} min after signing up")
       _ -> acc
     end
   end
@@ -213,20 +241,26 @@ defmodule Inkwell.Moderation.SpamSignals do
     end
   end
 
-  # Long-standing accounts that write regularly and actually interact with
-  # people get the benefit of the doubt. Posting on several days isn't enough
-  # alone — link spammers do that too.
+  # Long-standing accounts that write regularly get the benefit of the doubt:
+  # either they interact with people, or they've kept writing for months.
+  # Posting on several days in a burst isn't enough — link spammers do that.
   defp established_signal(acc, facts) do
     if established?(facts),
-      do: add(acc, -4, "established account (#{facts[:account_age_days]} days old, wrote on #{facts[:published_entry_days]} days, interacts with others)"),
+      do: add(acc, -4, "established account (#{facts[:account_age_days]} days old, wrote on #{facts[:published_entry_days]} days#{if long_running_writer?(facts), do: " over #{facts[:writing_span_days]} days", else: ", interacts with others"})"),
       else: acc
   end
 
-  @doc "60+ days old, wrote on 3+ days, 3+ interactions, never warned for spam."
+  @doc """
+  60+ days old, never warned for spam, and either wrote on 3+ days with 3+
+  interactions, or wrote on 6+ days spread over 60+ days.
+  """
   def established?(facts) do
-    (facts[:account_age_days] || 0) >= 60 and (facts[:published_entry_days] || 0) >= 3 and
-      (facts[:interactions] || 0) >= 3 and (facts[:spam_warnings] || 0) == 0
+    (facts[:account_age_days] || 0) >= 60 and (facts[:spam_warnings] || 0) == 0 and
+      (((facts[:published_entry_days] || 0) >= 3 and (facts[:interactions] || 0) >= 3) or long_running_writer?(facts))
   end
+
+  defp long_running_writer?(facts),
+    do: (facts[:published_entry_days] || 0) >= 6 and (facts[:writing_span_days] || 0) >= 60
 
   # ── Link helpers ─────────────────────────────────────────────────────────
 
@@ -246,10 +280,23 @@ defmodule Inkwell.Moderation.SpamSignals do
     Enum.any?(@benign_link_domains, fn d -> domain == d or String.ends_with?(domain, "." <> d) end)
   end
 
-  @doc "Absolute http(s) URLs in an HTML or text blob."
+  @doc """
+  Outbound links in an HTML or text blob: `<a href>` targets plus bare URLs in
+  the visible text. Image sources and links straight to image files don't
+  count — embedding a photo hosted elsewhere isn't linking out.
+  """
   def extract_links(nil), do: []
 
   def extract_links(text) when is_binary(text) do
-    Regex.scan(~r{https?://[^\s"'<>)]+}i, text) |> Enum.map(&hd/1)
+    hrefs = Regex.scan(~r{<a\b[^>]*\bhref\s*=\s*["'](https?://[^"']+)["']}i, text, capture: :all_but_first) |> List.flatten()
+
+    visible =
+      text
+      |> String.replace(~r{<a\b[^>]*>.*?</a>}is, " ")
+      |> String.replace(~r/<[^>]*>/, " ")
+
+    bare = Regex.scan(~r{https?://[^\s"'<>)]+}i, visible) |> Enum.map(&hd/1)
+
+    Enum.reject(hrefs ++ bare, &Regex.match?(@image_link, &1))
   end
 end

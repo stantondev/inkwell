@@ -84,7 +84,11 @@ defmodule Inkwell.Moderation.AutoModerationTest do
     assert Repo.all(from e in Entry, where: e.user_id == ^spam.id, select: e.status) == [:published]
 
     Oban.Testing.with_testing_mode(:manual, fn ->
-      assert AutoModeration.scan_user(spam.id).blocked == []
+      summary = AutoModeration.scan_user(spam.id)
+      assert summary.blocked == []
+      # Cleared means left alone quietly — no daily "needs review" alert.
+      assert summary.review == []
+      assert {:exempt, _} = AutoModeration.evaluate(Repo.reload!(spam))
     end)
 
     assert is_nil(Repo.reload!(spam).blocked_at)
