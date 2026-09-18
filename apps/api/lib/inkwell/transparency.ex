@@ -57,7 +57,13 @@ defmodule Inkwell.Transparency do
     month_ago = DateTime.add(DateTime.utc_now(), -30, :day)
 
     total =
-      from(u in User, where: is_nil(u.blocked_at), select: count(u.id)) |> Repo.one()
+      from(u in User,
+        # The relay actor is a machine account, not a member (matches NodeInfo).
+        where:
+          is_nil(u.blocked_at) and u.username != ^Inkwell.Federation.InstanceActor.username(),
+        select: count(u.id)
+      )
+      |> Repo.one()
 
     writers_30d =
       from(e in Inkwell.Journals.Entry,
@@ -98,7 +104,9 @@ defmodule Inkwell.Transparency do
     admins = admin_user_ids()
 
     case Square.list_all_subscriptions() do
-      {:ok, subs} -> revenue_from_square(subs, admins)
+      {:ok, subs} ->
+        revenue_from_square(subs, admins)
+
       {:error, reason} ->
         Logger.warning("[Transparency] Square unavailable, using estimate: #{inspect(reason)}")
         revenue_estimate(admins)
@@ -126,7 +134,9 @@ defmodule Inkwell.Transparency do
       |> Enum.reject(fn s -> MapSet.member?(admins, customer_to_user[s["customer_id"]]) end)
 
     monthly_cents =
-      Enum.reduce(active, 0, fn s, acc -> acc + monthly_cents_for(s["plan_variation_id"], config) end)
+      Enum.reduce(active, 0, fn s, acc ->
+        acc + monthly_cents_for(s["plan_variation_id"], config)
+      end)
 
     %{
       monthly_cents: monthly_cents,
@@ -140,10 +150,17 @@ defmodule Inkwell.Transparency do
       variation == config[:plus_annual_plan_variation_id] and not is_nil(variation) ->
         div(Square.plus_annual_cents(), 12)
 
-      variation == config[:donor_plan_variation_1] -> 100
-      variation == config[:donor_plan_variation_2] -> 200
-      variation == config[:donor_plan_variation_3] -> 300
-      true -> 500
+      variation == config[:donor_plan_variation_1] ->
+        100
+
+      variation == config[:donor_plan_variation_2] ->
+        200
+
+      variation == config[:donor_plan_variation_3] ->
+        300
+
+      true ->
+        500
     end
   end
 
