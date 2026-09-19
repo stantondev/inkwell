@@ -50,10 +50,8 @@ defmodule InkwellWeb.BillingController do
         |> put_status(:too_many_requests)
         |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
-      {:error, :already_subscribed} ->
-        conn
-        |> put_status(:conflict)
-        |> json(%{error: "You already have an active Plus subscription."})
+      {:error, reason} when reason in [:already_subscribed, :payment_failed, :cancel_scheduled] ->
+        plus_checkout_refused(conn, reason)
     end
   end
 
@@ -78,6 +76,33 @@ defmodule InkwellWeb.BillingController do
         conn
         |> put_status(:internal_server_error)
         |> json(%{error: "Unable to cancel subscription. Please try again."})
+    end
+  end
+
+  # POST /api/billing/resume — undo a scheduled Plus cancel (keep the existing
+  # subscription instead of starting a new one that would double-charge).
+  def resume(conn, _params) do
+    user = conn.assigns.current_user
+
+    case Billing.resume_subscription(user) do
+      {:ok, _user} ->
+        json(conn, %{ok: true})
+
+      {:error, :not_resumable} ->
+        conn
+        |> put_status(:conflict)
+        |> json(%{error: "There's no canceled Plus subscription to keep. If your Plus has ended, you can subscribe again."})
+
+      {:error, :square_not_configured} ->
+        conn
+        |> put_status(:service_unavailable)
+        |> json(%{error: "Billing is not yet configured."})
+
+      {:error, reason} ->
+        Logger.error("Resume subscription failed for #{user.id}: #{inspect(reason)}")
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Couldn't reach Square to keep your Plus. Nothing was charged — please try again."})
     end
   end
 
@@ -219,10 +244,8 @@ defmodule InkwellWeb.BillingController do
         |> put_status(:too_many_requests)
         |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
 
-      {:error, :already_subscribed} ->
-        conn
-        |> put_status(:conflict)
-        |> json(%{error: "You already have an active Plus subscription."})
+      {:error, reason} when reason in [:already_subscribed, :payment_failed, :cancel_scheduled] ->
+        plus_checkout_refused(conn, reason)
     end
   end
 
@@ -381,6 +404,9 @@ defmodule InkwellWeb.BillingController do
         trial_days: Inkwell.Billing.Trials.trial_days(),
         plus_annual_available: Inkwell.Square.plus_annual_configured?(),
         plus_annual_cents: Inkwell.Square.plus_annual_cents(),
+        # "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled"
+        plus_checkout: Atom.to_string(Billing.plus_checkout_state(user)),
+        plus_resumable: Billing.plus_resumable?(user),
         storage: Inkwell.Storage.summary(user)
       }
     })
@@ -528,13 +554,49 @@ defmodule InkwellWeb.BillingController do
     :ok
   end
 
+  # See Billing.plus_checkout_state/1 for the rules and why.
   defp check_no_active_plus(user) do
-    if Inkwell.Accounts.User.founding_member?(user) or
-         (user.square_subscription_id && user.subscription_status == "active") do
-      {:error, :already_subscribed}
-    else
-      :ok
+    case Billing.plus_checkout_state(user) do
+      :allowed -> :ok
+      reason -> {:error, reason}
     end
+  end
+
+  defp plus_checkout_refused(conn, :already_subscribed) do
+    conn
+    |> put_status(:conflict)
+    |> json(%{error: "You already have an active Plus subscription.", code: "already_subscribed"})
+  end
+
+  defp plus_checkout_refused(conn, :payment_failed) do
+    conn
+    |> put_status(:conflict)
+    |> json(%{
+      error:
+        "Your last Plus payment didn't go through, and that subscription is still open. " <>
+          "Go to Settings → Billing and choose \"Cancel and start over\": it closes the failed " <>
+          "subscription first, so you're never charged twice.",
+      code: "payment_failed"
+    })
+  end
+
+  defp plus_checkout_refused(conn, :cancel_scheduled) do
+    user = conn.assigns.current_user
+
+    until =
+      case user.subscription_expires_at do
+        %DateTime{} = at -> " until " <> Calendar.strftime(at, "%B %-d, %Y")
+        _ -> ""
+      end
+
+    conn
+    |> put_status(:conflict)
+    |> json(%{
+      error:
+        "You've already paid for Plus#{until}. A new subscription now would charge you again " <>
+          "for those days. To stay on Plus, choose \"Keep my Plus\" in Settings → Billing.",
+      code: "cancel_scheduled"
+    })
   end
 
   defp check_no_active_donor(user) do

@@ -361,6 +361,7 @@ defmodule InkwellWeb.Router do
     post "/billing/onboarding-checkout", BillingController, :onboarding_checkout
     post "/billing/portal", BillingController, :portal
     post "/billing/cancel", BillingController, :cancel
+    post "/billing/resume", BillingController, :resume
     post "/billing/cancel-donor", BillingController, :cancel_donor
     post "/billing/donate", BillingController, :donate
     post "/billing/sync", BillingController, :sync

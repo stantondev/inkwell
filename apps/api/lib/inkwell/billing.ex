@@ -1216,20 +1216,18 @@ defmodule Inkwell.Billing do
     end
   end
 
-  @doc "Cancel a Plus subscription."
+  @doc """
+  Cancel a Plus subscription. Square schedules the cancel for the end of the
+  current billing period (`canceled_date`); we record that date as
+  `subscription_expires_at` right away rather than waiting for the webhook, so
+  plus_checkout_state/1 can see the paid period immediately.
+  """
   def cancel_subscription(%User{} = user) do
     cond do
       user.square_subscription_id ->
-        case Square.cancel_subscription(user.square_subscription_id) do
-          :ok ->
-            user
-            |> User.subscription_changeset(%{
-              subscription_status: "canceled"
-            })
-            |> Repo.update()
-
-          {:error, reason} ->
-            {:error, reason}
+        case Square.cancel_subscription_with_details(user.square_subscription_id) do
+          {:ok, sub} -> mark_plus_canceled(user, sub)
+          {:error, reason} -> {:error, reason}
         end
 
       user.stripe_subscription_id ->
@@ -1248,6 +1246,162 @@ defmodule Inkwell.Billing do
 
       true ->
         {:error, :no_subscription}
+    end
+  end
+
+  # ── Plus checkout guard ────────────────────────────────────────────────
+  #
+  # Square has no customer portal, so a member can't update the card on an
+  # existing subscription. Starting a second checkout while the first
+  # subscription is still live means Square bills both. Every Plus checkout
+  # goes through plus_checkout_state/1:
+  #
+  #   * active                → already subscribed.
+  #   * past_due (card failed) → refused. The billing page offers "Cancel and
+  #     start over": it cancels the failing subscription, then opens checkout.
+  #     The failed period was never paid, so the new subscription overlaps
+  #     nothing.
+  #   * canceled, paid period still running (a scheduled cancel) → refused.
+  #     A new subscription would charge again for days already paid. The
+  #     billing page offers "Keep my Plus" instead (resume_subscription/1),
+  #     which undoes the scheduled cancel so the existing subscription simply
+  #     renews on its usual date. Once the paid period is over, checkout opens.
+  #   * canceled after a failed payment → allowed straight away (see
+  #     @unpaid_cancel_key).
+
+  # When a member cancels a past_due subscription we remember which one, in
+  # settings. Square still reports it as a scheduled cancel with a future
+  # canceled_date (the unpaid period), which would otherwise look exactly like
+  # a paid-up member who canceled, and block the new checkout they need.
+  @unpaid_cancel_key "plus_unpaid_canceled_subscription_id"
+
+  @doc """
+  Whether this user can start a new Plus checkout without being billed twice.
+  Returns `:allowed`, `:already_subscribed`, `:payment_failed` or
+  `:cancel_scheduled`.
+  """
+  def plus_checkout_state(%User{} = user, now \\ DateTime.utc_now()) do
+    cond do
+      User.founding_member?(user) -> :already_subscribed
+      is_nil(user.square_subscription_id) -> :allowed
+      user.subscription_status == "active" -> :already_subscribed
+      user.subscription_status == "past_due" -> :payment_failed
+      paid_period_running?(user, now) and not canceled_unpaid?(user) -> :cancel_scheduled
+      true -> :allowed
+    end
+  end
+
+  @doc "Whether the user's canceled Plus subscription can be resumed (the cancel undone)."
+  def plus_resumable?(%User{} = user, now \\ DateTime.utc_now()) do
+    plus_checkout_state(user, now) == :cancel_scheduled
+  end
+
+  defp paid_period_running?(%User{} = user, now) do
+    user.subscription_status == "canceled" and
+      match?(%DateTime{}, user.subscription_expires_at) and
+      DateTime.compare(user.subscription_expires_at, now) == :gt
+  end
+
+  defp canceled_unpaid?(%User{} = user) do
+    is_binary(user.square_subscription_id) and
+      get_in(user.settings || %{}, [@unpaid_cancel_key]) == user.square_subscription_id
+  end
+
+  @doc false
+  # Local bookkeeping after Square accepted a Plus cancel. `sub` is Square's
+  # subscription from the cancel response (nil if it didn't include one).
+  def mark_plus_canceled(%User{} = user, sub) do
+    attrs =
+      case square_period_end(sub) do
+        %DateTime{} = ends -> %{subscription_status: "canceled", subscription_expires_at: ends}
+        nil -> %{subscription_status: "canceled"}
+      end
+
+    changeset = User.subscription_changeset(user, attrs)
+
+    changeset =
+      if user.subscription_status == "past_due" do
+        settings = Map.put(user.settings || %{}, @unpaid_cancel_key, user.square_subscription_id)
+        Ecto.Changeset.put_change(changeset, :settings, settings)
+      else
+        changeset
+      end
+
+    Repo.update(changeset)
+  end
+
+  # The date a Square subscription is paid (or scheduled to end) through, as
+  # the end of that day in UTC.
+  defp square_period_end(%{} = sub) do
+    case sub["canceled_date"] || sub["charged_through_date"] do
+      date when is_binary(date) ->
+        case Date.from_iso8601(date) do
+          {:ok, d} -> DateTime.new!(d, ~T[23:59:59], "Etc/UTC")
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp square_period_end(_), do: nil
+
+  @doc """
+  Undo a scheduled Plus cancel: delete Square's pending CANCEL action so the
+  existing subscription keeps renewing on its usual card and date. Nothing is
+  charged now. Only for a paid-up member who canceled (plus_resumable?/1).
+  """
+  def resume_subscription(%User{} = user) do
+    if plus_resumable?(user) do
+      sub_id = user.square_subscription_id
+
+      with {:ok, sub} <- Square.get_subscription_with_actions(sub_id),
+           {:ok, resumed} <- undo_scheduled_cancel(sub_id, sub) do
+        resumed = resumed || sub
+
+        case effective_square_status(resumed) do
+          "active" ->
+            Logger.info("Plus cancel undone for #{user.username} (Square sub #{sub_id})")
+            Inkwell.Slack.notify(":arrows_counterclockwise: *@#{user.username}* kept Plus (undid their cancellation)")
+
+            user
+            |> User.subscription_changeset(%{
+              subscription_status: "active",
+              subscription_tier: "plus",
+              subscription_expires_at: square_period_end(Map.delete(resumed, "canceled_date"))
+            })
+            |> Repo.update()
+
+          _ ->
+            {:error, :not_resumable}
+        end
+      end
+    else
+      {:error, :not_resumable}
+    end
+  end
+
+  defp undo_scheduled_cancel(sub_id, sub) do
+    case resume_plan(sub) do
+      {:delete_action, action_id} -> Square.delete_subscription_action(sub_id, action_id)
+      :already_active -> {:ok, sub}
+      :not_resumable -> {:error, :not_resumable}
+    end
+  end
+
+  @doc false
+  # What undoing a cancel takes, given a subscription fetched with its actions.
+  def resume_plan(sub) do
+    cancel_action =
+      Enum.find(sub["actions"] || [], fn action -> action["type"] == "CANCEL" end)
+
+    cond do
+      sub["status"] != "ACTIVE" -> :not_resumable
+      cancel_action -> {:delete_action, cancel_action["id"]}
+      # Already undone (e.g. in the Square dashboard): just catch up locally.
+      is_nil(sub["canceled_date"]) -> :already_active
+      true -> :not_resumable
     end
   end
 
@@ -2068,17 +2222,7 @@ defmodule Inkwell.Billing do
   end
 
   defp apply_plus_update(user, sub, sub_id, inkwell_status) do
-    expires_at =
-      case sub["canceled_date"] || sub["charged_through_date"] do
-        date when is_binary(date) ->
-          case Date.from_iso8601(date) do
-            {:ok, d} -> DateTime.new!(d, ~T[23:59:59], "Etc/UTC")
-            _ -> nil
-          end
-
-        _ ->
-          nil
-      end
+    expires_at = square_period_end(sub)
 
     tier =
       if inkwell_status in ["active"] or is_binary(sub["canceled_date"]),

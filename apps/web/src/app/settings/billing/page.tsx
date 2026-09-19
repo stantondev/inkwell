@@ -20,6 +20,10 @@ interface BillingStatus {
   plus_annual_available?: boolean;
   plus_annual_cents?: number;
   storage?: StorageSummary;
+  /** Whether a new Plus checkout is safe (see Billing.plus_checkout_state/1). */
+  plus_checkout?: "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled";
+  /** A canceled Plus subscription with paid days left that can be kept. */
+  plus_resumable?: boolean;
 }
 
 interface StorageSummary {
@@ -106,6 +110,9 @@ export default function BillingPage() {
   const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   const [foundingLoading, setFoundingLoading] = useState(false);
   const [trialLoading, setTrialLoading] = useState(false);
+  const [restartLoading, setRestartLoading] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeMessage, setResumeMessage] = useState("");
 
   const justSucceeded = searchParams.get("success") === "true" || searchParams.get("checkout") === "success";
   const justCanceled = searchParams.get("canceled") === "true";
@@ -268,6 +275,8 @@ export default function BillingPage() {
       if (res.ok) {
         setShowCancelConfirm(false);
         setStatus(prev => prev ? { ...prev, subscription_status: "canceled" } : prev);
+        // Picks up the end date Square scheduled and whether "Keep my Plus" applies.
+        await fetchStatus();
       } else {
         setError(data.error || "Unable to cancel subscription");
       }
@@ -275,6 +284,61 @@ export default function BillingPage() {
       setError("Network error. Please try again.");
     } finally {
       setCancelLoading(false);
+    }
+  }
+
+  // Past-due members: Square can't swap the card on an existing subscription,
+  // so close the failing one first, then open a fresh checkout. Canceling
+  // first is what keeps this from billing twice.
+  async function handleRestart() {
+    setRestartLoading(true);
+    setError("");
+    try {
+      const cancelRes = await fetch("/api/billing/cancel", { method: "POST" });
+      const cancelData = await cancelRes.json().catch(() => ({}));
+      if (!cancelRes.ok) {
+        setError(cancelData.error || "Couldn't cancel the failed subscription. Nothing was charged — please try again.");
+        setRestartLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: billingInterval }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      // The old subscription is canceled; show the plain subscribe form.
+      await fetchStatus();
+      setError(data.error || "Your failed subscription is canceled, but checkout didn't open. Try \"Start a new subscription\" below.");
+    } catch {
+      await fetchStatus();
+      setError("Network error. Please try again.");
+    }
+    setRestartLoading(false);
+  }
+
+  async function handleResume() {
+    setResumeLoading(true);
+    setError("");
+    setResumeMessage("");
+    try {
+      const res = await fetch("/api/billing/resume", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await fetchStatus();
+        setResumeMessage("You're staying on Plus. Your subscription will renew on its usual date — nothing was charged today.");
+      } else {
+        setError(data.error || "Couldn't keep your Plus. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setResumeLoading(false);
     }
   }
 
@@ -331,6 +395,12 @@ export default function BillingPage() {
   const isFounding = !!status?.founding_member_number;
   const isTrialing = isPlus && !isFounding && status?.subscription_status === "trialing";
   const isPaidPlus = isPlus && !isFounding && !isTrialing;
+  // A cancel that still has paid days left. Starting a new subscription now
+  // would charge for those days twice, so the only offer is "Keep my Plus".
+  const isCancelScheduled = isCanceled && status?.plus_checkout === "cancel_scheduled";
+  // Canceled and nothing left running (paid period over, or the canceled
+  // subscription was the one whose payment failed): safe to subscribe again.
+  const canResubscribe = isCanceled && status?.plus_checkout === "allowed";
   const founding = status?.founding;
   const annualAvailable = !!status?.plus_annual_available;
   const annualPrice = Math.round((status?.plus_annual_cents ?? 5000) / 100);
@@ -476,12 +546,20 @@ export default function BillingPage() {
           Checkout was canceled. No charges were made.
         </div>
       )}
-      {isPastDue && (
+      {isPastDue && !isFounding && (
         <div
           className="rounded-lg p-4 mb-4 text-sm"
           style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent)" }}
         >
-          <strong>Payment issue</strong> — Your last payment failed. Please update your payment method to keep your Plus benefits.
+          <strong>Your last Plus payment didn&apos;t go through.</strong> See <em>Your Plan</em> below to switch to a card that works.
+        </div>
+      )}
+      {resumeMessage && (
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--success, #22c55e) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent)" }}
+        >
+          {resumeMessage}
         </div>
       )}
 
@@ -548,6 +626,111 @@ export default function BillingPage() {
                 style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
               >
                 {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Keep Plus — $${annualPrice}/year` : "Keep Plus — $5/month"}
+              </button>
+            </div>
+          </div>
+        ) : isPaidPlus && isPastDue ? (
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Square couldn&apos;t charge your card for Plus. Square doesn&apos;t let us change the card on an
+              existing subscription, so the fix is to close this one and start a new one with a card that works.
+              We cancel the failed subscription <em>first</em>, so you&apos;re never billed twice.
+            </p>
+            <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+              If Square emails you about the unpaid charge, you don&apos;t need to pay it once you&apos;ve started over.
+            </p>
+            <div className="mt-4">
+              <PlusIntervalPicker
+                interval={billingInterval}
+                onChange={setBillingInterval}
+                annualAvailable={annualAvailable}
+                annualPrice={annualPrice}
+              />
+              <button
+                onClick={handleRestart}
+                disabled={restartLoading}
+                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "var(--accent)", color: "white", opacity: restartLoading ? 0.6 : 1 }}
+              >
+                {restartLoading
+                  ? "Canceling the failed subscription…"
+                  : billingInterval === "year"
+                    ? `Cancel and start over — $${annualPrice}/year`
+                    : "Cancel and start over — $5/month"}
+              </button>
+              {!showCancelConfirm ? (
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full mt-2 text-xs underline opacity-80 hover:opacity-100"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Or just cancel Plus
+                </button>
+              ) : (
+                <div className="mt-3 flex gap-2 justify-center">
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelLoading}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "var(--danger, #ef4444)", color: "white", opacity: cancelLoading ? 0.6 : 1 }}
+                  >
+                    {cancelLoading ? "Canceling..." : "Yes, cancel Plus"}
+                  </button>
+                  <button
+                    onClick={() => setShowCancelConfirm(false)}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+                    style={{ background: "transparent", color: "var(--muted)" }}
+                  >
+                    Never mind
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : isPaidPlus && isCancelScheduled ? (
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Your subscription is canceled. You keep Plus
+              {status?.subscription_expires_at && <> until <strong style={{ color: "var(--foreground)" }}>{formatDate(status.subscription_expires_at)}</strong></>},
+              the end of the period you&apos;ve paid for.
+            </p>
+            {status?.plus_resumable && (
+              <>
+                <button
+                  onClick={handleResume}
+                  disabled={resumeLoading}
+                  className="w-full mt-4 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                  style={{ background: "var(--accent)", color: "white", opacity: resumeLoading ? 0.6 : 1 }}
+                >
+                  {resumeLoading ? "Keeping your Plus…" : "Keep my Plus"}
+                </button>
+                <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+                  Changed your mind? This undoes the cancellation: your subscription renews on its usual date, on the
+                  same card. Nothing is charged today.
+                </p>
+              </>
+            )}
+          </div>
+        ) : isPaidPlus && canResubscribe ? (
+          <div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Your Plus subscription is canceled. Start a new one whenever you like — everything you customized is
+              still here.
+            </p>
+            <div className="mt-4">
+              <PlusIntervalPicker
+                interval={billingInterval}
+                onChange={setBillingInterval}
+                annualAvailable={annualAvailable}
+                annualPrice={annualPrice}
+              />
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
+                style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
+              >
+                {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Start a new subscription — $${annualPrice}/year` : "Start a new subscription — $5/month"}
               </button>
             </div>
           </div>

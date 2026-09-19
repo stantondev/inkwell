@@ -453,7 +453,20 @@ defmodule Inkwell.Square do
 
   @doc "Cancel a Square subscription (at end of billing cycle)."
   def cancel_subscription(nil), do: :ok
+
   def cancel_subscription(subscription_id) do
+    case cancel_subscription_with_details(subscription_id) do
+      {:ok, _sub} -> :ok
+      error -> error
+    end
+  end
+
+  @doc """
+  Like cancel_subscription/1, but returns `{:ok, subscription}` so the caller
+  can read the `canceled_date` Square scheduled (the end of the paid period).
+  The subscription is `nil` if Square's response didn't include one.
+  """
+  def cancel_subscription_with_details(subscription_id) do
     # Square's cancel endpoint is POST /v2/subscriptions/{id}/cancel and takes
     # NO request body. It schedules cancellation for the end of the current
     # billing period (sets canceled_date); it does not terminate immediately.
@@ -465,9 +478,9 @@ defmodule Inkwell.Square do
     # returns a generic "Resource not found.", the real one validates the
     # subscription id ("The provided subscription ID ... was not found.").
     case square_post("/subscriptions/#{subscription_id}/cancel", %{}) do
-      {:ok, _} ->
+      {:ok, body} ->
         Logger.info("Canceled Square subscription #{subscription_id}")
-        :ok
+        {:ok, body["subscription"]}
 
       {:error, reason} ->
         Logger.error("Failed to cancel Square subscription #{subscription_id}: #{inspect(reason)}")
@@ -480,6 +493,33 @@ defmodule Inkwell.Square do
   def get_subscription(subscription_id) do
     case square_get("/subscriptions/#{subscription_id}") do
       {:ok, %{"subscription" => sub}} -> {:ok, sub}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Get a subscription with its pending actions (`"actions"`: a list of
+  `%{"id", "type", "effective_date"}`). A scheduled cancel shows up as an
+  action of type "CANCEL".
+  """
+  def get_subscription_with_actions(nil), do: {:error, :no_subscription}
+
+  def get_subscription_with_actions(subscription_id) do
+    case square_get("/subscriptions/#{subscription_id}?include=actions") do
+      {:ok, %{"subscription" => sub}} -> {:ok, sub}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Delete a pending subscription action. Deleting the "CANCEL" action undoes a
+  scheduled cancel: the subscription keeps renewing on its existing card and
+  billing date. DELETE /v2/subscriptions/{id}/actions/{action_id}.
+  """
+  def delete_subscription_action(subscription_id, action_id) do
+    case square_delete("/subscriptions/#{subscription_id}/actions/#{action_id}") do
+      {:ok, %{"subscription" => sub}} -> {:ok, sub}
+      {:ok, _} -> {:ok, nil}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -785,6 +825,34 @@ defmodule Inkwell.Square do
       with_retry(path, fn ->
         :httpc.request(
           :get,
+          {url, headers},
+          [ssl: Inkwell.SSL.httpc_opts()],
+          []
+        )
+      end)
+    end
+  end
+
+  defp square_delete(path) do
+    access_token = square_config()[:access_token]
+
+    if is_nil(access_token) or access_token == "" do
+      Logger.warning("SQUARE_ACCESS_TOKEN not set — cannot make Square API call to #{path}")
+      {:error, :square_not_configured}
+    else
+      url = ~c"#{@square_api}#{path}"
+
+      headers = [
+        {~c"authorization", ~c"Bearer #{access_token}"},
+        {~c"square-version", ~c"2024-12-18"}
+      ]
+
+      :ssl.start()
+      :inets.start()
+
+      with_retry(path, fn ->
+        :httpc.request(
+          :delete,
           {url, headers},
           [ssl: Inkwell.SSL.httpc_opts()],
           []

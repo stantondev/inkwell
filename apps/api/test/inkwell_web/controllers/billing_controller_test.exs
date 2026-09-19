@@ -94,4 +94,76 @@ defmodule InkwellWeb.BillingControllerTest do
       assert json_response(post(conn, "/api/billing/checkout"), 401)
     end
   end
+  describe "Plus checkout while an existing subscription is still live" do
+    defp user_with(attrs) do
+      create_user() |> Ecto.Changeset.change(attrs) |> Inkwell.Repo.update!()
+    end
+
+    test "a failed payment gets pointed to Cancel and start over, not a second subscription", %{conn: conn} do
+      user = user_with(%{square_subscription_id: "S1", subscription_tier: "plus", subscription_status: "past_due"})
+
+      body = json_response(post(log_in_user(conn, user), "/api/billing/checkout"), 409)
+      assert body["code"] == "payment_failed"
+      assert body["error"] =~ "Cancel and start over"
+
+      onboarding =
+        post(log_in_user(build_conn(), user), "/api/billing/onboarding-checkout", %{"type" => "plus"})
+
+      assert json_response(onboarding, 409)["code"] == "payment_failed"
+    end
+
+    test "a scheduled cancel gets pointed to Keep my Plus", %{conn: conn} do
+      user =
+        user_with(%{
+          square_subscription_id: "S1",
+          subscription_tier: "plus",
+          subscription_status: "canceled",
+          subscription_expires_at: DateTime.add(DateTime.utc_now(), 12, :day)
+        })
+
+      body = json_response(post(log_in_user(conn, user), "/api/billing/checkout", %{"interval" => "year"}), 409)
+      assert body["code"] == "cancel_scheduled"
+      assert body["error"] =~ "Keep my Plus"
+      assert body["error"] =~ "until"
+    end
+
+    test "an active subscriber is still refused", %{conn: conn} do
+      user = user_with(%{square_subscription_id: "S1", subscription_tier: "plus", subscription_status: "active"})
+      assert json_response(post(log_in_user(conn, user), "/api/billing/checkout"), 409)["code"] == "already_subscribed"
+    end
+
+    test "after a cancel of a failed subscription, checkout proceeds (to Square)", %{conn: conn} do
+      user = user_with(%{square_subscription_id: "S1", subscription_tier: "plus", subscription_status: "past_due"})
+      {:ok, user} = Inkwell.Billing.mark_plus_canceled(user, %{"canceled_date" => "2099-01-01"})
+
+      # 503 = got past the guard and tried Square (unconfigured in tests).
+      assert json_response(post(log_in_user(conn, user), "/api/billing/checkout"), 503)
+    end
+
+    test "status tells the billing page which state the member is in", %{conn: conn} do
+      past_due = user_with(%{square_subscription_id: "S1", subscription_tier: "plus", subscription_status: "past_due"})
+      data = json_response(get(log_in_user(conn, past_due), "/api/billing/status"), 200)["data"]
+      assert data["plus_checkout"] == "payment_failed"
+      refute data["plus_resumable"]
+
+      scheduled =
+        user_with(%{
+          square_subscription_id: "S2",
+          subscription_tier: "plus",
+          subscription_status: "canceled",
+          subscription_expires_at: DateTime.add(DateTime.utc_now(), 3, :day)
+        })
+
+      data = json_response(get(log_in_user(build_conn(), scheduled), "/api/billing/status"), 200)["data"]
+      assert data["plus_checkout"] == "cancel_scheduled"
+      assert data["plus_resumable"]
+
+      data = json_response(get(log_in_user(build_conn(), create_user()), "/api/billing/status"), 200)["data"]
+      assert data["plus_checkout"] == "allowed"
+    end
+
+    test "resume refuses when nothing was canceled", %{conn: conn} do
+      assert json_response(post(log_in_user(conn, create_user()), "/api/billing/resume"), 409)
+    end
+  end
 end
