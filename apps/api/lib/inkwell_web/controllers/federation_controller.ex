@@ -378,7 +378,19 @@ defmodule InkwellWeb.FederationController do
 
   # ── Featured collection (pinned posts) ─────────────────────────────────
 
+  # How many posts the featured collection offers (Mastodon's own pin limit).
+  @featured_limit 5
+
   # GET /users/:username/featured
+  #
+  # Mastodon never backfills an account's older posts when it first discovers
+  # it, so a new writer's profile looked empty there until someone followed and
+  # they posted again. What Mastodon *does* fetch on discovery is this
+  # collection. It lists the writer's pinned entries, then fills up with their
+  # latest public entries so every profile shows something.
+  #
+  # Items are entry URIs, not inline objects: Mastodon only accepts links or
+  # inline Notes here and silently drops inline Articles.
   def featured(conn, %{"username" => username}) do
     instance_host = federation_config(:instance_host)
 
@@ -387,18 +399,10 @@ defmodule InkwellWeb.FederationController do
         conn |> put_status(:not_found) |> send_resp(404, "")
 
       user ->
-        pinned_ids = user.pinned_entry_ids || []
-
         items =
-          if pinned_ids == [] do
-            []
-          else
-            Inkwell.Journals.Entry
-            |> where([e], e.id in ^pinned_ids)
-            |> where([e], e.status == :published and e.privacy == :public)
-            |> Repo.all()
-            |> Enum.map(fn entry -> ActivityBuilder.build_article(entry, user) end)
-          end
+          user
+          |> featured_entries()
+          |> Enum.map(&ActivityBuilder.entry_ap_url/1)
 
         conn
         |> put_resp_content_type("application/activity+json")
@@ -410,6 +414,46 @@ defmodule InkwellWeb.FederationController do
           "orderedItems" => items
         })
     end
+  end
+
+  defp featured_entries(%{blocked_at: blocked_at}) when not is_nil(blocked_at), do: []
+
+  defp featured_entries(user) do
+    public =
+      from(e in Inkwell.Journals.Entry,
+        where: e.user_id == ^user.id and e.status == :published and e.privacy == :public
+      )
+
+    pinned_ids =
+      (user.pinned_entry_ids || [])
+      |> Enum.filter(&match?({:ok, _}, Ecto.UUID.cast(&1)))
+
+    pinned =
+      if pinned_ids == [] do
+        []
+      else
+        by_id = public |> where([e], e.id in ^pinned_ids) |> Repo.all() |> Map.new(&{&1.id, &1})
+        pinned_ids |> Enum.map(&by_id[&1]) |> Enum.reject(&is_nil/1)
+      end
+
+    recent =
+      case @featured_limit - length(pinned) do
+        n when n > 0 ->
+          taken = Enum.map(pinned, & &1.id)
+
+          # Quote reprints are mostly someone else's post; only feature them if pinned.
+          public
+          |> where([e], e.id not in ^taken)
+          |> where([e], is_nil(e.quoted_entry_id) and is_nil(e.quoted_remote_entry_id))
+          |> order_by([e], desc: e.published_at, desc: e.inserted_at)
+          |> limit(^n)
+          |> Repo.all()
+
+        _ ->
+          []
+      end
+
+    Enum.take(pinned ++ recent, @featured_limit)
   end
 
   # ── Guestbook post (AP Note for fediverse guestbook signing) ───────────

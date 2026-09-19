@@ -654,6 +654,8 @@ function decodeEntities(text: string): string {
 
 function getEntryHref(n: Notification): string | null {
   if (n.entry) return `/${n.entry.user.username}/${n.entry.slug}`;
+  // A fediverse post you commented on, read on Inkwell's own page for it.
+  if (n.target_type === "remote_entry" && n.target_id) return `/fediverse/${n.target_id}`;
   return null;
 }
 
@@ -1062,7 +1064,10 @@ export function NotificationList({
     }
     const href = getNotificationHref(n);
     if (href) {
-      if (n.remote_actor && !n.actor) {
+      // Only links off Inkwell (a remote profile or post) open a new tab. A
+      // fediverse reply used to open the replier's profile there instead of
+      // the conversation on Inkwell.
+      if (/^https?:\/\//.test(href)) {
         window.open(href, "_blank", "noopener,noreferrer");
       } else {
         router.push(href);
