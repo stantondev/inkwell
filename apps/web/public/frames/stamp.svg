@@ -1,45 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <!-- Postage Stamp: circular perforated edge like a vintage round stamp -->
-  <!-- Perforated outer edge — 24 scallops around the circle -->
-  <path d="M60 2 A3 3 0 0 1 60 8 A3 3 0 0 1 60 2" fill="none"/>
-  <!-- Generate scalloped circle using 24 arcs -->
-  <path d="
-    M60 1 Q67 2, 72 5 A3 3 0 0 1 74 11 Q79 14, 83 19 A3 3 0 0 1 83 25
-    Q87 30, 89 36 A3 3 0 0 1 87 42 Q89 48, 89 54 A3 3 0 0 1 86 60
-    Q89 66, 89 72 A3 3 0 0 1 87 78 Q86 84, 83 89 A3 3 0 0 1 79 93
-    Q76 97, 72 100 A3 3 0 0 1 67 103 Q63 105, 60 105 A3 3 0 0 1 56 103
-    Q52 102, 48 100 A3 3 0 0 1 44 96 Q40 93, 37 89 A3 3 0 0 1 33 84
-    Q31 80, 31 75 A3 3 0 0 1 33 69 Q31 64, 31 60 A3 3 0 0 1 33 54
-    Q31 48, 33 42 A3 3 0 0 1 36 36 Q38 31, 41 27 A3 3 0 0 1 46 23
-    Q50 18, 54 14 A3 3 0 0 1 60 11 Q63 6, 60 1Z"
-    stroke="#7a6348" stroke-width="1.5" fill="none" opacity="0.0"/>
-  <!-- Cleaner approach: concentric circles with perforated dots -->
-  <!-- Outer ring -->
-  <circle cx="60" cy="60" r="57" stroke="#7a6348" stroke-width="1.5" opacity="0.6"/>
-  <!-- Perforation dots around the outer edge — 28 evenly spaced -->
-  <g fill="none" stroke="#7a6348" stroke-width="0.8" opacity="0.5">
-    <circle cx="60" cy="1" r="2.2"/><circle cx="73" cy="3" r="2.2"/>
-    <circle cx="85" cy="8" r="2.2"/><circle cx="95" cy="17" r="2.2"/>
-    <circle cx="103" cy="28" r="2.2"/><circle cx="108" cy="40" r="2.2"/>
-    <circle cx="110" cy="53" r="2.2"/><circle cx="110" cy="67" r="2.2"/>
-    <circle cx="108" cy="80" r="2.2"/><circle cx="103" cy="92" r="2.2"/>
-    <circle cx="95" cy="103" r="2.2"/><circle cx="85" cy="112" r="2.2"/>
-    <circle cx="73" cy="117" r="2.2"/><circle cx="60" cy="119" r="2.2"/>
-    <circle cx="47" cy="117" r="2.2"/><circle cx="35" cy="112" r="2.2"/>
-    <circle cx="25" cy="103" r="2.2"/><circle cx="17" cy="92" r="2.2"/>
-    <circle cx="12" cy="80" r="2.2"/><circle cx="10" cy="67" r="2.2"/>
-    <circle cx="10" cy="53" r="2.2"/><circle cx="12" cy="40" r="2.2"/>
-    <circle cx="17" cy="28" r="2.2"/><circle cx="25" cy="17" r="2.2"/>
-    <circle cx="35" cy="8" r="2.2"/><circle cx="47" cy="3" r="2.2"/>
-  </g>
-  <!-- Inner decorative border -->
-  <circle cx="60" cy="60" r="51" stroke="#7a6348" stroke-width="0.8" opacity="0.4"/>
-  <!-- Denomination corner — vintage stamp detail -->
-  <text x="92" y="108" font-family="Georgia, serif" font-size="8" fill="#7a6348" opacity="0.35" font-style="italic">ink</text>
-  <!-- Tiny postmark cancellation lines -->
-  <g stroke="#7a6348" stroke-width="0.4" opacity="0.15">
-    <line x1="4" y1="14" x2="20" y2="8"/>
-    <line x1="4" y1="18" x2="22" y2="12"/>
-    <line x1="4" y1="22" x2="18" y2="16"/>
-  </g>
+<title>Postage</title>
+<defs>
+  <path id="arcTop" d="M12.73 42.8A50.3 50.3 0 0 1 107.27 42.8"/>
+  <path id="arcBot" d="M16.34 90.57A53.3 53.3 0 0 0 103.66 90.57"/>
+  <clipPath id="outside"><path d="M0 0H120V120H0Z M15 60a45 45 0 1 0 90 0a45 45 0 1 0 -90 0Z" clip-rule="evenodd"/></clipPath>
+</defs>
+<path d="M2 2L3.97 2A1.9 1.9 0 0 0 7.77 2L11.7 2A1.9 1.9 0 0 0 15.5 2L19.43 2A1.9 1.9 0 0 0 23.23 2L27.17 2A1.9 1.9 0 0 0 30.97 2L34.9 2A1.9 1.9 0 0 0 38.7 2L42.63 2A1.9 1.9 0 0 0 46.43 2L50.37 2A1.9 1.9 0 0 0 54.17 2L58.1 2A1.9 1.9 0 0 0 61.9 2L65.83 2A1.9 1.9 0 0 0 69.63 2L73.57 2A1.9 1.9 0 0 0 77.37 2L81.3 2A1.9 1.9 0 0 0 85.1 2L89.03 2A1.9 1.9 0 0 0 92.83 2L96.77 2A1.9 1.9 0 0 0 100.57 2L104.5 2A1.9 1.9 0 0 0 108.3 2L112.23 2A1.9 1.9 0 0 0 116.03 2L118 2L118 3.97A1.9 1.9 0 0 0 118 7.77L118 11.7A1.9 1.9 0 0 0 118 15.5L118 19.43A1.9 1.9 0 0 0 118 23.23L118 27.17A1.9 1.9 0 0 0 118 30.97L118 34.9A1.9 1.9 0 0 0 118 38.7L118 42.63A1.9 1.9 0 0 0 118 46.43L118 50.37A1.9 1.9 0 0 0 118 54.17L118 58.1A1.9 1.9 0 0 0 118 61.9L118 65.83A1.9 1.9 0 0 0 118 69.63L118 73.57A1.9 1.9 0 0 0 118 77.37L118 81.3A1.9 1.9 0 0 0 118 85.1L118 89.03A1.9 1.9 0 0 0 118 92.83L118 96.77A1.9 1.9 0 0 0 118 100.57L118 104.5A1.9 1.9 0 0 0 118 108.3L118 112.23A1.9 1.9 0 0 0 118 116.03L118 118L116.03 118A1.9 1.9 0 0 0 112.23 118L108.3 118A1.9 1.9 0 0 0 104.5 118L100.57 118A1.9 1.9 0 0 0 96.77 118L92.83 118A1.9 1.9 0 0 0 89.03 118L85.1 118A1.9 1.9 0 0 0 81.3 118L77.37 118A1.9 1.9 0 0 0 73.57 118L69.63 118A1.9 1.9 0 0 0 65.83 118L61.9 118A1.9 1.9 0 0 0 58.1 118L54.17 118A1.9 1.9 0 0 0 50.37 118L46.43 118A1.9 1.9 0 0 0 42.63 118L38.7 118A1.9 1.9 0 0 0 34.9 118L30.97 118A1.9 1.9 0 0 0 27.17 118L23.23 118A1.9 1.9 0 0 0 19.43 118L15.5 118A1.9 1.9 0 0 0 11.7 118L7.77 118A1.9 1.9 0 0 0 3.97 118L2 118L2 116.03A1.9 1.9 0 0 0 2 112.23L2 108.3A1.9 1.9 0 0 0 2 104.5L2 100.57A1.9 1.9 0 0 0 2 96.77L2 92.83A1.9 1.9 0 0 0 2 89.03L2 85.1A1.9 1.9 0 0 0 2 81.3L2 77.37A1.9 1.9 0 0 0 2 73.57L2 69.63A1.9 1.9 0 0 0 2 65.83L2 61.9A1.9 1.9 0 0 0 2 58.1L2 54.17A1.9 1.9 0 0 0 2 50.37L2 46.43A1.9 1.9 0 0 0 2 42.63L2 38.7A1.9 1.9 0 0 0 2 34.9L2 30.97A1.9 1.9 0 0 0 2 27.17L2 23.23A1.9 1.9 0 0 0 2 19.43L2 15.5A1.9 1.9 0 0 0 2 11.7L2 7.77A1.9 1.9 0 0 0 2 3.97L2 2Z M15 60a45 45 0 1 0 90 0a45 45 0 1 0 -90 0Z" fill="#fbf6e9" fill-rule="evenodd" stroke="#d8ccb2" stroke-width="0.5"/>
+<path d="M7.5 7.5H112.5V112.5H7.5Z M15 60a45 45 0 1 0 90 0a45 45 0 1 0 -90 0Z" fill="#2d4a8a" fill-rule="evenodd"/>
+<rect x="9.3" y="9.3" width="101.4" height="101.4" stroke="#f4ecdb" stroke-width="0.5" opacity="0.7"/>
+<circle cx="60" cy="60" r="45.7" stroke="#f4ecdb" stroke-width="1.1"/>
+<g font-family="Georgia, 'Times New Roman', serif" fill="#f4ecdb" font-weight="bold">
+  <text font-size="5.4" letter-spacing="1.6" text-anchor="middle"><textPath href="#arcTop" startOffset="50%">INKWELL</textPath></text>
+  <text x="105.6" y="108" font-size="10" text-anchor="middle" font-style="italic">5</text>
+  <text x="14.4" y="17.8" font-size="10" text-anchor="middle" font-style="italic">5</text>
+</g>
+<g clip-path="url(#outside)" stroke="#1a1a1a" stroke-width="1" opacity="0.55" fill="none">
+  <path d="M-2 96q3.5 -2.6 7 0t7 0t7 0t7 0t7 0M-2 100.2q3.5 -2.6 7 0t7 0t7 0t7 0t7 0M-2 104.4q3.5 -2.6 7 0t7 0t7 0t7 0t7 0M-2 108.6q3.5 -2.6 7 0t7 0t7 0t7 0t7 0"/>
+</g>
 </svg>

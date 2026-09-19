@@ -486,7 +486,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                   <AvatarWithFrame
                     url={user.avatar_url}
                     name={user.display_name}
-                    size={28}
+                    size={36}
                     frame={f.id === "none" ? null : f.id}
                     subscriptionTier="plus"
                   />

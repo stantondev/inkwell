@@ -1,51 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <!-- Constellation: stars connected by delicate lines forming a celestial ring -->
-  <!-- Soft background glow ring -->
-  <circle cx="60" cy="60" r="55" stroke="#6b8cba" stroke-width="0.5" opacity="0.15"/>
-  <!-- Major constellation stars — 4-point star shapes -->
-  <g opacity="0.85">
-    <!-- Star top -->
-    <path d="M60 2 L61.5 6 L64 4 L61.5 7 L66 8 L61.5 9 L64 12 L60 9 L56 12 L58.5 9 L54 8 L58.5 7 L56 4 L58.5 6Z" fill="#b8d4f0"/>
-    <!-- Star top-right -->
-    <path d="M96 16 L97 19.5 L99 18 L97 20.5 L101 21 L97 22 L99 24 L96 22 L93 24 L95 22 L91 21 L95 20.5 L93 18 L95 19.5Z" fill="#b8d4f0"/>
-    <!-- Star right -->
-    <path d="M114 58 L115 61.5 L118 60 L115 62 L118 64 L115 63 L116 66 L114 63 L112 66 L113 63 L110 64 L113 62 L110 60 L113 61.5Z" fill="#b8d4f0"/>
-    <!-- Star bottom-right -->
-    <path d="M98 100 L99 103 L102 102 L99 104 L102 106 L99 105 L100 108 L98 105 L96 108 L97 105 L94 106 L97 104 L94 102 L97 103Z" fill="#b8d4f0"/>
-    <!-- Star bottom -->
-    <path d="M60 114 L61.5 110 L64 112 L61.5 109 L66 108 L61.5 107 L64 104 L60 107 L56 104 L58.5 107 L54 108 L58.5 109 L56 112 L58.5 110Z" fill="#b8d4f0"/>
-    <!-- Star bottom-left -->
-    <path d="M22 100 L23 103 L20 102 L23 104 L18 106 L23 105 L22 108 L24 105 L26 108 L25 105 L28 106 L25 104 L28 102 L25 103Z" fill="#b8d4f0"/>
-    <!-- Star left -->
-    <path d="M6 58 L7 61.5 L4 60 L7 62 L2 64 L7 63 L6 66 L8 63 L10 66 L9 63 L12 64 L9 62 L12 60 L9 61.5Z" fill="#b8d4f0"/>
-    <!-- Star top-left -->
-    <path d="M24 16 L25 19.5 L22 18 L25 20.5 L20 21 L25 22 L22 24 L24 22 L27 24 L26 22 L29 21 L26 20.5 L28 18 L26 19.5Z" fill="#b8d4f0"/>
-  </g>
-  <!-- Constellation connecting lines -->
-  <g stroke="#8ab0d6" stroke-width="0.6" opacity="0.45">
-    <line x1="60" y1="6" x2="96" y2="18"/>
-    <line x1="96" y1="18" x2="114" y2="60"/>
-    <line x1="114" y1="60" x2="98" y2="102"/>
-    <line x1="98" y1="102" x2="60" y2="112"/>
-    <line x1="60" y1="112" x2="22" y2="102"/>
-    <line x1="22" y1="102" x2="6" y2="60"/>
-    <line x1="6" y1="60" x2="24" y2="18"/>
-    <line x1="24" y1="18" x2="60" y2="6"/>
-    <!-- Cross-connections for depth -->
-    <line x1="60" y1="6" x2="114" y2="60" opacity="0.2"/>
-    <line x1="6" y1="60" x2="60" y2="112" opacity="0.2"/>
-    <line x1="24" y1="18" x2="98" y2="102" opacity="0.15"/>
-  </g>
-  <!-- Small twinkle dots scattered in the ring -->
-  <circle cx="78" cy="7" r="1" fill="#d0e4f8" opacity="0.7"/>
-  <circle cx="108" cy="38" r="1.2" fill="#d0e4f8" opacity="0.6"/>
-  <circle cx="110" cy="82" r="1" fill="#d0e4f8" opacity="0.5"/>
-  <circle cx="80" cy="112" r="1.2" fill="#d0e4f8" opacity="0.6"/>
-  <circle cx="40" cy="112" r="1" fill="#d0e4f8" opacity="0.5"/>
-  <circle cx="10" cy="82" r="1.2" fill="#d0e4f8" opacity="0.6"/>
-  <circle cx="12" cy="38" r="1" fill="#d0e4f8" opacity="0.5"/>
-  <circle cx="42" cy="7" r="1.2" fill="#d0e4f8" opacity="0.7"/>
-  <!-- Shooting star accent -->
-  <line x1="86" y1="6" x2="92" y2="10" stroke="#d0e4f8" stroke-width="0.8" opacity="0.5" stroke-linecap="round"/>
-  <line x1="92" y1="10" x2="93" y2="11" stroke="#d0e4f8" stroke-width="0.4" opacity="0.3" stroke-linecap="round"/>
+<title>Constellation</title>
+<defs>
+  <radialGradient id="night" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0.75" stop-color="#1f2f63"/>
+    <stop offset="1" stop-color="#0d1633"/>
+  </radialGradient>
+</defs>
+<path d="M2.799999999999997 60a57.2 57.2 0 1 0 114.4 0a57.2 57.2 0 1 0 -114.4 0Z M15 60a45 45 0 1 0 90 0a45 45 0 1 0 -90 0Z" fill="url(#night)" fill-rule="evenodd"/>
+<circle cx="60" cy="60" r="45.8" stroke="#d8b766" stroke-width="1"/>
+<circle cx="60" cy="60" r="57.2" stroke="#d8b766" stroke-width="1.1"/>
+<g fill="#e8eeff"><circle cx="102.29" cy="86.14" r="0.37" opacity="0.66"/><circle cx="14.61" cy="75.61" r="0.7" opacity="0.93"/><circle cx="93.43" cy="15.88" r="0.49" opacity="0.92"/><circle cx="104.05" cy="88.25" r="0.7" opacity="0.97"/><circle cx="102.13" cy="24.91" r="0.35" opacity="0.75"/><circle cx="106.62" cy="42.59" r="0.35" opacity="0.91"/><circle cx="107.66" cy="79.11" r="0.7" opacity="0.75"/><circle cx="90.51" cy="15.31" r="0.41" opacity="0.77"/><circle cx="47.24" cy="8.46" r="0.6" opacity="0.7"/><circle cx="77.42" cy="105.31" r="0.34" opacity="0.87"/><circle cx="77.61" cy="10.74" r="0.36" opacity="0.6"/><circle cx="51.62" cy="107.21" r="0.56" opacity="0.98"/><circle cx="94.02" cy="24.36" r="0.4" opacity="0.62"/><circle cx="108.4" cy="53.88" r="0.7" opacity="0.96"/><circle cx="10.79" cy="82.05" r="0.39" opacity="0.52"/><circle cx="98.24" cy="94.74" r="0.48" opacity="0.83"/><circle cx="72.92" cy="109.88" r="0.51" opacity="0.94"/><circle cx="42.4" cy="8.94" r="0.42" opacity="0.53"/><circle cx="12.76" cy="47.93" r="0.6" opacity="0.68"/><circle cx="11.57" cy="82.69" r="0.7" opacity="0.49"/><circle cx="113.59" cy="52.8" r="0.35" opacity="0.66"/><circle cx="10.15" cy="63.17" r="0.57" opacity="0.56"/><circle cx="10.69" cy="50.58" r="0.42" opacity="0.46"/><circle cx="24.72" cy="99.18" r="0.38" opacity="0.78"/><circle cx="9.77" cy="42.7" r="0.37" opacity="0.66"/><circle cx="106.91" cy="40.05" r="0.58" opacity="0.97"/><circle cx="106.44" cy="36.28" r="0.7" opacity="0.59"/><circle cx="8.09" cy="59.28" r="0.59" opacity="0.84"/><circle cx="40.5" cy="110.36" r="0.51" opacity="0.48"/><circle cx="11.24" cy="72.68" r="0.59" opacity="0.47"/><circle cx="42.87" cy="109.28" r="0.5" opacity="0.71"/><circle cx="51.02" cy="11.08" r="0.31" opacity="0.91"/><circle cx="103.96" cy="29.76" r="0.46" opacity="1"/><circle cx="19.95" cy="21.91" r="0.32" opacity="0.75"/><circle cx="60.16" cy="112.48" r="0.31" opacity="0.97"/><circle cx="29.22" cy="100.92" r="0.47" opacity="0.47"/><circle cx="16.95" cy="32.84" r="0.7" opacity="0.53"/><circle cx="58.04" cy="108.58" r="0.47" opacity="0.69"/><circle cx="32.97" cy="11.86" r="0.41" opacity="0.84"/><circle cx="103.05" cy="34.72" r="0.47" opacity="0.81"/><circle cx="14.76" cy="31.46" r="0.34" opacity="0.58"/><circle cx="33.36" cy="100.63" r="0.53" opacity="0.8"/><circle cx="46" cy="112.25" r="0.43" opacity="0.64"/><circle cx="7.21" cy="52.26" r="0.51" opacity="0.6"/><circle cx="112.25" cy="46.77" r="0.56" opacity="0.54"/><circle cx="8.01" cy="54.61" r="0.3" opacity="0.69"/><circle cx="82.71" cy="17.49" r="0.42" opacity="0.99"/><circle cx="18.24" cy="27.53" r="0.7" opacity="0.72"/><circle cx="107.02" cy="37.47" r="0.7" opacity="0.53"/><circle cx="112.9" cy="49.13" r="0.34" opacity="0.57"/><circle cx="96.67" cy="20.67" r="0.56" opacity="0.5"/><circle cx="107.99" cy="37.6" r="0.47" opacity="0.94"/><circle cx="62.32" cy="6.46" r="0.54" opacity="0.58"/><circle cx="17.44" cy="30.83" r="0.35" opacity="0.68"/><circle cx="73.21" cy="12.96" r="0.37" opacity="0.58"/><circle cx="79.34" cy="15.53" r="0.42" opacity="0.69"/><circle cx="98.46" cy="89.94" r="0.38" opacity="0.7"/><circle cx="25.53" cy="99.34" r="0.39" opacity="0.58"/><circle cx="64.54" cy="5.09" r="0.7" opacity="0.92"/><circle cx="42.69" cy="106.05" r="0.58" opacity="0.89"/><circle cx="108.86" cy="75.68" r="0.43" opacity="0.94"/><circle cx="43.23" cy="14.91" r="0.7" opacity="0.85"/><circle cx="57.22" cy="109.83" r="0.51" opacity="0.48"/><circle cx="83.07" cy="108.87" r="0.52" opacity="0.55"/><circle cx="110.41" cy="54.14" r="0.43" opacity="0.73"/><circle cx="77.67" cy="110.22" r="0.7" opacity="0.73"/><circle cx="112.78" cy="57.84" r="0.42" opacity="0.93"/><circle cx="53" cy="111.77" r="0.59" opacity="0.81"/><circle cx="112.72" cy="59.77" r="0.36" opacity="0.87"/><circle cx="103.9" cy="87.82" r="0.7" opacity="0.84"/></g>
+<g stroke="#b9c8f5" stroke-width="0.45" opacity="0.7">
+  <path d="M70.71 9.63L84.98 13.03L94.24 23.29L105.55 33.7L109.29 47.71L113.27 56.28"/><path d="M14.53 86.25L11.55 73.89L7.13 63.7L9.77 51.14"/>
+</g>
+<g fill="#fff6dc">
+  <circle cx="70.71" cy="9.63" r="0.95"/><circle cx="84.98" cy="13.03" r="0.95"/><circle cx="94.24" cy="23.29" r="0.95"/><circle cx="105.55" cy="33.7" r="0.95"/><circle cx="109.29" cy="47.71" r="0.95"/><circle cx="113.27" cy="56.28" r="0.95"/>
+  <circle cx="14.53" cy="86.25" r="0.85"/><circle cx="11.55" cy="73.89" r="0.85"/><circle cx="7.13" cy="63.7" r="0.85"/><circle cx="9.77" cy="51.14" r="0.85"/>
+  <path d="M35.82 11.33Q35.82 14.53 39.02 14.53Q35.82 14.53 35.82 17.73Q35.82 14.53 32.62 14.53Q35.82 14.53 35.82 11.33Z"/><path d="M103.99 82.8Q103.99 85.4 106.59 85.4Q103.99 85.4 103.99 88Q103.99 85.4 101.39 85.4Q103.99 85.4 103.99 82.8Z"/><path d="M32.44 13.7Q32.44 15.9 34.64 15.9Q32.44 15.9 32.44 18.1Q32.44 15.9 30.24 15.9Q32.44 15.9 32.44 13.7Z"/><path d="M76.01 107.46Q76.01 109.26 77.81 109.26Q76.01 109.26 76.01 111.06Q76.01 109.26 74.21 109.26Q76.01 109.26 76.01 107.46Z"/>
+</g>
+<g transform="translate(35.92 105.3) rotate(-35)">
+  <path d="M-2.6 -2.6A3.7 3.7 0 1 0 2.6 2.6A2.9 2.9 0 1 1 -2.6 -2.6Z" fill="#f3dc9a"/>
+</g>
 </svg>
