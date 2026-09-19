@@ -7,6 +7,7 @@ defmodule Inkwell.Feedback.FeedbackComment do
 
   schema "feedback_comments" do
     field :body, :string
+    field :edited_at, :utc_datetime_usec
 
     belongs_to :user, Inkwell.Accounts.User
     belongs_to :feedback_post, Inkwell.Feedback.FeedbackPost
@@ -19,5 +20,13 @@ defmodule Inkwell.Feedback.FeedbackComment do
     |> cast(attrs, [:body, :user_id, :feedback_post_id])
     |> validate_required([:body, :user_id, :feedback_post_id])
     |> validate_length(:body, min: 1, max: 6000)
+  end
+
+  def edit_changeset(comment, attrs) do
+    comment
+    |> cast(attrs, [:body])
+    |> validate_required([:body])
+    |> validate_length(:body, min: 1, max: 6000)
+    |> put_change(:edited_at, DateTime.utc_now())
   end
 end

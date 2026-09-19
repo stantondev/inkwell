@@ -13,6 +13,15 @@ defmodule Inkwell.Federation.ActivityDelivery do
   Returns :ok on success or {:error, reason} on failure.
   """
   def deliver(activity, inbox_url, private_key_pem, key_id) do
+    if Application.get_env(:inkwell, :deliver_federation, true) do
+      send_activity(activity, inbox_url, private_key_pem, key_id)
+    else
+      Logger.info("Federation delivery is off here; not sending #{activity["type"]} to #{inbox_url}")
+      :ok
+    end
+  end
+
+  defp send_activity(activity, inbox_url, private_key_pem, key_id) do
     body = Jason.encode!(activity)
 
     Logger.info("Delivering activity to #{inbox_url}")

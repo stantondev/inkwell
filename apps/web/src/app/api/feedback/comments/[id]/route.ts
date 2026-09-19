@@ -19,3 +19,30 @@ export async function DELETE(
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const token = await getToken();
+  if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+
+  try {
+    const body = await request.json();
+    const res = await fetch(`${SERVER_API}/api/feedback/comments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const text = await res.text();
+    try {
+      return NextResponse.json(JSON.parse(text), { status: res.status });
+    } catch {
+      return NextResponse.json({ error: "Server error" }, { status: res.ok ? 500 : res.status });
+    }
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}

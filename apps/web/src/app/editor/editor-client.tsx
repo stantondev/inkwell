@@ -60,6 +60,38 @@ interface EditorState {
   seriesId: string | null;
   sensitive: boolean;
   contentWarning: string;
+  /** Entry date as a datetime-local value (local time), or "" for none. */
+  publishedAt: string;
+}
+
+// <input type="datetime-local"> works in the writer's local time, to the minute.
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isFutureDate(value: string): boolean {
+  return !!value && new Date(value).getTime() > Date.now() + 60_000;
+}
+
+// The date is only sent when the writer changed it: the input drops seconds, so
+// re-sending an untouched date (like an imported post's original one) would nudge
+// it. A future date is never sent; publishing is blocked with a message instead.
+function datePayload(value: string, loaded: string, isDraft: boolean): { published_at?: string | null } {
+  if (value === loaded || isFutureDate(value)) return {};
+  if (!value) return isDraft ? { published_at: null } : {};
+  return { published_at: new Date(value).toISOString() };
+}
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const e = err as { error?: string; errors?: Record<string, string[]> };
+  if (e?.error) return e.error;
+  const first = e?.errors ? Object.entries(e.errors)[0] : undefined;
+  if (first) return `${first[0] === "published_at" ? "Date" : first[0].replace(/_/g, " ")} ${first[1]?.[0] ?? "is invalid"}`;
+  return fallback;
 }
 
 const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
@@ -1500,8 +1532,10 @@ export function EditorClient() {
   const promptParam = searchParams.get("prompt");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "",
+    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
   });
+  // The entry's date as loaded, so saves only send it when the writer changes it.
+  const [loadedPublishedAt, setLoadedPublishedAt] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatusType>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -2015,7 +2049,9 @@ export function EditorClient() {
           seriesId: entry.series_id ?? null,
           sensitive: entry.sensitive ?? false,
           contentWarning: entry.content_warning ?? "",
+          publishedAt: toLocalInput(entry.published_at),
         });
+        setLoadedPublishedAt(toLocalInput(entry.published_at));
         setCoverImageId(entry.cover_image_id ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
 
@@ -2154,6 +2190,7 @@ export function EditorClient() {
         series_id: state.seriesId || null,
         sensitive: state.sensitive,
         content_warning: state.sensitive ? (state.contentWarning || null) : null,
+        ...datePayload(state.publishedAt, loadedPublishedAt, isDraft),
       };
 
       if (savedEntryId) {
@@ -2205,7 +2242,7 @@ export function EditorClient() {
       autosavingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, state, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, state, loadedPublishedAt, isDraft, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
 
   const scheduleAutosave = useCallback(() => {
     if (autosaveDisabled.current) return;
@@ -2385,6 +2422,7 @@ export function EditorClient() {
       series_id: state.seriesId || null,
       sensitive: state.sensitive,
       content_warning: state.sensitive ? (state.contentWarning || null) : null,
+      ...datePayload(state.publishedAt, loadedPublishedAt, isDraft),
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
@@ -2399,7 +2437,7 @@ export function EditorClient() {
       payload.crosspost_to = Array.from(crosspostTo);
     }
     return payload;
-  }, [state, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
+  }, [state, loadedPublishedAt, isDraft, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -2458,6 +2496,10 @@ export function EditorClient() {
   // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
     if (!editor || isPublishing) return;
+    if (isFutureDate(state.publishedAt)) {
+      alert("That date is in the future. Inkwell can't schedule posts yet, so pick today or an earlier date in Entry Settings.");
+      return;
+    }
     setIsPublishing(true);
     try {
       let data;
@@ -2471,7 +2513,7 @@ export function EditorClient() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error ?? "Publish failed");
+          throw new Error(apiErrorMessage(err, "Publish failed"));
         }
         data = await res.json();
       } else if (savedEntryId) {
@@ -2483,7 +2525,7 @@ export function EditorClient() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error ?? "Save failed");
+          throw new Error(apiErrorMessage(err, "Save failed"));
         }
         data = await res.json();
       } else {
@@ -2495,7 +2537,7 @@ export function EditorClient() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error((err as { error?: string }).error ?? "Publish failed");
+          throw new Error(apiErrorMessage(err, "Publish failed"));
         }
         data = await res.json();
       }
@@ -2550,7 +2592,7 @@ export function EditorClient() {
     } finally {
       setIsPublishing(false);
     }
-  }, [editor, isPublishing, isDraft, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, isPublishing, isDraft, state.publishedAt, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
   if (loading) {
     return (
@@ -2560,7 +2602,9 @@ export function EditorClient() {
     );
   }
 
-  const today = new Date().toLocaleDateString("en-US", {
+  // The page's date line shows the entry's date when one is set, else today.
+  const entryDate = state.publishedAt && !isFutureDate(state.publishedAt) ? new Date(state.publishedAt) : new Date();
+  const today = entryDate.toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
@@ -2640,7 +2684,9 @@ export function EditorClient() {
             <RecoveryBanner
               onRestore={() => {
                 const d = recoveryData;
-                setState({
+                setState((s) => ({
+                  // Recovery data doesn't include the date, so keep the loaded one.
+                  publishedAt: s.publishedAt,
                   title: d.title,
                   mood: d.mood,
                   music: d.music,
@@ -2652,7 +2698,7 @@ export function EditorClient() {
                   seriesId: d.seriesId,
                   sensitive: d.sensitive,
                   contentWarning: d.contentWarning,
-                });
+                }));
                 setCoverImageId(d.coverImageId);
                 if (d.htmlMode) {
                   setHtmlMode(true);
@@ -3046,6 +3092,41 @@ export function EditorClient() {
                       </select>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Date */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  Date
+                </div>
+                <input type="datetime-local" value={state.publishedAt}
+                  max={toLocalInput(new Date().toISOString())}
+                  onChange={(e) => update({ publishedAt: e.target.value })}
+                  aria-label="Entry date"
+                  className="editor-settings-input" />
+                {isFutureDate(state.publishedAt) ? (
+                  <span className="editor-settings-hint" style={{ color: "var(--danger)" }}>
+                    That&apos;s in the future. Scheduled posts aren&apos;t available yet, so pick today or earlier.
+                  </span>
+                ) : (
+                  <span className="editor-settings-hint">
+                    {!state.publishedAt
+                      ? "Leave empty to use the date you publish."
+                      : isDraft
+                        ? "This entry will be published with this date."
+                        : "Changing it moves the entry to that date on your profile and in feeds."}
+                  </span>
+                )}
+                {isDraft && state.publishedAt && (
+                  <button type="button" onClick={() => update({ publishedAt: "" })}
+                    className="editor-settings-hint"
+                    style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline" }}>
+                    Clear date
+                  </button>
                 )}
               </div>
 

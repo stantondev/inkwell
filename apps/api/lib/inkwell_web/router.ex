@@ -347,6 +347,7 @@ defmodule InkwellWeb.Router do
     post "/feedback/:id/vote", FeedbackController, :vote
     delete "/feedback/:id/vote", FeedbackController, :unvote
     post "/feedback/:id/comments", FeedbackController, :create_comment
+    patch "/feedback/comments/:comment_id", FeedbackController, :update_comment
     delete "/feedback/comments/:comment_id", FeedbackController, :delete_comment
 
     # Billing (authenticated)

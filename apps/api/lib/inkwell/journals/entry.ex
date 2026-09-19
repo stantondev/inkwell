@@ -81,10 +81,19 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
     |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
+    |> validate_edited_date_not_future(entry)
     |> generate_slug()
     |> generate_ap_id()
     |> set_published_at()
   end
+
+  # Writers can change a published entry's date from the editor. Only edits are
+  # checked: imports create entries through this changeset too, and a WordPress
+  # export can hold a post scheduled for later.
+  defp validate_edited_date_not_future(changeset, %__MODULE__{id: id}) when not is_nil(id),
+    do: validate_not_future(changeset, :published_at)
+
+  defp validate_edited_date_not_future(changeset, _entry), do: changeset
 
   @doc "Changeset for creating/updating drafts — relaxed validation."
   def draft_changeset(entry, attrs) do

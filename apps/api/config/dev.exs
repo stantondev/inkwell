@@ -31,6 +31,11 @@ config :inkwell, :federation,
   instance_host: "localhost:4000",
   frontend_host: "http://localhost:3000"
 
+# Local databases are often copies of production, with real fediverse
+# followers. Don't send them anything from here. Set to true to test delivery
+# against a server you control.
+config :inkwell, :deliver_federation, false
+
 # Web Push (VAPID keys for local dev)
 # Generate your own: mix run -e "IO.inspect(WebPushEncryption.generate_vapid_key())"
 # Then set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables, or

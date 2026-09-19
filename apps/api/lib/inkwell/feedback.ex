@@ -193,6 +193,12 @@ defmodule Inkwell.Feedback do
     end
   end
 
+  def update_comment(%FeedbackComment{} = comment, attrs) do
+    comment
+    |> FeedbackComment.edit_changeset(attrs)
+    |> Repo.update()
+  end
+
   def delete_comment(%FeedbackComment{} = comment) do
     post_id = comment.feedback_post_id
     result = Repo.delete(comment)

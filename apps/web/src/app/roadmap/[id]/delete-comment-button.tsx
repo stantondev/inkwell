@@ -29,7 +29,7 @@ export function DeleteCommentButtonClient({ commentId }: { commentId: string }) 
     <button
       onClick={handleDelete}
       disabled={deleting}
-      className="ml-auto text-xs transition-colors hover:underline"
+      className="text-xs transition-colors hover:underline"
       style={{ color: "var(--muted)", opacity: deleting ? 0.5 : 1 }}
     >
       {deleting ? "..." : "Delete"}

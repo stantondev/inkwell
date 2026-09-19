@@ -8,7 +8,7 @@ import { StatusBadge, CategoryBadge, ScoreBadge } from "../badges";
 import { UpvoteButton } from "../upvote-button";
 import { AdminStatusForm } from "./admin-status-form";
 import { FeedbackCommentForm } from "./feedback-comment-form";
-import { DeleteCommentButtonClient } from "./delete-comment-button";
+import { FeedbackCommentItem, type FeedbackComment } from "./feedback-comment-item";
 import { EditPostForm } from "./edit-post-form";
 
 interface FeedbackPost {
@@ -36,18 +36,6 @@ interface FeedbackPost {
   created_at: string;
   updated_at: string;
   comments: FeedbackComment[];
-}
-
-interface FeedbackComment {
-  id: string;
-  body: string;
-  author: {
-    id: string | null;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-  created_at: string;
 }
 
 function formatDate(isoString: string): string {
@@ -284,14 +272,31 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
             Comments ({post.comments?.length ?? 0})
           </h2>
 
-          {/* Comment form */}
-          {isLoggedIn ? (
-            <div className="mb-6">
-              <FeedbackCommentForm postId={post.id} />
+          {/* Comments list */}
+          {post.comments && post.comments.length > 0 ? (
+            <div className="flex flex-col gap-3 mb-6">
+              {post.comments.map((comment) => (
+                <FeedbackCommentItem
+                  key={comment.id}
+                  comment={comment}
+                  when={timeAgo(comment.created_at)}
+                  canEdit={!!session && comment.author.id === session.user.id}
+                  canDelete={!!session && (comment.author.id === session.user.id || isAdmin)}
+                />
+              ))}
             </div>
           ) : (
+            <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+              No comments yet. Be the first to share your thoughts.
+            </p>
+          )}
+
+          {/* Comment form, below the comments, where the new one will appear */}
+          {isLoggedIn ? (
+            <FeedbackCommentForm postId={post.id} />
+          ) : (
             <div
-              className="rounded-xl border p-4 mb-6 text-center"
+              className="rounded-xl border p-4 text-center"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             >
               <p className="text-sm" style={{ color: "var(--muted)" }}>
@@ -301,57 +306,6 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
                 to leave a comment.
               </p>
             </div>
-          )}
-
-          {/* Comments list */}
-          {post.comments && post.comments.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {post.comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="rounded-xl border p-4"
-                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Avatar
-                      url={comment.author.avatar_url}
-                      name={comment.author.display_name}
-                      size={24}
-                    />
-                    <span className="text-xs font-medium">
-                      {comment.author.username !== "[deleted]" ? (
-                        <Link href={`/${comment.author.username}`} className="hover:underline">
-                          @{comment.author.username}
-                        </Link>
-                      ) : (
-                        <span>@{comment.author.username}</span>
-                      )}
-                    </span>
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {timeAgo(comment.created_at)}
-                    </span>
-                    {/* Delete button for own comments or admin */}
-                    {(comment.author.id === session?.user.id || isAdmin) && (
-                      <DeleteCommentButtonClient commentId={comment.id} />
-                    )}
-                  </div>
-                  {comment.body.startsWith("<p>") ? (
-                    <div
-                      className="text-sm leading-relaxed prose-mentions"
-                      dangerouslySetInnerHTML={{ __html: comment.body }}
-                    />
-                  ) : (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {comment.body}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>
-              No comments yet. Be the first to share your thoughts.
-            </p>
           )}
         </div>
       </div>

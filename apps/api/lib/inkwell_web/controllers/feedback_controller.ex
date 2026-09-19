@@ -296,6 +296,12 @@ defmodule InkwellWeb.FeedbackController do
 
   # POST /api/feedback/:id/comments — add comment (auth required)
   def create_comment(conn, %{"id" => id} = params) do
+    if blank_body?(params["body"]),
+      do: blank_comment(conn),
+      else: do_create_comment(conn, id, params)
+  end
+
+  defp do_create_comment(conn, id, params) do
     user = conn.assigns.current_user
     alias InkwellWeb.Helpers.MentionHelper
 
@@ -358,6 +364,76 @@ defmodule InkwellWeb.FeedbackController do
         end
     end
   end
+
+  # PATCH /api/feedback/comments/:comment_id — edit your own comment.
+  # Only people newly @mentioned by the edit are notified, so fixing a typo
+  # doesn't ping everyone again.
+  def update_comment(conn, %{"comment_id" => comment_id} = params) do
+    user = conn.assigns.current_user
+    alias InkwellWeb.Helpers.MentionHelper
+
+    with false <- blank_body?(params["body"]),
+         {:ok, _} <- Ecto.UUID.cast(comment_id),
+         %Inkwell.Feedback.FeedbackComment{} = comment <-
+           Inkwell.Repo.get(Inkwell.Feedback.FeedbackComment, comment_id) do
+      if comment.user_id != user.id do
+        conn |> put_status(:forbidden) |> json(%{error: "Not your comment"})
+      else
+        body_html = MentionHelper.plain_text_to_html(params["body"] || "")
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
+        already_mentioned = mentioned_usernames(comment.body)
+
+        case Feedback.update_comment(comment, %{"body" => processed_html}) do
+          {:ok, updated} ->
+            post = Feedback.get_post(updated.feedback_post_id)
+
+            new_mentions =
+              Enum.reject(mentioned_users, fn m ->
+                m.id == user.id or String.downcase(m.username) in already_mentioned or
+                  (post && m.id == post.user_id)
+              end)
+
+            if post && new_mentions != [] do
+              Task.start(fn ->
+                for mentioned <- new_mentions do
+                  Accounts.create_notification(%{
+                    type: :feedback_mention,
+                    user_id: mentioned.id,
+                    actor_id: user.id,
+                    target_type: "feedback_post",
+                    target_id: post.id,
+                    data: %{post_id: post.id, post_title: post.title}
+                  })
+                end
+              end)
+            end
+
+            json(conn, %{data: render_feedback_comment(Inkwell.Repo.preload(updated, :user))})
+
+          {:error, changeset} ->
+            conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+        end
+      end
+    else
+      true -> blank_comment(conn)
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Comment not found"})
+    end
+  end
+
+  # Blank text would still become "<p></p>", which passes the length check.
+  defp blank_body?(body), do: not is_binary(body) or String.trim(body) == ""
+
+  defp blank_comment(conn) do
+    conn |> put_status(:unprocessable_entity) |> json(%{errors: %{body: ["can't be blank"]}})
+  end
+
+  defp mentioned_usernames(html) when is_binary(html) do
+    ~r/data-mention="([^"]+)"/
+    |> Regex.scan(html)
+    |> Enum.map(fn [_, username] -> String.downcase(username) end)
+  end
+
+  defp mentioned_usernames(_), do: []
 
   # DELETE /api/feedback/comments/:comment_id — delete own comment or admin
   def delete_comment(conn, %{"comment_id" => comment_id}) do
@@ -457,7 +533,8 @@ defmodule InkwellWeb.FeedbackController do
       id: comment.id,
       body: comment.body,
       author: author,
-      created_at: comment.inserted_at
+      created_at: comment.inserted_at,
+      edited_at: comment.edited_at
     }
   end
 
