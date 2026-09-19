@@ -428,12 +428,20 @@ defmodule Inkwell.Journals do
     if owned_count != length(entry_ids) do
       {:error, :unauthorized}
     else
+      # What each entry was before, so the caller can tell followers' servers
+      # about entries that stopped (or started) being public.
+      before =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> select([e], %{id: e.id, user_id: e.user_id, ap_id: e.ap_id, privacy: e.privacy, status: e.status, published_at: e.published_at})
+        |> Repo.all()
+
       {count, _} =
         Entry
         |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
         |> Repo.update_all(set: [privacy: String.to_existing_atom(privacy), custom_filter_id: nil])
 
-      {:ok, count}
+      {:ok, count, before}
     end
   end
 

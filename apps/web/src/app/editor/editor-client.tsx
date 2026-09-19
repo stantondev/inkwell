@@ -2089,7 +2089,9 @@ export function EditorClient() {
           privacy: entry.privacy ?? "public",
           customFilterId: entry.custom_filter_id ?? null,
           tags: Array.isArray(entry.tags) ? entry.tags.join(", ") : (entry.tags ?? ""),
-          excerpt: entry.excerpt ?? "",
+          // Only an excerpt the writer wrote goes in the field. A generated one
+          // stays a placeholder: sending it back froze it at the first save.
+          excerpt: entry.excerpt_custom ? (entry.excerpt ?? "") : "",
           category: entry.category ?? null,
           seriesId: entry.series_id ?? null,
           sensitive: entry.sensitive ?? false,

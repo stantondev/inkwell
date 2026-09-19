@@ -303,7 +303,7 @@ defmodule InkwellWeb.EntryController do
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
-        |> maybe_auto_excerpt()
+        |> put_excerpt(nil)
 
       case Journals.create_draft(attrs) do
         {:ok, entry} ->
@@ -331,7 +331,7 @@ defmodule InkwellWeb.EntryController do
         |> maybe_clear_custom_filter_id()
         |> maybe_auto_series_order()
         |> put_word_count()
-        |> maybe_auto_excerpt()
+        |> put_excerpt(nil)
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id),
            :ok <- validate_paid_privacy(attrs, user) do
@@ -383,10 +383,10 @@ defmodule InkwellWeb.EntryController do
         |> sanitize_scheduled_options()
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
-        |> maybe_auto_excerpt()
+        |> put_excerpt(entry)
 
       # Only auto-assign series_order for published entries, not drafts
-      attrs = if entry.status == :published, do: maybe_auto_series_order(attrs), else: attrs
+      attrs = if entry.status == :published, do: maybe_auto_series_order(attrs, entry), else: attrs
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id) do
         result =
@@ -401,12 +401,7 @@ defmodule InkwellWeb.EntryController do
             # Process @mentions in body
             updated = EntryPublishing.process_mentions(updated, user.id)
 
-            # Fan out updates for published public entries
-            if updated.status == :published && updated.privacy == :public do
-              %{entry_id: updated.id, action: "update", user_id: user.id}
-              |> FanOutWorker.new()
-              |> Oban.insert()
-            end
+            federate_edit(entry, updated, user.id)
 
             # Re-index in Meilisearch (published entries only)
             if updated.status == :published, do: enqueue_search_index(updated.id)
@@ -452,7 +447,7 @@ defmodule InkwellWeb.EntryController do
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> put_word_count()
-          |> maybe_auto_excerpt()
+          |> put_excerpt(entry)
 
         # Inherit series_id from the existing entry if not in publish params,
         # then auto-assign series_order for the newly published entry
@@ -665,11 +660,39 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
+  # Entries dated more than this long ago count as "older" when bulk publishing
+  # or bulk-making public: they aren't pushed into followers' timelines.
+  @quiet_publish_after_days 7
+
   defp handle_bulk_privacy(conn, user, entry_ids, privacy) when privacy in ~w(public friends_only private) do
     case Journals.bulk_update_privacy(user.id, entry_ids, privacy) do
-      {:ok, count} ->
-        # Re-index affected entries
-        Enum.each(entry_ids, &enqueue_search_index/1)
+      {:ok, count, before} ->
+        now_public = privacy == "public"
+        cutoff = DateTime.add(DateTime.utc_now(), -@quiet_publish_after_days, :day)
+
+        Enum.each(before, fn e ->
+          was_public = e.privacy == :public
+
+          cond do
+            e.status != :published or was_public == now_public ->
+              :ok
+
+            was_public ->
+              enqueue_federated_delete(e)
+
+            # Making a batch of old private posts public shouldn't flood
+            # followers' timelines, same as bulk publishing (see below). They
+            # can still be looked up from the fediverse.
+            e.published_at && DateTime.compare(e.published_at, cutoff) == :lt ->
+              :ok
+
+            true ->
+              enqueue_fan_out(e.id, "create", e.user_id)
+          end
+
+          enqueue_search_index(e.id)
+        end)
+
         json(conn, %{ok: true, count: count})
 
       {:error, :unauthorized} ->
@@ -738,9 +761,6 @@ defmodule InkwellWeb.EntryController do
       {:error, :unauthorized} -> conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
     end
   end
-
-  # Entries dated more than this long ago count as "older" when bulk publishing.
-  @quiet_publish_after_days 7
 
   # Bulk-publishing a batch of old posts (usually an import) used to push every
   # one of them into followers' fediverse timelines as new. Older ones are now
@@ -908,6 +928,7 @@ defmodule InkwellWeb.EntryController do
       status: entry.status,
       word_count: entry.word_count || 0,
       excerpt: entry.excerpt,
+      excerpt_custom: entry.excerpt_custom,
       cover_image_id: entry.cover_image_id,
       category: entry.category,
       series_id: entry.series_id,
@@ -1066,14 +1087,50 @@ defmodule InkwellWeb.EntryController do
        when is_binary(series_id) and series_id != "" do
     Map.put_new(attrs, "series_order", Journals.next_series_order(series_id))
   end
-  defp maybe_auto_series_order(%{"series_id" => nil} = attrs) do
+  defp maybe_auto_series_order(%{"series_id" => series_id} = attrs) when series_id in [nil, ""] do
     attrs |> Map.put("series_order", nil)
   end
   defp maybe_auto_series_order(attrs), do: attrs
 
-  defp maybe_auto_excerpt(%{"excerpt" => excerpt} = attrs)
-       when is_binary(excerpt) and byte_size(excerpt) > 0, do: attrs
-  defp maybe_auto_excerpt(%{"body_html" => html} = attrs) when is_binary(html) do
+  # The editor sends series_id on every save, so editing an entry that's
+  # already in the series used to move it to the end. Only an entry joining a
+  # series (or one without a position yet) gets the next position.
+  defp maybe_auto_series_order(%{"series_id" => series_id} = attrs, entry)
+       when is_binary(series_id) and series_id == entry.series_id and not is_nil(entry.series_order),
+       do: attrs
+
+  defp maybe_auto_series_order(attrs, _entry), do: maybe_auto_series_order(attrs)
+
+  # Excerpts: a blank or missing excerpt is generated from the body. It used to
+  # freeze at first save because the editor loaded the generated excerpt into
+  # the field and sent it back as if the writer had written it. Now the editor
+  # only fills the field with an excerpt the writer wrote (`excerpt_custom`),
+  # and a generated one is regenerated whenever the body changes.
+  defp put_excerpt(%{"excerpt" => excerpt} = attrs, entry) when is_binary(excerpt) do
+    if String.trim(excerpt) == "",
+      do: attrs |> Map.put("excerpt_custom", false) |> auto_excerpt(entry),
+      else: Map.put(attrs, "excerpt_custom", true)
+  end
+
+  defp put_excerpt(%{"excerpt" => nil} = attrs, entry),
+    do: attrs |> Map.put("excerpt_custom", false) |> auto_excerpt(entry)
+
+  # No excerpt sent (API clients, bulk tools): keep a written one, refresh a generated one.
+  defp put_excerpt(attrs, %{excerpt_custom: true}), do: attrs
+  defp put_excerpt(attrs, entry), do: auto_excerpt(attrs, entry)
+
+  defp auto_excerpt(attrs, entry) do
+    html =
+      cond do
+        is_binary(attrs["body_html"]) -> attrs["body_html"]
+        Map.has_key?(attrs, "excerpt") and entry != nil -> entry.body_html
+        true -> nil
+      end
+
+    if is_binary(html), do: Map.put(attrs, "excerpt", excerpt_from_html(html)), else: attrs
+  end
+
+  defp excerpt_from_html(html) do
     auto =
       html
       |> String.replace(~r/<[^>]+>/, " ")
@@ -1082,9 +1139,42 @@ defmodule InkwellWeb.EntryController do
       |> String.trim()
       |> String.slice(0, 280)
 
-    if auto != "", do: Map.put(attrs, "excerpt", auto), else: attrs
+    if auto == "", do: nil, else: auto
   end
-  defp maybe_auto_excerpt(attrs), do: attrs
+
+  # Fediverse side of an edit. Followers' servers only ever see public
+  # entries, so the privacy change decides the activity:
+  #   public → public      Update
+  #   public → not public  Delete (their copies disappear)
+  #   not public → public  Create
+  # Mastodon keeps a tombstone for a deleted id and refuses a later Create of
+  # it, so an entry made private and then public again won't reappear there
+  # (other servers do show it, and it can still be linked and looked up).
+  defp federate_edit(before, updated, user_id) do
+    was_public = before.status == :published and before.privacy == :public
+    now_public = updated.status == :published and updated.privacy == :public
+
+    cond do
+      was_public and now_public -> enqueue_fan_out(updated.id, "update", user_id)
+      was_public -> enqueue_federated_delete(updated)
+      now_public and before.status == :published -> enqueue_fan_out(updated.id, "create", user_id)
+      true -> :ok
+    end
+  end
+
+  defp enqueue_fan_out(entry_id, action, user_id) do
+    %{entry_id: entry_id, action: action, user_id: user_id}
+    |> FanOutWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_federated_delete(%{ap_id: ap_id, user_id: user_id}) when is_binary(ap_id) do
+    %{entry_ap_id: ap_id, action: "delete", user_id: user_id}
+    |> FanOutWorker.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_federated_delete(_entry), do: :ok
 
   # Decode HTML entities to their Unicode characters for plain-text excerpts
   defp decode_html_entities(text) do

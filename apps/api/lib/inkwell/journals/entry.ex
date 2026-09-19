@@ -26,6 +26,9 @@ defmodule Inkwell.Journals.Entry do
     field :status, Ecto.Enum, values: [:draft, :published, :hidden], default: :published
     field :word_count, :integer, default: 0
     field :excerpt, :string
+    # true when the writer wrote the excerpt; false means it's generated from
+    # the body and regenerated whenever the body changes.
+    field :excerpt_custom, :boolean, default: false
     field :cover_image_id, :binary_id
     field :category, Ecto.Enum, values: [
       :personal, :creative_writing, :poetry, :fiction, :travel, :tech,
@@ -74,7 +77,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
-      :user_icon_id, :status, :word_count, :excerpt, :cover_image_id, :category,
+      :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
       :quoted_entry_id, :quoted_remote_entry_id
     ])
@@ -108,7 +111,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id, :category,
+      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning,
       # Imports carry the post's original date. This wasn't cast, so the date
       # was silently dropped the moment an imported post landed in drafts —
@@ -135,7 +138,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :cover_image_id, :category,
+      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning,
       :published_at
     ])
