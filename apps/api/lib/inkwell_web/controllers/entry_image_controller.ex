@@ -1,68 +1,36 @@
 defmodule InkwellWeb.EntryImageController do
   use InkwellWeb, :controller
 
-  alias Inkwell.Journals
+  alias Inkwell.{Journals, Storage}
 
-  # Storage quota: free = 100 MB of base64, plus = 1 GB
-  @free_storage_limit 104_857_600
-  @plus_storage_limit 1_073_741_824
+  # Accepted upload formats. Files are stored exactly as sent (no re-encoding).
+  @format_regex ~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s
+
+  # Max ~5.6M chars of base64 per image, i.e. about 4 MB of actual file.
+  @max_base64_bytes 5_600_000
 
   # POST /api/images — upload an image (authenticated)
   def create(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
 
-    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
-      [_, type, base64] ->
-        # Max ~4MB of base64 (~3MB actual image)
-        if byte_size(base64) > 5_600_000 do
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "Image too large — max 4MB"})
-        else
-          limit = if (user.subscription_tier || "free") == "plus", do: @plus_storage_limit, else: @free_storage_limit
-          current_usage = Journals.get_total_image_storage(user.id)
+    with {:ok, content_type, file_bytes} <- parse_image(image_data),
+         {:ok, used, limit} <- Storage.check(user, file_bytes),
+         {:ok, image} <-
+           Journals.create_entry_image(%{
+             "data" => image_data,
+             "content_type" => content_type,
+             "byte_size" => file_bytes,
+             "user_id" => user.id
+           }) do
+      Storage.after_upload(user, used, file_bytes, limit)
 
-          if current_usage + byte_size(base64) > limit do
-            conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{error: "storage_limit_exceeded"})
-          else
-            content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
-
-            # Validate magic bytes match claimed content type
-            case validate_image_magic_bytes(base64, type) do
-              {:error, reason} ->
-                conn
-                |> put_status(:unprocessable_entity)
-                |> json(%{error: reason})
-
-              :ok ->
-                attrs = %{
-                  "data" => image_data,
-                  "content_type" => content_type,
-                  "byte_size" => byte_size(base64),
-                  "user_id" => user.id
-                }
-
-                case Journals.create_entry_image(attrs) do
-                  {:ok, image} ->
-                    conn
-                    |> put_status(:created)
-                    |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
-
-                  {:error, _changeset} ->
-                    conn
-                    |> put_status(:unprocessable_entity)
-                    |> json(%{error: "Could not save image"})
-                end
-            end
-          end
-        end
-
-      _ ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+      conn
+      |> put_status(:created)
+      |> json(%{data: %{id: image.id, url: "/api/images/#{image.id}"}})
+    else
+      {:error, :storage_limit_exceeded} -> storage_exceeded(conn, user)
+      {:error, %Ecto.Changeset{}} -> unprocessable(conn, "Could not save image")
+      {:error, reason} when is_binary(reason) -> unprocessable(conn, reason)
     end
   end
 
@@ -94,23 +62,12 @@ defmodule InkwellWeb.EntryImageController do
         parsed =
           Enum.with_index(images)
           |> Enum.reduce_while([], fn {image_data, idx}, acc ->
-            case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
-              [_, type, base64] ->
-                if byte_size(base64) > 5_600_000 do
-                  {:halt, {:error, "Image #{idx + 1} too large — max 4MB"}}
-                else
-                  case validate_image_magic_bytes(base64, type) do
-                    :ok ->
-                      content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
-                      {:cont, [{image_data, content_type, byte_size(base64)} | acc]}
+            case parse_image(image_data) do
+              {:ok, content_type, file_bytes} ->
+                {:cont, [{image_data, content_type, file_bytes} | acc]}
 
-                    {:error, reason} ->
-                      {:halt, {:error, "Image #{idx + 1}: #{reason}"}}
-                  end
-                end
-
-              _ ->
-                {:halt, {:error, "Image #{idx + 1}: invalid format — must be a data:image/... URI"}}
+              {:error, reason} ->
+                {:halt, {:error, "Image #{idx + 1}: #{reason}"}}
             end
           end)
 
@@ -122,41 +79,49 @@ defmodule InkwellWeb.EntryImageController do
             valid_images = Enum.reverse(valid_images)
             total_bytes = Enum.reduce(valid_images, 0, fn {_, _, size}, acc -> acc + size end)
 
-            limit = if is_plus, do: @plus_storage_limit, else: @free_storage_limit
-            current_usage = Journals.get_total_image_storage(user.id)
+            case Storage.check(user, total_bytes) do
+              {:error, :storage_limit_exceeded} ->
+                storage_exceeded(conn, user)
 
-            if current_usage + total_bytes > limit do
-              conn |> put_status(:unprocessable_entity) |> json(%{error: "storage_limit_exceeded"})
-            else
-              # Insert all images atomically via Ecto.Multi
-              multi =
-                valid_images
-                |> Enum.with_index()
-                |> Enum.reduce(Ecto.Multi.new(), fn {{data, content_type, byte_size}, idx}, multi ->
-                  attrs = %{
-                    "data" => data,
-                    "content_type" => content_type,
-                    "byte_size" => byte_size,
-                    "user_id" => user.id
-                  }
+              {:ok, used, limit} ->
+                # Insert all images atomically via Ecto.Multi
+                multi =
+                  valid_images
+                  |> Enum.with_index()
+                  |> Enum.reduce(Ecto.Multi.new(), fn {{data, content_type, byte_size}, idx},
+                                                      multi ->
+                    attrs = %{
+                      "data" => data,
+                      "content_type" => content_type,
+                      "byte_size" => byte_size,
+                      "user_id" => user.id
+                    }
 
-                  Ecto.Multi.insert(multi, {:image, idx}, Inkwell.Journals.EntryImage.changeset(%Inkwell.Journals.EntryImage{}, attrs))
-                end)
+                    Ecto.Multi.insert(
+                      multi,
+                      {:image, idx},
+                      Inkwell.Journals.EntryImage.changeset(%Inkwell.Journals.EntryImage{}, attrs)
+                    )
+                  end)
 
-              case Inkwell.Repo.transaction(multi) do
-                {:ok, results} ->
-                  data =
-                    results
-                    |> Enum.sort_by(fn {{:image, idx}, _} -> idx end)
-                    |> Enum.map(fn {{:image, _}, image} ->
-                      %{id: image.id, url: "/api/images/#{image.id}"}
-                    end)
+                case Inkwell.Repo.transaction(multi) do
+                  {:ok, results} ->
+                    Storage.after_upload(user, used, total_bytes, limit)
 
-                  conn |> put_status(:created) |> json(%{data: data})
+                    data =
+                      results
+                      |> Enum.sort_by(fn {{:image, idx}, _} -> idx end)
+                      |> Enum.map(fn {{:image, _}, image} ->
+                        %{id: image.id, url: "/api/images/#{image.id}"}
+                      end)
 
-                {:error, _name, _changeset, _changes} ->
-                  conn |> put_status(:unprocessable_entity) |> json(%{error: "Could not save images"})
-              end
+                    conn |> put_status(:created) |> json(%{data: data})
+
+                  {:error, _name, _changeset, _changes} ->
+                    conn
+                    |> put_status(:unprocessable_entity)
+                    |> json(%{error: "Could not save images"})
+                end
             end
         end
     end
@@ -197,29 +162,61 @@ defmodule InkwellWeb.EntryImageController do
     end
   end
 
-  # Validates that decoded image binary matches the claimed content type via magic bytes.
-  # Prevents uploading non-image content (e.g., HTML disguised as PNG).
-  defp validate_image_magic_bytes(base64, claimed_type) do
-    case Base.decode64(base64) do
-      {:ok, binary} ->
-        detected = detect_image_type(binary)
+  # GET /api/me/storage — how much image storage the user has and uses
+  def storage(conn, _params) do
+    json(conn, %{data: Storage.summary(conn.assigns.current_user)})
+  end
 
-        normalized_claim = if claimed_type == "jpg", do: "jpeg", else: claimed_type
+  # Parses a data URI, checks the size cap, and confirms the file really is the
+  # format it claims (magic bytes) so non-image content can't be disguised.
+  # Returns the real file size in bytes, which is what storage quotas count.
+  defp parse_image(image_data) do
+    case Regex.run(@format_regex, image_data) do
+      [_, type, base64] ->
+        normalized = if type == "jpg", do: "jpeg", else: type
 
-        if detected == normalized_claim do
-          :ok
-        else
-          {:error, "Image content does not match claimed format (expected #{claimed_type}, detected #{detected || "unknown"})"}
+        cond do
+          byte_size(base64) > @max_base64_bytes ->
+            {:error, "Image too large — max 4MB"}
+
+          true ->
+            case Base.decode64(base64) do
+              {:ok, binary} ->
+                detected = detect_image_type(binary)
+
+                if detected == normalized do
+                  {:ok, "image/#{normalized}", byte_size(binary)}
+                else
+                  {:error,
+                   "Image content does not match claimed format (expected #{type}, detected #{detected || "unknown"})"}
+                end
+
+              :error ->
+                {:error, "Invalid base64 encoding"}
+            end
         end
 
-      :error ->
-        {:error, "Invalid base64 encoding"}
+      _ ->
+        {:error, "Invalid image format — must be a data:image/... URI (PNG, JPEG, GIF, or WebP)"}
     end
+  end
+
+  defp storage_exceeded(conn, user) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "storage_limit_exceeded", storage: Storage.summary(user)})
+  end
+
+  defp unprocessable(conn, message) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: message})
   end
 
   defp detect_image_type(<<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>), do: "png"
   defp detect_image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
   defp detect_image_type(<<0x47, 0x49, 0x46, 0x38, _::binary>>), do: "gif"
-  defp detect_image_type(<<0x52, 0x49, 0x46, 0x46, _::32, 0x57, 0x45, 0x42, 0x50, _::binary>>), do: "webp"
+
+  defp detect_image_type(<<0x52, 0x49, 0x46, 0x46, _::32, 0x57, 0x45, 0x42, 0x50, _::binary>>),
+    do: "webp"
+
   defp detect_image_type(_), do: nil
 end

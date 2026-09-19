@@ -19,6 +19,67 @@ interface BillingStatus {
   trial_days?: number;
   plus_annual_available?: boolean;
   plus_annual_cents?: number;
+  storage?: StorageSummary;
+}
+
+interface StorageSummary {
+  used_bytes: number;
+  limit_bytes: number;
+  plus_years: number;
+  next_increase_on: string | null;
+  yearly_increase_bytes: number | null;
+}
+
+function formatBytes(bytes: number) {
+  const gb = 1024 ** 3;
+  if (bytes >= gb) return `${(bytes / gb).toFixed(1).replace(/\.0$/, "")} GB`;
+  const mb = bytes / 1024 ** 2;
+  return mb < 1 && bytes > 0 ? "under 1 MB" : `${Math.round(mb)} MB`;
+}
+
+function StorageCard({ storage, isPlus }: { storage: StorageSummary; isPlus: boolean }) {
+  const pct = storage.limit_bytes > 0 ? Math.min(100, (storage.used_bytes / storage.limit_bytes) * 100) : 0;
+  return (
+    <div
+      id="storage"
+      className="rounded-xl border p-5"
+      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+    >
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+          Image Storage
+        </h3>
+        <span className="text-sm" style={{ color: "var(--muted)" }}>
+          {formatBytes(storage.used_bytes)} of {formatBytes(storage.limit_bytes)}
+        </span>
+      </div>
+      <div
+        className="h-2 rounded-full overflow-hidden"
+        style={{ background: "var(--surface-hover, var(--border))" }}
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Image storage used"
+      >
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.max(pct, storage.used_bytes > 0 ? 1 : 0)}%`, background: pct >= 90 ? "var(--danger, #ef4444)" : "var(--accent)" }}
+        />
+      </div>
+      <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
+        {isPlus ? (
+          <>
+            Plus storage starts at 1 GB and grows by 1 GB every year you&apos;re a member
+            {storage.plus_years > 0 && <> — you&apos;ve earned {storage.plus_years} extra GB so far</>}.
+            {storage.next_increase_on && <> Your next increase is on {formatDate(storage.next_increase_on + "T12:00:00Z")}.</>}
+          </>
+        ) : (
+          <>Free accounts include 100 MB. Plus includes 1 GB, growing by 1 GB every year you&apos;re a member.</>
+        )}
+      </p>
+    </div>
+  );
 }
 
 function formatDate(iso: string) {
@@ -559,7 +620,7 @@ export default function BillingPage() {
                 "Cross-post to Mastodon",
                 "Unlimited newsletters — 8 sends/mo",
                 "Unlimited drafts, series & filters",
-                "1 GB image storage",
+                "1 GB image storage, +1 GB every year",
                 "API read + write access",
                 "First Class stamp",
                 "Plus badge",
@@ -600,6 +661,8 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {status?.storage && <StorageCard storage={status.storage} isPlus={isPlus} />}
 
       {/* Founding Members */}
       {founding && (!isFounding) && (

@@ -84,6 +84,7 @@ defmodule Inkwell.Accounts.User do
 
     # Free Plus trial (subscription_status "trialing" while active)
     field :plus_trial_started_at, :utc_datetime_usec
+    field :plus_member_since, :utc_datetime_usec
 
     # Automated moderation: nil or "limited" (kept out of Explore/discovery).
     # moderation_cleared_at is set when an admin undoes an automated action.
@@ -188,6 +189,7 @@ defmodule Inkwell.Accounts.User do
       :plus_trial_started_at
     ])
     |> keep_founding_member_plus()
+    |> stamp_plus_member_since()
   end
 
   # Founding Members paid once for Plus for as long as Inkwell runs. Every
@@ -212,6 +214,23 @@ defmodule Inkwell.Accounts.User do
     |> unique_constraint(:founding_member_number)
     |> unique_constraint(:founding_member_payment_id)
     |> keep_founding_member_plus()
+    |> stamp_plus_member_since()
+  end
+
+  # Records the first time an account becomes paid Plus (not a free trial).
+  # Plus image storage grows each year from this date (Inkwell.Storage), so it
+  # is set once and never cleared — a member who leaves and comes back keeps
+  # their years.
+  defp stamp_plus_member_since(changeset) do
+    paid_plus? =
+      get_field(changeset, :subscription_tier) == "plus" and
+        get_field(changeset, :subscription_status) in ["active", "past_due"]
+
+    if paid_plus? and is_nil(get_field(changeset, :plus_member_since)) do
+      put_change(changeset, :plus_member_since, DateTime.utc_now())
+    else
+      changeset
+    end
   end
 
   def founding_member?(%__MODULE__{founding_member_number: n}), do: not is_nil(n)

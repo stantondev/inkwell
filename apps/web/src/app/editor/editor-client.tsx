@@ -1090,7 +1090,7 @@ function DraftLimitCard() {
   );
 }
 
-function StorageLimitCard() {
+function StorageLimitCard({ isPlus }: { isPlus: boolean }) {
   return (
     <div
       className="rounded-xl border p-4 mx-4 mb-4"
@@ -1106,14 +1106,16 @@ function StorageLimitCard() {
         Your image library is full.
       </p>
       <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-        You&apos;ve used all 100 MB of image storage. Remove unused images from older entries, or upgrade to Plus for 1 GB.
+        {isPlus
+          ? "You've used all of your image storage. Plus storage grows by 1 GB every year you're a member. Remove unused images from older entries, or get in touch and we'll help."
+          : "You've used all 100 MB of image storage. Remove unused images from older entries, or upgrade to Plus for 1 GB that grows every year."}
       </p>
       <a
-        href="/settings/billing"
+        href={isPlus ? "/settings/billing#storage" : "/settings/billing"}
         className="inline-block rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        Unlock 1 GB storage
+        {isPlus ? "See your storage" : "Unlock 1 GB storage"}
       </a>
     </div>
   );
@@ -2678,7 +2680,7 @@ export function EditorClient() {
 
           {/* Upgrade cards */}
           {saveStatus === "draft_limit" && !isPlus && <DraftLimitCard />}
-          {storageExceeded && !isPlus && <StorageLimitCard />}
+          {storageExceeded && <StorageLimitCard isPlus={isPlus} />}
 
           {/* ── Paper container ───────────────────────── */}
           <div className="editor-paper">

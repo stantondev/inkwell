@@ -161,7 +161,7 @@ export default async function LandingPage() {
                 {[
                   "Everything in Free, plus:",
                   "Unlimited drafts, series & version history",
-                  "1 GB image storage",
+                  "1 GB image storage, +1 GB every year",
                   "Full newsletter (unlimited subscribers, 8 sends/mo, scheduling)",
                   "Custom colors, fonts, layouts, backgrounds & music",
                   "Custom HTML, CSS & domain (your-site.com)",

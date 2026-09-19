@@ -240,13 +240,37 @@ export default function DevelopersPage() {
           </h2>
           <div className="flex flex-col">
             <Endpoint method="POST" path="/api/images" description="Upload an image (base64 data URI)" auth="required" scope="write" />
+            <Endpoint method="POST" path="/api/images/batch" description="Upload several images at once" auth="required" scope="write" />
             <Endpoint method="GET" path="/api/images/:id" description="Get an image" auth="public" />
+            <Endpoint method="GET" path="/api/me/storage" description="Your image storage used and allowance" auth="required" />
           </div>
           <p className="text-sm mt-2" style={{ color: "var(--muted)" }}>
-            Upload images as base64 data URIs (<code style={{ fontFamily: "monospace" }}>{`{"image": "data:image/png;base64,..."}`}</code>).
+            Upload images as base64 data URIs (<code style={{ fontFamily: "monospace" }}>{`{"image": "data:image/webp;base64,..."}`}</code>).
             The response includes an <code style={{ fontFamily: "monospace" }}>id</code> and <code style={{ fontFamily: "monospace" }}>url</code>.
             Use the URL in your entry&apos;s <code style={{ fontFamily: "monospace" }}>body_html</code> as an <code style={{ fontFamily: "monospace" }}>&lt;img&gt;</code> src.
+            For a batch, send <code style={{ fontFamily: "monospace" }}>{`{"images": [...]}`}</code>; you get back the same shape as a list, in order.
           </p>
+          <ul className="text-sm mt-3 space-y-1.5 list-disc pl-5" style={{ color: "var(--muted)" }}>
+            <li>
+              <strong style={{ color: "var(--foreground)" }}>Formats:</strong> PNG, JPEG, GIF, and WebP. The file&apos;s
+              contents must match its declared type. AVIF is not supported yet.
+            </li>
+            <li>
+              <strong style={{ color: "var(--foreground)" }}>No re-encoding:</strong> images uploaded through the API are
+              stored and served exactly as you send them. WebP is usually the smallest option. (The web editor resizes
+              photos to 1200px JPEGs before uploading.)
+            </li>
+            <li>
+              <strong style={{ color: "var(--foreground)" }}>Size:</strong> up to 4 MB per image. Batches hold up to 6 images
+              on Free and 20 on Plus.
+            </li>
+            <li>
+              <strong style={{ color: "var(--foreground)" }}>Storage:</strong> Free accounts have 100 MB. Plus starts at 1 GB
+              and grows by 1 GB every year you&apos;re a member. Usage counts each file&apos;s actual size. An upload that
+              would go over returns <code style={{ fontFamily: "monospace" }}>422</code> with <code style={{ fontFamily: "monospace" }}>{`{"error": "storage_limit_exceeded"}`}</code> and
+              your current <code style={{ fontFamily: "monospace" }}>storage</code> summary.
+            </li>
+          </ul>
         </section>
 
         {/* Endpoints: Public */}

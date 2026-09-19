@@ -239,7 +239,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus ($5/month) includes: custom profile colors, fonts, layouts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; extended image storage; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
+      'Plus ($5/month) includes: custom profile colors, fonts, layouts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
     category: "billing",
   },
   {

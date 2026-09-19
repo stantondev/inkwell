@@ -380,7 +380,8 @@ defmodule InkwellWeb.BillingController do
         trial_eligible: Inkwell.Billing.Trials.eligible?(user),
         trial_days: Inkwell.Billing.Trials.trial_days(),
         plus_annual_available: Inkwell.Square.plus_annual_configured?(),
-        plus_annual_cents: Inkwell.Square.plus_annual_cents()
+        plus_annual_cents: Inkwell.Square.plus_annual_cents(),
+        storage: Inkwell.Storage.summary(user)
       }
     })
   end
