@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
+import { HANDOFF_COOKIE } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,8 +35,33 @@ export async function POST(request: NextRequest) {
       cache: "no-store",
     });
 
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    const text = await res.text();
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return NextResponse.json(
+        { error: "Inkwell is briefly unavailable. Please try again in a moment." },
+        { status: 503 }
+      );
+    }
+
+    const response = NextResponse.json(data, { status: res.status });
+
+    // Remember which browser asked for this link. If the link is opened in the
+    // same browser, /api/auth/verify sees this cookie and skips the "enter the
+    // code from your other screen" step, since nothing needs handing over.
+    if (res.ok && typeof data.login_session_id === "string") {
+      response.cookies.set(HANDOFF_COOKIE, data.login_session_id, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 10 * 60,
+        path: "/",
+      });
+    }
+
+    return response;
   } catch (err) {
     console.error("Proxy /api/auth/magic-link error:", err);
     return NextResponse.json(

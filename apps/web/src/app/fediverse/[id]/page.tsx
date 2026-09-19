@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { getRemoteEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
@@ -14,6 +14,7 @@ import { SignupCta } from "@/components/signup-cta";
 import { CommentSection } from "@/app/[username]/[slug]/comment-section";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
 import type { Comment } from "@/lib/comment-utils";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface FediverseEntryParams {
   params: Promise<{ id: string }>;
@@ -119,8 +120,8 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
     const data = await getRemoteEntry<{ data: RemoteEntryData; enriching_preview?: boolean }>(id, token);
     entry = data.data;
     enrichingPreview = data.enriching_preview ?? false;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   // Fetch comments

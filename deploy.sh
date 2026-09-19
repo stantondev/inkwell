@@ -270,6 +270,19 @@ set_secrets() {
   fi
 }
 
+# ── Smoke test ────────────────────────────────────────────────
+# Read-only checks of pages, API health, federation and RSS after a deploy.
+# A failure doesn't roll back, but it's shown loudly so it gets looked at.
+
+run_smoke_test() {
+  step "Smoke-testing production"
+  if "$ROOT/scripts/smoke-test.sh"; then
+    ok "Smoke test passed"
+  else
+    fail "Smoke test FAILED — check the list above before doing anything else"
+  fi
+}
+
 # ── Deploy API ────────────────────────────────────────────────
 
 deploy_api() {
@@ -277,12 +290,13 @@ deploy_api() {
 
   cd "$ROOT"
   info "Building and deploying (this takes 3-5 minutes the first time)..."
-  fly deploy --config fly.api.toml --wait-timeout 300
+  fly deploy --config fly.api.toml --wait-timeout 600
 
   if [ $? -eq 0 ]; then
     ok "API deployed successfully!"
     echo ""
     echo -e "  API URL: ${CYAN}https://inkwell-api.fly.dev${NC}"
+    run_smoke_test
   else
     fail "API deployment failed"
     echo "  Check logs: fly logs --app inkwell-api"
@@ -297,12 +311,13 @@ deploy_web() {
 
   cd "$ROOT"
   info "Building and deploying..."
-  fly deploy --config fly.web.toml --wait-timeout 300
+  fly deploy --config fly.web.toml --wait-timeout 600
 
   if [ $? -eq 0 ]; then
     ok "Frontend deployed successfully!"
     echo ""
     echo -e "  Frontend URL: ${CYAN}https://inkwell.social${NC}"
+    run_smoke_test
   else
     fail "Frontend deployment failed"
     echo "  Check logs: fly logs --app inkwell-web"
@@ -371,6 +386,7 @@ case "${1:-deploy}" in
   api)     preflight && with_sentinel_pause deploy_api ;;
   web)     preflight && with_sentinel_pause deploy_web ;;
   status)  show_status ;;
+  smoke)   "$ROOT/scripts/smoke-test.sh" ;;
   pause)   sentinel_pause ;;
   unpause) sentinel_unpause ;;
   *)
@@ -380,6 +396,7 @@ case "${1:-deploy}" in
     echo "  api      Deploy only the Phoenix API"
     echo "  web      Deploy only the Next.js frontend"
     echo "  status   Check deployment status"
+    echo "  smoke    Run the production smoke test"
     echo "  pause    Manually pause Sentinel alerts (\$SENTINEL_PAUSE_MIN min, default 10)"
     echo "  unpause  Clear the Sentinel maintenance file immediately"
     echo ""

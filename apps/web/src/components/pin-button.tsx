@@ -25,9 +25,15 @@ export function PinButton({
     try {
       // Fetch current pinned IDs
       const meRes = await fetch("/api/me");
-      if (!meRes.ok) return;
+      if (!meRes.ok) {
+        alert("Couldn't load your pinned entries. Please try again.");
+        return;
+      }
       const me = await meRes.json();
-      const currentIds: string[] = me.pinned_entry_ids ?? [];
+      // /api/me wraps the user in `data`. This read `me.pinned_entry_ids`,
+      // which was always missing, so pinning replaced every existing pin and
+      // "Unpin" pinned the entry instead.
+      const currentIds: string[] = me.data?.pinned_entry_ids ?? [];
 
       let newIds: string[];
       if (currentIds.includes(entryId)) {
@@ -49,7 +55,9 @@ export function PinButton({
       });
 
       if (res.ok) {
-        setPinned(!pinned);
+        setPinned(newIds.includes(entryId));
+      } else {
+        alert("Couldn't update your pinned entries. Please try again.");
       }
     } finally {
       setSaving(false);

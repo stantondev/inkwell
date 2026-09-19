@@ -16,6 +16,13 @@ primary_region = "ord"
   NODE_ENV = "production"
   API_URL = "https://api.inkwell.social"
 
+# Blue-green: boot the new machine(s), wait for health checks, then switch
+# traffic and retire the old ones. No extra standing cost.
+# Rolling deploys left one machine on the old build and one on the new for
+# ~30s, so a page from one could request JS chunks that only exist on the other.
+[deploy]
+  strategy = "bluegreen"
+
 [http_service]
   internal_port = 3000
   force_https = true

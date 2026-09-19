@@ -17,6 +17,7 @@ defmodule Inkwell.Polls.PollComment do
   def changeset(comment, attrs) do
     comment
     |> cast(attrs, [:body, :user_id, :poll_id])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
     |> validate_required([:body, :user_id, :poll_id])
     |> validate_length(:body, min: 1, max: 6000)
   end

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/session";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { decodeEntities } from "@/lib/decode-entities";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface SeriesPageParams {
   params: Promise<{ username: string; slug: string }>;
@@ -80,8 +81,8 @@ export default async function SeriesPage({ params }: SeriesPageParams) {
       `/api/users/${username}/series/${slug}`, {}, token
     );
     series = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   const author = series.author;

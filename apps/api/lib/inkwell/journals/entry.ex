@@ -1,6 +1,7 @@
 defmodule Inkwell.Journals.Entry do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query, only: [from: 2, where: 3]
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -77,6 +78,7 @@ defmodule Inkwell.Journals.Entry do
       :series_id, :series_order, :sensitive, :content_warning, :source,
       :quoted_entry_id, :quoted_remote_entry_id
     ])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
@@ -86,6 +88,8 @@ defmodule Inkwell.Journals.Entry do
     |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
     |> validate_edited_date_not_future(entry)
     |> generate_slug()
+    |> ensure_unique_slug()
+    |> unique_constraint([:user_id, :slug], name: :entries_user_id_slug_index)
     |> generate_ap_id()
     |> set_published_at()
   end
@@ -113,6 +117,7 @@ defmodule Inkwell.Journals.Entry do
       :published_at,
       :scheduled_at, :scheduled_options
     ])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:user_id])
     |> validate_not_future(:published_at)
     |> validate_schedule()
@@ -134,6 +139,7 @@ defmodule Inkwell.Journals.Entry do
       :series_id, :series_order, :sensitive, :content_warning,
       :published_at
     ])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy])
     |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)
@@ -146,6 +152,8 @@ defmodule Inkwell.Journals.Entry do
     |> put_change(:scheduled_at, nil)
     |> put_change(:scheduled_options, %{})
     |> force_generate_slug()
+    |> ensure_unique_slug()
+    |> unique_constraint([:user_id, :slug], name: :entries_user_id_slug_index)
     |> generate_ap_id()
     |> put_published_at()
   end
@@ -243,6 +251,41 @@ defmodule Inkwell.Journals.Entry do
       put_change(changeset, :slug, slug)
     else
       put_change(changeset, :slug, Ecto.UUID.generate() |> String.slice(0..7))
+    end
+  end
+
+  # Publishing rebuilt the slug from the title alone, so a second entry with a
+  # title the writer had used before ("Morning pages", "Day 12") hit the unique
+  # (user_id, slug) index and the publish crashed with a 500. That also broke
+  # bulk publish, scheduled posts (silently unscheduled) and imports. Pick the
+  # first free variant instead: title, title-2, title-3, ...
+  defp ensure_unique_slug(%Ecto.Changeset{valid?: false} = changeset), do: changeset
+
+  defp ensure_unique_slug(changeset) do
+    with slug when is_binary(slug) <- get_change(changeset, :slug),
+         user_id when not is_nil(user_id) <- get_field(changeset, :user_id) do
+      put_change(changeset, :slug, free_slug(slug, user_id, get_field(changeset, :id)))
+    else
+      _ -> changeset
+    end
+  end
+
+  defp free_slug(base, user_id, own_id) do
+    taken =
+      from(e in __MODULE__,
+        where: e.user_id == ^user_id and (e.slug == ^base or like(e.slug, ^"#{base}-%")),
+        select: e.slug
+      )
+      |> then(fn q -> if own_id, do: where(q, [e], e.id != ^own_id), else: q end)
+      |> Inkwell.Repo.all()
+      |> MapSet.new()
+
+    if MapSet.member?(taken, base) do
+      Stream.iterate(2, &(&1 + 1))
+      |> Stream.map(&"#{base}-#{&1}")
+      |> Enum.find(&(not MapSet.member?(taken, &1)))
+    else
+      base
     end
   end
 

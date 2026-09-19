@@ -19,15 +19,18 @@ defmodule Inkwell.Billing do
 
   @doc "Check if a webhook event has already been processed."
   def already_processed?(nil), do: false
+
   def already_processed?(event_id) do
-    Repo.exists?(from we in WebhookEvent, where: we.event_id == ^event_id)
+    # Only a successful run counts. A failed attempt is recorded too, and
+    # counting it made every Oban retry skip the event, so retries never ran.
+    Repo.exists?(from(we in WebhookEvent, where: we.event_id == ^event_id and we.status == "processed"))
   end
 
   @doc "Record a processed webhook event for deduplication."
   def record_event(event_id, event_type, status \\ "processed") do
     %WebhookEvent{}
     |> WebhookEvent.changeset(%{event_id: event_id, event_type: event_type, status: status})
-    |> Repo.insert(on_conflict: :nothing)
+    |> Repo.insert(on_conflict: {:replace, [:status]}, conflict_target: :event_id)
   end
 
   @doc "Clean up webhook events older than 30 days."
@@ -95,25 +98,28 @@ defmodule Inkwell.Billing do
 
     last_delivery_at =
       Repo.one(
-        from d in WebhookDelivery,
+        from(d in WebhookDelivery,
           where: d.source == "square",
           order_by: [desc: d.inserted_at],
           limit: 1,
           select: d.inserted_at
+        )
       )
 
     total_24h =
       Repo.one(
-        from d in WebhookDelivery,
+        from(d in WebhookDelivery,
           where: d.source == "square" and d.inserted_at > ^cutoff_24h,
           select: count(d.id)
+        )
       ) || 0
 
     total_7d =
       Repo.one(
-        from d in WebhookDelivery,
+        from(d in WebhookDelivery,
           where: d.source == "square" and d.inserted_at > ^cutoff_7d,
           select: count(d.id)
+        )
       ) || 0
 
     by_status_24h =
@@ -127,25 +133,28 @@ defmodule Inkwell.Billing do
 
     square_subscribers =
       Repo.one(
-        from u in User,
+        from(u in User,
           where: not is_nil(u.square_subscription_id) and u.subscription_status == "active",
           select: count(u.id)
+        )
       ) || 0
 
     square_donors =
       Repo.one(
-        from u in User,
+        from(u in User,
           where: not is_nil(u.square_donor_subscription_id) and u.ink_donor_status == "active",
           select: count(u.id)
+        )
       ) || 0
 
     legacy_stripe_users =
       Repo.one(
-        from u in User,
+        from(u in User,
           where:
             not is_nil(u.stripe_subscription_id) or
               not is_nil(u.ink_donor_stripe_subscription_id),
           select: count(u.id)
+        )
       ) || 0
 
     # Ghost Plus detection: categorize all tier=plus users by payment source.
@@ -818,6 +827,7 @@ defmodule Inkwell.Billing do
   end
 
   defp donor_amount_for_letter(nil), do: "the amount you selected"
+
   defp donor_amount_for_letter(cents) when is_integer(cents) do
     "$#{div(cents, 100)}/mo"
   end
@@ -1035,7 +1045,10 @@ defmodule Inkwell.Billing do
             | total_checked: acc.total_checked + 1,
               errors: acc.errors + 1,
               error_details:
-                [%{user_id: user.id, username: user.username, reason: inspect(reason)} | acc.error_details]
+                [
+                  %{user_id: user.id, username: user.username, reason: inspect(reason)}
+                  | acc.error_details
+                ]
                 |> Enum.take(20)
           }
       end
@@ -1387,8 +1400,8 @@ defmodule Inkwell.Billing do
 
         {updated_user, changes} =
           user
-          |> reconcile_plus(plus_sub, customer_id)
-          |> reconcile_donor(donor_sub, customer_id, config)
+          |> reconcile_plus(plus_sub, customer_id, subscriptions)
+          |> reconcile_donor(donor_sub, customer_id, config, subscriptions)
 
         {:ok, updated_user, changes}
 
@@ -1402,42 +1415,84 @@ defmodule Inkwell.Billing do
     end
   end
 
-  # Find Square subscriptions for a user. Tries email-based lookup first
-  # (cheap), falls back to full subscription scan if email search misses.
-  # Returns {:ok, customer_id, [subs]} on success, {:ok, :not_found} on miss,
-  # or {:error, reason} on API failure.
+  # Find Square subscriptions for a user.
+  #
+  # Square's email search is fuzzy (it tokenizes the address, so
+  # john@gmail.com also matches john.doe@gmail.com). This used to take the
+  # first returned customer with any subscription, which could attach someone
+  # else's subscription to this account, or pick an old duplicate customer
+  # whose only subscription was canceled and downgrade a paying member. Now
+  # only customers that really belong to this account count: the one stored
+  # on the user, and search results whose email matches exactly or whose
+  # reference_id is this user's id. Subscriptions from all of them are
+  # considered together.
+  #
+  # Returns {:ok, customer_id, [subs]}, {:ok, :not_found} or {:error, reason}.
   defp find_user_subscriptions(user, normalized_email) do
-    with {:ok, customers} <- Square.search_customers_by_email(user.email),
-         {:ok, customer_id, subs} <- check_matched_customers(customers) do
-      {:ok, customer_id, subs}
-    else
-      {:ok, :no_match} ->
-        # Email search returned customers but none had subscriptions, OR
-        # email search returned nothing. Fall back to full scan.
-        full_scan_for_user(normalized_email)
+    with {:ok, customers} <- Square.search_customers_by_email(user.email) do
+      candidate_ids =
+        [user.square_customer_id | owned_customer_ids(customers, user, normalized_email)]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
 
-      {:error, reason} ->
-        {:error, reason}
+      case collect_subscriptions(candidate_ids) do
+        {:ok, []} -> full_scan_for_user(normalized_email)
+        {:ok, subs} -> {:ok, primary_customer_id(subs, user), subs}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
-  # Check each returned customer for subscriptions. Returns the first customer
-  # that has any subscriptions. If none of the matched customers have subs,
-  # returns {:ok, :no_match} so the caller can fall back to full scan.
-  defp check_matched_customers([]), do: {:ok, :no_match}
+  @doc false
+  # Customers from a (fuzzy) email search that genuinely belong to this user.
+  def owned_customer_ids(customers, user, normalized_email) do
+    customers
+    |> Enum.filter(fn c ->
+      (is_binary(normalized_email) and normalized_email != "" and
+         normalize_email(c["email_address"]) == normalized_email) or
+        (not is_nil(c["reference_id"]) and c["reference_id"] == user.id)
+    end)
+    |> Enum.map(& &1["id"])
+  end
 
-  defp check_matched_customers([customer | rest]) do
-    customer_id = customer["id"]
+  defp collect_subscriptions(customer_ids) do
+    Enum.reduce_while(customer_ids, {:ok, []}, fn customer_id, {:ok, acc} ->
+      case Square.search_subscriptions_by_customer(customer_id) do
+        {:ok, subs} when is_list(subs) -> {:cont, {:ok, acc ++ subs}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
 
-    case Square.search_subscriptions_by_customer(customer_id) do
-      {:ok, []} ->
-        check_matched_customers(rest)
+  defp primary_customer_id(subs, user) do
+    case pick_newest_active(subs) do
+      %{"customer_id" => id} when is_binary(id) ->
+        id
 
-      {:ok, subs} when is_list(subs) ->
-        {:ok, customer_id, subs}
+      _ ->
+        user.square_customer_id ||
+          case subs do
+            [%{"customer_id" => id} | _] -> id
+            _ -> nil
+          end
+    end
+  end
 
-      {:error, reason} ->
-        {:error, reason}
+  @doc false
+  # Only treat a subscription as over when Square positively shows it ended.
+  # Not finding it (a different customer record, an API hiccup) is not proof.
+  def subscription_confirmed_ended?(nil, _seen), do: false
+
+  def subscription_confirmed_ended?(sub_id, seen) do
+    case Enum.find(seen, &(&1["id"] == sub_id)) do
+      %{"status" => status} ->
+        status not in ["ACTIVE", "PENDING"]
+
+      nil ->
+        case Square.get_subscription(sub_id) do
+          {:ok, %{"status" => status}} -> status not in ["ACTIVE", "PENDING"]
+          _ -> false
+        end
     end
   end
 
@@ -1449,7 +1504,8 @@ defmodule Inkwell.Billing do
   # Deduplicates customer IDs before fetching to bound API calls: a user with
   # both Plus and Donor has 2 subs sharing one customer, so we only fetch
   # each customer once.
-  defp full_scan_for_user(normalized_email) when is_binary(normalized_email) and normalized_email != "" do
+  defp full_scan_for_user(normalized_email)
+       when is_binary(normalized_email) and normalized_email != "" do
     case Square.list_all_subscriptions() do
       {:ok, all_subs} ->
         # Build customer_id → email map (one fetch per unique customer)
@@ -1501,7 +1557,10 @@ defmodule Inkwell.Billing do
   end
 
   defp normalize_email(nil), do: ""
-  defp normalize_email(email) when is_binary(email), do: email |> String.trim() |> String.downcase()
+
+  defp normalize_email(email) when is_binary(email),
+    do: email |> String.trim() |> String.downcase()
+
   defp normalize_email(_), do: ""
 
   @doc """
@@ -1610,6 +1669,7 @@ defmodule Inkwell.Billing do
   end
 
   defp pick_newest_active([]), do: nil
+
   defp pick_newest_active(subs) do
     subs
     |> Enum.filter(fn sub -> sub["status"] in ["ACTIVE", "PENDING"] end)
@@ -1618,10 +1678,11 @@ defmodule Inkwell.Billing do
   end
 
   # Reconcile Plus subscription state. Returns {updated_user, changes_list}.
-  defp reconcile_plus(user, nil, _customer_id) do
-    # No active Plus subscription in Square. If local state says we have one,
-    # clear it. Otherwise leave alone.
-    if user.square_subscription_id && user.subscription_status == "active" do
+  defp reconcile_plus(user, nil, _customer_id, seen) do
+    # No active Plus subscription in Square. Clear local Plus only when this
+    # user's own subscription is confirmed ended; otherwise leave it alone.
+    if user.square_subscription_id && user.subscription_status == "active" &&
+         subscription_confirmed_ended?(user.square_subscription_id, seen) do
       {:ok, updated} =
         user
         |> User.subscription_changeset(%{
@@ -1634,11 +1695,18 @@ defmodule Inkwell.Billing do
       Logger.info("sync_from_square: cleared stale Plus state for user #{user.id}")
       {updated, [:plus_canceled]}
     else
+      if user.square_subscription_id && user.subscription_status == "active" do
+        Logger.warning(
+          "sync_from_square: no active Plus found for user #{user.id} but their subscription " <>
+            "#{user.square_subscription_id} isn't confirmed ended; leaving Plus in place"
+        )
+      end
+
       {user, []}
     end
   end
 
-  defp reconcile_plus(user, plus_sub, customer_id) do
+  defp reconcile_plus(user, plus_sub, customer_id, _seen) do
     sub_id = plus_sub["id"]
     square_status = plus_sub["status"]
     inkwell_status = Square.map_subscription_status(square_status)
@@ -1682,10 +1750,11 @@ defmodule Inkwell.Billing do
   end
 
   # Reconcile Donor subscription state.
-  defp reconcile_donor(user_tuple, nil, _customer_id, _config) do
+  defp reconcile_donor(user_tuple, nil, _customer_id, _config, seen) do
     {user, changes} = user_tuple
 
-    if user.square_donor_subscription_id && user.ink_donor_status == "active" do
+    if user.square_donor_subscription_id && user.ink_donor_status == "active" &&
+         subscription_confirmed_ended?(user.square_donor_subscription_id, seen) do
       {:ok, updated} =
         user
         |> User.ink_donor_changeset(%{
@@ -1702,7 +1771,7 @@ defmodule Inkwell.Billing do
     end
   end
 
-  defp reconcile_donor(user_tuple, donor_sub, _customer_id, config) do
+  defp reconcile_donor(user_tuple, donor_sub, _customer_id, config, _seen) do
     {user, changes} = user_tuple
     sub_id = donor_sub["id"]
     square_status = donor_sub["status"]
@@ -1729,7 +1798,9 @@ defmodule Inkwell.Billing do
         |> User.ink_donor_changeset(attrs)
         |> Repo.update()
 
-      Logger.info("sync_from_square: activated Donor for user #{user.id} (sub #{sub_id}, $#{(amount_cents || 0) / 100}/mo)")
+      Logger.info(
+        "sync_from_square: activated Donor for user #{user.id} (sub #{sub_id}, $#{(amount_cents || 0) / 100}/mo)"
+      )
 
       if is_nil(user.square_donor_subscription_id) do
         Inkwell.Slack.notify_ink_donor(updated.username, amount_cents)
@@ -1920,11 +1991,11 @@ defmodule Inkwell.Billing do
     handle_square_subscription_updated(sub)
   end
 
-  defp handle_square_subscription_updated(%{"id" => sub_id, "status" => status} = sub) do
+  defp handle_square_subscription_updated(%{"id" => sub_id, "status" => _status} = sub) do
     customer_id = sub["customer_id"]
     plan_variation_id = sub["plan_variation_id"]
     config = Application.get_env(:inkwell, :square, [])
-    inkwell_status = Square.map_subscription_status(status)
+    inkwell_status = effective_square_status(sub)
 
     user = find_user_by_square_customer(customer_id) || find_user_by_square_subscription(sub_id)
 
@@ -1934,44 +2005,28 @@ defmodule Inkwell.Billing do
         :ok
 
       user ->
-        if is_donor_plan?(plan_variation_id, config) or sub_id == user.square_donor_subscription_id do
-          user
-          |> User.ink_donor_changeset(%{
-            square_donor_subscription_id: sub_id,
-            ink_donor_status: inkwell_status
-          })
-          |> Repo.update()
+        donor? =
+          is_donor_plan?(plan_variation_id, config) or sub_id == user.square_donor_subscription_id
 
-          if inkwell_status == "canceled" do
-            Logger.info("Ink Donor canceled for #{user.username} (Square)")
-            Inkwell.Slack.notify_donor_cancellation(user.username)
-          end
-        else
-          expires_at = case sub["charged_through_date"] do
-            date when is_binary(date) ->
-              case Date.from_iso8601(date) do
-                {:ok, d} -> DateTime.new!(d, ~T[23:59:59], "Etc/UTC")
-                _ -> nil
-              end
-            _ -> nil
-          end
+        current_id =
+          if donor?, do: user.square_donor_subscription_id, else: user.square_subscription_id
 
-          tier = if inkwell_status in ["active"], do: "plus", else: user.subscription_tier
+        cond do
+          stale_subscription_event?(current_id, sub_id, inkwell_status) ->
+            # Users are found by customer id, and customers are reused, so this
+            # can be about an old subscription: e.g. someone canceled, then
+            # re-subscribed, and the old one just reached its end date. It used
+            # to overwrite the new, paid subscription with "canceled".
+            Logger.info(
+              "subscription.updated — ignoring #{inkwell_status} for old subscription #{sub_id} " <>
+                "(user #{user.id} is on #{current_id})"
+            )
 
-          user
-          |> User.subscription_changeset(%{
-            square_subscription_id: sub_id,
-            subscription_status: inkwell_status,
-            subscription_tier: tier,
-            subscription_expires_at: expires_at
-          })
-          |> Repo.update()
+          donor? ->
+            apply_donor_update(user, sub_id, inkwell_status)
 
-          if inkwell_status == "canceled" do
-            Logger.info("Plus subscription canceled for #{user.username} (Square)")
-            Inkwell.Slack.notify_plus_cancellation(user.username)
-            maybe_deactivate_custom_domain(user.id)
-          end
+          true ->
+            apply_plus_update(user, sub, sub_id, inkwell_status)
         end
 
         :ok
@@ -1980,11 +2035,84 @@ defmodule Inkwell.Billing do
 
   defp handle_square_subscription_updated(_), do: :ok
 
+  @doc false
+  # An update for a subscription other than the user's current one may start
+  # something (a new active subscription) but never cancel or pause it.
+  def stale_subscription_event?(current_id, sub_id, inkwell_status) do
+    is_binary(current_id) and current_id != sub_id and inkwell_status != "active"
+  end
+
+  @doc false
+  # Square keeps a subscription ACTIVE until the end of the paid period after
+  # a cancel is scheduled, with `canceled_date` set. Treat that as canceled
+  # (access continues until the date) so a member's cancellation doesn't look
+  # undone the next time Square sends an update.
+  def effective_square_status(%{"status" => "ACTIVE", "canceled_date" => date})
+      when is_binary(date),
+      do: "canceled"
+
+  def effective_square_status(%{"status" => status}), do: Square.map_subscription_status(status)
+
+  defp apply_donor_update(user, sub_id, inkwell_status) do
+    user
+    |> User.ink_donor_changeset(%{
+      square_donor_subscription_id: sub_id,
+      ink_donor_status: inkwell_status
+    })
+    |> Repo.update()
+
+    if inkwell_status == "canceled" do
+      Logger.info("Ink Donor canceled for #{user.username} (Square)")
+      Inkwell.Slack.notify_donor_cancellation(user.username)
+    end
+  end
+
+  defp apply_plus_update(user, sub, sub_id, inkwell_status) do
+    expires_at =
+      case sub["canceled_date"] || sub["charged_through_date"] do
+        date when is_binary(date) ->
+          case Date.from_iso8601(date) do
+            {:ok, d} -> DateTime.new!(d, ~T[23:59:59], "Etc/UTC")
+            _ -> nil
+          end
+
+        _ ->
+          nil
+      end
+
+    tier =
+      if inkwell_status in ["active"] or is_binary(sub["canceled_date"]),
+        do: "plus",
+        else: user.subscription_tier
+
+    user
+    |> User.subscription_changeset(%{
+      square_subscription_id: sub_id,
+      subscription_status: inkwell_status,
+      subscription_tier: tier,
+      subscription_expires_at: expires_at
+    })
+    |> Repo.update()
+
+    if inkwell_status == "canceled" and user.subscription_status != "canceled" do
+      Logger.info("Plus subscription canceled for #{user.username} (Square)")
+      Inkwell.Slack.notify_plus_cancellation(user.username)
+    end
+
+    # A scheduled cancel is still ACTIVE (paid through the period); only drop
+    # the custom domain once the subscription has actually ended.
+    if inkwell_status == "canceled" and sub["status"] != "ACTIVE" do
+      maybe_deactivate_custom_domain(user.id)
+    end
+  end
+
   defp handle_invoice_payment_made(%{"subscription_id" => sub_id}) when is_binary(sub_id) do
     user = find_user_by_square_subscription(sub_id)
 
     case user do
-      nil -> :ok
+      nil ->
+        :ok
+
       user ->
         # Confirm subscription is active
         if sub_id == user.square_donor_subscription_id do
@@ -2003,7 +2131,9 @@ defmodule Inkwell.Billing do
     user = find_user_by_square_subscription(sub_id)
 
     case user do
-      nil -> :ok
+      nil ->
+        :ok
+
       user ->
         if sub_id == user.square_donor_subscription_id do
           user |> User.ink_donor_changeset(%{ink_donor_status: "past_due"}) |> Repo.update()
@@ -2027,7 +2157,9 @@ defmodule Inkwell.Billing do
     customer_id = object["customer_id"]
     reason = object["reason"]
 
-    Logger.error("DISPUTE CREATED (Square): customer=#{customer_id}, amount=#{amount}, reason=#{reason}")
+    Logger.error(
+      "DISPUTE CREATED (Square): customer=#{customer_id}, amount=#{amount}, reason=#{reason}"
+    )
 
     user = if customer_id, do: find_user_by_square_customer(customer_id), else: nil
 
@@ -2040,8 +2172,12 @@ defmodule Inkwell.Billing do
       user ->
         # Auto-block the user immediately
         with {:ok, blocked} <- Inkwell.Accounts.block_user(user) do
-          Inkwell.Moderation.AutoModeration.after_manual_block(blocked, "blocked after a payment dispute")
+          Inkwell.Moderation.AutoModeration.after_manual_block(
+            blocked,
+            "blocked after a payment dispute"
+          )
         end
+
         Logger.error("FRAUD: Auto-blocked user #{user.username} due to Square dispute")
 
         # Cancel all subscriptions
@@ -2108,13 +2244,36 @@ defmodule Inkwell.Billing do
         oid when is_binary(oid) ->
           case Square.get_order(oid) do
             {:ok, o} -> o
-            _ -> nil
+            _ -> :fetch_failed
           end
 
         _ ->
           nil
       end
 
+    # Without the order we can't tell a $99 Founding purchase from anything
+    # else. This used to carry on with a nil order, log it as "not a
+    # donation" and mark the event processed, so a brief Square hiccup
+    # silently dropped the purchase. Fail so the webhook job retries.
+    if order == :fetch_failed do
+      Logger.warning("Payment #{payment_id}: couldn't fetch order #{order_id}; will retry")
+      :error
+    else
+      handle_completed_payment_with_order(payment_id, amount_cents, customer_id, order_id, order)
+    end
+  end
+
+  defp handle_payment_completed(%{"status" => status}) do
+    Logger.debug("Ignoring payment event with status #{status}")
+    :ok
+  end
+
+  defp handle_payment_completed(_) do
+    Logger.info("payment event — unrecognized structure, skipping")
+    :ok
+  end
+
+  defp handle_completed_payment_with_order(payment_id, amount_cents, customer_id, order_id, order) do
     user =
       find_user_by_square_customer(customer_id) ||
         find_user_by_order(order) ||
@@ -2150,16 +2309,6 @@ defmodule Inkwell.Billing do
       true ->
         notify_donation_once(payment_id, user, amount_cents)
     end
-  end
-
-  defp handle_payment_completed(%{"status" => status}) do
-    Logger.debug("Ignoring payment event with status #{status}")
-    :ok
-  end
-
-  defp handle_payment_completed(_) do
-    Logger.info("payment event — unrecognized structure, skipping")
-    :ok
   end
 
   # Resolve an Inkwell user from an order's reference_id. Our Payment Links
@@ -2224,24 +2373,28 @@ defmodule Inkwell.Billing do
   # ── Private: Helpers ───────────────────────────────────────────────────
 
   defp find_user_by_square_customer(nil), do: nil
+
   defp find_user_by_square_customer(customer_id) do
-    Repo.one(from u in User, where: u.square_customer_id == ^customer_id)
+    Repo.one(from(u in User, where: u.square_customer_id == ^customer_id))
   end
 
   defp find_user_by_square_subscription(nil), do: nil
+
   defp find_user_by_square_subscription(sub_id) do
     Repo.one(
-      from u in User,
+      from(u in User,
         where: u.square_subscription_id == ^sub_id or u.square_donor_subscription_id == ^sub_id
+      )
     )
   end
 
   # Fetch customer from Square API to get email, then look up user by email
   defp find_user_by_email_from_square(nil), do: nil
+
   defp find_user_by_email_from_square(customer_id) do
     case Square.get_customer(customer_id) do
       {:ok, %{"email_address" => email}} when is_binary(email) and email != "" ->
-        Repo.one(from u in User, where: u.email == ^email)
+        Repo.one(from(u in User, where: u.email == ^email))
 
       _ ->
         nil
@@ -2255,14 +2408,21 @@ defmodule Inkwell.Billing do
   end
 
   defp is_donor_plan?(nil, _config), do: false
+
   defp is_donor_plan?(plan_variation_id, config) do
-    donor_ids = [config[:donor_plan_variation_1], config[:donor_plan_variation_2], config[:donor_plan_variation_3]]
-    |> Enum.reject(fn id -> is_nil(id) or id == "" end)
+    donor_ids =
+      [
+        config[:donor_plan_variation_1],
+        config[:donor_plan_variation_2],
+        config[:donor_plan_variation_3]
+      ]
+      |> Enum.reject(fn id -> is_nil(id) or id == "" end)
 
     plan_variation_id in donor_ids
   end
 
   defp donor_amount_for_plan(nil, _config), do: nil
+
   defp donor_amount_for_plan(plan_variation_id, config) do
     cond do
       plan_variation_id == config[:donor_plan_variation_1] -> 100
@@ -2313,7 +2473,10 @@ defmodule Inkwell.Billing do
     secret_key = Application.get_env(:inkwell, :stripe, [])[:secret_key]
 
     if is_nil(secret_key) or secret_key == "" do
-      Logger.warning("STRIPE_SECRET_KEY not set — cannot cancel Stripe subscription #{subscription_id}")
+      Logger.warning(
+        "STRIPE_SECRET_KEY not set — cannot cancel Stripe subscription #{subscription_id}"
+      )
+
       {:error, :stripe_not_configured}
     else
       url = ~c"#{@stripe_api}/subscriptions/#{subscription_id}"

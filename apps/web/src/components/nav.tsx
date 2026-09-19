@@ -24,7 +24,7 @@ function InkwellLogo() {
 // Logged-in mobile (<lg): logo only — bottom tab bar handles all navigation
 // Logged-out (all sizes): logo + Sign in / Get started
 // ---------------------------------------------------------------------------
-export function Nav({ user }: { user: SessionUser | null }) {
+export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null; hideAuthLinks?: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b relative"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
@@ -36,7 +36,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
         </div>
 
         {/* Right: actions — logged-out only (logged-in uses bottom tab bar) */}
-        {!user && (
+        {!user && !hideAuthLinks && (
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm font-medium transition-colors"
               style={{ color: "var(--muted)" }}>Sign in</Link>

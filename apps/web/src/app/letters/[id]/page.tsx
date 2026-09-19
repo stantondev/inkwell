@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { LetterThread } from "./letter-thread";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 export const metadata: Metadata = { title: "Letters · Inkwell" };
 
@@ -50,8 +51,8 @@ export default async function LetterThreadPage({
       session.token
     );
     thread = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   if (!thread) notFound();

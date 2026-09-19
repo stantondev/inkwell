@@ -169,8 +169,6 @@ export function JournalFeed({
     finally { setLoading(false); }
   }, [loading, hasMore, currentPage, loadMorePath]);
 
-  if (entries.length === 0) return <>{emptyState}</>;
-
   // ─── Shared helpers ──────────────────────────────────────────────
 
   const inkingRef = useRef(new Set<string>());
@@ -183,7 +181,9 @@ export function JournalFeed({
     try {
       const res = await fetch(path, { method: "POST" });
       if (res.ok) {
-        const data = await res.json();
+        // The API wraps the result in `data`; reading the top level set the
+        // count and state to undefined after every swipe.
+        const { data } = await res.json();
         setEntries(prev => prev.map(e => e.id === entryId ? { ...e, my_ink: data.inked, ink_count: data.ink_count } : e));
       }
     } catch { /* silent */ } finally {
@@ -193,14 +193,23 @@ export function JournalFeed({
 
   const toggleBookmark = useCallback(async (entryId: string) => {
     if (!session?.isLoggedIn) return;
+    const entry = entries.find(e => e.id === entryId);
+    // Bookmarks are for Inkwell entries; the endpoint 404s for fediverse posts.
+    if (!entry || entry.source === "remote") return;
     try {
-      const res = await fetch(`/api/entries/${entryId}/bookmark`, { method: "POST" });
+      // Swiping used to always POST, so it could never remove a bookmark.
+      const res = await fetch(`/api/entries/${entryId}/bookmark`, { method: entry.bookmarked ? "DELETE" : "POST" });
       if (res.ok) {
-        const data = await res.json();
+        const { data } = await res.json();
         setEntries(prev => prev.map(e => e.id === entryId ? { ...e, bookmarked: data.bookmarked } : e));
       }
     } catch { /* silent */ }
-  }, [session?.isLoggedIn]);
+  }, [session?.isLoggedIn, entries]);
+
+  // Must come after every hook above: returning earlier changed the number of
+  // hooks between renders, which crashes React when the list goes from empty
+  // to non-empty (or back).
+  if (entries.length === 0) return <>{emptyState}</>;
 
   function handleTranslation(entryId: string, translation: TranslationData | null) {
     setTranslations((prev) => {

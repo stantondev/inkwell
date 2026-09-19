@@ -38,7 +38,8 @@ defmodule InkwellWeb.FeedbackCommentEditTest do
 
     data = edit(writer, id, "Second thought\nwith a new line") |> json_response(200) |> Map.fetch!("data")
 
-    assert data["body"] == "<p>Second thought<br>with a new line</p>"
+    # The sanitizer re-serializes void tags as <br />; either form renders the same.
+      assert data["body"] =~ ~r{^<p>Second thought<br\s*/?>with a new line</p>$}
     assert data["edited_at"]
   end
 

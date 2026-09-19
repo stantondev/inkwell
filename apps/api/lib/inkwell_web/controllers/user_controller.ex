@@ -137,7 +137,7 @@ defmodule InkwellWeb.UserController do
       case Map.get(allowed, "bio_html") do
         nil -> allowed
         html ->
-          sanitized = sanitize_profile_html(html)
+          sanitized = Inkwell.HtmlSanitizer.sanitize(html)
           plain =
             sanitized
             |> String.replace(~r/<[^>]*>/, "")

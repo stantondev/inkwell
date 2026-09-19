@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { Avatar } from "@/components/avatar";
@@ -10,6 +10,7 @@ import { AdminStatusForm } from "./admin-status-form";
 import { FeedbackCommentForm } from "./feedback-comment-form";
 import { FeedbackCommentItem, type FeedbackComment } from "./feedback-comment-item";
 import { EditPostForm } from "./edit-post-form";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface FeedbackPost {
   id: string;
@@ -88,8 +89,8 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
       session?.token
     );
     post = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   const isAuthor = !!session && post.author.id === session.user.id;

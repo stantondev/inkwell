@@ -106,20 +106,9 @@ defmodule InkwellWeb.LetterController do
   defp sanitize_html(""), do: nil
 
   defp sanitize_html(html) do
-    sanitized =
-      html
-      |> String.replace(~r/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/is, "")
-      |> String.replace(~r/<script\b[^>]*\/?\s*>/is, "")
-      |> String.replace(~r/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "")
-      |> String.replace(~r/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/i, "\\1=\"\"")
-      |> String.replace(~r/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/is, "")
-      |> String.replace(~r/<iframe\b[^>]*\/?\s*>/is, "")
-      |> String.replace(~r/<(object|embed|applet)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/is, "")
-      |> String.replace(~r/<(object|embed|applet)\b[^>]*\/?\s*>/is, "")
-
-    case String.trim(sanitized) do
+    case Inkwell.HtmlSanitizer.sanitize(html) do
       "" -> nil
-      trimmed -> trimmed
+      clean -> clean
     end
   end
 

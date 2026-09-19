@@ -26,6 +26,8 @@ defmodule Inkwell.Circles.CircleDiscussion do
   def changeset(discussion, attrs) do
     discussion
     |> cast(attrs, [:title, :body, :body_html, :circle_id, :author_id, :is_prompt, :is_pinned])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:title, :body, :circle_id, :author_id])
     |> validate_length(:title, min: 1, max: 300)
     |> validate_length(:body, min: 1, max: 50_000)
@@ -35,6 +37,8 @@ defmodule Inkwell.Circles.CircleDiscussion do
   def edit_changeset(discussion, attrs) do
     discussion
     |> cast(attrs, [:title, :body, :body_html])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body])
     |> validate_length(:title, min: 1, max: 300)
     |> validate_length(:body, min: 1, max: 50_000)

@@ -18,6 +18,7 @@ defmodule Inkwell.Feedback.FeedbackComment do
   def changeset(comment, attrs) do
     comment
     |> cast(attrs, [:body, :user_id, :feedback_post_id])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
     |> validate_required([:body, :user_id, :feedback_post_id])
     |> validate_length(:body, min: 1, max: 6000)
   end
@@ -25,6 +26,7 @@ defmodule Inkwell.Feedback.FeedbackComment do
   def edit_changeset(comment, attrs) do
     comment
     |> cast(attrs, [:body])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
     |> validate_required([:body])
     |> validate_length(:body, min: 1, max: 6000)
     |> put_change(:edited_at, DateTime.utc_now())

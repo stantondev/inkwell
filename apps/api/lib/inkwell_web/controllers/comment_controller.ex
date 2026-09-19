@@ -15,10 +15,9 @@ defmodule InkwellWeb.CommentController do
          entry when not is_nil(entry) <- Journals.get_entry_by_slug(user.id, slug) do
 
       viewer = conn.assigns[:current_user]
-      accessible? =
-        entry.privacy == :public ||
-        (viewer && viewer.id == user.id) ||
-        (viewer && Social.is_friend?(viewer.id, user.id))
+      # Same rules as the entry page. Followers used to be treated as allowed
+      # on private and custom-list entries too.
+      accessible? = Journals.viewable_by?(entry, viewer)
 
       if accessible? do
         comments = Journals.list_comments(entry.id)
@@ -42,10 +41,9 @@ defmodule InkwellWeb.CommentController do
       entry = Journals.get_entry!(entry_id)
 
       viewer = conn.assigns[:current_user]
-      accessible? =
-        entry.privacy == :public ||
-        (viewer && viewer.id == entry.user_id) ||
-        (viewer && Social.is_friend?(viewer.id, entry.user_id))
+      # Same rules as the entry page. Followers used to be treated as allowed
+      # on private and custom-list entries too.
+      accessible? = Journals.viewable_by?(entry, viewer)
 
       if accessible? do
         comments = Journals.list_comments(entry.id)
@@ -76,7 +74,7 @@ defmodule InkwellWeb.CommentController do
         Social.is_blocked_between?(user.id, entry.user_id) ->
           conn |> put_status(:forbidden) |> json(%{error: "Cannot comment on this entry"})
 
-        not (entry.privacy == :public || entry.user_id == user.id || Social.is_friend?(user.id, entry.user_id)) ->
+        not Journals.viewable_by?(entry, user) ->
           conn |> put_status(:forbidden) |> json(%{error: "Cannot comment on this entry"})
 
         true ->

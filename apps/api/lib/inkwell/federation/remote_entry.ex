@@ -40,6 +40,7 @@ defmodule Inkwell.Federation.RemoteEntry do
   def changeset(entry, attrs) do
     entry
     |> cast(attrs, [:ap_id, :url, :title, :body_html, :tags, :published_at, :remote_actor_id, :sensitive, :content_warning, :source, :relay_subscription_id, :replies_fetched_at, :reply_count, :likes_count, :boosts_count, :engagement_refreshed_at, :gazette_is_news, :gazette_relevance, :gazette_topic, :gazette_summary, :gazette_cluster_id, :gazette_scored_at])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:ap_id, :body_html, :remote_actor_id])
     |> unique_constraint(:ap_id)
   end

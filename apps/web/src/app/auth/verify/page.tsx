@@ -8,8 +8,12 @@ export default function VerifyPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const lsid = searchParams.get("lsid");
-  const [status, setStatus] = useState<"ready" | "verifying" | "success" | "error">("ready");
+  const [status, setStatus] = useState<"ready" | "verifying" | "success" | "handoff" | "error">("ready");
   const [error, setError] = useState<string | null>(null);
+  const [destination, setDestination] = useState("/feed");
+  const [code, setCode] = useState("");
+  const [handoffState, setHandoffState] = useState<"idle" | "sending" | "done">("idle");
+  const [handoffError, setHandoffError] = useState<string | null>(null);
 
   // Auto-verify on mount — safe because this is a client page (prefetchers don't execute JS)
   useEffect(() => {
@@ -39,12 +43,45 @@ export default function VerifyPage() {
         return;
       }
 
+      // The link was requested on another screen (the installed app or a
+      // different browser). This browser is signed in either way; offer to
+      // sign that screen in too, gated by the code it shows.
+      if (data.handoff && lsid) {
+        setDestination(data.destination);
+        setStatus("handoff");
+        return;
+      }
+
       setStatus("success");
       // Full page navigation to pick up the new cookie
       window.location.href = data.destination;
     } catch {
       setStatus("error");
       setError("Could not reach the server. Please try again.");
+    }
+  }
+
+  async function completeHandoff(e: React.FormEvent) {
+    e.preventDefault();
+    if (!lsid || handoffState === "sending") return;
+    setHandoffState("sending");
+    setHandoffError(null);
+    try {
+      const res = await fetch("/api/auth/complete-handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lsid, code: code.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setHandoffState("done");
+      } else {
+        setHandoffState("idle");
+        setHandoffError(data.error ?? "That didn't work. Try again.");
+      }
+    } catch {
+      setHandoffState("idle");
+      setHandoffError("Could not reach the server. Please try again.");
     }
   }
 
@@ -145,6 +182,57 @@ export default function VerifyPage() {
             <p className="text-sm font-medium" style={{ color: "var(--accent)" }}>
               Signed in! Redirecting...
             </p>
+          </div>
+        )}
+
+        {status === "handoff" && (
+          <div className="flex flex-col gap-4 text-center">
+            <h1 className="text-xl font-semibold"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+              You&apos;re signed in here
+            </h1>
+            {handoffState === "done" ? (
+              <p className="text-sm" style={{ color: "var(--muted)" }}>
+                Done. Your other screen will sign in within a few seconds.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  Did you ask for this link in the Inkwell app or another browser?
+                  Enter the 4-digit code shown there to sign it in too.
+                </p>
+                <form onSubmit={completeHandoff} className="flex flex-col gap-3">
+                  <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="0000"
+                    aria-label="Code from your other screen"
+                    className="rounded-xl border px-4 py-3 text-center text-2xl font-semibold focus:outline-none focus:ring-2"
+                    style={{ letterSpacing: "0.3em", borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={code.length !== 4 || handoffState === "sending"}
+                    className="rounded-xl py-3 text-base font-medium transition-opacity disabled:opacity-50"
+                    style={{ background: "var(--accent)", color: "#fff" }}
+                  >
+                    {handoffState === "sending" ? "Signing in…" : "Sign in there too"}
+                  </button>
+                </form>
+                {handoffError && (
+                  <p className="text-sm" style={{ color: "var(--danger, #dc2626)" }}>{handoffError}</p>
+                )}
+                <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                  If you didn&apos;t ask for a link anywhere else, skip this. Never enter a code someone sends you.
+                </p>
+              </>
+            )}
+            <a href={destination} className="text-sm font-medium underline underline-offset-2"
+              style={{ color: "var(--accent)" }}>
+              {handoffState === "done" ? "Continue here →" : "Skip, just continue here →"}
+            </a>
           </div>
         )}
 

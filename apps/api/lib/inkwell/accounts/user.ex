@@ -280,6 +280,8 @@ defmodule Inkwell.Accounts.User do
       :pinned_entry_ids, :social_links,
       :preferred_language
     ])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:bio_html)
+    |> Inkwell.HtmlSanitizer.sanitize_change(:profile_html, :profile)
     |> validate_length(:bio, max: 2000)
     |> validate_length(:bio_html, max: 10_000)
     |> validate_length(:display_name, max: 100)

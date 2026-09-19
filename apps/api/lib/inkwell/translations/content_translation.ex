@@ -20,6 +20,7 @@ defmodule Inkwell.Translations.ContentTranslation do
   def changeset(translation, attrs) do
     translation
     |> cast(attrs, [:translatable_type, :translatable_id, :source_language, :target_language, :translated_title, :translated_body, :provider])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:translated_body)
     |> validate_required([:translatable_type, :translatable_id, :target_language, :translated_body])
     |> validate_inclusion(:translatable_type, ~w(entry comment remote_entry guestbook_entry circle_response))
     |> unique_constraint([:translatable_type, :translatable_id, :target_language])

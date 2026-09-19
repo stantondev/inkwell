@@ -20,13 +20,11 @@ export default async function SettingsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  let user: FullUser = session.user as unknown as FullUser;
-  try {
-    const data = await apiFetch<{ data: FullUser }>("/api/me", {}, session.token);
-    user = data.data;
-  } catch {
-    // fall back to session data
-  }
+  // No fallback to the session user: it lacks social_links, support_url and
+  // email, and the form sends every field on Save, so a failed load here used
+  // to erase them. A failed load now shows the error/reconnecting screen.
+  const data = await apiFetch<{ data: FullUser }>("/api/me", {}, session.token);
+  const user = data.data;
 
   return <ProfileEditForm user={user} />;
 }

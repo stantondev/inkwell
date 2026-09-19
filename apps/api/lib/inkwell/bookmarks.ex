@@ -5,6 +5,7 @@ defmodule Inkwell.Bookmarks do
   alias Inkwell.Bookmarks.Bookmark
   alias Inkwell.Journals.Entry
   alias Inkwell.Accounts.User
+  alias Inkwell.Social.{Relationship, FriendFilter}
 
   @doc """
   Bookmark an entry. Idempotent — returns {:ok, bookmark} if already bookmarked.
@@ -65,11 +66,43 @@ defmodule Inkwell.Bookmarks do
     per_page = Keyword.get(opts, :per_page, 20)
     offset = (page - 1) * per_page
 
+    # Same visibility as the entry page. This used to return every bookmarked
+    # published entry with its full body, so a bookmark kept showing an entry
+    # after the author made it private or blocked the reader, and anyone could
+    # bookmark an entry id to read a private entry.
     from(b in Bookmark,
-      join: e in Entry, on: e.id == b.entry_id,
+      join: e in Entry, as: :entry, on: e.id == b.entry_id,
       join: u in User, on: u.id == e.user_id,
       where: b.user_id == ^user_id,
-      where: e.status == :published,
+      where: e.status == :published and is_nil(u.blocked_at),
+      where:
+        e.user_id == ^user_id or
+          e.privacy == :public or
+          (e.privacy == :friends_only and
+             exists(
+               from(r in Relationship,
+                 where:
+                   r.follower_id == ^user_id and r.following_id == parent_as(:entry).user_id and
+                     r.status == :accepted
+               )
+             )) or
+          (e.privacy == :custom and
+             exists(
+               from(f in FriendFilter,
+                 where:
+                   f.id == parent_as(:entry).custom_filter_id and
+                     fragment("? = ANY(?)", type(^user_id, :binary_id), f.member_ids)
+               )
+             )),
+      where:
+        not exists(
+          from(r in Relationship,
+            where:
+              r.status == :blocked and
+                ((r.follower_id == ^user_id and r.following_id == parent_as(:entry).user_id) or
+                   (r.following_id == ^user_id and r.follower_id == parent_as(:entry).user_id))
+          )
+        ),
       order_by: [desc: b.inserted_at],
       limit: ^per_page,
       offset: ^offset,

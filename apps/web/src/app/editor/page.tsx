@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { EditorClient } from "./editor-client";
+import { EditorRoute } from "./editor-route";
 
 export const metadata: Metadata = {
   title: "New entry",
@@ -14,7 +14,7 @@ export default function EditorPage() {
         <span className="text-sm">Loading editor...</span>
       </div>
     }>
-      <EditorClient />
+      <EditorRoute />
     </Suspense>
   );
 }

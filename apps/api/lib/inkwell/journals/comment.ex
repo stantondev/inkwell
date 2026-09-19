@@ -26,6 +26,7 @@ defmodule Inkwell.Journals.Comment do
   def changeset(comment, attrs) do
     comment
     |> cast(attrs, [:body_html, :entry_id, :remote_entry_id, :user_id, :parent_comment_id, :user_icon_id, :remote_author, :ap_id, :url])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html])
     |> validate_entry_target()
     |> validate_has_author()
@@ -35,6 +36,7 @@ defmodule Inkwell.Journals.Comment do
   def edit_changeset(comment, attrs) do
     comment
     |> cast(attrs, [:body_html])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html])
     |> put_change(:edited_at, DateTime.utc_now() |> DateTime.truncate(:microsecond))
   end

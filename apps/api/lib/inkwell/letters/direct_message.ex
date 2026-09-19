@@ -21,6 +21,7 @@ defmodule Inkwell.Letters.DirectMessage do
   def changeset(message, attrs) do
     message
     |> cast(attrs, [:conversation_id, :sender_id, :body, :body_html])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:conversation_id, :sender_id, :body])
     |> validate_length(:body, min: 1, max: 10_000)
   end
@@ -28,6 +29,7 @@ defmodule Inkwell.Letters.DirectMessage do
   def edit_changeset(message, attrs) do
     message
     |> cast(attrs, [:body, :body_html])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body])
     |> validate_length(:body, min: 1, max: 10_000)
     |> put_change(:edited_at, DateTime.utc_now() |> DateTime.truncate(:microsecond))

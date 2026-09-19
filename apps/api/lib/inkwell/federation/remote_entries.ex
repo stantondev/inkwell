@@ -181,7 +181,8 @@ defmodule Inkwell.Federation.RemoteEntries do
   @doc "Update just the body_html of a remote entry (used by LinkPreviewWorker)."
   def update_body_html(entry, new_body_html) do
     entry
-    |> Ecto.Changeset.change(%{body_html: new_body_html})
+    # Built partly from other sites' OpenGraph titles/descriptions.
+    |> Ecto.Changeset.change(%{body_html: Inkwell.HtmlSanitizer.sanitize(new_body_html)})
     |> Repo.update()
   end
 

@@ -7,16 +7,23 @@ export default function RedactionsPage() {
   const [input, setInput] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A failed load must not look like "no redactions": the next save would
+  // replace the real list with just the new word.
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/me");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setLoadError(true);
+          return;
+        }
         const { data } = await res.json();
         setWords(data.settings?.redacted_words || []);
       } catch {
-        // ignore
+        setLoadError(true);
       } finally {
         setLoaded(true);
       }
@@ -24,19 +31,28 @@ export default function RedactionsPage() {
   }, []);
 
   const save = async (updated: string[]) => {
+    if (loadError) return;
+    const previous = words;
     setWords(updated);
     setSaving(true);
+    setSaveError(false);
     try {
-      await fetch("/api/me", {
+      const res = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           settings: { redacted_words: updated },
         }),
       });
+      // fetch doesn't throw on HTTP errors, so a failed save used to leave the
+      // list looking saved.
+      if (!res.ok) {
+        setWords(previous);
+        setSaveError(true);
+      }
     } catch {
-      // revert on error
-      setWords(words);
+      setWords(previous);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -68,6 +84,16 @@ export default function RedactionsPage() {
 
   if (!loaded) return null;
 
+  if (loadError) {
+    return (
+      <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <p className="text-sm" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load your redactions. Reload the page to try again. Nothing has been changed.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div
@@ -85,6 +111,12 @@ export default function RedactionsPage() {
           hidden from your Feed, Explore, and profile pages. Your own entries
           are never redacted.
         </p>
+
+        {saveError && (
+          <p className="text-sm mb-3" style={{ color: "var(--danger, #dc2626)" }}>
+            Couldn&apos;t save that change. Please try again.
+          </p>
+        )}
 
         {/* Word chips */}
         {words.length > 0 && (

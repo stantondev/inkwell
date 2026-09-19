@@ -28,6 +28,7 @@ defmodule Inkwell.Circles.Circle do
   def changeset(circle, attrs) do
     circle
     |> cast(attrs, [:name, :description, :category, :cover_image_id, :owner_id, :visibility, :is_starter])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:description)
     |> validate_required([:name, :category, :owner_id])
     |> validate_length(:name, min: 2, max: 100)
     |> validate_length(:description, max: 5000)
@@ -38,6 +39,7 @@ defmodule Inkwell.Circles.Circle do
   def update_changeset(circle, attrs) do
     circle
     |> cast(attrs, [:name, :description, :category, :cover_image_id])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:description)
     |> validate_length(:name, min: 2, max: 100)
     |> validate_length(:description, max: 5000)
   end

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+
 import { apiFetch, SERVER_API } from "@/lib/api";
 import { getProfile } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
@@ -28,6 +28,7 @@ import type { TemplateContext } from "@/lib/template-tags";
 import { SignupCta } from "@/components/signup-cta";
 import { WriterSubscribeCard } from "@/components/writer-subscribe-card";
 import { FediverseHandle } from "./fediverse-handle";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -509,8 +510,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
     entryYears = data.meta.entry_years ?? [];
     entryTags = data.meta.entry_tags ?? [];
     entryCategories = data.meta.entry_categories ?? [];
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   // Writer subscription plans are paused (Stripe Connect requirement, account

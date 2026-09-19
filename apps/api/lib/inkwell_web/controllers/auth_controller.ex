@@ -71,8 +71,10 @@ defmodule InkwellWeb.AuthController do
             # Create token in Postgres
             token = Auth.create_magic_link_token(user.id)
 
-            # Create a login handoff ID for PWA cross-context auth
-            login_session_id = LoginHandoff.create_handoff()
+            # Create a login handoff for cross-context sign-in (the app asks,
+            # the browser opens the email). The code is shown only on the
+            # requesting screen and must be typed where the link is opened.
+            {login_session_id, handoff_code} = LoginHandoff.create_handoff()
 
             # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
             # Include lsid so the verify step can complete the handoff for PWA polling.
@@ -81,11 +83,20 @@ defmodule InkwellWeb.AuthController do
             # Send the email (or fall back to dev mode if no API key)
             case Inkwell.Email.send_magic_link(email, magic_link) do
               {:ok, :sent} ->
-                json(conn, %{ok: true, login_session_id: login_session_id})
+                json(conn, %{
+                  ok: true,
+                  login_session_id: login_session_id,
+                  handoff_code: handoff_code
+                })
 
               {:ok, :no_email_configured, _link} ->
                 # No email service configured — return the link directly for dev/testing
-                json(conn, %{ok: true, dev_magic_link: magic_link, login_session_id: login_session_id})
+                json(conn, %{
+                  ok: true,
+                  dev_magic_link: magic_link,
+                  login_session_id: login_session_id,
+                  handoff_code: handoff_code
+                })
 
               {:error, reason} ->
                 # Email is configured but delivery failed. Do NOT return the
@@ -121,7 +132,7 @@ defmodule InkwellWeb.AuthController do
   # Called server-side by Next.js /auth/verify route handler.
   # Returns a long-lived API token instead of a session cookie redirect.
   # Optional lsid completes a PWA login handoff so the PWA can claim the session.
-  def verify_magic_link(conn, %{"token" => token} = params) do
+  def verify_magic_link(conn, %{"token" => token}) do
     case Auth.verify_magic_link_token(token) do
       :error ->
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid or expired magic link"})
@@ -133,10 +144,9 @@ defmodule InkwellWeb.AuthController do
         # Create a long-lived API session token in Postgres
         api_token = Auth.create_api_session_token(user.id)
 
-        # Complete the PWA login handoff if lsid was provided
-        if lsid = params["lsid"] do
-          LoginHandoff.complete_handoff(lsid, api_token, render_user(user))
-        end
+        # The handoff to another screen is NOT completed here any more: that
+        # needs the code from the requesting screen (POST /auth/complete-handoff).
+        # Opening a link must never hand a session to whoever requested it.
 
         json(conn, %{
           ok: true,
@@ -252,6 +262,37 @@ defmodule InkwellWeb.AuthController do
 
   def claim_session(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "id is required"})
+  end
+
+  # POST /api/auth/complete-handoff  { "lsid": "...", "code": "1234" }
+  # Called from the browser that opened a sign-in link, after the person types
+  # the code shown on the screen that asked for it (usually the installed app).
+  # Hands that screen its own new session for the same account.
+  def complete_handoff(conn, %{"lsid" => lsid, "code" => code})
+      when is_binary(lsid) and is_binary(code) do
+    if conn.assigns[:auth_method] == :api_key do
+      conn |> put_status(:forbidden) |> json(%{error: "Not available with an API key"})
+    else
+      user = conn.assigns.current_user
+      token = Auth.create_api_session_token(user.id)
+
+      case LoginHandoff.complete_handoff(lsid, code, token, render_user(user)) do
+        :ok ->
+          json(conn, %{ok: true})
+
+        :wrong_code ->
+          Auth.revoke_api_session_token(token)
+          conn |> put_status(:unprocessable_entity) |> json(%{error: "That code doesn't match. Check the other screen and try again."})
+
+        _expired_or_missing ->
+          Auth.revoke_api_session_token(token)
+          conn |> put_status(:gone) |> json(%{error: "That sign-in request has expired. Ask for a new link on the other screen."})
+      end
+    end
+  end
+
+  def complete_handoff(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "lsid and code are required"})
   end
 
   # ── Helpers ─────────────────────────────────────────────────────────────────

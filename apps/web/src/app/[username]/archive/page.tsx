@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { getSession, getToken } from "@/lib/session";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface ArchiveParams {
   params: Promise<{ username: string }>;
@@ -65,8 +66,8 @@ export default async function ArchivePage({ params, searchParams }: ArchiveParam
   try {
     const data = await apiFetch<{ data: ProfileUser }>(`/api/users/${username}`);
     profile = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   // Fetch entries — owner and friends see more

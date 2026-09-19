@@ -9,7 +9,22 @@ export const SERVER_API = process.env.API_URL ?? "http://localhost:4000";
 export const CLIENT_API =
   process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.64.2:4000";
 
+/**
+ * Digest attached to errors that mean "the API couldn't be reached right now"
+ * (a deploy restart, Fly returning 502/503, or our own timeout, reported as 504).
+ *
+ * Next.js strips error messages before they reach the browser in production
+ * but keeps an error's `digest`, so this is how error.tsx can tell a brief
+ * outage apart from a real bug and show a self-recovering "reconnecting"
+ * screen instead of "signed out" or "not found".
+ */
+export const API_UNAVAILABLE_DIGEST = "INKWELL_API_UNAVAILABLE";
+
+const UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+
 export class ApiError extends Error {
+  digest?: string;
+
   constructor(
     message: string,
     public status: number,
@@ -17,7 +32,18 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+    if (UNAVAILABLE_STATUSES.has(status)) this.digest = API_UNAVAILABLE_DIGEST;
   }
+}
+
+/** True when the error means the API was unreachable, not that the request was bad. */
+export function isApiUnavailable(err: unknown): boolean {
+  return err instanceof ApiError && UNAVAILABLE_STATUSES.has(err.status);
+}
+
+/** True when the API answered 404 for this resource. */
+export function isApiNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
 }
 
 /**

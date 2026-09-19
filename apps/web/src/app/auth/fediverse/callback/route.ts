@@ -58,14 +58,19 @@ export async function GET(request: NextRequest) {
       user?: { settings?: { onboarded?: boolean } };
     } = await res.json();
 
-    const destination =
-      data.redirect_to ||
-      (data.is_new ? "/welcome" : "/feed");
+    // redirect_to comes from a parameter the sign-in started with; only
+    // follow same-site paths. "//evil.example" or a full URL used to send
+    // people off Inkwell straight after signing in.
+    const requested = data.redirect_to;
+    const safeRequested =
+      typeof requested === "string" && /^\/(?![\/\\])/.test(requested) ? requested : null;
+    const destination = safeRequested || (data.is_new ? "/welcome" : "/feed");
     const response = NextResponse.redirect(new URL(destination, origin));
 
     response.cookies.set(TOKEN_COOKIE, data.token, {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: TOKEN_MAX_AGE,
       path: "/",
     });

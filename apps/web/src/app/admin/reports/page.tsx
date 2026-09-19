@@ -141,13 +141,14 @@ export default function AdminReportsPage() {
     const json: { data: WarnResult } = await res.json();
     const { blocked, warning, user } = json.data;
 
+    let entryText = "";
     if (opts.deleteEntry) {
-      await fetch(`/api/admin/entries/${report.entry.id}`, { method: "DELETE" });
+      const del = await fetch(`/api/admin/entries/${report.entry.id}`, { method: "DELETE" });
+      entryText = del.ok ? " · entry deleted" : " · entry NOT deleted (delete it from Admin → Entries)";
     }
 
     const strikeText = `Strike ${warning.strike_number} issued to @${user.username}`;
     const extra = blocked ? " — account auto-blocked (threshold reached)" : "";
-    const entryText = opts.deleteEntry ? " · entry deleted" : "";
     setLastAction(`${strikeText}${extra}${entryText}`);
     setWarnModal(null);
     fetchReports();

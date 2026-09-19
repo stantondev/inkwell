@@ -192,6 +192,7 @@ export async function middleware(request: NextRequest) {
     response.cookies.set(TOKEN_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: TOKEN_MAX_AGE,
       path: "/",
     });

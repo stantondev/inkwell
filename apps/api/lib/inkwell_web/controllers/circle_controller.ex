@@ -850,17 +850,7 @@ defmodule InkwellWeb.CircleController do
     end
   end
 
-  defp sanitize_circle_html(html) do
-    html
-    |> String.replace(~r/<script\b[^>]*>.*?<\/script>/is, "")
-    |> String.replace(~r/<iframe\b[^>]*>.*?<\/iframe>/is, "")
-    |> String.replace(~r/<object\b[^>]*>.*?<\/object>/is, "")
-    |> String.replace(~r/<embed\b[^>]*\/?>/is, "")
-    |> String.replace(~r/<applet\b[^>]*>.*?<\/applet>/is, "")
-    |> String.replace(~r/\s+on\w+\s*=\s*"[^"]*"/i, "")
-    |> String.replace(~r/\s+on\w+\s*=\s*'[^']*'/i, "")
-    |> String.replace(~r/javascript\s*:/i, "")
-  end
+  defp sanitize_circle_html(html), do: Inkwell.HtmlSanitizer.sanitize(html)
 
   defp derive_plain_text(html) do
     html

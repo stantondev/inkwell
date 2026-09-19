@@ -2,6 +2,7 @@ defmodule InkwellWeb.PollController do
   use InkwellWeb, :controller
 
   alias Inkwell.Polls
+  require Ecto.Query
   alias Inkwell.Journals
   alias Inkwell.Accounts
   alias InkwellWeb.Helpers.MentionHelper

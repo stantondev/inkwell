@@ -192,6 +192,9 @@ defmodule InkwellWeb.Router do
   scope "/api", InkwellWeb do
     pipe_through [:api, :authenticated, :api_key_rate_limited, :write_scope, :user_write_limited]
 
+    # Cross-context sign-in handoff (code-confirmed)
+    post "/auth/complete-handoff", AuthController, :complete_handoff
+
     # API key management (session-only — controller rejects API key auth)
     get "/api-keys", ApiKeyController, :index
     post "/api-keys", ApiKeyController, :create

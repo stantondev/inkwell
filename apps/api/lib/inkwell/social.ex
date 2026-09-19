@@ -17,7 +17,12 @@ defmodule Inkwell.Social do
   end
 
   def accept_follow(follower_id, following_id) do
-    with {:ok, rel} <- get_relationship(follower_id, following_id) do
+    # Only a genuine pending request can be accepted. This used to accept any
+    # row between the two people, including a block: if Bob blocked Alice,
+    # Alice could "accept" Bob's block row and turn it into a mutual pen-pal
+    # connection, then read his pen-pals-only entries and send him letters.
+    with {:ok, %{status: :pending} = rel} <- get_relationship(follower_id, following_id),
+         false <- is_blocked_between?(follower_id, following_id) do
       # Accept the incoming follow
       rel
       |> Relationship.changeset(%{status: :accepted, is_mutual: true})
@@ -41,6 +46,8 @@ defmodule Inkwell.Social do
             |> Repo.insert()
         end
       end)
+    else
+      _ -> {:error, :not_found}
     end
   end
 
@@ -72,10 +79,12 @@ defmodule Inkwell.Social do
   end
 
   def block(blocker_id, blocked_id) do
-    # Remove any existing relationships
+    # Remove any existing relationships, except the other person's own block
+    # of this user: deleting it meant that if B had blocked A and A then
+    # blocked (and later unblocked) B, B's block was gone without B knowing.
     Relationship
     |> where([r], (r.follower_id == ^blocker_id and r.following_id == ^blocked_id) or
-                   (r.follower_id == ^blocked_id and r.following_id == ^blocker_id))
+                   (r.follower_id == ^blocked_id and r.following_id == ^blocker_id and r.status != :blocked))
     |> Repo.delete_all()
 
     # Delete stamps between the two users (both directions)
@@ -482,18 +491,26 @@ defmodule Inkwell.Social do
   end
 
   def update_top_friends(user_id, friends) do
+    # Only people this user follows (accepted) can be featured, and a bad entry
+    # rolls the whole save back with an error instead of raising a 500.
+    allowed = MapSet.new(list_friend_ids(user_id))
+
     Repo.transaction(fn ->
-      # Delete existing
       TopFriend |> where(user_id: ^user_id) |> Repo.delete_all()
 
-      # Insert new (handle both string and atom keys from JSON params)
+      # Handle both string and atom keys from JSON params
       Enum.each(friends, fn entry ->
         friend_id = entry["friend_id"] || entry[:friend_id]
         position = entry["position"] || entry[:position]
 
-        %TopFriend{}
-        |> TopFriend.changeset(%{user_id: user_id, friend_id: friend_id, position: position})
-        |> Repo.insert!()
+        unless MapSet.member?(allowed, friend_id), do: Repo.rollback(:not_a_pen_pal)
+
+        case %TopFriend{}
+             |> TopFriend.changeset(%{user_id: user_id, friend_id: friend_id, position: position})
+             |> Repo.insert() do
+          {:ok, _} -> :ok
+          {:error, _changeset} -> Repo.rollback(:invalid_top_friends)
+        end
       end)
     end)
   end

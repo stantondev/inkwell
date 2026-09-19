@@ -52,7 +52,7 @@ defmodule InkwellWeb.EntryPublishing do
           if processed_html != body_html do
             {:ok, updated} =
               entry
-              |> Ecto.Changeset.change(%{body_html: processed_html})
+              |> Ecto.Changeset.change(%{body_html: Inkwell.HtmlSanitizer.sanitize(processed_html)})
               |> Repo.update()
             updated
           else

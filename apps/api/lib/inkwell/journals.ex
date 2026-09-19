@@ -470,12 +470,29 @@ defmodule Inkwell.Journals do
       if series_id do
         case Repo.get(Series, series_id) do
           %Series{user_id: ^user_id} ->
-            {count, _} =
+            # Each entry needs a position. Setting only series_id left
+            # series_order nil, and the entry page's prev/next query then
+            # raised on the nil comparison, so every entry added from the
+            # Posts page returned a 500. Append after the existing entries,
+            # oldest first.
+            moving =
               Entry
               |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
-              |> Repo.update_all(set: [series_id: series_id])
+              |> where([e], is_nil(e.series_id) or e.series_id != ^series_id)
+              |> order_by([e], asc_nulls_last: e.published_at, asc: e.inserted_at)
+              |> Repo.all()
 
-            {:ok, count}
+            start = next_series_order(series_id)
+
+            moving
+            |> Enum.with_index(start)
+            |> Enum.each(fn {entry, order} ->
+              Entry
+              |> where([e], e.id == ^entry.id)
+              |> Repo.update_all(set: [series_id: series_id, series_order: order])
+            end)
+
+            {:ok, length(moving)}
 
           _ ->
             {:error, :unauthorized}
@@ -652,6 +669,39 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @doc """
+  Whether `viewer` (a user or nil) may see `entry`: the same rules as the
+  entry page. Published only (authors see their own drafts), then privacy:
+  public; private = author; friends_only = author or someone they follow
+  accepted; custom = author or a member of the chosen list; paid = author or a
+  subscriber. Never across a block.
+  """
+  def viewable_by?(%Entry{} = entry, viewer) do
+    viewer_id = viewer && viewer.id
+    author? = viewer_id != nil and viewer_id == entry.user_id
+
+    cond do
+      author? -> true
+      entry.status != :published -> false
+      viewer_id && Inkwell.Social.is_blocked_between?(viewer_id, entry.user_id) -> false
+      entry.privacy == :public -> true
+      is_nil(viewer_id) -> false
+      entry.privacy == :friends_only -> Inkwell.Social.is_friend?(viewer_id, entry.user_id)
+      entry.privacy == :custom -> in_custom_filter?(entry, viewer_id)
+      entry.privacy == :paid -> Inkwell.WriterSubscriptions.is_subscribed?(viewer_id, entry.user_id)
+      true -> false
+    end
+  end
+
+  defp in_custom_filter?(%Entry{custom_filter_id: nil}, _viewer_id), do: false
+
+  defp in_custom_filter?(%Entry{custom_filter_id: filter_id}, viewer_id) do
+    case Repo.get(Inkwell.Social.FriendFilter, filter_id) do
+      %{member_ids: ids} when is_list(ids) -> viewer_id in ids
+      _ -> false
+    end
+  end
+
   @doc "Get series navigation data (prev/next) for an entry in a series."
   def get_series_navigation(%Entry{series_id: nil}), do: nil
 
@@ -659,31 +709,31 @@ defmodule Inkwell.Journals do
     series = Repo.get(Series, series_id)
     if series == nil, do: throw(:no_series)
 
+    # Only public entries appear as prev/next: this is shown to every reader,
+    # and it used to reveal the titles of private and pen-pals-only entries.
+    neighbours =
+      Entry
+      |> where([e], e.series_id == ^series_id and e.status == :published and e.privacy == :public)
+      |> limit(1)
+      |> preload(:user)
+
     # Count published entries in this series
     entry_count =
       Entry
       |> where(series_id: ^series_id, status: :published)
       |> Repo.aggregate(:count)
 
-    # Find previous entry (highest series_order less than current)
-    prev_entry =
-      Entry
-      |> where([e], e.series_id == ^series_id and e.status == :published)
-      |> where([e], e.series_order < ^order)
-      |> order_by(desc: :series_order)
-      |> limit(1)
-      |> preload(:user)
-      |> Repo.one()
-
-    # Find next entry (lowest series_order greater than current)
-    next_entry =
-      Entry
-      |> where([e], e.series_id == ^series_id and e.status == :published)
-      |> where([e], e.series_order > ^order)
-      |> order_by(:series_order)
-      |> limit(1)
-      |> preload(:user)
-      |> Repo.one()
+    # An entry without a position (older bulk moves) has no neighbours; the
+    # nil comparison used to raise and 500 the whole entry page.
+    {prev_entry, next_entry} =
+      if is_nil(order) do
+        {nil, nil}
+      else
+        {
+          neighbours |> where([e], e.series_order < ^order) |> order_by(desc: :series_order) |> Repo.one(),
+          neighbours |> where([e], e.series_order > ^order) |> order_by(:series_order) |> Repo.one()
+        }
+      end
 
     %{
       id: series.id,

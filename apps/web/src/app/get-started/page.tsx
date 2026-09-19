@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
 import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
+import { HandoffCodeNote } from "@/components/handoff-code-note";
 
 type Step = "enter_email" | "check_email";
 
@@ -61,6 +62,7 @@ export default function GetStartedPage() {
   const [error, setError] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | undefined>();
   const [loginSessionId, setLoginSessionId] = useState<string | undefined>();
+  const [handoffCode, setHandoffCode] = useState<string | undefined>();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +119,7 @@ export default function GetStartedPage() {
 
       setDevLink(data.dev_magic_link);
       setLoginSessionId(data.login_session_id);
+      setHandoffCode(data.handoff_code);
       setStep("check_email");
     } catch {
       setError("Could not reach the server. Please try again.");
@@ -137,7 +140,17 @@ export default function GetStartedPage() {
         body: JSON.stringify({ email: email.trim(), terms_accepted: true }),
       });
 
-      if (res.ok) return { ok: true };
+      if (res.ok) {
+        // A resend issues a new link with a new handoff; follow the latest one.
+        try {
+          const data = await res.json();
+          if (data?.login_session_id) setLoginSessionId(data.login_session_id);
+          if (data?.handoff_code) setHandoffCode(data.handoff_code);
+        } catch {
+          // keep the previous handoff
+        }
+        return { ok: true };
+      }
 
       if (res.status === 429) {
         return { ok: false, error: "Please wait a moment before requesting another link." };
@@ -307,6 +320,7 @@ export default function GetStartedPage() {
             email={email}
             devLink={devLink}
             loginSessionId={loginSessionId}
+            handoffCode={handoffCode}
             onResend={handleResend}
             onReset={() => setStep("enter_email")}
           />
@@ -327,12 +341,14 @@ function CheckEmailStep({
   email,
   devLink,
   loginSessionId,
+  handoffCode,
   onResend,
   onReset,
 }: {
   email: string;
   devLink?: string;
   loginSessionId?: string;
+  handoffCode?: string;
   onResend: () => Promise<{ ok: boolean; error?: string }>;
   onReset: () => void;
 }) {
@@ -434,6 +450,8 @@ function CheckEmailStep({
           Waiting for sign-in
         </p>
       )}
+
+      <HandoffCodeNote code={handoffCode} />
 
       {devLink && (
         <div className="rounded-xl border p-4 text-left"

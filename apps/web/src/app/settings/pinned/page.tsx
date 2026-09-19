@@ -17,15 +17,23 @@ export default function PinnedEntriesPage() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [loading, setLoading] = useState(true);
+  // If loading fails, Save must stay disabled: saving the empty list would
+  // unpin everything.
+  const [loadError, setLoadError] = useState(false);
 
   // Load current pinned entries
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/me");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setLoadError(true);
+          return;
+        }
         const data = await res.json();
-        const ids: string[] = data.pinned_entry_ids ?? [];
+        // /api/me wraps the user in `data`; reading the top level always gave
+        // an empty list, so this page showed no pins and Save wiped them.
+        const ids: string[] = data.data?.pinned_entry_ids ?? [];
         setPinnedIds(ids);
 
         // Fetch entry titles for pinned IDs
@@ -36,7 +44,7 @@ export default function PinnedEntriesPage() {
                 const r = await fetch(`/api/entries/${id}`);
                 if (!r.ok) return { id, title: null, slug: "" };
                 const e = await r.json();
-                return { id, title: e.title, slug: e.slug };
+                return { id, title: e.data?.title ?? null, slug: e.data?.slug ?? "" };
               } catch {
                 return { id, title: null, slug: "" };
               }
@@ -44,6 +52,8 @@ export default function PinnedEntriesPage() {
           );
           setPinnedEntries(entries);
         }
+      } catch {
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
@@ -59,7 +69,7 @@ export default function PinnedEntriesPage() {
         const res = await fetch("/api/session");
         if (res.ok) {
           const data = await res.json();
-          setUsername(data.user?.username ?? null);
+          setUsername(data.data?.username ?? null);
         }
       } catch { /* ignore */ }
     })();
@@ -299,15 +309,21 @@ export default function PinnedEntriesPage() {
         </p>
       )}
 
+      {loadError && (
+        <p className="text-sm mb-4" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load your pinned entries, so saving is turned off to protect them. Reload the page to try again.
+        </p>
+      )}
+
       {/* Save button */}
       <button
         onClick={handleSave}
-        disabled={saving}
+        disabled={saving || loadError}
         className="rounded-xl px-5 py-2.5 text-sm font-medium transition-colors"
         style={{
           background: "var(--accent)",
           color: "white",
-          opacity: saving ? 0.6 : 1,
+          opacity: saving || loadError ? 0.6 : 1,
         }}
       >
         {saving ? "Saving..." : "Save"}

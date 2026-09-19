@@ -17,9 +17,12 @@ import { SearchCommand } from "./search-command";
  */
 export async function AppShell({
   user,
+  sessionUnavailable = false,
   children,
 }: {
   user: SessionUser | null;
+  /** The API couldn't be reached — don't offer "Sign in" to someone who may be signed in. */
+  sessionUnavailable?: boolean;
   children: React.ReactNode;
 }) {
   const headersList = await headers();
@@ -59,7 +62,7 @@ export async function AppShell({
       )}
 
       {/* Logged-out: standard Nav (all sizes) */}
-      {!user && <Nav user={null} />}
+      {!user && <Nav user={null} hideAuthLinks={sessionUnavailable} />}
 
       {/* Sidebar — desktop only, logged-in only */}
       {user && <Sidebar user={user} />}

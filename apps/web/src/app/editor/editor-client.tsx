@@ -23,6 +23,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import type { Editor } from "@tiptap/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { draftsCreatedHere } from "./created-here";
 import { mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
@@ -1680,6 +1681,9 @@ export function EditorClient() {
 
   // ── Autosave refs ──────────────────────────────────────────────────────────
   const hasUnsavedChanges = useRef(false);
+  // Bumped on every edit, so an autosave that finishes can tell whether the
+  // writer typed while it was in flight.
+  const editRevisionRef = useRef(0);
   const autosaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveMaxRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1898,7 +1902,7 @@ export function EditorClient() {
       detectMentionInEditor(editor);
       // Don't trigger autosave during initial content load
       if (editorLoadedRef.current) {
-        hasUnsavedChanges.current = true;
+        hasUnsavedChanges.current = true; editRevisionRef.current += 1;
         scheduleLocalSave();
         scheduleAutosave();
       }
@@ -2199,7 +2203,7 @@ export function EditorClient() {
   // ── Autosave: mark unsaved + schedule ──────────────────────────────────────
 
   const markUnsaved = useCallback(() => {
-    hasUnsavedChanges.current = true;
+    hasUnsavedChanges.current = true; editRevisionRef.current += 1;
     scheduleLocalSave();
   }, [scheduleLocalSave]);
 
@@ -2214,7 +2218,13 @@ export function EditorClient() {
     if (!hasUnsavedChanges.current || autosaveDisabled.current || autosavingRef.current || !editor) return;
     // Don't race with manual save/publish
     if (isPublishing) return;
+    // Published entries are only saved when the writer presses Save. Autosaving
+    // them made half-finished edits live, sent a fediverse Update to every
+    // follower on each pause, and filled version history with fragments. The
+    // local recovery copy still runs, and the leave-page warning stays on.
+    if (savedEntryId && !isDraft) return;
 
+    const revisionAtStart = editRevisionRef.current;
     autosavingRef.current = true;
     setSaveStatus("saving");
     try {
@@ -2267,17 +2277,26 @@ export function EditorClient() {
           setEntryAuthor(data.data.author?.username ?? null);
           setIsDraft(true);
           createdHereRef.current = data.data.id;
+          draftsCreatedHere.add(data.data.id);
           window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
 
-      // Success
-      hasUnsavedChanges.current = false;
-      clearAutosaveTimers();
+      // Success. If the writer typed while this request was in flight, those
+      // edits aren't saved yet: keep them marked unsaved and save again soon.
+      // (This used to clear the flag and cancel the timer the new keystrokes
+      // had scheduled, so the last sentence typed during a save was lost.)
+      if (editRevisionRef.current === revisionAtStart) {
+        hasUnsavedChanges.current = false;
+        clearAutosaveTimers();
+      } else {
+        clearAutosaveTimers();
+        autosaveDebounceRef.current = setTimeout(() => { performAutosaveRef.current(); }, 1000);
+      }
       const now = new Date();
       setLastSavedAt(now);
       setSaveStatus("saved");
-      clearLocalRecovery();
+      if (editRevisionRef.current === revisionAtStart) clearLocalRecovery();
       setTimeout(() => setSaveStatus((prev) => prev === "saved" ? "idle" : prev), 10000);
     } catch {
       setSaveStatus("error");
@@ -2534,15 +2553,25 @@ export function EditorClient() {
   }, [state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
+  // Resolves once no autosave is in flight, with the entry id to save to
+  // (including a draft that autosave created while we waited).
+  const waitForAutosave = useCallback(async (): Promise<string | null> => {
+    for (let i = 0; i < 100 && autosavingRef.current; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return savedEntryId ?? createdHereRef.current;
+  }, [savedEntryId]);
+
   const handleSaveDraft = useCallback(async () => {
     if (!editor) return;
     setSaveStatus("saving");
+    const entryId = await waitForAutosave();
     try {
       const payload = { ...buildPayload(), status: "draft" };
 
-      if (savedEntryId) {
+      if (entryId) {
         // Update existing draft
-        const res = await fetch(`/api/entries/${savedEntryId}`, {
+        const res = await fetch(`/api/entries/${entryId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -2569,6 +2598,7 @@ export function EditorClient() {
           setEntryAuthor(data.data.author?.username ?? null);
           // Update URL so subsequent saves are PATCHes
           createdHereRef.current = data.data.id;
+          draftsCreatedHere.add(data.data.id);
           window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
@@ -2586,7 +2616,7 @@ export function EditorClient() {
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
-  }, [editor, buildPayload, savedEntryId, clearAutosaveTimers, clearLocalRecovery]);
+  }, [waitForAutosave, editor, buildPayload, savedEntryId, clearAutosaveTimers, clearLocalRecovery]);
 
   // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
@@ -2598,6 +2628,10 @@ export function EditorClient() {
       return;
     }
     setIsPublishing(true);
+    // If the first autosave is still creating the draft, wait for it and use
+    // that draft. Publishing straight away sent a second "create" request,
+    // which failed as a duplicate or made two entries.
+    const targetEntryId = await waitForAutosave();
     try {
       let data;
 
@@ -2605,8 +2639,8 @@ export function EditorClient() {
         // Saved as a draft that publishes itself. The newsletter and cross-post
         // choices are kept with it and applied when it goes live.
         const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, ...rest } = buildPayload();
-        const res = await fetch(savedEntryId ? `/api/entries/${savedEntryId}` : "/api/entries", {
-          method: savedEntryId ? "PATCH" : "POST",
+        const res = await fetch(targetEntryId ? `/api/entries/${targetEntryId}` : "/api/entries", {
+          method: targetEntryId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...rest,
@@ -2620,9 +2654,9 @@ export function EditorClient() {
           throw new Error(apiErrorMessage(err, "Scheduling failed"));
         }
         data = await res.json();
-      } else if (savedEntryId && isDraft) {
+      } else if (targetEntryId && isDraft) {
         // Publishing a draft: POST /api/entries/:id/publish
-        const res = await fetch(`/api/entries/${savedEntryId}/publish`, {
+        const res = await fetch(`/api/entries/${targetEntryId}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildPayload()),
@@ -2632,9 +2666,9 @@ export function EditorClient() {
           throw new Error(apiErrorMessage(err, "Publish failed"));
         }
         data = await res.json();
-      } else if (savedEntryId) {
+      } else if (targetEntryId) {
         // Updating a published entry: PATCH /api/entries/:id
-        const res = await fetch(`/api/entries/${savedEntryId}`, {
+        const res = await fetch(`/api/entries/${targetEntryId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildPayload()),
@@ -2713,7 +2747,7 @@ export function EditorClient() {
     } finally {
       setIsPublishing(false);
     }
-  }, [editor, isPublishing, isDraft, state.publishedAt, savedEntryId, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
   if (loading) {
     return (
@@ -2835,7 +2869,7 @@ export function EditorClient() {
                   setHasContent(!!editor.getText().trim());
                   setWordCount(editor.storage.characterCount.words());
                 }
-                hasUnsavedChanges.current = true;
+                hasUnsavedChanges.current = true; editRevisionRef.current += 1;
                 scheduleAutosave();
                 setRecoveryData(null);
                 clearLocalRecovery();

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { SubscribeForm } from "./subscribe-form";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -28,8 +29,8 @@ export default async function SubscribePage({ params }: PageProps) {
   try {
     const data = await apiFetch<{ data: WriterInfo }>(`/api/newsletter/${username}`);
     writer = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   return (

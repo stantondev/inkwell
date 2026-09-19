@@ -19,6 +19,8 @@ defmodule Inkwell.Circles.CircleResponse do
   def changeset(response, attrs) do
     response
     |> cast(attrs, [:body, :body_html, :discussion_id, :author_id])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body, :discussion_id, :author_id])
     |> validate_length(:body, min: 1, max: 6000)
     |> validate_length(:body_html, max: 12_000)
@@ -27,6 +29,8 @@ defmodule Inkwell.Circles.CircleResponse do
   def edit_changeset(response, attrs) do
     response
     |> cast(attrs, [:body, :body_html])
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body)
+    |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body])
     |> validate_length(:body, min: 1, max: 6000)
     |> validate_length(:body_html, max: 12_000)

@@ -11,8 +11,10 @@ defmodule Inkwell.Auth do
   # 30 minutes. Was 15, which is tight once you add email delivery latency to
   # normal inbox behaviour (people don't always read mail the instant it lands),
   # so a real share of users clicked a dead link and hit the "Link expired"
-  # screen on their first attempt. Tokens are still single-use and revoked when
-  # a newer one is issued, so the extra window costs little.
+  # screen on their first attempt. Tokens are single-use, so the extra window
+  # costs little. Requesting another link deliberately leaves earlier ones
+  # valid until they expire: people often click the first email after pressing
+  # "resend", and that shouldn't fail.
   @magic_link_ttl_seconds 1800          # 30 minutes
   @api_session_ttl_seconds 7_776_000    # 90 days
   @refresh_after_seconds 604_800        # 7 days — refresh token if 7+ days old

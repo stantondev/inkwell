@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       response.cookies.set(TOKEN_COOKIE, data.token, {
         httpOnly: true,
         sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
         maxAge: TOKEN_MAX_AGE,
         path: "/",
       });

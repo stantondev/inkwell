@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
 import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
@@ -221,6 +221,7 @@ const SERVICE_ICONS: Record<MusicService, React.ReactNode> = {
 };
 
 import type { MusicEmbed } from "@/lib/music";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 function EntryMusicEmbed({ embed, music }: { embed: MusicEmbed; music: string }) {
   // Direct audio file — native <audio> player
@@ -499,8 +500,8 @@ export default async function EntryPage({ params }: EntryParams) {
     // Cached — generateMetadata above already fetched this with the same token.
     const data = await getEntry<{ data: EntryData }>(username, slug, token);
     entry = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   // Use header (custom domain request) or API response (inkwell.social request) for canonical URLs
@@ -525,8 +526,8 @@ export default async function EntryPage({ params }: EntryParams) {
   let pinnedEntryIds: string[] = [];
   if (isOwnEntry && token) {
     try {
-      const meData = await apiFetch<{ pinned_entry_ids?: string[] }>("/api/me", {}, token);
-      pinnedEntryIds = meData.pinned_entry_ids ?? [];
+      const meData = await apiFetch<{ data?: { pinned_entry_ids?: string[] } }>("/api/me", {}, token);
+      pinnedEntryIds = meData.data?.pinned_entry_ids ?? [];
     } catch { /* ignore */ }
   }
 

@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { PollWidget, type PollData } from "@/components/poll-widget";
 import { PollComments } from "./poll-comments";
 import { notFound } from "next/navigation";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 
 export const metadata: Metadata = { title: "Poll · Inkwell" };
 
@@ -17,8 +18,8 @@ export default async function PollDetailPage({ params }: { params: Promise<{ id:
   try {
     const data = await apiFetch<{ data: PollData }>(`/api/polls/${id}`, {}, token);
     poll = data.data;
-  } catch {
-    notFound();
+  } catch (err) {
+    notFoundOrRethrow(err);
   }
 
   if (!poll) notFound();

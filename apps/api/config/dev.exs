@@ -10,7 +10,7 @@ config :inkwell, Inkwell.Repo,
   pool_size: 10
 
 config :inkwell, InkwellWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: 4000],
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   debug_errors: true,
   secret_key_base: "dev_secret_key_base_replace_in_production_with_real_secret_that_is_at_least_64_bytes",

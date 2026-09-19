@@ -65,6 +65,13 @@ export default function SupportSettingsPage() {
   }, []);
 
   async function handleSaveLink() {
+    // `user` is only set once /api/me loaded. Saving the empty form without it
+    // would erase the writer's existing support link.
+    if (!user) {
+      setLinkStatus("error");
+      setLinkError("Couldn't load your current support link, so nothing was saved. Reload the page to try again.");
+      return;
+    }
     setLinkSaving(true);
     setLinkStatus("idle");
     setLinkError("");

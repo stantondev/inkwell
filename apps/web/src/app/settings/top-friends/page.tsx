@@ -24,22 +24,16 @@ export default async function TopFriendsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  let topFriends: TopFriendSlot[] = [];
-  let friends: Friend[] = [];
-
-  try {
-    const data = await apiFetch<{ data: TopFriendSlot[] }>("/api/me/top-friends", {}, session.token);
-    topFriends = data.data ?? [];
-  } catch {
-    // empty
-  }
-
-  try {
-    const data = await apiFetch<{ data: Friend[] }>("/api/friends", {}, session.token);
-    friends = data.data ?? [];
-  } catch {
-    // empty
-  }
+  // No try/catch on purpose: these used to fall back to empty lists, so a
+  // failed load showed six empty slots with nobody to add, and pressing Save
+  // then deleted the person's real Top 6. A failed load now shows the error
+  // (or reconnecting) screen instead of an editor built on missing data.
+  const [topData, friendsData] = await Promise.all([
+    apiFetch<{ data: TopFriendSlot[] }>("/api/me/top-friends", {}, session.token),
+    apiFetch<{ data: Friend[] }>("/api/friends", {}, session.token),
+  ]);
+  const topFriends = topData.data ?? [];
+  const friends = friendsData.data ?? [];
 
   return <TopFriendsEditor topFriends={topFriends} friends={friends} />;
 }

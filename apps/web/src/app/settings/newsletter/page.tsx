@@ -44,6 +44,8 @@ export default function NewsletterSettingsPage() {
         setName(s.newsletter_name || "");
         setDescription(s.newsletter_description || "");
         setReplyTo(s.newsletter_reply_to || "");
+      } else {
+        setError("Couldn't load your newsletter settings. Reload the page to try again.");
       }
       if (meRes.ok) {
         const meData = await meRes.json();
@@ -60,6 +62,12 @@ export default function NewsletterSettingsPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
+    // Without loaded settings the form shows defaults (disabled, blank), and
+    // saving them would switch off a live newsletter.
+    if (!settings) {
+      setError("Couldn't load your newsletter settings, so nothing was saved. Reload the page to try again.");
+      return;
+    }
     setSaving(true);
     setError("");
     setSuccess("");

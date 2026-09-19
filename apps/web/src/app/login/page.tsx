@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
 import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
+import { HandoffCodeNote } from "@/components/handoff-code-note";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   oauth_denied: "Authorization was denied. You can try again or use email sign-in.",
@@ -36,7 +37,7 @@ function InkwellLogo() {
 function EnterEmailStep({
   onSubmit,
 }: {
-  onSubmit: (email: string, devLink?: string, loginSessionId?: string) => void;
+  onSubmit: (email: string, devLink?: string, loginSessionId?: string, handoffCode?: string) => void;
 }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -84,7 +85,7 @@ function EnterEmailStep({
         return;
       }
 
-      onSubmit(email.trim(), data.dev_magic_link, data.login_session_id);
+      onSubmit(email.trim(), data.dev_magic_link, data.login_session_id, data.handoff_code);
     } catch {
       setError("Could not reach the server. Is the API running?");
     } finally {
@@ -154,14 +155,19 @@ function EnterEmailStep({
 function CheckEmailStep({
   email,
   devLink,
-  loginSessionId,
+  loginSessionId: initialLoginSessionId,
+  handoffCode: initialHandoffCode,
   onReset,
 }: {
   email: string;
   devLink?: string;
   loginSessionId?: string;
+  handoffCode?: string;
   onReset: () => void;
 }) {
+  // A resend issues a new link with a new handoff, so follow the latest one.
+  const [loginSessionId, setLoginSessionId] = useState(initialLoginSessionId);
+  const [handoffCode, setHandoffCode] = useState(initialHandoffCode);
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState("");
@@ -190,6 +196,13 @@ function CheckEmailStep({
       });
 
       if (res.ok) {
+        try {
+          const data = await res.json();
+          if (data?.login_session_id) setLoginSessionId(data.login_session_id);
+          if (data?.handoff_code) setHandoffCode(data.handoff_code);
+        } catch {
+          // keep the previous handoff
+        }
         setResent(true);
         setTimeout(() => setResent(false), 4000);
       } else if (res.status === 429) {
@@ -279,6 +292,8 @@ function CheckEmailStep({
         </p>
       )}
 
+      <HandoffCodeNote code={handoffCode} />
+
       {devLink && (
         <div className="rounded-xl border p-4 text-left"
           style={{ borderColor: "var(--accent)", background: "var(--accent-light)" }}>
@@ -341,16 +356,18 @@ export default function LoginPage() {
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [devLink, setDevLink] = useState<string | undefined>();
   const [loginSessionId, setLoginSessionId] = useState<string | undefined>();
+  const [handoffCode, setHandoffCode] = useState<string | undefined>();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
   const urlErrorMessage = urlError
     ? OAUTH_ERROR_MESSAGES[urlError] || decodeURIComponent(urlError)
     : null;
 
-  const handleEmailSubmit = (email: string, link?: string, sessionId?: string) => {
+  const handleEmailSubmit = (email: string, link?: string, sessionId?: string, code?: string) => {
     setSubmittedEmail(email);
     setDevLink(link);
     setLoginSessionId(sessionId);
+    setHandoffCode(code);
     setStep("check_email");
   };
 
@@ -399,6 +416,7 @@ export default function LoginPage() {
             email={submittedEmail}
             devLink={devLink}
             loginSessionId={loginSessionId}
+            handoffCode={handoffCode}
             onReset={() => setStep("enter_email")}
           />
         )}

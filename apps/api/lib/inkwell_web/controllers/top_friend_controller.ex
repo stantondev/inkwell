@@ -30,10 +30,15 @@ defmodule InkwellWeb.TopFriendController do
           end)
         })
 
-      {:error, reason} ->
+      {:error, :not_a_pen_pal} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: inspect(reason)})
+        |> json(%{error: "You can only feature people you follow."})
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Couldn't save your Top 6. Check for duplicates and try again."})
     end
   end
 

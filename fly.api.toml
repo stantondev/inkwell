@@ -22,6 +22,14 @@ primary_region = "ord"
   # well within the shared-cpu-1x:2GB headroom.
   POOL_SIZE = "12"
 
+# Blue-green: boot the new machine(s), wait for health checks, then switch
+# traffic and retire the old ones. No extra standing cost.
+# The API runs on one machine, so the default rolling strategy stopped it
+# before starting the new one: every deploy was a 30-60s outage, and pages
+# rendered during it treated signed-in people as signed out (2026-09-19).
+[deploy]
+  strategy = "bluegreen"
+
 [http_service]
   internal_port = 4000
   force_https = true
