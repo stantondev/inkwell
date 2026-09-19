@@ -1,10 +1,10 @@
 defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, MarginNotes, Newsletter, OAuth, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, MarginNotes, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Federation.Workers.FanOutWorker
-  alias Inkwell.Workers.{CrosspostWorker, SearchIndexWorker}
-  alias InkwellWeb.{Helpers.MentionHelper, MarginNoteController, UserController}
+  alias Inkwell.Workers.SearchIndexWorker
+  alias InkwellWeb.{EntryPublishing, MarginNoteController, UserController}
 
   @free_draft_limit 10
 
@@ -296,7 +296,9 @@ defmodule InkwellWeb.EntryController do
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
-                      "sensitive", "content_warning", "published_at"])
+                      "sensitive", "content_warning", "published_at",
+                      "scheduled_at", "scheduled_options"])
+        |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
@@ -335,26 +337,7 @@ defmodule InkwellWeb.EntryController do
           {:ok, entry} ->
             record_entry_creation(user.id)
 
-            # Process @mentions in body
-            entry = process_entry_mentions(entry, user.id)
-
-            # Fan out to federated followers for public entries
-            if entry.privacy == :public do
-              %{entry_id: entry.id, action: "create", user_id: user.id}
-              |> FanOutWorker.new()
-              |> Oban.insert()
-            end
-
-            maybe_queue_spam_check(user, entry)
-
-            # Send as newsletter if requested
-            maybe_send_newsletter(entry, user, params)
-
-            # Cross-post to linked Mastodon accounts if requested
-            maybe_enqueue_crossposts(entry, user, params)
-
-            # Index in Meilisearch
-            enqueue_search_index(entry.id)
+            entry = EntryPublishing.after_publish(entry, user, params)
 
             conn
             |> put_status(:created)
@@ -391,7 +374,10 @@ defmodule InkwellWeb.EntryController do
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                        "excerpt", "cover_image_id", "category", "series_id",
-                       "sensitive", "content_warning"])
+                       "sensitive", "content_warning",
+                       # Drafts only; published entries ignore these.
+                       "scheduled_at", "scheduled_options"])
+        |> sanitize_scheduled_options()
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
         |> maybe_auto_excerpt()
@@ -410,7 +396,7 @@ defmodule InkwellWeb.EntryController do
         case result do
           {:ok, updated} ->
             # Process @mentions in body
-            updated = process_entry_mentions(updated, user.id)
+            updated = EntryPublishing.process_mentions(updated, user.id)
 
             # Fan out updates for published public entries
             if updated.status == :published && updated.privacy == :public do
@@ -477,26 +463,7 @@ defmodule InkwellWeb.EntryController do
         with :ok <- validate_custom_filter_ownership(attrs, user.id) do
           case Journals.publish_draft(entry, attrs) do
             {:ok, published} ->
-              # Process @mentions in body
-              published = process_entry_mentions(published, user.id)
-
-              # Fan out to federated followers for public entries
-              if published.privacy == :public do
-                %{entry_id: published.id, action: "create", user_id: user.id}
-                |> FanOutWorker.new()
-                |> Oban.insert()
-              end
-
-              maybe_queue_spam_check(user, published)
-
-              # Send as newsletter if requested
-              maybe_send_newsletter(published, user, params)
-
-              # Cross-post to linked Mastodon accounts if requested
-              maybe_enqueue_crossposts(published, user, params)
-
-              # Index in Meilisearch
-              enqueue_search_index(published.id)
+              published = EntryPublishing.after_publish(published, user, params)
 
               json(conn, %{data: render_entry_full(published, user)})
 
@@ -617,6 +584,7 @@ defmodule InkwellWeb.EntryController do
           sensitive: entry.sensitive || false,
           cover_image_id: entry.cover_image_id,
           published_at: entry.published_at,
+          scheduled_at: entry.scheduled_at,
           updated_at: entry.updated_at,
           created_at: entry.inserted_at
         }
@@ -841,44 +809,8 @@ defmodule InkwellWeb.EntryController do
   defp maybe_clear_custom_filter_id(attrs), do: attrs
 
   # Cross-post to linked Mastodon accounts if the writer opted in
-  defp maybe_enqueue_crossposts(entry, user, params) do
-    crosspost_to = params["crosspost_to"]
-
-    if is_list(crosspost_to) and entry.privacy == :public do
-      accounts = OAuth.list_fediverse_accounts(user.id)
-      account_ids = Enum.map(accounts, & &1.id) |> MapSet.new()
-
-      Enum.each(crosspost_to, fn account_id ->
-        if MapSet.member?(account_ids, account_id) do
-          %{entry_id: entry.id, fediverse_account_id: account_id}
-          |> CrosspostWorker.new()
-          |> Oban.insert()
-        end
-      end)
-    end
-  end
 
   # Trigger newsletter send if the writer opted in for this entry
-  defp maybe_send_newsletter(entry, user, params) do
-    send_newsletter = params["send_newsletter"]
-
-    if send_newsletter == true and entry.privacy == :public and (user.newsletter_enabled || false) do
-      scheduled_at = case params["newsletter_scheduled_at"] do
-        nil -> nil
-        dt_string when is_binary(dt_string) ->
-          case DateTime.from_iso8601(dt_string) do
-            {:ok, dt, _} -> dt
-            _ -> nil
-          end
-        _ -> nil
-      end
-
-      Newsletter.create_send(entry, user,
-        subject: params["newsletter_subject"],
-        scheduled_at: scheduled_at
-      )
-    end
-  end
 
   defp get_owned_entry(user_id, entry_id) do
     entry = Journals.get_entry!(entry_id)
@@ -967,6 +899,7 @@ defmodule InkwellWeb.EntryController do
       slug: entry.slug,
       tags: entry.tags,
       published_at: entry.published_at,
+      scheduled_at: entry.scheduled_at,
       ap_id: entry.ap_id,
       status: entry.status,
       word_count: entry.word_count || 0,
@@ -1096,6 +1029,26 @@ defmodule InkwellWeb.EntryController do
 
   # Auto-populate excerpt from body_html if not provided
   # Auto-assign series_order when adding to a series
+  # The publish-time choices a scheduled post keeps until it goes live (see
+  # EntryPublishing). Anything else in the map is dropped.
+  defp sanitize_scheduled_options(%{"scheduled_options" => opts} = attrs) when is_map(opts) do
+    clean =
+      %{
+        "send_newsletter" => opts["send_newsletter"] == true,
+        "newsletter_subject" => if(is_binary(opts["newsletter_subject"]), do: String.slice(opts["newsletter_subject"], 0, 500)),
+        "newsletter_scheduled_at" => if(is_binary(opts["newsletter_scheduled_at"]), do: opts["newsletter_scheduled_at"]),
+        "crosspost_to" => if(is_list(opts["crosspost_to"]), do: Enum.filter(opts["crosspost_to"], &is_binary/1), else: [])
+      }
+      |> Map.reject(fn {_k, v} -> is_nil(v) end)
+
+    Map.put(attrs, "scheduled_options", clean)
+  end
+
+  defp sanitize_scheduled_options(%{"scheduled_options" => _} = attrs),
+    do: Map.put(attrs, "scheduled_options", %{})
+
+  defp sanitize_scheduled_options(attrs), do: attrs
+
   defp maybe_auto_series_order(%{"series_id" => series_id} = attrs)
        when is_binary(series_id) and series_id != "" do
     Map.put_new(attrs, "series_order", Journals.next_series_order(series_id))
@@ -1172,48 +1125,6 @@ defmodule InkwellWeb.EntryController do
 
   # ── Search indexing helpers ───────────────────────────────────────────
 
-  defp process_entry_mentions(entry, author_id) do
-    case entry.body_html do
-      nil -> entry
-      body_html ->
-        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
-
-        # Update the entry HTML with processed mentions (converts @username to links)
-        entry =
-          if processed_html != body_html do
-            {:ok, updated} =
-              entry
-              |> Ecto.Changeset.change(%{body_html: processed_html})
-              |> Repo.update()
-            updated
-          else
-            entry
-          end
-
-        # Notify mentioned users — but only once per entry, and only for
-        # published entries.
-        #
-        # This ran on every save. The editor autosaves while you write, so
-        # mentioning someone in a post sent them a fresh notification *and
-        # email* every few seconds (one entry produced 35 of each before this
-        # was fixed). Drafts notified too, before anyone could read the post.
-        if entry.status == :published do
-          for user <- mentioned_users,
-              user.id != author_id,
-              not Accounts.already_notified_mention?(user.id, "entry", entry.id) do
-            Accounts.create_notification(%{
-              type: :mention,
-              user_id: user.id,
-              actor_id: author_id,
-              target_type: "entry",
-              target_id: entry.id
-            })
-          end
-        end
-
-        entry
-    end
-  end
 
   defp enqueue_search_index(entry_id) do
     %{action: "index_entry", entry_id: entry_id}
@@ -1227,17 +1138,5 @@ defmodule InkwellWeb.EntryController do
     |> Oban.insert()
   end
 
-  # New accounts publishing publicly get a spam check within a minute instead
-  # of waiting for the hourly scan (spam posts land within minutes of signup).
-  defp maybe_queue_spam_check(user, %{status: :published, privacy: privacy})
-       when privacy in [:public, :paid] do
-    if DateTime.diff(DateTime.utc_now(), user.inserted_at, :day) < 7 do
-      Inkwell.Workers.AutoModerationWorker.enqueue_user(user.id)
-    end
-
-    :ok
-  end
-
-  defp maybe_queue_spam_check(_, _), do: :ok
 
 end

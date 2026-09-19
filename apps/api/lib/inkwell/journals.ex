@@ -1093,13 +1093,29 @@ defmodule Inkwell.Journals do
 
   defp extract_image_ids(_), do: []
 
+  @doc "Scheduled drafts whose time has come, oldest first."
+  def list_due_scheduled_entries(now \\ DateTime.utc_now(), limit \\ 50) do
+    Entry
+    |> where([e], e.status == :draft and not is_nil(e.scheduled_at) and e.scheduled_at <= ^now)
+    |> order_by([e], asc: e.scheduled_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc "Takes a draft off its schedule, leaving it as a plain draft."
+  def unschedule_entry(%Entry{} = entry) do
+    entry
+    |> Ecto.Changeset.change(scheduled_at: nil, scheduled_options: %{})
+    |> Repo.update()
+  end
+
   @doc "Delete draft entries not updated in `days` days."
   def cleanup_abandoned_drafts(days \\ 365) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 
     {count, _} =
       Entry
-      |> where([e], e.status == :draft and e.updated_at < ^cutoff)
+      |> where([e], e.status == :draft and e.updated_at < ^cutoff and is_nil(e.scheduled_at))
       |> Repo.delete_all()
 
     {:ok, count}

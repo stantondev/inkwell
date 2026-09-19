@@ -16,9 +16,11 @@ interface DraftEntry {
   tags: string[];
   privacy: string;
   updated_at: string;
+  scheduled_at?: string | null;
 }
 
-export default async function DraftsPage() {
+export default async function DraftsPage({ searchParams }: { searchParams: Promise<{ scheduled?: string }> }) {
+  const { scheduled } = await searchParams;
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -65,6 +67,16 @@ export default async function DraftsPage() {
             + New entry
           </Link>
         </div>
+
+        {scheduled && (
+          <div
+            role="status"
+            className="rounded-xl border px-4 py-3 mb-6 text-sm"
+            style={{ borderColor: "var(--accent)", background: "var(--accent-light)", color: "var(--foreground)" }}
+          >
+            Scheduled. It will publish itself at the time you picked, and stays here until then so you can keep editing it.
+          </div>
+        )}
 
         {/* Draft capacity indicator for free users */}
         {session.user.subscription_tier !== "plus" && (() => {

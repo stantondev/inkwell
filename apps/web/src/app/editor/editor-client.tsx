@@ -79,11 +79,21 @@ function isFutureDate(value: string): boolean {
 
 // The date is only sent when the writer changed it: the input drops seconds, so
 // re-sending an untouched date (like an imported post's original one) would nudge
-// it. A future date is never sent; publishing is blocked with a message instead.
-function datePayload(value: string, loaded: string, isDraft: boolean): { published_at?: string | null } {
-  if (value === loaded || isFutureDate(value)) return {};
-  if (!value) return isDraft ? { published_at: null } : {};
-  return { published_at: new Date(value).toISOString() };
+// it. A future date on a draft means "schedule": a plain draft is only scheduled
+// by pressing Schedule, but an already-scheduled one follows date changes as it
+// saves, and moving its date to the past (or clearing it) unschedules it.
+function datePayload(
+  value: string,
+  loaded: string,
+  isDraft: boolean,
+  wasScheduled: boolean,
+): { published_at?: string | null; scheduled_at?: string | null } {
+  if (value === loaded) return {};
+  if (isFutureDate(value)) {
+    return isDraft && wasScheduled ? { scheduled_at: new Date(value).toISOString() } : {};
+  }
+  const date = !value ? (isDraft ? { published_at: null } : {}) : { published_at: new Date(value).toISOString() };
+  return wasScheduled ? { ...date, scheduled_at: null } : date;
 }
 
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -1536,6 +1546,8 @@ export function EditorClient() {
   });
   // The entry's date as loaded, so saves only send it when the writer changes it.
   const [loadedPublishedAt, setLoadedPublishedAt] = useState("");
+  // Whether the draft was already scheduled when it was opened.
+  const [wasScheduled, setWasScheduled] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatusType>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -1580,6 +1592,11 @@ export function EditorClient() {
   // Draft tracking
   const [isDraft, setIsDraft] = useState(!editId); // new entries start as drafts
   const [savedEntryId, setSavedEntryId] = useState<string | null>(editId);
+  // The id of a draft this editor just created. Putting it in the URL changes
+  // `edit`, which would otherwise reload the entry from the server and wipe
+  // anything not yet saved: a chosen future date was lost this way, so the
+  // next click published immediately instead of scheduling.
+  const createdHereRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [storageExceeded, setStorageExceeded] = useState(false);
 
@@ -2027,6 +2044,7 @@ export function EditorClient() {
   // Load existing entry when editing
   useEffect(() => {
     if (!editId || !editor) return;
+    if (editId === createdHereRef.current) return;
 
     let cancelled = false;
     (async () => {
@@ -2049,9 +2067,10 @@ export function EditorClient() {
           seriesId: entry.series_id ?? null,
           sensitive: entry.sensitive ?? false,
           contentWarning: entry.content_warning ?? "",
-          publishedAt: toLocalInput(entry.published_at),
+          publishedAt: toLocalInput(entry.scheduled_at || entry.published_at),
         });
-        setLoadedPublishedAt(toLocalInput(entry.published_at));
+        setLoadedPublishedAt(toLocalInput(entry.scheduled_at || entry.published_at));
+        setWasScheduled(!!entry.scheduled_at);
         setCoverImageId(entry.cover_image_id ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
 
@@ -2190,7 +2209,7 @@ export function EditorClient() {
         series_id: state.seriesId || null,
         sensitive: state.sensitive,
         content_warning: state.sensitive ? (state.contentWarning || null) : null,
-        ...datePayload(state.publishedAt, loadedPublishedAt, isDraft),
+        ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
       };
 
       if (savedEntryId) {
@@ -2222,6 +2241,7 @@ export function EditorClient() {
           setSavedEntryId(data.data.id);
           setEntryAuthor(data.data.author?.username ?? null);
           setIsDraft(true);
+          createdHereRef.current = data.data.id;
           window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
@@ -2242,7 +2262,7 @@ export function EditorClient() {
       autosavingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, state, loadedPublishedAt, isDraft, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, state, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
 
   const scheduleAutosave = useCallback(() => {
     if (autosaveDisabled.current) return;
@@ -2422,7 +2442,7 @@ export function EditorClient() {
       series_id: state.seriesId || null,
       sensitive: state.sensitive,
       content_warning: state.sensitive ? (state.contentWarning || null) : null,
-      ...datePayload(state.publishedAt, loadedPublishedAt, isDraft),
+      ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
@@ -2437,7 +2457,7 @@ export function EditorClient() {
       payload.crosspost_to = Array.from(crosspostTo);
     }
     return payload;
-  }, [state, loadedPublishedAt, isDraft, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
+  }, [state, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -2474,6 +2494,7 @@ export function EditorClient() {
           setSavedEntryId(data.data.id);
           setEntryAuthor(data.data.author?.username ?? null);
           // Update URL so subsequent saves are PATCHes
+          createdHereRef.current = data.data.id;
           window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
@@ -2496,15 +2517,36 @@ export function EditorClient() {
   // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
     if (!editor || isPublishing) return;
-    if (isFutureDate(state.publishedAt)) {
-      alert("That date is in the future. Inkwell can't schedule posts yet, so pick today or an earlier date in Entry Settings.");
+    // A future date on a draft schedules it; a published entry can't move there.
+    const scheduling = isDraft && isFutureDate(state.publishedAt);
+    if (!isDraft && isFutureDate(state.publishedAt)) {
+      alert("A published entry can't be dated in the future. Pick today or an earlier date in Entry Settings.");
       return;
     }
     setIsPublishing(true);
     try {
       let data;
 
-      if (savedEntryId && isDraft) {
+      if (scheduling) {
+        // Saved as a draft that publishes itself. The newsletter and cross-post
+        // choices are kept with it and applied when it goes live.
+        const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, ...rest } = buildPayload();
+        const res = await fetch(savedEntryId ? `/api/entries/${savedEntryId}` : "/api/entries", {
+          method: savedEntryId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...rest,
+            status: "draft",
+            scheduled_at: new Date(state.publishedAt).toISOString(),
+            scheduled_options: { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to },
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(apiErrorMessage(err, "Scheduling failed"));
+        }
+        data = await res.json();
+      } else if (savedEntryId && isDraft) {
         // Publishing a draft: POST /api/entries/:id/publish
         const res = await fetch(`/api/entries/${savedEntryId}/publish`, {
           method: "POST",
@@ -2586,9 +2628,14 @@ export function EditorClient() {
       clearAutosaveTimers();
       clearLocalRecovery();
 
-      router.push(`/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`);
+      router.push(
+        scheduling
+          ? "/drafts?scheduled=1"
+          : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`
+      );
     } catch (err) {
-      alert(`Could not ${isDraft ? "publish" : "save"}: ${err instanceof Error ? err.message : "Unknown error"}`);
+      const verb = isDraft && isFutureDate(state.publishedAt) ? "schedule" : isDraft ? "publish" : "save";
+      alert(`Could not ${verb}: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setIsPublishing(false);
     }
@@ -2603,7 +2650,7 @@ export function EditorClient() {
   }
 
   // The page's date line shows the entry's date when one is set, else today.
-  const entryDate = state.publishedAt && !isFutureDate(state.publishedAt) ? new Date(state.publishedAt) : new Date();
+  const entryDate = state.publishedAt && (isDraft || !isFutureDate(state.publishedAt)) ? new Date(state.publishedAt) : new Date();
   const today = entryDate.toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
@@ -2623,7 +2670,7 @@ export function EditorClient() {
             </NextLink>
             {isDraft && savedEntryId && (
               <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                draft
+                {wasScheduled ? "scheduled" : "draft"}
               </span>
             )}
             <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} />
@@ -2665,9 +2712,11 @@ export function EditorClient() {
             <button type="button" onClick={handlePublish}
               disabled={isPublishing || !hasContent}
               className="editor-publish-btn">
-              {isPublishing
-                ? (isDraft ? "Publishing…" : "Saving…")
-                : (isDraft ? "Publish" : "Save changes")}
+              {isDraft && isFutureDate(state.publishedAt)
+                ? (isPublishing ? "Scheduling…" : "Schedule")
+                : isPublishing
+                  ? (isDraft ? "Publishing…" : "Saving…")
+                  : (isDraft ? "Publish" : "Save changes")}
             </button>
           </div>
         </div>
@@ -3104,13 +3153,19 @@ export function EditorClient() {
                   Date
                 </div>
                 <input type="datetime-local" value={state.publishedAt}
-                  max={toLocalInput(new Date().toISOString())}
+                  max={isDraft ? undefined : toLocalInput(new Date().toISOString())}
                   onChange={(e) => update({ publishedAt: e.target.value })}
                   aria-label="Entry date"
                   className="editor-settings-input" />
-                {isFutureDate(state.publishedAt) ? (
+                {isFutureDate(state.publishedAt) && !isDraft ? (
                   <span className="editor-settings-hint" style={{ color: "var(--danger)" }}>
-                    That&apos;s in the future. Scheduled posts aren&apos;t available yet, so pick today or earlier.
+                    A published entry can&apos;t be dated in the future. Pick today or earlier.
+                  </span>
+                ) : isFutureDate(state.publishedAt) ? (
+                  <span className="editor-settings-hint">
+                    {wasScheduled && state.publishedAt === loadedPublishedAt
+                      ? "Scheduled. It will publish itself at this time. Clear the date to unschedule it."
+                      : "Press Schedule and this entry will publish itself at this time."}
                   </span>
                 ) : (
                   <span className="editor-settings-hint">

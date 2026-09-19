@@ -22,6 +22,7 @@ interface ManageEntry {
   sensitive: boolean;
   cover_image_id: string | null;
   published_at: string | null;
+  scheduled_at?: string | null;
   updated_at: string;
   created_at: string;
 }
@@ -372,7 +373,13 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
   const hasSelectedDrafts = selectedDrafts.length > 0;
   const totalPages = Math.ceil(total / perPage);
   const entryDate = (entry: ManageEntry) =>
-    !mounted ? "" : entry.published_at ? formatDate(entry.published_at) : "No date";
+    !mounted
+      ? ""
+      : entry.scheduled_at
+        ? formatDate(entry.scheduled_at)
+        : entry.published_at
+          ? formatDate(entry.published_at)
+          : "No date";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -585,7 +592,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                           color: entry.status === "published" ? "#16a34a" : "var(--muted)",
                         }}
                       >
-                        {entry.status === "published" ? "Published" : "Draft"}
+                        {entry.status === "published" ? "Published" : entry.scheduled_at ? "Scheduled" : "Draft"}
                       </span>
                     </td>
                     <td>
@@ -675,7 +682,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                             color: entry.status === "published" ? "#16a34a" : "var(--muted)",
                           }}
                         >
-                          {entry.status === "published" ? "Published" : "Draft"}
+                          {entry.status === "published" ? "Published" : entry.scheduled_at ? "Scheduled" : "Draft"}
                         </span>
                         <span
                           className="manage-badge"

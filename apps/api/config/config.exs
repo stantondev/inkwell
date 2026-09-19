@@ -72,6 +72,7 @@ config :inkwell, Oban,
        {"0 14 * * *", Inkwell.Workers.AutoModerationWorker, args: %{"scope" => "digest"}},
        # End free Plus trials whose 14 days are up — hourly at :41.
        {"41 * * * *", Inkwell.Workers.ExpirePlusTrialsWorker},
+       {"* * * * *", Inkwell.Workers.PublishScheduledEntriesWorker},
        # Newsletter scheduler — every 5 minutes. Healthchecks.io is configured
        # to expect a ping every 5 minutes; changing this cadence requires
        # updating the Healthchecks check period to match.

@@ -16,6 +16,9 @@ defmodule Inkwell.Journals.Entry do
     field :slug, :string
     field :tags, {:array, :string}, default: []
     field :published_at, :utc_datetime_usec
+    # Set on a draft that should publish itself at this time.
+    field :scheduled_at, :utc_datetime_usec
+    field :scheduled_options, :map, default: %{}
     field :ap_id, :string
     # :hidden = removed from public view by moderation (restorable). Every public
     # query filters on status == :published, so hidden entries drop out everywhere.
@@ -107,10 +110,12 @@ defmodule Inkwell.Journals.Entry do
       # was silently dropped the moment an imported post landed in drafts —
       # and publishing then stamped it with today. A WordPress migration of 226
       # posts came out dated as if all written on the same day.
-      :published_at
+      :published_at,
+      :scheduled_at, :scheduled_options
     ])
     |> validate_required([:user_id])
     |> validate_not_future(:published_at)
+    |> validate_schedule()
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
@@ -138,6 +143,8 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:content_warning, max: 200)
     |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
     |> put_change(:status, :published)
+    |> put_change(:scheduled_at, nil)
+    |> put_change(:scheduled_options, %{})
     |> force_generate_slug()
     |> generate_ap_id()
     |> put_published_at()
@@ -154,7 +161,31 @@ defmodule Inkwell.Journals.Entry do
     end
   end
 
-  # Backdating is supported; scheduling is not. A future date would simply make
+  # A new or changed schedule has to be in the future, and there has to be
+  # something to publish then. (An unchanged schedule isn't rechecked, so
+  # autosaving a scheduled draft in its last minute still works.)
+  defp validate_schedule(changeset) do
+    case get_change(changeset, :scheduled_at) do
+      nil ->
+        changeset
+
+      at ->
+        changeset =
+          if DateTime.compare(at, DateTime.utc_now()) == :gt,
+            do: changeset,
+            else: add_error(changeset, :scheduled_at, "must be in the future")
+
+        if blank_html?(get_field(changeset, :body_html)),
+          do: add_error(changeset, :body_html, "can't be empty on a scheduled post"),
+          else: changeset
+    end
+  end
+
+  defp blank_html?(nil), do: true
+  defp blank_html?(html), do: html |> String.replace(~r/<[^>]*>|&nbsp;/, "") |> String.trim() == ""
+
+  # Backdating a published date is supported; a future published date is not
+  # (scheduling uses `scheduled_at` on a draft instead). A future date would simply make
   # the entry live immediately while displaying a date that hasn't happened, so
   # reject it rather than silently behave like a scheduler. Small tolerance
   # absorbs clock skew between the client and server.

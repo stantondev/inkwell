@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 interface DraftEntry {
@@ -11,6 +11,7 @@ interface DraftEntry {
   tags: string[];
   privacy: string;
   updated_at: string;
+  scheduled_at?: string | null;
 }
 
 function stripHtml(html: string): string {
@@ -35,6 +36,9 @@ export function DraftsList({ initialDrafts }: { initialDrafts: DraftEntry[] }) {
   const [drafts, setDrafts] = useState(initialDrafts);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Scheduled times are shown in the reader's time zone, known only in the browser.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -107,6 +111,14 @@ export function DraftsList({ initialDrafts }: { initialDrafts: DraftEntry[] }) {
                 className="flex items-center gap-2 mt-1 text-xs flex-wrap"
                 style={{ color: "var(--muted)" }}
               >
+                {draft.scheduled_at && (
+                  <span
+                    className="rounded-full px-2 py-0.5 font-medium"
+                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+                  >
+                    Scheduled{mounted ? ` · ${new Date(draft.scheduled_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+                  </span>
+                )}
                 {draft.mood && <span>feeling {draft.mood}</span>}
                 {draft.tags.slice(0, 3).map((t) => (
                   <span key={t}>#{t}</span>
