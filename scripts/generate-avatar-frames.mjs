@@ -3,6 +3,8 @@
 // (AvatarWithFrame renders the frame at 1.3x the avatar size). Every frame
 // starts at r≈45 so it slightly overlaps the photo edge (no gap/seam) and
 // stays inside the 120 box.
+// After regenerating, bump AVATAR_FRAMES_VERSION in apps/web/src/lib/avatar-frames.ts
+// (the service worker caches /frames/* forever, keyed by URL).
 import { writeFileSync } from "node:fs";
 
 // Run from the repo root: node scripts/generate-avatar-frames.mjs

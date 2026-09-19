@@ -1,3 +1,13 @@
+/**
+ * Bump whenever the SVGs in public/frames change. The service worker caches
+ * /frames/* cache-first, so an unversioned URL would keep serving old art.
+ */
+export const AVATAR_FRAMES_VERSION = 2;
+
+export function avatarFrameUrl(frameId: string): string {
+  return `/frames/${frameId}.svg?v=${AVATAR_FRAMES_VERSION}`;
+}
+
 export interface AvatarFrameInfo {
   id: string;
   label: string;

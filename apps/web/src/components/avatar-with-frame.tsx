@@ -1,4 +1,4 @@
-import { PLUS_FRAME_IDS, AVATAR_ANIMATION_IDS } from "@/lib/avatar-frames";
+import { PLUS_FRAME_IDS, AVATAR_ANIMATION_IDS, avatarFrameUrl } from "@/lib/avatar-frames";
 
 interface AvatarWithFrameProps {
   url: string | null;
@@ -94,7 +94,7 @@ export function AvatarWithFrame({
       {hasFrame && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`/frames/${effectiveFrame}.svg`}
+          src={avatarFrameUrl(effectiveFrame!)}
           alt=""
           className="absolute inset-0 w-full h-full pointer-events-none"
           aria-hidden="true"

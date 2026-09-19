@@ -1,7 +1,7 @@
 // Inkwell Service Worker — asset caching + offline fallback + push notifications
 // Bump CACHE_NAME when SW logic changes to force re-activation in browsers
 // that still have an older SW running.
-const CACHE_NAME = "inkwell-v3";
+const CACHE_NAME = "inkwell-v4";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [OFFLINE_URL, "/favicon.svg", "/inkwell-logo.svg"];
