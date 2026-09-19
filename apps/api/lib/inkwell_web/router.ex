@@ -244,6 +244,7 @@ defmodule InkwellWeb.Router do
     # Post Manager (own entries with filters + bulk ops)
     get "/me/entries", EntryController, :list_own
     get "/me/entries/ids", EntryController, :list_own_ids
+    get "/media/resolve", MediaEmbedController, :resolve
     post "/me/entries/bulk", EntryController, :bulk_action
 
     # Entries (CRUD)

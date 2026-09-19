@@ -123,12 +123,12 @@ defmodule Inkwell.Federation.Http do
   # The 30s/15s previous values let a single slow remote tie up a Phoenix
   # process for 30 seconds, contributing to the multi-endpoint slowdowns
   # observed at peak fan-out times.
-  defp http_opts do
+  defp http_opts(extra \\ []) do
     [
       {:ssl, Inkwell.SSL.httpc_opts()},
       {:timeout, 5_000},
       {:connect_timeout, 3_000}
-    ]
+    ] ++ extra
   end
 
   @doc """
@@ -136,7 +136,10 @@ defmodule Inkwell.Federation.Http do
   `extra_headers` is a list of `{charlist_key, charlist_value}` tuples.
   Returns `{:ok, {status, body_string}}` or `{:error, reason}`.
   """
-  def get(url, extra_headers \\ []) do
+  # `opts`: `follow_redirects: false` stops :httpc following redirects, which
+  # would otherwise skip `validate_url/1` for the redirect target. Use it for
+  # fetches of links people paste.
+  def get(url, extra_headers \\ [], opts \\ []) do
     case validate_url(url) do
       {:error, :blocked_url} ->
         Logger.warning("Federation HTTP GET blocked — URL targets internal/private address: #{url}")
@@ -152,7 +155,10 @@ defmodule Inkwell.Federation.Http do
         headers = [{~c"user-agent", @user_agent} | extra_headers]
         url_cl = String.to_charlist(url)
 
-        case :httpc.request(:get, {url_cl, headers}, http_opts(), []) do
+        redirect_opts =
+          if Keyword.get(opts, :follow_redirects, true), do: [], else: [{:autoredirect, false}]
+
+        case :httpc.request(:get, {url_cl, headers}, http_opts(redirect_opts), []) do
           {:ok, {{_, status, _}, _resp_headers, body}} ->
             {:ok, {status, :erlang.list_to_binary(body)}}
 

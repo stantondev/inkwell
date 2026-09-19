@@ -23,7 +23,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import type { Editor } from "@tiptap/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { parseMusicUrl } from "@/lib/music";
+import { mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
@@ -1038,7 +1038,13 @@ function MusicNoteIcon() {
   );
 }
 
-function MusicInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function MusicInput({ value, onChange, fediverse, checking }: {
+  value: string;
+  onChange: (v: string) => void;
+  /** A PeerTube / Funkwhale / Castopod / Owncast player was found for the link. */
+  fediverse?: boolean;
+  checking?: boolean;
+}) {
   const embed = parseMusicUrl(value);
 
   return (
@@ -1048,6 +1054,11 @@ function MusicInput({ value, onChange }: { value: string; onChange: (v: string) 
           embed.service === "spotify" ? <SpotifyIcon size={14} /> :
           embed.service === "youtube" ? <YouTubeIcon size={14} /> :
           <AppleMusicIcon size={14} />
+        ) : fediverse ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }} aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
         ) : (
           <MusicNoteIcon />
         )}
@@ -1055,10 +1066,13 @@ function MusicInput({ value, onChange }: { value: string; onChange: (v: string) 
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="listening to… paste a Spotify or YouTube link"
+          placeholder="listening to… paste a Spotify, YouTube or PeerTube link"
           className="bg-transparent focus:outline-none text-sm min-w-0 flex-1"
           style={{ color: "var(--foreground)" }}
         />
+        {checking && (
+          <span className="text-xs flex-shrink-0" style={{ color: "var(--muted)" }}>Looking it up…</span>
+        )}
         {value && (
           <button
             type="button"
@@ -1548,6 +1562,15 @@ export function EditorClient() {
   const [loadedPublishedAt, setLoadedPublishedAt] = useState("");
   // Whether the draft was already scheduled when it was opened.
   const [wasScheduled, setWasScheduled] = useState(false);
+  // Player for a fediverse media link (PeerTube, Funkwhale, Castopod, Owncast),
+  // looked up once by the server and saved with the entry.
+  const [musicMetadata, setMusicMetadata] = useState<MusicMetadata | null>(null);
+  const [musicLookup, setMusicLookup] = useState(false);
+  // Links already looked up, so a link with no player isn't asked about again.
+  const lookedUpLinksRef = useRef<Set<string>>(new Set());
+  // Only a player found for exactly the current link is saved with the entry.
+  const currentMusicMetadata =
+    musicMetadata && musicMetadata.source_url === state.music.trim() ? musicMetadata : null;
   const [saveStatus, setSaveStatus] = useState<SaveStatusType>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -2072,6 +2095,7 @@ export function EditorClient() {
         setLoadedPublishedAt(toLocalInput(entry.scheduled_at || entry.published_at));
         setWasScheduled(!!entry.scheduled_at);
         setCoverImageId(entry.cover_image_id ?? null);
+        setMusicMetadata(entry.music_metadata ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
 
         // Load existing poll data
@@ -2200,6 +2224,7 @@ export function EditorClient() {
         body_raw: htmlMode ? null : (editor.getJSON()),
         mood: state.mood || null,
         music: state.music || null,
+        music_metadata: currentMusicMetadata,
         privacy: state.privacy,
         custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
         tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
@@ -2257,23 +2282,32 @@ export function EditorClient() {
     } catch {
       setSaveStatus("error");
       // Retry in 15 seconds
-      autosaveDebounceRef.current = setTimeout(() => { performAutosave(); }, 15000);
+      autosaveDebounceRef.current = setTimeout(() => { performAutosaveRef.current(); }, 15000);
     } finally {
       autosavingRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, state, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+
+  // Timers call the latest performAutosave through this ref. They used to call
+  // the one from the render that scheduled them, which saw the form as it was
+  // *before* that change, so the last edit before a pause (a title's final
+  // letter, a media player that had just been looked up) wasn't autosaved.
+  const performAutosaveRef = useRef(performAutosave);
+  useEffect(() => {
+    performAutosaveRef.current = performAutosave;
+  }, [performAutosave]);
 
   const scheduleAutosave = useCallback(() => {
     if (autosaveDisabled.current) return;
     // Debounce: reset on every change, fires after 5s of inactivity
     if (autosaveDebounceRef.current) clearTimeout(autosaveDebounceRef.current);
-    autosaveDebounceRef.current = setTimeout(() => { performAutosave(); }, 5000);
+    autosaveDebounceRef.current = setTimeout(() => { performAutosaveRef.current(); }, 5000);
     // Max interval: fire within 30s of first unsaved change regardless
     if (!autosaveMaxRef.current) {
-      autosaveMaxRef.current = setTimeout(() => { performAutosave(); }, 30000);
+      autosaveMaxRef.current = setTimeout(() => { performAutosaveRef.current(); }, 30000);
     }
-  }, [performAutosave]);
+  }, []);
 
   // Track cover image and HTML source changes for autosave
   const prevCoverRef = useRef(coverImageId);
@@ -2403,7 +2437,7 @@ export function EditorClient() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showSettings, isMobileLayout]);
 
-  const musicEmbed = parseMusicUrl(state.music);
+  const musicEmbed = resolveMusicEmbed(state.music, musicMetadata);
 
   // Toggle between visual (Tiptap) and HTML source editing
   const toggleHtmlMode = useCallback(() => {
@@ -2426,6 +2460,45 @@ export function EditorClient() {
     }
   }, [editor, htmlMode, htmlSource]);
 
+  // When the media field holds a link we don't recognise, ask the server
+  // whether it's a PeerTube, Funkwhale, Castopod or Owncast link. Runs once per
+  // link (the server caches too); the result is saved with the entry so readers
+  // never trigger a lookup.
+  useEffect(() => {
+    const link = state.music.trim();
+    if (!mightBeFediverseMedia(link)) {
+      setMusicLookup(false);
+      return;
+    }
+    if (musicMetadata?.source_url === link || lookedUpLinksRef.current.has(link)) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setMusicLookup(true);
+      try {
+        const res = await fetch(`/api/media/resolve?url=${encodeURIComponent(link)}`);
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        lookedUpLinksRef.current.add(link);
+        if (res.ok && json.data) {
+          setMusicMetadata(json.data as MusicMetadata);
+          markUnsaved();
+          scheduleAutosave();
+        }
+      } catch {
+        // No player; the link is still saved as a plain link.
+        if (!cancelled) lookedUpLinksRef.current.add(link);
+      } finally {
+        if (!cancelled) setMusicLookup(false);
+      }
+    }, 900);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [state.music, musicMetadata, markUnsaved, scheduleAutosave]);
+
   const buildPayload = useCallback(() => {
     const payload: Record<string, unknown> = {
       title: state.title || null,
@@ -2433,6 +2506,7 @@ export function EditorClient() {
       body_raw: htmlMode ? null : (editor?.getJSON() ?? {}),
       mood: state.mood || null,
       music: state.music || null,
+      music_metadata: currentMusicMetadata,
       privacy: state.privacy,
       custom_filter_id: state.privacy === "custom" ? state.customFilterId : null,
       tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
@@ -2457,7 +2531,7 @@ export function EditorClient() {
       payload.crosspost_to = Array.from(crosspostTo);
     }
     return payload;
-  }, [state, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
+  }, [state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   const handleSaveDraft = useCallback(async () => {
@@ -2890,7 +2964,8 @@ export function EditorClient() {
             <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
               <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
-              <MusicInput value={state.music} onChange={(v) => update({ music: v })} />
+              <MusicInput value={state.music} onChange={(v) => update({ music: v })}
+                fediverse={!!currentMusicMetadata} checking={musicLookup} />
             </div>
 
             {/* ── Music embed preview ─────────────────── */}
@@ -2899,16 +2974,19 @@ export function EditorClient() {
                 <div className="flex items-center gap-1.5 mb-2">
                   {musicEmbed.service === "spotify" ? <SpotifyIcon size={12} /> :
                    musicEmbed.service === "youtube" ? <YouTubeIcon size={12} /> :
+                   musicEmbed.fediverse ? null :
                    <AppleMusicIcon size={12} />}
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    {musicEmbed.label} preview
+                    {musicEmbed.title ? `${musicEmbed.label} · ${musicEmbed.title}` : `${musicEmbed.label} preview`}
                   </span>
                 </div>
                 <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
                   <iframe
                     src={musicEmbed.embedUrl}
                     width="100%"
-                    height={Math.min(musicEmbed.height, 152)}
+                    height={musicEmbed.aspect === "video" ? undefined : Math.min(musicEmbed.height, musicEmbed.fediverse ? 400 : 152)}
+                    style={musicEmbed.aspect === "video" ? { aspectRatio: "16 / 9", height: "auto", maxWidth: 480 } : undefined}
+                    sandbox={musicEmbed.fediverse ? "allow-same-origin allow-scripts allow-popups allow-forms" : undefined}
                     frameBorder="0"
                     allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                     loading="lazy"

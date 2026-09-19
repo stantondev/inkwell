@@ -9,7 +9,12 @@ export type MusicService =
   | "apple-music"
   | "soundcloud"
   | "bandcamp"
-  | "audio";
+  | "audio"
+  // Fediverse players, resolved on the server (see Inkwell.MediaEmbeds)
+  | "peertube"
+  | "funkwhale"
+  | "castopod"
+  | "owncast";
 
 export interface MusicEmbed {
   service: MusicService;
@@ -18,6 +23,58 @@ export interface MusicEmbed {
   height: number;
   /** Label for accessibility / UI badges */
   label: string;
+  /** Video players size to 16:9 instead of a fixed height. */
+  aspect?: "video";
+  /** Title of the linked video, track or episode, when known. */
+  title?: string;
+  /** Players from independent fediverse servers are sandboxed. */
+  fediverse?: boolean;
+}
+
+/**
+ * Saved with an entry when its media link is a PeerTube, Funkwhale, Castopod
+ * or Owncast link (`music_metadata`). Those can't be recognised from the URL
+ * alone, so the server looks them up once, when the writer pastes the link.
+ */
+export interface MusicMetadata {
+  service: "peertube" | "funkwhale" | "castopod" | "owncast";
+  embed_url: string;
+  label: string;
+  title?: string;
+  height?: number;
+  aspect?: "video";
+  source_url: string;
+}
+
+/**
+ * The player for an entry's media field: a recognised service link, or a
+ * fediverse player saved for exactly this link.
+ */
+export function resolveMusicEmbed(
+  music: string | null | undefined,
+  metadata?: MusicMetadata | null
+): MusicEmbed | null {
+  if (!music) return null;
+  const known = parseMusicUrl(music);
+  if (known) return known;
+  if (metadata?.embed_url && metadata.source_url === music.trim()) {
+    return {
+      service: metadata.service,
+      embedUrl: metadata.embed_url,
+      height: metadata.height ?? (metadata.aspect === "video" ? 315 : 160),
+      label: metadata.label,
+      aspect: metadata.aspect,
+      title: metadata.title,
+      fediverse: true,
+    };
+  }
+  return null;
+}
+
+/** Links worth asking the server about: https, and not a service we already know. */
+export function mightBeFediverseMedia(input: string): boolean {
+  const s = input.trim();
+  return /^https:\/\/[^\s/]+\.[^\s]*$/i.test(s) && !parseMusicUrl(s);
 }
 
 /**

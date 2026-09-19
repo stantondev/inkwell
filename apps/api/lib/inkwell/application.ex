@@ -37,7 +37,9 @@ defmodule Inkwell.Application do
           # Federation caches
           :remote_actor_negative_cache,
           :federation_domain_rate,
-          :inkwell_nodeinfo_cache
+          :inkwell_nodeinfo_cache,
+          # Fediverse media players (Inkwell.MediaEmbeds)
+          :media_embed_cache
         ] do
       if :ets.whereis(table) == :undefined do
         :ets.new(table, [:set, :public, :named_table])

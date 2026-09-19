@@ -298,6 +298,7 @@ defmodule InkwellWeb.EntryController do
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning", "published_at",
                       "scheduled_at", "scheduled_options"])
+        |> put_music_metadata()
         |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
@@ -324,6 +325,7 @@ defmodule InkwellWeb.EntryController do
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning"])
+        |> put_music_metadata()
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
@@ -377,6 +379,7 @@ defmodule InkwellWeb.EntryController do
                        "sensitive", "content_warning",
                        # Drafts only; published entries ignore these.
                        "scheduled_at", "scheduled_options"])
+        |> put_music_metadata()
         |> sanitize_scheduled_options()
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
@@ -445,6 +448,7 @@ defmodule InkwellWeb.EntryController do
                         # draft's own published_at (e.g. an imported post's
                         # original date) is preserved by publish_changeset.
                         "published_at"])
+        |> put_music_metadata()
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> put_word_count()
@@ -1029,6 +1033,15 @@ defmodule InkwellWeb.EntryController do
 
   # Auto-populate excerpt from body_html if not provided
   # Auto-assign series_order when adding to a series
+  # A fediverse player for the media link comes from MediaEmbeds.resolve/1 in
+  # the editor. What the client sends back is re-checked against the link and
+  # dropped if it doesn't match; changing the link without new metadata clears it.
+  defp put_music_metadata(%{"music_metadata" => meta} = attrs),
+    do: Map.put(attrs, "music_metadata", Inkwell.MediaEmbeds.sanitize(meta, attrs["music"]))
+
+  defp put_music_metadata(%{"music" => _} = attrs), do: Map.put(attrs, "music_metadata", nil)
+  defp put_music_metadata(attrs), do: attrs
+
   # The publish-time choices a scheduled post keeps until it goes live (see
   # EntryPublishing). Anything else in the map is dropped.
   defp sanitize_scheduled_options(%{"scheduled_options" => opts} = attrs) when is_map(opts) do

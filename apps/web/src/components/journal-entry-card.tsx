@@ -3,6 +3,7 @@ import { Avatar, AvatarWithFrame } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
+import type { MusicMetadata } from "@/lib/music";
 import { StampDisplay } from "@/components/stamp-display";
 import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
@@ -15,6 +16,7 @@ export interface JournalEntry {
   body_html: string;
   mood: string | null;
   music: string | null;
+  music_metadata?: MusicMetadata | null;
   tags: string[];
   privacy: string;
   comment_count?: number;
@@ -459,7 +461,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
           )}
 
           {/* Music embed */}
-          <MusicPlayer music={entry.music} />
+          <MusicPlayer music={entry.music} metadata={entry.music_metadata} />
 
           {/* Tags */}
           {entry.tags.length > 0 && (

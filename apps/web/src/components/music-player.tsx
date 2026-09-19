@@ -1,4 +1,4 @@
-import { parseMusicUrl, type MusicService } from "@/lib/music";
+import { resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
 
 function ServiceIcon({ service }: { service: MusicService }) {
   if (service === "spotify") {
@@ -36,6 +36,15 @@ function ServiceIcon({ service }: { service: MusicService }) {
       </svg>
     );
   }
+  if (service === "peertube" || service === "funkwhale" || service === "castopod" || service === "owncast") {
+    // A small globe: these come from independent fediverse servers.
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }} aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+    );
+  }
   // Audio file
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -52,9 +61,9 @@ function ServiceIcon({ service }: { service: MusicService }) {
  * Renders embeds for recognized services, an <audio> player for direct
  * audio file links, or nothing for plain-text music values.
  */
-export function MusicPlayer({ music }: { music: string | null }) {
+export function MusicPlayer({ music, metadata }: { music: string | null; metadata?: MusicMetadata | null }) {
   if (!music) return null;
-  const embed = parseMusicUrl(music);
+  const embed = resolveMusicEmbed(music, metadata);
   if (!embed) return null;
 
   // Direct audio file — render native <audio> player
@@ -116,6 +125,35 @@ export function MusicPlayer({ music }: { music: string | null }) {
             <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
         </a>
+      </div>
+    );
+  }
+
+  // Fediverse players (PeerTube, Funkwhale, Castopod, Owncast) come from
+  // independent servers, so they're sandboxed; video sizes to 16:9.
+  if (embed.fediverse) {
+    return (
+      <div className="music-embed-container mt-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <ServiceIcon service={embed.service} />
+          <span className="text-xs truncate" style={{ color: "var(--muted)" }}>
+            {embed.title ? `${embed.label} · ${embed.title}` : embed.label}
+          </span>
+        </div>
+        <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+          <iframe
+            src={embed.embedUrl}
+            width="100%"
+            height={embed.aspect === "video" ? undefined : Math.min(embed.height, 400)}
+            style={embed.aspect === "video" ? { aspectRatio: "16 / 9", height: "auto" } : undefined}
+            frameBorder="0"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            allow="autoplay; fullscreen; picture-in-picture"
+            loading="lazy"
+            title={embed.title ? `${embed.label}: ${embed.title}` : `${embed.label} player`}
+            className="block"
+          />
+        </div>
       </div>
     );
   }
