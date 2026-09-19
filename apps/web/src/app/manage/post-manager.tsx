@@ -45,22 +45,44 @@ interface Props {
   initialTotal: number;
   series: SeriesItem[];
   username: string;
+  /** Opens the page already filtered, e.g. "draft" from the Drafts page. */
+  initialStatus?: string;
+}
+
+interface SelectedMeta {
+  status: "draft" | "published";
+  published_at: string | null;
+}
+
+interface ConfirmAction {
+  action: string;
+  label: string;
+  description: string;
+  ids: string[];
+  params?: Record<string, unknown>;
+  /** Drafts in a publish that are dated more than a week ago. */
+  olderCount?: number;
+}
+
+const BULK_BATCH = 100;
+// Must match @quiet_publish_after_days in EntryController.
+const QUIET_AFTER_DAYS = 7;
+
+function filterParams(f: Filters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (f.status) params.set("status", f.status);
+  if (f.privacy) params.set("privacy", f.privacy);
+  if (f.category) params.set("category", f.category);
+  if (f.series_id) params.set("series_id", f.series_id);
+  if (f.search) params.set("q", f.search);
+  if (f.sort) params.set("sort", f.sort);
+  return params;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = Date.now();
-  const diff = now - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 const PRIVACY_LABELS: Record<string, string> = {
@@ -81,31 +103,37 @@ const PRIVACY_COLORS: Record<string, string> = {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function PostManager({ initialEntries, initialTotal, series, username }: Props) {
+export function PostManager({ initialEntries, initialTotal, series, username, initialStatus = "" }: Props) {
   const [entries, setEntries] = useState<ManageEntry[]>(initialEntries);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Selection survives paging, so it can span pages ("Select all" fills it with
+  // every matching entry). Each entry keeps what the bulk actions need to know.
+  const [selected, setSelected] = useState<Map<string, SelectedMeta>>(new Map());
+  const [selectingAll, setSelectingAll] = useState(false);
   const [filters, setFilters] = useState<Filters>({
-    status: "",
+    status: initialStatus,
     privacy: "",
     category: "",
     series_id: "",
     search: "",
     sort: "newest",
   });
-  const [confirmAction, setConfirmAction] = useState<{
-    action: string;
-    label: string;
-    description: string;
-    params?: Record<string, unknown>;
-  } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [federateOlder, setFederateOlder] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkError, setBulkError] = useState("");
   const [showBulkPrivacy, setShowBulkPrivacy] = useState(false);
   const [showBulkSeries, setShowBulkSeries] = useState(false);
+  const [showBulkCategory, setShowBulkCategory] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [showBulkTags, setShowBulkTags] = useState(false);
+  // Dates are formatted in the reader's time zone, which the server can't know,
+  // so they're filled in after the first render.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const perPage = 20;
@@ -116,15 +144,9 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
     async (p: number, f: Filters) => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
+        const params = filterParams(f);
         params.set("page", String(p));
         params.set("per_page", String(perPage));
-        if (f.status) params.set("status", f.status);
-        if (f.privacy) params.set("privacy", f.privacy);
-        if (f.category) params.set("category", f.category);
-        if (f.series_id) params.set("series_id", f.series_id);
-        if (f.search) params.set("q", f.search);
-        if (f.sort) params.set("sort", f.sort);
 
         const res = await fetch(`/api/me/entries?${params}`);
         const json = await res.json();
@@ -146,7 +168,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
       const next = { ...filters, [key]: value };
       setFilters(next);
       setPage(1);
-      setSelectedIds(new Set());
+      setSelected(new Map());
 
       if (key === "search") {
         clearTimeout(searchTimer.current);
@@ -161,7 +183,6 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
   const goToPage = useCallback(
     (p: number) => {
       setPage(p);
-      setSelectedIds(new Set());
       fetchEntries(p, filters);
     },
     [filters, fetchEntries]
@@ -169,51 +190,89 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
 
   // ── Selection ──────────────────────────────────────────────────────────────
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const toggleSelect = (entry: ManageEntry) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(entry.id)) next.delete(entry.id);
+      else next.set(entry.id, { status: entry.status, published_at: entry.published_at });
       return next;
     });
   };
 
+  const pageAllSelected = entries.length > 0 && entries.every((e) => selected.has(e.id));
+
   const toggleSelectAll = () => {
-    if (selectedIds.size === entries.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(entries.map((e) => e.id)));
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (pageAllSelected) entries.forEach((e) => next.delete(e.id));
+      else entries.forEach((e) => next.set(e.id, { status: e.status, published_at: e.published_at }));
+      return next;
+    });
+  };
+
+  const selectAllMatching = async () => {
+    setSelectingAll(true);
+    setBulkError("");
+    try {
+      const res = await fetch(`/api/me/entries/ids?${filterParams(filters)}`);
+      const json = await res.json();
+      if (!res.ok || !Array.isArray(json.data)) throw new Error();
+      setSelected(new Map((json.data as (SelectedMeta & { id: string })[]).map((e) => [e.id, { status: e.status, published_at: e.published_at }])));
+    } catch {
+      setBulkError("Couldn't select everything. Please try again.");
+    } finally {
+      setSelectingAll(false);
     }
   };
+
+  const clearSelection = () => setSelected(new Map());
 
   // ── Bulk actions ───────────────────────────────────────────────────────────
 
-  const executeBulk = async (action: string, params?: Record<string, unknown>) => {
+  // The API takes up to 100 entries per request, so larger selections are sent
+  // in batches, one after another, with progress shown.
+  const runBulk = async (action: string, ids: string[], params?: Record<string, unknown>) => {
     setBulkLoading(true);
+    setBulkError("");
+    setBulkProgress(ids.length > BULK_BATCH ? { done: 0, total: ids.length } : null);
+    let done = 0;
     try {
-      const res = await fetch("/api/me/entries/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, entry_ids: Array.from(selectedIds), ...params }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setSelectedIds(new Set());
-        setConfirmAction(null);
-        fetchEntries(page, filters);
+      for (let i = 0; i < ids.length; i += BULK_BATCH) {
+        const batch = ids.slice(i, i + BULK_BATCH);
+        const res = await fetch("/api/me/entries/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, entry_ids: batch, ...params }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || "Something went wrong");
+        }
+        done += batch.length;
+        if (ids.length > BULK_BATCH) setBulkProgress({ done, total: ids.length });
       }
-    } catch {
-      // stay
+      setSelected(new Map());
+      setConfirmAction(null);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "Something went wrong";
+      setBulkError(done > 0 ? `${reason}. ${done} of ${ids.length} were done before it stopped.` : reason);
+      setConfirmAction(null);
     } finally {
       setBulkLoading(false);
+      setBulkProgress(null);
+      fetchEntries(page, filters);
     }
   };
+
+  const selectedIds = Array.from(selected.keys());
+  const countLabel = (n: number, one = "entry", many = "entries") => `${n} ${n === 1 ? one : many}`;
 
   const handleBulkDelete = () => {
     setConfirmAction({
       action: "delete",
       label: "Delete entries",
-      description: `This will permanently delete ${selectedIds.size} ${selectedIds.size === 1 ? "entry" : "entries"}. This cannot be undone.`,
+      description: `This will permanently delete ${countLabel(selectedIds.length)}. This cannot be undone.`,
+      ids: selectedIds,
     });
   };
 
@@ -222,93 +281,98 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
     setConfirmAction({
       action: "update_privacy",
       label: `Change privacy to ${PRIVACY_LABELS[privacy] || privacy}`,
-      description: `${selectedIds.size} ${selectedIds.size === 1 ? "entry" : "entries"} will be set to ${PRIVACY_LABELS[privacy] || privacy}.`,
+      description: `${countLabel(selectedIds.length)} will be set to ${PRIVACY_LABELS[privacy] || privacy}.`,
+      ids: selectedIds,
       params: { privacy },
     });
   };
 
   const handleBulkSeries = (seriesId: string | null) => {
     setShowBulkSeries(false);
-    if (seriesId) {
-      const s = series.find((s) => s.id === seriesId);
-      executeBulk("set_series", { series_id: seriesId });
-      void s;
-    } else {
-      executeBulk("remove_series");
-    }
+    if (seriesId) runBulk("set_series", selectedIds, { series_id: seriesId });
+    else runBulk("remove_series", selectedIds);
   };
 
-  const handleBulkAddTags = () => {
+  const handleBulkCategory = (category: string) => {
+    setShowBulkCategory(false);
+    runBulk("set_category", selectedIds, { category });
+  };
+
+  const handleBulkTags = (action: "add_tags" | "remove_tags") => {
     const tags = bulkTagInput
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
     if (tags.length) {
-      executeBulk("add_tags", { tags });
+      runBulk(action, selectedIds, { tags });
       setBulkTagInput("");
       setShowBulkTags(false);
     }
   };
 
+  const selectedDrafts = Array.from(selected.entries()).filter(([, m]) => m.status === "draft");
+
   const handleBulkPublish = () => {
-    const draftIds = entries.filter((e) => selectedIds.has(e.id) && e.status === "draft").map((e) => e.id);
-    if (draftIds.length === 0) return;
+    if (selectedDrafts.length === 0) return;
+    const cutoff = Date.now() - QUIET_AFTER_DAYS * 86_400_000;
+    const olderCount = selectedDrafts.filter(([, m]) => m.published_at && new Date(m.published_at).getTime() < cutoff).length;
+    setFederateOlder(false);
     setConfirmAction({
       action: "publish",
       label: "Publish drafts",
-      description: `${draftIds.length} ${draftIds.length === 1 ? "draft" : "drafts"} will be published.`,
-      params: { entry_ids: draftIds },
+      description: `${countLabel(selectedDrafts.length, "draft", "drafts")} will be published${selectedDrafts.length < selectedIds.length ? " (already published entries in your selection are left alone)" : ""}.`,
+      ids: selectedDrafts.map(([id]) => id),
+      olderCount,
     });
   };
 
   const confirmExec = () => {
     if (!confirmAction) return;
-    const ids = confirmAction.params?.entry_ids;
-    if (ids) {
-      // Use overridden entry_ids (for publish)
-      setBulkLoading(true);
-      fetch("/api/me/entries/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: confirmAction.action, entry_ids: ids }),
-      })
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.ok) {
-            setSelectedIds(new Set());
-            setConfirmAction(null);
-            fetchEntries(page, filters);
-          }
-        })
-        .finally(() => setBulkLoading(false));
-    } else {
-      executeBulk(confirmAction.action, confirmAction.params);
-    }
+    const params =
+      confirmAction.action === "publish"
+        ? { ...confirmAction.params, federate_older: federateOlder }
+        : confirmAction.params;
+    runBulk(confirmAction.action, confirmAction.ids, params);
   };
 
-  // Single delete
+  // Single delete, leaving any bulk selection alone
   const handleDelete = (id: string) => {
-    setSelectedIds(new Set([id]));
     setConfirmAction({
       action: "delete",
       label: "Delete entry",
       description: "This will permanently delete this entry. This cannot be undone.",
+      ids: [id],
     });
   };
 
-  // Close dropdowns on outside click
+  // Close dropdowns on a click outside the toolbar. This used to close on every
+  // click: React listens on the document here too, so the buttons'
+  // stopPropagation never kept the click from reaching this listener, and the
+  // menus closed the moment they opened.
+  const toolbarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = () => {
+    const handler = (e: MouseEvent) => {
+      if (toolbarRef.current?.contains(e.target as Node)) return;
       setShowBulkPrivacy(false);
       setShowBulkSeries(false);
+      setShowBulkCategory(false);
       setShowBulkTags(false);
     };
     document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  const hasSelectedDrafts = entries.some((e) => selectedIds.has(e.id) && e.status === "draft");
+  const closeMenus = () => {
+    setShowBulkPrivacy(false);
+    setShowBulkSeries(false);
+    setShowBulkCategory(false);
+    setShowBulkTags(false);
+  };
+
+  const hasSelectedDrafts = selectedDrafts.length > 0;
   const totalPages = Math.ceil(total / perPage);
+  const entryDate = (entry: ManageEntry) =>
+    !mounted ? "" : entry.published_at ? formatDate(entry.published_at) : "No date";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -392,8 +456,8 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
           onChange={(e) => updateFilter("sort", e.target.value)}
           className="manage-select"
         >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
+          <option value="newest">Newest date</option>
+          <option value="oldest">Oldest date</option>
           <option value="most_inked">Most inked</option>
           <option value="alphabetical">A–Z</option>
         </select>
@@ -407,6 +471,36 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
           className="manage-search"
         />
       </div>
+
+      {/* Select across pages */}
+      {pageAllSelected && total > entries.length && (
+        <div className="text-sm text-center rounded-lg px-4 py-2 mb-3"
+          style={{ background: "var(--surface-hover)", color: "var(--foreground)" }}>
+          {selected.size >= total ? (
+            <>
+              All {total} {filters.status === "draft" ? "drafts" : "entries"} are selected.{" "}
+              <button onClick={clearSelection} className="underline" style={{ color: "var(--accent)" }}>
+                Clear selection
+              </button>
+            </>
+          ) : (
+            <>
+              {selected.size} selected on this page.{" "}
+              <button onClick={selectAllMatching} disabled={selectingAll} className="underline font-medium" style={{ color: "var(--accent)" }}>
+                {selectingAll ? "Selecting…" : `Select all ${total} ${filters.status === "draft" ? "drafts" : "entries"}${filters.privacy || filters.category || filters.series_id || filters.search ? " that match" : ""}`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {bulkError && (
+        <div role="alert" className="text-sm rounded-lg px-4 py-2 mb-3 flex items-center gap-3"
+          style={{ background: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)" }}>
+          <span className="flex-1">{bulkError}</span>
+          <button onClick={() => setBulkError("")} className="text-xs underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="manage-table-wrap" style={{ opacity: loading ? 0.5 : 1, transition: "opacity 0.2s" }}>
@@ -436,7 +530,8 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                   <th style={{ width: 40 }}>
                     <input
                       type="checkbox"
-                      checked={selectedIds.size === entries.length && entries.length > 0}
+                      checked={pageAllSelected}
+                      aria-label="Select all on this page"
                       onChange={toggleSelectAll}
                       className="manage-checkbox"
                     />
@@ -454,13 +549,13 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                 {entries.map((entry) => (
                   <tr
                     key={entry.id}
-                    className={selectedIds.has(entry.id) ? "manage-row--selected" : ""}
+                    className={selected.has(entry.id) ? "manage-row--selected" : ""}
                   >
                     <td>
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(entry.id)}
-                        onChange={() => toggleSelect(entry.id)}
+                        checked={selected.has(entry.id)}
+                        onChange={() => toggleSelect(entry)}
                         className="manage-checkbox"
                       />
                     </td>
@@ -511,7 +606,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                     </td>
                     <td className="hidden md:table-cell">
                       <span style={{ color: "var(--muted)", fontSize: 13 }}>
-                        {timeAgo(entry.published_at || entry.updated_at)}
+                        {entryDate(entry)}
                       </span>
                     </td>
                     <td className="hidden lg:table-cell">
@@ -559,13 +654,13 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className={`manage-mobile-card ${selectedIds.has(entry.id) ? "manage-mobile-card--selected" : ""}`}
+                  className={`manage-mobile-card ${selected.has(entry.id) ? "manage-mobile-card--selected" : ""}`}
                 >
                   <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(entry.id)}
-                      onChange={() => toggleSelect(entry.id)}
+                      checked={selected.has(entry.id)}
+                      onChange={() => toggleSelect(entry)}
                       className="manage-checkbox mt-1"
                     />
                     <div className="flex-1 min-w-0">
@@ -592,7 +687,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                           {PRIVACY_LABELS[entry.privacy] || entry.privacy}
                         </span>
                         <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                          {timeAgo(entry.published_at || entry.updated_at)}
+                          {entryDate(entry)}
                         </span>
                       </div>
                     </div>
@@ -653,14 +748,14 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
       )}
 
       {/* Bulk action toolbar */}
-      {selectedIds.size > 0 && (
-        <div className="manage-bulk-toolbar">
+      {selected.size > 0 && (
+        <div className="manage-bulk-toolbar" ref={toolbarRef}>
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">
-              {selectedIds.size} selected
+              {bulkProgress ? `Working… ${bulkProgress.done} of ${bulkProgress.total}` : `${selected.size} selected`}
             </span>
             <button
-              onClick={() => setSelectedIds(new Set())}
+              onClick={clearSelection}
               className="text-xs underline"
               style={{ color: "var(--muted)" }}
             >
@@ -677,7 +772,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
             {/* Privacy dropdown */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => { setShowBulkPrivacy(!showBulkPrivacy); setShowBulkSeries(false); setShowBulkTags(false); }}
+                onClick={() => { const open = !showBulkPrivacy; closeMenus(); setShowBulkPrivacy(open); }}
                 className="manage-bulk-btn"
               >
                 Privacy ▾
@@ -697,7 +792,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
             {series.length > 0 && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => { setShowBulkSeries(!showBulkSeries); setShowBulkPrivacy(false); setShowBulkTags(false); }}
+                  onClick={() => { const open = !showBulkSeries; closeMenus(); setShowBulkSeries(open); }}
                   className="manage-bulk-btn"
                 >
                   Series ▾
@@ -717,13 +812,36 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
               </div>
             )}
 
+            {/* Category dropdown */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => { const open = !showBulkCategory; closeMenus(); setShowBulkCategory(open); }}
+                className="manage-bulk-btn"
+                disabled={bulkLoading}
+              >
+                Category ▾
+              </button>
+              {showBulkCategory && (
+                <div className="manage-bulk-dropdown" style={{ maxHeight: 280, overflowY: "auto" }}>
+                  <button onClick={() => handleBulkCategory("")} className="manage-bulk-dropdown-item" style={{ color: "var(--muted)" }}>
+                    No category
+                  </button>
+                  {CATEGORIES.map((c) => (
+                    <button key={c.value} onClick={() => handleBulkCategory(c.value)} className="manage-bulk-dropdown-item">
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Tags */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => { setShowBulkTags(!showBulkTags); setShowBulkPrivacy(false); setShowBulkSeries(false); }}
+                onClick={() => { const open = !showBulkTags; closeMenus(); setShowBulkTags(open); }}
                 className="manage-bulk-btn"
               >
-                + Tags
+                Tags ▾
               </button>
               {showBulkTags && (
                 <div className="manage-bulk-dropdown" style={{ padding: "8px", minWidth: 220 }}>
@@ -732,14 +850,19 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                     placeholder="tag1, tag2..."
                     value={bulkTagInput}
                     onChange={(e) => setBulkTagInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleBulkAddTags(); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleBulkTags("add_tags"); }}
                     className="manage-search"
                     style={{ width: "100%", marginBottom: 6 }}
                     autoFocus
                   />
-                  <button onClick={handleBulkAddTags} className="manage-bulk-btn" style={{ width: "100%" }}>
-                    Add tags
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleBulkTags("add_tags")} className="manage-bulk-btn" style={{ flex: 1 }}>
+                      Add
+                    </button>
+                    <button onClick={() => handleBulkTags("remove_tags")} className="manage-bulk-btn" style={{ flex: 1 }}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -764,6 +887,21 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
             <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
               {confirmAction.description}
             </p>
+            {!!confirmAction.olderCount && (
+              <div className="mt-4 text-sm rounded-lg p-3" style={{ background: "var(--surface-hover)" }}>
+                <p style={{ color: "var(--foreground)" }}>
+                  {confirmAction.olderCount === confirmAction.ids.length
+                    ? confirmAction.ids.length === 1 ? "This one is" : `All ${confirmAction.ids.length} are`
+                    : `${confirmAction.olderCount} of them are`}{" "}
+                  dated more than a week ago. They&apos;ll appear on your profile at their original dates, without
+                  being sent to your fediverse followers&apos; timelines as new posts.
+                </p>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer" style={{ color: "var(--foreground)" }}>
+                  <input type="checkbox" checked={federateOlder} onChange={(e) => setFederateOlder(e.target.checked)} />
+                  Send {confirmAction.olderCount === 1 ? "it" : "them"} to my fediverse followers anyway
+                </label>
+              </div>
+            )}
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setConfirmAction(null)}
@@ -777,7 +915,7 @@ export function PostManager({ initialEntries, initialTotal, series, username }: 
                 disabled={bulkLoading}
                 className={`manage-bulk-btn ${confirmAction.action === "delete" ? "manage-bulk-btn--danger" : "manage-bulk-btn--accent"}`}
               >
-                {bulkLoading ? "Working..." : "Confirm"}
+                {bulkLoading ? (bulkProgress ? `Working… ${bulkProgress.done}/${bulkProgress.total}` : "Working…") : "Confirm"}
               </button>
             </div>
           </div>

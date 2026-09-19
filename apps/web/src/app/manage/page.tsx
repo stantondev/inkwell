@@ -32,7 +32,9 @@ interface SeriesItem {
   name: string;
 }
 
-export default async function ManagePage() {
+export default async function ManagePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status } = await searchParams;
+  const initialStatus = status === "draft" || status === "published" ? status : "";
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -43,7 +45,7 @@ export default async function ManagePage() {
   try {
     const [entriesData, seriesData] = await Promise.all([
       apiFetch<{ data: ManageEntry[]; pagination: { total: number } }>(
-        "/api/me/entries?per_page=20",
+        `/api/me/entries?per_page=20${initialStatus ? `&status=${initialStatus}` : ""}`,
         {},
         session.token
       ),
@@ -64,6 +66,7 @@ export default async function ManagePage() {
           initialTotal={total}
           series={series}
           username={session.user.username}
+          initialStatus={initialStatus}
         />
       </div>
     </div>

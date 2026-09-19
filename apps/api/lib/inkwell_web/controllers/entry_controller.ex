@@ -625,6 +625,25 @@ defmodule InkwellWeb.EntryController do
     })
   end
 
+  # GET /api/me/entries/ids — every entry matching the Posts page filters, so
+  # "Select all" works across pages.
+  def list_own_ids(conn, params) do
+    user = conn.assigns.current_user
+
+    ids =
+      Journals.list_own_entry_ids(user.id,
+        status: params["status"],
+        privacy: params["privacy"],
+        category: params["category"],
+        series_id: params["series_id"],
+        tag: params["tag"],
+        search: params["q"],
+        sort: params["sort"] || "newest"
+      )
+
+    json(conn, %{data: ids})
+  end
+
   @bulk_max_ids 100
 
   # POST /api/me/entries/bulk — bulk operations
@@ -642,7 +661,8 @@ defmodule InkwellWeb.EntryController do
         "remove_series" -> handle_bulk_series(conn, user, entry_ids, nil)
         "add_tags" -> handle_bulk_tags(conn, user, entry_ids, params["tags"], :add)
         "remove_tags" -> handle_bulk_tags(conn, user, entry_ids, params["tags"], :remove)
-        "publish" -> handle_bulk_publish(conn, user, entry_ids)
+        "set_category" -> handle_bulk_category(conn, user, entry_ids, params["category"])
+        "publish" -> handle_bulk_publish(conn, user, entry_ids, params["federate_older"] == true)
         _ -> conn |> put_status(:bad_request) |> json(%{error: "Unknown action"})
       end
     end
@@ -727,12 +747,42 @@ defmodule InkwellWeb.EntryController do
     conn |> put_status(:bad_request) |> json(%{error: "tags must be an array"})
   end
 
-  defp handle_bulk_publish(conn, user, entry_ids) do
+  defp handle_bulk_category(conn, user, entry_ids, category) do
+    valid = Ecto.Enum.dump_values(Inkwell.Journals.Entry, :category)
+
+    value =
+      cond do
+        category in [nil, ""] -> {:ok, nil}
+        category in valid -> {:ok, String.to_existing_atom(category)}
+        true -> :error
+      end
+
+    with {:ok, category} <- value,
+         {:ok, count} <- Journals.bulk_update_category(user.id, entry_ids, category) do
+      Enum.each(entry_ids, &enqueue_search_index/1)
+      json(conn, %{ok: true, count: count})
+    else
+      :error -> conn |> put_status(:bad_request) |> json(%{error: "Unknown category"})
+      {:error, :unauthorized} -> conn |> put_status(:forbidden) |> json(%{error: "Not authorized"})
+    end
+  end
+
+  # Entries dated more than this long ago count as "older" when bulk publishing.
+  @quiet_publish_after_days 7
+
+  # Bulk-publishing a batch of old posts (usually an import) used to push every
+  # one of them into followers' fediverse timelines as new. Older ones are now
+  # published quietly (on the profile, reachable from the fediverse, just not
+  # delivered) unless the writer asks for them to be sent (`federate_older`).
+  defp handle_bulk_publish(conn, user, entry_ids, federate_older) do
+    cutoff = DateTime.add(DateTime.utc_now(), -@quiet_publish_after_days, :day)
+
     case Journals.bulk_publish_drafts(user.id, entry_ids) do
       {:ok, published} ->
-        # Fan out creates for public entries + index all
         Enum.each(published, fn entry ->
-          if entry.privacy == :public do
+          older = DateTime.compare(entry.published_at, cutoff) == :lt
+
+          if entry.privacy == :public and (federate_older or not older) do
             %{entry_id: entry.id, action: "create", user_id: entry.user_id}
             |> FanOutWorker.new()
             |> Oban.insert()

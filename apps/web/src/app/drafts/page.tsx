@@ -47,6 +47,14 @@ export default async function DraftsPage() {
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
               Your unpublished work
+              {drafts.length > 1 && (
+                <>
+                  {" · "}
+                  <Link href="/manage?status=draft" className="hover:underline" style={{ color: "var(--accent)" }}>
+                    Manage in bulk
+                  </Link>
+                </>
+              )}
             </p>
           </div>
           <Link

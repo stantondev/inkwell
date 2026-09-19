@@ -329,6 +329,20 @@ defmodule Inkwell.Journals do
     |> Repo.all()
   end
 
+  @select_all_limit 2000
+
+  @doc """
+  Every entry matching the Posts page filters, as `%{id, status, published_at}`,
+  so "Select all" can act on more than one page. Capped at #{@select_all_limit}.
+  """
+  def list_own_entry_ids(user_id, opts \\ []) do
+    build_own_entries_query(user_id, opts)
+    |> apply_own_entries_sort(Keyword.get(opts, :sort, "newest"))
+    |> limit(@select_all_limit)
+    |> select([e], %{id: e.id, status: e.status, published_at: e.published_at})
+    |> Repo.all()
+  end
+
   @doc "Count own entries matching filters (for pagination)."
   def count_own_entries(user_id, opts \\ []) do
     build_own_entries_query(user_id, opts)
@@ -371,10 +385,14 @@ defmodule Inkwell.Journals do
     end
   end
 
-  defp apply_own_entries_sort(query, "oldest"), do: order_by(query, asc: :inserted_at)
+  # By the entry's own date (an imported post's original date, or when it was
+  # published), falling back to when it was created for undated drafts.
+  defp apply_own_entries_sort(query, "oldest"),
+    do: order_by(query, [e], asc: fragment("coalesce(?, ?)", e.published_at, e.inserted_at), asc: e.id)
   defp apply_own_entries_sort(query, "most_inked"), do: order_by(query, [e], desc: e.ink_count, desc: e.inserted_at)
   defp apply_own_entries_sort(query, "alphabetical"), do: order_by(query, [e], asc_nulls_last: e.title, desc: e.inserted_at)
-  defp apply_own_entries_sort(query, _newest), do: order_by(query, desc: :inserted_at)
+  defp apply_own_entries_sort(query, _newest),
+    do: order_by(query, [e], desc: fragment("coalesce(?, ?)", e.published_at, e.inserted_at), desc: e.id)
 
   @doc "Bulk delete entries with ownership verification. Returns {:ok, count, entries_meta} or {:error, reason}."
   def bulk_delete_entries(user_id, entry_ids) when is_list(entry_ids) do
@@ -414,6 +432,25 @@ defmodule Inkwell.Journals do
         Entry
         |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
         |> Repo.update_all(set: [privacy: String.to_existing_atom(privacy), custom_filter_id: nil])
+
+      {:ok, count}
+    end
+  end
+
+  @doc "Bulk set or clear the category (`nil` clears it)."
+  def bulk_update_category(user_id, entry_ids, category) when is_list(entry_ids) do
+    owned_count =
+      Entry
+      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> Repo.aggregate(:count)
+
+    if owned_count != length(entry_ids) do
+      {:error, :unauthorized}
+    else
+      {count, _} =
+        Entry
+        |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+        |> Repo.update_all(set: [category: category, updated_at: DateTime.utc_now()])
 
       {:ok, count}
     end
