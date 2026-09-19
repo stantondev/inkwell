@@ -376,6 +376,59 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # ── Comment object endpoint ─────────────────────────────────────────────
+
+  # GET /comments/:id — a comment written on Inkwell, as the AP Note we
+  # federated. Remote servers look these up to resolve threads (a reply to our
+  # comment points `inReplyTo` here); people who follow the link land on the
+  # conversation. Only comments that are public on Inkwell are served.
+  def comment_object(conn, %{"id" => id}) do
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         %Comment{user_id: user_id} = comment when not is_nil(user_id) <- Repo.get(Comment, id),
+         comment = Repo.preload(comment, [:user, :entry, :remote_entry, :parent_comment]),
+         true <- is_nil(comment.user.blocked_at),
+         {:ok, root_ap_id, page_url} <- comment_context(comment) do
+      in_reply_to =
+        if comment.parent_comment,
+          do: ActivityBuilder.comment_reply_target(comment.parent_comment),
+          else: root_ap_id
+
+      if ap_request?(conn) do
+        conn
+        |> put_resp_content_type("application/activity+json")
+        |> json(ActivityBuilder.build_comment_note(comment, comment.user, in_reply_to, page_url))
+      else
+        redirect(conn, external: page_url)
+      end
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
+    end
+  end
+
+  defp comment_context(%Comment{entry: %Journals.Entry{} = entry}) do
+    if entry.status == :published and entry.privacy == :public do
+      author = Accounts.get_user!(entry.user_id)
+      frontend_host = federation_config(:frontend_host)
+
+      {:ok, entry.ap_id || ActivityBuilder.entry_ap_url(entry),
+       "#{frontend_host}/#{author.username}/#{entry.slug}#comments"}
+    else
+      :error
+    end
+  end
+
+  defp comment_context(%Comment{remote_entry: %{} = remote_entry}) do
+    {:ok, remote_entry.ap_id,
+     "#{federation_config(:frontend_host)}/fediverse/#{remote_entry.id}#comments"}
+  end
+
+  defp comment_context(_), do: :error
+
+  defp ap_request?(conn) do
+    accept = conn |> get_req_header("accept") |> List.first() || ""
+    String.contains?(accept, "application/activity+json") or String.contains?(accept, "application/ld+json")
+  end
+
   # ── Featured collection (pinned posts) ─────────────────────────────────
 
   # How many posts the featured collection offers (Mastodon's own pin limit).

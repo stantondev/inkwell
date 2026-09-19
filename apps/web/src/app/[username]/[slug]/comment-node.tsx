@@ -74,7 +74,9 @@ export function CommentNode({
   const canDelete =
     !!session &&
     (session.user.username === comment.author?.username || !!session.user.is_admin);
-  const canReply = !!session && !isRemote;
+  // Fediverse comments can be answered too: the reply is sent to the
+  // commenter's server and threads under their comment there.
+  const canReply = !!session;
 
   const isCollapsed = collapsedThreads.has(comment.id);
   const needsCollapse = replies.length >= COLLAPSE_THRESHOLD;

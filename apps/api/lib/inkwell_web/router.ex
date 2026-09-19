@@ -599,6 +599,9 @@ defmodule InkwellWeb.Router do
     get "/entries/by-slug/:username/:slug", FederationController, :entry_object_by_slug
     get "/entries/:id", FederationController, :entry_object
 
+    # Comment AP object (Note) — lets remote servers resolve threads
+    get "/comments/:id", FederationController, :comment_object
+
     # Actor endpoint (content negotiation: AP JSON vs browser redirect)
     get "/users/:username", FederationController, :actor
     get "/users/:username/outbox", FederationController, :outbox

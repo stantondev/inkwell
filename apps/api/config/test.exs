@@ -17,6 +17,9 @@ config :logger, level: :warning
 
 config :inkwell, Oban, testing: :inline
 
+# Run federation side work inline instead of in a Task (see Inkwell.Federation.Background).
+config :inkwell, :federation_background, false
+
 # Federation host config so activity building (Mention tags, absolute URLs)
 # behaves like production in tests.
 config :inkwell, :federation,

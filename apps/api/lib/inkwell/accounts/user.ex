@@ -126,6 +126,7 @@ defmodule Inkwell.Accounts.User do
     feed explore search admin inbox outbox users
     newsletter billing noreply postmaster webmaster abuse
     switch transparency founding
+    comments entries fediverse
   )
 
   # Brand-related prefixes — any username starting with these is blocked

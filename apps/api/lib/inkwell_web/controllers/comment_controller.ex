@@ -94,6 +94,9 @@ defmodule InkwellWeb.CommentController do
           {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
           attrs = Map.put(attrs, "body_html", processed_html)
 
+          # Federation threads the reply under the comment it answers.
+          replied_to = reply_parent(params["parent_comment_id"], entry.id)
+
           case Journals.create_comment(attrs) do
             {:ok, comment} ->
               # Notify entry author (unless commenter is the author)
@@ -144,7 +147,7 @@ defmodule InkwellWeb.CommentController do
               end
 
               # Fan out comment to fediverse followers of the entry author
-              maybe_federate_comment(entry, comment, user)
+              maybe_federate_comment(entry, comment, user, replied_to)
 
               conn |> put_status(:created) |> json(%{data: render_comment(comment)})
 
@@ -276,16 +279,35 @@ defmodule InkwellWeb.CommentController do
 
   # ── Federation: fan out local comments to fediverse ──────────────────────
 
+  # The comment being replied to, if it's on this entry.
+  defp reply_parent(parent_id, entry_id) when is_binary(parent_id) and parent_id != "" do
+    with {:ok, _} <- Ecto.UUID.cast(parent_id),
+         %Journals.Comment{entry_id: ^entry_id} = parent <- Repo.get(Journals.Comment, parent_id) do
+      parent
+    else
+      _ -> nil
+    end
+  end
+
+  defp reply_parent(_, _), do: nil
+
   # When a user comments on a public local entry, deliver the comment as a
   # Create{Note} with inReplyTo to all fediverse followers of the entry author.
   # This makes Inkwell comments appear in Mastodon threads.
-  defp maybe_federate_comment(entry, comment, user) do
+  defp maybe_federate_comment(entry, comment, user, replied_to) do
     # Only federate comments on public entries (fediverse can't see private content)
     if entry.privacy == :public do
-      Task.start(fn ->
+      Inkwell.Federation.Background.run(fn ->
         try do
           entry_author = Accounts.get_user!(entry.user_id)
-          inboxes = Inkwell.Federation.Workers.FanOutWorker.collect_remote_inboxes(entry_author.id)
+
+          # The entry author's fediverse followers, plus the server of the
+          # fediverse commenter being answered (they may not follow the author).
+          inboxes =
+            (Inkwell.Federation.Workers.FanOutWorker.collect_remote_inboxes(entry_author.id) ++
+               [Inkwell.Federation.RemoteActor.inbox_for(ActivityBuilder.remote_comment_author(replied_to))])
+            |> Enum.reject(&is_nil/1)
+            |> Enum.uniq()
 
           if inboxes != [] do
             # Build the reply Note addressed to the entry author.
@@ -321,6 +343,7 @@ defmodule InkwellWeb.CommentController do
                 |> Map.put("cc", [commenter_followers, author_followers])
                 # Keep the Mention tag from build_reply_note — Mastodon needs it
               end)
+              |> ActivityBuilder.thread_reply(replied_to)
 
             Logger.info("Federating comment #{comment.id} on entry #{entry.id} by #{user.username} to #{length(inboxes)} inboxes (entry author: #{entry_author.username})")
 

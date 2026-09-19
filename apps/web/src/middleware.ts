@@ -148,6 +148,7 @@ export async function middleware(request: NextRequest) {
     if (
       segments.length === 2 &&
       segments[0] !== "entries" &&
+      segments[0] !== "comments" &&
       !pathname.startsWith("/api/") &&
       !pathname.startsWith("/_next/") &&
       !pathname.startsWith("/stamps/") &&

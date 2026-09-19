@@ -44,6 +44,19 @@ defmodule Inkwell.Federation.RemoteActor do
   end
 
   @doc """
+  The inbox to deliver to for a remote actor (their shared inbox when they have
+  one), or nil if the actor can't be fetched.
+  """
+  def inbox_for(ap_id) when is_binary(ap_id) do
+    case fetch(ap_id) do
+      {:ok, actor} -> actor.shared_inbox || actor.inbox
+      _ -> nil
+    end
+  end
+
+  def inbox_for(_), do: nil
+
+  @doc """
   Gets a cached remote actor by AP ID without fetching.
   """
   def get_by_ap_id(ap_id) do

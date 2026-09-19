@@ -1,8 +1,10 @@
 defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Inks, Journals, Reprints, Social, Stamps}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteEntries, ReplyFetcher}
+  alias Inkwell.{Accounts, Inks, Journals, Reprints, Social, Stamps}
+  alias Inkwell.Federation.{ActivityBuilder, RemoteActor, RemoteEntries, ReplyFetcher}
+  alias Inkwell.Journals.Comment
+  alias InkwellWeb.Helpers.MentionHelper
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
   alias Inkwell.Repo
 
@@ -188,35 +190,85 @@ defmodule InkwellWeb.RemoteEntryController do
   def create_comment(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
 
-    case get_remote_entry(id) do
-      {:ok, remote_entry} ->
-        comment_id = Ecto.UUID.generate()
-        instance_host = Application.get_env(:inkwell, :federation, []) |> Keyword.get(:instance_host, "inkwell-api.fly.dev")
+    with {:ok, remote_entry} <- get_remote_entry(id),
+         {:ok, parent} <- reply_parent(params["parent_comment_id"], id) do
+      comment_id = Ecto.UUID.generate()
+      {body_html, mentioned_users} = MentionHelper.process_mentions(params["body_html"] || "")
 
-        attrs = %{
-          "id" => comment_id,
-          "remote_entry_id" => id,
-          "user_id" => user.id,
-          "body_html" => params["body_html"],
-          "ap_id" => "https://#{instance_host}/comments/#{comment_id}"
-        }
+      attrs = %{
+        "id" => comment_id,
+        "remote_entry_id" => id,
+        "user_id" => user.id,
+        "body_html" => body_html,
+        "parent_comment_id" => parent && parent.id,
+        "ap_id" => ActivityBuilder.comment_ap_url(%{id: comment_id})
+      }
 
-        case Journals.create_comment(attrs) do
-          {:ok, comment} ->
-            # Send Create { Note } reply to remote actor's inbox
-            remote_entry = Repo.preload(remote_entry, :remote_actor)
-            deliver_reply(remote_entry, comment, user)
+      case Journals.create_comment(attrs) do
+        {:ok, comment} ->
+          notify_comment(comment, parent, mentioned_users, user, id)
 
-            conn |> put_status(:created) |> json(%{data: render_comment(comment)})
+          remote_entry = Repo.preload(remote_entry, :remote_actor)
+          deliver_reply(remote_entry, comment, user, parent)
 
-          {:error, changeset} ->
-            conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{errors: format_errors(changeset)})
-        end
+          conn |> put_status(:created) |> json(%{data: render_comment(comment)})
 
+        {:error, changeset} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{errors: format_errors(changeset)})
+      end
+    else
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+
+      {:error, :bad_parent} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "That comment isn't on this post"})
+    end
+  end
+
+  # The comment being replied to must belong to the same fediverse post.
+  defp reply_parent(nil, _remote_entry_id), do: {:ok, nil}
+  defp reply_parent("", _remote_entry_id), do: {:ok, nil}
+
+  defp reply_parent(parent_id, remote_entry_id) do
+    with {:ok, _} <- Ecto.UUID.cast(parent_id),
+         %Comment{remote_entry_id: ^remote_entry_id} = parent <- Repo.get(Comment, parent_id) do
+      {:ok, parent}
+    else
+      _ -> {:error, :bad_parent}
+    end
+  end
+
+  # Replies and @mentions on a fediverse post notify the Inkwell members
+  # involved, the same way they do on Inkwell entries. There is no Inkwell
+  # author to notify about a plain comment: the post belongs to someone on
+  # another server, who hears about it through the federated reply.
+  defp notify_comment(comment, parent, mentioned_users, user, remote_entry_id) do
+    parent_author_id = parent && parent.user_id
+
+    if parent_author_id && parent_author_id != user.id do
+      Accounts.create_notification(%{
+        user_id: parent_author_id,
+        type: :reply,
+        actor_id: user.id,
+        target_type: "remote_entry",
+        target_id: remote_entry_id,
+        data: %{comment_id: comment.id, parent_comment_id: parent.id}
+      })
+    end
+
+    skip = MapSet.new(Enum.reject([user.id, parent_author_id], &is_nil/1))
+
+    for mentioned <- mentioned_users, not MapSet.member?(skip, mentioned.id) do
+      Accounts.create_notification(%{
+        user_id: mentioned.id,
+        type: :mention,
+        actor_id: user.id,
+        target_type: "remote_entry",
+        target_id: remote_entry_id,
+        data: %{comment_id: comment.id}
+      })
     end
   end
 
@@ -272,21 +324,37 @@ defmodule InkwellWeb.RemoteEntryController do
     end
   end
 
-  defp deliver_reply(remote_entry, comment, user) do
+  # Sends the reply to the post author's server and, when it answers a
+  # fediverse comment, to that commenter's server too, so both threads update.
+  defp deliver_reply(remote_entry, comment, user, parent) do
     actor = remote_entry.remote_actor
-    if actor do
-      activity = ActivityBuilder.build_reply_note(
-        comment.body_html,
-        remote_entry.ap_id,
-        user,
-        comment.id,
-        actor.ap_id
-      )
-      inbox = actor.shared_inbox || actor.inbox
 
-      %{activity: activity, inbox_url: inbox, user_id: user.id}
-      |> DeliverActivityWorker.new()
-      |> Oban.insert()
+    if actor do
+      activity =
+        comment.body_html
+        |> ActivityBuilder.build_reply_note(remote_entry.ap_id, user, comment.id, actor.ap_id)
+        |> ActivityBuilder.thread_reply(parent)
+
+      Inkwell.Federation.Background.run(fn ->
+        inboxes =
+          [actor.shared_inbox || actor.inbox | parent_author_inboxes(parent, actor.ap_id)]
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
+
+        for inbox <- inboxes do
+          %{activity: activity, inbox_url: inbox, user_id: user.id}
+          |> DeliverActivityWorker.new()
+          |> Oban.insert()
+        end
+      end)
+    end
+  end
+
+  defp parent_author_inboxes(parent, post_author_ap_id) do
+    case ActivityBuilder.remote_comment_author(parent) do
+      nil -> []
+      ^post_author_ap_id -> []
+      ap_id -> [RemoteActor.inbox_for(ap_id)]
     end
   end
 

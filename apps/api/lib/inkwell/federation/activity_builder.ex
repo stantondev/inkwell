@@ -592,6 +592,101 @@ defmodule Inkwell.Federation.ActivityBuilder do
     "@#{username}@#{uri.host}"
   end
 
+  # ── Comment threads ──────────────────────────────────────────────────────
+
+  @doc """
+  The public AP id of a comment written on Inkwell. It is served by
+  `FederationController.comment_object/2`.
+  """
+  def comment_ap_url(comment) do
+    "https://#{federation_config(:instance_host)}/comments/#{comment.id}"
+  end
+
+  @doc """
+  AP id of the fediverse account that wrote a comment, or nil when the comment
+  was written on Inkwell.
+  """
+  def remote_comment_author(%{remote_author: ra}) when is_map(ra) do
+    case ra["ap_id"] || ra[:ap_id] do
+      ap_id when is_binary(ap_id) and ap_id != "" -> ap_id
+      _ -> nil
+    end
+  end
+
+  def remote_comment_author(_), do: nil
+
+  @doc """
+  What a reply to `comment` should put in `inReplyTo`: the fediverse comment's
+  own id, or our URL for a comment written on Inkwell.
+  """
+  def comment_reply_target(comment) do
+    # No local author means it arrived from the fediverse with its own id.
+    if is_nil(comment.user_id) and is_binary(comment.ap_id),
+      do: comment.ap_id,
+      else: comment_ap_url(comment)
+  end
+
+  @doc """
+  Points a reply Create activity at the comment it answers instead of the post.
+  When that comment came from the fediverse, its author is also addressed and
+  mentioned, so their server threads the reply and notifies them.
+  """
+  def thread_reply(activity, nil), do: activity
+
+  def thread_reply(activity, parent) do
+    activity = Map.update!(activity, "object", &Map.put(&1, "inReplyTo", comment_reply_target(parent)))
+
+    case remote_comment_author(parent) do
+      nil ->
+        activity
+
+      author ->
+        ra = parent.remote_author
+        username = ra["username"] || ra[:username]
+        domain = ra["domain"] || ra[:domain]
+
+        name =
+          if username && domain, do: "@#{username}@#{domain}", else: extract_mention_name(author)
+
+        mention = %{"type" => "Mention", "href" => author, "name" => name}
+        address = fn list -> Enum.uniq((list || []) ++ [author]) end
+
+        activity
+        |> Map.update("to", [author], address)
+        |> Map.update!("object", fn obj ->
+          obj
+          |> Map.update("to", [author], address)
+          |> Map.update("tag", [mention], fn tags ->
+            if Enum.any?(tags, &(&1["href"] == author)), do: tags, else: tags ++ [mention]
+          end)
+        end)
+    end
+  end
+
+  @doc """
+  A comment written on Inkwell as a standalone Note, for remote servers that
+  look it up. `in_reply_to` is the AP id of what it answers; `page_url` is where
+  a person can read it in context.
+  """
+  def build_comment_note(comment, user, in_reply_to, page_url) do
+    actor = actor_url(user)
+
+    note = %{
+      "@context" => ap_context(),
+      "type" => "Note",
+      "id" => comment_ap_url(comment),
+      "attributedTo" => actor,
+      "content" => absolutize_urls(comment.body_html || "", federation_config(:frontend_host)),
+      "inReplyTo" => in_reply_to,
+      "url" => page_url,
+      "published" => format_datetime(comment.inserted_at),
+      "to" => [@public],
+      "cc" => ["#{actor}/followers"]
+    }
+
+    if comment.edited_at, do: Map.put(note, "updated", format_datetime(comment.edited_at)), else: note
+  end
+
   # ── URL Helpers ──────────────────────────────────────────────────────────
 
   @doc """
