@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET(request: NextRequest) {
   const username = request.nextUrl.searchParams.get("username");
@@ -13,12 +14,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(
+    const res = await upstreamFetch(
       `${SERVER_API}/api/username-available?username=${encodeURIComponent(username)}`,
       { cache: "no-store" }
     );
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch (err) {
     console.error("Proxy /api/username-available error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

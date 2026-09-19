@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 // PATCH /api/letters/[id]/messages/[msgId] — edit a letter
 export async function PATCH(
@@ -13,7 +14,7 @@ export async function PATCH(
   const { id, msgId } = await params;
   const body = await request.json();
 
-  const res = await fetch(
+  const res = await upstreamFetch(
     `${SERVER_API}/api/conversations/${id}/letters/${msgId}`,
     {
       method: "PATCH",
@@ -22,8 +23,7 @@ export async function PATCH(
       cache: "no-store",
     }
   );
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }
 
 // DELETE /api/letters/[id]/messages/[msgId] — soft-delete a letter
@@ -36,7 +36,7 @@ export async function DELETE(
 
   const { id, msgId } = await params;
 
-  const res = await fetch(
+  const res = await upstreamFetch(
     `${SERVER_API}/api/conversations/${id}/letters/${msgId}`,
     {
       method: "DELETE",
@@ -44,6 +44,5 @@ export async function DELETE(
       cache: "no-store",
     }
   );
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

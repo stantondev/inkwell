@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { getToken } from "@/lib/session";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function DELETE(
   _request: NextRequest,
@@ -13,7 +14,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const res = await fetch(
+    const res = await upstreamFetch(
       `${SERVER_API}/api/auth/fediverse/accounts/${id}`,
       {
         method: "DELETE",
@@ -24,8 +25,7 @@ export async function DELETE(
       }
     );
 
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

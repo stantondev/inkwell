@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { getToken } from "@/lib/session";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET() {
   try {
@@ -9,15 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const res = await fetch(`${SERVER_API}/api/auth/fediverse/accounts`, {
+    const res = await upstreamFetch(`${SERVER_API}/api/auth/fediverse/accounts`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
     });
 
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

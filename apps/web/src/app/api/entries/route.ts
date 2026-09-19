@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function POST(request: NextRequest) {
   const token = await getToken();
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const res = await fetch(`${SERVER_API}/api/entries`, {
+    const res = await upstreamFetch(`${SERVER_API}/api/entries`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -29,8 +30,7 @@ export async function POST(request: NextRequest) {
       cache: "no-store",
     });
 
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch (err) {
     console.error("Proxy /api/entries error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

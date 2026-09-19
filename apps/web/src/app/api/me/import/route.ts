@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET() {
   const token = await getToken();
@@ -10,12 +11,11 @@ export async function GET() {
       { status: 401 }
     );
 
-  const res = await fetch(`${SERVER_API}/api/me/import`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/me/import`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }
 
 export async function POST(request: NextRequest) {
@@ -34,11 +34,10 @@ export async function POST(request: NextRequest) {
     body.append(key, value);
   }
 
-  const res = await fetch(`${SERVER_API}/api/me/import`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/me/import`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: body,
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

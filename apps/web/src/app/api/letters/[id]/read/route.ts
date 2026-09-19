@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 // POST /api/letters/[id]/read — mark conversation as read
 export async function POST(
@@ -12,11 +13,10 @@ export async function POST(
 
   const { id } = await params;
 
-  const res = await fetch(`${SERVER_API}/api/conversations/${id}/read`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/conversations/${id}/read`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

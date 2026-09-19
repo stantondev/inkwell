@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET(req: NextRequest) {
   const token = await getToken();
@@ -8,10 +9,9 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const qs = url.search;
-  const res = await fetch(`${SERVER_API}/api/admin/reports${qs}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/admin/reports${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

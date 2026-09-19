@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET(
   _request: Request,
@@ -10,12 +11,11 @@ export async function GET(
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const { id } = await params;
-  const res = await fetch(`${SERVER_API}/api/admin/users/${id}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/admin/users/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }
 
 export async function DELETE(
@@ -26,12 +26,11 @@ export async function DELETE(
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const { id } = await params;
-  const res = await fetch(`${SERVER_API}/api/admin/users/${id}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/admin/users/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (res.status === 204) return new NextResponse(null, { status: 204 });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

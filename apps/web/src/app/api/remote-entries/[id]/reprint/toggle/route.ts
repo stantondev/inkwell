@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 const SERVER_API = process.env.API_URL || "http://localhost:4000";
 
@@ -16,7 +17,7 @@ export async function POST(
     );
 
   try {
-    const res = await fetch(
+    const res = await upstreamFetch(
       `${SERVER_API}/api/remote-entries/${id}/reprint/toggle`,
       {
         method: "POST",
@@ -27,8 +28,7 @@ export async function POST(
         cache: "no-store",
       }
     );
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch (err) {
     console.error(
       "Proxy POST /api/remote-entries/:id/reprint/toggle error:",

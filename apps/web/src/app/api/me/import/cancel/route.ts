@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function POST() {
   const token = await getToken();
@@ -10,7 +11,7 @@ export async function POST() {
       { status: 401 }
     );
 
-  const res = await fetch(`${SERVER_API}/api/me/import/cancel`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/me/import/cancel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -18,6 +19,5 @@ export async function POST() {
     },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

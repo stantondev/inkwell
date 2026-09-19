@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function PATCH(
   request: NextRequest,
@@ -12,7 +13,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  const res = await fetch(`${SERVER_API}/api/admin/users/${id}/rename`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/admin/users/${id}/rename`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -20,6 +21,5 @@ export async function PATCH(
     },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

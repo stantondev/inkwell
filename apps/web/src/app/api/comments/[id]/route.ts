@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await req.json();
 
-  const res = await fetch(`${SERVER_API}/api/comments/${id}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/comments/${id}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -19,8 +20,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     body: JSON.stringify(body),
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
@@ -28,12 +28,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const { id } = await params;
 
-  const res = await fetch(`${SERVER_API}/api/comments/${id}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/comments/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
   if (res.status === 204) return new NextResponse(null, { status: 204 });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

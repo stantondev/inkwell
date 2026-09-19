@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,10 +11,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const qs = request.nextUrl.searchParams.toString();
-  const res = await fetch(`${SERVER_API}/api/circles/${id}/members?${qs}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/circles/${id}/members?${qs}`, {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

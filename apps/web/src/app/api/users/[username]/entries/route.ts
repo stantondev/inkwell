@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 // GET /api/users/:username/entries — list entries with pagination and filters
 export async function GET(
@@ -17,10 +18,9 @@ export async function GET(
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${SERVER_API}/api/users/${username}/entries${queryString}`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/users/${username}/entries${queryString}`, {
     cache: "no-store",
     headers,
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

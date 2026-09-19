@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 // GET /api/letters/[id] — load thread (with optional ?since=messageId for polling)
 export async function GET(
@@ -19,12 +20,11 @@ export async function GET(
     ? `${SERVER_API}/api/conversations/${id}?since=${encodeURIComponent(since)}`
     : `${SERVER_API}/api/conversations/${id}?page=${page}`;
 
-  const res = await fetch(url, {
+  const res = await upstreamFetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }
 
 // POST /api/letters/[id] — send a letter
@@ -39,12 +39,11 @@ export async function POST(
   const { id } = await params;
   const body = await request.json();
 
-  const res = await fetch(`${SERVER_API}/api/conversations/${id}/letters`, {
+  const res = await upstreamFetch(`${SERVER_API}/api/conversations/${id}/letters`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
     cache: "no-store",
   });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  return proxyJson(res);
 }

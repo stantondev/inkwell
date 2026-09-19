@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q") ?? "";
@@ -18,12 +19,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(
+    const res = await upstreamFetch(
       `${SERVER_API}/api/search/fediverse?q=${encodeURIComponent(q)}`,
       { cache: "no-store", headers }
     );
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch (err) {
     console.error("Proxy /api/search/fediverse error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

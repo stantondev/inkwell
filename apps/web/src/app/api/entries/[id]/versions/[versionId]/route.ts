@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
+import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 type Params = { params: Promise<{ id: string; versionId: string }> };
 
@@ -10,12 +11,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
   const { id, versionId } = await params;
 
   try {
-    const res = await fetch(`${SERVER_API}/api/entries/${id}/versions/${versionId}`, {
+    const res = await upstreamFetch(`${SERVER_API}/api/entries/${id}/versions/${versionId}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return proxyJson(res);
   } catch (err) {
     console.error("Proxy /api/entries/:id/versions/:versionId error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
