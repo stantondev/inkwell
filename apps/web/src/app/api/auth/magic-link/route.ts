@@ -7,10 +7,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { HANDOFF_COOKIE } from "@/lib/session";
+import { ATTRIBUTION_COOKIE, readAttribution } from "@/lib/attribution";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // Where this visitor first arrived from; the API stores it only when this
+    // request creates a new account. Never taken from the request body.
+    const attribution = readAttribution(request);
 
     const res = await fetch(`${SERVER_API}/api/auth/magic-link`, {
       method: "POST",
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
           request.headers.get("x-real-ip") ??
           "",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, attribution }),
       cache: "no-store",
     });
 
@@ -60,6 +64,10 @@ export async function POST(request: NextRequest) {
         path: "/",
       });
     }
+
+    // The account exists now (new or returning), so the attribution has done
+    // its job. Don't keep it around.
+    if (res.ok && attribution) response.cookies.delete(ATTRIBUTION_COOKIE);
 
     return response;
   } catch (err) {

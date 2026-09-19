@@ -464,6 +464,15 @@ export default function PrivacyPage() {
               <strong>Preference cookies:</strong> These remember your settings and preferences (such as theme or display
               preferences).
             </li>
+            <li>
+              <strong>Signup source cookie:</strong> If you aren&apos;t signed in, the first page you visit sets one
+              first-party cookie recording the website that linked you here (the site&apos;s name only, not the full
+              address), any <code>ref</code> tag in the link, and which Inkwell page you landed on. If you create an
+              account, we save those three things with it so we can tell which places bring people to Inkwell, then
+              delete the cookie. It expires after 60 days, isn&apos;t shared with anyone, and isn&apos;t used for
+              advertising. The optional &ldquo;How did you find Inkwell?&rdquo; question during signup is stored the
+              same way. Only Inkwell&apos;s admins can see either.
+            </li>
           </ul>
           <p className="mt-3">
             Inkwell does not use advertising cookies or tracking pixels. We do not participate in third-party ad networks.

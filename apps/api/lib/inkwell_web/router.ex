@@ -505,6 +505,9 @@ defmodule InkwellWeb.Router do
   scope "/api/admin", InkwellWeb do
     pipe_through [:api, :authenticated, :admin]
 
+    # Signup sources
+    get "/growth", GrowthAdminController, :index
+
     # Automated moderation review
     get "/moderation", ModerationAdminController, :index
     get "/moderation/check", ModerationAdminController, :check

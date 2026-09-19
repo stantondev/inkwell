@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_MAX_AGE,
+  encodeAttribution,
+  firstVisitAttribution,
+} from "@/lib/attribution";
 
 const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings", "/manage"];
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -196,6 +202,21 @@ export async function middleware(request: NextRequest) {
       maxAge: TOKEN_MAX_AGE,
       path: "/",
     });
+  }
+
+  // First visit of a signed-out visitor: remember where they came from so a
+  // later signup can be attributed (see lib/attribution.ts). First touch wins.
+  if (!token && !request.cookies.has(ATTRIBUTION_COOKIE)) {
+    const attr = firstVisitAttribution(request);
+    if (attr) {
+      response.cookies.set(ATTRIBUTION_COOKIE, encodeAttribution(attr), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: ATTRIBUTION_MAX_AGE,
+        path: "/",
+      });
+    }
   }
 
   return response;

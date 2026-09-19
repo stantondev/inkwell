@@ -45,6 +45,8 @@ defmodule InkwellWeb.AuthController do
                 {:ok, new_user} ->
                   # Track invite attribution
                   maybe_accept_invite(new_user, params)
+                  # Where they first arrived from (see Inkwell.Growth)
+                  {:ok, new_user} = Inkwell.Growth.record_signup_attribution(new_user, params["attribution"])
 
                   case Accounts.set_terms_accepted(new_user) do
                     {:ok, accepted_user} -> {:ok, accepted_user}

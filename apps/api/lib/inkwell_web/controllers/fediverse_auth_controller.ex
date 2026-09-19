@@ -110,6 +110,16 @@ defmodule InkwellWeb.FediverseAuthController do
           find_or_create_user(oauth_state, credentials, token_data)
         end
 
+      result =
+        case result do
+          {:ok, user, account, true} ->
+            {:ok, user} = Inkwell.Growth.record_signup_attribution(user, conn.params["attribution"])
+            {:ok, user, account, true}
+
+          other ->
+            other
+        end
+
       case result do
         {:ok, user, _fediverse_account, is_new} ->
           api_token = Auth.create_api_session_token(user.id)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
+import { ATTRIBUTION_COOKIE, readAttribution } from "@/lib/attribution";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     const res = await fetch(`${API_URL}/api/auth/fediverse/callback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, state }),
+      body: JSON.stringify({ code, state, attribution: readAttribution(request) }),
       cache: "no-store",
     });
 
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
       maxAge: TOKEN_MAX_AGE,
       path: "/",
     });
+    response.cookies.delete(ATTRIBUTION_COOKIE);
 
     return response;
   } catch {

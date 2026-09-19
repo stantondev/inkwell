@@ -111,6 +111,13 @@ defmodule Inkwell.Accounts.User do
     field :invite_code, :string
     field :invited_by_id, :binary_id
 
+    # Signup attribution (see Inkwell.Growth)
+    field :signup_referrer_host, :string
+    field :signup_ref, :string
+    field :signup_landing_path, :string
+    field :heard_from, :string
+    field :heard_from_detail, :string
+
     has_many :entries, Inkwell.Journals.Entry
     has_many :user_icons, Inkwell.Accounts.UserIcon
     has_many :notifications, Inkwell.Accounts.Notification
@@ -278,7 +285,7 @@ defmodule Inkwell.Accounts.User do
       :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
       :support_url, :support_label,
       :pinned_entry_ids, :social_links,
-      :preferred_language
+      :preferred_language, :heard_from, :heard_from_detail
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:bio_html)
     |> Inkwell.HtmlSanitizer.sanitize_change(:profile_html, :profile)
@@ -308,6 +315,17 @@ defmodule Inkwell.Accounts.User do
     |> maybe_validate_inclusion(:profile_effect_intensity, @allowed_effect_intensities)
     |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
     |> validate_avatar_config()
+    |> maybe_validate_inclusion(:heard_from, Inkwell.Growth.heard_from_options())
+    |> validate_length(:heard_from_detail, max: 200)
+  end
+
+  @doc "Signup attribution, written once when the account is created (Inkwell.Growth)."
+  def attribution_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:signup_referrer_host, :signup_ref, :signup_landing_path])
+    |> validate_length(:signup_referrer_host, max: 253)
+    |> validate_length(:signup_ref, max: 64)
+    |> validate_length(:signup_landing_path, max: 200)
   end
 
   defp validate_avatar_config(changeset) do

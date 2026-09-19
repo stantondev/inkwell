@@ -118,7 +118,7 @@ defmodule InkwellWeb.UserController do
       "avatar_animation",
       "support_url", "support_label",
       "pinned_entry_ids", "social_links",
-      "preferred_language"
+      "preferred_language", "heard_from", "heard_from_detail"
     ]
 
     # Plus-only profile customization fields (silently stripped for free users)

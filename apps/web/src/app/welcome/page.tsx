@@ -41,6 +41,18 @@ type SuggestedUser = {
   ink_count: number;
 };
 
+// "How did you find Inkwell?" (optional). Keys match Inkwell.Growth on the API.
+const HEARD_FROM_OPTIONS: { id: string; label: string }[] = [
+  { id: "friend", label: "A friend" },
+  { id: "fediverse", label: "Mastodon / fediverse" },
+  { id: "writer", label: "A writer's post here" },
+  { id: "switching", label: "Leaving another blog platform" },
+  { id: "search", label: "Search" },
+  { id: "social", label: "Reddit, Bluesky…" },
+  { id: "ai", label: "An AI assistant" },
+  { id: "other", label: "Something else" },
+];
+
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center justify-center gap-2 mb-6">
@@ -71,6 +83,8 @@ export default function WelcomePage() {
   const [checkingUsername, setCheckingUsername] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const currentUsernameRef = useRef<string>("");  // tracks pre-existing username from DB
+  const [heardFrom, setHeardFrom] = useState<string | null>(null);
+  const [heardFromDetail, setHeardFromDetail] = useState("");
 
   // Step 2: Photo & Pronouns
   const [avatarDataUri, setAvatarDataUri] = useState<string | null>(null);
@@ -544,6 +558,20 @@ export default function WelcomePage() {
   // bio, pronouns, status, theme) lived only in React state and was silently
   // destroyed the moment they paid. They'd come back to an empty wizard with
   // their handle reverted to the email-derived default.
+  // Saved the moment it's picked (not at the end of the wizard), so the answer
+  // counts even if they leave onboarding early. Failure is silent: it's optional.
+  function saveHeardFrom(answer: string | null, detail: string) {
+    if (!answer) return;
+    fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        heard_from: answer,
+        heard_from_detail: answer === "other" ? detail.trim().slice(0, 200) : "",
+      }),
+    }).catch(() => {});
+  }
+
   async function saveProfile({ markOnboarded = true }: { markOnboarded?: boolean } = {}): Promise<boolean> {
     setSaving(true);
     setError("");
@@ -728,6 +756,52 @@ export default function WelcomePage() {
                   className={inputClass}
                   style={inputStyle}
                 />
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                  How did you find Inkwell? <span className="normal-case tracking-normal font-normal">(optional)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="How did you find Inkwell?">
+                  {HEARD_FROM_OPTIONS.map((o) => {
+                    const selected = heardFrom === o.id;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setHeardFrom(o.id);
+                          if (o.id !== "other") saveHeardFrom(o.id, "");
+                        }}
+                        className="rounded-full border px-3 py-1 text-xs transition-colors"
+                        style={{
+                          borderColor: selected ? "var(--accent)" : "var(--border)",
+                          background: selected ? "var(--accent-light)" : "transparent",
+                          color: selected ? "var(--accent)" : "var(--foreground)",
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {heardFrom === "other" && (
+                  <input
+                    type="text"
+                    value={heardFromDetail}
+                    onChange={(e) => setHeardFromDetail(e.target.value)}
+                    onBlur={() => saveHeardFrom("other", heardFromDetail)}
+                    placeholder="Where? (a podcast, a newsletter, a person…)"
+                    maxLength={200}
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                )}
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  Helps a small team know where to spend its time. Only admins see it.
+                </p>
               </div>
             </div>
           )}
