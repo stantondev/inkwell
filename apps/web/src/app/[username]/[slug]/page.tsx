@@ -30,6 +30,9 @@ import { PaywallCard } from "@/components/paywall-card";
 import { TranslatableEntry } from "@/components/translatable-entry";
 import { GalleryHydrator } from "@/components/gallery-hydrator";
 import { MarginaliaReader } from "@/components/marginalia/marginalia-reader";
+import { StickyNoteCard } from "@/components/sticky-note-card";
+import type { JournalEntry } from "@/components/journal-entry-card";
+import { StickyActions } from "./sticky-actions";
 
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
@@ -133,6 +136,10 @@ interface EntryData {
   } | null;
   is_paid?: boolean;
   custom_domain?: string | null;
+  kind?: "entry" | "sticky";
+  sticky_color?: string | null;
+  expanded_into?: { slug: string; title: string | null; username: string } | null;
+  source_sticky?: { slug: string; username: string; excerpt: string | null } | null;
   author: EntryAuthor;
 }
 
@@ -352,8 +359,9 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const entry = data.data;
     const description = entry.excerpt
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
-    const title = entry.title ? `${entry.title} · ${username}` : `Entry by @${username}`;
-    const ogTitle = entry.title ?? `Entry by @${username}`;
+    const isSticky = entry.kind === "sticky";
+    const title = entry.title ? `${entry.title} · ${username}` : isSticky ? `Sticky by @${username}` : `Entry by @${username}`;
+    const ogTitle = entry.title ?? (isSticky ? `Sticky by @${username}` : `Entry by @${username}`);
     // Use header (custom domain request) or API response (inkwell.social request)
     const effectiveDomain = customDomain || entry.custom_domain || null;
     const entryUrl = effectiveDomain
@@ -531,6 +539,21 @@ export default async function EntryPage({ params }: EntryParams) {
     } catch { /* ignore */ }
   }
 
+  if (entry.kind === "sticky") {
+    return (
+      <StickyPage
+        entry={entry}
+        username={username}
+        comments={comments}
+        session={session}
+        isOwnEntry={isOwnEntry ?? false}
+        isAdmin={isAdmin}
+        shareUrl={effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
+        showSignup={!session && !customDomain}
+      />
+    );
+  }
+
   const moodHue = getMoodHue(entry.mood);
   // Prefer stored word_count (set at save time); fall back to live HTML computation
   const mins = entry.word_count && entry.word_count > 0
@@ -679,6 +702,16 @@ export default async function EntryPage({ params }: EntryParams) {
           >
             {formatDate(entry.published_at)}
           </time>
+
+          {entry.source_sticky && (
+            <Link
+              href={`/${entry.source_sticky.username}/${entry.source_sticky.slug}`}
+              className="entry-grew-from"
+              title={entry.source_sticky.excerpt ?? undefined}
+            >
+              Grew from a sticky &rarr;
+            </Link>
+          )}
 
           {/* Title */}
           {entry.title && (
@@ -940,6 +973,86 @@ export default async function EntryPage({ params }: EntryParams) {
           >
             Powered by Inkwell
           </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── A Sticky's own page ───────────────────────────────────────────────────
+
+function StickyPage({
+  entry,
+  username,
+  comments,
+  session,
+  isOwnEntry,
+  isAdmin,
+  shareUrl,
+  showSignup,
+}: {
+  entry: EntryData;
+  username: string;
+  comments: Comment[];
+  session: Awaited<ReturnType<typeof getSession>>;
+  isOwnEntry: boolean;
+  isAdmin: boolean;
+  shareUrl: string;
+  showSignup: boolean;
+}) {
+  const author = entry.author;
+  const excerpt = entry.excerpt || entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
+
+  return (
+    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 pt-10 pb-8">
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <Link href={`/${username}`} className="flex items-center gap-2.5 min-w-0 group">
+            <Avatar url={author.avatar_url} name={author.display_name} size={36} />
+            <span className="min-w-0">
+              <span className="block font-semibold truncate group-hover:underline">{author.display_name}</span>
+              <span className="block text-sm" style={{ color: "var(--muted)" }}>
+                @{username} &middot; <time dateTime={entry.published_at}>{formatDate(entry.published_at)}</time>
+              </span>
+            </span>
+          </Link>
+          <EntryStamps
+            entryId={entry.id}
+            initialStamps={entry.stamps ?? []}
+            initialMyStamp={entry.my_stamp ?? null}
+            isOwnEntry={isOwnEntry}
+            isLoggedIn={!!session}
+            isPlus={session?.user.subscription_tier === "plus"}
+          />
+        </div>
+
+        <StickyNoteCard entry={entry as unknown as JournalEntry} isOwn={isOwnEntry} variant="page" />
+
+        <div className="flex flex-wrap items-center gap-3 mt-6">
+          <InkButton entryId={entry.id} initialInked={entry.my_ink ?? false} initialCount={entry.ink_count ?? 0} isOwnEntry={isOwnEntry} isLoggedIn={!!session} size={18} />
+          <ReprintButton entryId={entry.id} initialReprinted={entry.my_reprint ?? false} initialCount={entry.reprint_count ?? 0} isOwnEntry={isOwnEntry} isLoggedIn={!!session} isRemote={false} size={18} />
+          {session && <BookmarkButton entryId={entry.id} initialBookmarked={entry.bookmarked ?? false} isLoggedIn={true} size={18} />}
+          <ShareButton url={shareUrl} title={`Sticky by @${username}`} description={excerpt} size={18} />
+          {session && !isOwnEntry && <ReportButton entryId={entry.id} />}
+          <span className="flex-1" />
+          {isOwnEntry && (
+            <StickyActions
+              username={username}
+              sticky={{ id: entry.id, body_html: entry.body_html, sticky_color: entry.sticky_color, privacy: entry.privacy }}
+            />
+          )}
+          {!isOwnEntry && isAdmin && <EntryActions entryId={entry.id} username={username} showEdit={false} />}
+        </div>
+      </div>
+
+      <CommentSection comments={comments} entryId={entry.id} session={session} />
+
+      {showSignup && (
+        <div className="mx-auto max-w-2xl px-4 sm:px-6 pb-16">
+          <SignupCta
+            heading="Short thoughts, long entries, one journal."
+            subheading="Inkwell is a social journaling platform where writers customize their space, connect with readers, and own their content. No algorithms, no ads."
+          />
         </div>
       )}
     </div>

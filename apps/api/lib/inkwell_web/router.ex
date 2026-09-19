@@ -256,6 +256,8 @@ defmodule InkwellWeb.Router do
     post "/entries", EntryController, :create
     patch "/entries/:id", EntryController, :update
     delete "/entries/:id", EntryController, :delete
+    post "/stickies", StickyController, :create
+    patch "/stickies/:id", StickyController, :update
     post "/entries/:id/publish", EntryController, :publish
 
     # Entry versions (history)

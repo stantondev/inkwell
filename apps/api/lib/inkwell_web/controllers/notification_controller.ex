@@ -142,6 +142,8 @@ defmodule InkwellWeb.NotificationController do
             %{
               slug: e.slug,
               title: e.title,
+              kind: e.kind || "entry",
+              excerpt: if(e.kind == "sticky", do: e.excerpt),
               user: %{username: e.user.username}
             }
         end

@@ -23,6 +23,7 @@ interface SearchEntry {
   slug: string;
   title: string | null;
   body_html: string;
+  excerpt?: string | null;
   published_at: string;
   category?: string | null;
   word_count?: number | null;
@@ -365,7 +366,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
                 <Avatar url={entry.author.avatar_url} name={entry.author.display_name} size={24} />
                 <div className="explore-entry-info">
                   <span className="explore-entry-title">
-                    {entry.title || "Untitled"}
+                    {entry.title || (entry.excerpt ? `“${entry.excerpt.slice(0, 70)}”` : "Untitled")}
                   </span>
                   <span className="explore-entry-meta">
                     @{entry.author.username}

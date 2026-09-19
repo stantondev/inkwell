@@ -200,6 +200,7 @@ defmodule Inkwell.Search do
       word_count: entry.word_count || 0,
       cover_image_id: entry.cover_image_id,
       series_id: entry.series_id,
+      kind: entry.kind || "entry",
       sensitive: entry.sensitive || entry.admin_sensitive || false,
       author_username: user && user.username,
       author_display_name: user && user.display_name,

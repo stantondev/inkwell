@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
+import { JotPrompt } from "@/components/jot-prompt";
 import { EducationCard } from "@/components/education-card";
 import { PushPrompt } from "@/components/push-prompt";
 import { ResubscribeBanner } from "@/components/resubscribe-banner";
@@ -215,7 +216,7 @@ function EmptyFeed({
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-snug line-clamp-1">
-                      {entry.title || "Untitled"}
+                      {entry.title || (entry.kind === "sticky" ? "Sticky" : "Untitled")}
                     </p>
                     {entry.excerpt && (
                       <p
@@ -472,6 +473,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
             <div className="feed-dispatch-rule" />
           </div>
+          <div className="mt-4">
+            <JotPrompt />
+          </div>
         </div>
 
         {/* Re-subscribe banner for former Stripe subscribers */}
@@ -510,6 +514,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
           entries={entries}
           page={page}
           basePath="/feed"
+          showNewStickies={(!activeSource || activeSource === "inkwell") && !category}
           loadMorePath={(() => {
             const p = new URLSearchParams();
             if (activeSource) p.set("source", activeSource);

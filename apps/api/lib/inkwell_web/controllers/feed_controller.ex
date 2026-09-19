@@ -36,7 +36,8 @@ defmodule InkwellWeb.FeedController do
         else: Journals.list_feed_entries(user.id, friend_ids,
           page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids,
           subscribed_writer_ids: subscribed_writer_ids,
-          category: category_filter, sort: sort_filter)
+          category: category_filter, sort: sort_filter,
+          exclude_stickies: EntryController.hides_stickies?(user))
 
     remote_entries =
       cond do
@@ -231,6 +232,8 @@ defmodule InkwellWeb.FeedController do
           status: "published"
         }
     end)
+
+    data = EntryController.put_sticky_expansions(data, user.id)
 
     json(conn, %{
       data: data,

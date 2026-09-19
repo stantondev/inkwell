@@ -10,6 +10,7 @@ import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
 import { MobileSwipeableCard } from "./mobile-swipeable-card";
 import { packEntriesIntoSpreads } from "@/lib/page-packing";
+import { STICKY_SAVED_EVENT } from "./jot-composer";
 
 interface TranslationData {
   translated_title: string | null;
@@ -34,6 +35,8 @@ interface JournalFeedProps {
   extraParams?: string;
   emptyState?: React.ReactNode;
   session?: FeedSession | null;
+  /** Put stickies the viewer posts at the front of this feed as soon as they're posted. */
+  showNewStickies?: boolean;
 }
 
 export function JournalFeed({
@@ -44,6 +47,7 @@ export function JournalFeed({
   extraParams = "",
   emptyState,
   session,
+  showNewStickies = false,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -71,6 +75,28 @@ export function JournalFeed({
   }, []);
 
   const isDesktop = !isMobile;
+
+  // A sticky posted from the Jot composer shows up here right away; an edited
+  // one is updated in place wherever it appears.
+  useEffect(() => {
+    function onSaved(e: Event) {
+      const { entry, edited } = (e as CustomEvent<{ entry: JournalEntry; edited: boolean }>).detail;
+      setEntries((prev) => {
+        if (edited || prev.some((x) => x.id === entry.id)) {
+          return prev.map((x) => (x.id === entry.id ? { ...x, ...entry, author: x.author } : x));
+        }
+        if (!showNewStickies) return prev;
+        const fresh: JournalEntry = { ...entry, source: "local", comment_count: 0, stamps: [], ink_count: 0, reprint_count: 0 };
+        return [fresh, ...prev];
+      });
+      if (!edited && showNewStickies) {
+        scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+        mobileScrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+      }
+    }
+    window.addEventListener(STICKY_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(STICKY_SAVED_EVENT, onSaved);
+  }, [showNewStickies]);
 
   const { refreshing, pullDistance } = usePullToRefresh({
     onRefresh: () => router.refresh(),
@@ -271,6 +297,7 @@ export function JournalFeed({
         translatedBody={translations[entry.id]?.translated_body ?? null}
         translatedTitle={translations[entry.id]?.translated_title ?? null}
         bookMode={bookMode}
+        isOwn={isOwnEntry}
       />
     );
     // Mobile vertical swipe: up = ink, down = bookmark
@@ -311,7 +338,7 @@ export function JournalFeed({
               {/* Left page */}
               <div className="journal-book-half journal-book-half-left">
                 {spread.left.map((entry) => (
-                  <div key={entry.id} className="journal-book-cell">
+                  <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
                     {renderCard(entry, true)}
                   </div>
                 ))}
@@ -324,7 +351,7 @@ export function JournalFeed({
               <div className="journal-book-half journal-book-half-right">
                 {spread.right.length > 0 ? (
                   spread.right.map((entry) => (
-                    <div key={entry.id} className="journal-book-cell">
+                    <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
                       {renderCard(entry, true)}
                     </div>
                   ))
@@ -414,7 +441,7 @@ export function JournalFeed({
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
         {entries.map((entry, idx) => (
-          <div key={entry.id} className="mobile-book-page">
+          <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : ""}`}>
             {renderCard(entry, true)}
           </div>
         ))}

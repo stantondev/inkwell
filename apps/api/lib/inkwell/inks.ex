@@ -218,6 +218,8 @@ defmodule Inkwell.Inks do
     query =
       Entry
       |> where([e], e.status == :published and e.privacy == :public)
+      # Trending is where long-form writing gets found; stickies stay in the feeds.
+      |> where([e], e.kind == "entry")
       |> where([e], e.user_id not in subquery(Inkwell.Journals.hidden_from_discovery_user_ids()))
       |> where([e], e.ink_count >= ^min_inks)
       |> where([e], e.published_at >= ^since)

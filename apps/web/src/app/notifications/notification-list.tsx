@@ -33,6 +33,8 @@ interface Notification {
   entry?: {
     slug: string;
     title: string | null;
+    kind?: "entry" | "sticky";
+    excerpt?: string | null;
     user: { username: string };
   } | null;
 }
@@ -1295,7 +1297,11 @@ export function NotificationList({
                             className="text-xs mt-1 inline-block hover:underline truncate max-w-[200px] sm:max-w-[300px]"
                             style={{ color: "var(--accent)" }}
                           >
-                            {n.entry.title || "Untitled entry"} {"\u2192"}
+                            {n.entry.title ||
+                              (n.entry.kind === "sticky" && n.entry.excerpt
+                                ? `“${n.entry.excerpt.length > 60 ? `${n.entry.excerpt.slice(0, 59)}…` : n.entry.excerpt}”`
+                                : "Untitled entry")}{" "}
+                            {"\u2192"}
                           </a>
                         )}
                         {/* Circle discussion link */}

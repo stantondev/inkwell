@@ -29,7 +29,9 @@ defmodule InkwellWeb.EntryController do
         category: params["category"],
         tag: params["tag"],
         year: params["year"],
-        sort: params["sort"] || "newest"
+        sort: params["sort"] || "newest",
+        # The profile lists journal entries; its corkboard asks for ?kind=sticky.
+        kind: if(params["kind"] == "sticky", do: "sticky", else: "entry")
       ]
 
       entries =
@@ -78,11 +80,13 @@ defmodule InkwellWeb.EntryController do
         end
 
       json(conn, %{
-        data: Enum.map(entries, fn entry ->
-          render_entry(entry)
-          |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
-          |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
-        end),
+        data:
+          Enum.map(entries, fn entry ->
+            render_entry(entry)
+            |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
+            |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
+          end)
+          |> put_sticky_expansions(viewer && viewer.id),
         pagination: %{page: page, per_page: per_page, total: total_count}
       })
       end
@@ -157,6 +161,8 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:custom_domain, author_custom_domain)
           |> Map.put(:marginalia, marginalia)
           |> Map.put(:orphaned_marginalia, orphaned_marginalia)
+          |> Map.put(:source_sticky, source_sticky_link(entry, viewer))
+          |> then(fn rendered -> hd(put_sticky_expansions([rendered], viewer && viewer.id)) end)
 
         # Include per-entry postage stats for the author only
         if viewer && viewer.id == user.id do
@@ -297,7 +303,8 @@ defmodule InkwellWeb.EntryController do
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning", "published_at",
-                      "scheduled_at", "scheduled_options"])
+                      "scheduled_at", "scheduled_options", "source_sticky_id"])
+        |> put_source_sticky(user.id)
         |> put_music_metadata()
         |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
@@ -324,7 +331,8 @@ defmodule InkwellWeb.EntryController do
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
-                      "sensitive", "content_warning"])
+                      "sensitive", "content_warning", "source_sticky_id"])
+        |> put_source_sticky(user.id)
         |> put_music_metadata()
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
@@ -370,7 +378,8 @@ defmodule InkwellWeb.EntryController do
   def update(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
 
-    with {:ok, entry} <- get_owned_entry(user.id, id) do
+    with {:ok, entry} <- get_owned_entry(user.id, id),
+         :ok <- not_a_sticky(entry) do
       attrs =
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
@@ -422,8 +431,46 @@ defmodule InkwellWeb.EntryController do
         conn |> put_status(:forbidden) |> json(%{error: "Not your entry"})
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+      {:error, :sticky} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Stickies are edited from the sticky itself"})
     end
   end
+
+  # The sticky an entry was expanded from, when the viewer may see it.
+  defp source_sticky_link(%{source_sticky_id: nil}, _viewer), do: nil
+
+  defp source_sticky_link(%{source_sticky_id: id}, viewer) do
+    case Journals.get_entry(id) do
+      %{status: :published} = sticky ->
+        if Journals.viewable_by?(sticky, viewer) do
+          sticky = Repo.preload(sticky, :user)
+          %{slug: sticky.slug, username: sticky.user.username, excerpt: sticky.excerpt}
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp not_a_sticky(%{kind: "sticky"}), do: {:error, :sticky}
+  defp not_a_sticky(_), do: :ok
+
+  # "Expand into an entry" sends the sticky it came from. Only the writer's own
+  # stickies count; anything else is dropped rather than failing the save.
+  defp put_source_sticky(%{"source_sticky_id" => id} = attrs, user_id) when is_binary(id) and id != "" do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        case Journals.get_entry(uuid) do
+          %{kind: "sticky", user_id: ^user_id} -> Map.put(attrs, "source_sticky_id", uuid)
+          _ -> Map.delete(attrs, "source_sticky_id")
+        end
+
+      :error ->
+        Map.delete(attrs, "source_sticky_id")
+    end
+  end
+
+  defp put_source_sticky(attrs, _user_id), do: Map.delete(attrs, "source_sticky_id")
 
   # POST /api/entries/:id/publish — transition draft → published
   def publish(conn, %{"id" => id} = params) do
@@ -585,7 +632,9 @@ defmodule InkwellWeb.EntryController do
           published_at: entry.published_at,
           scheduled_at: entry.scheduled_at,
           updated_at: entry.updated_at,
-          created_at: entry.inserted_at
+          created_at: entry.inserted_at,
+          kind: entry.kind || "entry",
+          excerpt: if(entry.kind == "sticky", do: entry.excerpt)
         }
       end),
       pagination: %{page: filter_opts[:page], per_page: filter_opts[:per_page], total: total}
@@ -801,7 +850,7 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
-  defp validate_custom_filter_ownership(attrs, user_id) do
+  def validate_custom_filter_ownership(attrs, user_id) do
     cond do
       attrs["privacy"] != "custom" -> :ok
       is_nil(attrs["custom_filter_id"]) -> :ok
@@ -827,16 +876,16 @@ defmodule InkwellWeb.EntryController do
   defp validate_paid_privacy(_attrs, _user), do: :ok
 
   # Clear custom_filter_id when privacy is not :custom
-  defp maybe_clear_custom_filter_id(%{"privacy" => privacy} = attrs) when privacy != "custom" do
+  def maybe_clear_custom_filter_id(%{"privacy" => privacy} = attrs) when privacy != "custom" do
     Map.put(attrs, "custom_filter_id", nil)
   end
-  defp maybe_clear_custom_filter_id(attrs), do: attrs
+  def maybe_clear_custom_filter_id(attrs), do: attrs
 
   # Cross-post to linked Mastodon accounts if the writer opted in
 
   # Trigger newsletter send if the writer opted in for this entry
 
-  defp get_owned_entry(user_id, entry_id) do
+  def get_owned_entry(user_id, entry_id) do
     entry = Journals.get_entry!(entry_id)
 
     if entry.user_id == user_id do
@@ -851,7 +900,7 @@ defmodule InkwellWeb.EntryController do
 
   # --- Anti-spam helpers ---
 
-  defp check_entry_rate_limit(user_id, tier) do
+  def check_entry_rate_limit(user_id, tier) do
     now = System.system_time(:second)
     cutoff = now - @entry_rate_window
     limit = if tier == "plus", do: @plus_entry_limit, else: @free_entry_limit
@@ -869,7 +918,7 @@ defmodule InkwellWeb.EntryController do
     end
   end
 
-  defp record_entry_creation(user_id) do
+  def record_entry_creation(user_id) do
     now = System.system_time(:second)
     cutoff = now - @entry_rate_window
 
@@ -882,7 +931,7 @@ defmodule InkwellWeb.EntryController do
     :ets.insert(:entry_creation_buckets, {user_id, [now | timestamps]})
   end
 
-  defp check_duplicate(user_id, body_html) do
+  def check_duplicate(user_id, body_html) do
     if Journals.recent_duplicate?(user_id, body_html) do
       {:error, :duplicate}
     else
@@ -945,9 +994,57 @@ defmodule InkwellWeb.EntryController do
       quoted_remote_entry_id: entry.quoted_remote_entry_id,
       quoted_entry: render_quoted_entry(entry),
       entry_source: entry.source,
+      kind: entry.kind || "entry",
+      sticky_color: entry.sticky_color,
+      source_sticky_id: entry.source_sticky_id,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
+  end
+
+  @doc "True when the viewer turned Stickies off in Settings (they're on by default)."
+  def hides_stickies?(%{settings: %{"hide_stickies" => true}}), do: true
+  def hides_stickies?(_), do: false
+
+  @doc """
+  Adds `expanded_into` (`%{slug, title, username}` or nil) to each rendered
+  sticky: the published entry its author wrote from it. The entry has to be
+  public, unless the viewer is its author.
+  """
+  def put_sticky_expansions(items, viewer_id) do
+    sticky_ids =
+      for %{kind: "sticky", id: id} <- items, do: id
+
+    expansions =
+      if sticky_ids == [] do
+        %{}
+      else
+        import Ecto.Query, only: [from: 2, where: 3]
+
+        query =
+          from(e in Inkwell.Journals.Entry,
+            join: u in assoc(e, :user),
+            where: e.source_sticky_id in ^sticky_ids and e.status == :published,
+            order_by: [asc: e.published_at],
+            select: {e.source_sticky_id, %{slug: e.slug, title: e.title, username: u.username}}
+          )
+
+        query =
+          if viewer_id,
+            do: where(query, [e], e.privacy == :public or e.user_id == ^viewer_id),
+            else: where(query, [e], e.privacy == :public)
+
+        query
+        |> Repo.all()
+        # The first entry written from a sticky wins.
+        |> Enum.reverse()
+        |> Map.new()
+      end
+
+    Enum.map(items, fn
+      %{kind: "sticky", id: id} = item -> Map.put(item, :expanded_into, Map.get(expansions, id))
+      item -> item
+    end)
   end
 
   defp render_quoted_entry(%{quoted_entry_id: nil, quoted_remote_entry_id: nil}), do: nil
@@ -1150,7 +1247,7 @@ defmodule InkwellWeb.EntryController do
   # Mastodon keeps a tombstone for a deleted id and refuses a later Create of
   # it, so an entry made private and then public again won't reappear there
   # (other servers do show it, and it can still be linked and looked up).
-  defp federate_edit(before, updated, user_id) do
+  def federate_edit(before, updated, user_id) do
     was_public = before.status == :published and before.privacy == :public
     now_public = updated.status == :published and updated.privacy == :public
 
@@ -1218,7 +1315,7 @@ defmodule InkwellWeb.EntryController do
     |> String.replace(~r/&[a-zA-Z]+;/, "")
   end
 
-  defp format_errors(changeset) do
+  def format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
@@ -1229,7 +1326,7 @@ defmodule InkwellWeb.EntryController do
   # ── Search indexing helpers ───────────────────────────────────────────
 
 
-  defp enqueue_search_index(entry_id) do
+  def enqueue_search_index(entry_id) do
     %{action: "index_entry", entry_id: entry_id}
     |> SearchIndexWorker.new()
     |> Oban.insert()

@@ -9,6 +9,7 @@ import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { getMusicLabel } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
+import { StickyNoteCard } from "@/components/sticky-note-card";
 
 export interface JournalEntry {
   id: string;
@@ -94,6 +95,13 @@ export interface JournalEntry {
   reprinted_at?: string;
   /** Original URL for remote entries */
   url?: string;
+  /** "entry" (journal entry) or "sticky" (short post drawn as a sticky note) */
+  kind?: "entry" | "sticky";
+  sticky_color?: string | null;
+  /** For a sticky: the published entry its writer expanded it into */
+  expanded_into?: { slug: string; title: string | null; username: string } | null;
+  /** For an entry: the sticky it was expanded from */
+  source_sticky_id?: string | null;
   author: {
     id?: string;
     username: string;
@@ -145,9 +153,15 @@ interface JournalEntryCardProps {
   translatedTitle?: string | null;
   /** Book mode: full content display without clamping, for horizontal book layout */
   bookMode?: boolean;
+  /** The viewer wrote this entry (stickies show "Expand into an entry") */
+  isOwn?: boolean;
 }
 
-export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false, isOwn = false }: JournalEntryCardProps) {
+  if (entry.kind === "sticky") {
+    return <StickyNoteCard entry={entry} actions={actions} translatedBody={translatedBody} isOwn={isOwn} />;
+  }
+
   const isRemote = entry.source === "remote";
   const isReprint = entry.source === "reprint";
   const href = isRemote

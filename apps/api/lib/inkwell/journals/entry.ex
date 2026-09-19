@@ -68,7 +68,64 @@ defmodule Inkwell.Journals.Entry do
     # Cross-posting
     field :crosspost_results, :map, default: %{}
 
+    # "entry" (a journal entry) or "sticky" (a short post: no title, up to
+    # @sticky_max_chars characters, federated as a Note instead of an Article).
+    field :kind, :string, default: "entry"
+    field :sticky_color, :string
+    # An entry written by expanding a sticky points back at it.
+    belongs_to :source_sticky, Inkwell.Journals.Entry
+
     timestamps(type: :utc_datetime_usec)
+  end
+
+  @sticky_max_chars 500
+  @sticky_colors ~w(yellow pink blue green lilac peach)
+
+  def sticky_max_chars, do: @sticky_max_chars
+  def sticky_colors, do: @sticky_colors
+
+  @doc "Plain text of an entry body (tags stripped, entities decoded, whitespace collapsed)."
+  def plain_text(nil), do: ""
+
+  def plain_text(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<br\s*\/?>|<\/p>/i, " ")
+    |> String.replace(~r/<[^>]*>/, "")
+    |> String.replace(~r/&nbsp;/, " ")
+    |> String.replace(~r/&amp;/, "&")
+    |> String.replace(~r/&lt;/, "<")
+    |> String.replace(~r/&gt;/, ">")
+    |> String.replace(~r/&quot;|&#39;|&#x27;/, "'")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+  end
+
+  # A sticky has no title, a short plain body, and one of the paper colors.
+  # Things only journal entries have (series, category, cover, drafts) are
+  # left off by StickyController; this is the backstop.
+  defp validate_sticky(changeset) do
+    case get_field(changeset, :kind) do
+      "sticky" ->
+        text = plain_text(get_field(changeset, :body_html))
+
+        changeset
+        |> then(fn cs ->
+          cond do
+            text == "" -> add_error(cs, :body_html, "can't be empty")
+            String.length(text) > @sticky_max_chars ->
+              add_error(cs, :body_html, "should be at most #{@sticky_max_chars} characters")
+            true -> cs
+          end
+        end)
+        |> validate_inclusion(:sticky_color, @sticky_colors)
+        |> put_change(:title, nil)
+
+      "entry" ->
+        changeset
+
+      _ ->
+        add_error(changeset, :kind, "is invalid")
+    end
   end
 
   @doc "Changeset for creating/updating published entries."
@@ -79,10 +136,12 @@ defmodule Inkwell.Journals.Entry do
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
       :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
-      :quoted_entry_id, :quoted_remote_entry_id
+      :quoted_entry_id, :quoted_remote_entry_id,
+      :kind, :sticky_color, :source_sticky_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy, :user_id])
+    |> validate_sticky()
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
     |> validate_length(:music, max: 500)
@@ -118,7 +177,8 @@ defmodule Inkwell.Journals.Entry do
       # and publishing then stamped it with today. A WordPress migration of 226
       # posts came out dated as if all written on the same day.
       :published_at,
-      :scheduled_at, :scheduled_options
+      :scheduled_at, :scheduled_options,
+      :source_sticky_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:user_id])

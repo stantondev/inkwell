@@ -1555,6 +1555,8 @@ export function EditorClient() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
   const promptParam = searchParams.get("prompt");
+  // "Expand into an entry" from a sticky: start from its text and link back to it
+  const fromStickyId = editId ? null : searchParams.get("from_sticky");
 
   const [state, setState] = useState<EditorState>({
     title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
@@ -1621,6 +1623,8 @@ export function EditorClient() {
   // anything not yet saved: a chosen future date was lost this way, so the
   // next click published immediately instead of scheduling.
   const createdHereRef = useRef<string | null>(null);
+  // Set once the sticky this entry grows from has loaded; sent when the entry is first created.
+  const sourceStickyRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [storageExceeded, setStorageExceeded] = useState(false);
 
@@ -2081,6 +2085,12 @@ export function EditorClient() {
         const { data: entry } = await res.json();
         if (cancelled) return;
 
+        // Stickies are edited on the sticky itself, not in the editor
+        if (entry.kind === "sticky") {
+          router.replace(`/${entry.author?.username}/${entry.slug}`);
+          return;
+        }
+
         // Populate form state
         setState({
           title: entry.title ?? "",
@@ -2146,6 +2156,30 @@ export function EditorClient() {
 
     return () => { cancelled = true; };
   }, [editId, editor]);
+
+  // Expanding a sticky: its text becomes the start of the entry, its tags carry over
+  useEffect(() => {
+    if (!fromStickyId || !editor || sourceStickyRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/entries/${fromStickyId}`);
+        if (!res.ok) return;
+        const { data: sticky } = await res.json();
+        if (cancelled || sticky?.kind !== "sticky") return;
+        sourceStickyRef.current = sticky.id;
+        editor.commands.setContent(sticky.body_html || "");
+        setHasContent(!!editor.getText().trim());
+        setWordCount(editor.storage.characterCount.words());
+        if (Array.isArray(sticky.tags) && sticky.tags.length > 0) {
+          setState((s) => ({ ...s, tags: s.tags || sticky.tags.join(", ") }));
+        }
+      } catch {
+        /* start from a blank page */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fromStickyId, editor]);
 
   // Apply writing prompt for first-time users from onboarding
   const promptApplied = useRef(false);
@@ -2247,6 +2281,7 @@ export function EditorClient() {
         sensitive: state.sensitive,
         content_warning: state.sensitive ? (state.contentWarning || null) : null,
         ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
+        ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
       };
 
       if (savedEntryId) {
@@ -2538,6 +2573,7 @@ export function EditorClient() {
       sensitive: state.sensitive,
       content_warning: state.sensitive ? (state.contentWarning || null) : null,
       ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
+      ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {

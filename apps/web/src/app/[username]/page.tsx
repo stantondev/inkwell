@@ -18,6 +18,8 @@ import { InlineStatusEditor } from "./inline-status-editor";
 import { decodeEntities } from "@/lib/decode-entities";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
 import { ProfileSupportWidget } from "./profile-support-widget";
+import { ProfileCorkboard } from "./profile-corkboard";
+import type { JournalEntry } from "@/components/journal-entry-card";
 import { ProfileEntries } from "./profile-entries";
 import { ProfileSearchFilter } from "./profile-search-filter";
 import { TipButton } from "@/components/tip-button";
@@ -594,14 +596,21 @@ export default async function ProfilePage({ params }: ProfileParams) {
   const pinnedIds = profile.pinned_entry_ids ?? [];
   let pinnedEntries: ProfileEntry[] = [];
 
-  const [entriesResult, seriesResult] = await Promise.allSettled([
+  const [entriesResult, seriesResult, stickiesResult] = await Promise.allSettled([
     apiFetch<{ data: ProfileEntry[]; pagination: { total: number } }>(
       `/api/users/${username}/entries?page=1&per_page=${perPage}`,
       {},
       session?.token,
     ),
     apiFetch<{ data: ProfileSeriesItem[] }>(`/api/users/${username}/series`, {}, session?.token),
+    apiFetch<{ data: JournalEntry[]; pagination: { total: number } }>(
+      `/api/users/${username}/entries?kind=sticky&page=1&per_page=6`,
+      {},
+      session?.token,
+    ),
   ]);
+  const stickies = stickiesResult.status === "fulfilled" ? stickiesResult.value.data ?? [] : [];
+  const stickyTotal = stickiesResult.status === "fulfilled" ? stickiesResult.value.pagination?.total ?? stickies.length : 0;
   if (entriesResult.status === "fulfilled") {
     entries = entriesResult.value.data ?? [];
     // Use total from pagination if available (more accurate than profile meta entry_count)
@@ -982,6 +991,14 @@ export default async function ProfilePage({ params }: ProfileParams) {
   function EntriesSection({ className }: { className?: string }) {
     return (
       <section className={className}>
+        <ProfileCorkboard
+          username={username}
+          displayName={profile.display_name || username}
+          initialStickies={stickies}
+          total={stickyTotal}
+          isOwnProfile={isOwnProfile}
+          mutedColor={styles.muted}
+        />
         <h2 className="text-sm font-medium uppercase tracking-widest mb-4" style={{ color: styles.muted }}>
           Journal entries
         </h2>

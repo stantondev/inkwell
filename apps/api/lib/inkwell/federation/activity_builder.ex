@@ -37,6 +37,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds an Article object from an entry (FEP-b2b8 compliant).
   """
+  def build_article(%{kind: "sticky"} = entry, author), do: build_sticky_note(entry, author)
+
   def build_article(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
@@ -138,51 +140,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
         })
       end
 
-    # hashtags + mention tags
-    article =
-      (fn ->
-        hashtag_tags =
-          if entry.tags && length(entry.tags) > 0 do
-            Enum.map(entry.tags, fn tag ->
-              %{
-                "type" => "Hashtag",
-                "name" => "##{tag}",
-                "href" => "#{frontend_host}/tag/#{URI.encode_www_form(tag)}"
-              }
-            end)
-          else
-            []
-          end
-
-        # Extract mentioned users from body_html and build Mention tags
-        {_, mentioned_users} = InkwellWeb.Helpers.MentionHelper.process_mentions(entry.body_html || "")
-        mention_tags =
-          Enum.map(mentioned_users, fn user ->
-            %{
-              "type" => "Mention",
-              "href" => "#{frontend_host}/users/#{user.username}",
-              "name" => "@#{user.username}@#{URI.parse(frontend_host).host}"
-            }
-          end)
-
-        all_tags = hashtag_tags ++ mention_tags
-        if all_tags != [], do: Map.put(article, "tag", all_tags), else: article
-      end).()
-
-    # Add mentioned users to cc addressing so their servers receive the activity
-    article =
-      (fn ->
-        {_, mentioned_users} = InkwellWeb.Helpers.MentionHelper.process_mentions(entry.body_html || "")
-        if mentioned_users != [] do
-          existing_cc = article["cc"] || []
-          mention_uris = Enum.map(mentioned_users, fn user ->
-            "#{frontend_host}/users/#{user.username}"
-          end)
-          Map.put(article, "cc", Enum.uniq(existing_cc ++ mention_uris))
-        else
-          article
-        end
-      end).()
+    # hashtags + mention tags, and mentioned users in cc so their servers receive it
+    article = put_tags_and_mentions(article, entry, frontend_host)
 
     # Extract inline images from content into `attachment` for pre-fetching
     # (FEP-b2b8 §attachment: embedded media SHOULD also be listed in attachment)
@@ -213,6 +172,78 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
     # preview Note for microblogging consumers (Mastodon etc.) per FEP-b2b8 §preview
     Map.put(article, "preview", build_preview_note(entry, actor_url, instance_host))
+  end
+
+  # Hashtag and Mention tags for an entry's object, plus the mentioned users in
+  # cc so their servers receive the activity.
+  defp put_tags_and_mentions(object, entry, frontend_host) do
+    hashtag_tags =
+      Enum.map(entry.tags || [], fn tag ->
+        %{
+          "type" => "Hashtag",
+          "name" => "##{tag}",
+          "href" => "#{frontend_host}/tag/#{URI.encode_www_form(tag)}"
+        }
+      end)
+
+    {_, mentioned_users} = InkwellWeb.Helpers.MentionHelper.process_mentions(entry.body_html || "")
+
+    mention_tags =
+      Enum.map(mentioned_users, fn user ->
+        %{
+          "type" => "Mention",
+          "href" => "#{frontend_host}/users/#{user.username}",
+          "name" => "@#{user.username}@#{URI.parse(frontend_host).host}"
+        }
+      end)
+
+    object =
+      case hashtag_tags ++ mention_tags do
+        [] -> object
+        tags -> Map.put(object, "tag", tags)
+      end
+
+    if mentioned_users != [] do
+      mention_uris = Enum.map(mentioned_users, &"#{frontend_host}/users/#{&1.username}")
+      Map.put(object, "cc", Enum.uniq((object["cc"] || []) ++ mention_uris))
+    else
+      object
+    end
+  end
+
+  # A sticky is a short post, so it goes out as a Note: Mastodon and other
+  # microblogging software show a Note in full, where an Article is cut down to
+  # its title and a link. No title, summary or preview; the body is the post.
+  defp build_sticky_note(entry, author) do
+    actor_url = actor_url(author)
+    frontend_host = federation_config(:frontend_host)
+
+    note = %{
+      "type" => "Note",
+      "id" => entry_ap_url(entry),
+      "attributedTo" => actor_url,
+      "content" => absolutize_urls(entry.body_html, frontend_host),
+      "published" => format_datetime(entry.published_at),
+      "url" => "#{frontend_host}/#{author.username}/#{entry.slug}",
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"]
+    }
+
+    note =
+      if entry.updated_at && entry.published_at &&
+           DateTime.diff(entry.updated_at, entry.published_at, :second) > 60,
+         do: Map.put(note, "updated", format_datetime(entry.updated_at)),
+         else: note
+
+    note = put_tags_and_mentions(note, entry, frontend_host)
+
+    if (Map.get(entry, :sensitive) || false) or (Map.get(entry, :admin_sensitive) || false) do
+      note
+      |> Map.put("sensitive", true)
+      |> Map.put("summary", Map.get(entry, :content_warning) || "Sensitive content")
+    else
+      note
+    end
   end
 
   # Keep the old name as an alias for any internal callers

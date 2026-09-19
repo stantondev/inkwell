@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export function ContentSafety() {
   const [showSensitive, setShowSensitive] = useState(false);
   const [eyeComfort, setEyeComfort] = useState(false);
+  const [showStickies, setShowStickies] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -16,6 +17,7 @@ export function ContentSafety() {
         const { data } = await res.json();
         setShowSensitive(!!data.settings?.show_sensitive_content);
         setEyeComfort(!!data.settings?.eye_comfort_mode);
+        setShowStickies(!data.settings?.hide_stickies);
       } catch {
         // ignore
       } finally {
@@ -73,6 +75,29 @@ export function ContentSafety() {
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
             When enabled, entries marked as sensitive appear in Explore behind content warnings.
             When disabled, they are hidden entirely.
+          </p>
+        </div>
+      </label>
+      <label
+        className="flex items-start gap-3 cursor-pointer mt-4 pt-4"
+        style={{ opacity: saving ? 0.6 : 1, borderTop: "1px solid var(--border)" }}
+      >
+        <input
+          type="checkbox"
+          checked={showStickies}
+          onChange={(e) => {
+            const show = e.target.checked;
+            setShowStickies(show);
+            toggleSetting("hide_stickies", !show, (hidden) => setShowStickies(!hidden));
+          }}
+          disabled={saving}
+          className="mt-0.5"
+        />
+        <div>
+          <span className="text-sm font-medium">Show Stickies in Feed and Explore</span>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            Stickies are short thoughts, drawn as sticky notes. Turn this off to see only
+            journal entries. You&apos;ll still find stickies on writers&apos; profiles.
           </p>
         </div>
       </label>

@@ -6,6 +6,7 @@ import { Footer } from "./footer";
 import { BottomTabBar } from "./bottom-tab-bar";
 import { MobileTopBar } from "./mobile-top-bar";
 import { SearchCommand } from "./search-command";
+import { JotComposer } from "./jot-composer";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -69,6 +70,9 @@ export async function AppShell({
 
       {/* Global Cmd/Ctrl+K search shortcut — logged-in only */}
       {user && <SearchCommand />}
+
+      {/* Jot composer for Stickies — opened from the sidebar, feed and profile */}
+      {user && <JotComposer />}
 
       {/* Main content area — bottom padding on mobile for tab bar clearance */}
       <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>

@@ -11,6 +11,12 @@ export interface BookSpread {
  * Short fediverse posts ≈ 1.5, medium posts ≈ 3, long posts with images ≈ 5+
  */
 function estimateWeight(entry: JournalEntry): number {
+  // Stickies are short and fixed-width: about three fit on a half-page.
+  if (entry.kind === "sticky") {
+    const len = entry.body_html ? entry.body_html.replace(/<[^>]+>/g, "").length : 0;
+    return 1.6 + (len > 250 ? 0.6 : 0);
+  }
+
   let weight = 1; // base: author row + date + actions
 
   if (entry.title) weight += 0.3;

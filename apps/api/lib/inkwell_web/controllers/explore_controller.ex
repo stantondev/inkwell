@@ -45,7 +45,7 @@ defmodule InkwellWeb.ExploreController do
         Journals.list_public_explore_entries(
           page: 1, per_page: fetch_count, tag: tag, category: category,
           include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
-          sort: sort
+          sort: sort, exclude_stickies: EntryController.hides_stickies?(viewer)
         )
       end
 
@@ -282,6 +282,8 @@ defmodule InkwellWeb.ExploreController do
           status: "published"
         }
     end)
+
+    data = EntryController.put_sticky_expansions(data, viewer && viewer.id)
 
     json(conn, %{
       data: data,

@@ -25,6 +25,22 @@ interface ManageEntry {
   scheduled_at?: string | null;
   updated_at: string;
   created_at: string;
+  kind?: "entry" | "sticky";
+  excerpt?: string | null;
+}
+
+/** Stickies have no title: show the start of the thought instead. */
+function EntryLabel({ entry }: { entry: ManageEntry }) {
+  if (entry.kind === "sticky") {
+    const text = (entry.excerpt ?? "").trim();
+    return (
+      <>
+        <span className="manage-sticky-badge">Sticky</span>
+        <span style={{ fontStyle: "italic" }}>{text.length > 70 ? `${text.slice(0, 69)}…` : text}</span>
+      </>
+    );
+  }
+  return <>{entry.title || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Untitled</span>}</>;
 }
 
 interface SeriesItem {
@@ -571,7 +587,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                         href={`/editor?edit=${entry.id}`}
                         className="manage-title-link"
                       >
-                        {entry.title || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Untitled</span>}
+                        <EntryLabel entry={entry} />
                       </Link>
                       {entry.series_name && (
                         <span className="manage-series-badge">{entry.series_name}</span>
@@ -672,7 +688,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                     />
                     <div className="flex-1 min-w-0">
                       <Link href={`/editor?edit=${entry.id}`} className="manage-title-link block truncate">
-                        {entry.title || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Untitled</span>}
+                        <EntryLabel entry={entry} />
                       </Link>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <span

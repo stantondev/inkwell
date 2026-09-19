@@ -4461,6 +4461,44 @@ body.eye-comfort .editor-paper::before {
   opacity: 0.88;
 }
 
+/* Write, with "Jot a sticky" stacked underneath as a small sticky note */
+.sidebar-write-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+.sidebar-write-row .sidebar-write-btn {
+  margin: 0;
+}
+.sidebar-jot-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 3px 3px 3px 12px / 3px 3px 3px 6px;
+  background: var(--sticky-yellow);
+  color: var(--sticky-ink);
+  box-shadow: 0 1px 2px rgba(60, 45, 20, 0.12), 0 3px 8px -4px rgba(60, 45, 20, 0.3);
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.sidebar-jot-btn:hover {
+  transform: rotate(-1deg) translateY(-1px);
+  box-shadow: 0 1px 2px rgba(60, 45, 20, 0.12), 0 6px 12px -4px rgba(60, 45, 20, 0.35);
+}
+.sidebar-jot-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-jot-btn { transition: none; }
+  .sidebar-jot-btn:hover { transform: none; }
+}
+
 /* ─── Ornament divider ─── */
 
 .sidebar-ornament {
@@ -13457,3 +13495,397 @@ a, button, [role="tab"], [role="button"] {
   }
 }
 /* ─── End Inline Marginalia ───────────────────────────────────────── */
+
+/* ─── Stickies ─────────────────────────────────────────────────────────
+   Short posts drawn as sticky notes stuck into the journal. Paper colors
+   are tokens so dark mode can swap in muted versions. */
+
+:root {
+  --sticky-yellow: #fdf1a8;
+  --sticky-pink: #fbd6dd;
+  --sticky-blue: #d4e7f7;
+  --sticky-green: #d9eecd;
+  --sticky-lilac: #e5dcf5;
+  --sticky-peach: #fde0c4;
+  --sticky-ink: #2b2620;
+  --sticky-ink-muted: rgba(43, 38, 32, 0.62);
+  --sticky-rule: rgba(43, 38, 32, 0.14);
+  --sticky-tape: rgba(255, 255, 255, 0.55);
+  --sticky-shadow: 0 1px 2px rgba(60, 45, 20, 0.12), 0 6px 14px -6px rgba(60, 45, 20, 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sticky-yellow: #4a4224;
+    --sticky-pink: #4a2f36;
+    --sticky-blue: #283a4a;
+    --sticky-green: #2d402c;
+    --sticky-lilac: #3a3350;
+    --sticky-peach: #4b3827;
+    --sticky-ink: #f1ece2;
+    --sticky-ink-muted: rgba(241, 236, 226, 0.62);
+    --sticky-rule: rgba(241, 236, 226, 0.14);
+    --sticky-tape: rgba(255, 255, 255, 0.12);
+    --sticky-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 16px -6px rgba(0, 0, 0, 0.6);
+  }
+}
+
+.sticky-note {
+  --sticky-paper: var(--sticky-yellow);
+  position: relative;
+  background: var(--sticky-paper);
+  color: var(--sticky-ink);
+  border-radius: 2px 2px 3px 14px / 2px 2px 3px 6px; /* lifted bottom-left corner */
+  box-shadow: var(--sticky-shadow);
+  transform: rotate(var(--sticky-tilt, 0deg));
+  margin: 1.1rem 1rem 0.9rem;
+  max-width: 34rem;
+}
+.sticky-note--yellow { --sticky-paper: var(--sticky-yellow); }
+.sticky-note--pink { --sticky-paper: var(--sticky-pink); }
+.sticky-note--blue { --sticky-paper: var(--sticky-blue); }
+.sticky-note--green { --sticky-paper: var(--sticky-green); }
+.sticky-note--lilac { --sticky-paper: var(--sticky-lilac); }
+.sticky-note--peach { --sticky-paper: var(--sticky-peach); }
+
+/* A strip of tape holding the note to the page */
+.sticky-note-tape {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 72px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-2deg);
+  background: var(--sticky-tape);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+
+.sticky-note-inner {
+  position: relative;
+  padding: 1.25rem 1.25rem 0.9rem;
+}
+
+.sticky-note-stamps {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.9rem;
+}
+
+.sticky-note-byline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  padding-right: 3.5rem; /* room for stamps */
+  font-size: 0.8125rem;
+}
+.sticky-note-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--sticky-ink);
+  font-weight: 600;
+}
+.sticky-note-author:hover .sticky-note-name { text-decoration: underline; }
+.sticky-note-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sticky-note-time {
+  color: var(--sticky-ink-muted);
+  white-space: nowrap;
+}
+.sticky-note-time::before { content: "·"; margin-right: 0.45rem; }
+.sticky-note-time:hover { text-decoration: underline; }
+
+.sticky-note-body {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--sticky-ink);
+  overflow-wrap: anywhere;
+}
+.sticky-note-body p + p { margin-top: 0.7em; }
+.sticky-note-body a {
+  color: var(--sticky-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--sticky-rule);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+.sticky-note-body a:hover { text-decoration-color: currentColor; }
+.sticky-note-body a.hashtag,
+.sticky-note-body a.mention {
+  text-decoration: none;
+  font-weight: 600;
+}
+.sticky-note-body a.hashtag:hover,
+.sticky-note-body a.mention:hover { text-decoration: underline; }
+
+.sticky-note-links {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+}
+.sticky-note-link {
+  color: var(--sticky-ink-muted);
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+}
+.sticky-note-link:hover { color: var(--sticky-ink); text-decoration: underline; }
+
+/* Feed actions sit on the paper, not on a white strip */
+.sticky-note-actions > * {
+  background: transparent !important;
+  border-color: var(--sticky-rule) !important;
+  color: var(--sticky-ink);
+}
+.sticky-note-actions {
+  --muted: var(--sticky-ink-muted);
+  --foreground: var(--sticky-ink);
+  --border: var(--sticky-rule);
+}
+
+.sticky-note .content-warning-overlay {
+  background: transparent;
+}
+
+/* The sticky's own page: bigger note, bigger words */
+.sticky-note--page {
+  margin: 1.5rem auto 1rem;
+  max-width: 36rem;
+}
+.sticky-note--page .sticky-note-inner { padding: 2rem 2rem 1.5rem; }
+.sticky-note--page .sticky-note-body { font-size: 1.3rem; line-height: 1.6; }
+
+/* Profile corkboard */
+.sticky-note--board {
+  margin: 0.9rem 0.4rem 0.4rem;
+  max-width: none;
+}
+.sticky-note--board .sticky-note-inner { padding: 0.9rem 0.9rem 0.75rem; }
+.sticky-note--board .sticky-note-body {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sticky-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  gap: 0.5rem 0.75rem;
+  align-items: start;
+}
+.sticky-board .sticky-note { transition: transform 0.15s ease; }
+.sticky-board .sticky-note:hover { transform: rotate(0deg) translateY(-2px); }
+.sticky-note-byline--board { padding-right: 0; margin-bottom: 0.35rem; }
+.sticky-note-byline--board .sticky-note-time::before { content: none; }
+
+/* Book layout: no accent rule between a sticky and its neighbours */
+.journal-book-cell + .journal-book-cell-sticky::before,
+.journal-book-cell-sticky + .journal-book-cell::before { display: none; }
+
+/* Mobile book: a sticky sits near the top of its page, clear of the tape */
+.mobile-book-page-sticky { justify-content: flex-start; padding-top: 1.25rem; }
+.mobile-book-page-sticky .sticky-note { margin-left: 0.75rem; margin-right: 0.75rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-board .sticky-note { transition: none; }
+}
+
+/* ─── Jot composer ───────────────────────────────────────────────────── */
+
+.jot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(20, 16, 10, 0.45);
+  animation: jot-fade-in 140ms ease-out;
+}
+.jot-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  pointer-events: none;
+}
+.jot-dialog {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 30rem;
+  animation: jot-pop-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.jot-dialog .sticky-note {
+  margin: 0;
+  max-width: none;
+  transform: rotate(-0.6deg);
+}
+.jot-textarea {
+  display: block;
+  width: 100%;
+  min-height: 9rem;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--sticky-ink);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.jot-textarea::placeholder { color: var(--sticky-ink-muted); font-style: italic; }
+.jot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--sticky-rule);
+  font-size: 0.8125rem;
+  color: var(--sticky-ink-muted);
+}
+.jot-swatches { display: flex; gap: 0.35rem; }
+.jot-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--sticky-rule);
+  cursor: pointer;
+}
+.jot-swatch[aria-checked="true"] { outline: 2px solid var(--sticky-ink); outline-offset: 2px; }
+.jot-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.jot-select {
+  background: transparent;
+  border: 1px solid var(--sticky-rule);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  color: var(--sticky-ink);
+  font-size: 0.8125rem;
+}
+.jot-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.jot-count--over { color: #b42318; font-weight: 600; }
+.jot-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+.jot-hint { font-size: 0.75rem; color: var(--sticky-ink-muted); }
+.jot-post {
+  border-radius: 999px;
+  padding: 0.45rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--sticky-ink);
+  color: var(--sticky-paper);
+  transition: opacity 0.15s;
+}
+.jot-post:disabled { opacity: 0.45; cursor: not-allowed; }
+.jot-cancel {
+  font-size: 0.8125rem;
+  color: var(--sticky-ink-muted);
+  margin-right: 0.5rem;
+}
+.jot-cancel:hover { color: var(--sticky-ink); text-decoration: underline; }
+.jot-error { margin-top: 0.6rem; font-size: 0.8125rem; color: #b42318; }
+@media (prefers-color-scheme: dark) {
+  .jot-count--over, .jot-error { color: #fca5a5; }
+}
+
+@keyframes jot-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes jot-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jot-backdrop, .jot-dialog { animation: none; }
+}
+
+/* "Jot something down" prompt at the top of the feed */
+.jot-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: 2px 2px 3px 12px / 2px 2px 3px 6px;
+  background: var(--sticky-yellow);
+  color: var(--sticky-ink-muted);
+  box-shadow: var(--sticky-shadow);
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  text-align: left;
+  transform: rotate(-0.4deg);
+  transition: transform 0.15s ease;
+}
+.jot-prompt:hover { transform: rotate(0deg) translateY(-1px); color: var(--sticky-ink); }
+
+.jot-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 62;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.875rem;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+  animation: jot-fade-in 160ms ease-out;
+  white-space: nowrap;
+}
+.jot-toast a { text-decoration: underline; font-weight: 600; margin-left: 0.35rem; }
+@media (max-width: 1023px) {
+  /* clear the bottom tab bar */
+  .jot-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
+
+.entry-grew-from {
+  display: inline-block;
+  margin: -0.75rem 0 1.25rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.entry-grew-from::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 0.4rem;
+  vertical-align: -1px;
+  background: var(--sticky-yellow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transform: rotate(-4deg);
+}
+.entry-grew-from:hover { color: var(--foreground); text-decoration: underline; }
+
+.manage-sticky-badge {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0 0.4rem;
+  border-radius: 2px;
+  font-size: 0.6875rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  background: var(--sticky-yellow);
+  color: var(--sticky-ink);
+}

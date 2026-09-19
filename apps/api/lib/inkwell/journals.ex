@@ -56,6 +56,8 @@ defmodule Inkwell.Journals do
         p -> where(query, privacy: ^p)
       end
 
+    query = filter_kind(query, Keyword.get(opts, :kind))
+
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
 
@@ -103,6 +105,8 @@ defmodule Inkwell.Journals do
         p -> where(query, privacy: ^p)
       end
 
+    query = filter_kind(query, Keyword.get(opts, :kind))
+
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
 
@@ -126,6 +130,16 @@ defmodule Inkwell.Journals do
 
     Repo.aggregate(query, :count)
   end
+
+  # nil = every kind; "entry" = journal entries only; "sticky" = stickies only.
+  defp filter_kind(query, kind) when kind in ["entry", "sticky"],
+    do: where(query, [e], e.kind == ^kind)
+
+  defp filter_kind(query, _), do: query
+
+  # Viewers who turned Stickies off in settings.
+  defp maybe_exclude_stickies(query, true), do: where(query, [e], e.kind != "sticky")
+  defp maybe_exclude_stickies(query, _), do: query
 
   def list_public_entries(user_id, opts \\ []) do
     opts
@@ -172,6 +186,8 @@ defmodule Inkwell.Journals do
       else
         query
       end
+
+    query = maybe_exclude_stickies(query, Keyword.get(opts, :exclude_stickies, false))
 
     sort = Keyword.get(opts, :sort, "newest")
     query =
@@ -916,6 +932,7 @@ defmodule Inkwell.Journals do
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
+    query = maybe_exclude_stickies(query, Keyword.get(opts, :exclude_stickies, false))
 
     query =
       if exclude_user_ids != [] do
@@ -971,10 +988,11 @@ defmodule Inkwell.Journals do
     {entries, total}
   end
 
+  @doc "Published journal entries (stickies not included), for the profile's entry count."
   def count_entries(user_id) do
     Entry
     |> where(user_id: ^user_id)
-    |> where([e], e.status == :published)
+    |> where([e], e.status == :published and e.kind == "entry")
     |> Repo.aggregate(:count)
   end
 
@@ -989,7 +1007,7 @@ defmodule Inkwell.Journals do
   def list_entry_years(user_id) do
     Entry
     |> where(user_id: ^user_id)
-    |> where([e], e.status == :published and not is_nil(e.published_at))
+    |> where([e], e.status == :published and e.kind == "entry" and not is_nil(e.published_at))
     |> select([e], fragment("DISTINCT EXTRACT(YEAR FROM ?)::integer", e.published_at))
     |> order_by([e], fragment("1 DESC"))
     |> Repo.all()
@@ -999,7 +1017,7 @@ defmodule Inkwell.Journals do
   def list_entry_tags(user_id) do
     Entry
     |> where(user_id: ^user_id)
-    |> where([e], e.status == :published)
+    |> where([e], e.status == :published and e.kind == "entry")
     |> where([e], fragment("array_length(?, 1) > 0", e.tags))
     |> select([e], e.tags)
     |> Repo.all()
