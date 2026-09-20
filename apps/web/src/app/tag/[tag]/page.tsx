@@ -14,20 +14,57 @@ interface TagPageProps {
 }
 
 /**
+ * Next.js hands dynamic segments over still percent-encoded, so every use of
+ * the raw param has to decode first. The old code encoded it again on the way
+ * to the API, producing `tag=Music%2520Education` — which is why a tag with a
+ * space, an accent or any reserved character had never once worked: /tag/
+ * Music%20Education, /tag/Interf%C3%A9rences and /tag/simon%20reynolds all
+ * had entries and all rendered "No entries yet".
+ */
+function decodeTag(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw; // malformed escape — use it as typed rather than throwing
+  }
+}
+
+/**
  * Shared by generateMetadata and the page below, so the tag is fetched once.
  *
  * A failed fetch is rethrown rather than swallowed: an API restart used to
  * render this as "No entries yet", which is why these pages looked empty
  * even when the tag had content.
  */
-const getTagEntries = cache(async (tag: string, page: number): Promise<JournalEntry[]> => {
+const getTagEntries = cache(async (tagName: string, page: number): Promise<JournalEntry[]> => {
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?tag=${encodeURIComponent(tag)}&page=${page}`
+      `/api/explore?tag=${encodeURIComponent(tagName)}&page=${page}`
     );
     return data.data ?? [];
   } catch (err) {
     notFoundOrRethrow(err);
+  }
+});
+
+/**
+ * Has any Inkwell writer used this tag?
+ *
+ * Asked of the API rather than inferred from the entries on screen: a tag
+ * can have local posts that page 1 never shows, because the feed is ordered
+ * by date and federated posts are far more numerous. /tag/tech has three
+ * Inkwell entries and twenty fediverse ones ahead of them, so judging by
+ * page 1 alone marked it noindex while the sitemap still listed it.
+ */
+const tagHasLocalEntries = cache(async (tagName: string): Promise<boolean> => {
+  try {
+    const data = await apiFetch<{ data: JournalEntry[] }>(
+      `/api/explore?tag=${encodeURIComponent(tagName)}&source=inkwell&per_page=1`
+    );
+    return (data.data ?? []).length > 0;
+  } catch {
+    // Don't let a blip flip a good page to noindex.
+    return true;
   }
 });
 
@@ -46,31 +83,33 @@ const getTagEntries = cache(async (tag: string, page: number): Promise<JournalEn
  * the tag. Pages of purely federated posts stay reachable and useful for
  * readers, but stop competing in search for content we did not write.
  */
-function tagIsIndexable(entries: JournalEntry[], page: number): boolean {
+async function tagIsIndexable(tagName: string, page: number): Promise<boolean> {
   if (page > 1) return false; // paginated views duplicate page 1
-  return entries.some((e) => e.source !== "remote");
+  return tagHasLocalEntries(tagName);
 }
 
 export async function generateMetadata({ params, searchParams }: TagPageProps): Promise<Metadata> {
   const { tag } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
-  const decoded = decodeURIComponent(tag);
-  const entries = await getTagEntries(tag, page);
+  const tagName = decodeTag(tag);
+  const entries = await getTagEntries(tagName, page);
 
   // Nothing here: 404 rather than a 200 that says "No entries yet".
   if (entries.length === 0) notFound();
 
+  const canonical = `https://inkwell.social/tag/${encodeURIComponent(tagName)}`;
+
   return {
-    ...(tagIsIndexable(entries, page) ? {} : { robots: { index: false, follow: true } }),
-    title: `#${decoded}`,
-    description: `Public journal entries tagged #${decoded} on Inkwell.`,
+    ...((await tagIsIndexable(tagName, page)) ? {} : { robots: { index: false, follow: true } }),
+    title: `#${tagName}`,
+    description: `Public journal entries tagged #${tagName} on Inkwell.`,
     openGraph: {
-      title: `#${decoded} — Inkwell`,
-      description: `Browse journal entries tagged #${decoded} on Inkwell.`,
-      url: `https://inkwell.social/tag/${tag}`,
+      title: `#${tagName} — Inkwell`,
+      description: `Browse journal entries tagged #${tagName} on Inkwell.`,
+      url: canonical,
     },
-    alternates: { canonical: `https://inkwell.social/tag/${tag}` },
+    alternates: { canonical },
   };
 }
 
@@ -79,8 +118,9 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
   const { tag } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const tagName = decodeTag(tag);
 
-  const entries = await getTagEntries(tag, page);
+  const entries = await getTagEntries(tagName, page);
   if (entries.length === 0) notFound();
 
   const emptyState = (
@@ -98,7 +138,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
         No entries yet
       </p>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        No public entries have been tagged with #{tag} yet.
+        No public entries have been tagged with #{tagName} yet.
       </p>
       <Link
         href="/explore"
@@ -133,7 +173,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
               className="text-lg font-semibold"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
             >
-              #{tag}
+              #{tagName}
             </h1>
           </div>
 
@@ -155,7 +195,7 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
           </div>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          Public entries tagged #{tag}
+          Public entries tagged #{tagName}
         </p>
       </div>
 
@@ -163,8 +203,8 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
       <JournalFeed
         entries={entries}
         page={page}
-        basePath={`/tag/${encodeURIComponent(tag)}`}
-        loadMorePath={`/api/explore?tag=${encodeURIComponent(tag)}`}
+        basePath={`/tag/${encodeURIComponent(tagName)}`}
+        loadMorePath={`/api/explore?tag=${encodeURIComponent(tagName)}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,
@@ -186,9 +226,9 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
           }}
         >
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Subscribe to #{tag} entries via{" "}
+            Subscribe to #{tagName} entries via{" "}
             <a
-              href={`/api/tags/${encodeURIComponent(tag)}/feed.xml`}
+              href={`/api/tags/${encodeURIComponent(tagName)}/feed.xml`}
               className="underline"
               style={{ color: "var(--accent)" }}
               target="_blank"
