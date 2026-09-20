@@ -19,15 +19,168 @@ const BACKGROUND_POLL_INTERVAL = 60_000;
 const BLINK_INTERVAL = 1500; // title blink speed (ms)
 
 // --- Module-level shared state ---
-// Multiple components use useLiveNavCounts simultaneously (sidebar, bottom tabs,
-// mobile top bar). Without shared state, each instance runs independent polling
-// and sound logic — causing duplicate sounds and false-positive "new notification"
-// detection when router.refresh() resets one instance's prev counts.
+// Three components use useLiveNavCounts at once (sidebar, bottom tab bar,
+// mobile top bar) — all three mount for every signed-in user, because the
+// responsive variants are hidden with CSS rather than unmounted. Without
+// shared state each instance runs its own polling and sound logic, causing
+// duplicate sounds and false-positive "new notification" detection when
+// router.refresh() resets one instance's prev counts.
 let sharedPrevNotifications = -1; // -1 = uninitialized
 let sharedPrevLetters = -1;
 let lastSoundTime = 0;
 const SOUND_DEBOUNCE_MS = 3000; // at most 1 sound per 3 seconds
-let activePollingInstances = 0;
+
+// --- Shared /api/session fetch ---
+// Every trigger (mount, route change, "inkwell-nav-refresh", poll tick, tab
+// focus) runs once per hook instance, so a single route change used to fire
+// three identical requests — six on first mount, because React Strict Mode
+// double-invokes effects in development. `GET /api/auth/me` sits behind the
+// per-user limiter on the whole authenticated scope (30 requests / 60s shared
+// with every other API call the page makes), so those duplicates were a real
+// share of the budget and produced 429s during ordinary browsing.
+//
+// So every trigger now goes through one shared fetch: concurrent callers share
+// the in-flight request, and a caller arriving within MIN_FETCH_GAP of the last
+// one joins a single trailing request rather than opening its own.
+const MIN_FETCH_GAP = 2500;
+
+// On 429 (or a server error) back off instead of continuing to poll into a
+// closed door. Without this the poll kept firing every 15s, every response was
+// discarded, and badge counts, the tab title, the favicon dot and the
+// notification sound silently stopped updating until the user reloaded.
+const BACKOFF_BASE_MS = 30_000;
+const BACKOFF_MAX_MS = 300_000;
+
+interface SessionSettings {
+  notification_sounds_muted?: boolean;
+  hide_notification_badges?: boolean;
+  eye_comfort_mode?: boolean;
+  sidebar_hidden?: boolean;
+  editor_panel_open?: boolean;
+}
+
+interface SessionData {
+  draft_count?: number;
+  unread_notification_count?: number;
+  unread_letter_count?: number;
+  settings?: SessionSettings | null;
+}
+
+let inFlight: Promise<SessionData | null> | null = null;
+let trailingFetch: Promise<SessionData | null> | null = null;
+let lastFetchAt = 0;
+let backoffUntil = 0;
+let backoffStep = 0;
+
+function enterBackoff(retryAfterHeader: string | null) {
+  backoffStep = Math.min(backoffStep + 1, 4);
+  const exponential = BACKOFF_BASE_MS * 2 ** (backoffStep - 1);
+  const retryAfterSeconds = Number(retryAfterHeader);
+  const retryAfterMs =
+    Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds * 1000
+      : 0;
+  const delay = Math.min(Math.max(exponential, retryAfterMs), BACKOFF_MAX_MS);
+  backoffUntil = Date.now() + delay;
+}
+
+async function requestSession(): Promise<SessionData | null> {
+  lastFetchAt = Date.now();
+  try {
+    const res = await fetch("/api/session", { cache: "no-store" });
+
+    if (res.status === 429 || res.status >= 500) {
+      enterBackoff(res.headers.get("retry-after"));
+      return null;
+    }
+
+    // 401 and friends: nothing to apply, but nothing to back off from either.
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    backoffStep = 0;
+    backoffUntil = 0;
+    return (json?.data as SessionData) ?? null;
+  } catch {
+    // Offline or the proxy fell over — same rule, don't hammer.
+    enterBackoff(null);
+    return null;
+  }
+}
+
+function beginFetch(): Promise<SessionData | null> {
+  if (inFlight) return inFlight;
+  if (Date.now() < backoffUntil) return Promise.resolve(null);
+  const request = requestSession().finally(() => {
+    inFlight = null;
+  });
+  inFlight = request;
+  return request;
+}
+
+/** One request per MIN_FETCH_GAP, however many callers ask for it. */
+function fetchSession(): Promise<SessionData | null> {
+  if (inFlight) return inFlight;
+  if (trailingFetch) return trailingFetch;
+  if (Date.now() < backoffUntil) return Promise.resolve(null);
+
+  const wait = MIN_FETCH_GAP - (Date.now() - lastFetchAt);
+  if (wait <= 0) return beginFetch();
+
+  trailingFetch = new Promise<SessionData | null>((resolve) => {
+    setTimeout(() => {
+      trailingFetch = null;
+      resolve(beginFetch());
+    }, wait);
+  });
+  return trailingFetch;
+}
+
+// --- Shared poll timer ---
+// Exactly one interval exists while any instance is mounted, whichever one
+// mounted first and whatever order they unmount in. The previous version
+// counted instances and let "instance #1" own the interval, which broke as
+// soon as that instance remounted while the others stayed mounted (it then saw
+// a count of 3, declined to poll, and nothing polled at all).
+const pollListeners = new Set<() => void>();
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimerMs = 0;
+
+function notifyPollListeners() {
+  pollListeners.forEach((listener) => listener());
+}
+
+function setPollTimer(ms: number) {
+  if (pollTimer !== null && pollTimerMs === ms) return;
+  if (pollTimer !== null) clearInterval(pollTimer);
+  pollTimerMs = ms;
+  pollTimer = setInterval(notifyPollListeners, ms);
+}
+
+function handleSharedVisibility() {
+  if (document.hidden) {
+    setPollTimer(BACKGROUND_POLL_INTERVAL);
+    return;
+  }
+  setPollTimer(POLL_INTERVAL);
+  // Refetch on focus so counts are current within milliseconds of coming back.
+  // Rapid tab switching is absorbed by MIN_FETCH_GAP.
+  notifyPollListeners();
+}
+
+function startSharedPolling() {
+  setPollTimer(document.hidden ? BACKGROUND_POLL_INTERVAL : POLL_INTERVAL);
+  document.addEventListener("visibilitychange", handleSharedVisibility);
+}
+
+function stopSharedPolling() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  pollTimerMs = 0;
+  document.removeEventListener("visibilitychange", handleSharedVisibility);
+}
 
 // --- Favicon badge helpers ---
 
@@ -83,7 +236,8 @@ function getBaseTitle(): string {
 
 /**
  * Client component that re-fetches nav badge counts on every route change,
- * on "inkwell-nav-refresh" events, and via periodic 30-second polling.
+ * on "inkwell-nav-refresh" events, and via periodic polling (15s in the
+ * foreground, 60s in a background tab).
  * Plays a notification sound when unread counts increase.
  * Updates browser tab title with unread count and blinks on new arrivals.
  * Shows a red badge dot on the favicon when there are unread items.
@@ -97,7 +251,6 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const audioUnlockedRef = useRef(false);
   const soundsMutedRef = useRef(false);
   const hideBadgesRef = useRef(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
   // Refs for tab title + favicon
@@ -269,36 +422,35 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   }, []);
 
   const refetch = useCallback(() => {
-    fetch("/api/session")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data?.data || !mountedRef.current) return;
+    fetchSession()
+      .then((session) => {
+        if (!session || !mountedRef.current) return;
 
         const newCounts: NavCounts = {
-          draftCount: data.data.draft_count ?? 0,
-          unreadNotificationCount: data.data.unread_notification_count ?? 0,
-          unreadLetterCount: data.data.unread_letter_count ?? 0,
+          draftCount: session.draft_count ?? 0,
+          unreadNotificationCount: session.unread_notification_count ?? 0,
+          unreadLetterCount: session.unread_letter_count ?? 0,
         };
 
         // Read preferences from server settings
         soundsMutedRef.current =
-          !!data.data.settings?.notification_sounds_muted;
+          !!session.settings?.notification_sounds_muted;
         hideBadgesRef.current =
-          !!data.data.settings?.hide_notification_badges;
+          !!session.settings?.hide_notification_badges;
 
         // Sync eye comfort mode from server → body class + localStorage
-        const eyeComfort = !!data.data.settings?.eye_comfort_mode;
+        const eyeComfort = !!session.settings?.eye_comfort_mode;
         document.body.classList.toggle("eye-comfort", eyeComfort);
         localStorage.setItem("inkwell-eye-comfort", eyeComfort ? "true" : "false");
 
         // Sync sidebar hidden state from server → localStorage (for flash prevention script)
-        const serverSidebarHidden = data.data.settings?.sidebar_hidden;
+        const serverSidebarHidden = session.settings?.sidebar_hidden;
         if (serverSidebarHidden !== undefined) {
           localStorage.setItem("inkwell-sidebar-hidden", serverSidebarHidden ? "true" : "false");
         }
 
         // Sync editor panel state from server → localStorage
-        const serverEditorPanel = data.data.settings?.editor_panel_open;
+        const serverEditorPanel = session.settings?.editor_panel_open;
         if (serverEditorPanel !== undefined) {
           localStorage.setItem("inkwell-editor-panel", serverEditorPanel ? "open" : "collapsed");
         }
@@ -382,6 +534,12 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
       .catch(() => {});
   }, [playSound, startTitleBlink, updateTabTitle, updateFaviconBadge]);
 
+  // Kept current so the poll subscription below can stay on empty deps.
+  const refetchRef = useRef(refetch);
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   // Refetch on pathname change (existing behavior)
   // Also update tab title since the base page name changed
   useEffect(() => {
@@ -395,42 +553,23 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     return () => window.removeEventListener("inkwell-nav-refresh", handler);
   }, [refetch]);
 
-  // Periodic polling — only the first active instance runs the interval.
-  // Multiple hook instances (sidebar, bottom tabs, mobile top bar) would
-  // otherwise create 3 independent polling loops.
+  // Periodic polling. Every instance subscribes, but there is only ever one
+  // interval: the first subscriber starts it and the last one to leave stops
+  // it. Empty deps mean this effect runs exactly once per mount, so an
+  // interval can never be stacked on top of a previous one, and a tick fans
+  // out to all subscribers as a single shared request.
   useEffect(() => {
-    activePollingInstances++;
-    const isLeader = activePollingInstances === 1;
-
-    if (!isLeader) {
-      // Non-leader instances still refetch on mount but don't start polling
-      return () => { activePollingInstances--; };
-    }
-
-    const startPolling = (interval: number) => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(refetch, interval);
+    const listener = () => {
+      refetchRef.current();
     };
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        startPolling(BACKGROUND_POLL_INTERVAL);
-      } else {
-        refetch();
-        startPolling(POLL_INTERVAL);
-      }
-    };
-
-    startPolling(document.hidden ? BACKGROUND_POLL_INTERVAL : POLL_INTERVAL);
-
-    document.addEventListener("visibilitychange", handleVisibility);
+    pollListeners.add(listener);
+    if (pollListeners.size === 1) startSharedPolling();
 
     return () => {
-      activePollingInstances--;
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      pollListeners.delete(listener);
+      if (pollListeners.size === 0) stopSharedPolling();
     };
-  }, [refetch]);
+  }, []);
 
   return counts;
 }

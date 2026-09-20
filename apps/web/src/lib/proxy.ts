@@ -61,16 +61,31 @@ export async function proxyJson(res: Response): Promise<NextResponse> {
   }
 
   try {
-    return NextResponse.json(JSON.parse(text), { status: res.status });
+    return withRetryAfter(res, NextResponse.json(JSON.parse(text), { status: res.status }));
   } catch {
     if (res.status >= 400 && res.status < 500) {
-      return NextResponse.json(
-        { error: "Unexpected response from Inkwell" },
-        { status: res.status }
+      return withRetryAfter(
+        res,
+        NextResponse.json(
+          { error: "Unexpected response from Inkwell" },
+          { status: res.status }
+        )
       );
     }
     return unavailable();
   }
+}
+
+/**
+ * Carry the upstream `Retry-After` through to the browser. Rate-limited (429)
+ * and unavailable (503) responses are the only ones that set it, and a client
+ * that can read it backs off for exactly as long as the API asked instead of
+ * guessing — or, as the nav-count poll used to, not backing off at all.
+ */
+function withRetryAfter(res: Response, out: NextResponse): NextResponse {
+  const retryAfter = res.headers.get("retry-after");
+  if (retryAfter) out.headers.set("retry-after", retryAfter);
+  return out;
 }
 
 export function unavailable(): NextResponse {
