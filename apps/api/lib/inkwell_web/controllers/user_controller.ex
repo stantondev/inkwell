@@ -4,6 +4,7 @@ defmodule InkwellWeb.UserController do
   require Logger
 
   alias Inkwell.Accounts
+  alias Inkwell.Avatars
   alias Inkwell.Auth
   alias Inkwell.CustomDomains
   alias Inkwell.Email
@@ -234,7 +235,7 @@ defmodule InkwellWeb.UserController do
           id: u.id,
           username: u.username,
           display_name: u.display_name,
-          avatar_url: u.avatar_url,
+          avatar_url: Avatars.avatar_url(u),
           bio: u.bio,
           bio_html: u.bio_html,
           avatar_frame: u.avatar_frame,
@@ -567,7 +568,7 @@ defmodule InkwellWeb.UserController do
       bio: user.bio,
       bio_html: user.bio_html,
       pronouns: user.pronouns,
-      avatar_url: user.avatar_url,
+      avatar_url: Avatars.avatar_url(user),
       avatar_config: user.avatar_config,
       ap_id: user.ap_id,
       subscription_tier: Inkwell.SelfHosted.effective_tier(user),
@@ -614,7 +615,7 @@ defmodule InkwellWeb.UserController do
       id: user.id,
       username: user.username,
       display_name: user.display_name,
-      avatar_url: user.avatar_url,
+      avatar_url: Avatars.avatar_url(user),
       avatar_frame: user.avatar_frame,
       avatar_animation: user.avatar_animation
     }

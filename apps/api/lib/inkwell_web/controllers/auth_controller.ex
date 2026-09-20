@@ -2,6 +2,7 @@ defmodule InkwellWeb.AuthController do
   use InkwellWeb, :controller
 
   alias Inkwell.Accounts
+  alias Inkwell.Avatars
   alias Inkwell.Auth
   alias Inkwell.Auth.LoginHandoff
   alias Inkwell.FraudDetection
@@ -335,7 +336,7 @@ defmodule InkwellWeb.AuthController do
       id: user.id,
       username: user.username,
       display_name: user.display_name || user.username,
-      avatar_url: user.avatar_url,
+      avatar_url: Avatars.avatar_url(user),
       avatar_config: user.avatar_config,
       avatar_frame: user.avatar_frame,
       avatar_animation: user.avatar_animation,

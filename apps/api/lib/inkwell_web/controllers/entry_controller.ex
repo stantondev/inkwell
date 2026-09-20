@@ -2,6 +2,7 @@ defmodule InkwellWeb.EntryController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, MarginNotes, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
+  alias Inkwell.Avatars
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.SearchIndexWorker
   alias InkwellWeb.{EntryPublishing, MarginNoteController, UserController}
@@ -221,7 +222,7 @@ defmodule InkwellWeb.EntryController do
                 id: user.id,
                 username: user.username,
                 display_name: user.display_name,
-                avatar_url: user.avatar_url,
+                avatar_url: Avatars.avatar_url(user),
                 avatar_frame: user.avatar_frame,
                 avatar_animation: user.avatar_animation,
                 subscription_tier: user.subscription_tier
@@ -1074,7 +1075,7 @@ defmodule InkwellWeb.EntryController do
           author: %{
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url,
+            avatar_url: Avatars.avatar_url(author),
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,

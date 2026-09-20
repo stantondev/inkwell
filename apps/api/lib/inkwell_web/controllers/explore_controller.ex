@@ -2,6 +2,7 @@ defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.Avatars
   alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
@@ -211,7 +212,7 @@ defmodule InkwellWeb.ExploreController do
               id: author.id,
               username: author.username,
               display_name: author.display_name,
-              avatar_url: author.avatar_url,
+              avatar_url: Avatars.avatar_url(author),
               subscription_tier: author.subscription_tier,
               ink_donor_status: author.ink_donor_status
             },
@@ -350,7 +351,7 @@ defmodule InkwellWeb.ExploreController do
           id: author.id,
           username: author.username,
           display_name: author.display_name,
-          avatar_url: author.avatar_url,
+          avatar_url: Avatars.avatar_url(author),
           subscription_tier: author.subscription_tier,
           ink_donor_status: author.ink_donor_status
         },

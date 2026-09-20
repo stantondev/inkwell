@@ -403,7 +403,13 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const avatarOgUrl = hasAvatar ? `/api/avatars/${username}` : undefined;
 
     return {
-      title: effectiveDomain ? displayName : `@${username}`,
+      // On the writer's own domain the site is theirs — drop the root
+      // layout's "· Inkwell" suffix.
+      title: customDomain
+        ? { absolute: displayName }
+        : effectiveDomain
+          ? displayName
+          : `@${username}`,
       description: bio,
       ...(effectiveDomain ? { metadataBase: new URL(`https://${effectiveDomain}`) } : {}),
       openGraph: {

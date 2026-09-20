@@ -2,6 +2,7 @@ defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.Avatars
   alias Inkwell.Federation.{CategoryHashtags, RemoteEntries}
   alias InkwellWeb.EntryController
 
@@ -135,7 +136,7 @@ defmodule InkwellWeb.FeedController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url,
+            avatar_url: Avatars.avatar_url(author),
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,
@@ -169,7 +170,7 @@ defmodule InkwellWeb.FeedController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url,
+            avatar_url: Avatars.avatar_url(author),
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation,
             subscription_tier: author.subscription_tier,

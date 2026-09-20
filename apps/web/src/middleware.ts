@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
+import { KNOWN_HOSTS } from "@/lib/hosts";
 import {
   ATTRIBUTION_COOKIE,
   ATTRIBUTION_MAX_AGE,
@@ -16,14 +17,6 @@ const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved"
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 // ── Custom domain detection ─────────────────────────────────────────────────
-
-const KNOWN_HOSTS = new Set([
-  "inkwell.social",
-  "www.inkwell.social",
-  "inkwell-web.fly.dev",
-  "localhost",
-  "127.0.0.1",
-]);
 
 // App routes that should redirect to inkwell.social (not served on custom domains)
 const APP_ROUTES = [
@@ -97,7 +90,20 @@ export async function middleware(request: NextRequest) {
     const username = await resolveCustomDomain(host);
 
     if (!username) {
-      // Domain points to us but isn't configured — show not-found page
+      // Domain points to us but isn't configured. Crawl directives still
+      // have to be crawl directives — rewriting them onto the not-found
+      // page would serve HTML for /robots.txt and an empty 200 for the
+      // sitemap.
+      if (pathname === "/robots.txt") {
+        return new NextResponse("User-Agent: *\nDisallow: /\n", {
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        });
+      }
+      if (pathname === "/sitemap.xml") {
+        return new NextResponse(null, { status: 404 });
+      }
+
+      // Otherwise show the not-found page
       const url = request.nextUrl.clone();
       url.pathname = "/custom-domain-not-found";
       const response = NextResponse.rewrite(url);
@@ -111,6 +117,8 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/_next/") ||
       pathname.startsWith("/stamps/") ||
       pathname.startsWith("/frames/") ||
+      pathname === "/robots.txt" ||
+      pathname === "/sitemap.xml" ||
       pathname === "/favicon.svg" ||
       pathname === "/favicon.ico" ||
       pathname === "/inkwell-logo.svg" ||

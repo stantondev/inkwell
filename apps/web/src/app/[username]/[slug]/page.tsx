@@ -362,8 +362,19 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const description = entry.excerpt
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const isSticky = entry.kind === "sticky";
-    const title = entry.title ? `${entry.title} · ${username}` : isSticky ? `Sticky by @${username}` : `Entry by @${username}`;
-    const ogTitle = entry.title ?? (isSticky ? `Sticky by @${username}` : `Entry by @${username}`);
+    // Untitled entries (stickies) would otherwise every one of them be
+    // titled "Entry by @user" — hundreds of near-duplicate titles competing
+    // with each other. Fall back to the post's opening words instead.
+    const plainBody = (entry.excerpt ?? entry.body_html.replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    const snippet =
+      plainBody.length > 65 ? `${plainBody.slice(0, 65).replace(/\s+\S*$/, "")}…` : plainBody;
+    const fallbackLabel =
+      snippet || (isSticky ? `Sticky by @${username}` : `Entry by @${username}`);
+
+    const title = `${entry.title ?? fallbackLabel} · ${username}`;
+    const ogTitle = entry.title ?? fallbackLabel;
     // Use header (custom domain request) or API response (inkwell.social request)
     const effectiveDomain = customDomain || entry.custom_domain || null;
     const entryUrl = effectiveDomain
@@ -378,7 +389,9 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       : [];
 
     return {
-      title,
+      // Only when actually served on the writer's domain — inkwell.social
+      // keeps the "· Inkwell" suffix from the root layout.
+      title: customDomain ? { absolute: title } : title,
       description,
       authors: [{ name: entry.author?.display_name ?? username }],
       ...(effectiveDomain ? { metadataBase: new URL(`https://${effectiveDomain}`) } : {}),

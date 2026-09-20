@@ -2,6 +2,7 @@ defmodule InkwellWeb.CommentController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals, Social}
+  alias Inkwell.Avatars
   alias Inkwell.Repo
   alias Inkwell.Journals.Comment
   alias Inkwell.Federation.{ActivityBuilder, Workers.DeliverActivityWorker}
@@ -219,7 +220,7 @@ defmodule InkwellWeb.CommentController do
           id: comment.user.id,
           username: comment.user.username,
           display_name: comment.user.display_name,
-          avatar_url: comment.user.avatar_url,
+          avatar_url: Avatars.avatar_url(comment.user),
           avatar_frame: comment.user.avatar_frame,
           avatar_animation: comment.user.avatar_animation,
           subscription_tier: comment.user.subscription_tier

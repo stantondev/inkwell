@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ username: string }> }
 ) {
   const { username } = await params;
 
-  const res = await fetch(`${SERVER_API}/api/banners/${encodeURIComponent(username)}`, {
+  // The `v` stamp (from the user's updated_at) is forwarded so a changed
+  // image busts Next's data cache too — `force-cache` keys on the upstream
+  // URL, so without it the old avatar would be served for the full week.
+  const version = request.nextUrl.searchParams.get("v");
+  const suffix = version ? `?v=${encodeURIComponent(version)}` : "";
+
+  const res = await fetch(`${SERVER_API}/api/banners/${encodeURIComponent(username)}${suffix}`, {
     cache: "force-cache",
   });
 
