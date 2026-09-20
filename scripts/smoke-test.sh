@@ -78,8 +78,10 @@ check "signed-out /settings → login" 307 "$WEB/settings/top-friends"
 check_body "profile /$USER_HANDLE" "$WEB/$USER_HANDLE" "$USER_HANDLE"
 check "unknown profile is 404" 404 "$WEB/this-user-should-not-exist-$RANDOM$RANDOM"
 
-# A real public entry, taken from the explore feed.
-entry=$(curl -s --max-time 20 "$API/api/explore?per_page=5" |
+# A real public entry, taken from the explore feed. Ask for a wide page:
+# Explore is mostly fediverse posts, which have no slug of ours, so a short
+# page can easily contain no local entry and fail the smoke run for nothing.
+entry=$(curl -s --max-time 20 "$API/api/explore?per_page=40" |
   python3 -c 'import sys,json
 try:
   d=json.load(sys.stdin)
