@@ -1,15 +1,33 @@
-// Inkwell Service Worker — asset caching + offline fallback + push notifications
-// Bump CACHE_NAME when SW logic changes to force re-activation in browsers
-// that still have an older SW running.
-const CACHE_NAME = "inkwell-v4";
-const OFFLINE_URL = "/offline";
+// Inkwell Service Worker — push notifications only.
+//
+// This worker deliberately has NO `fetch` handler.
+//
+// It used to intercept navigations (network-first with an /offline fallback)
+// and static assets (cache-first). Serving the page through the worker made
+// React's hydration of the streamed document fail on EVERY page load, in
+// production, signed in or out — "Minified React error #418" — so React threw
+// away the entire server-rendered document and re-rendered it on the client.
+//
+// Measured on production 2026-09-20, same HTML bytes and same bundles in both
+// cases, in fresh tabs:
+//   navigation served by the worker (workerStart 1.9ms, controller true)
+//     → React error #418, and afterwards <head>/<body> children are in
+//       React's client-render order with the server's nodes left stranded
+//       in front of them (duplicated JSON-LD, charset <meta> at index 18).
+//   navigation NOT served by the worker (workerStart 0)
+//     → clean console, server HTML adopted as-is.
+// Proxying the identical production HTML and bundles from localhost (so the
+// page is uncontrolled) never reproduced it, which is why this was invisible
+// in dev and in a local production build.
+//
+// A worker with no fetch handler is skipped entirely for navigations and
+// subresources, which is exactly the clean case above. The caching it did was
+// near-worthless anyway: /_next/static/* is already immutable-cached by the
+// browser, and caching unversioned paths cache-first by URL is what stopped
+// redrawn /frames/*.svg from ever reaching returning visitors. If offline
+// support comes back, it must be re-verified against hydration first.
 
-const PRECACHE_URLS = [OFFLINE_URL, "/favicon.svg", "/inkwell-logo.svg"];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
@@ -22,69 +40,12 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  // Drop every cache the old asset-caching worker left behind, so returning
+  // visitors stop being served stale copies of unversioned files.
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-        )
-      )
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
   );
   self.clients.claim();
-});
-
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Never touch requests we can't/shouldn't cache:
-  //  - non-GET
-  //  - non-http(s) schemes (chrome-extension://, blob:, data:, etc.)
-  //    Cache.put() throws TypeError on these — they surface as loud console
-  //    errors from browser extensions that inject fetches into the page.
-  //  - API requests, auth flows, RSC data
-  if (
-    request.method !== "GET" ||
-    (url.protocol !== "http:" && url.protocol !== "https:") ||
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/auth/") ||
-    url.pathname.startsWith("/_next/data/")
-  ) {
-    return;
-  }
-
-  // Cache-first for static assets
-  if (
-    url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/icons/") ||
-    url.pathname.startsWith("/stamps/") ||
-    url.pathname.startsWith("/frames/") ||
-    url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|woff2?|ttf|eot)$/)
-  ) {
-    event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          })
-      )
-    );
-    return;
-  }
-
-  // Network-first for navigation, offline fallback
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
 });
 
 // --- Push Notifications ---
