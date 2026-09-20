@@ -85,6 +85,9 @@ export default function WelcomePage() {
   const currentUsernameRef = useRef<string>("");  // tracks pre-existing username from DB
   const [heardFrom, setHeardFrom] = useState<string | null>(null);
   const [heardFromDetail, setHeardFromDetail] = useState("");
+  // Set when the person reaches the end of the guidelines book and agrees.
+  // Only then is acceptance recorded — see saveProfile.
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
 
   // Step 2: Photo & Pronouns
   const [avatarDataUri, setAvatarDataUri] = useState<string | null>(null);
@@ -212,6 +215,7 @@ export default function WelcomePage() {
         if (user.pronouns) setPronouns(user.pronouns);
         if (user.bio_html) setBioHtml(user.bio_html);
         else if (user.bio) setBioHtml(user.bio);
+        if (user.settings?.guidelines_accepted) setGuidelinesAccepted(true);
         // Track current subscription state
         if (user.subscription_tier) setCurrentTier(user.subscription_tier);
         if (user.ink_donor_status) setCurrentDonorStatus(user.ink_donor_status);
@@ -616,11 +620,17 @@ export default function WelcomePage() {
           ...(status.trim() ? { profile_status: status.trim() } : {}),
           ...(theme !== "default" ? { profile_theme: theme } : {}),
           ...(avatarConfig ? { avatar_config: avatarConfig } : {}),
-          // `settings` is merged server-side, so omitting `onboarded` leaves
-          // any existing value untouched rather than clearing it.
-          settings: markOnboarded
-            ? { onboarded: true, guidelines_accepted: true }
-            : { guidelines_accepted: true },
+          // `settings` is merged server-side, so omitting a key leaves any
+          // existing value untouched rather than clearing it.
+          //
+          // guidelines_accepted is only written once the person has actually
+          // read to the end of the book and agreed. Both skip paths used to
+          // write it unconditionally, so the single record of consent said
+          // "accepted" for people who never saw a word of it.
+          settings: {
+            ...(markOnboarded ? { onboarded: true } : {}),
+            ...(guidelinesAccepted ? { guidelines_accepted: true } : {}),
+          },
         }),
       });
 
@@ -773,7 +783,12 @@ export default function WelcomePage() {
                         aria-checked={selected}
                         onClick={() => {
                           setHeardFrom(o.id);
-                          if (o.id !== "other") saveHeardFrom(o.id, "");
+                          // Record the choice straight away, "Something else"
+                          // included. The detail box below only saves on blur,
+                          // so an "other" that was picked but never typed into
+                          // — or typed into and submitted without blurring —
+                          // was lost completely.
+                          saveHeardFrom(o.id, o.id === "other" ? heardFromDetail : "");
                         }}
                         className="rounded-full border px-3 py-1 text-xs transition-colors"
                         style={{
@@ -997,7 +1012,12 @@ export default function WelcomePage() {
           {/* Step 5: Community Guidelines Book */}
           {step === 4 && (
             <div className="flex flex-col gap-3">
-              <GuidelinesBook onAgree={nextStep} />
+              <GuidelinesBook
+                onAgree={() => {
+                  setGuidelinesAccepted(true);
+                  nextStep();
+                }}
+              />
             </div>
           )}
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
-type Status = "ready" | "verifying" | "success" | "handoff" | "error";
+type Status = "ready" | "verifying" | "success" | "handoff" | "already" | "error";
 
 export default function VerifyPage() {
   const searchParams = useSearchParams();
@@ -23,13 +23,35 @@ export default function VerifyPage() {
   const [handoffState, setHandoffState] = useState<"idle" | "sending" | "done">("idle");
   const [handoffError, setHandoffError] = useState<string | null>(null);
 
+  // Guards the auto-verify against running twice. `status` cannot do this job:
+  // both calls are made before React re-renders, so both closures still see
+  // "ready". When the effect fired twice (StrictMode in dev, or any remount)
+  // the first POST signed the person in and the second got a 401 for a token
+  // that had just been spent — so a successful sign-in ended on
+  // "This link has already been used."
+  const verifyStartedRef = useRef(false);
+
   // Auto-verify on mount — safe because this is a client page (prefetchers don't execute JS)
   useEffect(() => {
-    if (token) {
+    if (token && !verifyStartedRef.current) {
+      verifyStartedRef.current = true;
       verify();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Where this browser's existing session should land, or null if signed out. */
+  async function currentSessionDestination(): Promise<string | null> {
+    try {
+      const res = await fetch("/api/session", { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.data?.id) return null;
+      return data.data.settings?.onboarded ? "/feed" : "/welcome";
+    } catch {
+      return null;
+    }
+  }
 
   async function verify() {
     if (!token || status === "verifying" || status === "success") return;
@@ -46,6 +68,19 @@ export default function VerifyPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        // A spent link is the ordinary result of opening the email twice, or
+        // of coming back to this tab later. If this browser already holds a
+        // session, telling someone their link is invalid is both alarming and
+        // untrue — they are signed in.
+        if (res.status === 401) {
+          const existing = await currentSessionDestination();
+          if (existing) {
+            setDestination(existing);
+            setStatus("already");
+            return;
+          }
+        }
+
         setStatus("error");
         setRetryable(!!data.retryable);
         setError(data.error ?? "That sign-in link is no longer valid.");
@@ -274,6 +309,29 @@ export default function VerifyPage() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {status === "already" && (
+        <div className="flex flex-col gap-4 text-center">
+          <CheckIcon />
+          <h1
+            className="text-xl font-semibold"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            You&apos;re already signed in
+          </h1>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+            That link had already been used — most likely by this browser a moment ago.
+            Nothing is wrong; carry on.
+          </p>
+          <a
+            href={destination}
+            className="rounded-xl py-3 text-base font-medium"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            Continue to Inkwell
+          </a>
         </div>
       )}
 
