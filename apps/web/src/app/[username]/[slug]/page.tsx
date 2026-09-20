@@ -149,8 +149,10 @@ import type { Comment } from "@/lib/comment-utils";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
+  // Pinned to UTC so every reader sees the same day, and so this agrees with
+  // the feed card (which must pin it to survive hydration).
   return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
   });
 }
 

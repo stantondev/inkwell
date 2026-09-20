@@ -15,7 +15,25 @@ function timeAgo(isoString: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * Exact timestamp for the hover tooltip.
+ *
+ * Locale AND time zone are pinned. `toLocaleString()` with neither renders in
+ * the *server's* zone during SSR (Fly runs UTC) and in the *reader's* zone on
+ * the client, which is a text mismatch React can't reconcile — it throws away
+ * the server HTML for the entire page and re-renders it (error #418). Same
+ * reason every other date here passes an explicit timeZone.
+ */
+function exactTime(isoString: string): string {
+  const formatted = new Date(isoString).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  });
+  return `${formatted} UTC`;
 }
 
 interface StickyNoteCardProps {
@@ -55,7 +73,7 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
 
         {variant === "board" && (
           <div className="sticky-note-byline sticky-note-byline--board">
-            <Link href={href} className="sticky-note-time" title={new Date(entry.published_at).toLocaleString()}>
+            <Link href={href} className="sticky-note-time" title={exactTime(entry.published_at)}>
               <time dateTime={entry.published_at} suppressHydrationWarning>{timeAgo(entry.published_at)}</time>
             </Link>
           </div>
@@ -74,7 +92,7 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
               />
               <span className="sticky-note-name">{entry.author.display_name}</span>
             </Link>
-            <Link href={href} className="sticky-note-time" title={new Date(entry.published_at).toLocaleString()}>
+            <Link href={href} className="sticky-note-time" title={exactTime(entry.published_at)}>
               <time dateTime={entry.published_at} suppressHydrationWarning>{timeAgo(entry.published_at)}</time>
             </Link>
           </div>

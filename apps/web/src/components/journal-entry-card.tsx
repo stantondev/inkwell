@@ -126,11 +126,17 @@ function extractFirstImage(html: string): string | null {
 }
 
 function formatDate(iso: string): string {
+  // timeZone is pinned: without it this renders in the server's zone during
+  // SSR (Fly runs UTC) and in the reader's on the client, so an entry
+  // published near midnight UTC produces two different days — a text mismatch
+  // that makes React discard the server HTML for the whole page. UTC also
+  // keeps this card agreeing with the entry page, which formats server-side.
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -283,7 +289,8 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                     {entry.author.display_name}
                   </span>
                   <span className="text-xs truncate" style={{ color: "var(--muted)" }}>
-                    @{entry.author.username}@{entry.author.domain} &middot; {ago}
+                    @{entry.author.username}@{entry.author.domain} &middot;{" "}
+                    <span suppressHydrationWarning>{ago}</span>
                   </span>
                 </div>
               </a>
@@ -337,7 +344,8 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
                   )}
                 </span>
                 <span className="text-xs" style={{ color: "var(--muted)" }}>
-                  @{entry.author.username} &middot; {ago}
+                  @{entry.author.username} &middot;{" "}
+                  <span suppressHydrationWarning>{ago}</span>
                 </span>
               </div>
             </Link>
