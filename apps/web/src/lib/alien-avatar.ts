@@ -16,6 +16,10 @@
  */
 
 export const ALIEN_INK = "#1a2744"; // --ink-midnight
+
+export interface AlienAvatarOptions {
+  [key: string]: string;
+}
 const PAPER = "#fdfaf3";
 const WAX = "#b8434f";
 const FLAME = "#e8a33d";
@@ -330,22 +334,42 @@ export const ALIEN_PROPS: Record<
 /* Scenes                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Small seated alien head used across scenes. */
-function sceneHead(skin: string, cx: number, cy: number, s = 1) {
-  const t = `translate(${cx - 60 * s} ${cy - 46 * s}) scale(${s})`;
-  return `<g transform="${t}">
-    <path d="M52 24 C48 16 44 12 41 10" fill="none" stroke="${ALIEN_INK}" stroke-width="2.4" stroke-linecap="round"/>
-    <circle cx="40" cy="9" r="3.2" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2"/>
-    <path d="M68 24 C72 16 76 12 79 10" fill="none" stroke="${ALIEN_INK}" stroke-width="2.4" stroke-linecap="round"/>
-    <circle cx="80" cy="9" r="3.2" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2"/>
-    <path d="M60 24 C73 24 82 34 82 46 C82 56 76 64 68 68 C64 70 56 70 52 68 C44 64 38 56 38 46 C38 34 47 24 60 24Z"
-          fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.8" stroke-linejoin="round"/>
-    <ellipse cx="51" cy="46" rx="7.4" ry="5.2" transform="rotate(-16 51 46)" fill="${ALIEN_INK}"/>
-    <ellipse cx="69" cy="46" rx="7.4" ry="5.2" transform="rotate(16 69 46)" fill="${ALIEN_INK}"/>
-    <ellipse cx="48.4" cy="43.6" rx="2.2" ry="1.7" fill="#fff" opacity=".9"/>
-    <ellipse cx="66.4" cy="43.6" rx="2.2" ry="1.7" fill="#fff" opacity=".9"/>
-    <path d="M56 59 q4 3.4 8 0" fill="none" stroke="${ALIEN_INK}" stroke-width="2.2" stroke-linecap="round"/>
-  </g>`;
+/**
+ * The seated alien in a scene is the SAME character as the portrait builder —
+ * same head, eyes, antennae and expression — just smaller and seated, so
+ * switching styles never changes who you are.
+ *
+ * Portrait parts are authored around a nominal head centre of (60, 54) in the
+ * 120-box; anchoring there keeps every head shape sitting on the same neck.
+ * `vector-effect: non-scaling-stroke` stops the shrink from thinning the ink
+ * lines away to nothing against the scene's furniture.
+ */
+const SCENE_HEAD_ANCHOR_Y = 54;
+
+/** Props worn on the face follow you into a scene; the scene supplies the rest. */
+const FACE_PROPS = new Set(["glasses", "monocle"]);
+
+function sceneCharacter(
+  options: AlienAvatarOptions,
+  skin: string,
+  cx: number,
+  cy: number,
+  s: number
+) {
+  const head = ALIEN_HEADS[options.head] ?? ALIEN_HEADS.teardrop;
+  const eyes = ALIEN_EYES[options.eyes] ?? ALIEN_EYES.almond;
+  const antenna = ALIEN_ANTENNAE[options.antenna] ?? ALIEN_ANTENNAE.pair;
+  const mouth = ALIEN_MOUTHS[options.mouth] ?? ALIEN_MOUTHS.smile;
+  const faceProp = FACE_PROPS.has(options.prop) ? ALIEN_PROPS[options.prop] : null;
+
+  const inner =
+    antenna.render(skin, head.topY) +
+    `<path d="${head.path}" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.8" stroke-linejoin="round"/>` +
+    eyes.render(head.eyeY) +
+    mouth.render(head.eyeY + 21) +
+    (faceProp ? faceProp.render(head.eyeY, "", skin) : "");
+
+  return `<g vector-effect="non-scaling-stroke" transform="translate(${(cx - 60 * s).toFixed(2)} ${(cy - SCENE_HEAD_ANCHOR_Y * s).toFixed(2)}) scale(${s})" style="vector-effect:non-scaling-stroke">${inner}</g>`;
 }
 
 const limb = (d: string, skin: string, w = 9) =>
@@ -360,15 +384,18 @@ const openBook = (x: number, y: number, s = 1) =>
     <path d="M-19 6 h13 M6 6 h13" stroke="${ALIEN_INK}" stroke-width="1.7" stroke-linecap="round" opacity=".38"/>
   </g>`;
 
-export const ALIEN_SCENES: Record<string, { label: string; render: (skin: string, bg: string) => string }> = {
+export const ALIEN_SCENES: Record<
+  string,
+  { label: string; render: (options: AlienAvatarOptions, skin: string, bg: string) => string }
+> = {
   armchair: {
     label: "The armchair",
-    render: (skin) => `
+    render: (options, skin) => `
       <path d="M20 112 L20 50 C20 32 37 22 60 22 C83 22 100 32 100 50 L100 112Z" fill="#8c6a52" stroke="${ALIEN_INK}" stroke-width="2.8" stroke-linejoin="round"/>
       <path d="M28 108 L28 52 C28 40 41 32 60 32 C79 32 92 40 92 52 L92 108Z" fill="#a8806a" stroke="${ALIEN_INK}" stroke-width="2.2"/>
       <path d="M8 112 L8 80 C8 72 22 72 22 80 L22 112Z" fill="#8c6a52" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       <path d="M98 112 L98 80 C98 72 112 72 112 80 L112 112Z" fill="#8c6a52" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
-      ${sceneHead(skin, 60, 44, 0.86)}
+      ${sceneCharacter(options, skin, 60, 42, 0.53)}
       <path d="M47 66 C47 62 73 62 73 66 L77 92 L43 92Z" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       ${limb("M45 90 C38 99 38 106 42 112", skin, 9)}
       ${limb("M48 94 C62 100 78 96 86 88", skin, 10)}
@@ -377,8 +404,8 @@ export const ALIEN_SCENES: Record<string, { label: string; render: (skin: string
   },
   desk: {
     label: "The writing desk",
-    render: (skin) => `
-      ${sceneHead(skin, 58, 34, 0.82)}
+    render: (options, skin) => `
+      ${sceneCharacter(options, skin, 58, 32, 0.50)}
       <path d="M45 54 C45 50 71 50 71 54 L75 80 L41 80Z" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       ${limb("M72 62 C84 65 88 72 86 78", skin, 8)}
       <path d="M2 82 L118 82 L118 92 L2 92Z" fill="#8c6a52" stroke="${ALIEN_INK}" stroke-width="2.7" stroke-linejoin="round"/>
@@ -392,13 +419,13 @@ export const ALIEN_SCENES: Record<string, { label: string; render: (skin: string
   },
   nook: {
     label: "The window seat",
-    render: (skin) => `
+    render: (options, skin) => `
       <path d="M22 8 L98 8 L98 76 L22 76Z" fill="#cfe0ef" stroke="${ALIEN_INK}" stroke-width="2.8" stroke-linejoin="round"/>
       <path d="M60 8 L60 76 M22 42 L98 42" stroke="${ALIEN_INK}" stroke-width="2.4"/>
       <circle cx="80" cy="25" r="9" fill="${PAPER}" stroke="${ALIEN_INK}" stroke-width="2.2"/>
       <circle cx="36" cy="22" r="1.8" fill="${ALIEN_INK}" opacity=".5"/><circle cx="45" cy="31" r="1.4" fill="${ALIEN_INK}" opacity=".4"/>
       <path d="M6 76 L114 76 L114 88 L6 88Z" fill="#a8806a" stroke="${ALIEN_INK}" stroke-width="2.7" stroke-linejoin="round"/>
-      ${sceneHead(skin, 46, 48, 0.8)}
+      ${sceneCharacter(options, skin, 46, 46, 0.49)}
       <path d="M34 66 C34 62 58 62 58 66 L61 88 L31 88Z" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       ${limb("M60 80 C74 82 84 80 92 76", skin, 9)}
       ${openBook(76, 70, 0.8)}
@@ -407,13 +434,13 @@ export const ALIEN_SCENES: Record<string, { label: string; render: (skin: string
   },
   stack: {
     label: "On a stack of books",
-    render: (skin) => `
+    render: (options, skin) => `
       <path d="M18 112 L102 112 L102 120 L18 120Z" fill="${WAX}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       <path d="M22 100 L98 100 L98 112 L22 112Z" fill="#7f9bc4" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       <path d="M26 88 L94 88 L94 100 L26 100Z" fill="${PAPER}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       <path d="M30 76 L90 76 L90 88 L30 88Z" fill="#a8806a" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       <path d="M28 106 h64 M32 94 h56 M36 82 h48" stroke="${ALIEN_INK}" stroke-width="1.7" opacity=".3" stroke-linecap="round"/>
-      ${sceneHead(skin, 60, 30, 0.8)}
+      ${sceneCharacter(options, skin, 60, 28, 0.49)}
       <path d="M48 50 C48 46 72 46 72 50 L75 76 L45 76Z" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       ${limb("M47 74 C40 80 38 84 40 88", skin, 8)}
       ${limb("M73 74 C80 80 82 84 80 88", skin, 8)}
@@ -422,10 +449,6 @@ export const ALIEN_SCENES: Record<string, { label: string; render: (skin: string
 };
 
 /* ------------------------------------------------------------------ */
-
-export interface AlienAvatarOptions {
-  [key: string]: string;
-}
 
 const HALO_PROPS = new Set(["nibhalo", "bookstack"]);
 
@@ -444,7 +467,7 @@ export function buildAlienSvg(style: string, options: AlienAvatarOptions): strin
 
   if (style === "scene") {
     const sceneKey = options.scene in ALIEN_SCENES ? options.scene : "armchair";
-    return `${open}${ALIEN_SCENES[sceneKey].render(skin, bg)}</svg>`;
+    return `${open}${ALIEN_SCENES[sceneKey].render(options, skin, bg)}</svg>`;
   }
 
   const head = ALIEN_HEADS[options.head] ?? ALIEN_HEADS.teardrop;

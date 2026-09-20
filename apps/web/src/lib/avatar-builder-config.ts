@@ -52,6 +52,13 @@ const fromPalette = (rec: Record<string, { label: string; hex: string }>): Avata
     hex: hex.replace("#", ""),
   }));
 
+const CHARACTER_CATEGORIES: AvatarOptionCategory[] = [
+  { id: "head", label: "Head", type: "select", options: fromLabelled(ALIEN_HEADS) },
+  { id: "eyes", label: "Eyes", type: "select", options: fromLabelled(ALIEN_EYES) },
+  { id: "antenna", label: "Antennae", type: "select", options: fromLabelled(ALIEN_ANTENNAE) },
+  { id: "mouth", label: "Mouth", type: "select", options: fromLabelled(ALIEN_MOUTHS) },
+];
+
 const SKIN_CATEGORY: AvatarOptionCategory = {
   id: "skin",
   label: "Skin",
@@ -71,10 +78,7 @@ export const PORTRAIT_STYLE: AvatarBuilderStyle = {
   label: "Portrait",
   description: "A literary alien, drawn in ink",
   categories: [
-    { id: "head", label: "Head", type: "select", options: fromLabelled(ALIEN_HEADS) },
-    { id: "eyes", label: "Eyes", type: "select", options: fromLabelled(ALIEN_EYES) },
-    { id: "antenna", label: "Antennae", type: "select", options: fromLabelled(ALIEN_ANTENNAE) },
-    { id: "mouth", label: "Mouth", type: "select", options: fromLabelled(ALIEN_MOUTHS) },
+    ...CHARACTER_CATEGORIES,
     { id: "prop", label: "Props", type: "select", options: fromLabelled(ALIEN_PROPS) },
     SKIN_CATEGORY,
     BG_CATEGORY,
@@ -87,6 +91,7 @@ export const SCENE_STYLE: AvatarBuilderStyle = {
   description: "A whole little world — best viewed large",
   categories: [
     { id: "scene", label: "Scene", type: "select", options: fromLabelled(ALIEN_SCENES) },
+    ...CHARACTER_CATEGORIES,
     SKIN_CATEGORY,
     BG_CATEGORY,
   ],

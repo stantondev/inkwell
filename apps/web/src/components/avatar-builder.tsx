@@ -85,7 +85,10 @@ export function AvatarBuilder({
   function switchStyle(newStyleId: string) {
     const newStyle = getStyleById(newStyleId);
     setStyleId(newStyleId);
-    setOptions(getDefaultOptionsForStyle(newStyle));
+    // Merge, never replace: your alien follows you between Portrait and Scene,
+    // and switching back restores the props you'd picked. Defaults only fill
+    // in keys the new style introduces.
+    setOptions((prev) => ({ ...getDefaultOptionsForStyle(newStyle), ...prev }));
     setActiveCategory(newStyle.categories[0].id);
     setSaved(false);
   }
@@ -96,13 +99,15 @@ export function AvatarBuilder({
   }
 
   function randomize() {
-    const newOptions: Record<string, string> = {};
+    const rolled: Record<string, string> = {};
     for (const cat of currentStyle.categories) {
       const choices = cat.options.filter((o) => !o.plusOnly);
       const random = choices[Math.floor(Math.random() * choices.length)];
-      newOptions[cat.id] = random.value;
+      rolled[cat.id] = random.value;
     }
-    setOptions(newOptions);
+    // Only roll what this style shows; options belonging to the other style
+    // are left intact rather than dropped.
+    setOptions((prev) => ({ ...prev, ...rolled }));
     setSaved(false);
   }
 
