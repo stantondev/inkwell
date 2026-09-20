@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
+import { notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
 
@@ -10,10 +13,56 @@ interface TagPageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-export async function generateMetadata({ params }: TagPageProps): Promise<Metadata> {
+/**
+ * Shared by generateMetadata and the page below, so the tag is fetched once.
+ *
+ * A failed fetch is rethrown rather than swallowed: an API restart used to
+ * render this as "No entries yet", which is why these pages looked empty
+ * even when the tag had content.
+ */
+const getTagEntries = cache(async (tag: string, page: number): Promise<JournalEntry[]> => {
+  try {
+    const data = await apiFetch<{ data: JournalEntry[] }>(
+      `/api/explore?tag=${encodeURIComponent(tag)}&page=${page}`
+    );
+    return data.data ?? [];
+  } catch (err) {
+    notFoundOrRethrow(err);
+  }
+});
+
+/**
+ * Whether this tag page is worth putting in Google's index.
+ *
+ * Tag pages are aggregations, and most of what carries a hashtag here comes
+ * from the fediverse — posts whose canonical home is another server, and
+ * which are deleted again when the relay copy expires. Search Console for
+ * Jun–Sep 2026: 822 tag pages indexed against 46 in the sitemap, 4,682
+ * impressions, 15 clicks. /tag/birthday alone drew 2,033 impressions at
+ * position 2.8 with zero clicks, ranking for someone else's name while
+ * showing an empty page, because the federated post behind it was long gone.
+ *
+ * So: a tag page earns indexing only when Inkwell's own writers have used
+ * the tag. Pages of purely federated posts stay reachable and useful for
+ * readers, but stop competing in search for content we did not write.
+ */
+function tagIsIndexable(entries: JournalEntry[], page: number): boolean {
+  if (page > 1) return false; // paginated views duplicate page 1
+  return entries.some((e) => e.source !== "remote");
+}
+
+export async function generateMetadata({ params, searchParams }: TagPageProps): Promise<Metadata> {
   const { tag } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
   const decoded = decodeURIComponent(tag);
+  const entries = await getTagEntries(tag, page);
+
+  // Nothing here: 404 rather than a 200 that says "No entries yet".
+  if (entries.length === 0) notFound();
+
   return {
+    ...(tagIsIndexable(entries, page) ? {} : { robots: { index: false, follow: true } }),
     title: `#${decoded}`,
     description: `Public journal entries tagged #${decoded} on Inkwell.`,
     openGraph: {
@@ -31,15 +80,8 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
-  let entries: JournalEntry[] = [];
-  try {
-    const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?tag=${encodeURIComponent(tag)}&page=${page}`
-    );
-    entries = data.data ?? [];
-  } catch {
-    // show empty state
-  }
+  const entries = await getTagEntries(tag, page);
+  if (entries.length === 0) notFound();
 
   const emptyState = (
     <div
