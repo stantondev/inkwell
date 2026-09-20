@@ -75,6 +75,19 @@ export async function middleware(request: NextRequest) {
   // ── Custom domain detection (before auth logic) ───────────────────────
   const host = request.headers.get("host")?.replace(/:\d+$/, "") ?? "";
 
+  // ── www is not a second site ──────────────────────────────────────────
+  // The session cookie is host-only on inkwell.social, so anything served
+  // on www would render signed out for everyone who is in fact signed in.
+  // Redirect instead. This runs whatever DNS says, so pointing www at Fly
+  // can never quietly turn into a cookie-less copy of the app; www stays in
+  // KNOWN_HOSTS so it is never mistaken for someone's custom domain either.
+  if (host === "www.inkwell.social") {
+    return NextResponse.redirect(
+      new URL(pathname + request.nextUrl.search, "https://inkwell.social"),
+      308
+    );
+  }
+
   if (host && !KNOWN_HOSTS.has(host)) {
     const username = await resolveCustomDomain(host);
 
