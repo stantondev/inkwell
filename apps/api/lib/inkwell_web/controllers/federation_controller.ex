@@ -601,12 +601,13 @@ defmodule InkwellWeb.FederationController do
 
           {:error, :domain_mismatch} ->
             Logger.warning("Inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
+            track_rejection(:domain_mismatch)
             conn |> put_status(:unauthorized) |> json(%{error: "Actor domain mismatch"})
         end
 
       {:error, reason} ->
         Logger.warning("Inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} to /users/#{username}/inbox — #{inspect(reason)}")
-        Inkwell.Federation.FederationStats.track_inbound("rejected_signature")
+        track_rejection(reason)
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -622,12 +623,13 @@ defmodule InkwellWeb.FederationController do
 
           {:error, :domain_mismatch} ->
             Logger.warning("Shared inbox: REJECTED — actor domain mismatch for #{params["actor"]}")
+            track_rejection(:domain_mismatch)
             conn |> put_status(:unauthorized) |> json(%{error: "Actor domain mismatch"})
         end
 
       {:error, reason} ->
         Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
-        Inkwell.Federation.FederationStats.track_inbound("rejected_signature")
+        track_rejection(reason)
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
     end
   end
@@ -700,7 +702,18 @@ defmodule InkwellWeb.FederationController do
         {:error, :no_signature}
 
       {:error, reason} ->
-        Logger.warning("Inbox: REJECTED — malformed Signature header — #{inspect(reason)}")
+        # Log what we actually received. A Signature header we cannot parse means
+        # the sender is using a scheme we do not implement (e.g. RFC 9421 HTTP
+        # Message Signatures, which look like `sig1=:base64:` and carry their
+        # metadata in a separate Signature-Input header) — the raw value is the
+        # only way to tell which.
+        Logger.warning(
+          "Inbox: REJECTED — unparseable Signature header — #{inspect(reason)} " <>
+            "raw=#{inspect(raw_signature_header(conn))} " <>
+            "headers=#{inspect(request_header_names(conn))} " <>
+            "ua=#{inspect(get_req_header_value(conn, "user-agent"))}"
+        )
+
         {:error, reason}
 
       {:ok, sig_parts} ->
@@ -810,6 +823,38 @@ defmodule InkwellWeb.FederationController do
 
       _ ->
         :not_a_key
+    end
+  end
+
+  # Records why an inbound activity was turned away, so the federation dashboard
+  # distinguishes "we cannot read this sender's signature scheme" from "this
+  # signature is forged" from "this actor no longer exists". All of these used
+  # to land in a single `rejected_signature` bucket.
+  defp track_rejection(reason) do
+    Inkwell.Federation.FederationStats.track_inbound("rejected_" <> rejection_label(reason))
+  end
+
+  defp rejection_label(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp rejection_label({:http_error, status}), do: "actor_fetch_#{status}"
+  defp rejection_label({:failed_connect, _}), do: "actor_unreachable"
+  defp rejection_label({kind, _}) when is_atom(kind), do: Atom.to_string(kind)
+  defp rejection_label(_), do: "unknown"
+
+  defp raw_signature_header(conn) do
+    case Plug.Conn.get_req_header(conn, "signature") do
+      [sig | _] -> String.slice(sig, 0, 400)
+      [] -> nil
+    end
+  end
+
+  defp request_header_names(conn) do
+    conn.req_headers |> Enum.map(&elem(&1, 0)) |> Enum.sort()
+  end
+
+  defp get_req_header_value(conn, name) do
+    case Plug.Conn.get_req_header(conn, name) do
+      [val | _] -> val
+      [] -> nil
     end
   end
 
