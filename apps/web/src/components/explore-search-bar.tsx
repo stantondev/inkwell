@@ -15,7 +15,14 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+  // Resolved after mount, not during render: the server has no user agent, so
+  // rendering the Mac glyph on the first client pass makes React throw away the
+  // server HTML for the whole page ("server rendered text didn't match"). Same
+  // pattern as the sidebar's shortcut hint.
+  const [shortcutHint, setShortcutHint] = useState("Ctrl+K");
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setShortcutHint("\u2318K");
+  }, []);
 
   // Sync URL → state on popstate (back/forward)
   useEffect(() => {
@@ -116,7 +123,7 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
           aria-label="Search writers, entries, and fediverse handles"
         />
         {!query && (
-          <span className="explore-shortcut-badge">{isMac ? "⌘K" : "Ctrl+K"}</span>
+          <span className="explore-shortcut-badge">{shortcutHint}</span>
         )}
         {query && (
           <button
