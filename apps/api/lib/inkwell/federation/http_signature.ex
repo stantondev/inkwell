@@ -13,6 +13,8 @@ defmodule Inkwell.Federation.HttpSignature do
 
   require Logger
 
+  alias Inkwell.Federation.Rfc9421
+
   # Maximum allowed clock skew for Date header (matches Mastodon's 12-hour window)
   @max_clock_skew_seconds 43_200
 
@@ -107,14 +109,26 @@ defmodule Inkwell.Federation.HttpSignature do
   @doc """
   Parses the HTTP Signature header on an inbound request.
   Returns `{:ok, parts}` or `{:error, reason}`.
+
+  Two signing schemes are in use across the Fediverse. The original
+  `draft-cavage-http-signatures` puts everything in one `Signature` header;
+  RFC 9421, which Mastodon 4.7 sends, splits it across `Signature` and
+  `Signature-Input` and encodes the signature as a Structured Fields byte
+  sequence. They are told apart by the shape of the `Signature` value, and
+  either way the returned map exposes `keyId` so callers resolving the signing
+  actor do not need to know which was used.
   """
   def parse_signature(conn) do
-    with sig_header when is_binary(sig_header) <- get_signature_header(conn),
-         {:ok, parts} <- parse_signature_header(sig_header) do
-      {:ok, parts}
-    else
-      nil -> {:error, :no_signature}
-      error -> error
+    case get_signature_header(conn) do
+      nil ->
+        {:error, :no_signature}
+
+      sig_header ->
+        if Rfc9421.signature_header?(sig_header) do
+          Rfc9421.parse(conn)
+        else
+          parse_signature_header(sig_header)
+        end
     end
   end
 
@@ -126,6 +140,10 @@ defmodule Inkwell.Federation.HttpSignature do
   2. Digest header matches actual body (body tampering prevention)
   3. Cryptographic signature is valid (authenticity)
   """
+  def verify_signature(conn, %{"__scheme" => "rfc9421"} = sig_parts, public_key_pem) do
+    Rfc9421.verify(conn, sig_parts, public_key_pem)
+  end
+
   def verify_signature(conn, sig_parts, public_key_pem) do
     with :ok <- verify_date(conn),
          :ok <- verify_digest(conn, sig_parts),

@@ -740,7 +740,12 @@ defmodule InkwellWeb.FederationController do
                         :ok
 
                       {:error, reason} ->
-                        Logger.warning("Inbox: signature FAILED for #{actor_uri} after retry — #{inspect(reason)}")
+                        Logger.warning(
+                          "Inbox: signature FAILED for #{actor_uri} after retry — #{inspect(reason)} " <>
+                            "scheme=#{sig_parts["__scheme"] || "cavage"} " <>
+                            "signature-input=#{inspect(get_req_header_value(conn, "signature-input"))}"
+                        )
+
                         {:error, reason}
                     end
 
