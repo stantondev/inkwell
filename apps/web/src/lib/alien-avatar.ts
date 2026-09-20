@@ -397,10 +397,15 @@ export const ALIEN_SCENES: Record<
       <path d="M98 112 L98 80 C98 72 112 72 112 80 L112 112Z" fill="#8c6a52" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
       ${sceneCharacter(options, skin, 60, 42, 0.53)}
       <path d="M47 66 C47 62 73 62 73 66 L77 92 L43 92Z" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.6" stroke-linejoin="round"/>
-      ${limb("M45 90 C38 99 38 106 42 112", skin, 9)}
-      ${limb("M48 94 C62 100 78 96 86 88", skin, 10)}
-      <circle cx="88" cy="86" r="6" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.4"/>
-      ${openBook(60, 68, 0.94)}`,
+      <!-- Legs crossed: the supporting shin drops first, then the crossing leg
+           sweeps over it from the far hip so the overlap is drawn on top. -->
+      ${limb("M63 92 C64 100 65 107 66 113", skin, 9)}
+      <ellipse cx="70" cy="114" rx="7" ry="4" transform="rotate(12 70 114)" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.4"/>
+      ${limb("M78 92 C76 100 66 106 54 112", skin, 9.5)}
+      <ellipse cx="49" cy="113" rx="7.5" ry="4.2" transform="rotate(-20 49 113)" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.4"/>
+      ${openBook(60, 68, 0.94)}
+      <circle cx="40" cy="80" r="5.4" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.4"/>
+      <circle cx="80" cy="80" r="5.4" fill="${skin}" stroke="${ALIEN_INK}" stroke-width="2.4"/>`,
   },
   desk: {
     label: "The writing desk",
