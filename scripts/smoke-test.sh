@@ -81,15 +81,33 @@ check "unknown profile is 404" 404 "$WEB/this-user-should-not-exist-$RANDOM$RAND
 # A real public entry, taken from the explore feed. Ask for a wide page:
 # Explore is mostly fediverse posts, which have no slug of ours, so a short
 # page can easily contain no local entry and fail the smoke run for nothing.
-entry=$(curl -s --max-time 20 "$API/api/explore?per_page=40" |
+# A journal entry federates as an Article; a sticky federates as a Note. Both
+# are on Explore, so pick one of each rather than taking whatever is newest —
+# that assumed Article and started failing the day stickies shipped.
+explore=$(curl -s --max-time 20 "$API/api/explore?per_page=40")
+entry=$(printf '%s' "$explore" |
   python3 -c 'import sys,json
 try:
   d=json.load(sys.stdin)
   for e in d.get("data", []):
     a=(e.get("author") or {}).get("username")
-    if a and e.get("slug") and e.get("source") != "remote":
+    if a and e.get("slug") and e.get("source") != "remote" and e.get("kind") != "sticky":
       print(a, e["slug"], e["id"]); break
 except Exception: pass' 2>/dev/null)
+sticky=$(printf '%s' "$explore" |
+  python3 -c 'import sys,json
+try:
+  d=json.load(sys.stdin)
+  for e in d.get("data", []):
+    a=(e.get("author") or {}).get("username")
+    if a and e.get("slug") and e.get("source") != "remote" and e.get("kind") == "sticky":
+      print(a, e["slug"], e["id"]); break
+except Exception: pass' 2>/dev/null)
+if [[ -n "$sticky" ]]; then
+  read -r s_user s_slug s_id <<<"$sticky"
+  check "sticky page /$s_user/$s_slug" 200 "$WEB/$s_user/$s_slug"
+  check_body "sticky AP object is a Note" "$WEB/entries/$s_id" '"Note"' -H "$AP"
+fi
 if [[ -n "$entry" ]]; then
   read -r e_user e_slug e_id <<<"$entry"
   check "entry page /$e_user/$e_slug" 200 "$WEB/$e_user/$e_slug"
