@@ -100,15 +100,9 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
       />
 
       <p className="avatar-builder-attribution">
-        Avatar illustrations by{" "}
-        <a href="https://www.dicebear.com/styles/croodles/" target="_blank" rel="noopener noreferrer">
-          Croodles
-        </a>
-        {" "}via{" "}
-        <a href="https://www.dicebear.com" target="_blank" rel="noopener noreferrer">
-          DiceBear
-        </a>
-        . These are placeholder styles while we work with an artist on custom Inkwell avatars.
+        Hand-drawn for Inkwell &mdash; a small colony of literary aliens, with
+        props to match. Portraits stay legible everywhere they appear; scenes
+        are drawn for your profile page, where there&rsquo;s room to see them.
       </p>
     </div>
   );

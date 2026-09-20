@@ -1,6 +1,6 @@
 /**
  * Render an SVG string to a JPEG data URI at the specified size.
- * Used to convert DiceBear SVG to a storable avatar_url.
+ * Used to convert the generated alien avatar SVG to a storable avatar_url.
  * Same canvas pattern as resizeImage() in image-utils.ts.
  */
 export function renderSvgToDataUri(

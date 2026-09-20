@@ -230,7 +230,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "avatar-builder",
     question: "Can I create an avatar without uploading a photo?",
     answer:
-      'Yes! The Avatar Builder in <a href="/settings/avatar">Settings &rarr; Avatar</a> lets you create a custom hand-drawn character using DiceBear Croodles. Customize face, hair, eyes, mouth, and more. You can also randomize for inspiration.',
+      'Yes! The Avatar Builder in <a href="/settings/avatar">Settings &rarr; Avatar</a> lets you build a hand-drawn Inkwell alien. Choose a head, eyes, antennae, expression and a literary prop &mdash; an open book, a teacup, reading glasses, a dip pen, a wax-sealed letter &mdash; or switch to a Scene for a whole little vignette. Randomize for inspiration.',
     category: "customization",
   },
 

@@ -913,15 +913,8 @@ export default function WelcomePage() {
                       }}
                     />
                     <p className="avatar-builder-attribution">
-                      Illustrations by{" "}
-                      <a href="https://www.dicebear.com/styles/croodles/" target="_blank" rel="noopener noreferrer">
-                        Croodles
-                      </a>
-                      {" "}via{" "}
-                      <a href="https://www.dicebear.com" target="_blank" rel="noopener noreferrer">
-                        DiceBear
-                      </a>
-                      {" "}&mdash; custom Inkwell avatars coming soon.
+                      Hand-drawn for Inkwell. Pick a head, some eyes and a prop
+                      &mdash; or hit Randomize until one feels like you.
                     </p>
                   </>
                 )}

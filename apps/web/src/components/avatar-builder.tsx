@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { createAvatar } from "@dicebear/core";
-import * as croodles from "@dicebear/croodles";
-import * as croodlesNeutral from "@dicebear/croodles-neutral";
 import {
   AVATAR_STYLES,
-  OPTIONAL_CATEGORIES,
   getStyleById,
   getDefaultOptionsForStyle,
+  isSupportedConfig,
   type AvatarConfig,
 } from "@/lib/avatar-builder-config";
+import { buildAlienSvg } from "@/lib/alien-avatar";
 import { renderSvgToDataUri } from "@/lib/avatar-render";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 
@@ -25,29 +23,6 @@ interface AvatarBuilderProps {
   compact?: boolean;
 }
 
-// Map style IDs to their DiceBear style objects
-const DICEBEAR_STYLES: Record<string, typeof croodles> = {
-  croodles: croodles,
-  croodlesNeutral: croodlesNeutral,
-};
-
-function buildDiceBearOptions(options: Record<string, string>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(options)) {
-    if (OPTIONAL_CATEGORIES.has(key)) {
-      if (value === "__none") {
-        result[`${key}Probability`] = 0;
-      } else {
-        result[key] = [value];
-        result[`${key}Probability`] = 100;
-      }
-    } else {
-      result[key] = [value];
-    }
-  }
-  return result;
-}
-
 export function AvatarBuilder({
   initialConfig,
   photoUrl,
@@ -58,12 +33,15 @@ export function AvatarBuilder({
   onRevertToPhoto,
   compact = false,
 }: AvatarBuilderProps) {
-  const initStyleId = initialConfig?.style ?? "croodles";
-  const initStyle = getStyleById(initStyleId);
+  // A config saved by the retired DiceBear styles can't drive this builder,
+  // so fall back to a fresh portrait. The user's existing avatar_url is
+  // untouched until they actually save something new.
+  const usable = isSupportedConfig(initialConfig) ? initialConfig : null;
+  const initStyle = getStyleById(usable?.style ?? "portrait");
 
-  const [styleId, setStyleId] = useState(initStyleId);
+  const [styleId, setStyleId] = useState(initStyle.id);
   const [options, setOptions] = useState<Record<string, string>>(
-    initialConfig?.options ?? { ...getDefaultOptionsForStyle(initStyle) }
+    usable ? { ...getDefaultOptionsForStyle(initStyle), ...usable.options } : { ...getDefaultOptionsForStyle(initStyle) }
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -72,16 +50,7 @@ export function AvatarBuilder({
   const [activeCategory, setActiveCategory] = useState(currentStyle.categories[0].id);
 
   // Generate SVG string on every option change
-  const svgString = useMemo(() => {
-    const dicebearStyle = DICEBEAR_STYLES[styleId] ?? croodles;
-    const dbOpts = buildDiceBearOptions(options);
-    const avatar = createAvatar(dicebearStyle, {
-      ...dbOpts,
-      backgroundColor: ["transparent"],
-      backgroundType: ["solid"],
-    });
-    return avatar.toString();
-  }, [options, styleId]);
+  const svgString = useMemo(() => buildAlienSvg(styleId, options), [options, styleId]);
 
   // Generate a data URI for the AvatarWithFrame preview
   const previewDataUri = useMemo(() => {
@@ -239,7 +208,7 @@ export function AvatarBuilder({
                   type="button"
                   onClick={() => updateOption(activeCat.id, opt.value)}
                   className={`avatar-builder-swatch ${options[activeCat.id] === opt.value ? "active" : ""}`}
-                  style={{ backgroundColor: `#${opt.value}` }}
+                  style={{ backgroundColor: `#${opt.hex ?? opt.value}` }}
                   title={opt.label}
                   aria-label={opt.label}
                 />

@@ -1,6 +1,25 @@
+/**
+ * Avatar builder categories, derived from the hand-drawn alien art system
+ * in lib/alien-avatar.ts. The UI shape ({ id, label, type, options }) is
+ * unchanged from the previous DiceBear-backed build, so stored configs keep
+ * the same { style, options } storage format.
+ */
+import {
+  ALIEN_HEADS,
+  ALIEN_EYES,
+  ALIEN_ANTENNAE,
+  ALIEN_MOUTHS,
+  ALIEN_PROPS,
+  ALIEN_SCENES,
+  ALIEN_SKINS,
+  ALIEN_BGS,
+} from "./alien-avatar";
+
 export interface AvatarOptionChoice {
   value: string;
   label: string;
+  /** Hex (no leading #) for colour swatches. */
+  hex?: string;
   plusOnly?: boolean;
 }
 
@@ -18,164 +37,66 @@ export interface AvatarBuilderStyle {
   categories: AvatarOptionCategory[];
 }
 
-// DiceBear v9 Croodles option values — verified against @dicebear/croodles types
-export const CROODLES_STYLE: AvatarBuilderStyle = {
-  id: "croodles",
-  label: "Croodles",
-  description: "Hand-drawn doodle characters",
+export interface AvatarConfig {
+  style: string;
+  options: Record<string, string>;
+}
+
+const fromLabelled = (rec: Record<string, { label: string }>): AvatarOptionChoice[] =>
+  Object.entries(rec).map(([value, { label }]) => ({ value, label }));
+
+const fromPalette = (rec: Record<string, { label: string; hex: string }>): AvatarOptionChoice[] =>
+  Object.entries(rec).map(([value, { label, hex }]) => ({
+    value,
+    label,
+    hex: hex.replace("#", ""),
+  }));
+
+const SKIN_CATEGORY: AvatarOptionCategory = {
+  id: "skin",
+  label: "Skin",
+  type: "color",
+  options: fromPalette(ALIEN_SKINS),
+};
+
+const BG_CATEGORY: AvatarOptionCategory = {
+  id: "bg",
+  label: "Background",
+  type: "color",
+  options: fromPalette(ALIEN_BGS),
+};
+
+export const PORTRAIT_STYLE: AvatarBuilderStyle = {
+  id: "portrait",
+  label: "Portrait",
+  description: "A literary alien, drawn in ink",
   categories: [
-    {
-      id: "face",
-      label: "Face",
-      type: "select",
-      options: [
-        { value: "variant01", label: "Classic" },
-        { value: "variant02", label: "Round" },
-        { value: "variant03", label: "Soft" },
-        { value: "variant04", label: "Angular" },
-        { value: "variant05", label: "Wide" },
-        { value: "variant06", label: "Oval" },
-        { value: "variant07", label: "Long" },
-        { value: "variant08", label: "Square" },
-      ],
-    },
-    {
-      id: "top",
-      label: "Hair",
-      type: "select",
-      options: Array.from({ length: 29 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "topColor",
-      label: "Hair Color",
-      type: "color",
-      options: [
-        { value: "2c1b18", label: "Black" },
-        { value: "4a312c", label: "Dark Brown" },
-        { value: "a55728", label: "Brown" },
-        { value: "b58143", label: "Auburn" },
-        { value: "d6b370", label: "Blonde" },
-        { value: "e8e1e1", label: "Platinum" },
-        { value: "c93305", label: "Red" },
-        { value: "ecdcbf", label: "Strawberry" },
-        { value: "724133", label: "Chestnut" },
-        { value: "2d4a8a", label: "Ink Blue" },
-      ],
-    },
-    {
-      id: "eyes",
-      label: "Eyes",
-      type: "select",
-      options: Array.from({ length: 16 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "mouth",
-      label: "Mouth",
-      type: "select",
-      options: Array.from({ length: 18 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "nose",
-      label: "Nose",
-      type: "select",
-      options: Array.from({ length: 9 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "beard",
-      label: "Beard",
-      type: "select",
-      options: [
-        { value: "__none", label: "None" },
-        { value: "variant01", label: "Style 1" },
-        { value: "variant02", label: "Style 2" },
-        { value: "variant03", label: "Style 3" },
-        { value: "variant04", label: "Style 4" },
-        { value: "variant05", label: "Style 5" },
-      ],
-    },
-    {
-      id: "mustache",
-      label: "Mustache",
-      type: "select",
-      options: [
-        { value: "__none", label: "None" },
-        { value: "variant01", label: "Style 1" },
-        { value: "variant02", label: "Style 2" },
-        { value: "variant03", label: "Style 3" },
-        { value: "variant04", label: "Style 4" },
-      ],
-    },
-    {
-      id: "baseColor",
-      label: "Background",
-      type: "color",
-      options: [
-        { value: "f5ebe0", label: "Parchment" },
-        { value: "fefae0", label: "Cream" },
-        { value: "e9edc9", label: "Sage" },
-        { value: "d5c7a3", label: "Tan" },
-        { value: "ccd5ae", label: "Olive" },
-        { value: "ddb892", label: "Warm" },
-        { value: "b7c4cf", label: "Slate" },
-        { value: "f2e9e4", label: "Blush" },
-        { value: "ffffff", label: "White" },
-      ],
-    },
+    { id: "head", label: "Head", type: "select", options: fromLabelled(ALIEN_HEADS) },
+    { id: "eyes", label: "Eyes", type: "select", options: fromLabelled(ALIEN_EYES) },
+    { id: "antenna", label: "Antennae", type: "select", options: fromLabelled(ALIEN_ANTENNAE) },
+    { id: "mouth", label: "Mouth", type: "select", options: fromLabelled(ALIEN_MOUTHS) },
+    { id: "prop", label: "Props", type: "select", options: fromLabelled(ALIEN_PROPS) },
+    SKIN_CATEGORY,
+    BG_CATEGORY,
   ],
 };
 
-// DiceBear v9 Croodles Neutral — verified against @dicebear/croodles-neutral types
-export const CROODLES_NEUTRAL_STYLE: AvatarBuilderStyle = {
-  id: "croodlesNeutral",
-  label: "Croodles Neutral",
-  description: "Minimal doodle expressions",
+export const SCENE_STYLE: AvatarBuilderStyle = {
+  id: "scene",
+  label: "Scene",
+  description: "A whole little world — best viewed large",
   categories: [
-    {
-      id: "eyes",
-      label: "Eyes",
-      type: "select",
-      options: Array.from({ length: 16 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "nose",
-      label: "Nose",
-      type: "select",
-      options: Array.from({ length: 9 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
-    {
-      id: "mouth",
-      label: "Mouth",
-      type: "select",
-      options: Array.from({ length: 18 }, (_, i) => ({
-        value: `variant${String(i + 1).padStart(2, "0")}`,
-        label: `Style ${i + 1}`,
-      })),
-    },
+    { id: "scene", label: "Scene", type: "select", options: fromLabelled(ALIEN_SCENES) },
+    SKIN_CATEGORY,
+    BG_CATEGORY,
   ],
 };
 
-export const AVATAR_STYLES: AvatarBuilderStyle[] = [CROODLES_STYLE, CROODLES_NEUTRAL_STYLE];
+export const AVATAR_STYLES: AvatarBuilderStyle[] = [PORTRAIT_STYLE, SCENE_STYLE];
 
+/** Configs saved by the retired DiceBear styles resolve to the portrait builder. */
 export function getStyleById(id: string): AvatarBuilderStyle {
-  return AVATAR_STYLES.find((s) => s.id === id) ?? CROODLES_STYLE;
+  return AVATAR_STYLES.find((s) => s.id === id) ?? PORTRAIT_STYLE;
 }
 
 export function getDefaultOptionsForStyle(style: AvatarBuilderStyle): Record<string, string> {
@@ -186,16 +107,17 @@ export function getDefaultOptionsForStyle(style: AvatarBuilderStyle): Record<str
   return opts;
 }
 
-export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
-  style: "croodles",
-  options: getDefaultOptionsForStyle(CROODLES_STYLE),
-};
-
-export interface AvatarConfig {
-  style: string;
-  options: Record<string, string>;
+/**
+ * True when a stored config can actually drive the current builder. Configs
+ * from the retired DiceBear styles ("croodles", "croodlesNeutral") return
+ * false, so the builder opens on a fresh portrait rather than a broken one.
+ * Their already-rendered avatar_url keeps displaying either way.
+ */
+export function isSupportedConfig(config: AvatarConfig | null): boolean {
+  return !!config && AVATAR_STYLES.some((s) => s.id === config.style);
 }
 
-// "__none" is a sentinel for optional categories (beard, mustache).
-// When building DiceBear options, these map to probability=0 instead of a value.
-export const OPTIONAL_CATEGORIES = new Set(["beard", "mustache"]);
+export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
+  style: PORTRAIT_STYLE.id,
+  options: getDefaultOptionsForStyle(PORTRAIT_STYLE),
+};
