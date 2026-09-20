@@ -55,12 +55,17 @@ export async function POST(request: NextRequest) {
     // Remember which browser asked for this link. If the link is opened in the
     // same browser, /api/auth/verify sees this cookie and skips the "enter the
     // code from your other screen" step, since nothing needs handing over.
+    //
+    // This lasts as long as the magic link itself (30 minutes). At 10 minutes
+    // anyone who took longer than that to open their email — which is most
+    // people — was asked for a code in the very browser that had just asked
+    // for the link, and the screen showing that code was usually gone.
     if (res.ok && typeof data.login_session_id === "string") {
       response.cookies.set(HANDOFF_COOKIE, data.login_session_id, {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
-        maxAge: 10 * 60,
+        maxAge: 30 * 60,
         path: "/",
       });
     }

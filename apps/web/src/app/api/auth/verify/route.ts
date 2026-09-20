@@ -31,9 +31,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
+  // Was the link opened in the same browser that asked for it? That browser
+  // holds an httpOnly cookie only our own magic-link response can set, so an
+  // attacker can't fake it in someone else's browser.
+  const sameBrowser = !!lsid && request.cookies.get(HANDOFF_COOKIE)?.value === lsid;
+  const handoff = !!lsid && !sameBrowser;
+
+  // Tell the API when the link landed somewhere other than the requesting
+  // screen, so that screen can show its code at the moment it's needed
+  // instead of displaying one to everybody. This is a display hint only.
+  const verifyUrl = handoff
+    ? `${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}&awaiting=${encodeURIComponent(lsid!)}`
+    : `${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}`;
+
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}`, {
+    res = await fetch(verifyUrl, {
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
@@ -71,8 +84,6 @@ export async function POST(request: NextRequest) {
   }
 
   const destination = data.user?.settings?.onboarded ? "/feed" : "/welcome";
-  const sameBrowser = !!lsid && request.cookies.get(HANDOFF_COOKIE)?.value === lsid;
-  const handoff = !!lsid && !sameBrowser;
 
   const response = NextResponse.json({ ok: true, destination, handoff });
 

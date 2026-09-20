@@ -357,7 +357,7 @@ function CheckEmailStep({
   const [resendError, setResendError] = useState("");
   const [manualCheckFailed, setManualCheckFailed] = useState(false);
   const isPwa = useIsPwa();
-  const { status, destination, manualCheck } = useSessionPoll(true, loginSessionId);
+  const { status, destination, awaitingCode, manualCheck } = useSessionPoll(true, loginSessionId);
 
   // Auto-redirect when session is detected (cookie shared from browser/other tab)
   useEffect(() => {
@@ -451,7 +451,7 @@ function CheckEmailStep({
         </p>
       )}
 
-      <HandoffCodeNote code={handoffCode} />
+      <HandoffCodeNote code={handoffCode} awaiting={awaitingCode} />
 
       {devLink && (
         <div className="rounded-xl border p-4 text-left"

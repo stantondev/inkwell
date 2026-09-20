@@ -76,7 +76,7 @@ defmodule InkwellWeb.AuthController do
             # Create a login handoff for cross-context sign-in (the app asks,
             # the browser opens the email). The code is shown only on the
             # requesting screen and must be typed where the link is opened.
-            {login_session_id, handoff_code} = LoginHandoff.create_handoff()
+            {login_session_id, handoff_code} = LoginHandoff.create_handoff(user.id)
 
             # Magic link goes to Next.js /auth/verify, which calls Phoenix back server-side.
             # Include lsid so the verify step can complete the handoff for PWA polling.
@@ -130,11 +130,15 @@ defmodule InkwellWeb.AuthController do
     conn |> put_status(:unprocessable_entity) |> json(%{error: "email is required"})
   end
 
-  # GET /api/auth/verify?token=TOKEN&lsid=LOGIN_SESSION_ID
+  # GET /api/auth/verify?token=TOKEN[&awaiting=LOGIN_SESSION_ID]
   # Called server-side by Next.js /auth/verify route handler.
   # Returns a long-lived API token instead of a session cookie redirect.
-  # Optional lsid completes a PWA login handoff so the PWA can claim the session.
-  def verify_magic_link(conn, %{"token" => token}) do
+  #
+  # `awaiting` is sent only when the proxy can see that the link was opened
+  # somewhere other than the screen that asked for it. It records a display
+  # hint so that screen can show its code exactly when it is needed. It never
+  # hands anything over — that still takes the code.
+  def verify_magic_link(conn, %{"token" => token} = params) do
     case Auth.verify_magic_link_token(token) do
       :error ->
         conn |> put_status(:unauthorized) |> json(%{error: "Invalid or expired magic link"})
@@ -149,6 +153,10 @@ defmodule InkwellWeb.AuthController do
         # The handoff to another screen is NOT completed here any more: that
         # needs the code from the requesting screen (POST /auth/complete-handoff).
         # Opening a link must never hand a session to whoever requested it.
+        case params["awaiting"] do
+          lsid when is_binary(lsid) and lsid != "" -> LoginHandoff.mark_opened(lsid)
+          _ -> :ok
+        end
 
         json(conn, %{
           ok: true,
@@ -254,8 +262,10 @@ defmodule InkwellWeb.AuthController do
       {:ok, token, user_data} ->
         json(conn, %{ok: true, token: token, user: user_data})
 
-      :pending ->
-        json(conn, %{pending: true})
+      {:pending, awaiting_code} ->
+        # awaiting_code means the link has been opened in another browser or
+        # app, which is the only situation where this screen's code matters.
+        json(conn, %{pending: true, awaiting_code: awaiting_code})
 
       :not_found ->
         conn |> put_status(:not_found) |> json(%{expired: true})
@@ -278,17 +288,38 @@ defmodule InkwellWeb.AuthController do
       user = conn.assigns.current_user
       token = Auth.create_api_session_token(user.id)
 
-      case LoginHandoff.complete_handoff(lsid, code, token, render_user(user)) do
+      case LoginHandoff.complete_handoff(lsid, code, user.id, token, render_user(user)) do
         :ok ->
           json(conn, %{ok: true})
 
         :wrong_code ->
           Auth.revoke_api_session_token(token)
-          conn |> put_status(:unprocessable_entity) |> json(%{error: "That code doesn't match. Check the other screen and try again."})
+
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{
+            error: "That code doesn't match. Check the screen where you asked for the link."
+          })
+
+        :wrong_account ->
+          Auth.revoke_api_session_token(token)
+
+          conn
+          |> put_status(:forbidden)
+          |> json(%{
+            error:
+              "That code belongs to a sign-in request for a different account. You're signed in here either way."
+          })
 
         _expired_or_missing ->
           Auth.revoke_api_session_token(token)
-          conn |> put_status(:gone) |> json(%{error: "That sign-in request has expired. Ask for a new link on the other screen."})
+
+          conn
+          |> put_status(:gone)
+          |> json(%{
+            error:
+              "That sign-in request has expired, but you're signed in on this device. Ask for a new link on the other one."
+          })
       end
     end
   end

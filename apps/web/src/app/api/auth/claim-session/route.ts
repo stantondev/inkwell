@@ -41,9 +41,11 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Still waiting for browser verification
+    // Still waiting for browser verification. awaiting_code means the link
+    // has been opened in another browser or app, which is the only moment
+    // this screen's 4-digit code is worth showing.
     if (data.pending) {
-      return NextResponse.json({ pending: true });
+      return NextResponse.json({ pending: true, awaiting_code: !!data.awaiting_code });
     }
 
     // Expired or not found

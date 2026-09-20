@@ -40,9 +40,17 @@ defmodule InkwellWeb.LoginHandoffTest do
     {body["login_session_id"], body["handoff_code"], token}
   end
 
+  # The Next.js proxy only sends `awaiting` when the link landed somewhere
+  # other than the screen that asked for it.
   defp victim_opens_link(token, lsid) do
     build_conn()
-    |> get("/api/auth/verify", %{token: token, lsid: lsid})
+    |> get("/api/auth/verify", %{token: token, awaiting: lsid})
+    |> json_response(200)
+  end
+
+  defp victim_opens_link_same_browser(token) do
+    build_conn()
+    |> get("/api/auth/verify", %{token: token})
     |> json_response(200)
   end
 
@@ -110,5 +118,48 @@ defmodule InkwellWeb.LoginHandoffTest do
   test "completing a handoff requires being signed in" do
     conn = build_conn() |> post("/api/auth/complete-handoff", %{lsid: "x", code: "1234"})
     assert conn.status == 401
+  end
+
+  test "the code is only advertised once the link is opened elsewhere", %{victim: victim} do
+    {lsid, _code, token} = request_link(victim.email)
+
+    # Nothing has happened yet: the requesting screen has no reason to show a
+    # code, and showing one to everybody is what made people hunt the email
+    # for a number that was never in it.
+    assert %{"pending" => true, "awaiting_code" => false} = claim(lsid) |> json_response(200)
+
+    victim_opens_link(token, lsid)
+
+    assert %{"pending" => true, "awaiting_code" => true} = claim(lsid) |> json_response(200)
+  end
+
+  test "opening the link in the same browser leaves nothing awaiting a code", %{victim: victim} do
+    {lsid, _code, token} = request_link(victim.email)
+
+    assert %{"ok" => true} = victim_opens_link_same_browser(token)
+
+    assert %{"pending" => true, "awaiting_code" => false} = claim(lsid) |> json_response(200)
+  end
+
+  test "a handoff can't hand over a session for a different account", %{victim: victim} do
+    {lsid, code, _token} = request_link(victim.email)
+
+    {:ok, other} =
+      Accounts.create_user(%{
+        username: "handoff_other_#{System.unique_integer([:positive])}",
+        email: "other_#{System.unique_integer([:positive])}@example.com",
+        display_name: "Other"
+      })
+
+    other_session = Auth.create_api_session_token(other.id)
+
+    assert complete(other_session, lsid, code).status == 403
+    assert %{"pending" => true} = claim(lsid) |> json_response(200)
+  end
+
+  test "a handoff lives as long as the magic link it belongs to" do
+    # They used to be 5 minutes against the link's 30, so a link that was
+    # still perfectly valid could no longer be handed over.
+    assert Inkwell.Auth.LoginHandoff.ttl_seconds() == 1800
   end
 end

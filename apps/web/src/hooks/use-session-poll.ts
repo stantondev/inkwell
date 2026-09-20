@@ -19,10 +19,15 @@ const POLL_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
   const [status, setStatus] = useState<SessionPollStatus>(enabled ? "polling" : "idle");
   const [destination, setDestination] = useState<string>("/feed");
+  // True once the emailed link has been opened somewhere other than this
+  // screen — the only time the 4-digit code on this screen matters.
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkSession = useCallback(async (): Promise<boolean> => {
+    let handoffGone = false;
+
     // Primary: claim-session polling (works across isolated cookie jars)
     if (loginSessionId) {
       try {
@@ -35,18 +40,23 @@ export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
             setStatus("found");
             return true;
           }
+          setAwaitingCode(!!data.awaiting_code);
           // data.pending — keep polling
         } else if (res.status === 404) {
-          // Handoff expired — stop polling
-          setStatus("timeout");
-          return false;
+          // The handoff is gone. That is the NORMAL ending when the link was
+          // opened in this same browser: nothing was ever handed over because
+          // nothing needed to be. Falling straight to "timeout" here told
+          // people who were already signed in that they weren't, and the
+          // "I've clicked the link" button could never succeed afterwards.
+          handoffGone = true;
         }
       } catch {
         // Network error — keep polling
       }
     }
 
-    // Fallback: cookie-based session check (works when contexts share cookies)
+    // Always fall through to the cookie check: it is what catches the common
+    // same-browser sign-in.
     try {
       const res = await fetch("/api/session");
       if (res.ok) {
@@ -58,7 +68,10 @@ export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
       }
     } catch {
       // Network error — keep polling
+      return false;
     }
+
+    if (handoffGone) setStatus("timeout");
     return false;
   }, [loginSessionId]);
 
@@ -101,7 +114,7 @@ export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
     return found;
   }, [checkSession]);
 
-  return { status, destination, manualCheck };
+  return { status, destination, awaitingCode, manualCheck };
 }
 
 /**
