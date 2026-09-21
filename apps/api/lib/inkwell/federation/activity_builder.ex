@@ -808,9 +808,11 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @preview_max 280
 
   defp build_preview_content(entry) do
+    # A generated excerpt is a flat 280-character slice of the body that stops
+    # mid-sentence, so only an excerpt the writer wrote is used as-is.
     source =
       cond do
-        is_binary(entry.excerpt) and String.trim(entry.excerpt) != "" -> entry.excerpt
+        Map.get(entry, :excerpt_custom) == true and is_binary(entry.excerpt) and String.trim(entry.excerpt) != "" -> entry.excerpt
         is_binary(entry.body_html) -> entry.body_html
         true -> ""
       end

@@ -116,6 +116,12 @@ defmodule Inkwell.Federation.BlueskyBridgeTest do
       refute html =~ "A Title"
     end
 
+    test "a generated excerpt that stops mid-sentence still ends on a whole word with an ellipsis" do
+      body = "<p>" <> String.duplicate("harbour lights ", 40) <> "</p>"
+      html = preview(%{body_html: body, excerpt: String.slice(String.duplicate("harbour lights ", 40), 0, 280)})
+      assert html |> String.replace(~r/<[^>]+>/, "") |> String.ends_with?("…")
+    end
+
     test "fits Bluesky's 300 characters and ends on a whole word" do
       words = String.duplicate("lighthouse ", 60)
       html = preview(%{body_html: "<p>#{words}</p>"})
