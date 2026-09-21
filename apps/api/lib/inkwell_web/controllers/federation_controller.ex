@@ -758,13 +758,15 @@ defmodule InkwellWeb.FederationController do
                     end
 
                   {:error, reason} ->
-                    Logger.warning("Inbox: REJECTED — could not re-fetch actor #{actor_uri} — #{inspect(reason)}")
+                    Logger.info("Inbox: could not re-fetch actor #{actor_uri} — #{inspect(reason)}")
                     {:error, reason}
                 end
             end
 
           {:error, reason} ->
-            Logger.warning("Inbox: REJECTED — could not fetch actor #{actor_uri} — #{inspect(reason)}")
+            # Not a verdict: the caller decides. A `Delete` from an account whose
+            # server now answers 410 is expected, and is accepted rather than refused.
+            Logger.info("Inbox: could not fetch actor #{actor_uri} — #{inspect(reason)}")
             {:error, reason}
         end
     end

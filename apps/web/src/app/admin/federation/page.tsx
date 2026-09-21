@@ -79,6 +79,40 @@ function TimeAgo({ iso }: { iso: string | null }) {
   return <span>{Math.floor(secs / 86400)}d ago</span>;
 }
 
+/**
+ * Plain-English names for the inbound counters.
+ *
+ * Refusals used to be counted under a single `rejected_signature` label, which
+ * said only that something was turned away — not whether it was forged, sent by
+ * an account that no longer exists, or signed in a scheme we could not read.
+ */
+function inboundLabel(type: string): string {
+  const labels: Record<string, string> = {
+    rejected_no_signature: "Refused — unsigned",
+    rejected_malformed_signature: "Refused — unreadable signature",
+    rejected_invalid_signature: "Refused — signature did not verify",
+    rejected_invalid_signature_encoding: "Refused — corrupt signature",
+    rejected_digest_mismatch: "Refused — body does not match its digest",
+    rejected_missing_digest: "Refused — digest missing",
+    rejected_unsupported_digest: "Refused — digest we cannot check",
+    rejected_date_skew_too_large: "Refused — clock too far off",
+    rejected_signature_expired: "Refused — signature expired",
+    rejected_unsupported_algorithm: "Refused — signing algorithm unsupported",
+    rejected_domain_mismatch: "Refused — forwarded by another server",
+    rejected_actor_unreachable: "Refused — sender's server unreachable",
+    rejected_signature: "Refused — signature (legacy counter)",
+    delete_from_gone_actor: "Delete from a deleted account (accepted)",
+  };
+
+  if (labels[type]) return labels[type];
+
+  // `rejected_actor_fetch_<status>` — could not fetch the key to check against.
+  const fetchFailure = type.match(/^rejected_actor_fetch_(\d{3})$/);
+  if (fetchFailure) return `Refused — could not fetch sender's key (HTTP ${fetchFailure[1]})`;
+
+  return type;
+}
+
 export default function FederationPage() {
   const [status, setStatus] = useState<FederationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -224,11 +258,17 @@ export default function FederationPage() {
                         .sort(([, a], [, b]) => (b as number) - (a as number))
                         .map(([type, count]) => (
                           <tr key={type}>
-                            <td style={{ padding: "2px 0" }}>
-                              {type === "rejected_signature" ? (
-                                <span style={{ color: "var(--danger)" }}>{type}</span>
+                            <td style={{ padding: "2px 0" }} title={type}>
+                              {type.startsWith("rejected_") ? (
+                                <span style={{ color: "var(--danger)" }}>
+                                  {inboundLabel(type)}
+                                </span>
+                              ) : type === "delete_from_gone_actor" ? (
+                                <span style={{ color: "var(--muted)" }}>
+                                  {inboundLabel(type)}
+                                </span>
                               ) : (
-                                type
+                                inboundLabel(type)
                               )}
                             </td>
                             <td style={{ textAlign: "right", fontFamily: "monospace" }}>{count as number}</td>
