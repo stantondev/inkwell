@@ -606,9 +606,13 @@ defmodule InkwellWeb.FederationController do
         end
 
       {:error, reason} ->
-        Logger.warning("Inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} to /users/#{username}/inbox — #{inspect(reason)}")
-        track_rejection(reason)
-        conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+        if delete_from_gone_actor?(params, reason) do
+          accept_gone_actor_delete(conn, params)
+        else
+          Logger.warning("Inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} to /users/#{username}/inbox — #{inspect(reason)}")
+          track_rejection(reason)
+          conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+        end
     end
   end
 
@@ -628,9 +632,13 @@ defmodule InkwellWeb.FederationController do
         end
 
       {:error, reason} ->
-        Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
-        track_rejection(reason)
-        conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+        if delete_from_gone_actor?(params, reason) do
+          accept_gone_actor_delete(conn, params)
+        else
+          Logger.warning("Shared inbox: rejected #{params["type"] || "unknown"} from #{params["actor"] || "unknown"} — #{inspect(reason)}")
+          track_rejection(reason)
+          conn |> put_status(:unauthorized) |> json(%{error: "Invalid signature"})
+        end
     end
   end
 
@@ -830,6 +838,88 @@ defmodule InkwellWeb.FederationController do
         :not_a_key
     end
   end
+
+  # A deleted account is the one case where a signature can never be verified and
+  # never will be: the account broadcasts `Delete`, and by the time it reaches us
+  # its server already answers 404/410 for the key we would check it against.
+  #
+  # Refusing these with a 401 does not make us safer — we take no action on an
+  # activity we cannot verify either way — but it does tell the sender to keep
+  # trying, and Mastodon then redelivers with backoff for days. Four gone accounts
+  # accounted for 106 of 113 refusals in one sample, each retried roughly 25 times.
+  # Accepting and dropping them ends that, which is what Mastodon itself does.
+  @doc false
+  def delete_from_gone_actor?(params, reason) do
+    params["type"] == "Delete" and reason in [{:http_error, 404}, {:http_error, 410}]
+  end
+
+  @doc """
+  The actor an unverifiable `Delete` may purge, or `nil` when it may purge nothing.
+
+  Only an account deleting *itself* qualifies, and only when the key that signed
+  the request belongs to that same account — the one whose server has just told
+  us it is gone. A `Delete` naming anyone else is dropped unprocessed.
+  """
+  def self_delete_target(params, key_actor_uri) do
+    actor = params["actor"]
+
+    if is_binary(actor) and actor != "" and activity_object_id(params["object"]) == actor and
+         key_actor_uri == actor do
+      actor
+    end
+  end
+
+  defp accept_gone_actor_delete(conn, params) do
+    actor = params["actor"]
+    Logger.info("Inbox: accepting unverifiable Delete from gone actor #{actor || "(unknown)"}")
+    Inkwell.Federation.FederationStats.track_inbound("delete_from_gone_actor")
+
+    # Only when the account is deleting *itself* do we act on it, and only on the
+    # actor its own server has confirmed is gone. An activity claiming to delete
+    # somebody else is dropped unprocessed — nothing here trusts the payload.
+    case self_delete_target(params, key_actor_uri(conn)) do
+      nil -> :ok
+      target -> purge_gone_actor(target)
+    end
+
+    conn |> put_status(:accepted) |> json(%{ok: true})
+  end
+
+  defp purge_gone_actor(actor_uri) do
+    case RemoteActor.get_by_ap_id(actor_uri) do
+      nil ->
+        :ok
+
+      actor ->
+        # Cascades to the actor's cached posts, follows, inks and reprints.
+        Repo.delete(actor)
+        Logger.info("Purged deleted remote actor #{actor_uri} and their cached content")
+    end
+  rescue
+    e ->
+      Logger.warning("Could not purge remote actor #{actor_uri}: #{inspect(e)}")
+      :ok
+  end
+
+  # The actor the signing key belongs to, without dereferencing anything — a
+  # fragment keyId (`…/users/alice#main-key`) is the actor with the fragment
+  # removed. Path-style keyIds are left alone, so they simply will not match and
+  # nothing is purged.
+  defp key_actor_uri(conn) do
+    with {:ok, sig_parts} <- HttpSignature.parse_signature(conn),
+         key_id when is_binary(key_id) <- sig_parts["keyId"] do
+      case URI.parse(key_id) do
+        %URI{fragment: nil} -> key_id
+        uri -> %{uri | fragment: nil} |> URI.to_string()
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  defp activity_object_id(%{"id" => id}) when is_binary(id), do: id
+  defp activity_object_id(id) when is_binary(id), do: id
+  defp activity_object_id(_), do: nil
 
   # Records why an inbound activity was turned away, so the federation dashboard
   # distinguishes "we cannot read this sender's signature scheme" from "this
@@ -1577,6 +1667,9 @@ defmodule InkwellWeb.FederationController do
 
       # Also try deleting a federated guestbook entry
       Inkwell.Guestbook.delete_by_ap_id(object_id)
+
+      # An account deleting itself: drop the actor and everything cached with it.
+      if object_id == activity["actor"], do: purge_gone_actor(object_id)
     end
 
     :ok
