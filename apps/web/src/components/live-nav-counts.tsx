@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { installAudioUnlock, playChime } from "@/lib/notification-sound";
+import type { Notification } from "@/lib/notification-format";
 
 interface NavCounts {
   draftCount: number;
@@ -53,6 +55,7 @@ const BACKOFF_MAX_MS = 300_000;
 
 interface SessionSettings {
   notification_sounds_muted?: boolean;
+  notification_popups_disabled?: boolean;
   hide_notification_badges?: boolean;
   eye_comfort_mode?: boolean;
   sidebar_hidden?: boolean;
@@ -182,6 +185,57 @@ function stopSharedPolling() {
   document.removeEventListener("visibilitychange", handleSharedVisibility);
 }
 
+// --- New arrivals: pop-ups + live Notifications page ---
+// The poll only returns counts. When the unread count goes up, fetch the
+// newest page of notifications once and hand the new ones to anything
+// listening: the toaster (NotificationToaster) and the Notifications page,
+// which prepends them instead of waiting for a reload.
+//
+// "New" is decided by id, not by timestamp, so a clock difference between the
+// browser and the server can't hide or repeat one.
+export const NOTIFICATIONS_ARRIVED_EVENT = "inkwell-notifications-arrived";
+export const LETTERS_ARRIVED_EVENT = "inkwell-letters-arrived";
+
+export interface NotificationsArrivedDetail {
+  /** Newly arrived unread notifications, newest first. */
+  notifications: Notification[];
+  /** The whole first page as the server returned it. */
+  latest: Notification[];
+  /** Whether pop-ups should be shown for these (user setting). */
+  showPopups: boolean;
+}
+
+export interface LettersArrivedDetail {
+  count: number;
+  showPopups: boolean;
+}
+
+const seenNotificationIds = new Set<string>();
+let arrivalsFetch: Promise<void> | null = null;
+
+function announceNotifications(increase: number, showPopups: boolean) {
+  if (arrivalsFetch) return;
+  arrivalsFetch = fetch("/api/notifications", { cache: "no-store" })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((json) => {
+      const latest: Notification[] = Array.isArray(json?.data) ? json.data : [];
+      const fresh = latest
+        .filter((n) => !n.read && !seenNotificationIds.has(n.id))
+        .slice(0, Math.max(increase, 1));
+      latest.forEach((n) => seenNotificationIds.add(n.id));
+      if (fresh.length === 0) return;
+      window.dispatchEvent(
+        new CustomEvent<NotificationsArrivedDetail>(NOTIFICATIONS_ARRIVED_EVENT, {
+          detail: { notifications: fresh, latest, showPopups },
+        })
+      );
+    })
+    .catch(() => {})
+    .finally(() => {
+      arrivalsFetch = null;
+    });
+}
+
 // --- Favicon badge helpers ---
 
 const ORIGINAL_FAVICON = "/favicon.svg";
@@ -230,8 +284,11 @@ function setFavicon(href: string) {
 /** Get the base page title without any notification prefix */
 function getBaseTitle(): string {
   const raw = document.title;
-  // Strip existing "(N) " prefix if present
-  return raw.replace(/^\(\d+\)\s*/, "");
+  // Strip an existing "(N) " prefix and the blink text, which another hook
+  // instance may have put there mid-blink.
+  return raw
+    .replace(/^\(\d+\)\s*/, "")
+    .replace(/^✦ New notification — /, "");
 }
 
 /**
@@ -247,8 +304,6 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
   const pathname = usePathname();
 
   // Refs for polling + sound
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioUnlockedRef = useRef(false);
   const soundsMutedRef = useRef(false);
   const hideBadgesRef = useRef(false);
   const mountedRef = useRef(true);
@@ -281,22 +336,10 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
       .catch(() => {});
   }, []);
 
-  // Unlock AudioContext on first user interaction (browser autoplay policy)
+  // Unlock audio on the first user interaction (browser autoplay policy).
+  // Shared across instances; see lib/notification-sound.ts.
   useEffect(() => {
-    const unlock = () => {
-      if (!audioUnlockedRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-        audioUnlockedRef.current = true;
-      }
-      document.removeEventListener("click", unlock);
-      document.removeEventListener("keydown", unlock);
-    };
-    document.addEventListener("click", unlock);
-    document.addEventListener("keydown", unlock);
-    return () => {
-      document.removeEventListener("click", unlock);
-      document.removeEventListener("keydown", unlock);
-    };
+    installAudioUnlock();
   }, []);
 
   // Cleanup on unmount
@@ -385,42 +428,6 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     return () => stopTitleBlink();
   }, [stopTitleBlink]);
 
-  // Synthesize a gentle two-note chime via Web Audio API
-  // No external file needed — produces a soft, pleasant "ding-ding"
-  const playSound = useCallback(() => {
-    if (soundsMutedRef.current || !audioUnlockedRef.current) return;
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    // Resume context if it was suspended (browser policy)
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-    const volume = 0.15; // gentle volume
-
-    // Helper: play one soft tone
-    const playTone = (freq: number, start: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      // Soft attack, gentle decay
-      gain.gain.setValueAtTime(0, now + start);
-      gain.gain.linearRampToValueAtTime(volume, now + start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + start);
-      osc.stop(now + start + duration);
-    };
-
-    // Two ascending notes: E5 (659 Hz) then A5 (880 Hz) — pleasant major fourth
-    playTone(659, 0, 0.25);
-    playTone(880, 0.15, 0.3);
-  }, []);
-
   const refetch = useCallback(() => {
     fetchSession()
       .then((session) => {
@@ -496,17 +503,43 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
 
         // Detect new arrivals using module-level shared prev counts
         // (prevents duplicate sounds from multiple hook instances)
-        const hasNewNotification =
-          newCounts.unreadNotificationCount > sharedPrevNotifications ||
-          newCounts.unreadLetterCount > sharedPrevLetters;
+        const notificationIncrease =
+          sharedPrevNotifications >= 0
+            ? newCounts.unreadNotificationCount - sharedPrevNotifications
+            : 0;
+        const letterIncrease =
+          sharedPrevLetters >= 0
+            ? newCounts.unreadLetterCount - sharedPrevLetters
+            : 0;
+        const hasNewNotification = notificationIncrease > 0 || letterIncrease > 0;
+        const showPopups =
+          !hideBadgesRef.current && !session.settings?.notification_popups_disabled;
 
         if (hasNewNotification && !hideBadgesRef.current) {
           const now = Date.now();
           if (now - lastSoundTime > SOUND_DEBOUNCE_MS) {
-            playSound();
+            if (!soundsMutedRef.current) {
+              playChime(notificationIncrease > 0 ? "notification" : "letter");
+            }
             startTitleBlink();
             lastSoundTime = now;
           }
+        }
+
+        // The Notifications page wants new rows even when pop-ups and badges
+        // are off; elsewhere, only fetch when there's a pop-up to show.
+        if (
+          notificationIncrease > 0 &&
+          (showPopups || window.location.pathname.startsWith("/notifications"))
+        ) {
+          announceNotifications(notificationIncrease, showPopups);
+        }
+        if (letterIncrease > 0) {
+          window.dispatchEvent(
+            new CustomEvent<LettersArrivedDetail>(LETTERS_ARRIVED_EVENT, {
+              detail: { count: letterIncrease, showPopups },
+            })
+          );
         }
 
         // Update shared prev counts so other instances see the same baseline
@@ -532,7 +565,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         setCounts(newCounts);
       })
       .catch(() => {});
-  }, [playSound, startTitleBlink, updateTabTitle, updateFaviconBadge]);
+  }, [startTitleBlink, updateTabTitle, updateFaviconBadge]);
 
   // Kept current so the poll subscription below can stay on empty deps.
   const refetchRef = useRef(refetch);

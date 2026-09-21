@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
+import { previewChime } from "@/lib/notification-sound";
 
 export function NotificationSettings() {
   const [soundsMuted, setSoundsMuted] = useState(false);
   const [autoMarkRead, setAutoMarkRead] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
+  const [popupsDisabled, setPopupsDisabled] = useState(false);
   const [pushDisabled, setPushDisabled] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -23,6 +25,7 @@ export function NotificationSettings() {
         setSoundsMuted(!!data.settings?.notification_sounds_muted);
         setAutoMarkRead(!!data.settings?.auto_mark_notifications_read);
         setHideBadges(!!data.settings?.hide_notification_badges);
+        setPopupsDisabled(!!data.settings?.notification_popups_disabled);
         setPushDisabled(!!data.settings?.push_notifications_disabled);
         setEmailDisabled(!!data.settings?.email_notifications_disabled);
       } catch {
@@ -195,6 +198,43 @@ export function NotificationSettings() {
             <span className="text-sm font-medium">Mute notification sounds</span>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
               When enabled, Inkwell won&apos;t play a sound when new notifications or letters arrive.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); previewChime("notification"); }}
+                className="text-xs underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Play the notification sound
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); previewChime("letter"); }}
+                className="text-xs underline"
+                style={{ color: "var(--accent)" }}
+              >
+                Play the letter sound
+              </button>
+            </div>
+          </div>
+        </label>
+
+        <label
+          className="flex items-start gap-3 cursor-pointer mt-4"
+          style={{ opacity: saving ? 0.6 : 1 }}
+        >
+          <input
+            type="checkbox"
+            checked={!popupsDisabled}
+            onChange={(e) => toggleSetting("notification_popups_disabled", !e.target.checked, setPopupsDisabled)}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Show pop-ups for new notifications</span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              A small card appears in the corner when someone comments, stamps, follows or writes to you while you&apos;re on Inkwell.
             </p>
           </div>
         </label>

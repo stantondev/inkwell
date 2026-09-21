@@ -7,6 +7,7 @@ import { BottomTabBar } from "./bottom-tab-bar";
 import { MobileTopBar } from "./mobile-top-bar";
 import { SearchCommand } from "./search-command";
 import { JotComposer } from "./jot-composer";
+import { NotificationToaster } from "./notification-toaster";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -73,6 +74,9 @@ export async function AppShell({
 
       {/* Jot composer for Stickies — opened from the sidebar, feed and profile */}
       {user && <JotComposer />}
+
+      {/* Pop-ups for notifications and letters that arrive while you're here */}
+      {user && <NotificationToaster />}
 
       {/* Main content area — bottom padding on mobile for tab bar clearance */}
       <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>

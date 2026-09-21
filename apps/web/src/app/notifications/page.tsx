@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { NotificationList } from "./notification-list";
 import { FetchError } from "@/components/fetch-error";
 
-export const metadata: Metadata = { title: "Notifications · Inkwell" };
+export const metadata: Metadata = { title: "Notifications" };
 
 interface Notification {
   id: string;
