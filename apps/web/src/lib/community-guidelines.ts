@@ -43,7 +43,8 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
       "Hate speech, slurs, or content that targets people based on their identity \u2014 including race, ethnicity, gender, sexuality, disability, religion, or nationality.",
       "Harassment, bullying, doxxing, threats, or coordinated pile-ons against any individual or group.",
       "Non-consensual intimate imagery, or any sexual content involving minors. This results in an immediate permanent ban and a report to law enforcement.",
-      "Spam, scams, phishing, or commercial solicitation disguised as journal entries.",
+      "Accounts made to promote a business, product, service or website \u2014 including SEO articles, backlinks, and product copy written to look like journal entries. Inkwell is for people writing as themselves. Mentioning your own work or linking your blog is fine; using Inkwell as advertising space isn\u2019t.",
+      "Spam, scams, or phishing of any kind.",
       "Malware, malicious code, or any attempt to exploit other users or the platform.",
     ],
   },
@@ -104,7 +105,7 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
     body: [
       "If you see something that violates these guidelines, let us know. You can reach us at hello@inkwell.social or through the community roadmap.",
       "We investigate every report fairly and act proportionally. Our graduated response is: a friendly reminder, then a formal warning, then a temporary suspension, and finally a permanent ban.",
-      "Spam is the exception. Accounts that clearly exist to advertise or post link spam are suspended automatically by rule-based checks (not AI), and their posts are hidden rather than deleted. If that happens to you by mistake, email hello@inkwell.social and a person will review it.",
+      "Spam is the exception, and it gets no warning. Rule-based checks (not AI) flag promotional and link-spam accounts automatically: their posts are kept out of Explore and the homepage, and clear cases are suspended with their posts hidden. If that happens to you by mistake, email hello@inkwell.social and a person will review it.",
       "You may appeal any moderation decision. We\u2019re human too, and we\u2019d rather have a conversation than make a mistake.",
       "Our goal is to guide, not to punish. Most issues resolve with a simple conversation \u2014 and we\u2019d like to keep it that way.",
     ],

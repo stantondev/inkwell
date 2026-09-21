@@ -80,7 +80,15 @@ defmodule Inkwell.Moderation.SpamSignals do
     "call girls", "replica watches", "promo code", "discount code", "coupon code",
     "unblocked games", "slope game", "slither io", "geometry dash", "retro bowl",
     "near me", "book an appointment", "get a free quote", "contact us today",
-    "whatsapp us", "limited time offer", "click here to buy", "order now"
+    "whatsapp us", "limited time offer", "click here to buy", "order now",
+    # Product/service marketing copy (Sept 2026: packaging supplier, field
+    # software vendor, clothing shop). Checked against every active account
+    # before adding: only business and SEO accounts matched.
+    "high-quality products", "wide range of products", "trusted name in", "packaging solutions",
+    "management software", "helps businesses", "businesses improve", "we offer high",
+    "we provide high", "industries such as", "tamper-evident", "ideal for everyday",
+    "key features of", "affordable prices", "manufacturer and supplier", "leading provider",
+    "one-stop solution", "customer satisfaction", "our expert team", "our team of experts"
   ]
 
   @doc """

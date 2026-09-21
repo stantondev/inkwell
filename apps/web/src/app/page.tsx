@@ -51,11 +51,19 @@ interface ExploreEntry {
 
 async function getRecentEntries(): Promise<ExploreEntry[]> {
   try {
+    // showcase=1: only writers someone else on Inkwell has inked, stamped or
+    // commented on — keeps brand-new SEO spam accounts off the homepage.
     const data = await apiFetch<{ data: ExploreEntry[] }>(
-      "/api/explore?per_page=18&source=inkwell"
+      "/api/explore?per_page=40&source=inkwell&showcase=1"
     );
+    // One entry per writer, so a single prolific account can't fill the section.
+    const seen = new Set<string>();
     return data.data
-      .filter((e) => e.title)
+      .filter((e) => {
+        if (!e.title || seen.has(e.author.username)) return false;
+        seen.add(e.author.username);
+        return true;
+      })
       .slice(0, 6);
   } catch {
     return [];

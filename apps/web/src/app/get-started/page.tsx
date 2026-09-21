@@ -291,6 +291,14 @@ export default function GetStartedPage() {
               <p className="text-xs text-center leading-relaxed" style={{ color: "var(--muted)" }}>
                 We&apos;ll send a magic link to your email — no password needed.
               </p>
+
+              <p className="text-xs text-center leading-relaxed" style={{ color: "var(--muted)" }}>
+                Inkwell is for personal writing. Accounts made to advertise a business or
+                build links are removed without warning.{" "}
+                <Link href="/guidelines" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                  Guidelines
+                </Link>
+              </p>
             </form>
 
             {/* Fediverse sign-in option */}

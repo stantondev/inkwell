@@ -34,6 +34,36 @@ defmodule Inkwell.Moderation.SpamSignalsTest do
     assert SpamSignals.decision(r) == :block
   end
 
+  # Sept 2026: supplier product copy on gmail scored 4 and sat on the homepage.
+  test "supplier product copy on gmail is blocked" do
+    r =
+      SpamSignals.score(%{
+        email_domain: "gmail.com",
+        texts: [
+          "Bottle Foil Seal – Secure and Tamper-Evident Packaging Solutions",
+          "Widely used across industries such as pharmaceuticals. At Muffadal, we offer high-quality seals. Key Features of Bottle Foil Seals"
+        ],
+        links: ["https://maps.app.goo.gl/abc"],
+        minutes_to_first_post: 2,
+        interactions: 0
+      })
+
+    assert SpamSignals.decision(r) == :block
+  end
+
+  test "a personal essay mentioning work software is not flagged" do
+    r =
+      SpamSignals.score(%{
+        email_domain: "gmail.com",
+        texts: ["Today I spent hours fighting our project management software and then went for a walk."],
+        links: [],
+        minutes_to_first_post: 5,
+        interactions: 0
+      })
+
+    assert SpamSignals.decision(r) == :none
+  end
+
   test "a real new writer who posts quickly is left alone" do
     r =
       SpamSignals.score(%{

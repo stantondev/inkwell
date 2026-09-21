@@ -900,6 +900,34 @@ defmodule Inkwell.Journals do
     )
   end
 
+  @doc """
+  Writers kept off the homepage showcase: accounts under 30 days old that
+  link to outside sites and have never commented, inked, stamped or followed
+  anyone. That is the shape of every SEO spam account we've had, and it
+  doesn't depend on anyone else having read them yet — new writers who
+  don't post outside links show up straight away.
+  """
+  def showcase_excluded_user_ids do
+    cutoff = DateTime.utc_now() |> DateTime.add(-30, :day)
+
+    from(u in Inkwell.Accounts.User,
+      as: :u,
+      where: u.inserted_at > ^cutoff,
+      where:
+        exists(
+          from(e in Entry,
+            where: e.user_id == parent_as(:u).id and e.status == :published,
+            where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
+          )
+        ),
+      where: not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)),
+      where: not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)),
+      where: not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)),
+      where: not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id)),
+      select: u.id
+    )
+  end
+
   def list_public_explore_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
@@ -933,6 +961,11 @@ defmodule Inkwell.Journals do
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
     query = maybe_exclude_stickies(query, Keyword.get(opts, :exclude_stickies, false))
+
+    query =
+      if Keyword.get(opts, :showcase, false),
+        do: where(query, [e], e.user_id not in subquery(showcase_excluded_user_ids())),
+        else: query
 
     query =
       if exclude_user_ids != [] do
