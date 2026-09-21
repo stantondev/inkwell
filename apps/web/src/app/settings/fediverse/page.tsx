@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Avatar } from "@/components/avatar";
+import { BlueskyBridgeCard } from "./bluesky-bridge-card";
 
 interface FediverseAccount {
   id: string;
@@ -127,6 +128,8 @@ export default function FediverseSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <BlueskyBridgeCard />
+
       <div>
         <h2
           className="text-lg font-semibold mb-1"

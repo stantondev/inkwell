@@ -97,7 +97,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
       { href: "/settings/newsletter", label: "Newsletter", icon: MailIcon },
       { href: "/settings/invite", label: "Invite Friends", icon: InviteIcon },
       { href: "/settings/blocked", label: "Blocked", icon: BlockIcon },
-      { href: "/settings/fediverse", label: "Fediverse", icon: GlobeIcon },
+      { href: "/settings/fediverse", label: "Fediverse & Bluesky", icon: GlobeIcon },
     ],
   },
   {

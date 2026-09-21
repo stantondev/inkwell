@@ -112,7 +112,7 @@ defmodule InkwellWeb.FederationDebugController do
               has_public_key: is_map(actor["publicKey"]),
               followers: actor["followers"],
               following: actor["following"],
-              icon_url: get_in(actor, ["icon", "url"]),
+              icon_url: Inkwell.Federation.RemoteActor.media_url(actor["icon"]),
               summary_length: String.length(actor["summary"] || ""),
               published: actor["published"]
             }

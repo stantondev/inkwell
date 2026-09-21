@@ -238,8 +238,8 @@ defmodule Inkwell.Federation.RemoteActor do
       username: data["preferredUsername"] || data["name"],
       domain: uri.host,
       display_name: data["name"] || data["preferredUsername"],
-      avatar_url: get_in(data, ["icon", "url"]),
-      banner_url: get_in(data, ["image", "url"]),
+      avatar_url: media_url(data["icon"]),
+      banner_url: media_url(data["image"]),
       inbox: data["inbox"],
       shared_inbox: shared_inbox,
       public_key_pem: public_key_pem,
@@ -264,4 +264,16 @@ defmodule Inkwell.Federation.RemoteActor do
       {:error, :incomplete_actor}
     end
   end
+
+  @doc """
+  URL of an actor's `icon` or `image`. ActivityStreams allows an Image object,
+  a Link, a bare URL string, or a list of any of these (Bridgy Fed's Bluesky
+  accounts send a list); a list gives its first usable entry.
+  """
+  def media_url(%{"url" => url}) when is_binary(url), do: url
+  def media_url(%{"url" => url}), do: media_url(url)
+  def media_url(%{"href" => href}) when is_binary(href), do: href
+  def media_url(url) when is_binary(url), do: url
+  def media_url(list) when is_list(list), do: Enum.find_value(list, &media_url/1)
+  def media_url(_), do: nil
 end

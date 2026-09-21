@@ -540,15 +540,45 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds a Follow activity for subscribing to a relay or remote actor.
   """
-  def build_follow(target_actor_url, local_user) do
+  def build_follow(target_actor_url, local_user, opts \\ []) do
     actor_url = actor_url(local_user)
+
+    # unique: true for receivers that drop activity ids they've seen before
+    # (Bridgy Fed), when the same follow may legitimately be sent again.
+    suffix = if opts[:unique], do: "-#{System.system_time(:nanosecond)}", else: ""
 
     %{
       "@context" => ap_context(),
       "type" => "Follow",
-      "id" => "#{actor_url}#follow-#{object_hash(target_actor_url)}",
+      "id" => "#{actor_url}#follow-#{object_hash(target_actor_url)}#{suffix}",
       "actor" => actor_url,
       "object" => target_actor_url
+    }
+  end
+
+  @doc "Builds a Block activity (used to switch off the Bluesky bridge)."
+  def build_block(target_actor_url, local_user) do
+    actor_url = actor_url(local_user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Block",
+      "id" => "#{actor_url}#block-#{object_hash(target_actor_url)}-#{System.system_time(:nanosecond)}",
+      "actor" => actor_url,
+      "object" => target_actor_url
+    }
+  end
+
+  @doc "Builds an Undo { Block } for a Block previously sent with `block_id`."
+  def build_undo_block(target_actor_url, local_user, block_id) do
+    actor_url = actor_url(local_user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Undo",
+      "id" => "#{actor_url}#undo-block-#{System.system_time(:nanosecond)}",
+      "actor" => actor_url,
+      "object" => %{"type" => "Block", "id" => block_id, "actor" => actor_url, "object" => target_actor_url}
     }
   end
 
@@ -770,27 +800,38 @@ defmodule Inkwell.Federation.ActivityBuilder do
     end
   end
 
+  # The preview Note is what microblogging consumers show in place of the
+  # full Article. Bluesky (via Bridgy Fed) uses its text as the post and adds a
+  # link card carrying the title, so the preview is the excerpt alone, kept
+  # under Bluesky's 300-character limit and cut at a word boundary rather than
+  # ellipsized mid-word by the bridge.
+  @preview_max 280
+
   defp build_preview_content(entry) do
-    title_html =
-      if entry.title && entry.title != "",
-        do: "<p><strong>#{html_escape(entry.title)}</strong></p>",
-        else: ""
-
-    excerpt_html =
+    source =
       cond do
-        entry.excerpt && entry.excerpt != "" ->
-          "<p>#{entry.excerpt}</p>"
-
-        entry.body_html ->
-          plain = entry.body_html |> strip_html_tags() |> String.trim()
-          truncated = if String.length(plain) > 280, do: String.slice(plain, 0, 280) <> "…", else: plain
-          if truncated != "", do: "<p>#{truncated}</p>", else: ""
-
-        true ->
-          ""
+        is_binary(entry.excerpt) and String.trim(entry.excerpt) != "" -> entry.excerpt
+        is_binary(entry.body_html) -> entry.body_html
+        true -> ""
       end
 
-    title_html <> excerpt_html
+    text =
+      source
+      |> strip_html_tags()
+      |> decode_entities()
+      |> String.replace(~r/\s+/u, " ")
+      |> String.trim()
+
+    text =
+      if String.length(text) > @preview_max do
+        cut = String.slice(text, 0, @preview_max - 1)
+        cut = Regex.replace(~r/\s+\S*$/u, cut, "")
+        String.trim_trailing(cut, " ,;:-") <> "…"
+      else
+        text
+      end
+
+    if text == "", do: "", else: "<p>#{html_escape(text)}</p>"
   end
 
   defp strip_html_tags(html) when is_binary(html) do
@@ -799,6 +840,23 @@ defmodule Inkwell.Federation.ActivityBuilder do
     |> String.trim()
   end
   defp strip_html_tags(_), do: ""
+
+  @named_entities %{"amp" => "&", "lt" => "<", "gt" => ">", "quot" => "\"", "apos" => "'", "nbsp" => " "}
+
+  # Plain text out of stored HTML text nodes, so it can be measured and
+  # escaped once (otherwise "&amp;" comes out as "&amp;amp;").
+  defp decode_entities(text) do
+    Regex.replace(~r/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/i, text, fn whole, code ->
+      cond do
+        String.starts_with?(code, ["#x", "#X"]) -> codepoint(String.to_integer(String.slice(code, 2..-1//1), 16), whole)
+        String.starts_with?(code, "#") -> codepoint(String.to_integer(String.slice(code, 1..-1//1)), whole)
+        true -> Map.get(@named_entities, String.downcase(code), whole)
+      end
+    end)
+  end
+
+  defp codepoint(n, _whole) when n in 0x20..0xD7FF or n in 0xE000..0x10FFFF, do: <<n::utf8>>
+  defp codepoint(_n, whole), do: whole
 
   # Builds the Article `content` field with a clean text hook prepended.
   # Front-loads title + excerpt + "Read more" link so Mastodon's truncated

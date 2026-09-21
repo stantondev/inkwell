@@ -981,8 +981,10 @@ defmodule InkwellWeb.FederationController do
           |> DeliverActivityWorker.new()
           |> Oban.insert()
 
-          # Notify the Inkwell user about the new fediverse follower
-          create_fediverse_follow_notification(target_user, remote_actor)
+          # Notify the Inkwell user about the new fediverse follower. Not for
+          # the Bluesky bridge bot following back: Settings shows that instead.
+          unless Inkwell.Federation.BlueskyBridge.bridge_actor?(remote_actor),
+            do: create_fediverse_follow_notification(target_user, remote_actor)
 
           Logger.info("Accepted follow from #{actor_uri} → #{target_user.username}")
 
