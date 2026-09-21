@@ -657,15 +657,17 @@ export default function WelcomePage() {
     }
   }
 
-  // "Skip all" is rendered on the tier screen too, where it reads as "skip the
-  // payment part" rather than "discard my profile". It used to PATCH only
-  // `{onboarded: true}`, throwing away everything the user had typed. Keep
-  // whatever they've entered, then finish. Still always advances, even if the
-  // save fails — skipping must never trap them.
-  function handleSkip() {
-    saveProfile()
-      .then(() => setStep(TOTAL_STEPS - 1))
-      .catch(() => setStep(TOTAL_STEPS - 1));
+  // Skip moves one page forward, never to the end. "Skip for now" and
+  // "Skip all" used to finish onboarding outright from any page, so someone
+  // who only meant "not this question" never saw the guidelines, the ways to
+  // support Inkwell, or the writers to follow. Everything they've entered is
+  // still saved when they finish (or before a checkout).
+  function skipStep() {
+    // On the first page Next is disabled while the username is invalid or
+    // taken; skipping it keeps the one they already have instead of saving a
+    // half-typed name at the end.
+    if (step === 0) setUsername(currentUsernameRef.current);
+    nextStep();
   }
 
   // Clear any error when moving between steps so e.g. a checkout failure on
@@ -1238,11 +1240,11 @@ export default function WelcomePage() {
                     </button>
 
                     <div className="flex items-center gap-3">
-                      {/* Skip all */}
-                      <button type="button" onClick={handleSkip}
+                      {/* Not now: carry on without choosing, still on the free plan */}
+                      <button type="button" onClick={nextStep}
                         className="text-xs transition-colors hover:underline"
                         style={{ color: "var(--muted)" }}>
-                        Skip all
+                        Not now
                       </button>
 
                       {/* If nothing to checkout, just continue */}
@@ -1601,11 +1603,7 @@ export default function WelcomePage() {
             <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <div>
                 {step === 0 ? (
-                  <button type="button" onClick={handleSkip}
-                    className="text-sm transition-colors hover:underline"
-                    style={{ color: "var(--muted)" }}>
-                    Skip for now
-                  </button>
+                  <span />
                 ) : (
                   <button type="button" onClick={prevStep}
                     className="text-sm transition-colors hover:underline"
@@ -1616,11 +1614,11 @@ export default function WelcomePage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {step < TOTAL_STEPS - 2 && step > 0 && (
-                  <button type="button" onClick={handleSkip}
+                {step < TOTAL_STEPS - 2 && (
+                  <button type="button" onClick={skipStep}
                     className="text-xs transition-colors hover:underline"
                     style={{ color: "var(--muted)" }}>
-                    Skip all
+                    Skip
                   </button>
                 )}
                 {step === TOTAL_STEPS - 2 ? (
