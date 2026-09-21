@@ -38,7 +38,7 @@ export default function GuidelinesPage() {
         </p>
 
         {GUIDELINES_PAGES.map((page, index) => (
-          <section key={page.id}>
+          <section key={page.id} id={page.id} style={{ scrollMarginTop: "1.5rem" }}>
             <h2
               className="text-xl font-semibold mb-3"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}

@@ -204,4 +204,26 @@ defmodule Inkwell.HtmlSanitizerTest do
       assert out =~ "display: flex"
     end
   end
+
+  describe "links to other sites" do
+    test "get nofollow ugc so spam earns no search ranking" do
+      out = HtmlSanitizer.sanitize(~s(<p><a href="https://shop.example/x" target="_blank" rel="noopener noreferrer">buy</a></p>))
+      assert out =~ ~s(rel="noopener noreferrer nofollow ugc")
+    end
+
+    test "keep rel=me for profile verification" do
+      out = HtmlSanitizer.sanitize(~s(<p><a href="https://me.example" rel="me">me</a></p>))
+      assert out =~ ~s(rel="me nofollow ugc noopener noreferrer")
+    end
+
+    test "leave inkwell.social and relative links alone" do
+      html = ~s(<p><a href="https://inkwell.social/a/b">x</a> <a href="/bob" class="mention" data-mention="bob">@bob</a></p>)
+      refute HtmlSanitizer.sanitize(html) =~ "nofollow"
+    end
+
+    test "is idempotent" do
+      once = HtmlSanitizer.sanitize(~s(<p><a href="https://x.example">x</a></p>))
+      assert HtmlSanitizer.sanitize(once) == once
+    end
+  end
 end

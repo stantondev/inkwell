@@ -136,6 +136,8 @@ interface EntryData {
   } | null;
   is_paid?: boolean;
   custom_domain?: string | null;
+  /** New account that links out and hasn't interacted with anyone yet. */
+  noindex?: boolean;
   kind?: "entry" | "sticky";
   sticky_color?: string | null;
   expanded_into?: { slug: string; title: string | null; username: string } | null;
@@ -393,6 +395,7 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       // keeps the "· Inkwell" suffix from the root layout.
       title: customDomain ? { absolute: title } : title,
       description,
+      ...(entry.noindex ? { robots: { index: false, follow: false } } : {}),
       authors: [{ name: entry.author?.display_name ?? username }],
       ...(effectiveDomain ? { metadataBase: new URL(`https://${effectiveDomain}`) } : {}),
       openGraph: {

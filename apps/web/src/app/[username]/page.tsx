@@ -383,7 +383,7 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
   try {
     // Pass the same token the page component uses so react.cache() dedupes.
     const token = await getToken();
-    const data = await getProfile<{ data: ProfileUser; meta?: { custom_domain?: string } }>(username, token);
+    const data = await getProfile<{ data: ProfileUser; meta?: { custom_domain?: string; noindex?: boolean } }>(username, token);
     const profile = data.data;
     const displayName = profile.display_name || `@${username}`;
     const bio = profile.bio
@@ -403,6 +403,7 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const avatarOgUrl = hasAvatar ? `/api/avatars/${username}` : undefined;
 
     return {
+      ...(data.meta?.noindex ? { robots: { index: false, follow: false } } : {}),
       // On the writer's own domain the site is theirs — drop the root
       // layout's "· Inkwell" suffix.
       title: customDomain

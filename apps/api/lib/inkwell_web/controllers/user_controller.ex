@@ -89,6 +89,7 @@ defmodule InkwellWeb.UserController do
             relationship_status: relationship_status,
             incoming_request: incoming_request,
             custom_domain: custom_domain,
+            noindex: Inkwell.Journals.held_back_from_search?(user.id),
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
             end),

@@ -45,6 +45,7 @@ export const GUIDELINES_PAGES: GuidelinePage[] = [
       "Non-consensual intimate imagery, or any sexual content involving minors. This results in an immediate permanent ban and a report to law enforcement.",
       "Accounts made to promote a business, product, service or website \u2014 including SEO articles, backlinks, and product copy written to look like journal entries. Inkwell is for people writing as themselves. Mentioning your own work or linking your blog is fine; using Inkwell as advertising space isn\u2019t.",
       "Spam, scams, or phishing of any kind.",
+      "Links posted on Inkwell are marked nofollow, and pages from new accounts that link out aren\u2019t shown to search engines. Posting here does nothing for anyone\u2019s search rankings.",
       "Malware, malicious code, or any attempt to exploit other users or the platform.",
     ],
   },

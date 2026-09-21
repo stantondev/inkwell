@@ -293,8 +293,8 @@ export default function GetStartedPage() {
               </p>
 
               <p className="text-xs text-center leading-relaxed" style={{ color: "var(--muted)" }}>
-                Inkwell is for personal writing. Accounts made to advertise a business or
-                build links are removed without warning.{" "}
+                Inkwell is for personal writing. Links here are nofollow and pass no SEO value,
+                and accounts made to advertise a business are detected and removed without warning.{" "}
                 <Link href="/guidelines" target="_blank" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
                   Guidelines
                 </Link>

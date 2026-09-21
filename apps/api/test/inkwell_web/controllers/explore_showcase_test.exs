@@ -67,4 +67,30 @@ defmodule InkwellWeb.ExploreShowcaseTest do
     e = publish(writer, ~s(<p><a href="https://myblog.example">blog</a></p>))
     assert e.id in showcase_ids()
   end
+
+  describe "search engines" do
+    test "a new link-posting account is held back from search and the sitemap" do
+      spammer = create_user()
+      spam = publish(spammer, ~s(<p><a href="https://seals.example.com">Buy</a></p>))
+      writer = create_user()
+      _poem = publish(writer, "<p>A poem.</p>")
+
+      assert Journals.held_back_from_search?(spammer.id)
+      refute Journals.held_back_from_search?(writer.id)
+
+      data = build_conn() |> get("/api/sitemap-data") |> json_response(200)
+      body = Jason.encode!(data)
+      refute body =~ spammer.username
+      refute body =~ spam.slug
+      assert body =~ writer.username
+    end
+
+    test "interacting with someone lifts the hold-back" do
+      spammer = create_user()
+      publish(spammer, ~s(<p><a href="https://myblog.example">blog</a></p>))
+      assert Journals.held_back_from_search?(spammer.id)
+      create_relationship(%{follower_id: spammer.id, following_id: create_user().id, status: :accepted})
+      refute Journals.held_back_from_search?(spammer.id)
+    end
+  end
 end

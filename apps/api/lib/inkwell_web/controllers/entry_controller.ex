@@ -160,6 +160,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:series, series_nav)
           |> Map.put(:poll, poll_data)
           |> Map.put(:custom_domain, author_custom_domain)
+          |> Map.put(:noindex, Journals.held_back_from_search?(user.id))
           |> Map.put(:marginalia, marginalia)
           |> Map.put(:orphaned_marginalia, orphaned_marginalia)
           |> Map.put(:source_sticky, source_sticky_link(entry, viewer))

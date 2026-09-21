@@ -212,6 +212,10 @@ export default function TermsPage() {
             </li>
             <li>Distribute spam, malware, viruses, or other harmful code;</li>
             <li>
+              Create or use accounts to advertise a business, product, service or website, or to publish SEO
+              content or build backlinks. We may suspend such accounts and hide their content without prior notice;
+            </li>
+            <li>
               Attempt to gain unauthorized access to other users&apos; accounts, the Service&apos;s infrastructure, or
               any connected systems;
             </li>

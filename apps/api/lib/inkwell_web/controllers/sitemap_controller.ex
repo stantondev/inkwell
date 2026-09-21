@@ -30,6 +30,7 @@ defmodule InkwellWeb.SitemapController do
       User
       |> where([u], not is_nil(u.username))
       |> where([u], is_nil(u.blocked_at))
+      |> where([u], u.id not in subquery(Inkwell.Journals.showcase_excluded_user_ids()))
       |> select([u], %{id: u.id, username: u.username, updated_at: u.updated_at})
       |> Repo.all()
       |> Enum.filter(fn u -> MapSet.member?(users_with_entries, u.id) end)
@@ -46,6 +47,7 @@ defmodule InkwellWeb.SitemapController do
       |> where([e], not is_nil(e.published_at))
       |> join(:inner, [e], u in User, on: e.user_id == u.id)
       |> where([e, u], is_nil(u.blocked_at))
+      |> where([e, u], u.id not in subquery(Inkwell.Journals.showcase_excluded_user_ids()))
       |> select([e, u], %{
         username: u.username,
         slug: e.slug,

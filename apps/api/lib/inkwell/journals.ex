@@ -928,6 +928,19 @@ defmodule Inkwell.Journals do
     )
   end
 
+  @doc """
+  True while a writer matches `showcase_excluded_user_ids/0` (new, links out,
+  never interacted). Their pages carry `noindex` and stay out of the sitemap,
+  so a link-spam account gets nothing from search engines; it lifts on its own
+  once they interact with anyone or pass 30 days.
+  """
+  def held_back_from_search?(user_id) do
+    from(u in Inkwell.Accounts.User,
+      where: u.id == ^user_id and u.id in subquery(showcase_excluded_user_ids())
+    )
+    |> Repo.exists?()
+  end
+
   def list_public_explore_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)

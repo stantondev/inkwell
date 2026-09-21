@@ -2008,6 +2008,25 @@ export function EditorClient() {
     })();
   }, [state.privacy, filtersLoaded]);
 
+  // New accounts that link to other sites see a note about how that's treated
+  // (nofollow, not indexed, promotional accounts removed) — said at the moment
+  // it matters, which is what actually deters SEO spam.
+  const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
+  const [hasOutsideLink, setHasOutsideLink] = useState(false);
+  useEffect(() => {
+    if (!editor) return;
+    // Linked or pasted as plain text — both count.
+    const outside = /https?:\/\/(?!(www\.)?inkwell\.social)/i;
+    const check = () => setHasOutsideLink(outside.test(editor.getHTML()) || outside.test(editor.getText()));
+    check();
+    editor.on("update", check);
+    return () => {
+      editor.off("update", check);
+    };
+  }, [editor]);
+  const isNewAccount =
+    !!accountCreatedAt && Date.now() - new Date(accountCreatedAt).getTime() < 30 * 24 * 60 * 60 * 1000;
+
   // Fetch newsletter + user info eagerly on mount
   useEffect(() => {
     (async () => {
@@ -2016,6 +2035,7 @@ export function EditorClient() {
         if (res.ok) {
           const { data } = await res.json();
           setNewsletterEnabled(!!data?.newsletter_enabled);
+          setAccountCreatedAt(data?.created_at ?? null);
           setSubscriberCount(data?.subscriber_count ?? 0);
           setIsPlus((data?.subscription_tier ?? "free") === "plus");
           setHasWriterPlan(!!data?.has_writer_plan);
@@ -2994,6 +3014,15 @@ export function EditorClient() {
               style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
               aria-label="Entry title"
             />
+
+            {isNewAccount && hasOutsideLink && !focusMode && (
+              <p className="editor-link-notice" role="note">
+                Links to other sites are marked <em>nofollow</em> on Inkwell, and new accounts&apos; pages
+                aren&apos;t shown to search engines. Inkwell is for personal writing — accounts made to
+                promote a business or build links are removed without warning.{" "}
+                <a href="/guidelines#not-welcome" target="_blank" rel="noopener">Guidelines</a>
+              </p>
+            )}
 
             {/* ── Inline category picker (desktop) / settings link (mobile) ─── */}
             {!focusMode && (

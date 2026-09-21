@@ -14190,3 +14190,17 @@ body[data-focus-mode] .ink-toast-region {
     animation: none;
   }
 }
+
+/* Editor: note shown to new accounts whose post links to other sites */
+.editor-link-notice {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.editor-link-notice a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+body[data-focus-mode] .editor-link-notice { display: none; }

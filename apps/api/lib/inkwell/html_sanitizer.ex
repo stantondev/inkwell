@@ -23,7 +23,7 @@ defmodule Inkwell.HtmlSanitizer do
   def sanitize(""), do: ""
 
   def sanitize(html) when is_binary(html) do
-    html |> pre_strip() |> ContentScrubber.sanitize() |> drop_empty_iframes() |> String.trim()
+    html |> pre_strip() |> ContentScrubber.sanitize() |> drop_empty_iframes() |> nofollow_external_links() |> String.trim()
   end
 
   # An iframe whose src wasn't an allowed player keeps no src; drop the empty box.
@@ -52,7 +52,44 @@ defmodule Inkwell.HtmlSanitizer do
   def sanitize_profile(""), do: ""
 
   def sanitize_profile(html) when is_binary(html) do
-    html |> pre_strip() |> ProfileScrubber.sanitize() |> drop_empty_iframes() |> String.trim()
+    html |> pre_strip() |> ProfileScrubber.sanitize() |> drop_empty_iframes() |> nofollow_external_links() |> String.trim()
+  end
+
+  @own_hosts ~w(inkwell.social www.inkwell.social)
+  @external_rel ~w(nofollow ugc noopener noreferrer)
+
+  @doc """
+  Mark every link to another site `rel="nofollow ugc noopener noreferrer"`,
+  keeping any rel values already there (`me` for profile verification, `tag`
+  for hashtags). Links written on Inkwell pass no search ranking to the site
+  they point at, which removes the reason SEO spam accounts sign up. Links to
+  inkwell.social and relative links are left alone.
+  """
+  def nofollow_external_links(nil), do: nil
+
+  def nofollow_external_links(html) when is_binary(html) do
+    Regex.replace(~r/<a\b[^>]*>/i, html, fn tag ->
+      case Regex.run(~r/\bhref\s*=\s*"(https?:\/\/[^"]*)"/i, tag) do
+        [_, url] -> if own_link?(url), do: tag, else: put_external_rel(tag)
+        _ -> tag
+      end
+    end)
+  end
+
+  defp own_link?(url) do
+    host = URI.parse(url).host
+    is_binary(host) and String.downcase(host) in @own_hosts
+  end
+
+  defp put_external_rel(tag) do
+    case Regex.run(~r/\brel\s*=\s*"([^"]*)"/i, tag) do
+      [whole, existing] ->
+        tokens = String.split(existing) ++ @external_rel
+        String.replace(tag, whole, ~s(rel="#{tokens |> Enum.uniq() |> Enum.join(" ")}"), global: false)
+
+      nil ->
+        String.replace(tag, ~r/^<a\b/i, ~s(<a rel="#{Enum.join(@external_rel, " ")}"), global: false)
+    end
   end
 
   # Elements whose *contents* must go too, not just the tags. The scrubber
