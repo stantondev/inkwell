@@ -164,6 +164,9 @@ defmodule Inkwell.Billing do
     plus_manually_granted = length(Map.get(plus_buckets, :manually_granted, []))
     plus_legacy_stripe = length(Map.get(plus_buckets, :legacy_stripe, []))
     plus_orphaned = length(Map.get(plus_buckets, :orphaned, []))
+    plus_founding = length(Map.get(plus_buckets, :founding, []))
+    plus_trialing = length(Map.get(plus_buckets, :trialing, []))
+    plus_expired = length(Map.get(plus_buckets, :expired, []))
 
     %{
       last_delivery_at: last_delivery_at,
@@ -176,7 +179,10 @@ defmodule Inkwell.Billing do
       plus_square_active: plus_square_active,
       plus_manually_granted: plus_manually_granted,
       plus_legacy_stripe: plus_legacy_stripe,
-      plus_orphaned: plus_orphaned
+      plus_orphaned: plus_orphaned,
+      plus_founding: plus_founding,
+      plus_trialing: plus_trialing,
+      plus_expired: plus_expired
     }
   end
 
@@ -187,6 +193,10 @@ defmodule Inkwell.Billing do
 
   Returns a map with four buckets (each a list of `%User{}` structs):
 
+  - `:founding` — Founding Member (paid once, Plus for good)
+  - `:expired` — canceled and the paid/granted time is over, but still on
+    Plus. Should always be empty; the admin page warns when it isn't.
+  - `:trialing` — on the free 14-day trial
   - `:square_active` — `square_subscription_id` is set (paying via Square)
   - `:manually_granted` — `subscription_expires_at` is set and no Square sub
     (admin manually granted Plus via the grant_plus_until form, e.g., to
@@ -195,8 +205,9 @@ defmodule Inkwell.Billing do
     is set (Stripe is dead, so they're effectively getting Plus for free)
   - `:orphaned` — none of the above (tier=plus through some other path)
 
-  Priority order: square_active > manually_granted > legacy_stripe > orphaned.
-  All four buckets together = total Plus users.
+  Priority order: founding > expired > trialing > square_active >
+  manually_granted > legacy_stripe > orphaned. All buckets together = total
+  Plus users.
   """
   def plus_users_by_source do
     users =
@@ -206,8 +217,13 @@ defmodule Inkwell.Billing do
       )
       |> Repo.all()
 
+    now = DateTime.utc_now()
+
     Enum.group_by(users, fn u ->
       cond do
+        not is_nil(u.founding_member_number) -> :founding
+        User.plus_time_ran_out?(u, now) -> :expired
+        u.subscription_status == "trialing" -> :trialing
         not is_nil(u.square_subscription_id) -> :square_active
         not is_nil(u.subscription_expires_at) -> :manually_granted
         not is_nil(u.stripe_subscription_id) -> :legacy_stripe
@@ -215,6 +231,31 @@ defmodule Inkwell.Billing do
       end
     end)
   end
+
+  @doc """
+  Called by the `EffectiveTier` plug on every signed-in request. An account
+  whose Plus time has run out is handed back as free. When no Square
+  subscription is on file (a manual grant) the row is updated too, so admin
+  lists and background jobs agree; with one on file the row is left for
+  Square's webhook to settle and only this request sees free.
+  """
+  def end_plus_if_time_ran_out(%User{} = user) do
+    cond do
+      not User.plus_time_ran_out?(user) ->
+        user
+
+      is_nil(user.square_subscription_id) ->
+        case downgrade_expired_plus(user) do
+          {:ok, updated} -> updated
+          _ -> %{user | subscription_tier: "free"}
+        end
+
+      true ->
+        %{user | subscription_tier: "free"}
+    end
+  end
+
+  def end_plus_if_time_ran_out(user), do: user
 
   @doc "Clean up webhook deliveries older than 30 days."
   def cleanup_old_webhook_deliveries do
@@ -843,10 +884,12 @@ defmodule Inkwell.Billing do
   (manually via grant_plus_until, via admin cancel, or via a user-initiated
   cancel-at-period-end flow) and whose `subscription_expires_at` has passed.
 
-  Called manually from the admin panel's "Grace expiration worker" advanced
-  tools section (preview + run). No automatic cron — admin triggers when needed.
-  Also invoked by the admin preview (dry_run: true) and manual-run
-  (dry_run: false) endpoints on the billing health panel.
+  Run from the admin panel (preview = dry_run: true, run = dry_run: false).
+  There is deliberately no cron: an account whose time has run out is
+  already treated as free everywhere (`User.plus_time_ran_out?/1`), and a
+  manual grant's row is updated the next time its owner signs in
+  (`end_plus_if_time_ran_out/1`). This just tidies rows early.
+  `webhook_stats/0` reports `plus_expired` so the admin page flags them.
 
   Supports a `:dry_run` option (default false). In dry run mode, returns the
   list of candidates without actually downgrading them — used by the preview
@@ -882,10 +925,14 @@ defmodule Inkwell.Billing do
         where: u.subscription_status == "canceled",
         where: not is_nil(u.subscription_expires_at),
         where: u.subscription_expires_at < ^now,
+        where: is_nil(u.founding_member_number),
         order_by: [asc: u.subscription_expires_at],
         select: u
       )
       |> Repo.all()
+      # Never downgrade on a guess: someone who still has a Square
+      # subscription on file only loses Plus once Square confirms it ended.
+      |> Enum.filter(&still_unpaid?/1)
 
     candidate_summaries = Enum.map(candidates, &grace_user_summary/1)
 
@@ -934,6 +981,41 @@ defmodule Inkwell.Billing do
     }
   end
 
+  # A canceled member with no Square subscription on file (a manual grant,
+  # or a subscription whose id was already cleared) has nothing to check.
+  # With one on file, Square must confirm it is no longer billing them;
+  # any doubt — Square unreachable, still ACTIVE with no cancel date —
+  # leaves them on Plus and they stay flagged on the admin page.
+  defp still_unpaid?(%User{square_subscription_id: nil}), do: true
+
+  defp still_unpaid?(%User{square_subscription_id: sub_id} = user) do
+    case Square.get_subscription(sub_id) do
+      {:ok, %{"status" => status}} when status in ["CANCELED", "DEACTIVATED"] ->
+        true
+
+      {:ok, %{"status" => "ACTIVE", "canceled_date" => date}} when is_binary(date) ->
+        # Scheduled cancel. Our expiry has passed, so Square's should have too.
+        case Date.from_iso8601(date) do
+          {:ok, d} -> Date.compare(d, Date.utc_today()) != :gt
+          _ -> false
+        end
+
+      {:ok, %{"status" => status}} ->
+        Logger.warning(
+          "[grace expiration] Kept Plus for @#{user.username}: canceled locally but Square subscription #{sub_id} is #{status}"
+        )
+
+        false
+
+      {:error, reason} ->
+        Logger.warning(
+          "[grace expiration] Kept Plus for @#{user.username}: couldn't check Square (#{inspect(reason)})"
+        )
+
+        false
+    end
+  end
+
   defp downgrade_expired_plus(%User{} = user) do
     attrs = %{
       subscription_tier: "free",
@@ -943,6 +1025,8 @@ defmodule Inkwell.Billing do
 
     case user |> User.subscription_changeset(attrs) |> Repo.update() do
       {:ok, updated} ->
+        maybe_deactivate_custom_domain(updated.id)
+
         Logger.info(
           "[grace expiration] Downgraded @#{updated.username} (#{updated.id}) — grace expired at #{DateTime.to_iso8601(user.subscription_expires_at)}"
         )

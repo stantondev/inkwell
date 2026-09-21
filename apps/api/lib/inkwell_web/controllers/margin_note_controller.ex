@@ -251,7 +251,7 @@ defmodule InkwellWeb.MarginNoteController do
           avatar_url: note.user.avatar_url,
           avatar_frame: note.user.avatar_frame,
           avatar_animation: note.user.avatar_animation,
-          subscription_tier: note.user.subscription_tier
+          subscription_tier: Inkwell.SelfHosted.effective_tier(note.user)
         }
       end
 

@@ -241,6 +241,24 @@ defmodule Inkwell.Accounts.User do
     end
   end
 
+  @doc """
+  True when the account is marked Plus but its paid or granted time is over:
+  canceled (or a manual grant, which is stored as canceled) with
+  `subscription_expires_at` in the past. Such an account is not Plus —
+  `Inkwell.SelfHosted.effective_tier/1` and the `EffectiveTier` plug treat it
+  as free even before the row itself is updated. Founding Members never
+  expire. Trials are ended separately (status "trialing").
+  """
+  def plus_time_ran_out?(user, now \\ DateTime.utc_now())
+
+  def plus_time_ran_out?(%__MODULE__{} = user, now) do
+    user.subscription_tier == "plus" and is_nil(user.founding_member_number) and
+      user.subscription_status == "canceled" and not is_nil(user.subscription_expires_at) and
+      DateTime.compare(user.subscription_expires_at, now) == :lt
+  end
+
+  def plus_time_ran_out?(_, _), do: false
+
   def founding_member?(%__MODULE__{founding_member_number: n}), do: not is_nil(n)
   def founding_member?(_), do: false
 

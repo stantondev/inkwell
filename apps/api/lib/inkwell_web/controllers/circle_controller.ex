@@ -688,7 +688,7 @@ defmodule InkwellWeb.CircleController do
             avatar_url: owner.avatar_url,
             avatar_frame: owner.avatar_frame,
             avatar_animation: owner.avatar_animation,
-            subscription_tier: owner.subscription_tier
+            subscription_tier: Inkwell.SelfHosted.effective_tier(owner)
           }
         end
     }
@@ -729,7 +729,7 @@ defmodule InkwellWeb.CircleController do
             avatar_url: user.avatar_url,
             avatar_frame: user.avatar_frame,
             avatar_animation: user.avatar_animation,
-            subscription_tier: user.subscription_tier
+            subscription_tier: Inkwell.SelfHosted.effective_tier(user)
           }
         end
     }

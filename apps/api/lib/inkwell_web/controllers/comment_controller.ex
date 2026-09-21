@@ -223,7 +223,7 @@ defmodule InkwellWeb.CommentController do
           avatar_url: Avatars.avatar_url(comment.user),
           avatar_frame: comment.user.avatar_frame,
           avatar_animation: comment.user.avatar_animation,
-          subscription_tier: comment.user.subscription_tier
+          subscription_tier: Inkwell.SelfHosted.effective_tier(comment.user)
         }
       end
 

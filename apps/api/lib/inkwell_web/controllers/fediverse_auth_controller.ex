@@ -373,7 +373,7 @@ defmodule InkwellWeb.FediverseAuthController do
       created_at: user.inserted_at,
       is_admin: Accounts.is_admin?(user),
       settings: user.settings || %{},
-      subscription_tier: user.subscription_tier || "free",
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user),
       terms_accepted_at: user.terms_accepted_at
     }
   end

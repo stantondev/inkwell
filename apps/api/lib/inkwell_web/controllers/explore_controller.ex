@@ -213,7 +213,7 @@ defmodule InkwellWeb.ExploreController do
               username: author.username,
               display_name: author.display_name,
               avatar_url: Avatars.avatar_url(author),
-              subscription_tier: author.subscription_tier,
+              subscription_tier: Inkwell.SelfHosted.effective_tier(author),
               ink_donor_status: author.ink_donor_status
             },
             user_icon: entry.user_icon,
@@ -352,7 +352,7 @@ defmodule InkwellWeb.ExploreController do
           username: author.username,
           display_name: author.display_name,
           avatar_url: Avatars.avatar_url(author),
-          subscription_tier: author.subscription_tier,
+          subscription_tier: Inkwell.SelfHosted.effective_tier(author),
           ink_donor_status: author.ink_donor_status
         },
         comment_count: Map.get(comment_counts, entry.id, 0),

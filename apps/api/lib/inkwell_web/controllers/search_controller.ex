@@ -366,7 +366,7 @@ defmodule InkwellWeb.SearchController do
           avatar_url: e.user.avatar_url,
           avatar_frame: e.user.avatar_frame,
           avatar_animation: e.user.avatar_animation,
-          subscription_tier: e.user.subscription_tier,
+          subscription_tier: Inkwell.SelfHosted.effective_tier(e.user),
           ink_donor_status: e.user.ink_donor_status
         }
       }

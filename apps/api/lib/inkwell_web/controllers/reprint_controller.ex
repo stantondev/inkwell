@@ -289,7 +289,7 @@ defmodule InkwellWeb.ReprintController do
         avatar_url: author.avatar_url,
         avatar_frame: author.avatar_frame,
         avatar_animation: author.avatar_animation,
-        subscription_tier: author.subscription_tier
+        subscription_tier: Inkwell.SelfHosted.effective_tier(author)
       }
     }
   end

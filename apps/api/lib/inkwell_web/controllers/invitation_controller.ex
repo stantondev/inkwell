@@ -114,7 +114,7 @@ defmodule InkwellWeb.InvitationController do
           avatar_url: user.avatar_url,
           avatar_frame: user.avatar_frame,
           avatar_animation: user.avatar_animation,
-          subscription_tier: user.subscription_tier,
+          subscription_tier: Inkwell.SelfHosted.effective_tier(user),
           bio: user.bio
         })
     end
@@ -141,7 +141,7 @@ defmodule InkwellWeb.InvitationController do
             avatar_url: inviter.avatar_url,
             avatar_frame: inviter.avatar_frame,
             avatar_animation: inviter.avatar_animation,
-            subscription_tier: inviter.subscription_tier,
+            subscription_tier: Inkwell.SelfHosted.effective_tier(inviter),
             bio: inviter.bio,
             message: invitation.message
           })

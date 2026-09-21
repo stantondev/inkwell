@@ -240,7 +240,7 @@ defmodule InkwellWeb.UserController do
           bio_html: u.bio_html,
           avatar_frame: u.avatar_frame,
           avatar_animation: u.avatar_animation,
-          subscription_tier: u.subscription_tier || "free",
+          subscription_tier: Inkwell.SelfHosted.effective_tier(u),
           entry_count: ec,
           ink_count: ic || 0
         }

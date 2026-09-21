@@ -34,6 +34,9 @@ export interface WebhookStats {
   plus_manually_granted: number;
   plus_legacy_stripe: number;
   plus_orphaned: number;
+  plus_founding: number;
+  plus_trialing: number;
+  plus_expired: number;
 }
 
 export interface HealthData {
@@ -57,6 +60,9 @@ export interface PlusUser {
 }
 
 export interface PlusUsersData {
+  founding: PlusUser[];
+  expired: PlusUser[];
+  trialing: PlusUser[];
   square_active: PlusUser[];
   manually_granted: PlusUser[];
   legacy_stripe: PlusUser[];

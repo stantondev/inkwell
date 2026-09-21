@@ -684,7 +684,7 @@ defmodule Inkwell.Accounts do
 
     query = case filter do
       "admin" -> where(query, [u], u.role == "admin")
-      "plus" -> where(query, [u], u.subscription_tier == "plus")
+      "plus" -> where_plus_now(query)
       "donor" -> where(query, [u], u.ink_donor_status == "active")
       "blocked" -> where(query, [u], not is_nil(u.blocked_at))
       "inactive" -> where(query, [u], u.id not in subquery(active_user_ids_subquery()))
@@ -764,6 +764,20 @@ defmodule Inkwell.Accounts do
     |> Repo.update()
   end
 
+  # Accounts that have Plus right now: tier plus, minus anyone whose paid or
+  # granted time has run out (the SQL twin of `User.plus_time_ran_out?/1`).
+  defp where_plus_now(query) do
+    now = DateTime.utc_now()
+
+    where(
+      query,
+      [u],
+      u.subscription_tier == "plus" and
+        not (u.subscription_status == "canceled" and not is_nil(u.subscription_expires_at) and
+               u.subscription_expires_at < ^now and is_nil(u.founding_member_number))
+    )
+  end
+
   @doc "Platform stats for admin dashboard."
   def platform_stats do
     week_ago = DateTime.add(DateTime.utc_now(), -7, :day)
@@ -771,7 +785,7 @@ defmodule Inkwell.Accounts do
     %{
       total_users: Repo.aggregate(User, :count, :id),
       plus_subscribers: Repo.aggregate(
-        from(u in User, where: u.subscription_tier == "plus"),
+        where_plus_now(User),
         :count, :id
       ),
       ink_donors: Repo.aggregate(
@@ -810,7 +824,7 @@ defmodule Inkwell.Accounts do
   """
   def recent_plus_subscribers(limit \\ 10) do
     User
-    |> where([u], u.subscription_tier == "plus")
+    |> where_plus_now()
     |> order_by([u],
       asc:
         fragment(

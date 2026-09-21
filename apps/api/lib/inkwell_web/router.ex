@@ -9,7 +9,7 @@ defmodule InkwellWeb.Router do
 
   pipeline :authenticated do
     plug InkwellWeb.Plugs.RequireAuth
-    plug InkwellWeb.Plugs.SelfHostedTier
+    plug InkwellWeb.Plugs.EffectiveTier
     plug InkwellWeb.Plugs.TrackActivity
   end
 
@@ -19,7 +19,7 @@ defmodule InkwellWeb.Router do
 
   pipeline :optional_auth do
     plug InkwellWeb.Plugs.OptionalAuth
-    plug InkwellWeb.Plugs.SelfHostedTier
+    plug InkwellWeb.Plugs.EffectiveTier
   end
 
   pipeline :rate_limited do

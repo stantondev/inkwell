@@ -13,13 +13,15 @@ defmodule Inkwell.SelfHosted do
 
   @doc """
   Returns the effective subscription tier for a user.
-  In self-hosted mode, always returns "plus".
+  In self-hosted mode, always returns "plus". Otherwise an account whose
+  paid or granted Plus time has run out is "free", even if its row still
+  says "plus" (see `Inkwell.Accounts.User.plus_time_ran_out?/1`).
   """
   def effective_tier(user) do
-    if enabled?() do
-      "plus"
-    else
-      user.subscription_tier || "free"
+    cond do
+      enabled?() -> "plus"
+      Inkwell.Accounts.User.plus_time_ran_out?(user) -> "free"
+      true -> user.subscription_tier || "free"
     end
   end
 end

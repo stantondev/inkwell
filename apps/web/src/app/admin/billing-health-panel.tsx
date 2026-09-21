@@ -99,6 +99,37 @@ export function BillingHealthPanel() {
   // Advanced tools toggle — default hidden
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // "Expired, still on Plus" warning: those accounts are already treated as
+  // free everywhere; this just tidies their records.
+  const [endingExpired, setEndingExpired] = useState(false);
+  const [endExpiredNote, setEndExpiredNote] = useState<string | null>(null);
+
+  async function handleEndExpired() {
+    if (!confirm("Mark these accounts as free now? Their Plus time has already run out.")) return;
+    setEndingExpired(true);
+    setEndExpiredNote(null);
+    try {
+      const res = await fetch("/api/admin/run-grace-expiration", { method: "POST", cache: "no-store" });
+      const json = await res.json();
+      if (res.ok && json.result) {
+        const done = json.result.downgraded.length;
+        const kept = json.result.candidates.length - done;
+        setEndExpiredNote(
+          kept > 0
+            ? `Ended ${done}. ${kept} still have a Square subscription Square hasn't confirmed ended — check "Raw Square data" below.`
+            : `Ended ${done}.`
+        );
+        fetchHealth();
+      } else {
+        setEndExpiredNote(json.error || `Failed (HTTP ${res.status})`);
+      }
+    } catch {
+      setEndExpiredNote("Network error");
+    } finally {
+      setEndingExpired(false);
+    }
+  }
+
   async function fetchHealth() {
     try {
       const res = await fetch("/api/admin/billing-health", { cache: "no-store" });
@@ -196,7 +227,7 @@ export function BillingHealthPanel() {
 
     if (
       !confirm(
-        `Manually grant ${label} Plus tier until ${date}?\n\nThis sets subscription_tier="plus", subscription_status="canceled" (cancel-at-period-end semantic), and subscription_expires_at to the chosen date. The grace expiration worker will auto-downgrade them on that date if they haven't re-subscribed.`
+        `Manually grant ${label} Plus tier until ${date}?\n\nThey get Plus through the end of that day and are free from then on, unless they subscribe.`
       )
     ) {
       return;
@@ -280,6 +311,42 @@ export function BillingHealthPanel() {
           <strong>⚠ No webhooks in 24h but there are active subscribers.</strong>{" "}
           Square webhooks may be broken. Check the webhook subscription in the Square dashboard,
           or run reconciliation below.
+        </div>
+      )}
+
+      {/* Plus time ran out but the record still says Plus. They're already
+          treated as free everywhere; this should always be zero. */}
+      {stats.plus_expired > 0 && (
+        <div
+          className="rounded-lg p-3 mb-3 text-xs"
+          style={{
+            background: "color-mix(in srgb, #f59e0b 12%, transparent)",
+            border: "1px solid color-mix(in srgb, #f59e0b 35%, transparent)",
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <strong>
+                ⚠ {stats.plus_expired} account{stats.plus_expired === 1 ? "" : "s"} still marked Plus
+                after {stats.plus_expired === 1 ? "its" : "their"} time ran out.
+              </strong>{" "}
+              They already get the free plan everywhere. See who under Advanced tools → Plus user
+              breakdown.
+            </div>
+            <button
+              onClick={handleEndExpired}
+              disabled={endingExpired}
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              style={{ background: "var(--accent)", color: "white", opacity: endingExpired ? 0.6 : 1 }}
+            >
+              {endingExpired ? "Ending…" : "Mark as free"}
+            </button>
+          </div>
+        </div>
+      )}
+      {endExpiredNote && (
+        <div className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+          {endExpiredNote}
         </div>
       )}
 
@@ -489,9 +556,8 @@ export function BillingHealthPanel() {
         <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
           Manually grant a user Plus tier with an explicit expiration date. Useful for comp
           accounts, gifts, or manually extending Plus for a specific user. Accepts an Inkwell{" "}
-          <code>@username</code> or an email. Sets <code>status=canceled</code> +{" "}
-          <code>subscription_expires_at</code>. The grace expiration worker will auto-downgrade
-          them on that date.
+          <code>@username</code> or an email. Plus ends automatically after that date — no
+          follow-up needed.
         </div>
         <form onSubmit={handleGrantPlus} className="space-y-2">
           <input

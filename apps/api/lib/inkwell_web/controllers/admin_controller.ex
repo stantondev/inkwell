@@ -44,7 +44,7 @@ defmodule InkwellWeb.AdminController do
             id: user.id,
             username: user.username,
             email: user.email,
-            subscription_tier: user.subscription_tier,
+            subscription_tier: Inkwell.SelfHosted.effective_tier(user),
             subscription_status: user.subscription_status,
             square_subscription_id: user.square_subscription_id,
             square_donor_subscription_id: user.square_donor_subscription_id,
@@ -76,6 +76,9 @@ defmodule InkwellWeb.AdminController do
     buckets = Billing.plus_users_by_source()
 
     json(conn, %{
+      founding: render_plus_users(Map.get(buckets, :founding, [])),
+      expired: render_plus_users(Map.get(buckets, :expired, [])),
+      trialing: render_plus_users(Map.get(buckets, :trialing, [])),
       square_active: render_plus_users(Map.get(buckets, :square_active, [])),
       manually_granted: render_plus_users(Map.get(buckets, :manually_granted, [])),
       legacy_stripe: render_plus_users(Map.get(buckets, :legacy_stripe, [])),
@@ -123,7 +126,7 @@ defmodule InkwellWeb.AdminController do
             id: user.id,
             username: user.username,
             email: user.email,
-            subscription_tier: user.subscription_tier,
+            subscription_tier: Inkwell.SelfHosted.effective_tier(user),
             subscription_status: user.subscription_status,
             square_subscription_id: user.square_subscription_id,
             square_donor_subscription_id: user.square_donor_subscription_id,
@@ -238,7 +241,7 @@ defmodule InkwellWeb.AdminController do
           id: user.id,
           username: user.username,
           email: user.email,
-          subscription_tier: user.subscription_tier,
+          subscription_tier: Inkwell.SelfHosted.effective_tier(user),
           subscription_status: user.subscription_status,
           subscription_expires_at: user.subscription_expires_at
         }
@@ -716,7 +719,7 @@ defmodule InkwellWeb.AdminController do
       username: user.username,
       display_name: user.display_name,
       avatar_url: user.avatar_url,
-      subscription_tier: user.subscription_tier || "free",
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user),
       subscription_status: user.subscription_status,
       subscription_expires_at: user.subscription_expires_at,
       ink_donor_status: user.ink_donor_status,
@@ -737,7 +740,7 @@ defmodule InkwellWeb.AdminController do
       role: user.role || "user",
       is_env_admin: Map.get(user, :is_env_admin, Accounts.is_env_admin?(user)),
       is_admin: Accounts.is_admin?(user),
-      subscription_tier: user.subscription_tier || "free",
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user),
       subscription_status: user.subscription_status,
       subscription_expires_at: user.subscription_expires_at,
       square_subscription_id: user.square_subscription_id,

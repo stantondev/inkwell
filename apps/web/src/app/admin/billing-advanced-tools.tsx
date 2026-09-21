@@ -267,6 +267,21 @@ export function AdvancedBillingTools({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <HealthStat
+            label="Expired, still Plus ⚠"
+            value={stats.plus_expired.toString()}
+            tone={stats.plus_expired > 0 ? "warning" : undefined}
+          />
+          <HealthStat
+            label="Founding"
+            value={stats.plus_founding.toString()}
+            tone={stats.plus_founding > 0 ? "success" : undefined}
+          />
+          <HealthStat
+            label="Trial"
+            value={stats.plus_trialing.toString()}
+            tone={stats.plus_trialing > 0 ? "info" : undefined}
+          />
+          <HealthStat
             label="On Square"
             value={stats.plus_square_active.toString()}
             tone={stats.plus_square_active > 0 ? "success" : undefined}
@@ -311,13 +326,31 @@ export function AdvancedBillingTools({
           {breakdownData && (
             <div className="space-y-3">
               <PlusUserGroup
+                label="Expired, still on Plus (their time ran out — end it above)"
+                tone="warning"
+                users={breakdownData.expired}
+                emptyText="Nobody. Everyone on Plus has paid or granted time left."
+              />
+              <PlusUserGroup
+                label="Founding Members (paid once, Plus for good)"
+                tone="success"
+                users={breakdownData.founding}
+                emptyText="No Founding Members."
+              />
+              <PlusUserGroup
+                label="Free 14-day trial"
+                tone="info"
+                users={breakdownData.trialing}
+                emptyText="Nobody on a trial."
+              />
+              <PlusUserGroup
                 label="Square active"
                 tone="success"
                 users={breakdownData.square_active}
                 emptyText="No Plus users on Square."
               />
               <PlusUserGroup
-                label="Manually granted (admin set explicit expiration)"
+                label="Manually granted (time left)"
                 tone="info"
                 users={breakdownData.manually_granted}
                 emptyText="No manually granted Plus users."
@@ -542,14 +575,17 @@ export function AdvancedBillingTools({
         )}
       </div>
 
-      {/* Grace expiration worker — daily cron + admin preview/run */}
+      {/* End expired Plus — admin preview/run (no cron; see Billing.expire_grace_periods) */}
       <div
         className="rounded-lg p-3"
         style={{ background: "var(--surface-hover, rgba(0,0,0,0.02))", border: "1px solid var(--border)" }}
       >
-        <div className="text-sm font-medium mb-1">Grace expiration worker</div>
+        <div className="text-sm font-medium mb-1">End expired Plus</div>
         <div className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-          Runs automatically every 4 hours via Oban. Downgrades any Plus user whose <code>subscription_expires_at</code> has passed AND whose subscription status is <code>canceled</code>. Fires a Slack notification on every non-empty run.
+          Moves canceled members and manual grants whose time has run out back to free. It
+          does not run on its own — Square ends normal cancellations, and the warning at the
+          top of this card shows when anyone is left over. Anyone with a Square subscription
+          on file is only ended once Square confirms it stopped billing them.
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -608,7 +644,7 @@ export function AdvancedBillingTools({
 
             {graceResult.candidates.length === 0 ? (
               <p style={{ color: "var(--muted)" }}>
-                No users currently match the expiration criteria. The worker would be a no-op right now.
+                Nobody's time has run out. Nothing to do.
               </p>
             ) : (
               <div
