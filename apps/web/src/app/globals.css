@@ -11426,6 +11426,28 @@ a, button, [role="tab"], [role="button"] {
   -webkit-overflow-scrolling: touch;
 }
 .admin-nav::-webkit-scrollbar { display: none; }
+.admin-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.admin-nav-group + .admin-nav-group {
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+@media (min-width: 768px) {
+  .admin-nav { flex-wrap: wrap; row-gap: 4px; overflow-x: visible; }
+}
+.admin-nav-group-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--muted);
+  margin-right: 4px;
+  white-space: nowrap;
+}
 
 .admin-nav-tab {
   display: flex;

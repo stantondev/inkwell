@@ -4,7 +4,6 @@ import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { Avatar } from "@/components/avatar";
 import { ReindexButton } from "./reindex-button";
-import { BillingHealthPanel } from "./billing-health-panel";
 
 export const metadata: Metadata = { title: "Admin Dashboard · Inkwell" };
 
@@ -19,6 +18,12 @@ interface UserBrief {
   ink_donor_status: string | null;
   ink_donor_amount_cents: number | null;
   created_at: string;
+}
+
+interface BillingSummary {
+  status: "ok" | "attention";
+  problems: { kind: string; message: string }[];
+  counts: { plus: number; paying: number; founding: number; trial: number };
 }
 
 interface StatsData {
@@ -51,18 +56,23 @@ function timeAgo(iso: string): string {
 }
 
 export default async function AdminDashboardPage() {
-  let data: StatsData | null = null;
+  const token = await getToken();
+  const headers = { Authorization: `Bearer ${token}` };
 
-  try {
-    const token = await getToken();
-    const res = await fetch(`${SERVER_API}/api/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
+  // Billing status asks Square about paying members, so it's fetched in
+  // parallel with a short timeout; the dashboard never waits on Square.
+  const [data, billing] = await Promise.all([
+    fetch(`${SERVER_API}/api/admin/stats`, { headers, cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<StatsData>) : null))
+      .catch(() => null),
+    fetch(`${SERVER_API}/api/admin/billing-overview`, {
+      headers,
       cache: "no-store",
-    });
-    if (res.ok) data = await res.json();
-  } catch {
-    // show empty
-  }
+      signal: AbortSignal.timeout(6000),
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<BillingSummary>) : null))
+      .catch(() => null),
+  ]);
 
   const stats = data?.stats;
 
@@ -83,9 +93,9 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Billing Health */}
+      {/* Billing status — details on the Billing tab */}
       <div className="admin-section">
-        <BillingHealthPanel />
+        <BillingLine billing={billing} />
       </div>
 
       {/* Admin Actions */}
@@ -95,32 +105,6 @@ export default async function AdminDashboardPage() {
 
       {/* Recent sections */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-        <div className="admin-card">
-          <h2 className="admin-card-header">Recent Plus Subscribers</h2>
-          {data?.recent_plus && data.recent_plus.length > 0 ? (
-            <div className="space-y-3">
-              {data.recent_plus.map((user) => (
-                <UserRow key={user.id} user={user} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>No Plus subscribers yet.</p>
-          )}
-        </div>
-
-        <div className="admin-card">
-          <h2 className="admin-card-header">Recent Ink Donors</h2>
-          {data?.recent_donors && data.recent_donors.length > 0 ? (
-            <div className="space-y-3">
-              {data.recent_donors.map((user) => (
-                <UserRow key={user.id} user={user} showDonorAmount />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>No Ink Donors yet.</p>
-          )}
-        </div>
-
         <div className="admin-card">
           <h2 className="admin-card-header">Recent Signups</h2>
           {data?.recent_signups && data.recent_signups.length > 0 ? (
@@ -135,6 +119,38 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function BillingLine({ billing }: { billing: BillingSummary | null }) {
+  const ok = billing?.status === "ok";
+  const c = billing?.counts;
+  return (
+    <Link
+      href="/admin/billing"
+      className="admin-card flex items-center justify-between gap-3 hover:opacity-90"
+      style={
+        billing && !ok
+          ? { background: "color-mix(in srgb, #f59e0b 8%, var(--surface))", borderColor: "color-mix(in srgb, #f59e0b 40%, var(--border))" }
+          : undefined
+      }
+    >
+      <div className="min-w-0">
+        <div className="text-sm font-medium">
+          {!billing ? "Billing" : ok ? "✓ Billing looks good" : `⚠ Billing needs a look (${billing.problems.length})`}
+        </div>
+        <div className="text-xs truncate" style={{ color: "var(--muted)" }}>
+          {!billing
+            ? "Couldn't check just now"
+            : !ok
+              ? billing.problems[0].message
+              : `${c!.plus} with Plus · ${c!.paying} paying · ${c!.founding} Founding${c!.trial ? ` · ${c!.trial} on trial` : ""}`}
+        </div>
+      </div>
+      <span className="text-xs shrink-0" style={{ color: "var(--accent)" }}>
+        Open Billing →
+      </span>
+    </Link>
   );
 }
 

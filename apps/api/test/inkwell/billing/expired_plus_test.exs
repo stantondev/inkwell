@@ -95,12 +95,24 @@ defmodule Inkwell.Billing.ExpiredPlusTest do
     end
   end
 
-  test "admin breakdown puts run-out accounts in :expired" do
+  test "admin Billing page lists run-out accounts as needing attention" do
     expired = plus(%{subscription_status: "canceled", subscription_expires_at: days(-1)})
     granted = plus(%{subscription_status: "canceled", subscription_expires_at: days(10)})
-    buckets = Billing.plus_users_by_source()
-    assert Enum.map(buckets[:expired], & &1.id) == [expired.id]
-    assert granted.id in Enum.map(buckets[:manually_granted], & &1.id)
+    overview = Inkwell.Billing.AdminOverview.build()
+    kind = fn u -> Enum.find(overview.members, &(&1.id == u.id)).kind end
+
+    assert kind.(expired) == "expired"
+    assert kind.(granted) == "granted"
+    assert overview.status == "attention"
+    assert Enum.any?(overview.problems, &(&1.kind == "expired" and expired.username in &1.usernames))
+  end
+
+  test "admin Billing page is calm when everything checks out" do
+    plus(%{subscription_status: "canceled", subscription_expires_at: days(10)})
+    overview = Inkwell.Billing.AdminOverview.build()
+    # No webhooks and no paying members in tests: nothing to flag.
+    assert overview.problems == []
+    assert overview.status == "ok"
   end
 
   test "admin Plus counts and the Plus filter leave out run-out accounts" do

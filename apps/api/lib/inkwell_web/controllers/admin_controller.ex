@@ -9,15 +9,10 @@ defmodule InkwellWeb.AdminController do
   alias Inkwell.Moderation
   alias InkwellWeb.EntryController
 
-  # GET /api/admin/billing-health — Square webhook health + subscription counts
-  def billing_health(conn, _params) do
-    stats = Billing.webhook_stats()
-    recent = Billing.recent_webhook_deliveries(20, "square")
-
-    json(conn, %{
-      stats: stats,
-      recent: Enum.map(recent, &render_webhook_delivery/1)
-    })
+  # GET /api/admin/billing-overview — everything the admin Billing page shows:
+  # who has Plus and why, and what (if anything) needs a look.
+  def billing_overview(conn, _params) do
+    json(conn, Inkwell.Billing.AdminOverview.build())
   end
 
   # POST /api/admin/reconcile-subscriptions — reconcile all users against Square
@@ -69,21 +64,6 @@ defmodule InkwellWeb.AdminController do
 
   def sync_user_by_email(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "email is required"})
-  end
-
-  # GET /api/admin/plus-users — list all Plus users grouped by payment source
-  def plus_users(conn, _params) do
-    buckets = Billing.plus_users_by_source()
-
-    json(conn, %{
-      founding: render_plus_users(Map.get(buckets, :founding, [])),
-      expired: render_plus_users(Map.get(buckets, :expired, [])),
-      trialing: render_plus_users(Map.get(buckets, :trialing, [])),
-      square_active: render_plus_users(Map.get(buckets, :square_active, [])),
-      manually_granted: render_plus_users(Map.get(buckets, :manually_granted, [])),
-      legacy_stripe: render_plus_users(Map.get(buckets, :legacy_stripe, [])),
-      orphaned: render_plus_users(Map.get(buckets, :orphaned, []))
-    })
   end
 
   # GET /api/admin/square-subscriptions — raw Square view (what's actually in
@@ -274,53 +254,9 @@ defmodule InkwellWeb.AdminController do
     end
   end
 
-  # POST /api/admin/send-billing-apology — send a billing apology letter via
-  # the Letters (DM) system. Better than email because it works for fediverse
-  # placeholder accounts (.fediverse.inkwell.social) where email would bounce.
-  # Body: %{"email" => "...", "custom_body" => "..."}  (custom_body optional)
-  def send_billing_apology(conn, %{"email" => email} = params) when is_binary(email) do
-    sender_id = conn.assigns.current_user.id
-    custom_body = Map.get(params, "custom_body")
-
-    Logger.info(
-      "Admin #{conn.assigns.current_user.username} sending billing apology letter to #{email}"
-    )
-
-    opts = if is_binary(custom_body) and custom_body != "", do: [custom_body: custom_body], else: []
-
-    case Billing.send_billing_apology_letter(sender_id, email, opts) do
-      {:ok, %{message_id: message_id, recipient_username: username}} ->
-        json(conn, %{ok: true, message_id: message_id, recipient_username: username})
-
-      {:error, :user_not_found} ->
-        conn |> put_status(:not_found) |> json(%{error: "No user with that email"})
-
-      {:error, :cannot_message_self} ->
-        conn |> put_status(:bad_request) |> json(%{error: "You can't send an apology to yourself"})
-
-      {:error, reason} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{error: "Failed to send letter", detail: inspect(reason)})
-    end
-  end
-
-  def send_billing_apology(conn, _params) do
-    conn |> put_status(:bad_request) |> json(%{error: "email is required"})
-  end
-
-  # GET /api/admin/grace-expiration-preview — preview which users would be
-  # downgraded by the next run of SubscriptionExpirationWorker. Read-only, no
-  # side effects. Admin can audit before the daily cron fires (or before
-  # clicking the manual run button).
-  def grace_expiration_preview(conn, _params) do
-    result = Billing.expire_grace_periods(dry_run: true)
-    json(conn, %{ok: true, result: result})
-  end
-
-  # POST /api/admin/run-grace-expiration — force-run the grace expiration
-  # downgrade inline. Used for testing or to fire the downgrade between cron
-  # cycles. Same logic as the daily worker.
+  # POST /api/admin/run-grace-expiration — "Mark as free" on the Billing page:
+  # tidies the records of accounts whose Plus time has run out (they are
+  # already treated as free everywhere).
   def run_grace_expiration(conn, _params) do
     Logger.info(
       "Admin #{conn.assigns.current_user.username} manually triggered grace expiration"
@@ -328,39 +264,6 @@ defmodule InkwellWeb.AdminController do
 
     result = Billing.expire_grace_periods(dry_run: false)
     json(conn, %{ok: true, result: result})
-  end
-
-  defp render_plus_users(users) do
-    Enum.map(users, fn u ->
-      %{
-        id: u.id,
-        username: u.username,
-        email: u.email,
-        inserted_at: u.inserted_at,
-        subscription_status: u.subscription_status,
-        subscription_expires_at: u.subscription_expires_at,
-        stripe_customer_id: u.stripe_customer_id,
-        stripe_subscription_id: u.stripe_subscription_id,
-        square_customer_id: u.square_customer_id,
-        square_subscription_id: u.square_subscription_id,
-        ink_donor_status: u.ink_donor_status,
-        ink_donor_amount_cents: u.ink_donor_amount_cents
-      }
-    end)
-  end
-
-  defp render_webhook_delivery(delivery) do
-    %{
-      id: delivery.id,
-      source: delivery.source,
-      event_type: delivery.event_type,
-      status: delivery.status,
-      signature_valid: delivery.signature_valid,
-      remote_ip: delivery.remote_ip,
-      body_size: delivery.body_size,
-      error: delivery.error,
-      inserted_at: delivery.inserted_at
-    }
   end
 
   # GET /api/admin/stats

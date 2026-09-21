@@ -41,6 +41,15 @@ const tabs = [
     ),
   },
   {
+    label: "Billing",
+    href: "/admin/billing",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    ),
+  },
+  {
     label: "Growth",
     href: "/admin/growth",
     icon: (
@@ -114,35 +123,52 @@ const tabs = [
   },
 ];
 
+// Tabs grouped by what you're doing, in this order.
+const GROUPS: { label: string | null; tabs: string[] }[] = [
+  { label: null, tabs: ["Dashboard"] },
+  { label: "People", tabs: ["Users", "Reports", "Moderation", "Warnings"] },
+  { label: "Content", tabs: ["Entries", "Polls"] },
+  { label: "Money & growth", tabs: ["Billing", "Growth", "Email"] },
+  { label: "Network", tabs: ["Federation", "Relays", "Domains"] },
+];
+
 export function AdminNav({ pendingReports }: { pendingReports?: number }) {
   const pathname = usePathname();
+  const byLabel = new Map(tabs.map((t) => [t.label, t]));
 
   return (
     <nav className="admin-nav">
-      {tabs.map((tab) => {
-        const active = tab.href === "/admin" ? pathname === "/admin" : pathname.startsWith(tab.href);
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`admin-nav-tab ${active ? "admin-nav-tab--active" : ""}`}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.label === "Reports" && pendingReports != null && pendingReports > 0 && (
-              <span
-                className="admin-nav-badge"
-                style={{
-                  background: active ? "rgba(255,255,255,0.25)" : "var(--danger, #dc2626)",
-                  color: "white",
-                }}
+      {GROUPS.map((group, gi) => (
+        <div key={gi} className="admin-nav-group">
+          {group.label && <span className="admin-nav-group-label">{group.label}</span>}
+          {group.tabs.map((name) => {
+            const tab = byLabel.get(name);
+            if (!tab) return null;
+            const active = tab.href === "/admin" ? pathname === "/admin" : pathname.startsWith(tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`admin-nav-tab ${active ? "admin-nav-tab--active" : ""}`}
               >
-                {pendingReports > 9 ? "9+" : pendingReports}
-              </span>
-            )}
-          </Link>
-        );
-      })}
+                {tab.icon}
+                {tab.label}
+                {tab.label === "Reports" && pendingReports != null && pendingReports > 0 && (
+                  <span
+                    className="admin-nav-badge"
+                    style={{
+                      background: active ? "rgba(255,255,255,0.25)" : "var(--danger, #dc2626)",
+                      color: "white",
+                    }}
+                  >
+                    {pendingReports > 9 ? "9+" : pendingReports}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

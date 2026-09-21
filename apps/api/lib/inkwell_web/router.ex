@@ -525,16 +525,13 @@ defmodule InkwellWeb.Router do
     get "/stats", AdminController, :stats
 
     # Billing / Square webhook health + reconciliation
-    get "/billing-health", AdminController, :billing_health
+    get "/billing-overview", AdminController, :billing_overview
     post "/reconcile-subscriptions", AdminController, :reconcile_subscriptions
     post "/sync-user-by-email", AdminController, :sync_user_by_email
-    get "/plus-users", AdminController, :plus_users
     get "/square-subscriptions", AdminController, :square_subscriptions
     get "/square-payments", AdminController, :square_payments
     post "/attach-square-subscription", AdminController, :attach_square_subscription
     post "/grant-plus-until", AdminController, :grant_plus_until
-    post "/send-billing-apology", AdminController, :send_billing_apology
-    get "/grace-expiration-preview", AdminController, :grace_expiration_preview
     post "/run-grace-expiration", AdminController, :run_grace_expiration
 
     # User management

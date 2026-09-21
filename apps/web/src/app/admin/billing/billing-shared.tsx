@@ -1,14 +1,5 @@
-// Shared types, utility functions, and components used by both the main
-// BillingHealthPanel and the AdvancedBillingTools subcomponent.
-//
-// The billing admin surface was growing into a 1700+ line file. Splitting
-// the advanced debugging/cleanup sections into their own component file
-// means the main panel stays focused on day-to-day operations (webhook
-// health, reconcile, sync user, grant Plus) and the advanced section can
-// live in its own file for the occasional deep-dive.
-//
-// This file holds the pieces that both need: interfaces for the shared data
-// shapes returned from the admin API, and a small set of date/color helpers.
+// Types and small helpers shared by the admin Billing page and its
+// Troubleshooting section.
 
 export interface WebhookDelivery {
   id: string;
@@ -20,53 +11,6 @@ export interface WebhookDelivery {
   body_size: number | null;
   error: string | null;
   inserted_at: string;
-}
-
-export interface WebhookStats {
-  last_delivery_at: string | null;
-  total_24h: number;
-  total_7d: number;
-  by_status_24h: Record<string, number>;
-  square_subscribers: number;
-  square_donors: number;
-  legacy_stripe_users: number;
-  plus_square_active: number;
-  plus_manually_granted: number;
-  plus_legacy_stripe: number;
-  plus_orphaned: number;
-  plus_founding: number;
-  plus_trialing: number;
-  plus_expired: number;
-}
-
-export interface HealthData {
-  stats: WebhookStats;
-  recent: WebhookDelivery[];
-}
-
-export interface PlusUser {
-  id: string;
-  username: string;
-  email: string;
-  inserted_at: string;
-  subscription_status: string | null;
-  subscription_expires_at: string | null;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  square_customer_id: string | null;
-  square_subscription_id: string | null;
-  ink_donor_status: string | null;
-  ink_donor_amount_cents: number | null;
-}
-
-export interface PlusUsersData {
-  founding: PlusUser[];
-  expired: PlusUser[];
-  trialing: PlusUser[];
-  square_active: PlusUser[];
-  manually_granted: PlusUser[];
-  legacy_stripe: PlusUser[];
-  orphaned: PlusUser[];
 }
 
 export interface SquareSubscriptionRaw {
@@ -144,27 +88,6 @@ export interface SquarePaymentsData {
   error?: string;
 }
 
-export interface GraceUserSummary {
-  id: string;
-  username: string;
-  email: string;
-  subscription_expires_at: string | null;
-}
-
-export interface GraceExpirationResult {
-  dry_run: boolean;
-  checked_at: string;
-  candidates: GraceUserSummary[];
-  downgraded: GraceUserSummary[];
-  errors: Array<{ user_id: string; username: string; reason: string }>;
-}
-
-export interface GraceExpirationResponse {
-  ok: boolean;
-  result?: GraceExpirationResult;
-  error?: string;
-}
-
 // ── Utility functions ─────────────────────────────────────────────────────
 
 /**
@@ -222,34 +145,3 @@ export function statusColor(status: string): { bg: string; fg: string } {
  * Used in both the main panel (top metrics) and the advanced tools
  * (ghost Plus detection metrics). Supports tone variants for semantic color.
  */
-export function HealthStat({
-  label,
-  value,
-  muted,
-  tone,
-}: {
-  label: string;
-  value: string;
-  muted?: boolean;
-  tone?: "success" | "warning" | "info";
-}) {
-  let color = "var(--foreground)";
-  if (muted) color = "var(--muted)";
-  else if (tone === "success") color = "var(--success, #16a34a)";
-  else if (tone === "warning") color = "#f59e0b";
-  else if (tone === "info") color = "var(--accent)";
-
-  return (
-    <div>
-      <div
-        className="text-lg font-semibold"
-        style={{ color, fontFamily: "var(--font-lora, Georgia, serif)" }}
-      >
-        {value}
-      </div>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-        {label}
-      </div>
-    </div>
-  );
-}
