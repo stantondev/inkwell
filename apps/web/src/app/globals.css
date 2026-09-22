@@ -91,7 +91,12 @@
 }
 
 html, body {
+  /* clip, not hidden: overflow-x: hidden on both html and body makes body a
+     scroll container that never scrolls, which silently breaks every
+     position: sticky element in the app (the mobile top bar scrolled away).
+     `hidden` stays as the fallback for browsers without `clip`. */
   overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -10282,14 +10287,6 @@ a.comment-author-name:hover {
   }
 }
 
-.bottom-tab-texture {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
 body[data-focus-mode] .bottom-tab-bar {
   display: none;
 }
@@ -10392,10 +10389,18 @@ nextjs-portal {
    Mobile Top Bar — Purposeful header for logged-in mobile users
    ========================================================================== */
 
-.mobile-top-bar {
+.mobile-top-bar-shell {
   position: sticky;
   top: 0;
   z-index: 40;
+}
+
+body[data-focus-mode] .mobile-top-bar-shell {
+  position: static;
+}
+
+.mobile-top-bar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -10477,308 +10482,370 @@ body[data-focus-mode] .mobile-top-bar {
 }
 
 /* ==========================================================================
-   Book Spine Drawer — Mobile navigation drawer (slides from left)
+   Mobile 2.0 (2026-09-22) — Write picker, You sheet, reader, double-tap ink
+   Replaced: the book-spine drawer, both swipe-gesture systems (horizontal
+   swipe cards and vertical ink/bookmark swipes) and the unused "more sheet".
    ========================================================================== */
 
-.book-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 60;
-  animation: book-drawer-fade-in 0.3s ease forwards;
+/* --- Write button + entry/sticky picker ---------------------------------- */
+
+.bottom-tab-compose {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 56px;
 }
 
-.book-drawer-backdrop--closing {
-  animation: book-drawer-fade-out 0.3s ease forwards;
+.bottom-tab-fab {
+  border: none;
+  cursor: pointer;
+  padding: 0;
 }
 
-@keyframes book-drawer-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+.bottom-tab-fab-close { display: none; }
+.bottom-tab-fab--open .bottom-tab-fab-pen { display: none; }
+.bottom-tab-fab--open .bottom-tab-fab-close { display: block; }
+.bottom-tab-fab--open { background: var(--foreground); }
 
-@keyframes book-drawer-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-.book-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 85vw;
-  max-width: 340px;
-  background: var(--surface);
-  z-index: 61;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  box-shadow: 4px 0 16px -4px rgba(0, 0, 0, 0.15);
-  animation: book-drawer-slide-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-
-.book-drawer--closing {
-  animation: book-drawer-slide-out 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-
-@keyframes book-drawer-slide-in {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes book-drawer-slide-out {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
-
-.book-drawer-texture {
+.bottom-tab-compose-menu {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(280px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  animation: compose-menu-in 0.16s ease-out;
+  z-index: 2;
 }
 
-/* User section */
-.book-drawer-user {
+@keyframes compose-menu-in {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.bottom-tab-compose-option {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 20px 16px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--foreground);
+  text-align: left;
   text-decoration: none;
-  color: inherit;
-  position: relative;
-  z-index: 1;
+  font: inherit;
+  cursor: pointer;
 }
 
-.book-drawer-user:active {
-  opacity: 0.8;
+.bottom-tab-compose-option:active,
+.bottom-tab-compose-option:hover {
+  background: var(--surface-hover);
 }
 
-.book-drawer-user-info {
+.bottom-tab-compose-option > svg { flex-shrink: 0; color: var(--accent); }
+
+.bottom-tab-compose-option > span:last-child {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 1px;
 }
 
-.book-drawer-user-name {
-  font-weight: 600;
+.bottom-tab-compose-title {
+  font-family: var(--font-lora, Georgia, serif);
   font-size: 15px;
+  font-weight: 600;
+}
+
+.bottom-tab-compose-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bottom-tab-compose-sticky {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--sticky-yellow, #fdf1a8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: rotate(-4deg);
+}
+
+button.bottom-tab-item { font: inherit; }
+
+/* The mobile top bar now really sticks; keep the editor toolbar below it. */
+@media (max-width: 1023px) {
+  body:not([data-focus-mode]) .editor-toolbar-container { top: 57px; }
+}
+
+/* --- Offline notice ------------------------------------------------------ */
+
+.mobile-offline-notice {
+  padding: 6px 16px;
+  font-size: 13px;
+  text-align: center;
   color: var(--foreground);
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (min-width: 1024px) {
+  .mobile-offline-notice { display: none; }
+}
+
+/* --- You sheet ----------------------------------------------------------- */
+
+.you-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  animation: you-fade-in 0.2s ease forwards;
+}
+
+.you-sheet-backdrop--closing { animation: you-fade-out 0.22s ease forwards; }
+
+.you-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  max-height: min(88dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.16);
+  padding-bottom: env(safe-area-inset-bottom);
+  outline: none;
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: you-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.you-sheet--closing { animation: you-slide-down 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+
+@keyframes you-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes you-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes you-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes you-slide-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .you-sheet, .you-sheet--closing, .you-sheet-backdrop, .you-sheet-backdrop--closing,
+  .bottom-tab-compose-menu, .double-tap-ink-splash { animation-duration: 0.01ms !important; }
+}
+
+.you-sheet-grab {
+  flex-shrink: 0;
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  touch-action: none;
+}
+
+.you-sheet-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.you-sheet-profile {
   display: flex;
   align-items: center;
+  gap: 12px;
+  padding: 6px;
+  margin: 0 -6px;
+  border-radius: 14px;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.you-sheet-profile:active { background: var(--surface-hover); }
+
+.you-sheet-profile-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.you-sheet-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.you-sheet-pill {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-light, rgba(45, 74, 138, 0.1));
+  color: var(--accent);
+}
+
+.you-sheet-pill--muted { background: var(--surface-hover); color: var(--muted); }
+
+.you-sheet-handle-text {
+  font-size: 13px;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.book-drawer-plus-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  white-space: nowrap;
+.you-sheet-chevron { flex-shrink: 0; color: var(--muted); }
+
+.you-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 10px;
 }
 
-.book-drawer-donor-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  background: var(--accent);
-  color: #fff;
-  white-space: nowrap;
+.you-sheet-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.book-drawer-user-handle {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* Sections */
-.book-drawer-sections {
-  padding: 4px 0 24px;
-  position: relative;
-  z-index: 1;
-}
-
-.book-drawer-section {
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
-  margin: 0 20px;
-}
-
-.book-drawer-heading {
-  font-family: var(--font-lora, Georgia, serif);
-  font-style: italic;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  padding: 8px 0 4px;
-}
-
-.book-drawer-numeral {
-  font-style: normal;
-  margin-right: 4px;
-  color: var(--accent);
-}
-
-/* Nav links */
-.book-drawer-link {
+.you-sheet-tile {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  text-decoration: none;
-  color: var(--foreground);
-  font-size: 15px;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: color 0.15s ease;
-  border: none;
-  background: none;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-}
-
-.book-drawer-link:active {
-  opacity: 0.7;
-}
-
-.book-drawer-link--active {
-  color: var(--accent);
-}
-
-.book-drawer-link-icon {
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  color: var(--muted);
+  gap: 6px;
+  min-height: 74px;
+  padding: 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--foreground);
+  text-decoration: none;
+  background: var(--background);
 }
 
-.book-drawer-link--active .book-drawer-link-icon {
+.you-sheet-tile:active { background: var(--surface-hover); }
+
+.you-sheet-tile-icon {
+  position: relative;
+  display: flex;
   color: var(--accent);
 }
 
-.book-drawer-link-label {
-  flex: 1;
-  min-width: 0;
-}
+.you-sheet-tile-label { font-size: 13px; }
 
-/* Dot leader + badge */
-.book-drawer-dot-leader {
-  flex: 1;
-  min-width: 16px;
-  border-bottom: 1px dotted var(--border);
-  margin: 0 4px;
-  align-self: center;
-  height: 0;
-}
-
-.book-drawer-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
+.you-sheet-badge {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
   background: var(--danger);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
-  flex-shrink: 0;
 }
 
-/* Ornament divider */
-.book-drawer-ornament {
-  text-align: center;
-  padding: 12px 0;
+.you-sheet-badge--muted { background: var(--surface-hover); color: var(--foreground); border: 1px solid var(--border); }
+
+.you-sheet-label {
+  margin: 18px 2px 8px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 13px;
   color: var(--muted);
+}
+
+.you-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.you-sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--foreground);
+  text-decoration: none;
   font-size: 14px;
-  letter-spacing: 0.3em;
-  margin: 0 20px;
 }
 
-/* Sign out (inside section IV) */
-.book-drawer-signout {
-  display: block;
+.you-sheet-chip > span { display: flex; color: var(--muted); }
+.you-sheet-chip:active { background: var(--surface-hover); }
+
+.you-sheet-list {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
 }
 
-.book-drawer-signout .book-drawer-link {
-  color: var(--muted);
-}
-
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  .book-drawer-backdrop {
-    background: rgba(0, 0, 0, 0.55);
-  }
-  .book-drawer {
-    box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.4);
-  }
-}
-
-[data-theme="dark"] .book-drawer-backdrop {
-  background: rgba(0, 0, 0, 0.55);
-}
-
-[data-theme="dark"] .book-drawer {
-  box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.4);
-}
-
-/* ==========================================================================
-   Mobile Swipeable Cards — Swipe gestures on feed cards
-   ========================================================================== */
-
-.mobile-swipe-wrapper {
-  position: relative;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.mobile-swipe-card {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
-}
-
-.mobile-swipe-action {
-  position: absolute;
-  top: 0;
-  bottom: 0;
+.you-sheet-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 20px;
+  gap: 14px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--foreground);
+  text-decoration: none;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.you-sheet-row:active { background: var(--surface-hover); }
+.you-sheet-row-icon { display: flex; width: 22px; justify-content: center; color: var(--muted); }
+.you-sheet-row--accent, .you-sheet-row--accent .you-sheet-row-icon { color: var(--accent); font-weight: 600; }
+.you-sheet-row--quiet { color: var(--muted); }
+.you-sheet-star { font-size: 16px; line-height: 1; }
+
+.you-sheet-ios-help {
+  margin: 0 4px 8px 40px;
   font-size: 13px;
-  font-weight: 600;
+  line-height: 1.5;
   color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.15s ease;
 }
 
-.mobile-swipe-action--visible {
-  opacity: 1;
+@media (min-width: 1024px) {
+  .you-sheet, .you-sheet-backdrop { display: none; }
 }
 
-.mobile-swipe-action--left {
-  left: 0;
-}
+/* --- Pull to refresh ----------------------------------------------------- */
 
-.mobile-swipe-action--right {
-  right: 0;
-  flex-direction: row-reverse;
-}
-
-/* Pull-to-refresh indicator */
 .pull-to-refresh-indicator {
   display: flex;
   align-items: center;
@@ -10796,30 +10863,26 @@ body[data-focus-mode] .mobile-top-bar {
   to { transform: rotate(360deg); }
 }
 
-/* Hide old horizontal swipe features on desktop */
-@media (min-width: 1024px) {
-  .mobile-swipe-wrapper {
-    overflow: visible;
-  }
-  .mobile-swipe-action {
-    display: none;
-  }
-  .mobile-book-wrapper {
-    display: none;
-  }
-}
-
 /* ==========================================================================
-   Mobile Book Layout — Horizontal scroll-snap with full-height cards
+   Mobile Book Layout — Horizontal scroll-snap with full-height pages
    ========================================================================== */
+
+@media (min-width: 1024px) {
+  .mobile-book-wrapper { display: none; }
+}
 
 .mobile-book-wrapper {
   position: relative;
   width: 100%;
-  /* Use a fixed height based on viewport, the wrapper lives inside the page scroll */
-  height: calc(100svh - 60px);
-  min-height: 500px;
+  /* Exactly the space between the sticky top bar (57px) and the bottom tab bar
+     (56px + home indicator). It was 100svh - 60px, which ignored the tab bar,
+     so every page's action bar — the ink and bookmark buttons — and the page
+     counter sat hidden underneath it. */
+  height: calc(100svh - 57px - 56px - env(safe-area-inset-bottom));
+  height: calc(100dvh - 57px - 56px - env(safe-area-inset-bottom));
+  min-height: 420px;
   overflow: hidden;
+  scroll-margin-top: 57px;
 }
 
 .mobile-book-scroll {
@@ -10831,6 +10894,7 @@ body[data-focus-mode] .mobile-top-bar {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -10842,7 +10906,8 @@ body[data-focus-mode] .mobile-top-bar {
   min-width: 100%;
   height: 100% !important;
   scroll-snap-align: start;
-  padding: 6px 6px 36px 6px; /* Extra bottom padding for page counter */
+  scroll-snap-stop: always;
+  padding: 6px 6px 34px 6px; /* room for the page counter */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box;
@@ -10853,29 +10918,29 @@ body[data-focus-mode] .mobile-top-bar {
   display: flex;
   flex-direction: column;
   max-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Entry body scrollable within the card on mobile */
+/* Entry body scrolls inside the page; the action bar stays pinned below it */
 .mobile-book-page .journal-book-entry-body {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .mobile-book-page .journal-book-entry-body::-webkit-scrollbar { display: none; }
 
-/* Mobile sentinel (load more) */
 .mobile-book-sentinel {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Page counter */
 .mobile-book-counter {
   position: absolute;
-  bottom: 12px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -10892,83 +10957,67 @@ body[data-focus-mode] .mobile-top-bar {
   pointer-events: none;
 }
 
-/* Swipe hints — shown briefly then fade out */
+/* Gesture hint — first few visits only */
 .mobile-book-swipe-hints {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-  opacity: 0;
-  z-index: 10;
-  pointer-events: none;
-  animation: mobile-hint-fade 3s ease-out 0.5s forwards;
-  font-family: var(--font-lora, Georgia, serif);
-  font-style: italic;
-}
-@keyframes mobile-hint-fade {
-  0% { opacity: 0; }
-  10% { opacity: 0.7; }
-  70% { opacity: 0.7; }
-  100% { opacity: 0; }
-}
-
-/* ==========================================================================
-   Mobile Vertical Swipe Indicators (Ink up, Bookmark down)
-   ========================================================================== */
-
-.mobile-swipe-wrapper-v {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.mobile-swipe-card-v {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-}
-
-.mobile-swipe-indicator {
-  position: absolute;
-  z-index: 0;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--surface);
+  font-size: 12px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  white-space: nowrap;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  z-index: 10;
   pointer-events: none;
+  animation: mobile-hint-fade 4.5s ease-out 0.6s forwards;
+}
+.mobile-book-hint-dot { opacity: 0.5; }
+@keyframes mobile-hint-fade {
+  0% { opacity: 0; transform: translate(-50%, -6px); }
+  8% { opacity: 0.92; transform: translate(-50%, 0); }
+  80% { opacity: 0.92; }
+  100% { opacity: 0; }
 }
 
-.mobile-swipe-indicator--up {
-  bottom: 16px;
+/* --- Double-tap to ink --------------------------------------------------- */
+
+.double-tap-ink {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Turns off double-tap-to-zoom here, so the second tap arrives promptly
+     and means "ink", while panning in both directions still works. */
+  touch-action: pan-x pan-y;
 }
 
-.mobile-swipe-indicator--down {
-  top: 16px;
+.double-tap-ink-splash {
+  position: absolute;
+  z-index: 20;
+  width: 64px;
+  height: 78px;
+  margin: -46px 0 0 -32px;
+  color: var(--accent);
+  pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+  animation: ink-splash 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
 }
 
-.mobile-swipe-indicator--visible {
-  opacity: 1;
-}
-
-/* Hide vertical swipe on desktop */
-@media (min-width: 1024px) {
-  .mobile-swipe-wrapper-v {
-    overflow: visible;
-  }
-  .mobile-swipe-indicator {
-    display: none;
-  }
+@keyframes ink-splash {
+  0% { opacity: 0; transform: scale(0.3); }
+  25% { opacity: 0.95; transform: scale(1.15); }
+  45% { transform: scale(0.95); }
+  70% { opacity: 0.95; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(1) translateY(-24px); }
 }
 
 /* ==========================================================================
@@ -11061,143 +11110,11 @@ body[data-focus-mode] .mobile-top-bar {
   }
 }
 
-/* ==========================================================================
-   More Sheet — Bottom Sheet Navigation Menu
-   ========================================================================== */
-
-.more-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(0, 0, 0, 0.4);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.more-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 61;
-  max-height: 85vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  background: var(--surface);
-  border-radius: 16px 16px 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-}
-
-.more-sheet-handle {
-  display: flex;
-  justify-content: center;
-  padding: 10px 0 4px;
-}
-
-.more-sheet-handle-bar {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--border);
-}
-
-.more-sheet-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  text-decoration: none;
-  color: var(--foreground);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.more-sheet-user-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.more-sheet-user-name {
-  font-weight: 600;
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.more-sheet-user-handle {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.more-sheet-divider {
-  height: 1px;
-  margin: 4px 20px;
-  background: var(--border);
-}
-
-.more-sheet-links {
-  padding: 4px 0 12px;
-}
-
-.more-sheet-link {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 20px;
-  min-height: 48px;
-  font-size: 15px;
-  color: var(--foreground);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-}
-
-.more-sheet-link:active {
-  background: var(--surface-hover);
-}
-
-.more-sheet-link-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  color: var(--muted);
-}
-
-.more-sheet-badge {
-  margin-left: auto;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 20px;
-  text-align: center;
-}
-
-.more-sheet-signout {
-  display: contents;
-}
-
+/* Write button shadow in dark mode */
 @media (prefers-color-scheme: dark) {
-  .more-sheet-backdrop {
-    background: rgba(0, 0, 0, 0.55);
-  }
   .bottom-tab-fab {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
   }
-}
-
-[data-theme="dark"] .more-sheet-backdrop {
-  background: rgba(0, 0, 0, 0.55);
 }
 
 [data-theme="dark"] .bottom-tab-fab {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { setAppIconBadge } from "@/lib/pwa";
 import { usePathname } from "next/navigation";
 import { installAudioUnlock, playChime } from "@/lib/notification-sound";
 import type { Notification } from "@/lib/notification-format";
@@ -561,6 +562,8 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
 
         // Update favicon badge
         updateFaviconBadge(total > 0);
+        // …and the installed app's icon (home screen / dock)
+        setAppIconBadge(total);
 
         setCounts(newCounts);
       })

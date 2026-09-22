@@ -10,12 +10,22 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     background_color: "#ffffff",
-    theme_color: "#2d4a8a",
+    theme_color: "#ffffff",
     orientation: "any",
+    // Opening a notification or a shortcut reuses the open Inkwell window.
+    launch_handler: { client_mode: ["navigate-existing", "auto"] },
     lang: "en",
     prefer_related_applications: false,
     categories: ["social", "lifestyle"],
+    // Long-press the home-screen icon (Android) or right-click the dock icon.
+    shortcuts: [
+      { name: "Write an entry", short_name: "Write", url: "/editor?source=shortcut", icons: [{ src: "/icons/icon-96x96.png", sizes: "96x96" }] },
+      { name: "Notifications", short_name: "Alerts", url: "/notifications?source=shortcut", icons: [{ src: "/icons/icon-96x96.png", sizes: "96x96" }] },
+      { name: "Letters", url: "/letters?source=shortcut", icons: [{ src: "/icons/icon-96x96.png", sizes: "96x96" }] },
+      { name: "Explore", url: "/explore?source=shortcut", icons: [{ src: "/icons/icon-96x96.png", sizes: "96x96" }] },
+    ],
     icons: [
       { src: "/icons/icon-72x72.png", sizes: "72x72", type: "image/png" },
       { src: "/icons/icon-96x96.png", sizes: "96x96", type: "image/png" },

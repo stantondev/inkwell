@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+// Imported for its side effect: captures the install prompt as early as possible.
+import "@/lib/pwa";
 
 export function ServiceWorkerRegister() {
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { emitEntryState, useEntryState } from "@/lib/entry-state";
 
 interface InkButtonProps {
   entryId: string;
@@ -32,6 +33,14 @@ export function InkButton({
   const [animating, setAnimating] = useState(false);
   const loadingRef = useRef(false);
   const router = useRouter();
+  const self = useRef({}).current;
+
+  // Stay in step with inks made elsewhere (the mobile double-tap, another copy
+  // of this entry on the page).
+  useEntryState(entryId, (patch) => {
+    if (patch.my_ink !== undefined) setInked(patch.my_ink);
+    if (patch.ink_count !== undefined) setCount(patch.ink_count);
+  }, self);
 
   // For own entries, show read-only count if > 0
   if (isOwnEntry) {
@@ -70,6 +79,7 @@ export function InkButton({
         const { data } = await res.json();
         setInked(data.inked);
         setCount(data.ink_count);
+        emitEntryState(entryId, { my_ink: data.inked, ink_count: data.ink_count }, self);
       } else {
         setInked(!newInked);
         setCount((c) => c + (newInked ? -1 : 1));

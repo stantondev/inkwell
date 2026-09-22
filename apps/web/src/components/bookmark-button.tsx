@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { emitEntryState, useEntryState } from "@/lib/entry-state";
 
 interface BookmarkButtonProps {
   entryId: string;
@@ -25,6 +26,11 @@ export function BookmarkButton({
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [animating, setAnimating] = useState(false);
   const router = useRouter();
+  const self = useRef({}).current;
+
+  useEntryState(entryId, (patch) => {
+    if (patch.bookmarked !== undefined) setBookmarked(patch.bookmarked);
+  }, self);
 
   const apiPath = bookmarkApiPath ?? `/api/entries/${entryId}/bookmark`;
 
@@ -49,6 +55,8 @@ export function BookmarkButton({
         // Revert on error
         setBookmarked(!newState);
         onBookmarkChange?.(!newState);
+      } else {
+        emitEntryState(entryId, { bookmarked: newState }, self);
       }
     } catch {
       setBookmarked(!newState);

@@ -70,6 +70,18 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
     }
   }
 
+  // The mobile top bar's search button links to /explore?focus=search
+  const wantsFocus = searchParams.get("focus") === "search";
+  useEffect(() => {
+    if (!wantsFocus) return;
+    inputRef.current?.focus();
+    inputRef.current?.scrollIntoView({ block: "center" });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("focus");
+    const qs = params.toString();
+    router.replace(`/explore${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [wantsFocus]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Global Cmd+K / Ctrl+K to focus
   useEffect(() => {
     function handleGlobalKey(e: KeyboardEvent) {

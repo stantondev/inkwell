@@ -45,20 +45,15 @@ export async function AppShell({
     <>
       {/* Logged-in mobile: MobileTopBar (<lg only) */}
       {user && (
-        <div className="lg:hidden">
+        // Sticky on this wrapper, not on the header inside it: a sticky element
+        // can't outrun its parent, and this div is exactly the header's height,
+        // so the header used to scroll away with the page.
+        <div className="lg:hidden mobile-top-bar-shell">
           <MobileTopBar
             username={user.username}
-            displayName={user.display_name || user.username}
-            avatarUrl={user.avatar_url}
-            avatarFrame={user.avatar_frame}
-            avatarAnimation={user.avatar_animation}
-            subscriptionTier={user.subscription_tier}
-            inkDonorStatus={user.ink_donor_status}
-            isAdmin={user.is_admin}
             unreadLetterCount={user.unread_letter_count ?? 0}
             unreadNotificationCount={user.unread_notification_count ?? 0}
             draftCount={user.draft_count ?? 0}
-            selfHosted={user.self_hosted}
           />
         </div>
       )}
@@ -90,7 +85,14 @@ export async function AppShell({
       {user && (
         <BottomTabBar
           username={user.username}
+          displayName={user.display_name || user.username}
           avatarUrl={user.avatar_url}
+          avatarFrame={user.avatar_frame}
+          avatarAnimation={user.avatar_animation}
+          subscriptionTier={user.subscription_tier}
+          inkDonorStatus={user.ink_donor_status}
+          isAdmin={user.is_admin}
+          selfHosted={user.self_hosted}
           unreadNotificationCount={user.unread_notification_count ?? 0}
           unreadLetterCount={user.unread_letter_count ?? 0}
           draftCount={user.draft_count ?? 0}

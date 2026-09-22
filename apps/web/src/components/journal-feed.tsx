@@ -8,7 +8,8 @@ import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
-import { MobileSwipeableCard } from "./mobile-swipeable-card";
+import { DoubleTapInk } from "./double-tap-ink";
+import { emitEntryState, useEntryState } from "@/lib/entry-state";
 import { packEntriesIntoSpreads } from "@/lib/page-packing";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
 
@@ -198,39 +199,50 @@ export function JournalFeed({
   // ─── Shared helpers ──────────────────────────────────────────────
 
   const inkingRef = useRef(new Set<string>());
+  const feedSelf = useRef({}).current;
 
-  const toggleInk = useCallback(async (entryId: string, isRemote: boolean) => {
-    if (!session?.isLoggedIn) return;
-    if (inkingRef.current.has(entryId)) return;
-    inkingRef.current.add(entryId);
-    const path = isRemote ? `/api/remote-entries/${entryId}/ink` : `/api/entries/${entryId}/ink`;
+  // Keep the feed's copy of each entry in step with the Ink/Bookmark buttons,
+  // so a double-tap after a button tap starts from the right state.
+  useEntryState(null, (patch, id) => {
+    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, feedSelf);
+
+  // Double-tap only ever adds an ink. Already inked: the splash plays, nothing is sent.
+  const inkEntry = useCallback(async (entry: JournalEntry) => {
+    if (!session?.isLoggedIn || entry.my_ink || inkingRef.current.has(entry.id)) return;
+    inkingRef.current.add(entry.id);
+    const before = { my_ink: false, ink_count: entry.ink_count ?? 0 };
+    const optimistic = { my_ink: true, ink_count: before.ink_count + 1 };
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, ...optimistic } : e)));
+    emitEntryState(entry.id, optimistic, feedSelf);
+    const path = entry.source === "remote" ? `/api/remote-entries/${entry.id}/ink` : `/api/entries/${entry.id}/ink`;
+    let settled = before;
     try {
-      const res = await fetch(path, { method: "POST" });
+      const res = await fetch(path, { method: "POST", cache: "no-store" });
       if (res.ok) {
-        // The API wraps the result in `data`; reading the top level set the
-        // count and state to undefined after every swipe.
         const { data } = await res.json();
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, my_ink: data.inked, ink_count: data.ink_count } : e));
+        settled = { my_ink: data.inked, ink_count: data.ink_count };
       }
-    } catch { /* silent */ } finally {
-      inkingRef.current.delete(entryId);
+    } catch { /* revert below */ } finally {
+      inkingRef.current.delete(entry.id);
     }
-  }, [session?.isLoggedIn]);
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, ...settled } : e)));
+    emitEntryState(entry.id, settled, feedSelf);
+  }, [session?.isLoggedIn, feedSelf]);
 
-  const toggleBookmark = useCallback(async (entryId: string) => {
-    if (!session?.isLoggedIn) return;
-    const entry = entries.find(e => e.id === entryId);
-    // Bookmarks are for Inkwell entries; the endpoint 404s for fediverse posts.
-    if (!entry || entry.source === "remote") return;
+  // The "swipe · double-tap" hint shows on the first few visits only.
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    // isMobile starts true before the first measurement; check the real width.
+    if (!isMobile || window.innerWidth >= 1024) return;
     try {
-      // Swiping used to always POST, so it could never remove a bookmark.
-      const res = await fetch(`/api/entries/${entryId}/bookmark`, { method: entry.bookmarked ? "DELETE" : "POST" });
-      if (res.ok) {
-        const { data } = await res.json();
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, bookmarked: data.bookmarked } : e));
+      const seen = Number(localStorage.getItem("inkwell-reader-hint") || "0");
+      if (seen < 3) {
+        setShowHint(true);
+        localStorage.setItem("inkwell-reader-hint", String(seen + 1));
       }
-    } catch { /* silent */ }
-  }, [session?.isLoggedIn, entries]);
+    } catch { /* storage unavailable: skip the hint */ }
+  }, [isMobile]);
 
   // Must come after every hook above: returning earlier changed the number of
   // hooks between renders, which crashes React when the list goes from empty
@@ -288,7 +300,6 @@ export function JournalFeed({
   }
 
   const renderCard = (entry: JournalEntry, bookMode = false) => {
-    const isRemote = entry.source === "remote";
     const isOwnEntry = session ? entry.author.id === session.userId : false;
     const card = (
       <JournalEntryCard
@@ -300,20 +311,9 @@ export function JournalFeed({
         isOwn={isOwnEntry}
       />
     );
-    // Mobile vertical swipe: up = ink, down = bookmark
+    // Mobile: double-tap the page to ink it
     if (isMobile && session?.isLoggedIn && !isOwnEntry) {
-      return (
-        <MobileSwipeableCard
-          onSwipeUp={() => toggleInk(entry.id, isRemote)}
-          onSwipeDown={() => toggleBookmark(entry.id)}
-          upActive={entry.my_ink ?? false}
-          downActive={entry.bookmarked ?? false}
-          upLabel="Ink"
-          downLabel="Bookmark"
-        >
-          {card}
-        </MobileSwipeableCard>
-      );
+      return <DoubleTapInk onInk={() => inkEntry(entry)}>{card}</DoubleTapInk>;
     }
     return card;
   };
@@ -428,19 +428,16 @@ export function JournalFeed({
         </div>
       ) : null}
 
-      {/* Swipe hint — shown briefly on first visit */}
-      <div className="mobile-book-swipe-hints">
-        <span className="mobile-book-hint-left">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-        </span>
-        <span className="mobile-book-hint-text">swipe to read</span>
-        <span className="mobile-book-hint-right">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-        </span>
-      </div>
+      {/* Gesture hint — first few visits only */}
+      {showHint && (
+        <div className="mobile-book-swipe-hints" aria-hidden="true">
+          <span>swipe for the next page</span>
+          {session?.isLoggedIn && <><span className="mobile-book-hint-dot">·</span><span>double-tap to ink</span></>}
+        </div>
+      )}
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
-        {entries.map((entry, idx) => (
+        {entries.map((entry) => (
           <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : ""}`}>
             {renderCard(entry, true)}
           </div>
