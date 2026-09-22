@@ -135,7 +135,7 @@ defmodule InkwellWeb.UserController do
     ]
 
     allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
-    allowed = Map.take(params, allowed_keys)
+    allowed = params |> Map.take(allowed_keys) |> drop_echoed_image_urls()
 
     # When bio_html is sent, sanitize it and auto-derive plain text bio
     allowed =
@@ -649,6 +649,26 @@ defmodule InkwellWeb.UserController do
 
   defp sanitize_profile_html(html) do
     Inkwell.HtmlSanitizer.sanitize_profile(html)
+  end
+
+  # Responses carry avatars and banners as `/api/avatars/:username?v=…` links
+  # (Inkwell.Avatars), not the stored data URI. Forms that load the profile
+  # and PATCH it back echo that link, which used to overwrite the stored image
+  # with a URL pointing at itself — the avatar then 404'd for everyone. Such a
+  # value means "unchanged", so drop it. Uploads use their own endpoints;
+  # clearing is still `nil` / "".
+  defp drop_echoed_image_urls(params) do
+    Enum.reduce(["avatar_url", "profile_banner_url"], params, fn key, acc ->
+      case Map.get(acc, key) do
+        url when is_binary(url) ->
+          if Regex.match?(~r{^(https?://[^/]+)?/api/(avatars|banners)/}, url),
+            do: Map.delete(acc, key),
+            else: acc
+
+        _ ->
+          acc
+      end
+    end)
   end
 
   defp sanitize_redacted_words(settings) do
