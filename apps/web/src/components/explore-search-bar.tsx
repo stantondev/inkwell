@@ -12,6 +12,10 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
   const [query, setQuery] = useState(initialQuery);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  // Every `q` this component has written to the URL itself. A Set, not the
+  // last value: on a slow connection router.replace commits the URL only after
+  // the server answers, so an older write can land after a newer one.
+  const pushedRef = useRef(new Set<string>());
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -24,10 +28,15 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
     if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setShortcutHint("\u2318K");
   }, []);
 
-  // Sync URL → state on popstate (back/forward)
+  // Sync URL → state on back/forward only. This used to react to every URL
+  // change, including the ones the box made itself 350ms after a pause: the
+  // URL still held the older text, so it overwrote the letters typed since
+  // (and any trailing space, since the URL value is trimmed). Typing at phone
+  // speed turned "sticky tester" into "siketr".
   useEffect(() => {
     const q = searchParams.get("q") || "";
-    if (q !== query) {
+    if (pushedRef.current.has(q)) return;
+    if (q !== query.trim()) {
       setQuery(q);
       onQueryChange(q);
     }
@@ -50,6 +59,7 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
         params.delete("q");
       }
       const qs = params.toString();
+      pushedRef.current.add(value.trim());
       router.replace(`/explore${qs ? `?${qs}` : ""}`, { scroll: false });
       onQueryChange(value.trim());
     }, 350);
@@ -59,11 +69,13 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       setQuery("");
       const params = new URLSearchParams(searchParams.toString());
       params.delete("q");
       params.delete("page");
       const qs = params.toString();
+      pushedRef.current.add("");
       router.replace(`/explore${qs ? `?${qs}` : ""}`, { scroll: false });
       onQueryChange("");
       inputRef.current?.blur();
@@ -131,6 +143,12 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
           onKeyDown={handleKeyDown}
           placeholder="Look up writers, entries, or @handles..."
           className="explore-search-input"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           role="search"
           aria-label="Search writers, entries, and fediverse handles"
         />
@@ -146,6 +164,8 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
               params.delete("q");
               params.delete("page");
               const qs = params.toString();
+              pushedRef.current.add("");
+              if (debounceRef.current) clearTimeout(debounceRef.current);
               router.replace(`/explore${qs ? `?${qs}` : ""}`, { scroll: false });
               onQueryChange("");
               inputRef.current?.focus();

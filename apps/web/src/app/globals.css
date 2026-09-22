@@ -11743,7 +11743,9 @@ a, button, [role="tab"], [role="button"] {
 
 @media (max-width: 640px) {
   .explore-search-input {
-    font-size: 14px;
+    /* 16px, not smaller: iOS Safari zooms the whole page when an input
+       under 16px gets focus, and doesn't zoom back out. */
+    font-size: 16px;
     padding: 12px 10px;
   }
 
