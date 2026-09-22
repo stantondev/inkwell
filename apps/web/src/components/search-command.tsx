@@ -15,6 +15,8 @@ export function SearchCommand() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        // Settings owns ⌘K while you're inside it (the jump palette).
+        if (pathname === "/settings" || pathname.startsWith("/settings/")) return;
         e.preventDefault();
         if (pathname === "/search") {
           window.dispatchEvent(new CustomEvent("inkwell-search-focus"));

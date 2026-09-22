@@ -136,12 +136,6 @@ export default function PinnedEntriesPage() {
   if (loading) {
     return (
       <div>
-        <h1
-          className="text-xl font-semibold mb-1"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Pinned Entries
-        </h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Loading...
         </p>
@@ -151,16 +145,9 @@ export default function PinnedEntriesPage() {
 
   return (
     <div>
-      <h1
-        className="text-xl font-semibold mb-1"
-        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-      >
-        Pinned Entries
-      </h1>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        Pin up to 3 entries to the top of your profile. Pinned entries also
-        appear as featured posts when someone views your profile from the
-        fediverse.
+        Pinned entries also appear as featured posts when someone views your
+        profile from the fediverse.
       </p>
 
       {/* Current pinned entries */}

@@ -183,7 +183,7 @@ export function CustomProfileHydrator({
                 {isOwnProfile ? (
                   <div className="flex items-center gap-2">
                     <Link
-                      href="/settings"
+                      href="/settings/profile"
                       className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
                       style={{ borderColor: styles.border, color: styles.muted }}
                     >

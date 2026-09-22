@@ -100,9 +100,6 @@ export default function PostByEmailPage() {
   if (loading) {
     return (
       <div>
-        <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: 22, marginBottom: 4 }}>
-          Post by Email
-        </h1>
         <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading...</p>
       </div>
     );
@@ -111,9 +108,6 @@ export default function PostByEmailPage() {
   if (!isPlus) {
     return (
       <div>
-        <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: 22, marginBottom: 8 }}>
-          Post by Email
-        </h1>
         <div
           style={{
             border: "1px solid var(--border)",
@@ -148,13 +142,6 @@ export default function PostByEmailPage() {
 
   return (
     <div>
-      <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: 22, marginBottom: 4 }}>
-        Post by Email
-      </h1>
-      <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 20 }}>
-        Send an email to your unique address and it becomes a published journal entry.
-      </p>
-
       {error && (
         <div style={{ color: "var(--danger, #dc2626)", fontSize: 14, marginBottom: 16, padding: "8px 12px", background: "var(--danger-light, #fef2f2)", borderRadius: 8 }}>
           {error}

@@ -29,6 +29,11 @@ export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKeyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlus, setIsPlus] = useState(false);
+  // If we can't read the account, we must not render the page as if the user
+  // were on the free plan — that quietly takes the write scope away from Plus.
+  const [tierUnknown, setTierUnknown] = useState(false);
+  // A failed key load must not render as "No API keys yet."
+  const [loadError, setLoadError] = useState(false);
 
   // Create form state
   const [name, setName] = useState("");
@@ -45,26 +50,42 @@ export default function ApiKeysPage() {
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const fetchKeys = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch("/api/api-keys");
-      if (res.ok) {
-        const data = await res.json();
-        setKeys(data.data || []);
+      // A failed load used to render as "No API keys yet."
+      if (!res.ok) {
+        setLoadError(true);
+        return;
       }
+      const data = await res.json();
+      setKeys(data.data || []);
     } catch {
-      // silently fail
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const fetchTier = useCallback(async () => {
+    setTierUnknown(false);
+    try {
+      const res = await fetch("/api/me");
+      if (!res.ok) {
+        setTierUnknown(true);
+        return;
+      }
+      const d = await res.json();
+      setIsPlus(d.data?.subscription_tier === "plus");
+    } catch {
+      setTierUnknown(true);
+    }
+  }, []);
+
   useEffect(() => {
     fetchKeys();
-    // Check subscription tier
-    fetch("/api/me").then(r => r.json()).then(d => {
-      if (d.data?.subscription_tier === "plus") setIsPlus(true);
-    }).catch(() => {});
-  }, [fetchKeys]);
+    fetchTier();
+  }, [fetchKeys, fetchTier]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,15 +161,9 @@ export default function ApiKeysPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2
-          className="text-lg font-semibold mb-1"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          API Keys
-        </h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Create API keys to integrate with Inkwell programmatically. Use them to publish entries from
-          external tools, build custom workflows, or access your data.{" "}
+          Use them to publish entries from external tools, build custom
+          workflows, or access your data.{" "}
           <Link href="/developers" className="underline" style={{ color: "var(--accent)" }}>
             View API documentation
           </Link>
@@ -212,6 +227,22 @@ export default function ApiKeysPage() {
           Create a new key
         </h3>
 
+        {tierUnknown && (
+          <p
+            className="text-sm rounded-lg px-3 py-2 mb-3"
+            style={{
+              background: "var(--danger-light, #fef2f2)",
+              color: "var(--danger, #dc2626)",
+            }}
+          >
+            We couldn&apos;t check your plan just now, so Plus features are shown as
+            available.{" "}
+            <button type="button" onClick={fetchTier} className="underline">
+              Try again
+            </button>
+          </p>
+        )}
+
         <form onSubmit={handleCreate} className="flex flex-col gap-3">
           <div>
             <label className="text-xs font-medium block mb-1" style={{ color: "var(--muted)" }}>
@@ -242,16 +273,16 @@ export default function ApiKeysPage() {
                   <input type="checkbox" checked disabled className="accent-current" />
                   Read
                 </label>
-                <label className="flex items-center gap-1.5 text-sm" style={{ color: isPlus ? "var(--foreground)" : "var(--muted)" }}>
+                <label className="flex items-center gap-1.5 text-sm" style={{ color: isPlus || tierUnknown ? "var(--foreground)" : "var(--muted)" }}>
                   <input
                     type="checkbox"
                     checked={includeWrite}
                     onChange={e => setIncludeWrite(e.target.checked)}
-                    disabled={!isPlus}
+                    disabled={!isPlus && !tierUnknown}
                     className="accent-current"
                   />
                   Write
-                  {!isPlus && (
+                  {!isPlus && !tierUnknown && (
                     <span className="text-xs" style={{ color: "var(--muted)" }}>
                       (<Link href="/settings/billing" className="underline">Plus required</Link>)
                     </span>
@@ -310,6 +341,22 @@ export default function ApiKeysPage() {
       {/* Key list */}
       {loading ? (
         <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
+      ) : loadError ? (
+        <div
+          className="rounded-xl border p-6 text-center"
+          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+        >
+          <p className="text-sm mb-3" style={{ color: "var(--danger, #dc2626)" }}>
+            Couldn&apos;t load your API keys. Any keys you have are still active.
+          </p>
+          <button
+            onClick={() => { setLoading(true); fetchKeys(); }}
+            className="text-xs px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+          >
+            Try again
+          </button>
+        </div>
       ) : keys.length > 0 ? (
         <div className="flex flex-col gap-3">
           <h3
@@ -374,8 +421,12 @@ export default function ApiKeysPage() {
       {/* Rate limits info */}
       <div className="text-xs" style={{ color: "var(--muted)" }}>
         <p className="font-medium mb-1">Rate limits</p>
-        <p>{isPlus ? "Plus" : "Free"}: {isPlus ? "300" : "100"} read requests / 15 min per key{isPlus ? ", 60 write requests / 15 min per key" : ""}</p>
-        {!isPlus && (
+        {tierUnknown ? (
+          <p>Free: 100 read requests / 15 min per key. Plus: 300 read + 60 write requests / 15 min per key.</p>
+        ) : (
+          <p>{isPlus ? "Plus" : "Free"}: {isPlus ? "300" : "100"} read requests / 15 min per key{isPlus ? ", 60 write requests / 15 min per key" : ""}</p>
+        )}
+        {!isPlus && !tierUnknown && (
           <p className="mt-1">
             <Link href="/settings/billing" className="underline" style={{ color: "var(--accent)" }}>
               Upgrade to Plus

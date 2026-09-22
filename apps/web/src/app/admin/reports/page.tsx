@@ -100,16 +100,30 @@ export default function AdminReportsPage() {
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const handleAction = async (reportId: string, action: string, entryId?: string) => {
-    await fetch(`/api/admin/reports/${reportId}`, {
+    const res = await fetch(`/api/admin/reports/${reportId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: action }),
     });
 
-    if (action === "actioned" && entryId) {
-      await fetch(`/api/admin/entries/${entryId}/mark-sensitive`, { method: "POST" });
+    // fetch resolves on 4xx/5xx, so a failed resolve used to look identical to
+    // a successful one — the row simply reappeared on the next refresh.
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setLastAction(`Couldn't update that report: ${err.error || res.statusText}`);
+      return;
     }
 
+    if (action === "actioned" && entryId) {
+      const marked = await fetch(`/api/admin/entries/${entryId}/mark-sensitive`, { method: "POST" });
+      if (!marked.ok) {
+        setLastAction("Report updated, but the entry was not marked sensitive.");
+      }
+    }
+
+    // Resolving the report clears the admins' report notifications server-side.
+    // Nudge the nav so the badge drops now instead of on the next 15s poll.
+    window.dispatchEvent(new Event("inkwell-nav-refresh"));
     fetchReports();
   };
 
@@ -151,6 +165,7 @@ export default function AdminReportsPage() {
     const extra = blocked ? " — account auto-blocked (threshold reached)" : "";
     setLastAction(`${strikeText}${extra}${entryText}`);
     setWarnModal(null);
+    window.dispatchEvent(new Event("inkwell-nav-refresh"));
     fetchReports();
   };
 

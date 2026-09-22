@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { PollWidget } from "./poll-widget";
 import { openJot } from "@/lib/stickies";
+import { isSupporter } from "@/lib/supporter";
 
 interface SidebarNavProps {
   username: string;
@@ -18,6 +19,8 @@ interface SidebarNavProps {
   avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
+  foundingMemberNumber?: number | null;
+  selfHosted?: boolean;
   isAdmin?: boolean;
   initialNotificationCount: number;
   initialLetterCount: number;
@@ -103,6 +106,8 @@ export function SidebarNav({
   avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
+  foundingMemberNumber,
+  selfHosted,
   isAdmin,
   initialNotificationCount,
   initialLetterCount,
@@ -175,6 +180,10 @@ export function SidebarNav({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        // Settings has its own ⌘K — the jump palette. Leave it to that, so
+        // the shortcut always searches whatever you're currently looking at
+        // rather than yanking you out to Explore mid-task.
+        if (pathname === "/settings" || pathname.startsWith("/settings/")) return;
         e.preventDefault();
         if (pathname === "/explore") {
           // Already on Explore — focus the search bar
@@ -334,7 +343,12 @@ export function SidebarNav({
           </Link>
         )}
 
-        {inkDonorStatus !== "active" && (
+        {!isSupporter({
+          subscription_tier: subscriptionTier,
+          ink_donor_status: inkDonorStatus,
+          founding_member_number: foundingMemberNumber,
+          self_hosted: selfHosted,
+        }) && (
           <Link
             href="/settings/billing"
             className="sidebar-nav-link"

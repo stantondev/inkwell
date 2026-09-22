@@ -26,44 +26,48 @@ export default function CustomDomainSettingsPage() {
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  // A failed /api/me leaves `user` null, which used to read as "not Plus" and
+  // showed a paying subscriber the upgrade paywall. Track the failure instead.
+  const [loadError, setLoadError] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchDomain = useCallback(async () => {
-    try {
-      const res = await fetch("/api/custom-domain");
-      if (res.ok) {
-        const data = await res.json();
-        setDomain(data.data ?? null);
-      }
-    } catch {
-      // silent
-    }
+    const res = await fetch("/api/custom-domain");
+    if (!res.ok) throw new Error("Failed to load domain");
+    const data = await res.json();
+    setDomain(data.data ?? null);
   }, []);
 
   const fetchUser = useCallback(async () => {
-    try {
-      const res = await fetch("/api/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.data ?? data);
-      }
-    } catch {
-      // silent
-    }
+    const res = await fetch("/api/me");
+    if (!res.ok) throw new Error("Failed to load account");
+    const data = await res.json();
+    setUser(data.data ?? data);
   }, []);
 
-  useEffect(() => {
-    Promise.all([fetchDomain(), fetchUser()]).finally(() => setLoading(false));
+  const loadAll = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
+    Promise.all([fetchDomain(), fetchUser()])
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, [fetchDomain, fetchUser]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Background polling must never flip the page into an error state.
+  const refreshDomain = useCallback(() => {
+    fetchDomain().catch(() => {});
+  }, [fetchDomain]);
 
   // Auto-poll while pending
   useEffect(() => {
     if (domain?.status === "pending_dns" || domain?.status === "pending_cert") {
-      pollRef.current = setInterval(fetchDomain, 10_000);
+      pollRef.current = setInterval(refreshDomain, 10_000);
       return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }
     if (pollRef.current) clearInterval(pollRef.current);
-  }, [domain?.status, fetchDomain]);
+  }, [domain?.status, refreshDomain]);
 
   const handleConnect = async () => {
     const trimmed = input.trim().toLowerCase();
@@ -92,11 +96,16 @@ export default function CustomDomainSettingsPage() {
 
   const handleCheck = async () => {
     setChecking(true);
+    setError(null);
     try {
-      await fetch("/api/custom-domain/check", { method: "POST" });
+      const res = await fetch("/api/custom-domain/check", { method: "POST" });
+      if (!res.ok) {
+        setError("Couldn't check your DNS just now. Please try again in a moment.");
+        return;
+      }
       await fetchDomain();
     } catch {
-      // silent
+      setError("Couldn't check your DNS just now. Please try again in a moment.");
     } finally {
       setChecking(false);
     }
@@ -105,11 +114,18 @@ export default function CustomDomainSettingsPage() {
   const handleRemove = async () => {
     if (!confirm("Remove your custom domain? Your profile will only be accessible at inkwell.social.")) return;
     setRemoving(true);
+    setError(null);
     try {
-      await fetch("/api/custom-domain", { method: "DELETE" });
+      const res = await fetch("/api/custom-domain", { method: "DELETE" });
+      // A failed delete used to clear the domain from the page anyway, so it
+      // looked removed while it was still connected.
+      if (!res.ok && res.status !== 204) {
+        setError("Couldn't remove your domain. It's still connected — please try again.");
+        return;
+      }
       setDomain(null);
     } catch {
-      // silent
+      setError("Couldn't remove your domain. It's still connected — please try again.");
     } finally {
       setRemoving(false);
     }
@@ -117,14 +133,32 @@ export default function CustomDomainSettingsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl lg:max-w-5xl mx-auto py-10 px-4">
-        <h1
-          className="text-xl font-bold mb-6"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Custom Domain
-        </h1>
+      <div>
         <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  // Load failed — never show the paywall here, a Plus member would see it too.
+  if (loadError) {
+    return (
+      <div>
+        <div
+          className="rounded-xl border p-6"
+          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+        >
+          <p className="text-sm mb-4" style={{ color: "var(--danger, #dc2626)" }}>
+            Couldn&apos;t load your domain settings. Nothing has been changed &mdash; your
+            domain, if you have one, is still connected.
+          </p>
+          <button
+            onClick={loadAll}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent)", color: "white" }}
+          >
+            Try again
+          </button>
+        </div>
       </div>
     );
   }
@@ -134,13 +168,7 @@ export default function CustomDomainSettingsPage() {
   // Not Plus — show upgrade prompt
   if (!isPlus) {
     return (
-      <div className="max-w-2xl lg:max-w-5xl mx-auto py-10 px-4">
-        <h1
-          className="text-xl font-bold mb-6"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Custom Domain
-        </h1>
+      <div>
         <div
           className="rounded-xl border p-6"
           style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -164,13 +192,7 @@ export default function CustomDomainSettingsPage() {
   // No domain configured
   if (!domain || domain.status === "removed") {
     return (
-      <div className="max-w-2xl lg:max-w-5xl mx-auto py-10 px-4">
-        <h1
-          className="text-xl font-bold mb-6"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Custom Domain
-        </h1>
+      <div>
         <div
           className="rounded-xl border p-6"
           style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -215,14 +237,7 @@ export default function CustomDomainSettingsPage() {
   const isApex = !domain.domain.includes(".") || domain.domain.split(".").length === 2;
 
   return (
-    <div className="max-w-2xl lg:max-w-5xl mx-auto py-10 px-4">
-      <h1
-        className="text-xl font-bold mb-6"
-        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-      >
-        Custom Domain
-      </h1>
-
+    <div>
       <div
         className="rounded-xl border p-6"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -233,6 +248,10 @@ export default function CustomDomainSettingsPage() {
           <span className="text-sm font-medium">{domain.domain}</span>
           <StatusLabel status={domain.status} />
         </div>
+
+        {error && (
+          <p className="text-sm mb-4" style={{ color: "var(--danger, #dc2626)" }}>{error}</p>
+        )}
 
         {/* pending_dns — DNS instructions */}
         {domain.status === "pending_dns" && (

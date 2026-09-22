@@ -42,13 +42,25 @@ function timeAgo(iso: string): string {
 export default function MyPollsPage() {
   const [polls, setPolls] = useState<UserPoll[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load must not render as "You haven't created any polls yet."
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchPolls = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch("/api/my-polls?per_page=50");
+      // fetch doesn't throw on HTTP errors, so an error page used to parse
+      // into an empty poll list.
+      if (!res.ok) {
+        setLoadError(true);
+        return;
+      }
       const data = await res.json();
-      if (data.data) setPolls(data.data);
-    } catch {} finally {
+      setPolls(data.data ?? []);
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -57,14 +69,32 @@ export default function MyPollsPage() {
 
   const handleClose = async (pollId: string) => {
     if (!confirm("Close this poll early? Voting will be disabled.")) return;
-    const res = await fetch(`/api/polls/${pollId}/close-own`, { method: "POST" });
-    if (res.ok) fetchPolls();
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/polls/${pollId}/close-own`, { method: "POST" });
+      if (!res.ok) {
+        setActionError("Couldn't close that poll. It's still open — please try again.");
+        return;
+      }
+      fetchPolls();
+    } catch {
+      setActionError("Couldn't close that poll. It's still open — please try again.");
+    }
   };
 
   const handleDelete = async (pollId: string) => {
     if (!confirm("Delete this poll? This cannot be undone.")) return;
-    const res = await fetch(`/api/polls/${pollId}`, { method: "DELETE" });
-    if (res.ok) fetchPolls();
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/polls/${pollId}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) {
+        setActionError("Couldn't delete that poll. It's still there — please try again.");
+        return;
+      }
+      fetchPolls();
+    } catch {
+      setActionError("Couldn't delete that poll. It's still there — please try again.");
+    }
   };
 
   const getWinner = (options: PollOption[]) => {
@@ -74,25 +104,49 @@ export default function MyPollsPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: "24px" }}>
-        <h1
+      {actionError && (
+        <p
           style={{
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            fontSize: "22px",
-            fontWeight: 700,
-            margin: "0 0 6px 0",
+            color: "var(--danger, #dc2626)",
+            fontSize: "14px",
+            marginBottom: "16px",
           }}
         >
-          My Polls
-        </h1>
-        <p style={{ color: "var(--muted)", fontSize: "14px", margin: 0 }}>
-          Manage polls you've created on your journal entries.
+          {actionError}
         </p>
-      </div>
+      )}
 
       {loading ? (
         <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)" }}>
           Loading...
+        </div>
+      ) : loadError ? (
+        <div
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: "12px",
+            background: "var(--surface)",
+            padding: "24px",
+            textAlign: "center",
+          }}
+        >
+          <p style={{ color: "var(--danger, #dc2626)", fontSize: "14px", margin: "0 0 12px 0" }}>
+            Couldn&apos;t load your polls. Any polls you have are still there.
+          </p>
+          <button
+            onClick={() => { setLoading(true); fetchPolls(); }}
+            style={{
+              fontSize: "13px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              border: "1px solid var(--border)",
+              background: "none",
+              color: "var(--foreground)",
+              cursor: "pointer",
+            }}
+          >
+            Try again
+          </button>
         </div>
       ) : polls.length === 0 ? (
         <div

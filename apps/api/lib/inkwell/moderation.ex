@@ -51,9 +51,18 @@ defmodule Inkwell.Moderation do
   def get_report(id), do: Repo.get(Report, id)
 
   def resolve_report(%Report{} = report, attrs) do
-    report
-    |> Report.resolve_changeset(Map.merge(attrs, %{resolved_at: DateTime.utc_now()}))
-    |> Repo.update()
+    result =
+      report
+      |> Report.resolve_changeset(Map.merge(attrs, %{resolved_at: DateTime.utc_now()}))
+      |> Repo.update()
+
+    # Clearing the queue should clear the notification that announced it.
+    # Every resolve path funnels through here, so this is the one hook needed.
+    with {:ok, %Report{status: status} = resolved} when status != "pending" <- result do
+      Inkwell.Accounts.mark_report_notifications_read(resolved.reporter_id, resolved.entry_id)
+    end
+
+    result
   end
 
   def has_reported?(user_id, entry_id) do

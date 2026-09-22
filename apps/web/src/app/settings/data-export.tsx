@@ -96,7 +96,7 @@ export function DataExport() {
   if (loading) {
     return (
       <div
-        className="mt-8 rounded-xl border p-6"
+        className="rounded-xl border p-6"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
         <div className="h-5 w-24 rounded animate-pulse" style={{ background: "var(--border)" }} />
@@ -106,15 +106,9 @@ export function DataExport() {
 
   return (
     <div
-      className="mt-8 rounded-xl border p-6"
+      className="rounded-xl border p-6"
       style={{ borderColor: "var(--border)", background: "var(--surface)" }}
     >
-      <h2
-        className="text-base font-semibold mb-2"
-        style={{ color: "var(--foreground)" }}
-      >
-        Your Data
-      </h2>
       <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
         Download a copy of all your Inkwell data including your profile, journal
         entries, images, comments, stamps, relationships, and more. The export

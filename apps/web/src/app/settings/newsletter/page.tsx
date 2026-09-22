@@ -244,7 +244,7 @@ export default function NewsletterSettingsPage() {
                 </>
               ) : (
                 <p className="text-sm p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
-                  <Link href="/settings" className="font-medium" style={{ color: "var(--accent)" }}>Set a username</Link>
+                  <Link href="/settings/profile" className="font-medium" style={{ color: "var(--accent)" }}>Set a username</Link>
                   {" "}first to get your subscribe page URL.
                 </p>
               )}

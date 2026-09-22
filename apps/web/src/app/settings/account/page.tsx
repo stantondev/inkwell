@@ -15,15 +15,5 @@ export default async function AccountPage() {
     // fall back to session data
   }
 
-  return (
-    <div>
-      <h2
-        className="text-lg font-semibold mb-6"
-        style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-      >
-        Account
-      </h2>
-      <DangerZone username={username} />
-    </div>
-  );
+  return <DangerZone username={username} />;
 }

@@ -105,7 +105,7 @@ export function TopFriendsEditor({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Choose up to 6 pen pals to feature on your profile. Use the arrows to reorder them.
+        Use the arrows to reorder them.
       </p>
 
       {/* Current slots */}

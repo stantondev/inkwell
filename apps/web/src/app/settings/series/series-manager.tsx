@@ -133,55 +133,51 @@ function SeriesEntryList({
 }) {
   const [entries, setEntries] = useState<{ id: string; title: string | null; series_order: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load must not render as "No entries in this series yet" — saving
+  // an order from that empty list would be meaningless.
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/series/${seriesId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        // list_own returns series without entries, we need to fetch entries separately
-        // Use the public endpoint via the series detail
-        // Actually we just need the entries — let's get from the own endpoint
-        // We'll load via PATCH to get current entries
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-
-    // Fetch series entries via a workaround: fetch all user entries and filter
-    // Better approach: the list_own response already includes entries.
-    // Let's just reload the series list and find entries
-  }, [seriesId]);
-
-  // Simpler approach: fetch all entries from the series
-  useEffect(() => {
+  // The management endpoint doesn't return a series' entries, so this resolves
+  // the series' slug and the viewer's username, then reads the public detail
+  // route, which does. Every hop is checked: fetch doesn't throw on 4xx/5xx.
+  const loadEntries = useCallback(async () => {
     setLoading(true);
-    // We need to get the series owner's username to call the public endpoint
-    // For now, use the management endpoint which has entries
-    fetch("/api/series")
-      .then((r) => r.json())
-      .then(async (d) => {
-        const series = (d.data as SeriesItem[]).find((s: SeriesItem) => s.id === seriesId);
-        if (!series) return;
-        // Need a different approach — let's fetch via drafts and entries
-        // Actually the simplest: GET the series detail via the public route
-        // We need the username for that. For now, use session info.
-        const meRes = await fetch("/api/me");
-        const me = await meRes.json();
-        const username = me.data?.username;
-        if (!username) return;
+    setLoadError(false);
+    try {
+      const listRes = await fetch("/api/series");
+      if (!listRes.ok) throw new Error("Failed to load series");
+      const listData = await listRes.json();
+      const series = (listData.data as SeriesItem[] | undefined)?.find((s) => s.id === seriesId);
+      if (!series) throw new Error("Series not found");
 
-        const seriesRes = await fetch(`/api/users/${username}/series/${series.slug}`);
-        const seriesData = await seriesRes.json();
-        const seriesEntries = (seriesData.data?.entries || []).map((e: { id: string; title: string | null; series_order: number }) => ({
-          id: e.id,
-          title: e.title,
-          series_order: e.series_order,
-        }));
-        setEntries(seriesEntries);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      const meRes = await fetch("/api/me");
+      if (!meRes.ok) throw new Error("Failed to load account");
+      const me = await meRes.json();
+      const username = me.data?.username;
+      if (!username) throw new Error("Failed to load account");
+
+      const seriesRes = await fetch(`/api/users/${username}/series/${series.slug}`);
+      if (!seriesRes.ok) throw new Error("Failed to load entries");
+      const seriesData = await seriesRes.json();
+
+      setEntries(
+        (seriesData.data?.entries || []).map(
+          (e: { id: string; title: string | null; series_order: number }) => ({
+            id: e.id,
+            title: e.title,
+            series_order: e.series_order,
+          })
+        )
+      );
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [seriesId]);
+
+  useEffect(() => { loadEntries(); }, [loadEntries]);
 
   const moveEntry = (index: number, direction: -1 | 1) => {
     const newEntries = [...entries];
@@ -212,6 +208,34 @@ function SeriesEntryList({
     return (
       <div className="rounded-xl border p-4 text-sm" style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--muted)" }}>
         Loading entries...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <p className="text-sm" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load the entries in this series. Nothing has been changed.
+        </p>
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            type="button"
+            onClick={loadEntries}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+          >
+            Close
+          </button>
+        </div>
       </div>
     );
   }
@@ -312,15 +336,20 @@ export function SeriesManager({ isPlus }: { isPlus: boolean }) {
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A failed load must not render as "No series yet".
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch("/api/series");
+      if (!res.ok) throw new Error("Failed to load series");
       const data = await res.json();
       setSeriesList(data.data ?? []);
       setMeta(data.meta ?? { count: 0, limit: isPlus ? null : 5 });
     } catch (err) {
       console.error("Failed to load series:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -389,23 +418,36 @@ export function SeriesManager({ isPlus }: { isPlus: boolean }) {
     );
   }
 
+  if (loadError) {
+    return (
+      <div
+        className="rounded-xl border p-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <p className="text-sm mb-3" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load your series. Nothing has been changed &mdash; any series you
+          have are still there.
+        </p>
+        <button
+          type="button"
+          onClick={() => { setLoading(true); load(); }}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2
-            className="text-base font-semibold"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            Series
-          </h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Group related entries into ordered collections.
-            {meta.limit && (
-              <span> {meta.count} of {meta.limit} used.</span>
-            )}
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          {meta.limit && (
+            <span>{meta.count} of {meta.limit} used.</span>
+          )}
+        </p>
         {!creating && !editingId && (
           <button
             type="button"

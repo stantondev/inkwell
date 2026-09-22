@@ -196,7 +196,7 @@ export function BookSpineDrawer({
               <span className="book-drawer-numeral">IV.</span> Settings
             </div>
             <DrawerLink href="/settings/customize" icon={<SettingsIcon />} label="Customize" active={isActive("/settings/customize")} onClick={handleLinkClick} />
-            <DrawerLink href="/settings" icon={<SettingsIcon />} label="Account" active={pathname === "/settings"} onClick={handleLinkClick} />
+            <DrawerLink href="/settings" icon={<SettingsIcon />} label="Settings" active={pathname === "/settings"} onClick={handleLinkClick} />
             {isAdmin && (
               <DrawerLink href="/admin" icon={<AdminIcon />} label="Admin" active={isActive("/admin")} onClick={handleLinkClick} />
             )}

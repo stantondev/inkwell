@@ -303,19 +303,27 @@ export function FiltersManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A failed load must not render as "no filters yet" — that reads as though
+  // the filters were gone.
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError(false);
     try {
       const [filtersRes, palsRes] = await Promise.all([
         fetch("/api/filters"),
         fetch("/api/pen-pals"),
       ]);
+      // fetch doesn't throw on HTTP errors, so these used to parse an error
+      // page into an empty list.
+      if (!filtersRes.ok || !palsRes.ok) throw new Error("Failed to load filters");
       const filtersData = await filtersRes.json();
       const palsData = await palsRes.json();
       setFilters(filtersData.data ?? []);
       setPenPals(palsData.data ?? []);
     } catch (err) {
       console.error("Failed to load filters:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -390,20 +398,31 @@ export function FiltersManager() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div
+        className="rounded-xl border p-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <p className="text-sm mb-3" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load your filters. Nothing has been changed &mdash; any filters you
+          have are still there.
+        </p>
+        <button
+          type="button"
+          onClick={() => { setLoading(true); load(); }}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2
-            className="text-base font-semibold"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            Friend Filters
-          </h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Create named groups of pen pals for custom entry privacy.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         {!creating && !editingId && (
           <button
             type="button"

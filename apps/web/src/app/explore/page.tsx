@@ -11,6 +11,7 @@ import { FetchError } from "@/components/fetch-error";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { isSupporter } from "@/lib/supporter";
 
 export const metadata: Metadata = {
   title: "Explore",
@@ -353,7 +354,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         />
 
         {/* Ink Donor CTA — show to logged-in non-donor users */}
-        {session && session.user.ink_donor_status !== "active" && (
+        {session && !isSupporter(session.user) && (
           <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
             <div
               className="rounded-xl border p-4 text-center"

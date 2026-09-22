@@ -54,7 +54,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "change-username",
     question: "Can I change my username?",
     answer:
-      'Yes. Go to <a href="/settings">Settings &rarr; Profile</a> and click on your username to edit it. Your fediverse handle will update automatically, but people who followed your old handle may need to re-follow.',
+      'Yes. Go to <a href="/settings/profile">Settings &rarr; Profile</a> and click on your username to edit it. Your fediverse handle will update automatically, but people who followed your old handle may need to re-follow.',
     category: "account",
   },
 
@@ -297,7 +297,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "delete-account",
     question: "How do I delete my account?",
     answer:
-      'Go to <a href="/settings">Settings &rarr; Profile</a> and scroll to the Danger Zone section at the bottom. Type your username to confirm. All your data will be permanently deleted. Comments and feedback posts are anonymized (content preserved, your name removed).',
+      'Go to <a href="/settings/account">Settings &rarr; Delete account</a>. Type your username to confirm. All your data will be permanently deleted. Comments and feedback posts are anonymized (content preserved, your name removed).',
     category: "safety",
   },
   {

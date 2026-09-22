@@ -159,7 +159,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = sanitize_redacted_words(merged)
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -667,6 +667,29 @@ defmodule InkwellWeb.UserController do
         Map.put(settings, "redacted_words", cleaned)
       _ ->
         Map.delete(settings, "redacted_words")
+    end
+  end
+
+  # Quick-access cards pinned on the settings overview. The settings map takes
+  # arbitrary keys, so bound this one rather than storing whatever is sent.
+  defp sanitize_pinned_settings(settings) do
+    case Map.get(settings, "pinned_settings") do
+      nil ->
+        settings
+
+      ids when is_list(ids) ->
+        cleaned =
+          ids
+          |> Enum.filter(&is_binary/1)
+          |> Enum.map(&String.slice(&1, 0, 64))
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.uniq()
+          |> Enum.take(6)
+
+        Map.put(settings, "pinned_settings", cleaned)
+
+      _ ->
+        Map.delete(settings, "pinned_settings")
     end
   end
 

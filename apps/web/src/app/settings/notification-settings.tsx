@@ -13,6 +13,10 @@ export function NotificationSettings() {
   const [emailDisabled, setEmailDisabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A failed load must not look like "everything is off": the toggles would
+  // show the wrong state and the next save would write it back.
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const push = usePushSubscription();
 
@@ -20,7 +24,10 @@ export function NotificationSettings() {
     (async () => {
       try {
         const res = await fetch("/api/me");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setLoadError(true);
+          return;
+        }
         const { data } = await res.json();
         setSoundsMuted(!!data.settings?.notification_sounds_muted);
         setAutoMarkRead(!!data.settings?.auto_mark_notifications_read);
@@ -29,7 +36,7 @@ export function NotificationSettings() {
         setPushDisabled(!!data.settings?.push_notifications_disabled);
         setEmailDisabled(!!data.settings?.email_notifications_disabled);
       } catch {
-        // ignore
+        setLoadError(true);
       } finally {
         setLoaded(true);
       }
@@ -43,14 +50,22 @@ export function NotificationSettings() {
   ) => {
     setter(value);
     setSaving(true);
+    setSaveError(false);
     try {
-      await fetch("/api/me", {
+      const res = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: { [key]: value } }),
       });
+      // fetch doesn't throw on HTTP errors, so a rejected save used to leave
+      // the toggle showing the value that was never stored.
+      if (!res.ok) {
+        setter(!value);
+        setSaveError(true);
+      }
     } catch {
       setter(!value);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -58,8 +73,40 @@ export function NotificationSettings() {
 
   if (!loaded) return null;
 
+  if (loadError) {
+    return (
+      <div
+        className="rounded-xl border p-5 mt-6"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <h3
+          className="text-base font-semibold mb-3"
+          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+        >
+          Notifications
+        </h3>
+        <p className="text-sm" style={{ color: "var(--danger, #dc2626)" }}>
+          Couldn&apos;t load your notification settings. Reload the page to try again. Nothing has been changed.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
+      {saveError && (
+        <p
+          className="text-sm mt-6 rounded-xl border p-4"
+          style={{
+            borderColor: "var(--danger, #dc2626)",
+            color: "var(--danger, #dc2626)",
+            background: "var(--surface)",
+          }}
+        >
+          Couldn&apos;t save that change. It has been put back the way it was — please try again.
+        </p>
+      )}
+
       {/* Email Notifications */}
       <div
         className="rounded-xl border p-5 mt-6"

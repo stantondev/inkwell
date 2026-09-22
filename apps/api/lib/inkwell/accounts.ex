@@ -571,6 +571,38 @@ defmodule Inkwell.Accounts do
   end
 
   @doc """
+  Mark `:report` notifications as read once the report they announced has been
+  resolved.
+
+  A single report fans out one notification per admin, so this is keyed on the
+  report itself — (reporter, reported entry) — rather than on one recipient.
+  Without this, handling a report in the admin queue leaves every admin with a
+  permanently unread notification that only a manual "mark read" can clear.
+  """
+  def mark_report_notifications_read(reporter_id, entry_id)
+      when not is_nil(reporter_id) and not is_nil(entry_id) do
+    Notification
+    |> where([n], n.type == :report and n.read == false)
+    |> where([n], n.actor_id == ^reporter_id and n.target_id == ^entry_id)
+    |> Repo.update_all(set: [read: true])
+  end
+
+  def mark_report_notifications_read(_, _), do: {0, nil}
+
+  @doc """
+  Mark every unread `:report` notification pointing at any of `entry_ids` as
+  read. Used by bulk resolve paths (auto-moderation blocking an account
+  resolves all of its pending reports at once).
+  """
+  def mark_report_notifications_read_for_entries([]), do: {0, nil}
+
+  def mark_report_notifications_read_for_entries(entry_ids) when is_list(entry_ids) do
+    Notification
+    |> where([n], n.type == :report and n.read == false and n.target_id in ^entry_ids)
+    |> Repo.update_all(set: [read: true])
+  end
+
+  @doc """
   Delete follow_request notifications for a specific user+actor pair.
   Called when a follow request is cancelled (unfollowed) so the notification
   disappears entirely instead of showing stale Accept/Decline buttons.

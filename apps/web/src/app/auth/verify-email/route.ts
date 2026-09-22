@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = `${proto}://${host}`;
 
   if (!token) {
-    return NextResponse.redirect(new URL("/settings?email_error=missing_token", baseUrl));
+    return NextResponse.redirect(new URL("/settings/profile?email_error=missing_token", baseUrl));
   }
 
   try {
@@ -29,18 +29,18 @@ export async function GET(request: NextRequest) {
     if (res.ok) {
       const data = await res.json();
       return NextResponse.redirect(
-        new URL(`/settings?email_updated=true&new_email=${encodeURIComponent(data.email || "")}`, baseUrl)
+        new URL(`/settings/profile?email_updated=true&new_email=${encodeURIComponent(data.email || "")}`, baseUrl)
       );
     }
 
     await res.json().catch(() => ({}));
 
     if (res.status === 409) {
-      return NextResponse.redirect(new URL("/settings?email_error=taken", baseUrl));
+      return NextResponse.redirect(new URL("/settings/profile?email_error=taken", baseUrl));
     }
 
-    return NextResponse.redirect(new URL("/settings?email_error=expired", baseUrl));
+    return NextResponse.redirect(new URL("/settings/profile?email_error=expired", baseUrl));
   } catch {
-    return NextResponse.redirect(new URL("/settings?email_error=server", baseUrl));
+    return NextResponse.redirect(new URL("/settings/profile?email_error=server", baseUrl));
   }
 }

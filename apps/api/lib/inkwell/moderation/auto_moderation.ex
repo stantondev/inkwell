@@ -451,11 +451,25 @@ defmodule Inkwell.Moderation.AutoModeration do
   defp federate_create(_), do: :ok
 
   defp resolve_pending_reports(user, note) do
-    from(r in Report,
-      join: e in Entry, on: e.id == r.entry_id,
-      where: e.user_id == ^user.id and r.status == "pending"
-    )
-    |> Repo.update_all(set: [status: "actioned", admin_notes: note, resolved_at: DateTime.utc_now()])
+    scope =
+      from(r in Report,
+        join: e in Entry,
+        on: e.id == r.entry_id,
+        where: e.user_id == ^user.id and r.status == "pending"
+      )
+
+    entry_ids = scope |> select([r], r.entry_id) |> Repo.all() |> Enum.uniq()
+
+    result =
+      Repo.update_all(scope,
+        set: [status: "actioned", admin_notes: note, resolved_at: DateTime.utc_now()]
+      )
+
+    # This bypasses Moderation.resolve_report/2, so clear the admins'
+    # notifications here too.
+    Inkwell.Accounts.mark_report_notifications_read_for_entries(entry_ids)
+
+    result
   end
 
   defp record(user, action, result, hidden_ids, opts) do

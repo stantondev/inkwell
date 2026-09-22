@@ -1340,21 +1340,26 @@ Key files:
 - **Right**: Hamburger menu (☰, with red dot when unread notifications), Profile avatar
 - **Hamburger dropdown**: Feed, Explore, Pen Pals, Write, Notifications (with count badge), Roadmap, Profile, Settings, Upgrade to Plus (if free), Admin (if admin)
 
-### Settings Navigation ("The Settings Ledger")
-Two-panel layout matching the main sidebar's book aesthetic. Desktop: 220px sticky left nav with paper texture, spine shadow, Roman numeral sections. Mobile: compact breadcrumb header with accordion dropdown of pill-style links.
+### Settings Navigation (overview hub + ⌘K palette)
 
-**I. Profile & Identity** — Profile, Avatar, Top 6 Pen Pals
-**II. Appearance** — Customize, Custom Domain
-**III. Writing & Content** — Series, Filters, Import, Redactions, Content Safety, Notifications, Post by Email
-**IV. Community & Social** — Newsletter, Invite Friends, Blocked Users, Fediverse
-**V. Billing & Developer** — Billing, Postage, Writer Plans, API Keys
-**VI. Account & Data** — Data Export, Delete Account
+`/settings` is an **overview hub**, not a form: a searchable grid of every settings area with a one-line description of what's inside and a live status chip (plan, subscriber count, redaction count, theme…). The profile form that used to live at `/settings` moved to **`/settings/profile`**.
 
-Key files:
-- `apps/web/src/app/settings/layout.tsx` — two-panel ledger layout (SettingsLedgerNav + SettingsMobileNav + children)
-- `apps/web/src/app/settings/settings-ledger-nav.tsx` — desktop sidebar nav with `SETTINGS_SECTIONS` config (exported for mobile reuse)
-- `apps/web/src/app/settings/settings-mobile-nav.tsx` — mobile breadcrumb + accordion dropdown
-- CSS: `.settings-ledger-*` classes in `globals.css`
+- **Customisable quick access** — each card has a pin; pinned cards appear in a "Quick access" row at the top. Stored in `users.settings` JSONB as `pinned_settings` (no migration), capped at 6 and sanitised by `UserController.sanitize_pinned_settings/1`.
+- **Search** — `/` focuses the search box; matching runs over title, blurb, group and per-entry `keywords`, so "mastodon" finds Fediverse & Bluesky and "css" finds Customise.
+- **Detail pages get their header for free** from `SettingsChrome`: breadcrumb (Settings / Group / Page), icon, `<h1>` and blurb, all read from the catalog. Pages no longer render their own page title — only section headings within the page.
+- **⌘K jump palette** on any settings page, with arrow-key navigation. `sidebar-nav.tsx` and `search-command.tsx` both bind ⌘K globally to Explore search; **both now bail out on `/settings*`** so the shortcut searches what you're looking at. If you add a third global ⌘K binding, exclude settings there too.
+- The old three-column layout is gone (260px app sidebar + 220px settings rail + 900px content). Navigation lives in the hub and the palette; content gets `max-width: 1120px`.
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/app/settings/settings-catalog.tsx` | **Single source of truth**: id, href, title, blurb, icon, group, keywords, `plus`, `danger`. Adding an entry here puts it in the grid, the search index, the palette and the page header at once. |
+| `apps/web/src/app/settings/page.tsx` | Overview server component — one `/api/me` call feeds every status chip; a failed load still renders the grid (with a notice) rather than erroring. |
+| `apps/web/src/app/settings/settings-overview.tsx` | Client: search, pinning, grouped card grid. |
+| `apps/web/src/app/settings/settings-chrome.tsx` | Breadcrumb + page header + ⌘K palette. Renders nothing on `/settings` itself. |
+| `apps/web/src/app/settings/layout.tsx` | `.set-shell` → `.set-shell-inner` → chrome + children. |
+| CSS | `.set-*` classes in `globals.css` (replaced the `.settings-ledger-*` block). |
+
+Removed: `settings-ledger-nav.tsx`, `settings-mobile-nav.tsx`, and the `SETTINGS_SECTIONS` export.
 
 ## Database Tables
 - `users` — accounts with UUID PKs, Stripe fields, AP keys, role (user/admin), blocked_at, invite_code (unique 8-char), invited_by_id (FK → users), ink_donor_stripe_subscription_id, ink_donor_status, ink_donor_amount_cents, preferred_language (string, nullable — for one-click translation), post_email_token (string, unique — for Post by Email), profile customization fields (profile_html, profile_css, profile_music, profile_background_url, profile_banner_url, profile_background_color, profile_accent_color, profile_foreground_color, profile_font, profile_layout, profile_widgets, profile_status, profile_theme, avatar_frame, avatar_animation, profile_entry_display, pinned_entry_ids, social_links)
@@ -1626,6 +1631,8 @@ The seeds file (`apps/api/priv/repo/seeds.exs`) is empty — local DB starts wit
 - **Plus ends when its time runs out — no job required** (2026-09-21). `User.plus_time_ran_out?/1` = tier plus, status `canceled` (manual grants are stored as canceled), `subscription_expires_at` in the past, not a Founding Member. Such an account is free everywhere at once: `SelfHosted.effective_tier/1` (every author/profile/session render) and the `EffectiveTier` plug (every signed-in request's `current_user`) both say `"free"`; admin counts use `Accounts.where_plus_now/1`. The plug also writes the downgrade to the row for manual grants (no `square_subscription_id`); with a Square subscription on file it leaves the row for Square's webhook. Admin → Billing lists them under "Time ran out" with **Mark as free** (`expire_grace_periods/1`, which checks Square before ending anyone with a subscription on file). There is intentionally no cron. **When rendering another user's tier, use `Inkwell.SelfHosted.effective_tier(user)`, never `user.subscription_tier`.** (Ecto `select` maps can't call it — `Reprints.list_feed_reprints/3` still selects the raw field.)
 - **The editor never shows a form for an entry it couldn't load** (2026-09-22). A failed `GET /api/entries/:id` (after one retry on 429/5xx) renders an error screen with Try again, not an empty form: the empty form was still tied to the real entry, so Save would have overwritten it with nothing. Entries with `source: "import"` (set by `ImportDataWorker`) and no `body_raw` open in the rich editor via `setContent(body_html)`; other entries without `body_raw` still open in HTML mode (they were written there).
 - **Per-user rate limit** (`UserRateLimit`, whole authenticated scope): writes 30/60s, reads (GET/HEAD) 300/60s in a separate bucket. Before 2026-09-22 reads shared the 30, so polling pages (e.g. import progress) made other pages 429.
+- **Resolving a report clears the notification that announced it.** A report fans out one `:report` notification per admin, and nothing in the resolve path touched them, so handling a report in the admin queue left every admin with a permanently unread notification — a lit badge with nothing behind it (the same class of bug as the Sept 2026 stuck badge, and it hit @stanton again 2026-09-22). `Moderation.resolve_report/2` is the single choke point every resolve path funnels through, so the hook lives there: `Accounts.mark_report_notifications_read/2`, keyed on (reporter, entry) because there is no `report_id` on the notification. `AutoModeration.resolve_pending_reports/2` bypasses `resolve_report/2` with a bulk `update_all`, so it calls `mark_report_notifications_read_for_entries/1` itself. **Any new notification that announces a queue item has to be cleared when the item leaves the queue** — pinned by `test/inkwell/moderation/report_notification_test.exs`.
+- **Never ask someone who already pays to pay again.** Every Ink Donor CTA is gated on `isSupporter(user)` (`apps/web/src/lib/supporter.ts`): Plus, Founding Member, active Ink Donor, or self-hosted. Before this the sidebar, Feed and Explore each checked only `ink_donor_status !== "active"`, so every Plus subscriber and Founding Member was shown "Keep the ink flowing. $1/mo" beside the badge they had paid for. There are three CTA sites (`components/sidebar-nav.tsx`, `app/feed/page.tsx`, `app/explore/page.tsx`); a fourth belongs behind the same helper.
 - **Entry visibility has one definition:** `Journals.viewable_by?(entry, viewer)` (used for comments; the bookmark list mirrors it in SQL). Reuse it for any new per-entry feature instead of re-deriving privacy rules.
 - **Regression smoke test:** `scripts/smoke-test.sh` (or `./deploy.sh smoke`) runs ~34 read-only production checks (pages, API health, WebFinger/actor/outbox/NodeInfo/entry AP objects, RSS); `deploy.sh` runs it after every API/web deploy. `INKWELL_SMOKE_TOKEN=<your session cookie>` adds signed-in checks. `WEB=… API=…` points it at local servers.
 - Phoenix uses runtime.exs for all production config (env vars read at boot, not compile time)

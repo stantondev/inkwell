@@ -77,7 +77,7 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
         className="text-sm mb-6"
         style={{ color: "var(--muted)" }}
       >
-        Build a custom avatar instead of uploading a photo. Your avatar appears on your profile, in feeds, and across the fediverse.
+        Your avatar appears on your profile, in feeds, and across the fediverse.
       </p>
 
       {error && (

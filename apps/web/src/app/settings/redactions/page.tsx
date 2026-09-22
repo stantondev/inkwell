@@ -100,12 +100,6 @@ export default function RedactionsPage() {
         className="rounded-xl border p-5"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
-        <h3
-          className="text-base font-semibold mb-1"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-        >
-          Redactions
-        </h3>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
           Entries containing these words in their title, body, or tags will be
           hidden from your Feed, Explore, and profile pages. Your own entries

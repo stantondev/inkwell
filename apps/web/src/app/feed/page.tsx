@@ -13,6 +13,7 @@ import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES } from "@/lib/categories";
+import { isSupporter } from "@/lib/supporter";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
@@ -585,7 +586,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
               </div>
             </div>
           </div>
-        ) : session.user.ink_donor_status !== "active" ? (
+        ) : !isSupporter(session.user) ? (
           <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
             <div
               className="rounded-xl border p-4 text-center"

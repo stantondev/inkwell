@@ -1145,7 +1145,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
                       {customDomainName}
                     </a>
                   )}
-                  <Link href="/settings"
+                  <Link href="/settings/profile"
                     className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
                     style={{ borderColor: styles.border, color: styles.muted }}>
                     Edit profile

@@ -43,7 +43,7 @@ export function DangerZone({ username }: { username: string }) {
   return (
     <>
       <div
-        className="mt-12 rounded-xl border p-6"
+        className="rounded-xl border p-6"
         style={{ borderColor: "var(--danger, #dc2626)" }}
       >
         <h2

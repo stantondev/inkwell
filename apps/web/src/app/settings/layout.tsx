@@ -1,14 +1,10 @@
-"use client";
-
-import { SettingsLedgerNav } from "./settings-ledger-nav";
-import { SettingsMobileNav } from "./settings-mobile-nav";
+import { SettingsChrome } from "./settings-chrome";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="settings-ledger" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <SettingsLedgerNav />
-      <div className="settings-ledger-content">
-        <SettingsMobileNav />
+    <div className="set-shell">
+      <div className="set-shell-inner">
+        <SettingsChrome />
         {children}
       </div>
     </div>
