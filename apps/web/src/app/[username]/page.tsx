@@ -460,6 +460,19 @@ function PoweredByInkwell() {
   );
 }
 
+/**
+ * Widgets laid out as columns (like a masonry grid): each keeps its own
+ * height. In a CSS grid one long widget (the guestbook) stretched every
+ * widget in its row to the same ~800px.
+ */
+function WidgetColumns({ className, children }: { className: string; children: React.ReactNode }) {
+  return (
+    <div className={`gap-6 ${className} [&>*]:mb-6 [&>*]:break-inside-avoid`}>
+      {children}
+    </div>
+  );
+}
+
 export default async function ProfilePage({ params, searchParams }: ProfileParams) {
   const { username } = await params;
   // ?year=&month=&page=&sort=&tag=&category=&q= : the archive position, so
@@ -609,7 +622,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
   const profileLayout = (profile.subscription_tier ?? "free") === "plus" ? (profile.profile_layout ?? "classic") : "classic";
   const displayMode = (profileLayout === "magazine" ? "magazine" : (profile.profile_entry_display ?? "cards")) as
     "full" | "cards" | "preview" | "magazine";
-  const perPageDefaults: Record<string, number> = { full: 5, cards: 9, preview: 20, magazine: 9 };
+  const perPageDefaults: Record<string, number> = { full: 5, cards: 9, preview: 20, magazine: 10 };
   const perPage = profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
 
   // Fetch entries (page 1) + series + pinned entries in parallel
@@ -1267,10 +1280,10 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
 
             <div className="profile-section-divider" />
 
-            <div className="grid gap-6 @2xl:grid-cols-2 @5xl:grid-cols-3">
+            <WidgetColumns className="@2xl:columns-2 @5xl:columns-3">
               {sidebarWidgetIds.map((id) => renderWidget(id))}
               <RssWidget />
-            </div>
+            </WidgetColumns>
           </div>
         ) : layout === "minimal" ? (
           /* Minimal: single column, clean */
@@ -1287,10 +1300,10 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
 
             <div className="profile-section-divider" />
 
-            <div className="grid gap-6 @2xl:grid-cols-2 @5xl:grid-cols-4">
+            <WidgetColumns className="@2xl:columns-2 @5xl:columns-3">
               {sidebarWidgetIds.map((id) => renderWidget(id))}
               <RssWidget />
-            </div>
+            </WidgetColumns>
           </div>
         ) : (
           /* Classic (default): entries with a sidebar */
