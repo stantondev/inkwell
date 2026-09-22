@@ -1672,7 +1672,7 @@ defmodule Inkwell.Billing do
             "(tried square_customer_id, customer.reference_id, invoice→order.reference_id, email)"
         )
 
-        Inkwell.Slack.notify_unmatched_subscription(sub_id, customer_id)
+        notify_unmatched_subscription_once(sub_id, customer_id)
         :error
 
       user ->
@@ -2111,6 +2111,24 @@ defmodule Inkwell.Billing do
   # dedup cache — the first insert succeeds and fires the notification,
   # subsequent inserts for the same payment_id silently no-op via
   # on_conflict: :nothing.
+  # An unmatched subscription returns :error on purpose, so Oban retries it —
+  # the user can genuinely appear between attempts. The alert, though, must
+  # not repeat: with max_attempts 5 a single unresolvable subscription used to
+  # send five identical Slack messages, spread over the retry backoff so they
+  # arrived in scattered bursts (seen 2026-09-22). One alert per subscription.
+  defp notify_unmatched_subscription_once(sub_id, customer_id) do
+    dedup_key = "unmatched_sub_notified:#{sub_id}"
+
+    if already_processed?(dedup_key) do
+      Logger.debug("Already alerted for unmatched subscription #{sub_id}, skipping duplicate")
+      :ok
+    else
+      Inkwell.Slack.notify_unmatched_subscription(sub_id, customer_id)
+      record_event(dedup_key, "unmatched_sub_notified", "processed")
+      :ok
+    end
+  end
+
   defp notify_donation_once(payment_id, user, amount_cents) do
     dedup_key = "donation_notified:#{payment_id}"
 
