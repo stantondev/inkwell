@@ -32,12 +32,12 @@ defmodule Inkwell.Avatars do
   # picture there or the server's media moves (Evan's did), and
   # `/api/avatars/:username` only serves stored images, so federation and
   # email never had them at all. Keep a copy instead.
-  @max_import_bytes 2_000_000
+  @max_import_bytes 5_000_000
 
   @doc """
   Downloads a remote avatar and returns it as a data URI we can store.
   Returns `:none` for Mastodon's default "missing.png", `{:error, reason}`
-  when it can't be fetched or isn't a PNG/JPEG/GIF/WebP under 2 MB.
+  when it can't be fetched or isn't a PNG/JPEG/GIF/WebP under 5 MB.
   """
   def import_remote(url) when is_binary(url) do
     cond do
