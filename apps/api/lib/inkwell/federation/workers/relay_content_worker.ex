@@ -140,7 +140,7 @@ defmodule Inkwell.Federation.Workers.RelayContentWorker do
           body_html =
             (object["content"] || "")
             |> Inkwell.HtmlSanitizer.sanitize()
-            |> Inkwell.Federation.AttachmentHelper.append_image_attachments(object)
+            |> Inkwell.Federation.AttachmentHelper.append_media_attachments(object)
 
           attrs = %{
             ap_id: object["id"],

@@ -113,7 +113,7 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
       body_html =
         (note["content"] || "")
         |> Inkwell.HtmlSanitizer.sanitize()
-        |> Inkwell.Federation.AttachmentHelper.append_image_attachments(note)
+        |> Inkwell.Federation.AttachmentHelper.append_media_attachments(note)
 
       attrs = %{
         ap_id: note["id"],

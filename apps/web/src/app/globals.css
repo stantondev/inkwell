@@ -1816,6 +1816,30 @@ a.mention:hover,
   object-fit: contain;
 }
 
+/* Fediverse video and audio attachments (Mastodon, Threads, PeerTube…).
+   Players stream from the other server; nothing autoplays. */
+.fediverse-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  background: #000;
+  border-radius: 0.5rem;
+}
+.journal-body-clamp .fediverse-video video {
+  max-height: 260px;
+}
+.prose-entry .fediverse-video video {
+  max-height: 70vh;
+}
+.fediverse-audio {
+  overflow: visible;
+}
+.fediverse-audio audio {
+  display: block;
+  width: 100%;
+}
+
 .fediverse-view-link:hover {
   color: var(--fediverse-accent) !important;
   opacity: 0.8;

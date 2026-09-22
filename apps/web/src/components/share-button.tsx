@@ -51,6 +51,20 @@ export function ShareButton({ url, title, description, size = 15 }: ShareButtonP
       fill: true,
     },
     {
+      // Threads' web intent; signed-out visitors are sent through login and
+      // then land on the prefilled composer. Text and link go separately so
+      // Threads shows a link card.
+      label: "Threads",
+      href: `https://www.threads.com/intent/post?text=${encodeURIComponent(description || title)}&url=${encodedUrl}`,
+      icon: (
+        <>
+          <path d="M16.2 11.3c-.5-2.4-2.2-3.6-4.3-3.6-2.4 0-4 1.7-4 4.1s1.6 4 3.8 4c2.5 0 3.9-1.7 3.9-4.8v-.2" />
+          <path d="M15.6 10.8c0-4.4-2.3-7.3-6-7.3C5.8 3.5 3 6.6 3 12s2.9 8.5 8.6 8.5c3.2 0 5.6-1.1 7.2-3.3" />
+        </>
+      ),
+      fill: false,
+    },
+    {
       label: "Mastodon",
       href: `https://mastodonshare.com/?text=${encoded}`,
       icon: <path d="M21.3 13.1c-.3 1.6-2.9 3.3-5.8 3.7-1.5.2-3 .3-4.6.3-2.6-.1-4.6-.6-4.6-.6v.7c.3 2.5 2.5 2.6 4.6 2.7 2.1 0 3.9-.5 3.9-.5l.1 1.8s-1.5.8-4 .9c-1.4.1-3.2-.1-5.2-.6C1.7 20.3.5 16.2.2 12.1c-.1-1.2-.1-2.3-.1-3.2C.1 4.3 3 2.8 3 2.8 4.5 2.1 7 1.5 9.6 1.5h.1c2.6 0 5 .6 6.6 1.3 0 0 2.9 1.5 2.9 6.1 0 0 0 3.5-.3 4.2ZM18 8.9c0-1.2-.3-2.2-.9-2.9-.6-.7-1.4-1.1-2.4-1.1-1.2 0-2.1.5-2.6 1.4l-.6 1-.6-1c-.6-.9-1.4-1.4-2.6-1.4-1 0-1.8.4-2.4 1.1-.6.7-.9 1.7-.9 2.9v6h2.4V9.1c0-1.3.5-1.9 1.5-1.9 1.1 0 1.7.7 1.7 2.2v3.2h2.4V9.4c0-1.5.6-2.2 1.7-2.2 1 0 1.5.6 1.5 1.9V15H18V8.9Z" />,

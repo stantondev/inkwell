@@ -35,6 +35,9 @@ function estimateWeight(entry: JournalEntry): number {
   // Uploaded images (not link preview embeds) — only count <img> inside entry content
   const imgCount = (entry.body_html?.match(/<img/gi) || []).length;
   weight += imgCount * 1;
+  // Fediverse video/audio players
+  weight += (entry.body_html?.match(/<video/gi) || []).length * 1.2;
+  weight += (entry.body_html?.match(/<audio/gi) || []).length * 0.3;
 
   if (entry.tags && entry.tags.length > 3) weight += 0.3;
   if (entry.music) weight += 0.5;

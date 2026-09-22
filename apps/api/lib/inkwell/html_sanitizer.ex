@@ -408,6 +408,21 @@ defmodule Inkwell.HtmlSanitizer.ContentScrubber do
     {"style", v} -> S.scrub_style(v)
   end
 
+  # Video and audio attached to fediverse posts (AttachmentHelper). No
+  # autoplay: players only start when the reader presses play.
+  allow_tag_with_these_attributes "video", ["controls", "playsinline", "preload", "width", "height", "title", "class", "loop", "muted"] do
+    {"src", url} -> if u = S.safe_url(url, :media), do: {"src", u}
+    {"poster", url} -> if u = S.safe_url(url, :image), do: {"poster", u}
+  end
+
+  allow_tag_with_these_attributes "audio", ["controls", "preload", "title", "class"] do
+    {"src", url} -> if u = S.safe_url(url, :media), do: {"src", u}
+  end
+
+  allow_tag_with_these_attributes "source", ["type"] do
+    {"src", url} -> if u = S.safe_url(url, :media), do: {"src", u}
+  end
+
   # Video embeds from imported posts (old LiveJournal/WordPress) — only from
   # hosts that are themselves sandboxed players.
   allow_tag_with_these_attributes "iframe", ["width", "height", "allowfullscreen", "frameborder", "title", "loading"] do

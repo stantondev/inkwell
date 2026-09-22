@@ -43,6 +43,8 @@ defmodule Inkwell.Federation.ContentQuality do
     cond do
       # Entries with titles are likely articles — keep them
       has_title -> true
+      # A video or sound clip is the post; the caption is usually short
+      has_player?(body) -> true
       # Too short
       word_count < 15 -> false
       # Link-only check
@@ -61,6 +63,8 @@ defmodule Inkwell.Federation.ContentQuality do
   end
 
   # ── Private helpers ─────────────────────────────────────────────
+
+  defp has_player?(html), do: String.contains?(html, ["<video", "<audio"])
 
   defp link_only?(html, plain) do
     full_len = String.length(String.trim(plain))
