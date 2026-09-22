@@ -197,8 +197,8 @@ export const PROFILE_FONTS: { id: string; name: string; family: string }[] = [
 ];
 
 export const PROFILE_LAYOUTS = [
-  { id: "classic", name: "Classic", description: "Two-column with sidebar" },
-  { id: "wide", name: "Wide", description: "Full-width header, stacked sections" },
-  { id: "minimal", name: "Minimal", description: "Clean and stripped-down" },
-  { id: "magazine", name: "Magazine", description: "Editorial-style feature layout" },
+  { id: "classic", name: "Classic", description: "Entries with a sidebar of widgets beside them" },
+  { id: "wide", name: "Wide", description: "Entries across the full width, widgets in a row below" },
+  { id: "minimal", name: "Minimal", description: "One narrow column, like a book page" },
+  { id: "magazine", name: "Magazine", description: "Your latest entry as a big feature, then two columns of stories" },
 ];

@@ -89,6 +89,11 @@ interface EntryData {
     prev_entry?: { slug: string; title: string | null } | null;
     next_entry?: { slug: string; title: string | null } | null;
   } | null;
+  /** The writer's previous/next journal entries by date, among those the viewer can read. */
+  journal_nav?: {
+    older: { title: string | null; slug: string; published_at: string } | null;
+    newer: { title: string | null; slug: string; published_at: string } | null;
+  };
   sensitive?: boolean;
   content_warning?: string | null;
   admin_sensitive?: boolean;
@@ -949,6 +954,48 @@ export default async function EntryPage({ params }: EntryParams) {
           </div>
         )}
 
+        {/* Older / newer in this journal, for reading back through an archive */}
+        {(entry.journal_nav?.older || entry.journal_nav?.newer) && (
+          <nav
+            aria-label="More from this journal"
+            className="mt-8 pt-6 border-t grid gap-3 sm:grid-cols-2"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {entry.journal_nav?.older ? (
+              <Link
+                href={`/${username}/${entry.journal_nav.older.slug}`}
+                className="rounded-xl border p-4 transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                rel="prev"
+              >
+                <span className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
+                  ← Older · {journalNavDate(entry.journal_nav.older.published_at)}
+                </span>
+                <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  {entry.journal_nav.older.title || "Untitled entry"}
+                </span>
+              </Link>
+            ) : (
+              <span className="hidden sm:block" />
+            )}
+            {entry.journal_nav?.newer && (
+              <Link
+                href={`/${username}/${entry.journal_nav.newer.slug}`}
+                className="rounded-xl border p-4 text-right transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                rel="next"
+              >
+                <span className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
+                  {journalNavDate(entry.journal_nav.newer.published_at)} · Newer →
+                </span>
+                <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                  {entry.journal_nav.newer.title || "Untitled entry"}
+                </span>
+              </Link>
+            )}
+          </nav>
+        )}
+
         {/* Author card */}
         <div className="mt-8 pt-8 border-t flex items-center gap-4" style={{ borderColor: "var(--border)" }}>
           <Link href={`/${username}`} className="flex-shrink-0">
@@ -1003,6 +1050,10 @@ export default async function EntryPage({ params }: EntryParams) {
 }
 
 // ─── A Sticky's own page ───────────────────────────────────────────────────
+
+function journalNavDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 function StickyPage({
   entry,

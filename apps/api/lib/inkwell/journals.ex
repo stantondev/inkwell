@@ -56,6 +56,12 @@ defmodule Inkwell.Journals do
         p -> where(query, privacy: ^p)
       end
 
+    query =
+      case Keyword.fetch(opts, :viewer) do
+        {:ok, viewer} -> visible_to(query, user_id, viewer)
+        :error -> query
+      end
+
     query = filter_kind(query, Keyword.get(opts, :kind))
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
@@ -69,15 +75,7 @@ defmodule Inkwell.Journals do
         query
       end
 
-    query =
-      if year do
-        year_int = if is_binary(year), do: String.to_integer(year), else: year
-        start_dt = %DateTime{year: year_int, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
-        end_dt = %DateTime{year: year_int + 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
-        where(query, [e], e.published_at >= ^start_dt and e.published_at < ^end_dt)
-      else
-        query
-      end
+    query = filter_date(query, year, Keyword.get(opts, :month))
 
     query
     |> limit(^per_page)
@@ -105,6 +103,12 @@ defmodule Inkwell.Journals do
         p -> where(query, privacy: ^p)
       end
 
+    query =
+      case Keyword.fetch(opts, :viewer) do
+        {:ok, viewer} -> visible_to(query, user_id, viewer)
+        :error -> query
+      end
+
     query = filter_kind(query, Keyword.get(opts, :kind))
 
     query = if tag, do: where(query, [e], ^tag in e.tags), else: query
@@ -118,17 +122,64 @@ defmodule Inkwell.Journals do
         query
       end
 
-    query =
-      if year do
-        year_int = if is_binary(year), do: String.to_integer(year), else: year
-        start_dt = %DateTime{year: year_int, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
-        end_dt = %DateTime{year: year_int + 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}, time_zone: "Etc/UTC", zone_abbr: "UTC", utc_offset: 0, std_offset: 0}
-        where(query, [e], e.published_at >= ^start_dt and e.published_at < ^end_dt)
-      else
-        query
-      end
+    query = filter_date(query, year, Keyword.get(opts, :month))
 
     Repo.aggregate(query, :count)
+  end
+
+  # A calendar year, or one month of it. Bad values are ignored, not errors.
+  defp filter_date(query, nil, _month), do: query
+
+  defp filter_date(query, year, month) do
+    with {y, ""} <- Integer.parse(to_string(year)), true <- y in 1900..3000 do
+      {from_d, to_d} =
+        case month && Integer.parse(to_string(month)) do
+          {m, ""} when m in 1..12 ->
+            {Date.new!(y, m, 1), Date.new!(y, m, 1) |> Date.end_of_month() |> Date.add(1)}
+
+          _ ->
+            {Date.new!(y, 1, 1), Date.new!(y + 1, 1, 1)}
+        end
+
+      start_dt = DateTime.new!(from_d, ~T[00:00:00.000000], "Etc/UTC")
+      end_dt = DateTime.new!(to_d, ~T[00:00:00.000000], "Etc/UTC")
+      where(query, [e], e.published_at >= ^start_dt and e.published_at < ^end_dt)
+    else
+      _ -> query
+    end
+  end
+
+  @doc """
+  Limit an entries query to what `viewer` may see of `owner_id`'s journal:
+  the SQL form of `viewable_by?/2`, for profile listings, their counts and
+  the archive/tag/category lists (which used to count private entries too).
+  `viewer` is a user or nil.
+  """
+  def visible_to(query, owner_id, viewer) do
+    viewer_id = viewer && viewer.id
+
+    cond do
+      viewer_id != nil and viewer_id == owner_id ->
+        query
+
+      is_nil(viewer_id) ->
+        where(query, [e], e.privacy == :public)
+
+      true ->
+        visible =
+          [:public] ++
+            if(Inkwell.Social.is_friend?(viewer_id, owner_id), do: [:friends_only], else: []) ++
+            if(Inkwell.WriterSubscriptions.is_subscribed?(viewer_id, owner_id), do: [:paid], else: [])
+
+        filter_ids =
+          from(f in Inkwell.Social.FriendFilter,
+            where: f.user_id == ^owner_id and type(^viewer_id, :binary_id) in f.member_ids,
+            select: f.id
+          )
+          |> Repo.all()
+
+        where(query, [e], e.privacy in ^visible or (e.privacy == :custom and e.custom_filter_id in ^filter_ids))
+    end
   end
 
   # nil = every kind; "entry" = journal entries only; "sticky" = stickies only.
@@ -726,6 +777,28 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @doc """
+  The writer's previous and next journal entries by date, among those the
+  viewer can read, for reading back through an archive one entry at a time.
+  Returns `%{older: %{title, slug, published_at} | nil, newer: … | nil}`.
+  """
+  def adjacent_entries(%Entry{kind: "entry", published_at: %DateTime{} = at} = entry, viewer) do
+    base =
+      Entry
+      |> where(user_id: ^entry.user_id)
+      |> where([e], e.status == :published and e.kind == "entry" and e.id != ^entry.id and not is_nil(e.slug))
+      |> visible_to(entry.user_id, viewer)
+      |> select([e], %{title: e.title, slug: e.slug, published_at: e.published_at})
+      |> limit(1)
+
+    %{
+      older: base |> where([e], e.published_at < ^at) |> order_by(desc: :published_at) |> Repo.one(),
+      newer: base |> where([e], e.published_at > ^at) |> order_by(asc: :published_at) |> Repo.one()
+    }
+  end
+
+  def adjacent_entries(_entry, _viewer), do: %{older: nil, newer: nil}
+
   @doc "Get series navigation data (prev/next) for an entry in a series."
   def get_series_navigation(%Entry{series_id: nil}), do: nil
 
@@ -1035,11 +1108,28 @@ defmodule Inkwell.Journals do
   end
 
   @doc "Published journal entries (stickies not included), for the profile's entry count."
-  def count_entries(user_id) do
+  def count_entries(user_id, viewer \\ :all) do
     Entry
     |> where(user_id: ^user_id)
     |> where([e], e.status == :published and e.kind == "entry")
+    |> maybe_visible_to(user_id, viewer)
     |> Repo.aggregate(:count)
+  end
+
+  defp maybe_visible_to(query, _owner_id, :all), do: query
+  defp maybe_visible_to(query, owner_id, viewer), do: visible_to(query, owner_id, viewer)
+
+  @doc "Entries per month, newest first: `[%{year: 2004, month: 12, count: 9}]`."
+  def list_entry_months(user_id, viewer \\ :all) do
+    Entry
+    |> where(user_id: ^user_id)
+    |> where([e], e.status == :published and e.kind == "entry" and not is_nil(e.published_at))
+    |> maybe_visible_to(user_id, viewer)
+    |> group_by([e], [fragment("EXTRACT(YEAR FROM ?)", e.published_at), fragment("EXTRACT(MONTH FROM ?)", e.published_at)])
+    |> select([e], {fragment("EXTRACT(YEAR FROM ?)::integer", e.published_at), fragment("EXTRACT(MONTH FROM ?)::integer", e.published_at), count(e.id)})
+    |> Repo.all()
+    |> Enum.map(fn {y, m, n} -> %{year: y, month: m, count: n} end)
+    |> Enum.sort_by(&{-&1.year, -&1.month})
   end
 
   def count_public_entries(user_id) do
@@ -1050,20 +1140,22 @@ defmodule Inkwell.Journals do
   end
 
   @doc "List distinct years that a user has published entries, newest first."
-  def list_entry_years(user_id) do
+  def list_entry_years(user_id, viewer \\ :all) do
     Entry
     |> where(user_id: ^user_id)
     |> where([e], e.status == :published and e.kind == "entry" and not is_nil(e.published_at))
+    |> maybe_visible_to(user_id, viewer)
     |> select([e], fragment("DISTINCT EXTRACT(YEAR FROM ?)::integer", e.published_at))
     |> order_by([e], fragment("1 DESC"))
     |> Repo.all()
   end
 
   @doc "List all tags used by a user's published entries with frequency counts."
-  def list_entry_tags(user_id) do
+  def list_entry_tags(user_id, viewer \\ :all) do
     Entry
     |> where(user_id: ^user_id)
     |> where([e], e.status == :published and e.kind == "entry")
+    |> maybe_visible_to(user_id, viewer)
     |> where([e], fragment("array_length(?, 1) > 0", e.tags))
     |> select([e], e.tags)
     |> Repo.all()
@@ -1073,10 +1165,11 @@ defmodule Inkwell.Journals do
   end
 
   @doc "List all categories used by a user's published entries with counts."
-  def list_entry_categories(user_id) do
+  def list_entry_categories(user_id, viewer \\ :all) do
     Entry
     |> where(user_id: ^user_id)
-    |> where([e], e.status == :published and not is_nil(e.category))
+    |> where([e], e.status == :published and e.kind == "entry" and not is_nil(e.category))
+    |> maybe_visible_to(user_id, viewer)
     |> group_by([e], e.category)
     |> select([e], {e.category, count(e.id)})
     |> order_by([e], fragment("2 DESC"))

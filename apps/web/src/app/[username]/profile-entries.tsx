@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
@@ -9,6 +9,7 @@ import { getMusicLabel } from "@/lib/music";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { decodeEntities } from "@/lib/decode-entities";
 import type { ProfileStyles } from "@/lib/profile-styles";
+import type { ProfileFilters } from "./profile-search-bar";
 
 interface ProfileEntry {
   id: string;
@@ -27,28 +28,29 @@ interface ProfileEntry {
   category?: string | null;
 }
 
-interface ProfileFilters {
-  q: string;
-  category: string | null;
-  tag: string | null;
-  year: number | null;
-  sort: "newest" | "oldest";
-}
 
 interface ProfileEntriesProps {
   username: string;
-  displayMode: "full" | "cards" | "preview";
+  displayMode: "full" | "cards" | "preview" | "magazine";
   initialEntries: ProfileEntry[];
   totalCount: number;
   styles: ProfileStyles;
   filters?: ProfileFilters;
   perPage?: number;
+  /** Controlled page (the filter wrapper owns it and keeps it in the URL). */
+  page?: number;
+  onPageChange?: (page: number) => void;
+  /** Filtered total, reported up for the "N results" line. */
+  onTotalChange?: (total: number) => void;
+  /** The page + filters the server already rendered `initialEntries` for. */
+  initialKey?: string;
 }
 
 const PER_PAGE: Record<string, number> = {
-  full: 3,
+  full: 5,
   cards: 9,
   preview: 20,
+  magazine: 9,
 };
 
 function timeAgo(isoString: string): string {
@@ -57,7 +59,7 @@ function timeAgo(isoString: string): string {
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;
-  return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 function formatDate(iso: string): string {
@@ -66,6 +68,7 @@ function formatDate(iso: string): string {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -341,7 +344,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
 
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs" style={{ color: styles.muted }}>
-          <span>{timeAgo(entry.published_at)}</span>
+          <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
           {rt && <><span>·</span><span>{rt}</span></>}
           {entry.category && (
             <Link
@@ -392,6 +395,78 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
   );
 }
 
+// --- Magazine Display ---
+
+function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
+  const href = `/${username}/${entry.slug ?? entry.id}`;
+  const rt = readingTime(entry.word_count);
+  return (
+    <article className={`profile-widget-card profile-entry-item ${styles.borderRadius} border overflow-hidden @3xl:grid @3xl:grid-cols-[3fr_2fr]`} style={styles.surface}>
+      {entry.cover_image_id && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/images/${entry.cover_image_id}`}
+          alt={entry.title ?? "Entry cover"}
+          className="w-full h-56 @3xl:h-full object-cover"
+          style={{ minHeight: 220, maxHeight: 420 }}
+        />
+      )}
+      <div className={`p-5 sm:p-7 flex flex-col justify-center ${entry.cover_image_id ? "" : "@3xl:col-span-2"}`}>
+        <p className="text-[11px] uppercase tracking-widest mb-3" style={{ color: styles.accent }}>
+          {entry.category ? getCategoryLabel(entry.category) : "Latest"}
+        </p>
+        <h3 className="profile-entry-title text-2xl sm:text-3xl font-bold leading-tight mb-3" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+          <Link href={href} className="hover:underline">{entry.title || "Untitled entry"}</Link>
+        </h3>
+        {entry.excerpt ? (
+          <p className="text-base leading-relaxed line-clamp-4 mb-4" style={{ opacity: 0.85 }}>{decodeEntities(entry.excerpt)}</p>
+        ) : (
+          <EntryContent html={entry.body_html} entryId={entry.id} className="prose-entry text-base leading-relaxed line-clamp-4 mb-4" />
+        )}
+        <p className="text-xs" style={{ color: styles.muted }}>
+          <span suppressHydrationWarning>{formatDate(entry.published_at)}</span>
+          {rt && <> · {rt}</>}
+          {" · "}
+          <Link href={href} className="font-medium hover:underline" style={{ color: styles.accent }}>Read the entry →</Link>
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function MagazineStory({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
+  const href = `/${username}/${entry.slug ?? entry.id}`;
+  const rt = readingTime(entry.word_count);
+  return (
+    <article className="profile-entry-item flex flex-col">
+      {entry.cover_image_id && (
+        <Link href={href} className={`block overflow-hidden ${styles.borderRadius} mb-3`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/images/${entry.cover_image_id}`} alt={entry.title ?? "Entry cover"} className="w-full h-44 object-cover" loading="lazy" />
+        </Link>
+      )}
+      {entry.category && (
+        <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: styles.accent }}>
+          {getCategoryLabel(entry.category)}
+        </p>
+      )}
+      <h3 className="profile-entry-title text-lg font-semibold leading-snug mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+        <Link href={href} className="hover:underline">{entry.title || "Untitled entry"}</Link>
+      </h3>
+      {entry.excerpt ? (
+        <p className="text-sm leading-relaxed line-clamp-3 mb-2" style={{ opacity: 0.85 }}>{decodeEntities(entry.excerpt)}</p>
+      ) : (
+        <EntryContent html={entry.body_html} entryId={entry.id} className="prose-entry text-sm leading-relaxed line-clamp-3 mb-2" />
+      )}
+      <p className="text-xs mt-auto pt-2 border-t" style={{ color: styles.muted, borderColor: styles.border }}>
+        <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
+        {rt && <> · {rt}</>}
+        {(entry.comment_count ?? 0) > 0 && <> · {entry.comment_count} {entry.comment_count === 1 ? "comment" : "comments"}</>}
+      </p>
+    </article>
+  );
+}
+
 // --- Preview / Timeline Display ---
 
 function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
@@ -437,7 +512,7 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
           <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
         )}
         {rt && <span className="hidden sm:inline">{rt}</span>}
-        <span>{timeAgo(entry.published_at)}</span>
+        <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
         <Link href={`${href}#comments`} className="flex items-center gap-0.5" style={{ color: styles.muted }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -451,6 +526,11 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
 
 // --- Main Component ---
 
+export function profileEntriesKey(filters: ProfileFilters | undefined, page: number): string {
+  const f = filters ?? { q: "", category: null, tag: null, year: null, month: null, sort: "newest" };
+  return JSON.stringify([f.q || "", f.category, f.tag, f.year, f.year ? f.month : null, f.sort, page]);
+}
+
 export function ProfileEntries({
   username,
   displayMode,
@@ -459,13 +539,22 @@ export function ProfileEntries({
   styles,
   filters,
   perPage: perPageProp,
+  page: controlledPage,
+  onPageChange,
+  onTotalChange,
+  initialKey,
 }: ProfileEntriesProps) {
   const perPage = perPageProp ?? PER_PAGE[displayMode] ?? 9;
 
-  const [page, setPage] = useState(1);
+  const [ownPage, setOwnPage] = useState(1);
+  const page = controlledPage ?? ownPage;
+  const setPage = onPageChange ?? setOwnPage;
   const [entries, setEntries] = useState<ProfileEntry[]>(initialEntries);
   const [filteredTotal, setFilteredTotal] = useState(initialTotalCount);
   const [loading, setLoading] = useState(false);
+  // Only the latest request may update the list (a slow reply to an older
+  // filter/page must not overwrite a newer one).
+  const requestSeq = useRef(0);
 
   const totalPages = Math.max(1, Math.ceil(filteredTotal / perPage));
 
@@ -478,6 +567,7 @@ export function ProfileEntries({
     if (filters?.category) params.set("category", filters.category);
     if (filters?.tag) params.set("tag", filters.tag);
     if (filters?.year) params.set("year", String(filters.year));
+    if (filters?.year && filters?.month) params.set("month", String(filters.month));
     if (filters?.sort && filters.sort !== "newest") params.set("sort", filters.sort);
     return params.toString();
   }, [perPage, filters]);
@@ -485,11 +575,12 @@ export function ProfileEntries({
   const isFiltering = !!(filters?.q || filters?.category || filters?.tag || filters?.year || (filters?.sort && filters.sort !== "newest"));
 
   const fetchPage = useCallback(async (p: number) => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const qs = buildQuery(p);
       const res = await fetch(`/api/users/${username}/entries?${qs}`);
-      if (res.ok) {
+      if (res.ok && seq === requestSeq.current) {
         const data = await res.json();
         setEntries(data.data ?? []);
         if (data.pagination?.total != null) {
@@ -499,7 +590,7 @@ export function ProfileEntries({
     } catch {
       // keep current entries on error
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [username, buildQuery]);
 
@@ -508,24 +599,27 @@ export function ProfileEntries({
     setPage(p);
     // Scroll to top of entries section
     document.getElementById("profile-entries-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [page, totalPages]);
+  }, [page, totalPages, setPage]);
 
-  // When filters change, reset to page 1 and fetch
+  // Fetch whenever the filters or page change, except for the combination
+  // the server already rendered.
+  const dataKey = profileEntriesKey(filters, page);
+  const firstKey = useRef(initialKey ?? profileEntriesKey(undefined, 1));
   useEffect(() => {
-    if (!isFiltering && page === 1) {
+    if (dataKey === firstKey.current) {
+      requestSeq.current++;
       setEntries(initialEntries);
       setFilteredTotal(initialTotalCount);
+      setLoading(false);
       return;
     }
-    // Always fetch when filtering, or when page > 1
     fetchPage(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filters?.q, filters?.category, filters?.tag, filters?.year, filters?.sort]);
+  }, [dataKey]);
 
-  // Reset page to 1 when filters change
   useEffect(() => {
-    setPage(1);
-  }, [filters?.q, filters?.category, filters?.tag, filters?.year, filters?.sort]);
+    onTotalChange?.(filteredTotal);
+  }, [filteredTotal, onTotalChange]);
 
   if (filteredTotal === 0 && !loading) {
     return (
@@ -538,7 +632,7 @@ export function ProfileEntries({
   }
 
   return (
-    <div id="profile-entries-section" className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
+    <div id="profile-entries-section" className={"@container " + (loading ? "opacity-60 transition-opacity" : "transition-opacity")}>
       {/* Full post mode */}
       {displayMode === "full" && (
         <div className="flex flex-col gap-6">
@@ -550,10 +644,24 @@ export function ProfileEntries({
 
       {/* Cards mode */}
       {displayMode === "cards" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
           {entries.map((entry) => (
             <CardEntry key={entry.id} entry={entry} username={username} styles={styles} />
           ))}
+        </div>
+      )}
+
+      {/* Magazine layout: the newest entry as a feature, then two columns */}
+      {displayMode === "magazine" && (
+        <div className="flex flex-col gap-6">
+          {page === 1 && !isFiltering && entries[0] && (
+            <MagazineFeature entry={entries[0]} username={username} styles={styles} />
+          )}
+          <div className="grid gap-6 @xl:grid-cols-2">
+            {(page === 1 && !isFiltering ? entries.slice(1) : entries).map((entry) => (
+              <MagazineStory key={entry.id} entry={entry} username={username} styles={styles} />
+            ))}
+          </div>
         </div>
       )}
 

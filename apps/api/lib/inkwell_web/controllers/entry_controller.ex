@@ -30,33 +30,17 @@ defmodule InkwellWeb.EntryController do
         category: params["category"],
         tag: params["tag"],
         year: params["year"],
+        month: params["month"],
         sort: params["sort"] || "newest",
         # The profile lists journal entries; its corkboard asks for ?kind=sticky.
         kind: if(params["kind"] == "sticky", do: "sticky", else: "entry")
       ]
 
-      entries =
-        cond do
-          viewer && viewer.id == user.id ->
-            # Owner: see everything (published only — drafts are separate)
-            Journals.list_entries(user.id, filter_opts)
-
-          viewer && Social.is_friend?(viewer.id, user.id) ->
-            # Friends: public + friends_only + custom + paid (if subscribed) entries
-            privacies = [:public, :friends_only, :custom]
-            privacies = if WriterSubscriptions.is_subscribed?(viewer.id, user.id), do: privacies ++ [:paid], else: privacies
-            all = Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, privacies))
-            Enum.filter(all, fn entry ->
-              entry.privacy != :custom || viewer_in_custom_filter?(entry, viewer.id)
-            end)
-
-          viewer && WriterSubscriptions.is_subscribed?(viewer.id, user.id) ->
-            # Subscribers (not friends): public + paid
-            Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, [:public, :paid]))
-
-          true ->
-            Journals.list_entries(user.id, Keyword.put(filter_opts, :privacy, :public))
-        end
+      # One rule for what this viewer may see (Journals.visible_to/3), so the
+      # page and its total agree: pen pals used to see friends-only entries
+      # that the page count left out.
+      filter_opts = Keyword.put(filter_opts, :viewer, viewer)
+      entries = Journals.list_entries(user.id, filter_opts)
 
       # Apply viewer's redacted words filter (never redact own entries)
       entries =
@@ -72,13 +56,7 @@ defmodule InkwellWeb.EntryController do
 
       # Total count for pagination UI (respects active filters)
       count_opts = Keyword.drop(filter_opts, [:page, :per_page, :sort])
-      total_count =
-        cond do
-          viewer && viewer.id == user.id ->
-            Journals.count_entries_filtered(user.id, count_opts)
-          true ->
-            Journals.count_entries_filtered(user.id, Keyword.put(count_opts, :privacy, :public))
-        end
+      total_count = Journals.count_entries_filtered(user.id, count_opts)
 
       json(conn, %{
         data:
@@ -158,6 +136,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:my_ink, my_ink)
           |> Map.put(:my_reprint, my_reprint)
           |> Map.put(:series, series_nav)
+          |> Map.put(:journal_nav, Journals.adjacent_entries(entry, viewer))
           |> Map.put(:poll, poll_data)
           |> Map.put(:custom_domain, author_custom_domain)
           |> Map.put(:noindex, Journals.held_back_from_search?(user.id))

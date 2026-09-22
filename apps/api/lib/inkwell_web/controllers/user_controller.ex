@@ -36,7 +36,8 @@ defmodule InkwellWeb.UserController do
         conn |> put_status(:not_found) |> json(%{error: "User not found"})
 
       user ->
-        entry_count = Journals.count_entries(user.id)
+        # Counts and archive lists only include what this viewer can read.
+        entry_count = Journals.count_entries(user.id, viewer)
         top_friends = Social.list_top_friends(user.id)
 
         {relationship_status, incoming_request} =
@@ -63,9 +64,10 @@ defmodule InkwellWeb.UserController do
               end
           end
 
-        entry_years = Journals.list_entry_years(user.id)
-        entry_tags = Journals.list_entry_tags(user.id)
-        entry_categories = Journals.list_entry_categories(user.id)
+        entry_years = Journals.list_entry_years(user.id, viewer)
+        entry_months = Journals.list_entry_months(user.id, viewer)
+        entry_tags = Journals.list_entry_tags(user.id, viewer)
+        entry_categories = Journals.list_entry_categories(user.id, viewer)
         pen_pal_count = Social.count_pen_pals(user.id)
         reader_count = Social.count_readers(user.id)
         follower_count = Social.count_followers(user.id)
@@ -94,6 +96,7 @@ defmodule InkwellWeb.UserController do
               %{position: pos, user: render_user_brief(u)}
             end),
             entry_years: entry_years,
+            entry_months: entry_months,
             entry_tags: Enum.map(entry_tags, fn {tag, count} -> %{tag: tag, count: count} end),
             entry_categories: entry_categories
           }

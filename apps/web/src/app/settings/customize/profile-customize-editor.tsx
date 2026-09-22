@@ -227,7 +227,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     cards: [6, 9, 12, 18],
     preview: [10, 20, 30, 50],
   };
-  const PER_PAGE_DEFAULTS: Record<string, number> = { full: 3, cards: 9, preview: 20 };
+  const PER_PAGE_DEFAULTS: Record<string, number> = { full: 5, cards: 9, preview: 20 };
 
   const [entriesPerPage, setEntriesPerPage] = useState<Record<string, number>>(() => {
     const saved = (user as { settings?: { entries_per_page?: Record<string, number> } }).settings?.entries_per_page;
@@ -747,6 +747,12 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
           Choose how journal entries appear on your profile page.
         </p>
+        {isPlus && form.profile_layout === "magazine" && (
+          <p className="text-xs mb-3 rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            You&apos;re using the Magazine layout, which shows entries its own way (a featured entry,
+            then two columns). This choice applies when you switch to another layout.
+          </p>
+        )}
         <div className="flex flex-col gap-2">
           {([
             { id: "cards", label: "Cards", desc: "Visual grid with cover images, excerpts, and tags" },
@@ -1003,7 +1009,8 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
                   borderColor: form.profile_layout === l.id ? "var(--accent)" : "var(--border)",
                   borderWidth: form.profile_layout === l.id ? 2 : 1,
                 }}>
-                <p className="text-sm font-medium">{l.name}</p>
+                <LayoutSketch id={l.id} active={form.profile_layout === l.id} />
+                <p className="text-sm font-medium mt-2">{l.name}</p>
                 <p className="text-xs" style={{ color: "var(--muted)" }}>{l.description}</p>
               </button>
             ))}
@@ -1130,5 +1137,55 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         </a>
       </div>
     </div>
+  );
+}
+
+/** A tiny wireframe of each profile layout, so the choice is visible before saving. */
+function LayoutSketch({ id, active }: { id: string; active: boolean }) {
+  const ink = active ? "var(--accent)" : "var(--muted)";
+  const soft = { fill: ink, opacity: 0.18 } as const;
+  const line = { fill: ink, opacity: 0.45 } as const;
+  return (
+    <svg viewBox="0 0 120 72" className="w-full h-auto rounded" style={{ background: "var(--background)" }} aria-hidden="true">
+      {/* header */}
+      <rect x="8" y="6" width="104" height="10" rx="2" style={soft} />
+      {id === "classic" && (
+        <>
+          <rect x="8" y="22" width="68" height="14" rx="2" style={soft} />
+          <rect x="8" y="40" width="68" height="14" rx="2" style={soft} />
+          <rect x="8" y="58" width="68" height="8" rx="2" style={soft} />
+          <rect x="82" y="22" width="30" height="20" rx="2" style={line} />
+          <rect x="82" y="46" width="30" height="20" rx="2" style={line} />
+        </>
+      )}
+      {id === "wide" && (
+        <>
+          <rect x="8" y="22" width="32" height="18" rx="2" style={soft} />
+          <rect x="44" y="22" width="32" height="18" rx="2" style={soft} />
+          <rect x="80" y="22" width="32" height="18" rx="2" style={soft} />
+          <rect x="8" y="46" width="104" height="2" rx="1" style={line} />
+          <rect x="8" y="52" width="32" height="14" rx="2" style={line} />
+          <rect x="44" y="52" width="32" height="14" rx="2" style={line} />
+          <rect x="80" y="52" width="32" height="14" rx="2" style={line} />
+        </>
+      )}
+      {id === "minimal" && (
+        <>
+          <rect x="34" y="22" width="52" height="3" rx="1" style={line} />
+          <rect x="34" y="28" width="52" height="10" rx="2" style={soft} />
+          <rect x="34" y="42" width="52" height="3" rx="1" style={line} />
+          <rect x="34" y="48" width="52" height="10" rx="2" style={soft} />
+          <rect x="34" y="62" width="52" height="4" rx="1" style={soft} />
+        </>
+      )}
+      {id === "magazine" && (
+        <>
+          <rect x="8" y="22" width="104" height="22" rx="2" style={soft} />
+          <rect x="12" y="36" width="50" height="4" rx="1" style={line} />
+          <rect x="8" y="48" width="50" height="18" rx="2" style={soft} />
+          <rect x="62" y="48" width="50" height="18" rx="2" style={soft} />
+        </>
+      )}
+    </svg>
   );
 }

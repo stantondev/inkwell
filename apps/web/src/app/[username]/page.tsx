@@ -32,9 +32,11 @@ import { SignupCta } from "@/components/signup-cta";
 import { WriterSubscribeCard } from "@/components/writer-subscribe-card";
 import { FediverseHandle } from "./fediverse-handle";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { archiveQuery, profileFiltersFromParams } from "@/lib/profile-archive-params";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 interface ProfileUser {
@@ -458,8 +460,11 @@ function PoweredByInkwell() {
   );
 }
 
-export default async function ProfilePage({ params }: ProfileParams) {
+export default async function ProfilePage({ params, searchParams }: ProfileParams) {
   const { username } = await params;
+  // ?year=&month=&page=&sort=&tag=&category=&q= : the archive position, so
+  // links and the Back button land on the same page of entries.
+  const archive = profileFiltersFromParams(await searchParams);
   const session = await getSession();
   const isOwnProfile = session?.user.username === username;
 
@@ -482,6 +487,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
   let incomingRequest = false;
 
   let entryYears: number[] = [];
+  let entryMonths: { year: number; month: number; count: number }[] = [];
   let entryTags: { tag: string; count: number }[] = [];
   let entryCategories: { category: string; count: number }[] = [];
   let writerPlan: { id: string; name: string; description: string | null; price_cents: number; subscriber_count: number; is_subscribed: boolean } | null = null;
@@ -501,6 +507,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         top_friends: TopFriendSlot[];
         relationship_status?: string | null;
         entry_years?: number[];
+        entry_months?: { year: number; month: number; count: number }[];
         entry_tags?: { tag: string; count: number }[];
         entry_categories?: { category: string; count: number }[];
         incoming_request?: boolean;
@@ -518,6 +525,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
     relationshipStatus = data.meta.relationship_status ?? null;
     incomingRequest = data.meta.incoming_request ?? false;
     entryYears = data.meta.entry_years ?? [];
+    entryMonths = data.meta.entry_months ?? [];
     entryTags = data.meta.entry_tags ?? [];
     entryCategories = data.meta.entry_categories ?? [];
   } catch (err) {
@@ -596,17 +604,22 @@ export default async function ProfilePage({ params }: ProfileParams) {
   }
 
   // Compute display mode and per_page for initial fetch
-  const displayMode = (profile.profile_entry_display ?? "cards") as "full" | "cards" | "preview";
-  const perPageDefaults: Record<string, number> = { full: 3, cards: 9, preview: 20 };
+  // Magazine is a layout with its own way of showing entries (a feature plus
+  // two columns); the other layouts use the writer's Entry Display choice.
+  const profileLayout = (profile.subscription_tier ?? "free") === "plus" ? (profile.profile_layout ?? "classic") : "classic";
+  const displayMode = (profileLayout === "magazine" ? "magazine" : (profile.profile_entry_display ?? "cards")) as
+    "full" | "cards" | "preview" | "magazine";
+  const perPageDefaults: Record<string, number> = { full: 5, cards: 9, preview: 20, magazine: 9 };
   const perPage = profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
 
   // Fetch entries (page 1) + series + pinned entries in parallel
   const pinnedIds = profile.pinned_entry_ids ?? [];
   let pinnedEntries: ProfileEntry[] = [];
+  let filteredTotal = entryCount;
 
   const [entriesResult, seriesResult, stickiesResult] = await Promise.allSettled([
     apiFetch<{ data: ProfileEntry[]; pagination: { total: number } }>(
-      `/api/users/${username}/entries?page=1&per_page=${perPage}`,
+      `/api/users/${username}/entries?${archiveQuery(archive, perPage)}`,
       {},
       session?.token,
     ),
@@ -621,9 +634,10 @@ export default async function ProfilePage({ params }: ProfileParams) {
   const stickyTotal = stickiesResult.status === "fulfilled" ? stickiesResult.value.pagination?.total ?? stickies.length : 0;
   if (entriesResult.status === "fulfilled") {
     entries = entriesResult.value.data ?? [];
-    // Use total from pagination if available (more accurate than profile meta entry_count)
+    // Total for this archive position (filtered); entryCount stays the
+    // profile's whole count, which the API already limits to this viewer.
     if (entriesResult.value.pagination?.total != null) {
-      entryCount = entriesResult.value.pagination.total;
+      filteredTotal = entriesResult.value.pagination.total;
     }
     // Resolve pinned entries from fetched data or all entries
     if (pinnedIds.length > 0) {
@@ -794,7 +808,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
             styles={styles}
             entries={entries}
             entryCount={entryCount}
-            displayMode={displayMode}
+            displayMode={(displayMode === "magazine" ? profile.profile_entry_display ?? "cards" : displayMode) as "full" | "cards" | "preview"}
             entryYears={entryYears}
             entryTags={entryTags}
             entryCategories={entryCategories}
@@ -1018,9 +1032,13 @@ export default async function ProfilePage({ params }: ProfileParams) {
             totalCount={entryCount}
             styles={styles}
             entryYears={entryYears}
+            entryMonths={entryMonths}
             entryTags={entryTags}
             entryCategories={entryCategories}
             perPage={perPage}
+            initialFilters={archive.filters}
+            initialPage={archive.page}
+            initialFilteredTotal={filteredTotal}
           />
         ) : (
           <ProfileEntries
@@ -1071,7 +1089,7 @@ export default async function ProfilePage({ params }: ProfileParams) {
         <style dangerouslySetInnerHTML={{ __html: customCss.scopedStyles }} />
       )}
 
-      <div id={profileScopeId} className={`mx-auto px-3 sm:px-4 ${isOnCustomDomain ? "lg:px-8 xl:px-12" : ""} py-8 overflow-hidden ${isOnCustomDomain ? "" : layout === "minimal" ? "max-w-2xl" : "max-w-7xl"}`}
+      <div id={profileScopeId} className={`@container mx-auto px-3 sm:px-4 ${isOnCustomDomain ? "lg:px-8 xl:px-12" : ""} py-8 overflow-hidden ${isOnCustomDomain ? "" : layout === "minimal" ? "max-w-2xl" : "max-w-7xl"}`}
         style={{ fontFamily: font?.family }}>
 
         {/* Profile header */}
@@ -1239,16 +1257,17 @@ export default async function ProfilePage({ params }: ProfileParams) {
           <PinnedEntries entries={pinnedEntries} username={username} styles={styles} />
         )}
 
-        {/* Layout variants */}
+        {/* Layout variants. Breakpoints are container queries (the profile's
+            own width), so a layout looks the same whatever else is on screen,
+            e.g. with the app sidebar open on a laptop. */}
         {layout === "wide" ? (
-          /* Wide: full-width stacked sections */
+          /* Wide: entries across the full width, widgets in a row below */
           <div className="flex flex-col gap-8">
             <EntriesSection />
 
             <div className="profile-section-divider" />
 
-            {/* Widgets in a grid */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 @2xl:grid-cols-2 @5xl:grid-cols-3">
               {sidebarWidgetIds.map((id) => renderWidget(id))}
               <RssWidget />
             </div>
@@ -1261,9 +1280,21 @@ export default async function ProfilePage({ params }: ProfileParams) {
             {sidebarWidgetIds.map((id) => renderWidget(id))}
             <RssWidget />
           </div>
+        ) : layout === "magazine" ? (
+          /* Magazine: a feature entry and two columns of stories, widgets as a band below */
+          <div className="flex flex-col gap-10">
+            <EntriesSection />
+
+            <div className="profile-section-divider" />
+
+            <div className="grid gap-6 @2xl:grid-cols-2 @5xl:grid-cols-4">
+              {sidebarWidgetIds.map((id) => renderWidget(id))}
+              <RssWidget />
+            </div>
+          </div>
         ) : (
-          /* Classic (default) + Magazine: two-column */
-          <div className="grid gap-8 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+          /* Classic (default): entries with a sidebar */
+          <div className="grid gap-8 @3xl:grid-cols-[1fr_260px] @5xl:grid-cols-[1fr_300px] @6xl:grid-cols-[1fr_340px]">
             <EntriesSection className="min-w-0" />
 
             <aside className="flex flex-col gap-6 min-w-0">

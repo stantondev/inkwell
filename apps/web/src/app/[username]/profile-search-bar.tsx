@@ -3,13 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getCategoryLabel } from "@/lib/categories";
 import type { ProfileStyles } from "@/lib/profile-styles";
+import { ProfileArchive, type ArchiveMonth } from "./profile-archive";
 
 export interface ProfileFilters {
   q: string;
   category: string | null;
   tag: string | null;
   year: number | null;
+  month: number | null;
   sort: "newest" | "oldest";
+}
+
+/** Tags are shown with a "#"; some were saved with one already. */
+export function tagLabel(tag: string): string {
+  return tag.replace(/^#+/, "");
 }
 
 interface TagMeta {
@@ -25,6 +32,7 @@ interface CategoryMeta {
 interface ProfileSearchBarProps {
   styles: ProfileStyles;
   entryYears: number[];
+  entryMonths: ArchiveMonth[];
   entryTags: TagMeta[];
   entryCategories: CategoryMeta[];
   filters: ProfileFilters;
@@ -36,6 +44,7 @@ interface ProfileSearchBarProps {
 export function ProfileSearchBar({
   styles,
   entryYears,
+  entryMonths,
   entryTags,
   entryCategories,
   filters,
@@ -66,7 +75,7 @@ export function ProfileSearchBar({
 
   function clearAll() {
     setSearchInput("");
-    onFiltersChange({ q: "", category: null, tag: null, year: null, sort: "newest" });
+    onFiltersChange({ q: "", category: null, tag: null, year: null, month: null, sort: "newest" });
   }
 
   // Top 10 tags
@@ -160,12 +169,12 @@ export function ProfileSearchBar({
           </select>
         )}
 
-        {/* Year dropdown */}
-        {entryYears.length > 1 && (
+        {/* Year dropdown: only when there's no month data to build the archive from */}
+        {entryMonths.length === 0 && entryYears.length > 1 && (
           <select
             value={filters.year ?? ""}
             onChange={(e) =>
-              onFiltersChange({ ...filters, year: e.target.value ? Number(e.target.value) : null })
+              onFiltersChange({ ...filters, year: e.target.value ? Number(e.target.value) : null, month: null })
             }
             className={`profile-widget-card ${styles.borderRadius} border py-1.5 pl-2.5 pr-7 text-xs outline-none cursor-pointer`}
             style={{
@@ -204,13 +213,24 @@ export function ProfileSearchBar({
                     : { borderColor: styles.border, color: styles.muted }
                 }
               >
-                #{tag}
+                #{tagLabel(tag)}
                 <span className="ml-0.5 opacity-60">{count}</span>
               </button>
             ))}
           </div>
         )}
       </div>
+
+      {/* Archive: years, then months */}
+      {entryMonths.length > 1 && (
+        <ProfileArchive
+          months={entryMonths}
+          year={filters.year}
+          month={filters.month}
+          onChange={(year, month) => onFiltersChange({ ...filters, year, month })}
+          styles={styles}
+        />
+      )}
 
       {/* Active filter indicators + result count */}
       {isFiltering && (
