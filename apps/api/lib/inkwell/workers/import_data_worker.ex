@@ -152,20 +152,32 @@ defmodule Inkwell.Workers.ImportDataWorker do
       "mood" => entry_map[:mood],
       "music" => entry_map[:music],
       "tags" => entry_map[:tags] || [],
-      "privacy" => import_record.default_privacy,
+      "privacy" => stricter_privacy(entry_map[:privacy], import_record.default_privacy),
       "user_id" => user_id,
-      "published_at" => entry_map[:published_at]
+      "published_at" => entry_map[:published_at],
+      "source" => "import"
     }
     |> Enum.reject(fn {_k, v} -> is_nil(v) end)
     |> Map.new()
     |> Map.put("user_id", user_id)
   end
 
+  # An entry's own privacy (e.g. a LiveJournal friends-only post) wins when
+  # it's stricter than the default the writer picked for the import; an
+  # import never makes anything more public than it was.
+  @privacy_rank %{"public" => 0, "friends_only" => 1, "custom" => 2, "private" => 3}
+
+  defp stricter_privacy(nil, default), do: default
+
+  defp stricter_privacy(own, default) do
+    if Map.get(@privacy_rank, own, 3) > Map.get(@privacy_rank, default, 3), do: own, else: default
+  end
+
   defp duplicate?(entry_map, user_id) do
     title = entry_map[:title]
     published_at = entry_map[:published_at]
 
-    if is_nil(title) || is_nil(published_at) do
+    if is_nil(published_at) do
       false
     else
       window_start = DateTime.add(published_at, -60, :second)
@@ -173,11 +185,16 @@ defmodule Inkwell.Workers.ImportDataWorker do
 
       import Ecto.Query
 
-      Inkwell.Journals.Entry
-      |> where(user_id: ^user_id)
-      |> where([e], e.title == ^title)
-      |> where([e], e.published_at >= ^window_start and e.published_at <= ^window_end)
-      |> Repo.exists?()
+      query =
+        Inkwell.Journals.Entry
+        |> where(user_id: ^user_id)
+        |> where([e], e.published_at >= ^window_start and e.published_at <= ^window_end)
+
+      # Untitled posts (common on LiveJournal) match on date alone, so
+      # re-running an import doesn't double them up.
+      query = if is_nil(title), do: where(query, [e], is_nil(e.title)), else: where(query, [e], e.title == ^title)
+
+      Repo.exists?(query)
     end
   end
 
@@ -188,6 +205,8 @@ defmodule Inkwell.Workers.ImportDataWorker do
   defp get_parser("medium_html"), do: Inkwell.Import.Parsers.MediumHtml
   defp get_parser("substack_csv"), do: Inkwell.Import.Parsers.SubstackCsv
   defp get_parser("substack"), do: Inkwell.Import.Parsers.Substack
+  defp get_parser("livejournal"), do: Inkwell.Import.Parsers.Livejournal
+  defp get_parser("livejournal_public"), do: Inkwell.Import.Parsers.LivejournalPublic
   defp get_parser("auto"), do: Inkwell.Import.Parsers.AutoDetect
 
   # When multiple files are uploaded, the frontend packs them into a JSON container.

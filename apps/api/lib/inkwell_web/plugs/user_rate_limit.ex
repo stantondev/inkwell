@@ -1,6 +1,7 @@
 defmodule InkwellWeb.Plugs.UserRateLimit do
   @moduledoc """
-  Per-user rate limiter for content creation endpoints.
+  Per-user rate limiter. Writes (POST/PATCH/PUT/DELETE) get `max_requests`
+  per window; reads get ten times that, in a separate bucket.
   Uses ETS with capped timestamp lists (same pattern as RateLimit plug).
 
   ## Usage in router pipeline
@@ -17,6 +18,7 @@ defmodule InkwellWeb.Plugs.UserRateLimit do
   import Phoenix.Controller
 
   @table :user_rate_limit_buckets
+  @read_multiplier 10
 
   def init(opts) do
     %{
@@ -33,8 +35,16 @@ defmodule InkwellWeb.Plugs.UserRateLimit do
 
       user ->
         ensure_table()
-        key = {:user_write, user.id}
         now = System.system_time(:second)
+
+        # Reads get their own, much larger allowance. Counting page loads and
+        # polling against the 30-writes budget made ordinary browsing hit 429s
+        # (e.g. the import page's progress poll made the editor fail to load an
+        # entry, 2026-09-22).
+        {key, max} =
+          if conn.method in ["GET", "HEAD"],
+            do: {{:user_read, user.id}, max * @read_multiplier},
+            else: {{:user_write, user.id}, max}
 
         case check_rate(key, now, max, window) do
           {:allow, _count} ->

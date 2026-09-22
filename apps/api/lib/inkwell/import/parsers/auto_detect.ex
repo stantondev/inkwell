@@ -12,6 +12,7 @@ defmodule Inkwell.Import.Parsers.AutoDetect do
     GenericCsv,
     GenericJson,
     WordpressWxr,
+    Livejournal,
     MediumHtml,
     Substack
   }
@@ -38,6 +39,8 @@ defmodule Inkwell.Import.Parsers.AutoDetect do
 
   defp detect_and_parse(data) do
     cond do
+      Livejournal.looks_like?(data) -> Livejournal.parse(data)
+      zip_file?(data) and livejournal_zip?(data) -> Livejournal.parse(data)
       zip_file?(data) -> detect_and_parse_zip(data)
       xml_data?(data) -> WordpressWxr.parse(data)
       json_data?(data) -> detect_and_parse_json(data)
@@ -95,6 +98,14 @@ defmodule Inkwell.Import.Parsers.AutoDetect do
   end
 
   # ── ZIP format detection ──
+
+  # A ZIP of LiveJournal/Dreamwidth monthly exports or an ljdump folder.
+  defp livejournal_zip?(data) do
+    case :zip.unzip(data, [:memory]) do
+      {:ok, files} -> Enum.any?(files, fn {_name, content} -> Livejournal.looks_like?(content) end)
+      _ -> false
+    end
+  end
 
   defp detect_and_parse_zip(data) do
     case :zip.unzip(data, [:memory]) do

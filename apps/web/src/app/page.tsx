@@ -140,7 +140,7 @@ export default async function LandingPage() {
               <ul className="landing-price-list">
                 {[
                   "Unlimited public and private entries",
-                  "Import from WordPress, Medium & Substack",
+                  "Import from LiveJournal, WordPress, Substack & more",
                   "Followable from Mastodon and Bluesky",
                   "Email newsletter up to 500 subscribers",
                   "8 profile themes, privacy controls & RSS",

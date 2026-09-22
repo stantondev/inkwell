@@ -27,7 +27,9 @@ type Format =
   | "generic_json"
   | "wordpress_wxr"
   | "medium_html"
-  | "substack";
+  | "substack"
+  | "livejournal"
+  | "livejournal_public";
 
 interface FormatOption {
   value: Format;
@@ -36,6 +38,8 @@ interface FormatOption {
   accept: string;
   exportGuide?: string;
   multiFile?: boolean;
+  /** Read from the web by username instead of an uploaded file. */
+  byUsername?: boolean;
 }
 
 const FORMAT_OPTIONS: FormatOption[] = [
@@ -45,6 +49,22 @@ const FORMAT_OPTIONS: FormatOption[] = [
     help: "We'll detect the format from your file automatically — just upload and go.",
     accept: ".zip,.html,.htm,.csv,.json,.xml,.gz",
     multiFile: true,
+  },
+  {
+    value: "livejournal",
+    label: "LiveJournal or Dreamwidth (export files)",
+    help: "Upload the XML files from Export Journal. There's one per month, and you can select them all at once. ljdump backups work too. Friends-only and private entries stay friends-only and private; moods, music and tags come along.",
+    accept: ".xml,.zip",
+    exportGuide:
+      "LiveJournal: livejournal.com/export.bml → choose XML → download each month. Dreamwidth: dreamwidth.org/export",
+    multiFile: true,
+  },
+  {
+    value: "livejournal_public",
+    label: "LiveJournal (can't sign in? public entries)",
+    help: "Lost your LiveJournal login? Enter your username and we'll copy the entries anyone can see on your journal. Friends-only and private entries can't be reached this way.",
+    accept: "",
+    byUsername: true,
   },
   {
     value: "substack",
@@ -107,7 +127,17 @@ const FORMAT_LABELS: Record<string, string> = {
   substack_csv: "Substack (CSV)",
   generic_csv: "Generic CSV",
   generic_json: "Generic JSON",
+  livejournal: "LiveJournal / Dreamwidth",
+  livejournal_public: "LiveJournal (public entries)",
 };
+
+// A public LiveJournal import has no file; show the journal it came from.
+function sourceLabel(fileName: string): string {
+  if (fileName.startsWith("livejournal:")) {
+    return `Journal: ${fileName.slice("livejournal:".length).replace(/_/g, "-")}.livejournal.com`;
+  }
+  return fileName === "_multifile.json" ? "Several files" : `File: ${fileName}`;
+}
 
 export function DataImport() {
   const [importData, setImportData] = useState<ImportStatus | null>(null);
@@ -123,6 +153,15 @@ export function DataImport() {
     "private"
   );
   const [files, setFiles] = useState<File[]>([]);
+  const [ljUsername, setLjUsername] = useState("");
+  const [confirmOwner, setConfirmOwner] = useState(false);
+
+  // /settings/import?from=livejournal (or ?from=livejournal_public) opens
+  // with that source chosen; the Switch pages link here.
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from");
+    if (from && FORMAT_OPTIONS.some((f) => f.value === from)) setFormat(from as Format);
+  }, []);
   const [showErrors, setShowErrors] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -157,7 +196,17 @@ export function DataImport() {
   }, [importData?.status, fetchStatus]);
 
   async function handleStartImport() {
-    if (files.length === 0) {
+    const byUsername = !!selectedFormat?.byUsername;
+    if (byUsername) {
+      if (!ljUsername.trim()) {
+        setError("Enter your LiveJournal username.");
+        return;
+      }
+      if (!confirmOwner) {
+        setError("Please confirm this is your own journal.");
+        return;
+      }
+    } else if (files.length === 0) {
       setError("Please select a file to import.");
       return;
     }
@@ -171,7 +220,10 @@ export function DataImport() {
       formData.append("import_mode", importMode);
       formData.append("default_privacy", privacy);
 
-      if (files.length === 1) {
+      if (byUsername) {
+        formData.append("username", ljUsername.trim());
+        formData.append("confirm_owner", "true");
+      } else if (files.length === 1) {
         // Single file — send directly
         formData.append("file", files[0]);
       } else {
@@ -470,7 +522,53 @@ export function DataImport() {
             </select>
           </div>
 
+          {/* LiveJournal by username */}
+          {selectedFormat?.byUsername && (
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="lj-username"
+                  className="block text-sm font-medium mb-1.5"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  LiveJournal username
+                </label>
+                <div className="flex items-center rounded-lg border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                  <input
+                    id="lj-username"
+                    type="text"
+                    value={ljUsername}
+                    onChange={(e) => setLjUsername(e.target.value)}
+                    placeholder="yourname"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="flex-1 min-w-0 px-3 py-2 text-sm bg-transparent outline-none"
+                    style={{ color: "var(--foreground)" }}
+                  />
+                  <span className="px-3 text-sm" style={{ color: "var(--muted)" }}>.livejournal.com</span>
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmOwner}
+                  onChange={(e) => setConfirmOwner(e.target.checked)}
+                  className="mt-0.5"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span style={{ color: "var(--foreground)" }}>
+                  This is my own journal. I wrote these entries and I&apos;m allowed to copy them here.
+                </span>
+              </label>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                We read one page at a time, about one a second, as LiveJournal asks. That&apos;s roughly
+                ten to fifteen minutes for a couple of hundred entries. You can leave this page while it runs.
+              </p>
+            </div>
+          )}
+
           {/* File Upload */}
+          {!selectedFormat?.byUsername && (
           <div>
             <label
               className="block text-sm font-medium mb-1.5"
@@ -593,16 +691,23 @@ export function DataImport() {
             )}
           </div>
 
+          )}
+
           {/* Submit */}
           <button
             type="button"
             onClick={handleStartImport}
-            disabled={uploading || files.length === 0}
+            disabled={
+              uploading ||
+              (selectedFormat?.byUsername ? !ljUsername.trim() || !confirmOwner : files.length === 0)
+            }
             className="rounded-lg px-5 py-2 text-sm font-medium transition-colors disabled:opacity-50"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
             {uploading
-              ? "Uploading..."
+              ? "Starting..."
+              : selectedFormat?.byUsername
+                ? "Copy my journal"
               : files.length > 1
                 ? `Import ${files.length} Files`
                 : "Start Import"}
@@ -637,7 +742,9 @@ export function DataImport() {
               <span className="text-sm ml-1" style={{ color: "var(--muted)" }}>
                 {importData.total_entries > 0
                   ? `${importData.imported_count + importData.skipped_count + importData.error_count} of ${importData.total_entries} entries`
-                  : "Parsing file..."}
+                  : importData.format === "livejournal_public"
+                    ? "Reading your journal from LiveJournal… about 10–15 minutes for a couple of hundred entries"
+                    : "Parsing file..."}
               </span>
             </div>
           </div>
@@ -679,7 +786,7 @@ export function DataImport() {
 
           {importData.file_name && (
             <p className="text-xs" style={{ color: "var(--muted)" }}>
-              File: {importData.file_name}
+              {sourceLabel(importData.file_name)}
               {importData.format && (
                 <>
                   {" "}

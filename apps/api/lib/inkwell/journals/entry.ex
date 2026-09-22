@@ -178,7 +178,10 @@ defmodule Inkwell.Journals.Entry do
       # posts came out dated as if all written on the same day.
       :published_at,
       :scheduled_at, :scheduled_options,
-      :source_sticky_id
+      :source_sticky_id,
+      # "import" for imported posts, so the editor opens them in the rich
+      # editor rather than as raw HTML.
+      :source
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:user_id])

@@ -27,7 +27,7 @@ const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
 const PILLARS: { title: string; body: string }[] = [
   {
     title: "Bring your archive",
-    body: "Import from WordPress, Substack, Medium, CSV or JSON. Original dates are kept and images are copied over, so your back catalogue arrives intact.",
+    body: "Import from LiveJournal, Dreamwidth, WordPress, Substack, Medium, CSV or JSON. Original dates are kept and images are copied over. Lost your LiveJournal login? We can still bring over your public entries.",
   },
   {
     title: "Reach readers wherever they are",
@@ -172,8 +172,7 @@ export default function ForWritersPage() {
             We&apos;ll help you move
           </h2>
           <p className="text-base mb-8" style={{ color: "var(--muted)" }}>
-            Coming from LiveJournal, Dreamwidth, Tumblr, Blogger or somewhere else we
-            don&apos;t import yet? Email{" "}
+            Coming from Tumblr, Blogger or somewhere else we don&apos;t import yet? Email{" "}
             <a href={`mailto:${HELP_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>
               {HELP_EMAIL}
             </a>{" "}

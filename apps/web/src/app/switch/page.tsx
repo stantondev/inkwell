@@ -75,7 +75,7 @@ export default function SwitchIndexPage() {
       {/* Somewhere else */}
       <Card className="mb-10">
         <h2 className="text-xl font-bold mb-3" style={{ fontFamily: SERIF }}>
-          Coming from LiveJournal, Dreamwidth, Tumblr or somewhere else?
+          Coming from Tumblr, Blogger or somewhere else?
         </h2>
         <div className="space-y-3 text-sm leading-relaxed">
           <p>

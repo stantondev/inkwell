@@ -1583,6 +1583,10 @@ export function EditorClient() {
   const [hasContent, setHasContent] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [loading, setLoading] = useState(!!editId);
+  // Set when an existing entry couldn't be loaded. The form is then never
+  // shown: it would be empty but still tied to the real entry, and saving it
+  // would overwrite that entry with nothing.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [entrySlug, setEntrySlug] = useState<string | null>(null);
   const [entryAuthor, setEntryAuthor] = useState<string | null>(null);
   const [htmlMode, setHtmlMode] = useState(false);
@@ -2100,8 +2104,20 @@ export function EditorClient() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/entries/${editId}`);
-        if (!res.ok) throw new Error("Failed to load entry");
+        let res = await fetch(`/api/entries/${editId}`);
+        // A busy moment (rate limit, API restarting): wait and try once more.
+        if (res.status === 429 || res.status >= 500) {
+          await new Promise((r) => setTimeout(r, 2500));
+          if (cancelled) return;
+          res = await fetch(`/api/entries/${editId}`);
+        }
+        if (!res.ok) {
+          throw new Error(
+            res.status === 404
+              ? "This entry doesn't exist any more, or it isn't yours to edit."
+              : "We couldn't load this entry just now. Nothing has been changed."
+          );
+        }
         const { data: entry } = await res.json();
         if (cancelled) return;
 
@@ -2158,6 +2174,12 @@ export function EditorClient() {
           editor.commands.setContent(entry.body_raw);
           setHasContent(!!editor.getText().trim());
           setWordCount(editor.storage.characterCount.words());
+        } else if (entry.body_html && entry.entry_source === "import") {
+          // Imported posts have HTML but were never edited here; open them
+          // in the normal editor rather than as raw HTML source.
+          editor.commands.setContent(entry.body_html);
+          setHasContent(!!editor.getText().trim());
+          setWordCount(editor.storage.characterCount.words());
         } else if (entry.body_html) {
           // No body_raw means this was written in HTML mode
           setHtmlMode(true);
@@ -2168,7 +2190,9 @@ export function EditorClient() {
         editorLoadedRef.current = true;
       } catch (err) {
         console.error("Failed to load entry for editing:", err);
-        setSaveStatus("error");
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "We couldn't load this entry just now. Nothing has been changed.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -2806,6 +2830,33 @@ export function EditorClient() {
       setIsPublishing(false);
     }
   }, [editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+        <div className="max-w-sm text-center">
+          <p className="text-base mb-4">{loadError}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-full px-5 py-2 text-sm font-medium"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              Try again
+            </button>
+            <NextLink
+              href="/drafts"
+              className="rounded-full px-5 py-2 text-sm font-medium border"
+              style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+            >
+              Back to drafts
+            </NextLink>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

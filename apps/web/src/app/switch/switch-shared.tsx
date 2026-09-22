@@ -3,7 +3,7 @@ import Link from "next/link";
 export const SERIF = "var(--font-lora, Georgia, serif)";
 export const HELP_EMAIL = "hello@inkwell.social";
 
-export type SourceKey = "wordpress" | "substack" | "medium";
+export type SourceKey = "livejournal" | "dreamwidth" | "wordpress" | "substack" | "medium";
 
 export interface SwitchSource {
   key: SourceKey;
@@ -20,9 +20,61 @@ export interface SwitchSource {
   limitations: string[];
   /** Whether a newsletter subscriber list is a natural thing to bring along */
   hasSubscribers: boolean;
+  /** Import format to preselect on Settings → Import (`?from=`) */
+  importFrom?: string;
+  /** Offer the no-login public-journal import (LiveJournal only) */
+  publicImport?: boolean;
 }
 
 export const SOURCES: Record<SourceKey, SwitchSource> = {
+  livejournal: {
+    key: "livejournal",
+    name: "LiveJournal",
+    cardBlurb: "Bring your whole journal, with dates, moods, music, tags and friends-only posts kept friends-only. No login? We can still copy your public entries.",
+    fileDescription: "LiveJournal's monthly export files (.xml)",
+    exportSteps: [
+      "Sign in to LiveJournal and open livejournal.com/export.bml (Export Journal).",
+      "Choose XML as the format and pick a month, then download it. Repeat for each month you wrote in. It's tedious, but every file can be uploaded at once.",
+      "Already have a backup made with ljdump? That works too: upload its files or a .zip of the folder.",
+    ],
+    importNotes: [
+      "Each entry keeps its original date, subject, mood and music. Tags come across from ljdump backups.",
+      "Friends-only and custom-group entries become friends-only on Inkwell, and private entries stay private. An import never makes anything more public than it was.",
+      "LiveJournal line breaks are kept, <lj user> tags become links to those journals, and lj-cuts are opened up.",
+      "Images hosted on LiveJournal are downloaded and re-hosted on Inkwell, as long as LiveJournal still serves them.",
+    ],
+    limitations: [
+      "Comments aren't imported yet.",
+      "LiveJournal polls and embeds only work on LiveJournal, so they're left out.",
+      "Custom friends groups don't exist on Inkwell yet; those entries become friends-only.",
+      "The no-login option can only see public entries.",
+    ],
+    hasSubscribers: false,
+    importFrom: "livejournal",
+    publicImport: true,
+  },
+  dreamwidth: {
+    key: "dreamwidth",
+    name: "Dreamwidth",
+    cardBlurb: "Dreamwidth's export files import just like LiveJournal's, with access levels kept.",
+    fileDescription: "Dreamwidth's monthly export files (.xml)",
+    exportSteps: [
+      "Sign in to Dreamwidth and open dreamwidth.org/export.",
+      "Choose XML and a month, then download it. Repeat for each month.",
+      "Keep the files together. You can upload them all at once.",
+    ],
+    importNotes: [
+      "Each entry keeps its original date, subject, mood and music.",
+      "Access-locked entries become friends-only on Inkwell, and private entries stay private.",
+      "<user> tags become links to those Dreamwidth journals.",
+    ],
+    limitations: [
+      "Comments aren't imported yet.",
+      "Access filters (custom groups) become friends-only.",
+    ],
+    hasSubscribers: false,
+    importFrom: "livejournal",
+  },
   wordpress: {
     key: "wordpress",
     name: "WordPress",

@@ -4,7 +4,7 @@ defmodule InkwellWeb.ImportController do
   alias Inkwell.Import
 
   @max_file_size 52_428_800
-  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv substack auto)
+  @valid_formats ~w(inkwell_json generic_csv generic_json wordpress_wxr medium_html substack_csv substack livejournal livejournal_public auto)
 
   @doc "POST /api/me/import — upload file and start import"
   def create(conn, params) do
@@ -18,7 +18,7 @@ defmodule InkwellWeb.ImportController do
       with {:ok, format} <- validate_format(params["format"]),
            {:ok, import_mode} <- validate_import_mode(params["import_mode"]),
            {:ok, default_privacy} <- validate_privacy(params["default_privacy"]),
-           {:ok, file_data, file_name, file_size} <- read_upload(params) do
+           {:ok, file_data, file_name, file_size} <- read_source(format, params) do
         if file_size > @max_file_size do
           conn
           |> put_status(:unprocessable_entity)
@@ -92,6 +92,18 @@ defmodule InkwellWeb.ImportController do
   end
 
   # ── Helpers ──
+
+  # A public LiveJournal is read from livejournal.com by username; there's no
+  # file. The writer has to say it's their own journal (we can't check: the
+  # people who need this are the ones who can't sign in to LiveJournal).
+  defp read_source("livejournal_public", params) do
+    with true <- params["confirm_owner"] in [true, "true"] || {:error, "Please confirm this is your own journal."},
+         {:ok, username} <- Inkwell.Import.Parsers.LivejournalPublic.normalize_username(params["username"] || "") do
+      {:ok, username, "livejournal:" <> username, 0}
+    end
+  end
+
+  defp read_source(_format, params), do: read_upload(params)
 
   defp read_upload(%{"file" => %Plug.Upload{} = upload}) do
     case File.read(upload.path) do

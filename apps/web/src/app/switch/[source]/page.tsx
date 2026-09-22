@@ -139,6 +139,28 @@ export default async function SwitchSourcePage({
         </div>
       </Card>
 
+      {s.publicImport && (
+        <Card className="mb-6">
+          <Eyebrow>Can&apos;t sign in to {s.name}?</Eyebrow>
+          <h2 className="text-xl font-bold mb-2" style={{ fontFamily: SERIF }}>
+            Lost your login? We can still copy your public entries
+          </h2>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--muted)" }}>
+            Plenty of old journals are still online long after the password is gone. At{" "}
+            <Link href="/settings/import?from=livejournal_public" className="underline underline-offset-2" style={link}>
+              Settings → Import
+            </Link>
+            , choose <strong>{s.name} (can&apos;t sign in? public entries)</strong>, type your
+            username and confirm it&apos;s your journal. Inkwell reads every entry anyone can see,
+            with its original date and title, and adds them to your account as drafts or entries.
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+            It only reaches what&apos;s public. Friends-only and private posts need the export
+            files above.
+          </p>
+        </Card>
+      )}
+
       {/* Step 2: import */}
       <Card className="mb-6">
         <Eyebrow>Step two</Eyebrow>
@@ -157,7 +179,7 @@ export default async function SwitchSourcePage({
           <Step n={2} title="Open Settings → Import">
             <p>
               Go to{" "}
-              <Link href="/settings/import" className="underline underline-offset-2" style={link}>
+              <Link href={s.importFrom ? `/settings/import?from=${s.importFrom}` : "/settings/import"} className="underline underline-offset-2" style={link}>
                 Settings → Import
               </Link>{" "}
               and pick <strong>{s.name}</strong> as the source (or leave it on Auto-detect).
