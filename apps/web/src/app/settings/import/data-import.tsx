@@ -165,6 +165,13 @@ export function DataImport() {
     const from = new URLSearchParams(window.location.search).get("from");
     if (from && FORMAT_OPTIONS.some((f) => f.value === from)) setFormat(from as Format);
   }, []);
+
+  // Everything the no-login LiveJournal import can reach was public there,
+  // so default to keeping it public (it defaulted to Private, and a writer
+  // who expected their public journal ended up with 173 private entries).
+  useEffect(() => {
+    if (format === "livejournal_public") setPrivacy("public");
+  }, [format]);
   const [showErrors, setShowErrors] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -527,6 +534,12 @@ export function DataImport() {
               <option value="friends_only">Friends only</option>
               <option value="public">Public</option>
             </select>
+            {format === "livejournal_public" && (
+              <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
+                These entries are public on LiveJournal, so they stay public here unless you pick
+                something else.
+              </p>
+            )}
           </div>
 
           {/* LiveJournal by username */}
@@ -879,7 +892,7 @@ export function DataImport() {
             )}
             {importData.skipped_count > 0 && (
               <span style={{ color: "var(--muted)" }}>
-                {importData.skipped_count} skipped (duplicates)
+                {importData.skipped_count} already here
               </span>
             )}
             {importData.error_count > 0 && (
@@ -889,6 +902,18 @@ export function DataImport() {
               </span>
             )}
           </div>
+
+          {importData.skipped_count > 0 && (
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              Entries you&apos;d already imported were left as they are, including their privacy
+              and draft settings, so this import&apos;s choices only applied to new entries. To change
+              the ones already here, select them on{" "}
+              <a href="/manage" className="underline" style={{ color: "var(--accent)" }}>
+                the Posts page
+              </a>{" "}
+              and use Privacy or Publish.
+            </p>
+          )}
 
           {importData.imported_count === 0 &&
             importData.error_count === 0 &&
