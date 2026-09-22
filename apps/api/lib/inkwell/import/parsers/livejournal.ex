@@ -18,7 +18,7 @@ defmodule Inkwell.Import.Parsers.Livejournal do
 
   @behaviour Inkwell.Import.Parser
 
-  alias Inkwell.Import.{LivejournalMarkup, Parser}
+  alias Inkwell.Import.{LivejournalComments, LivejournalMarkup, Parser}
 
   @impl true
   def parse(data) when is_binary(data) do
@@ -29,10 +29,14 @@ defmodule Inkwell.Import.Parsers.Livejournal do
         [{"upload", data}]
       end
 
+    files = Enum.map(files, fn {name, content} -> {name, to_utf8(content)} end)
+    comments = LivejournalComments.from_files(files)
+
     entries =
       files
       |> Enum.flat_map(fn {_name, content} -> parse_file(content) end)
       |> Enum.uniq_by(fn e -> {e[:source_id], e[:published_at], e[:title]} end)
+      |> Enum.map(fn e -> Map.put(e, :comments, Map.get(comments, e[:source_id], [])) end)
       |> Enum.sort_by(fn e -> e[:published_at] || ~U[1970-01-01 00:00:00Z] end, DateTime)
 
     case entries do
@@ -64,7 +68,8 @@ defmodule Inkwell.Import.Parsers.Livejournal do
         |> Enum.reject(fn {name, _} -> String.contains?(name, "__MACOSX") end)
         |> Enum.filter(fn {name, content} ->
           base = Path.basename(name)
-          String.ends_with?(String.downcase(base), ".xml") or String.starts_with?(base, "L-") or looks_like?(content)
+          String.ends_with?(String.downcase(base), ".xml") or String.starts_with?(base, "L-") or
+            String.starts_with?(base, "C-") or looks_like?(content)
         end)
 
       _ ->
@@ -73,7 +78,6 @@ defmodule Inkwell.Import.Parsers.Livejournal do
   end
 
   defp parse_file(content) do
-    content = to_utf8(content)
     site = if Regex.match?(~r/dreamwidth/i, binary_part(content, 0, min(byte_size(content), 2000))), do: :dreamwidth, else: :livejournal
 
     cond do

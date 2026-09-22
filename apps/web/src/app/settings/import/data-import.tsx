@@ -12,6 +12,7 @@ interface ImportStatus {
   file_size: number | null;
   total_entries: number;
   imported_count: number;
+  comments_imported?: number;
   skipped_count: number;
   error_count: number;
   errors: Array<{ index: number; title: string; reason: string }>;
@@ -53,10 +54,11 @@ const FORMAT_OPTIONS: FormatOption[] = [
   {
     value: "livejournal",
     label: "LiveJournal or Dreamwidth (export files)",
-    help: "Upload the XML files from Export Journal. There's one per month, and you can select them all at once. ljdump backups work too. Friends-only and private entries stay friends-only and private; moods, music and tags come along.",
-    accept: ".xml,.zip",
+    help: "Upload the XML files from Export Journal. There's one per month, and you can select them all at once. ljdump backups work too. Friends-only and private entries stay friends-only and private; moods, music, tags and comments come along.",
+    // ljdump's L-/C- files have no extension, so don't filter the picker.
+    accept: "",
     exportGuide:
-      "LiveJournal: livejournal.com/export.bml → choose XML → download each month. Dreamwidth: dreamwidth.org/export",
+      "LiveJournal: livejournal.com/export.bml → choose XML → download each month. For comments, also save livejournal.com/export_comments.bml?get=comment_meta&startid=0 and ?get=comment_body&startid=0. Dreamwidth: dreamwidth.org/export",
     multiFile: true,
   },
   {
@@ -154,6 +156,7 @@ export function DataImport() {
   );
   const [files, setFiles] = useState<File[]>([]);
   const [ljUsername, setLjUsername] = useState("");
+  const [ljOwnName, setLjOwnName] = useState("");
   const [confirmOwner, setConfirmOwner] = useState(false);
 
   // /settings/import?from=livejournal (or ?from=livejournal_public) opens
@@ -219,6 +222,10 @@ export function DataImport() {
       formData.append("format", format);
       formData.append("import_mode", importMode);
       formData.append("default_privacy", privacy);
+
+      if (format === "livejournal" && ljOwnName.trim()) {
+        formData.append("lj_username", ljOwnName.trim());
+      }
 
       if (byUsername) {
         formData.append("username", ljUsername.trim());
@@ -567,6 +574,34 @@ export function DataImport() {
             </div>
           )}
 
+          {format === "livejournal" && (
+            <div>
+              <label
+                htmlFor="lj-own-name"
+                className="block text-sm font-medium mb-1.5"
+                style={{ color: "var(--foreground)" }}
+              >
+                Your LiveJournal or Dreamwidth username <span style={{ color: "var(--muted)", fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                id="lj-own-name"
+                type="text"
+                value={ljOwnName}
+                onChange={(e) => setLjOwnName(e.target.value)}
+                placeholder="yourname"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--foreground)" }}
+              />
+              <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
+                So your own replies in the comments show as you. To bring comments, add the two files
+                from livejournal.com/export_comments.bml (comment_meta and comment_body) alongside your
+                entries, or include ljdump&apos;s C- files.
+              </p>
+            </div>
+          )}
+
           {/* File Upload */}
           {!selectedFormat?.byUsername && (
           <div>
@@ -836,6 +871,12 @@ export function DataImport() {
             <span style={{ color: "var(--foreground)" }}>
               <strong>{importData.imported_count}</strong> imported
             </span>
+            {(importData.comments_imported ?? 0) > 0 && (
+              <span style={{ color: "var(--foreground)" }}>
+                <strong>{importData.comments_imported}</strong>{" "}
+                {importData.comments_imported === 1 ? "comment" : "comments"}
+              </span>
+            )}
             {importData.skipped_count > 0 && (
               <span style={{ color: "var(--muted)" }}>
                 {importData.skipped_count} skipped (duplicates)

@@ -47,6 +47,13 @@ export function CommentNode({
 
   const isLocal = !!comment.author;
   const isRemote = !isLocal && !!comment.remote_author;
+  // Comments brought over with a LiveJournal/Dreamwidth import
+  const importedFrom =
+    comment.remote_author?.source === "livejournal"
+      ? "LiveJournal"
+      : comment.remote_author?.source === "dreamwidth"
+        ? "Dreamwidth"
+        : null;
   const displayName = isLocal
     ? comment.author!.display_name || comment.author!.username
     : isRemote
@@ -150,7 +157,10 @@ export function CommentNode({
                 {displayName}
               </span>
             )}
-            {isRemote && comment.remote_author && (
+            {isRemote && comment.remote_author && importedFrom && (
+              <span className="comment-fediverse-badge">on {importedFrom}</span>
+            )}
+            {isRemote && comment.remote_author && !importedFrom && (
               <span className="comment-fediverse-badge">
                 @{comment.remote_author.username}@{comment.remote_author.domain}
               </span>
@@ -164,7 +174,7 @@ export function CommentNode({
                 (edited)
               </span>
             )}
-            {isRemote && comment.url && comment.remote_author && (
+            {isRemote && comment.url && comment.remote_author && !importedFrom && (
               <a
                 href={comment.url}
                 target="_blank"

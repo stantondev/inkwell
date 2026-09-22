@@ -237,7 +237,9 @@ defmodule InkwellWeb.CommentController do
             display_name: ra["display_name"] || ra[:display_name],
             avatar_url: ra["avatar_url"] || ra[:avatar_url],
             profile_url: ra["profile_url"] || ra[:profile_url],
-            ap_id: ra["ap_id"] || ra[:ap_id]
+            ap_id: ra["ap_id"] || ra[:ap_id],
+            # "livejournal" / "dreamwidth" for imported comments; nil for fediverse
+            source: ra["source"] || ra[:source]
           }
         _ -> nil
       end

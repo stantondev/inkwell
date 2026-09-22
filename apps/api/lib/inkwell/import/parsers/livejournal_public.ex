@@ -17,7 +17,7 @@ defmodule Inkwell.Import.Parsers.LivejournalPublic do
 
   @behaviour Inkwell.Import.Parser
 
-  alias Inkwell.Import.LivejournalMarkup
+  alias Inkwell.Import.{LivejournalComments, LivejournalMarkup}
 
   require Logger
 
@@ -40,6 +40,7 @@ defmodule Inkwell.Import.Parsers.LivejournalPublic do
         entry_urls
         |> Enum.map(&fetch_entry/1)
         |> Enum.reject(&is_nil/1)
+        |> Enum.map(&with_comments(&1, user, host))
         |> Enum.sort_by(fn e -> e.published_at end, DateTime)
 
       case entries do
@@ -144,11 +145,106 @@ defmodule Inkwell.Import.Parsers.LivejournalPublic do
         body_html: body,
         published_at: unix(meta["eventtime"]),
         tags: tags(article_region(html)),
-        source_id: url
+        source_id: url,
+        # The post's own comment count ("replycount" appears once, for this
+        # entry). Nil when the page doesn't say, so comments are fetched anyway.
+        reply_count: reply_count(html)
       }
       |> then(fn e -> if e.body_html, do: e end)
     else
       _ -> nil
+    end
+  end
+
+  defp reply_count(html) do
+    case Regex.run(~r/"replycount":(\d+)/, html, capture: :all_but_first) do
+      [n] -> String.to_integer(n)
+      _ -> nil
+    end
+  end
+
+  # ── Comments ──────────────────────────────────────────────────────────────
+
+  @max_thread_expansions 20
+
+  defp with_comments(%{reply_count: 0} = entry, _user, _host), do: Map.put(entry, :comments, [])
+
+  defp with_comments(entry, user, host) do
+    comments =
+      case Regex.run(~r|/(\d+)\.html|, entry.source_id, capture: :all_but_first) do
+        [ditemid] -> fetch_comments(user, host, ditemid)
+        _ -> []
+      end
+
+    Map.put(entry, :comments, comments)
+  end
+
+  @doc false
+  def fetch_comments(user, host, ditemid) do
+    base = "https://#{host}/__rpc_get_thread?journal=#{user}&itemid=#{ditemid}&flat=&skip=&expand_all=1"
+
+    case get_json(base <> "&thread=") do
+      {:ok, %{"comments" => list}} when is_list(list) ->
+        # Long threads come back partly collapsed ("loaded": 0). Ask for each
+        # collapsed thread once (a bounded number of times) and put its
+        # comments where the placeholder was, so the list stays in thread
+        # order, which is what the nesting is rebuilt from.
+        expand = list |> Enum.filter(&(&1["loaded"] == 0)) |> Enum.take(@max_thread_expansions) |> MapSet.new(& &1["dtalkid"])
+
+        list
+        |> Enum.flat_map(fn c ->
+          if MapSet.member?(expand, c["dtalkid"]) do
+            case get_json(base <> "&thread=#{c["dtalkid"]}") do
+              {:ok, %{"comments" => more}} when is_list(more) -> more
+              _ -> []
+            end
+          else
+            [c]
+          end
+        end)
+        |> Enum.filter(&(&1["loaded"] != 0))
+        |> Enum.uniq_by(& &1["dtalkid"])
+        |> threaded_comments(user)
+        |> LivejournalComments.finalize(:livejournal, :rendered)
+
+      _ ->
+        []
+    end
+  end
+
+  # The JSON gives each comment's depth ("level") in thread order, not its
+  # parent; rebuild parents from the order LJ lists them in.
+  defp threaded_comments(list, owner) do
+    {out, _stack} =
+      Enum.reduce(list, {[], %{}}, fn c, {acc, stack} ->
+        level = c["level"] || 1
+        parent = if level > 1, do: Map.get(stack, level - 1)
+        stack = stack |> Map.put(level, c["dtalkid"]) |> Map.reject(fn {l, _} -> l > level end)
+
+        author = if (c["dname"] || "") == "", do: nil, else: c["dname"]
+
+        comment = %{
+          source_id: c["dtalkid"],
+          parent_source_id: parent,
+          author: if(c["commenter_is_poster"] == 1, do: owner, else: author),
+          anonymous?: author == nil and c["commenter_is_poster"] != 1,
+          state: if(c["deleted"] == 1 or c["shown"] == 0, do: "D", else: "A"),
+          subject: c["subject"],
+          body: c["article"],
+          date: c["ctime_ts"],
+          url: c["thread_url"]
+        }
+
+        {[comment | acc], stack}
+      end)
+
+    Enum.reverse(out)
+  end
+
+  defp get_json(url) do
+    case get(url) do
+      {:ok, body} -> Jason.decode(body)
+      error -> error
     end
   end
 

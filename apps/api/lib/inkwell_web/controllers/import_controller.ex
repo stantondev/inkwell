@@ -32,7 +32,8 @@ defmodule InkwellWeb.ImportController do
             file_data: file_data,
             file_name: file_name,
             file_size: file_size,
-            status: "pending"
+            status: "pending",
+            options: import_options(format, params, file_data)
           }
 
           case Import.create_import(attrs) do
@@ -105,6 +106,20 @@ defmodule InkwellWeb.ImportController do
 
   defp read_source(_format, params), do: read_upload(params)
 
+  # The writer's own LiveJournal/Dreamwidth username, so their replies in
+  # imported comments are credited to their Inkwell account. For the public
+  # import it's the journal itself; for files it's optional.
+  defp import_options("livejournal_public", _params, username), do: %{"lj_username" => username}
+
+  defp import_options(format, params, _data) when format in ["livejournal", "auto"] do
+    case Inkwell.Import.Parsers.LivejournalPublic.normalize_username(params["lj_username"] || "") do
+      {:ok, name} -> %{"lj_username" => name}
+      _ -> %{}
+    end
+  end
+
+  defp import_options(_, _, _), do: %{}
+
   defp read_upload(%{"file" => %Plug.Upload{} = upload}) do
     case File.read(upload.path) do
       {:ok, data} -> {:ok, data, upload.filename, byte_size(data)}
@@ -136,6 +151,7 @@ defmodule InkwellWeb.ImportController do
       file_size: import_record.file_size,
       total_entries: import_record.total_entries,
       imported_count: import_record.imported_count,
+      comments_imported: (import_record.options || %{})["comments_imported"] || 0,
       skipped_count: import_record.skipped_count,
       error_count: import_record.error_count,
       errors: import_record.errors,

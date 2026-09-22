@@ -152,7 +152,7 @@ export default async function SwitchSourcePage({
             </Link>
             , choose <strong>{s.name} (can&apos;t sign in? public entries)</strong>, type your
             username and confirm it&apos;s your journal. Inkwell reads every entry anyone can see,
-            with its original date and title, and adds them to your account as drafts or entries.
+            with its original date and title, plus the comments on it, and adds them to your account as drafts or entries.
           </p>
           <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
             It only reaches what&apos;s public. Friends-only and private posts need the export

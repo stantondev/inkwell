@@ -35,16 +35,18 @@ export const SOURCES: Record<SourceKey, SwitchSource> = {
     exportSteps: [
       "Sign in to LiveJournal and open livejournal.com/export.bml (Export Journal).",
       "Choose XML as the format and pick a month, then download it. Repeat for each month you wrote in. It's tedious, but every file can be uploaded at once.",
-      "Already have a backup made with ljdump? That works too: upload its files or a .zip of the folder.",
+      "For comments, while signed in, open livejournal.com/export_comments.bml?get=comment_meta&startid=0 and livejournal.com/export_comments.bml?get=comment_body&startid=0, and save each page as a file. Upload them with your entries.",
+      "Already have a backup made with ljdump? That works too: upload its files (entries and comments) or a .zip of the folder.",
     ],
     importNotes: [
       "Each entry keeps its original date, subject, mood and music. Tags come across from ljdump backups.",
+      "Comments come along too, threaded as they were. Your own replies show as you; tell us your LiveJournal username on the import form so we can tell which ones are yours.",
       "Friends-only and custom-group entries become friends-only on Inkwell, and private entries stay private. An import never makes anything more public than it was.",
       "LiveJournal line breaks are kept, <lj user> tags become links to those journals, and lj-cuts are opened up.",
       "Images hosted on LiveJournal are downloaded and re-hosted on Inkwell, as long as LiveJournal still serves them.",
     ],
     limitations: [
-      "Comments aren't imported yet.",
+      "Comments come with their original dates and threads, but the people who wrote them don't have Inkwell accounts, so they show under their LiveJournal name with a link to their journal. Deleted and screened comments, and old anonymous spam, are left out.",
       "LiveJournal polls and embeds only work on LiveJournal, so they're left out.",
       "Custom friends groups don't exist on Inkwell yet; those entries become friends-only.",
       "The no-login option can only see public entries.",
@@ -69,7 +71,7 @@ export const SOURCES: Record<SourceKey, SwitchSource> = {
       "<user> tags become links to those Dreamwidth journals.",
     ],
     limitations: [
-      "Comments aren't imported yet.",
+      "Comments come along if you add the files from dreamwidth.org/export_comments.bml (comment_meta and comment_body), which use the same format as LiveJournal's.",
       "Access filters (custom groups) become friends-only.",
     ],
     hasSubscribers: false,

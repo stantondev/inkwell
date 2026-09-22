@@ -21,6 +21,7 @@ defmodule Inkwell.Import.DataImport do
     field :error_message, :string
     field :completed_at, :utc_datetime_usec
     field :expires_at, :utc_datetime_usec
+    field :options, :map, default: %{}
 
     belongs_to :user, Inkwell.Accounts.User
 
@@ -38,7 +39,7 @@ defmodule Inkwell.Import.DataImport do
       :user_id, :status, :format, :import_mode, :default_privacy,
       :file_data, :file_name, :file_size, :total_entries,
       :imported_count, :skipped_count, :error_count, :errors,
-      :error_message, :completed_at, :expires_at
+      :error_message, :completed_at, :expires_at, :options
     ])
     |> validate_required([:user_id, :status, :format])
     |> validate_inclusion(:status, @valid_statuses)

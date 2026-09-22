@@ -15,6 +15,8 @@ export interface CommentRemoteAuthor {
   avatar_url: string | null;
   profile_url: string | null;
   ap_id: string;
+  /** Set for comments imported from another journal site */
+  source?: "livejournal" | "dreamwidth" | null;
 }
 
 export interface Comment {

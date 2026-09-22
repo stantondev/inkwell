@@ -120,6 +120,88 @@ defmodule Inkwell.Import.LivejournalTest do
     end
   end
 
+
+  describe "comments from files" do
+    @meta """
+    <?xml version="1.0" encoding='utf-8'?>
+    <livejournal><maxid>4</maxid><comments>
+    <comment id='1' posterid='7' state='A' jitemid='154' />
+    </comments><usermaps>
+    <usermap id='7' user='tick_1989' />
+    <usermap id='9' user='xstantonx' />
+    </usermaps></livejournal>
+    """
+
+    @bodies """
+    <?xml version="1.0" encoding='utf-8'?>
+    <livejournal><comments>
+    <comment id='1' jitemid='154' posterid='7' state='A' parentid='0'>
+    <subject>Re: .Semester break.</subject>
+    <body>OH ya I read it hahahah</body>
+    <date>2004-12-22T10:00:00Z</date>
+    </comment>
+    <comment id='2' jitemid='154' posterid='9' state='A' parentid='1'>
+    <body>go read mine too</body>
+    <date>2004-12-22T11:00:00Z</date>
+    </comment>
+    <comment id='3' jitemid='154' posterid='7' state='D' parentid='0'></comment>
+    <comment id='4' jitemid='154' posterid='0' state='A' parentid='0'>
+    <subject>Very interesting information</subject>
+    <body>Hello
+
+    Very interesting information! Thanks!</body>
+    <date>2007-07-10T22:37:24Z</date>
+    </comment>
+    <comment id='5' jitemid='155' posterid='0' parentid='0'>
+    <body>miss you, from a friend</body>
+    <date>2004-12-24T08:00:00Z</date>
+    </comment>
+    </comments></livejournal>
+    """
+
+    test "attaches comments to their entries, threaded, without deleted ones or spam" do
+      {:ok, {_, zip}} =
+        :zip.create(~c"lj.zip", [{~c"2004-12.xml", @export}, {~c"meta.xml", @meta}, {~c"bodies.xml", @bodies}], [:memory])
+
+      assert {:ok, [first, second, _third]} = Livejournal.parse(zip)
+
+      assert [a, b] = first.comments
+      assert a.author == "tick_1989"
+      assert a.body_html =~ "OH ya I read it"
+      # "Re:" subjects are dropped
+      refute a.body_html =~ "Re:"
+      assert a.posted_at == ~U[2004-12-22 10:00:00Z]
+      assert b.author == "xstantonx"
+      assert b.parent_source_id == "1"
+
+      # A genuine anonymous comment stays; the spam one is gone.
+      assert [anon] = second.comments
+      assert anon.author == nil
+      assert anon.body_html =~ "from a friend"
+    end
+
+    test "reads ljdump C- files" do
+      c_file = """
+      <?xml version="1.0"?>
+      <comments><comment><id>11</id><parentid></parentid><subject></subject>
+      <date>2005-01-03T10:00:00Z</date><body>happy new year!!</body><state>A</state><user>some_one</user></comment></comments>
+      """
+
+      {:ok, {_, zip}} = :zip.create(~c"dump.zip", [{~c"xstantonx/L-42", @ljdump}, {~c"xstantonx/C-42", c_file}], [:memory])
+      assert {:ok, [entry]} = Livejournal.parse(zip)
+      assert [%{author: "some_one", body_html: body}] = entry.comments
+      assert body =~ "happy new year"
+    end
+  end
+
+  describe "comment spam" do
+    test "catches the stock compliments LJ left behind" do
+      assert Inkwell.Import.LivejournalComments.spam?("Hi all! <br /> <br />Looks good! Very useful, good stuff. Good resources here.")
+      assert Inkwell.Import.LivejournalComments.spam?("nice <a href=\"http://x.example\">x</a>")
+      refute Inkwell.Import.LivejournalComments.spam?("lol that party was so fun, call me")
+    end
+  end
+
   describe "public journal" do
     @page """
     <html><head><script>Site.entry = {"eventtime":1103659200,"title":".Grown up.","is_public":true,"ditemid":45851,"x":"{not a brace}"};</script></head>
@@ -172,6 +254,60 @@ defmodule Inkwell.Import.LivejournalTest do
 
       assert {:ok, [a, b]} = LivejournalPublic.parse("xstantonx")
       assert DateTime.compare(a.published_at, b.published_at) == :lt
+    end
+
+    test "fetches comments and rebuilds threads from their depth" do
+      host = "https://xstantonx.livejournal.com"
+      page = String.replace(@page, "<html>", ~s(<html><script>x={"replycount":3,"spamcount":0}</script>))
+
+      thread =
+        Jason.encode!(%{
+          "comments" => [
+            %{"dtalkid" => 1, "level" => 1, "loaded" => 1, "shown" => 1, "deleted" => 0, "dname" => "tick_1989", "article" => "first!", "ctime_ts" => 1_160_257_896, "subject" => "", "thread_url" => "#{host}/45851.html?thread=1"},
+            %{"dtalkid" => 2, "level" => 2, "loaded" => 1, "shown" => 1, "deleted" => 0, "dname" => "xstantonx", "commenter_is_poster" => 1, "article" => "thanks tick", "ctime_ts" => 1_160_260_000, "subject" => ""},
+            %{"dtalkid" => 3, "level" => 1, "loaded" => 1, "shown" => 1, "deleted" => 0, "dname" => "", "article" => "Hello <br /> <br />Very interesting information! Thanks! <br /> <br /> <br /> <br />", "ctime_ts" => 1_184_107_044, "subject" => "Very interesting information"}
+          ]
+        })
+
+      pages = %{
+        "#{host}/calendar/" => ~s(<a href="#{host}/2006/">2006</a>),
+        "#{host}/2006/" => ~s(<a href="#{host}/2006/10/04/">4</a>),
+        "#{host}/2006/10/04/" => ~s(<a href="#{host}/45851.html">x</a>),
+        "#{host}/45851.html" => page,
+        "#{host}/__rpc_get_thread?journal=xstantonx&itemid=45851&flat=&skip=&expand_all=1&thread=" => thread
+      }
+
+      Application.put_env(:inkwell, :livejournal_fetcher, fn url ->
+        if Map.has_key?(pages, url), do: {:ok, pages[url]}, else: {:error, :not_found}
+      end)
+
+      on_exit(fn -> Application.delete_env(:inkwell, :livejournal_fetcher) end)
+
+      assert {:ok, [entry]} = LivejournalPublic.parse("xstantonx")
+      assert [a, b] = entry.comments
+      assert a.author == "tick_1989"
+      assert b.author == "xstantonx"
+      assert b.parent_source_id == "1"
+      assert b.posted_at == DateTime.from_unix!(1_160_260_000)
+    end
+
+    test "skips the comment request when the page says there are none" do
+      host = "https://xstantonx.livejournal.com"
+      page = String.replace(@page, "<html>", ~s(<html><script>x={"replycount":0}</script>))
+
+      pages = %{
+        "#{host}/calendar/" => ~s(<a href="#{host}/2006/">2006</a>),
+        "#{host}/2006/" => ~s(<a href="#{host}/2006/10/04/">4</a>),
+        "#{host}/2006/10/04/" => ~s(<a href="#{host}/45851.html">x</a>),
+        "#{host}/45851.html" => page
+      }
+
+      Application.put_env(:inkwell, :livejournal_fetcher, fn url ->
+        if String.contains?(url, "__rpc"), do: raise("should not be called"), else: Map.fetch(pages, url) |> then(fn {:ok, h} -> {:ok, h}; :error -> {:error, :not_found} end)
+      end)
+
+      on_exit(fn -> Application.delete_env(:inkwell, :livejournal_fetcher) end)
+      assert {:ok, [%{comments: []}]} = LivejournalPublic.parse("xstantonx")
     end
 
     test "a journal that doesn't exist says so" do
