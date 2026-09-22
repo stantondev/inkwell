@@ -1,220 +1,58 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getToken } from "@/lib/session";
+import { Suspense } from "react";
+import { getSession, getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
-import { Avatar } from "@/components/avatar";
-import { ReindexButton } from "./reindex-button";
+import { AdminConsole } from "./admin-console";
+import type { AdminStats } from "./admin-overview";
 
-export const metadata: Metadata = { title: "Admin Dashboard · Inkwell" };
+export const metadata: Metadata = { title: "Admin" };
 
-interface UserBrief {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-  subscription_tier: string;
-  subscription_status: string | null;
-  subscription_expires_at: string | null;
-  ink_donor_status: string | null;
-  ink_donor_amount_cents: number | null;
-  created_at: string;
-}
-
-interface BillingSummary {
-  status: "ok" | "attention";
-  problems: { kind: string; message: string }[];
-  counts: { plus: number; paying: number; founding: number; trial: number };
-}
-
-interface StatsData {
-  stats: {
-    total_users: number;
-    plus_subscribers: number;
-    ink_donors: number;
-    signups_this_week: number;
-    total_entries: number;
-    total_comments: number;
-    blocked_users: number;
-    inactive_users: number;
-    pending_reports: number;
-  };
-  recent_plus: UserBrief[];
-  recent_donors: UserBrief[];
-  recent_signups: UserBrief[];
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
-
-export default async function AdminDashboardPage() {
+/**
+ * The whole admin area. Everything lives in one console; the old
+ * `/admin/<section>` routes redirect here with `?s=<section>`.
+ *
+ * Only the overview's data is fetched here, so opening Admin costs one
+ * page's worth of work. Each panel fetches its own on first open.
+ */
+export default async function AdminPage() {
+  const session = await getSession();
   const token = await getToken();
   const headers = { Authorization: `Bearer ${token}` };
 
-  // Billing status asks Square about paying members, so it's fetched in
-  // parallel with a short timeout; the dashboard never waits on Square.
+  // Square is asked about paying members, so billing is fetched alongside
+  // the stats with a short timeout — the console never waits on Square.
   const [data, billing] = await Promise.all([
     fetch(`${SERVER_API}/api/admin/stats`, { headers, cache: "no-store" })
-      .then((res) => (res.ok ? (res.json() as Promise<StatsData>) : null))
+      .then((res) => (res.ok ? res.json() : null))
       .catch(() => null),
     fetch(`${SERVER_API}/api/admin/billing-overview`, {
       headers,
       cache: "no-store",
       signal: AbortSignal.timeout(6000),
     })
-      .then((res) => (res.ok ? (res.json() as Promise<BillingSummary>) : null))
+      .then((res) => (res.ok ? res.json() : null))
       .catch(() => null),
   ]);
 
-  const stats = data?.stats;
-
-  return (
-    <div>
-      {/* Stat Cards */}
-      {stats && (
-        <div className="admin-stat-grid admin-section">
-          <StatCard label="Total Users" value={stats.total_users} />
-          <StatCard label="Plus Subscribers" value={stats.plus_subscribers} accent />
-          <StatCard label="Ink Donors" value={stats.ink_donors} accent />
-          <StatCard label="New This Week" value={stats.signups_this_week} />
-          <StatCard label="Total Entries" value={stats.total_entries} />
-          <StatCard label="Total Comments" value={stats.total_comments} />
-          <StatCard label="Inactive" value={stats.inactive_users} />
-          <StatCard label="Blocked" value={stats.blocked_users} danger={stats.blocked_users > 0} />
-          <StatCard label="Pending Reports" value={stats.pending_reports} danger={stats.pending_reports > 0} />
-        </div>
-      )}
-
-      {/* Billing status — details on the Billing tab */}
-      <div className="admin-section">
-        <BillingLine billing={billing} />
-      </div>
-
-      {/* Admin Actions */}
-      <div className="admin-section" style={{ marginBottom: "1rem" }}>
-        <ReindexButton />
-      </div>
-
-      {/* Recent sections */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-        <div className="admin-card">
-          <h2 className="admin-card-header">Recent Signups</h2>
-          {data?.recent_signups && data.recent_signups.length > 0 ? (
-            <div className="space-y-3">
-              {data.recent_signups.map((user) => (
-                <UserRow key={user.id} user={user} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>No users yet.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BillingLine({ billing }: { billing: BillingSummary | null }) {
-  const ok = billing?.status === "ok";
-  const c = billing?.counts;
-  return (
-    <Link
-      href="/admin/billing"
-      className="admin-card flex items-center justify-between gap-3 hover:opacity-90"
-      style={
-        billing && !ok
-          ? { background: "color-mix(in srgb, #f59e0b 8%, var(--surface))", borderColor: "color-mix(in srgb, #f59e0b 40%, var(--border))" }
-          : undefined
+  const initialStats: AdminStats | null = data
+    ? {
+        stats: data.stats ?? null,
+        recent_plus: data.recent_plus ?? [],
+        recent_donors: data.recent_donors ?? [],
+        recent_signups: data.recent_signups ?? [],
+        billing,
       }
-    >
-      <div className="min-w-0">
-        <div className="text-sm font-medium">
-          {!billing ? "Billing" : ok ? "✓ Billing looks good" : `⚠ Billing needs a look (${billing.problems.length})`}
-        </div>
-        <div className="text-xs truncate" style={{ color: "var(--muted)" }}>
-          {!billing
-            ? "Couldn't check just now"
-            : !ok
-              ? billing.problems[0].message
-              : `${c!.plus} with Plus · ${c!.paying} paying · ${c!.founding} Founding${c!.trial ? ` · ${c!.trial} on trial` : ""}`}
-        </div>
-      </div>
-      <span className="text-xs shrink-0" style={{ color: "var(--accent)" }}>
-        Open Billing →
-      </span>
-    </Link>
-  );
-}
-
-function StatCard({ label, value, accent, danger }: { label: string; value: number; accent?: boolean; danger?: boolean }) {
-  const cls = danger ? "admin-stat-value admin-stat-value--danger" : accent ? "admin-stat-value admin-stat-value--accent" : "admin-stat-value";
-  return (
-    <div className="admin-stat-card">
-      <div className={cls}>{value.toLocaleString()}</div>
-      <div className="admin-stat-label">{label}</div>
-    </div>
-  );
-}
-
-function SubscriptionStatusBadge({ status, expiresAt }: { status: string | null; expiresAt: string | null }) {
-  if (!status || status === "none") return null;
-
-  const colors: Record<string, { bg: string; fg: string }> = {
-    active: { bg: "var(--success, #16a34a)", fg: "white" },
-    canceled: { bg: "var(--danger, #dc2626)", fg: "white" },
-    past_due: { bg: "#f59e0b", fg: "white" },
-  };
-  const style = colors[status] || { bg: "var(--muted)", fg: "white" };
-
-  const label = status === "active" ? "Active" : status === "canceled" ? "Canceled" : status === "past_due" ? "Past due" : status;
-  const expiresLabel = expiresAt && status === "canceled"
-    ? ` — expires ${new Date(expiresAt).toLocaleDateString()}`
-    : "";
+    : null;
 
   return (
-    <span
-      className="px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
-      style={{ background: style.bg, color: style.fg }}
-      title={expiresLabel ? `Expires ${new Date(expiresAt!).toLocaleDateString()}` : undefined}
-    >
-      {label}
-    </span>
-  );
-}
-
-function UserRow({ user, showDonorAmount }: { user: UserBrief; showDonorAmount?: boolean }) {
-  const statusToShow = showDonorAmount ? user.ink_donor_status : user.subscription_status;
-
-  return (
-    <Link
-      href={`/${user.username}`}
-      className="flex items-center gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:opacity-80"
-    >
-      <Avatar url={user.avatar_url} name={user.display_name || user.username} size={32} />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{user.display_name || user.username}</div>
-        <div className="text-xs truncate" style={{ color: "var(--muted)" }}>@{user.username}</div>
-      </div>
-      <div className="flex flex-col items-end gap-0.5 shrink-0">
-        {showDonorAmount && user.ink_donor_amount_cents ? (
-          <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
-            ${user.ink_donor_amount_cents / 100}/mo
-          </span>
-        ) : (
-          <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-            {timeAgo(user.created_at)}
-          </span>
-        )}
-        <SubscriptionStatusBadge status={statusToShow} expiresAt={user.subscription_expires_at} />
-      </div>
-    </Link>
+    // useSearchParams needs a Suspense boundary to keep the route from
+    // opting the whole page into client-side rendering.
+    <Suspense fallback={null}>
+      <AdminConsole
+        currentUserId={session!.user.id}
+        initialStats={initialStats}
+        initialPendingReports={data?.stats?.pending_reports ?? 0}
+      />
+    </Suspense>
   );
 }

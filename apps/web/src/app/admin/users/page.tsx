@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import { getSession } from "@/lib/session";
-import { UserManagement } from "./user-management";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Users · Admin · Inkwell" };
-
-export default async function AdminUsersPage() {
-  const session = await getSession();
-
-  return <UserManagement currentUserId={session!.user.id} />;
+export default function Page() {
+  redirect("/admin?s=users");
 }

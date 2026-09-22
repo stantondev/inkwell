@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { AdminEntryList } from "../admin-entry-list";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Entries · Admin · Inkwell" };
-
-export default function AdminEntriesPage() {
-  return <AdminEntryList />;
+export default function Page() {
+  redirect("/admin?s=entries");
 }
