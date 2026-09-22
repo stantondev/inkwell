@@ -23,20 +23,25 @@ defmodule InkwellWeb.BillingController do
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
+      yearly? = params["interval"] == "year"
+
       result =
-        if params["interval"] == "year",
+        if yearly?,
           do: Billing.create_plus_annual_checkout_session(user, :billing),
           else: Billing.create_checkout_session(user)
 
       case result do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, if(yearly?, do: "plus_annual", else: "plus"))
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
           conn
           |> put_status(:service_unavailable)
           |> json(%{error: "Billing is not yet configured. Coming soon!"})
+
+        {:error, :plan_pricing_unsupported} ->
+          checkout_unavailable(conn)
 
         {:error, reason} ->
           Logger.error("Checkout session failed: #{inspect(reason)}")
@@ -141,13 +146,16 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_donor(user) do
       case Billing.create_donor_checkout_session(user, amount_cents) do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, "donor")
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
           conn
           |> put_status(:service_unavailable)
           |> json(%{error: "Donations are not yet configured. Coming soon!"})
+
+        {:error, :plan_pricing_unsupported} ->
+          checkout_unavailable(conn)
 
         {:error, reason} ->
           Logger.error("Donor checkout failed: #{inspect(reason)}")
@@ -183,13 +191,16 @@ defmodule InkwellWeb.BillingController do
     with :ok <- check_billing_rate(user) do
       case Billing.create_donation_checkout_session(user, amount_cents) do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, "donation")
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
           conn
           |> put_status(:service_unavailable)
           |> json(%{error: "Donations are not yet configured. Coming soon!"})
+
+        {:error, :plan_pricing_unsupported} ->
+          checkout_unavailable(conn)
 
         {:error, reason} ->
           Logger.error("Donation checkout failed: #{inspect(reason)}")
@@ -217,20 +228,25 @@ defmodule InkwellWeb.BillingController do
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
+      yearly? = params["interval"] == "year"
+
       result =
-        if params["interval"] == "year",
+        if yearly?,
           do: Billing.create_plus_annual_checkout_session(user, :onboarding),
           else: Billing.create_onboarding_checkout_session(user, "plus")
 
       case result do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, if(yearly?, do: "plus_annual", else: "plus"))
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
           conn
           |> put_status(:service_unavailable)
           |> json(%{error: "Billing is not yet configured. Coming soon!"})
+
+        {:error, :plan_pricing_unsupported} ->
+          checkout_unavailable(conn)
 
         {:error, reason} ->
           Logger.error("Onboarding checkout (Plus) failed: #{inspect(reason)}")
@@ -257,13 +273,16 @@ defmodule InkwellWeb.BillingController do
          :ok <- check_no_active_donor(user) do
       case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, "donor")
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
           conn
           |> put_status(:service_unavailable)
           |> json(%{error: "Donations are not yet configured. Coming soon!"})
+
+        {:error, :plan_pricing_unsupported} ->
+          checkout_unavailable(conn)
 
         {:error, reason} ->
           Logger.error("Onboarding checkout (Donor) failed: #{inspect(reason)}")
@@ -303,7 +322,7 @@ defmodule InkwellWeb.BillingController do
     with :ok <- check_billing_rate(user) do
       case Inkwell.Billing.Founding.create_checkout_session(user, return_to) do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user)
+          record_billing_checkout(user, "founding")
           json(conn, %{url: url})
 
         {:error, :already_founding_member} ->
@@ -548,9 +567,12 @@ defmodule InkwellWeb.BillingController do
   end
 
   # Called only after we've successfully handed the user a checkout URL.
-  defp record_billing_checkout(user) do
+  # Also records the attempt so Inkwell.Billing.Funnel can tell "nobody wants
+  # to pay" apart from "nobody can pay".
+  defp record_billing_checkout(user, kind) do
     ensure_billing_rate_table()
     :ets.insert(:billing_rate_limit, {{:billing_checkout, user.id}, System.system_time(:second)})
+    Inkwell.Billing.Funnel.record_attempt(user, kind)
     :ok
   end
 
@@ -560,6 +582,17 @@ defmodule InkwellWeb.BillingController do
       :allowed -> :ok
       reason -> {:error, reason}
     end
+  end
+
+  defp checkout_unavailable(conn) do
+    conn
+    |> put_status(:service_unavailable)
+    |> json(%{
+      error:
+        "Checkout is temporarily unavailable — this is our problem, not your card, " <>
+          "and nothing has been charged. We've been alerted and will email you when it's fixed.",
+      code: "checkout_unavailable"
+    })
   end
 
   defp plus_checkout_refused(conn, :already_subscribed) do

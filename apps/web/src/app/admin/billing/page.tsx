@@ -29,11 +29,29 @@ interface Problem {
   usernames: string[];
 }
 
+interface PlanCheck {
+  label: string;
+  id: string | null;
+  pricing: string | null;
+  ok: boolean;
+  note: string | null;
+}
+
+interface CheckoutFunnel {
+  days: number;
+  people: number;
+  attempts: number;
+  completed: number;
+  stalled: boolean;
+}
+
 interface Overview {
   status: "ok" | "attention";
   problems: Problem[];
   counts: { plus: number; paying: number; founding: number; trial: number; granted: number; donors: number };
   last_webhook_at: string | null;
+  plans: PlanCheck[];
+  checkouts: CheckoutFunnel;
   members: Member[];
   recent_webhooks: WebhookDelivery[];
 }
@@ -91,6 +109,7 @@ export default function AdminBillingPage() {
   return (
     <div className="space-y-4">
       <StatusCard data={data} onChanged={load} />
+      <CanPeoplePayCard plans={data.plans} checkouts={data.checkouts} />
       <MembersCard members={data.members} onChanged={load} />
       <GivePlusCard onChanged={load} />
 
@@ -106,6 +125,48 @@ export default function AdminBillingPage() {
           <BillingTroubleshooting recent={data.recent_webhooks} onChanged={load} />
         </div>
       </details>
+    </div>
+  );
+}
+
+function CanPeoplePayCard({ plans, checkouts }: { plans: PlanCheck[]; checkouts: CheckoutFunnel }) {
+  const broken = plans.filter((p) => !p.ok);
+
+  return (
+    <div className="admin-card">
+      <h2 className="admin-card-header">Can people pay?</h2>
+      <p className="text-sm" style={{ color: "var(--muted)", marginTop: -4 }}>
+        Square&apos;s checkout silently refuses to finish a plan priced RELATIVE. That broke every
+        Plus and Ink Donor signup from April to September 2026, so each plan is checked here.
+      </p>
+
+      <ul className="mt-3 space-y-1">
+        {plans.map((p) => (
+          <li key={p.label} className="text-sm flex items-baseline gap-2">
+            <span style={{ color: p.ok ? "var(--success, #16a34a)" : "#b45309" }}>{p.ok ? "✓" : "⚠"}</span>
+            <span style={{ minWidth: 110 }}>{p.label}</span>
+            <span style={{ color: "var(--muted)" }}>
+              {p.pricing ? p.pricing.toLowerCase() : "—"}
+              {p.note ? ` · ${p.note}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-3 text-sm" style={{ color: checkouts.stalled ? "#b45309" : "var(--muted)" }}>
+        Last {checkouts.days} days: {checkouts.people === 0
+          ? "nobody opened a Plus or Ink Donor checkout."
+          : `${checkouts.people} ${checkouts.people === 1 ? "person" : "people"} opened a checkout, ${checkouts.completed} subscribed.`}
+        {checkouts.stalled ? " Nobody completed — try a checkout yourself." : ""}
+      </p>
+
+      {broken.length > 0 && (
+        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+          Fix: create a STATIC-priced plan variation in Square and point the matching
+          SQUARE_*_PLAN_VARIATION_ID secret at it. Square won&apos;t let an existing plan&apos;s
+          pricing be edited.
+        </p>
+      )}
     </div>
   );
 }

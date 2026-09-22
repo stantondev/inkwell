@@ -395,6 +395,21 @@ defmodule Inkwell.Square do
   defp post_payment_link(body, link_type, user_id) do
     Logger.info("[Square Payment Link] Creating #{link_type} link for user #{user_id}")
 
+    case subscription_plan_of(body) do
+      nil -> do_post_payment_link(body, link_type, user_id)
+      plan_id -> with :ok <- check_subscription_plan(plan_id, link_type, user_id),
+                      do: do_post_payment_link(body, link_type, user_id)
+    end
+  end
+
+  defp subscription_plan_of(body) do
+    case get_in(body, ["checkout_options", "subscription_plan_id"]) do
+      id when is_binary(id) and id != "" -> id
+      _ -> nil
+    end
+  end
+
+  defp do_post_payment_link(body, link_type, user_id) do
     case square_post("/online-checkout/payment-links", body) do
       {:ok, response} ->
         log_payment_link_response(response, link_type, user_id)
@@ -486,6 +501,155 @@ defmodule Inkwell.Square do
         Logger.error("Failed to cancel Square subscription #{subscription_id}: #{inspect(reason)}")
         {:error, reason}
     end
+  end
+
+  # ── Subscription plan pre-flight ──────────────────────────────────────
+  #
+  # Square's hosted checkout cannot complete a subscription whose plan
+  # variation is priced RELATIVE: the buyer fills in the form, presses pay,
+  # and Square's own page fails with "Phases with RELATIVE pricing type must
+  # have phases on the subscription". Their forum thread on it is still open
+  # (developer.squareup.com/forums/t/subscription-payment-link-is-not-working
+  # /21003). Nothing in the CreatePaymentLink response says so — we get a
+  # perfectly good URL back — so between 2026-04-24 and 2026-09-22 every
+  # monthly Plus and Ink Donor checkout dead-ended on Square's page and we
+  # never heard about it. RELATIVE pricing takes the price from a catalog
+  # item on the plan; STATIC carries its own price and works.
+  #
+  # So before handing anyone a subscription link we ask Square what the plan
+  # variation's pricing type actually is. This fails OPEN: if the catalog
+  # can't be read (outage, timeout, an unexpected shape) the checkout goes
+  # ahead as before, because blocking a sale over a failed lookup would be
+  # worse than the bug this guards against.
+
+  @pricing_cache :square_plan_pricing_cache
+  @pricing_cache_ttl 3600
+  @pricing_alert_interval 3600
+
+  @doc """
+  The pricing type of a subscription plan variation: `{:ok, "STATIC"}`,
+  `{:ok, "RELATIVE"}`, `{:error, :plan_not_found}` or another Square error.
+  Cached for an hour — plan pricing can't be edited once set (Square refuses),
+  so it only changes when we point at a different variation.
+  """
+  def plan_variation_pricing(plan_variation_id) when is_binary(plan_variation_id) do
+    case cached_pricing(plan_variation_id) do
+      {:ok, cached} ->
+        cached
+
+      :miss ->
+        result = fetch_plan_variation_pricing(plan_variation_id)
+        cache_pricing(plan_variation_id, result)
+        result
+    end
+  end
+
+  def plan_variation_pricing(_), do: {:error, :square_not_configured}
+
+  defp fetch_plan_variation_pricing(plan_variation_id) do
+    fetcher =
+      Application.get_env(:inkwell, :square_catalog_fetcher, &default_catalog_fetch/1)
+
+    case fetcher.(plan_variation_id) do
+      {:ok, %{"object" => object}} -> pricing_type_from_object(object)
+      {:ok, %{} = object} -> pricing_type_from_object(object)
+      {:error, {:square_error, 404, _}} -> {:error, :plan_not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp default_catalog_fetch(plan_variation_id) do
+    square_get("/catalog/object/#{plan_variation_id}")
+  end
+
+  defp pricing_type_from_object(object) when is_map(object) do
+    object
+    |> get_in(["subscription_plan_variation_data", "phases"])
+    |> case do
+      [%{"pricing" => %{"type" => type}} | _] when is_binary(type) -> {:ok, type}
+      _ -> {:error, :unknown_plan_shape}
+    end
+  end
+
+  defp pricing_type_from_object(_), do: {:error, :unknown_plan_shape}
+
+  # A subscription plan variation Square's checkout can actually complete.
+  # Only a confirmed RELATIVE plan is refused; every other answer (including
+  # "we couldn't tell") lets the checkout through.
+  defp check_subscription_plan(plan_variation_id, link_type, user_id) do
+    case plan_variation_pricing(plan_variation_id) do
+      {:ok, "RELATIVE"} ->
+        alert_unusable_plan(plan_variation_id, link_type, user_id)
+        {:error, :plan_pricing_unsupported}
+
+      {:ok, _static_or_other} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Square Payment Link] Could not check plan #{plan_variation_id} for #{link_type} " <>
+            "(user #{user_id}): #{inspect(reason)} — continuing to checkout"
+        )
+
+        :ok
+    end
+  end
+
+  defp alert_unusable_plan(plan_variation_id, link_type, user_id) do
+    Logger.error(
+      "[Square Payment Link] REFUSING #{link_type} for user #{user_id}: plan variation " <>
+        "#{plan_variation_id} is priced RELATIVE, which Square's hosted checkout cannot " <>
+        "complete. Point the plan variation env var at a STATIC-priced variation."
+    )
+
+    if alert_due?(plan_variation_id) do
+      Inkwell.Slack.notify_unusable_plan(plan_variation_id, link_type)
+    end
+  end
+
+  # One Slack ping per plan per hour, so a broken plan during a busy day
+  # doesn't turn into a wall of identical alerts.
+  defp alert_due?(plan_variation_id) do
+    ensure_pricing_cache()
+    key = {:alerted, plan_variation_id}
+    now = System.system_time(:second)
+
+    case :ets.lookup(@pricing_cache, key) do
+      [{^key, at}] when now - at < @pricing_alert_interval ->
+        false
+
+      _ ->
+        :ets.insert(@pricing_cache, {key, now})
+        true
+    end
+  end
+
+  defp cached_pricing(plan_variation_id) do
+    ensure_pricing_cache()
+    now = System.system_time(:second)
+
+    case :ets.lookup(@pricing_cache, plan_variation_id) do
+      [{^plan_variation_id, result, at}] when now - at < @pricing_cache_ttl -> {:ok, result}
+      _ -> :miss
+    end
+  end
+
+  # Only successful answers are cached: a Square outage shouldn't pin an
+  # "unknown" verdict in place for an hour.
+  defp cache_pricing(plan_variation_id, {:ok, _} = result) do
+    ensure_pricing_cache()
+    :ets.insert(@pricing_cache, {plan_variation_id, result, System.system_time(:second)})
+    result
+  end
+
+  defp cache_pricing(_plan_variation_id, result), do: result
+
+  defp ensure_pricing_cache do
+    if :ets.whereis(@pricing_cache) == :undefined do
+      :ets.new(@pricing_cache, [:set, :public, :named_table])
+    end
+  rescue
+    ArgumentError -> :ok
   end
 
   @doc "Get a Square subscription's status."

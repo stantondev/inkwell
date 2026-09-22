@@ -12,7 +12,7 @@ defmodule Inkwell.Billing.AdminOverview do
 
   alias Inkwell.{Avatars, Repo, Square}
   alias Inkwell.Accounts.User
-  alias Inkwell.Billing.WebhookDelivery
+  alias Inkwell.Billing.{Funnel, WebhookDelivery}
 
   # Monthly renewals are the only regular webhook traffic, so a quiet day
   # (or week) is normal. Only flag silence longer than a billing cycle.
@@ -48,13 +48,17 @@ defmodule Inkwell.Billing.AdminOverview do
       |> Repo.all()
       |> Enum.map(&render_delivery/1)
 
-    problems = problems(members, last_webhook_at, failed_7d, now)
+    plans = plan_checks()
+    funnel = Funnel.summary()
+    problems = problems(members, last_webhook_at, failed_7d, now, plans, funnel)
 
     %{
       status: if(problems == [], do: "ok", else: "attention"),
       problems: problems,
       counts: counts(members),
       last_webhook_at: last_webhook_at,
+      plans: plans,
+      checkouts: funnel,
       members: members,
       recent_webhooks: recent
     }
@@ -196,9 +200,66 @@ defmodule Inkwell.Billing.AdminOverview do
     }
   end
 
+  # ── Can people actually pay? ──────────────────────────────────────────
+  #
+  # Each recurring plan we sell, and whether Square's checkout can complete
+  # it. A plan priced RELATIVE takes the buyer's money nowhere: the hosted
+  # page fails at the payment step (see Inkwell.Square). That was invisible
+  # for five months, so it gets its own line on this page now.
+
+  defp plan_checks do
+    config = Application.get_env(:inkwell, :square, [])
+
+    # No Square at all (local dev, tests, a self-hosted instance) isn't a
+    # billing fault — there's nothing being sold here to be broken.
+    if blank?(config[:access_token]) or blank?(config[:location_id]) do
+      []
+    else
+      plan_checks(config)
+    end
+  end
+
+  defp blank?(value), do: is_nil(value) or value == ""
+
+  defp plan_checks(config) do
+    [
+      {"Plus monthly", config[:plus_plan_variation_id], true},
+      {"Plus yearly", config[:plus_annual_plan_variation_id], false},
+      {"Ink Donor $1", config[:donor_plan_variation_1], false},
+      {"Ink Donor $2", config[:donor_plan_variation_2], false},
+      {"Ink Donor $3", config[:donor_plan_variation_3], false}
+    ]
+    |> Enum.map(&plan_check/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # An unset optional plan simply isn't offered, so it isn't a problem.
+  defp plan_check({_label, id, false}) when is_nil(id) or id == "", do: nil
+
+  defp plan_check({label, id, true}) when is_nil(id) or id == "" do
+    %{label: label, id: nil, pricing: nil, ok: false, note: "Not configured — nobody can subscribe."}
+  end
+
+  defp plan_check({label, id, _required}) do
+    case Square.plan_variation_pricing(id) do
+      {:ok, "RELATIVE"} ->
+        %{label: label, id: id, pricing: "RELATIVE", ok: false,
+          note: "Square's checkout can't complete a RELATIVE-priced plan. Point this at a STATIC one."}
+
+      {:ok, pricing} ->
+        %{label: label, id: id, pricing: pricing, ok: true, note: nil}
+
+      {:error, :plan_not_found} ->
+        %{label: label, id: id, pricing: nil, ok: false, note: "Square doesn't have this plan variation."}
+
+      {:error, _reason} ->
+        %{label: label, id: id, pricing: nil, ok: true, note: "Couldn't reach Square to check."}
+    end
+  end
+
   # ── Problems ──────────────────────────────────────────────────────────
 
-  defp problems(members, last_webhook_at, failed_7d, now) do
+  defp problems(members, last_webhook_at, failed_7d, now, plans, funnel) do
     names = fn kind -> for m <- members, m.kind == kind, do: m.username end
     paying? = Enum.any?(members, &(&1.kind in ["square", "canceling"]))
 
@@ -220,6 +281,16 @@ defmodule Inkwell.Billing.AdminOverview do
       end,
       if paying? and quiet?(last_webhook_at, now) do
         %{kind: "webhooks_quiet", usernames: [], message: "No Square webhooks in over #{@webhook_quiet_days} days, though members renew monthly. Check the webhook in the Square dashboard."}
+      end,
+      case Enum.reject(plans, & &1.ok) do
+        [] -> nil
+        broken ->
+          %{kind: "plan_unusable", usernames: [],
+            message: "Nobody can subscribe to #{Enum.map_join(broken, ", ", & &1.label)}: #{broken |> List.first() |> Map.get(:note)}"}
+      end,
+      if funnel.stalled do
+        %{kind: "checkouts_stalled", usernames: [],
+          message: "#{funnel.people} people opened a Plus or Ink Donor checkout in the last #{funnel.days} days and none completed. Try a checkout yourself."}
       end
     ]
     |> Enum.reject(&is_nil/1)

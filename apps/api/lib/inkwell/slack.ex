@@ -99,6 +99,29 @@ defmodule Inkwell.Slack do
     )
   end
 
+  @doc """
+  A configured subscription plan can't be paid for. Square's hosted checkout
+  refuses plan variations priced RELATIVE (see Inkwell.Square), so we stop
+  before sending anyone to a page that will fail.
+  """
+  def notify_unusable_plan(plan_variation_id, link_type) do
+    notify(
+      ":rotating_light: *Checkout blocked* — the Square plan variation for `#{link_type}` " <>
+        "(`#{plan_variation_id}`) is priced RELATIVE, which Square's checkout page cannot " <>
+        "complete. Nobody can subscribe on this plan. Point the env var at a STATIC-priced " <>
+        "variation."
+    )
+  end
+
+  @doc "Nobody has completed a checkout they started in a while — payments may be broken."
+  def notify_checkout_funnel_stalled(people, days) do
+    notify(
+      ":rotating_light: *No completed subscriptions* — #{people} #{if people == 1, do: "person", else: "people"} " <>
+        "started a Plus or Ink Donor checkout in the last #{days} days and none completed. " <>
+        "Check Admin → Billing, then try a checkout yourself."
+    )
+  end
+
   def notify_unmatched_donation(payment_id, customer_id, amount_cents) do
     dollars = if is_integer(amount_cents), do: "$#{trunc(amount_cents / 100)}", else: "unknown"
 
