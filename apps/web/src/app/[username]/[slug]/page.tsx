@@ -22,6 +22,8 @@ import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
+import { POSTAGE_ENABLED } from "@/lib/paused-features";
+import { ReadBeacon } from "@/components/read-beacon";
 import { PinButton } from "@/components/pin-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
@@ -754,7 +756,7 @@ export default async function EntryPage({ params }: EntryParams) {
               {mins} min read
             </span>
 
-            {isOwnEntry && entry.tip_total_cents != null && entry.tip_total_cents > 0 && (
+            {POSTAGE_ENABLED && isOwnEntry && entry.tip_total_cents != null && entry.tip_total_cents > 0 && (
               <>
                 <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
                 <span className="text-sm" style={{ color: "var(--accent)" }}>
@@ -899,6 +901,9 @@ export default async function EntryPage({ params }: EntryParams) {
         </ContentWarning>
         )}
 
+        {/* Reader stats: counts this visit once it's actually been read */}
+        {!isOwnEntry && <ReadBeacon entryId={entry.id} />}
+
         {/* Entry Poll */}
         {entry.poll && (
           <div className="mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
@@ -907,9 +912,9 @@ export default async function EntryPage({ params }: EntryParams) {
         )}
 
         {/* Support CTA */}
-        {(author.stripe_connect_enabled || author.support_url) && !isOwnEntry && (
+        {((POSTAGE_ENABLED && author.stripe_connect_enabled) || author.support_url) && !isOwnEntry && (
           <div className="mt-8 pt-6 border-t flex flex-col items-center gap-3" style={{ borderColor: "var(--border)" }}>
-            {author.stripe_connect_enabled && (
+            {POSTAGE_ENABLED && author.stripe_connect_enabled && (
               session ? (
                 <TipButton
                   recipientId={author.id}

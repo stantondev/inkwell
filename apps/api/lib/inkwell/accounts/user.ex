@@ -132,7 +132,7 @@ defmodule Inkwell.Accounts.User do
     api auth login signup register settings notifications
     feed explore search admin inbox outbox users
     newsletter billing noreply postmaster webmaster abuse
-    switch transparency founding
+    switch transparency founding readers
     comments entries fediverse
   )
 

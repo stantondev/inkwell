@@ -795,13 +795,14 @@ export default function BillingPage() {
             </p>
             <ul className="space-y-1.5 mb-4">
               {[
+                "Custom domain (your-site.com)",
+                "Reader stats: reads by day, top entries, where readers came from",
+                "Unlimited newsletter subscribers, 8 sends/mo",
                 "Custom colors, fonts, layouts & themes",
                 "Custom HTML & CSS theming",
                 "Background images & profile music",
-                "Custom domain (your-site.com)",
                 "Post by Email",
                 "Cross-post to Mastodon",
-                "Unlimited newsletters — 8 sends/mo",
                 "Unlimited drafts, series & filters",
                 "1 GB image storage, +1 GB every year",
                 "API read + write access",
@@ -1064,49 +1065,6 @@ export default function BillingPage() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Paused Features */}
-      <div
-        className="rounded-xl border p-5 mt-6"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", opacity: 0.7 }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Postage
-          </h3>
-          <span
-            className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-            style={{ background: "var(--surface-hover, var(--border))", color: "var(--muted)" }}
-          >
-            Paused
-          </span>
-        </div>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Postage (reader support payments) is temporarily unavailable while we switch payment processors.
-          It will return soon. Your postage history is preserved.
-        </p>
-      </div>
-
-      <div
-        className="rounded-xl border p-5 mt-6"
-        style={{ borderColor: "var(--border)", background: "var(--surface)", opacity: 0.7 }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Writer Subscription Plans
-          </h3>
-          <span
-            className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-            style={{ background: "var(--surface-hover, var(--border))", color: "var(--muted)" }}
-          >
-            Paused
-          </span>
-        </div>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Writer subscription plans are temporarily unavailable while we switch payment processors.
-          They will return soon. Existing paid content remains accessible.
-        </p>
       </div>
 
       {/* Footer */}

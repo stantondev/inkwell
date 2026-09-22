@@ -320,7 +320,7 @@ export const TEMPLATE_TAG_DOCS: Array<{
   { tag: "guestbook", label: "Guestbook", description: "Guestbook messages and sign form for visitors", category: "interactive" },
   { tag: "newsletter", label: "Newsletter", description: "Newsletter subscribe form for email subscribers", category: "interactive" },
   { tag: "music", label: "Now Playing", description: "Music player embed (Spotify, YouTube, SoundCloud)", category: "interactive" },
-  { tag: "support", label: "Support / Postage", description: "Postage button and external support links", category: "interactive" },
+  { tag: "support", label: "Support link", description: "Your Ko-fi, Patreon or other support link", category: "interactive" },
   { tag: "follow_button", label: "Pen Pal Button", description: "Pen pal request button for visitors", category: "interactive" },
   { tag: "top_pals", label: "Top Pen Pals", description: "Grid of your top 6 pen pals with avatars", category: "content" },
   { tag: "tags", label: "Tag Cloud", description: "Size-weighted cloud of your most-used tags", category: "content" },

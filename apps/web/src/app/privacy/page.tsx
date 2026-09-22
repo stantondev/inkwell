@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: February 27, 2026
+        Last Updated: September 22, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">
@@ -100,6 +100,14 @@ export default function PrivacyPage() {
             <li>
               <strong>Cookies and similar technologies:</strong> We use essential cookies to maintain your session and
               preferences. See Section 8 for more details.
+            </li>
+            <li>
+              <strong>Reader counts:</strong> When you have an entry open for about ten seconds, your browser tells
+              Inkwell it was read, along with the address of the site that linked you there (if any). To count each
+              reader once a day, we briefly keep a one-way hash of your IP address and browser type combined with a
+              random value that is replaced every day and never stored. We save only daily totals per entry and the
+              linking site&apos;s name, never your IP address or anything that identifies you, and no cookie is set.
+              Writers see these totals for their own entries.
             </li>
           </ul>
 

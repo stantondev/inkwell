@@ -213,13 +213,22 @@ defmodule Inkwell.Email do
   one-click unsubscribe as notification emails, which turns off all
   non-essential Inkwell email for that person.
   """
-  def send_announcement(user, subject, body) when is_binary(subject) and is_binary(body) do
+  def send_announcement(user, subject, body, opts \\ []) when is_binary(subject) and is_binary(body) do
     unsubscribe_url = build_unsubscribe_url(user.id)
 
     headers = %{
       "List-Unsubscribe" => "<#{unsubscribe_url}>",
       "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click"
     }
+
+    # A note that invites a reply ("just reply and tell me") needs somewhere
+    # real for the reply to go; the default sender is noreply@.
+    headers =
+      if opts[:replyable] do
+        Map.put(headers, "Reply-To", Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social"))
+      else
+        headers
+      end
 
     do_send_email(user.email, subject, announcement_html(body, unsubscribe_url),
       headers: headers,

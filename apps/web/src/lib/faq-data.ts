@@ -239,14 +239,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus ($5/month) includes: custom profile colors, fonts, layouts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
+      'Plus ($5/month or $50/year, with a free 14-day trial) includes: reader stats (reads by day, most-read entries, where readers came from); custom profile colors, fonts, layouts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
     category: "billing",
   },
   {
     id: "cancel",
     question: "How do I cancel my subscription?",
     answer:
-      'Go to <a href="/settings/billing">Settings &rarr; Subscription</a> and click <strong>Manage subscription</strong>. This opens the Stripe customer portal where you can cancel, update payment, or view invoices. Your Plus features remain active until the end of the billing period.',
+      'Go to <a href="/settings/billing">Settings &rarr; Billing</a> and choose <strong>Cancel subscription</strong>. Nothing more is charged, and Plus stays on until the end of the period you already paid for. If you change your mind before then, <strong>Keep my Plus</strong> undoes the cancel.',
     category: "billing",
   },
   {
@@ -257,17 +257,10 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "billing",
   },
   {
-    id: "postage",
-    question: "How does Postage work?",
+    id: "support-link",
+    question: "Can readers support me directly?",
     answer:
-      "Postage lets readers send one-time payments to writers as a thank-you. Writers need Plus + Stripe Connect (set up in Settings &rarr; Support). Readers pay the postage amount plus processing fees. Writers receive 92%; Inkwell takes 8%.",
-    category: "billing",
-  },
-  {
-    id: "writer-plans",
-    question: "How do writer subscription plans work?",
-    answer:
-      'Plus writers can create a monthly subscription plan ($1\u2013$100) and publish paid-only entries. Subscribers pay the plan price; writers keep 92%. Set up in <a href="/settings/subscriptions">Settings &rarr; Subscriptions</a> after connecting Stripe.',
+      'Yes. Add your Ko-fi, Patreon, Buy Me a Coffee or any payment page in <a href="/settings/support">Settings &rarr; Support link</a>, and a button appears on your profile and under every entry. It\'s free for everyone and Inkwell takes nothing.',
     category: "billing",
   },
 

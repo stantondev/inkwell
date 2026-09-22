@@ -15,6 +15,7 @@ import { BlockButton } from "@/app/[username]/block-button";
 import { InlineStatusEditor } from "@/app/[username]/inline-status-editor";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { TipButton } from "@/components/tip-button";
+import { POSTAGE_ENABLED } from "@/lib/paused-features";
 import { ShareButton } from "@/components/share-button";
 import { ProfileSupportWidget } from "@/app/[username]/profile-support-widget";
 import { ProfileEntries } from "@/app/[username]/profile-entries";
@@ -387,8 +388,8 @@ export function CustomProfileHydrator({
         );
 
       case "support": {
-        const hasTips = profile.stripe_connect_enabled && !isOwnProfile && isLoggedIn;
-        const hasTipsPreview = profile.stripe_connect_enabled && isOwnProfile;
+        const hasTips = POSTAGE_ENABLED && profile.stripe_connect_enabled && !isOwnProfile && isLoggedIn;
+        const hasTipsPreview = POSTAGE_ENABLED && profile.stripe_connect_enabled && isOwnProfile;
         const hasExternalLink = !!profile.support_url;
         if (!hasTips && !hasTipsPreview && !hasExternalLink) return null;
         return (

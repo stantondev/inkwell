@@ -23,6 +23,7 @@ import type { JournalEntry } from "@/components/journal-entry-card";
 import { ProfileEntries } from "./profile-entries";
 import { ProfileSearchFilter } from "./profile-search-filter";
 import { TipButton } from "@/components/tip-button";
+import { POSTAGE_ENABLED } from "@/lib/paused-features";
 import { ShareButton } from "@/components/share-button";
 import { FullPageCustomProfile } from "@/components/full-page-custom-profile";
 import { ProfileEffects } from "@/components/profile-effects";
@@ -871,8 +872,8 @@ export default async function ProfilePage({ params }: ProfileParams) {
           />
         );
       case "support": {
-        const hasTips = profile.stripe_connect_enabled && !isOwnProfile;
-        const hasTipsPreview = profile.stripe_connect_enabled && isOwnProfile;
+        const hasTips = POSTAGE_ENABLED && profile.stripe_connect_enabled && !isOwnProfile;
+        const hasTipsPreview = POSTAGE_ENABLED && profile.stripe_connect_enabled && isOwnProfile;
         const hasExternalLink = !!profile.support_url;
         if (!hasTips && !hasTipsPreview && !hasExternalLink) return null;
         return (

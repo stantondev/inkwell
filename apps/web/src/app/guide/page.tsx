@@ -290,24 +290,16 @@ export default function GuidePage() {
         {/* VII. Earning From Your Writing */}
         <Section id="earning" number="VII" title="Earning From Your Writing">
           <p>
-            Inkwell offers several ways for writers to earn from their work,
-            all available to{" "}
-            <Link href="/settings/billing" className="underline" style={{ color: "var(--accent)" }}>
-              Plus members
-            </Link>{" "}
-            with Stripe Connect enabled:
+            Two ways to get support from your readers today, both free:
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Paid subscriptions</strong> — create a monthly plan and
-              publish entries that only your subscribers can read. You keep 92%
-              of every subscription; Inkwell takes 8% to keep the platform
-              running.
-            </li>
-            <li>
-              <strong>Postage</strong> — readers can send you one-time payments
-              as a thank-you for your writing, right from your profile or any
-              entry.
+              <strong>A support link</strong> — add your Ko-fi, Patreon, Buy Me
+              a Coffee or any payment page in{" "}
+              <Link href="/settings/support" className="underline" style={{ color: "var(--accent)" }}>
+                Settings &rarr; Support link
+              </Link>
+              . A button appears on your profile and under every entry.
             </li>
             <li>
               <strong>Newsletter</strong> — build an email subscriber list and
@@ -315,16 +307,7 @@ export default function GuidePage() {
             </li>
           </ul>
           <p>
-            To get started, visit{" "}
-            <Link href="/settings/support" className="underline" style={{ color: "var(--accent)" }}>
-              Settings &rarr; Support
-            </Link>{" "}
-            to connect your Stripe account, then create your subscription plan
-            in{" "}
-            <Link href="/settings/subscriptions" className="underline" style={{ color: "var(--accent)" }}>
-              Settings &rarr; Subscriptions
-            </Link>
-            . Learn more on the{" "}
+            Learn more on the{" "}
             <Link href="/for-writers" className="underline" style={{ color: "var(--accent)" }}>
               For Writers
             </Link>{" "}

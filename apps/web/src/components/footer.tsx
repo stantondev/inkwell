@@ -15,6 +15,7 @@ const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = 
     links: [
       { href: "/guide", label: "Guide" },
       { href: "/help", label: "Help Center" },
+      { href: "/for-writers", label: "For Writers" },
       { href: "/switch", label: "Switch to Inkwell" },
     ],
   },

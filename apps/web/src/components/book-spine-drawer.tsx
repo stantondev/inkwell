@@ -7,7 +7,7 @@ import Link from "next/link";
 import { AvatarWithFrame } from "./avatar-with-frame";
 import {
   FeedIcon, ExploreIcon, GazetteIcon, PenPalsIcon, LettersIcon,
-  SearchIcon, SavedIcon, PostsIcon, DraftsIcon, CirclesIcon, PollsIcon,
+  SearchIcon, SavedIcon, PostsIcon, ReadersIcon, DraftsIcon, CirclesIcon, PollsIcon,
   RoadmapIcon, HelpIcon, InviteIcon, SettingsIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
 
@@ -164,6 +164,7 @@ export function BookSpineDrawer({
             <DrawerLink href="/gazette" icon={<GazetteIcon />} label="Gazette" active={isActive("/gazette")} onClick={handleLinkClick} />
             <DrawerLink href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} onClick={handleLinkClick} />
             <DrawerLink href="/manage" icon={<PostsIcon />} label="Posts" active={isActive("/manage")} onClick={handleLinkClick} />
+            <DrawerLink href="/readers" icon={<ReadersIcon />} label="Readers" active={isActive("/readers")} onClick={handleLinkClick} />
             <DrawerLink href="/drafts" icon={<DraftsIcon />} label="Drafts" active={isActive("/drafts")} badge={draftCount} badgeStyle="muted" onClick={handleLinkClick} />
           </div>
 

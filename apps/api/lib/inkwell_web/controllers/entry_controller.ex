@@ -612,6 +612,7 @@ defmodule InkwellWeb.EntryController do
 
     entry_ids = Enum.map(entries, & &1.id)
     comment_counts = Journals.count_comments_for_entries(entry_ids)
+    read_counts = Inkwell.Reads.counts_for_entries(entry_ids)
 
     json(conn, %{
       data: Enum.map(entries, fn entry ->
@@ -619,6 +620,7 @@ defmodule InkwellWeb.EntryController do
           id: entry.id,
           title: entry.title,
           slug: entry.slug,
+          read_count: Map.get(read_counts, entry.id, 0),
           status: entry.status,
           privacy: entry.privacy,
           category: entry.category,

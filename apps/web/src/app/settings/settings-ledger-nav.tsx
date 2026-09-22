@@ -37,7 +37,6 @@ function GlobeIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="10"
 function LinkIcon() { return <svg {...iconProps}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>; }
 function StarIcon() { return <svg {...iconProps}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>; }
 function HeartIcon() { return <svg {...iconProps}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>; }
-function DollarIcon() { return <svg {...iconProps}><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>; }
 function KeyIcon() { return <svg {...iconProps}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" /></svg>; }
 function DownloadIcon() { return <svg {...iconProps}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>; }
 function TrashIcon() { return <svg {...iconProps}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
@@ -105,8 +104,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     title: "Billing & Developer",
     items: [
       { href: "/settings/billing", label: "Billing", icon: StarIcon },
-      { href: "/settings/support", label: "Postage", icon: HeartIcon },
-      { href: "/settings/subscriptions", label: "Writer Plans", icon: DollarIcon },
+      { href: "/settings/support", label: "Support link", icon: HeartIcon },
       { href: "/settings/api", label: "API Keys", icon: KeyIcon },
     ],
   },

@@ -235,18 +235,8 @@ export default function AboutPage() {
             function.
           </p>
           <p className="text-base leading-relaxed mb-8">
-            Writers can also earn directly from their work through{" "}
-            <Link
-              href="/for-writers"
-              className="underline underline-offset-2"
-              style={{ color: "var(--accent)" }}
-            >
-              paid subscription plans
-            </Link>
-
-            and one-time Postage tips, with 92% payouts. Both are paused while we
-            set up a payment processor that supports them; email newsletters work
-            today.
+            Writers can add a Ko-fi, Patreon or similar link to their profile
+            and entries, and send their writing to readers as an email newsletter.
           </p>
 
           {/* ── Ink Donor callout ── */}

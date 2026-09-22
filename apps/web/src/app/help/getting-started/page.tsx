@@ -227,14 +227,11 @@ export default function GettingStartedPage() {
         {/* ── Section VI ── */}
         <Section id="earning" number="VI" title="Earning From Your Writing">
           <p>
-            <strong>Postage and writer subscriptions (paused).</strong> Reader payments and paid
-            monthly plans are switched off while we set up a payment processor that can split
-            payments between readers and writers. In the meantime you can add a Ko-fi, Patreon,
-            or similar link to your profile in{" "}
+            <strong>Support link.</strong> Add a Ko-fi, Patreon, or similar link in{" "}
             <Link href="/settings/support" className="underline" style={{ color: "var(--accent)" }}>
-              Settings → Support
+              Settings → Support link
             </Link>
-            .
+            {" "}and a button appears on your profile and under every entry.
           </p>
           <p>
             <strong>Newsletters.</strong> Enable a newsletter in{" "}

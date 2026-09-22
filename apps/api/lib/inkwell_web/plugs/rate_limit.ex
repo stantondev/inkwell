@@ -78,7 +78,8 @@ defmodule InkwellWeb.Plugs.RateLimit do
     end
   end
 
-  defp client_ip(conn) do
+  @doc "The requesting client's IP as a string (see the comment below for why it's chosen this way)."
+  def client_ip(conn) do
     # Use the FIRST IP in X-Forwarded-For.
     #
     # This previously used List.last on the theory that the trailing entry is

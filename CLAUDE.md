@@ -89,7 +89,10 @@ fly deploy --config fly.search.toml --wait-timeout 600  # Meilisearch only
 - `NEXT_PUBLIC_API_URL` — set as build arg in fly.web.toml as `https://api.inkwell.social` (no longer used by client components; kept for backward compat)
 - ~~`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`~~ — removed from fly.web.toml (Stripe account closed; Square Payment Links are hosted — no frontend SDK needed)
 
-### Postage & Writer Subscriptions (Temporarily Paused)
+### Postage & Writer Subscriptions (Retired from the interface, 2026-09-22)
+
+**Hidden from every page since 2026-09-22** (nobody used them and the paused cards made the site look unfinished). `lib/paused-features.ts` `POSTAGE_ENABLED = false` gates the tip buttons on profiles, entries and full-page custom profiles; the Settings nav item is now **Support link** (`/settings/support`, external Ko-fi/Patreon link only, plus a one-line history link for anyone who ever received postage); `/settings/subscriptions` redirects there; billing, guide, help, FAQ, About and `/for-writers` no longer mention either. Backend code, tables and endpoints are untouched for a possible return. The API (keys, read/write) stays: a Founding Member asked about it.
+
 
 **Postage** (reader support payments) and **Writer Subscription Plans** require Stripe Connect for marketplace split payments. Stripe closed Inkwell's account (fraudulent charges from stolen cards), so these features are temporarily disabled with "feature unavailable" messages in the UI. They will return when Stripe access is restored (pending LLC + EIN formation).
 
@@ -480,6 +483,17 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **Self-reported**: optional "How did you find Inkwell?" pills on onboarding step 0 (`heard_from`: friend/fediverse/writer/switching/search/social/ai/other + `heard_from_detail` for other). Saved the moment it's picked via `PATCH /api/me` so dropouts still count.
 - **Admin → Growth** (`/admin/growth`, `GET /api/admin/growth?days=30|90|365|all`): signups by answer, referring site, landing page (writer pages grouped as "@user (entry)" to show who brings people in), and `?ref=` tag, each with finished setup / wrote / tried Plus / paying. Suspended accounts and the relay actor excluded. Recent signups list with each person's trail.
 - Privacy Policy §8 describes the cookie. Outreach templates live in the git-ignored `inkwell-outreach/drafts/inbox/writer-migration-kit-2026-09-19.md`.
+
+### Reader Stats (Sept 2026)
+- **Why**: writers had no way to know anyone read them, and reader analytics is the standard paid feature on comparable platforms (Bear Blog). Shipped 2026-09-22.
+- **Counting** (`Inkwell.Reads`, `lib/inkwell/reads.ex`): `components/read-beacon.tsx` on the entry page (not stickies, not the writer's own) POSTs `/api/entries/:id/read` with `document.referrer` after the entry has been **visible for 10s** (background-tab time doesn't count). `ReadController.create` (optional auth, always 204) checks `Journals.viewable_by?`, skips the author, skips bots by UA (incl. Mastodon/link-preview fetchers), and dedupes one read per reader per entry per UTC day via a hash of (random daily salt, IP, UA, entry) in the `:entry_read_seen` ETS table. The salt is never stored and yesterday's marks are dropped when the day rolls over. A restart resets it (at worst a second count that day).
+- **Storage**: `entry_read_days` (entry_id, day, referrer, count; unique on the three, migration `20260922000091`) — daily totals only. `referrer` = `""` direct/email/apps, `"inkwell"` (inkwell.social or the writer's own custom domain), `"search:google"` etc., `x.com`/`facebook.com`/`reddit.com` collapsed, else the host without `www.`.
+- **IP**: the proxy (`app/api/entries/[id]/read/route.ts`) forwards `X-Inkwell-Client-IP` from `Fly-Client-IP`; `InkwellWeb.Plugs.RateLimit.client_ip/1` (now public) picks it.
+- **Showing it**: `GET /api/me/reads?days=7|30|90|365` → everyone gets `total`, `previous_total`, `all_time`; Plus also gets `daily`, `top_entries`, `referrers`. `/readers` page (sidebar Library → Readers, protected) with a bar chart (`app/readers/reads-chart.tsx`) and an upgrade card for free writers. `/manage` shows each entry's reads in the Stats column (`read_count` from `list_own`). Privacy Policy §1.2 "Reader counts" describes it. Counting started 2026-09-22; nothing before that.
+- Reads inside Mastodon and other apps can't be counted (they render the post from their own copy).
+
+### Trial Emails (Sept 2026)
+- `ExpirePlusTrialsWorker` (hourly) now first runs `Trials.send_due_reminders/0` — trials ending within 48h get one reminder (`settings["plus_trial_reminder_sent_at"]` marks it) — then `expire_due/0`, which also queues an "ended" note. Both go through `TrialEmailWorker` (unique per user+kind for 30 days, re-checks the trial state before sending) and `Email.send_announcement/4` with `replyable: true` (Reply-To = `:feedback_email`, hello@inkwell.social). Plain text in Stanton's voice (`Trials.email_content/3`), names the custom domain if they'd lose it. Skipped for blocked accounts, fediverse placeholder addresses and anyone with `email_notifications_disabled`.
 
 ### Image Storage Allowances (Sept 2026)
 - **Rule** (single source: `Inkwell.Storage`, `lib/inkwell/storage.ex`): Free = 100 MB. Plus = 1 GB + 1 GB for every full year since `users.plus_member_since`. Trials get the 1 GB base but don't start the clock. Lapsed members fall back to 100 MB (existing images stay; new uploads blocked).
@@ -1282,7 +1296,7 @@ Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numera
 
 - **I. Your Journal**: Feed, Explore, Gazette, + Write (accent CTA button) with "Jot a sticky" (small sticky-note button) stacked under it
 - **II. Connections**: Pen Pals, Letterbox (with unread badge)
-- **III. Library**: Bookmarks, Drafts (with count badge)
+- **III. Library**: Bookmarks, Drafts (with count badge), Posts, Readers (reader stats)
 - **IV. Community**: Roadmap, Polls, Feedback, Invite friends
 - **Ornament divider** (`· · ·`)
 - **User section**: Avatar with frame, display name, @username, Notifications (with badge), Settings, ✦ Upgrade to Plus (if free), Admin (if admin), Sign out
@@ -1669,7 +1683,7 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 
 ### Migration naming
 - Format: `YYYYMMDD######` — e.g., `20260222000002_create_stamps.exs`
-- Latest migration: `20260921000090_nofollow_existing_external_links.exs`
+- Latest migration: `20260922000091_create_entry_read_days.exs`
 
 ### Code style
 - CSS custom variables for all colors (never hardcode colors except in badge configs)

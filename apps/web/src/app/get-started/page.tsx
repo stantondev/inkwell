@@ -48,7 +48,7 @@ export default function GetStartedPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
-    if (plan === "plus" || plan === "free") {
+    if (plan === "plus" || plan === "free" || plan === "founding") {
       document.cookie = `inkwell_plan=${plan}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
     }
   }, []);

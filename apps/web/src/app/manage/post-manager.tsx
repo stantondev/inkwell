@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/categories";
 
@@ -19,6 +19,7 @@ interface ManageEntry {
   word_count: number;
   ink_count: number;
   comment_count: number;
+  read_count?: number;
   sensitive: boolean;
   cover_image_id: string | null;
   published_at: string | null;
@@ -564,7 +565,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                   <th style={{ width: 80 }}>Privacy</th>
                   <th className="hidden lg:table-cell" style={{ width: 110 }}>Category</th>
                   <th className="hidden md:table-cell" style={{ width: 100 }}>Date</th>
-                  <th className="hidden lg:table-cell" style={{ width: 80 }}>Stats</th>
+                  <th className="hidden lg:table-cell" style={{ width: 130 }}>Stats</th>
                   <th style={{ width: 80 }}>Actions</th>
                 </tr>
               </thead>
@@ -634,10 +635,12 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                     </td>
                     <td className="hidden lg:table-cell">
                       <span style={{ color: "var(--muted)", fontSize: 13 }}>
-                        {entry.ink_count > 0 && <span title="Inks">💧{entry.ink_count}</span>}
-                        {entry.ink_count > 0 && entry.comment_count > 0 && " "}
-                        {entry.comment_count > 0 && <span title="Comments">💬{entry.comment_count}</span>}
-                        {entry.ink_count === 0 && entry.comment_count === 0 && "—"}
+                        {[
+                          (entry.read_count ?? 0) > 0 && <span key="r" title="Reads">{entry.read_count} read{entry.read_count === 1 ? "" : "s"}</span>,
+                          entry.ink_count > 0 && <span key="i" title="Inks">💧{entry.ink_count}</span>,
+                          entry.comment_count > 0 && <span key="c" title="Comments">💬{entry.comment_count}</span>,
+                        ].filter(Boolean).reduce<ReactNode[]>((acc, el, i) => (i ? [...acc, " · ", el] : [el]), [])}
+                        {!entry.read_count && entry.ink_count === 0 && entry.comment_count === 0 && "—"}
                       </span>
                     </td>
                     <td>

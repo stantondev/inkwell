@@ -138,6 +138,7 @@ defmodule InkwellWeb.Router do
 
     # Trending entries (optional auth for my_ink)
     get "/explore/trending", ExploreController, :trending
+    post "/entries/:entry_id/read", ReadController, :create
 
     # Public discovery feed (optional auth for my_stamp)
     get "/explore", ExploreController, :index
@@ -242,6 +243,7 @@ defmodule InkwellWeb.Router do
     # Image uploads
     post "/images", EntryImageController, :create
     get "/me/storage", EntryImageController, :storage
+    get "/me/reads", ReadController, :summary
     get "/me/bluesky", BlueskyBridgeController, :show
     post "/me/bluesky", BlueskyBridgeController, :enable
     delete "/me/bluesky", BlueskyBridgeController, :disable

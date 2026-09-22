@@ -194,124 +194,15 @@ export default function SupportSettingsPage() {
         </div>
       </div>
 
-      {/* Section 2: Integrated Postage — Temporarily Unavailable */}
-      <div className="rounded-xl border p-6"
-        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Integrated Postage
-          </h2>
-          <span className="rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{ background: "var(--warning, #f59e0b)", color: "#fff" }}>
-            Paused
-          </span>
-        </div>
-        <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
-          Let readers send you postage directly on Inkwell.
+      {/* Past postage (Postage is retired; only shown to writers who received some) */}
+      {tipStats && tipStats.all_time_count > 0 && (
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          You received {formatStatDollars(tipStats.all_time_total_cents)} in postage before it was retired.{" "}
+          <a href="/settings/support/postage" className="font-medium hover:underline" style={{ color: "var(--accent)" }}>
+            See the history &rarr;
+          </a>
         </p>
-
-        <div className="rounded-lg border p-4" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning, #f59e0b)"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span className="text-sm font-medium" style={{ color: "var(--warning, #f59e0b)" }}>
-              Temporarily Unavailable
-            </span>
-          </div>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Postage is temporarily unavailable while we switch payment processors. It will return soon.
-            Your postage history is preserved and accessible below.
-          </p>
-        </div>
-
-        {/* Tip stats summary (historical) */}
-        {tipStats && tipStats.all_time_count > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Your Postage History</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
-                <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {formatStatDollars(tipStats.all_time_total_cents)}
-                </div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>All-time</div>
-              </div>
-              <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
-                <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {tipStats.all_time_count}
-                </div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>Total postage</div>
-              </div>
-              <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
-                <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {formatStatDollars(tipStats.month_total_cents)}
-                </div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>This month</div>
-              </div>
-              <div className="rounded-lg border p-3 text-center" style={{ borderColor: "var(--border)" }}>
-                <div className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {tipStats.month_count}
-                </div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>This month</div>
-              </div>
-            </div>
-            <a
-              href="/settings/support/postage"
-              className="inline-flex mt-3 text-sm font-medium transition-opacity hover:opacity-80"
-              style={{ color: "var(--accent)" }}
-            >
-              View full postage history &rarr;
-            </a>
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: Writer Subscription Plans — Temporarily Unavailable */}
-      <div className="rounded-xl border p-6"
-        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Writer Subscription Plans
-          </h2>
-          <span className="rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{ background: "var(--warning, #f59e0b)", color: "#fff" }}>
-            Paused
-          </span>
-        </div>
-        <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
-          Create a subscription plan so readers can subscribe for access to your paid entries.
-        </p>
-
-        <div className="rounded-lg border p-4" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning, #f59e0b)"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span className="text-sm font-medium" style={{ color: "var(--warning, #f59e0b)" }}>
-              Temporarily Unavailable
-            </span>
-          </div>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Writer subscription plans are temporarily unavailable while we switch payment processors.
-            They will return soon. Existing paid content remains accessible to current subscribers.
-          </p>
-        </div>
-      </div>
-
-      {/* Fee info */}
-      <div className="text-xs space-y-1" style={{ color: "var(--muted)" }}>
-        <p>
-          Postage payments are one-time voluntary contributions. See our{" "}
-          <a href="/terms" className="underline" target="_blank" rel="noopener noreferrer">Terms of Service</a>{" "}
-          for details.
-        </p>
-      </div>
+      )}
     </div>
   );
 }

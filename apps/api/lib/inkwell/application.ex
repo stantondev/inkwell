@@ -39,7 +39,9 @@ defmodule Inkwell.Application do
           :federation_domain_rate,
           :inkwell_nodeinfo_cache,
           # Fediverse media players (Inkwell.MediaEmbeds)
-          :media_embed_cache
+          :media_embed_cache,
+          # Reader stats: one-day "already counted" marks (Inkwell.Reads)
+          :entry_read_seen
         ] do
       if :ets.whereis(table) == :undefined do
         :ets.new(table, [:set, :public, :named_table])

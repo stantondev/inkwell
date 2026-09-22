@@ -73,8 +73,23 @@ async function getRecentEntries(): Promise<ExploreEntry[]> {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
+interface TransparencySummary {
+  founding: { cap: number; remaining: number } | null;
+}
+
+async function getTransparency(): Promise<TransparencySummary | null> {
+  try {
+    const data = await apiFetch<{ data: TransparencySummary }>("/api/transparency");
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
 export default async function LandingPage() {
-  const recentEntries = await getRecentEntries();
+  const [recentEntries, transparency] = await Promise.all([getRecentEntries(), getTransparency()]);
+  const founding = transparency?.founding && transparency.founding.remaining > 0 ? transparency.founding : null;
+  const foundingSoldOut = transparency?.founding?.remaining === 0;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
@@ -111,145 +126,104 @@ export default async function LandingPage() {
             Choose your ink
           </h2>
           <p className="text-base leading-relaxed mb-10 max-w-2xl mx-auto" style={{ color: "var(--muted)" }}>
-            Inkwell is free to use. No trial, no expiry, no time limit. Plus ($5/mo) adds
-            custom domains, writer subscriptions, cross-posting, and more.
+            Writing, reading and connecting on Inkwell are free, with no time limit. Plus is for
+            writers who want their own domain, to see who&apos;s reading, and a page that looks like them.
+            Members pay for the servers, which is why there are no ads.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-stretch sm:items-start">
-            {/* Free tier */}
-            <div
-              className="w-full sm:flex-1 sm:max-w-xs rounded-2xl border p-5 sm:p-6 text-left"
-              style={{ borderColor: "var(--border)", background: "var(--background)" }}
-            >
-              <p className="text-sm font-medium mb-1" style={{ color: "var(--muted)" }}>Free</p>
-              <p className="text-3xl font-bold mb-4">$0</p>
-              <ul className="space-y-2 text-sm" style={{ color: "var(--muted)" }}>
+          <div className="landing-pricing-grid">
+            {/* Free */}
+            <div className="landing-price-card">
+              <p className="landing-price-name">Free</p>
+              <p className="landing-price-amount">$0</p>
+              <p className="landing-price-note">Always</p>
+              <ul className="landing-price-list">
                 {[
-                  "Unlimited public entries",
-                  "8 profile themes & privacy controls",
-                  "Bookmarks, categories & cover images",
-                  "Series & collections (up to 5)",
-                  "Version history (25 per entry)",
-                  "Data import (WordPress, Medium, Substack & more)",
-                  "Explore writing from across the fediverse and open web",
-                  "Email newsletter (500 subscribers, 2 sends/mo)",
-                  "100 MB image storage & up to 10 drafts",
-                  "Read-only API access & RSS feed",
+                  "Unlimited public and private entries",
+                  "Import from WordPress, Medium & Substack",
+                  "Followable from Mastodon and Bluesky",
+                  "Email newsletter up to 500 subscribers",
+                  "8 profile themes, privacy controls & RSS",
+                  "See how many people read you",
+                  "Export everything, any time",
                 ].map((item) => (
-                  <li key={item} className="flex gap-2 items-start">
-                    <span style={{ color: "var(--success)" }} aria-hidden="true">&#10003;</span>
-                    {item}
-                  </li>
+                  <li key={item}><span aria-hidden="true" style={{ color: "var(--success)" }}>&#10003;</span>{item}</li>
                 ))}
               </ul>
-              <Link
-                href="/get-started?plan=free"
-                className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
+              <Link href="/get-started?plan=free" className="landing-price-cta landing-price-cta-outline">
                 Start for free
               </Link>
             </div>
 
-            {/* Plus tier */}
-            <div
-              className="landing-plus-card w-full sm:flex-1 sm:max-w-xs rounded-2xl border-2 p-5 sm:p-6 text-left relative overflow-hidden"
-              style={{ borderColor: "var(--accent)", background: "var(--background)" }}
-            >
-              <div className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-xs font-medium z-[1]"
-                style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                Best value
-              </div>
-              <p className="text-sm font-medium mb-1 relative z-[1]" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
-              <p className="text-3xl font-bold mb-4 relative z-[1]">
-                $5
-                <span className="text-base font-normal" style={{ color: "var(--muted)" }}>/mo</span>
+            {/* Plus */}
+            <div className="landing-price-card landing-plus-card landing-price-card-featured">
+              <p className="landing-price-name" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
+              <p className="landing-price-amount">
+                $5<span className="landing-price-period">/mo</span>
               </p>
-              <ul className="space-y-2 text-sm relative z-[1]" style={{ color: "var(--muted)" }}>
+              <p className="landing-price-note">or $50 a year &middot; 14 days free, no card</p>
+              <ul className="landing-price-list landing-price-list-lead">
+                <li>
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                  <span><strong>Your own domain.</strong> yourname.com, with your journal behind it.</span>
+                </li>
+                <li>
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                  <span><strong>See who&apos;s reading.</strong> Reads by day, your most-read entries, and where readers came from.</span>
+                </li>
+                <li>
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                  <span><strong>A bigger newsletter.</strong> Unlimited subscribers, 8 sends a month, scheduling.</span>
+                </li>
+                <li>
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                  <span><strong>A page that looks like you.</strong> Custom colors, fonts, layouts, HTML &amp; CSS.</span>
+                </li>
+              </ul>
+              <p className="landing-price-extras">
+                Also: 1 GB of images (growing 1 GB a year), unlimited drafts and series,
+                cross-posting to Mastodon, Post by Email, and write access to the API.
+              </p>
+              <Link href="/get-started?plan=plus" className="landing-price-cta">
+                Try Plus free for 14 days
+              </Link>
+            </div>
+
+            {/* Founding (hidden once all 50 are taken) */}
+            {!foundingSoldOut && (
+            <div className="landing-price-card">
+              <p className="landing-price-name">Founding Member</p>
+              <p className="landing-price-amount">
+                $99<span className="landing-price-period"> once</span>
+              </p>
+              <p className="landing-price-note">
+                {founding
+                  ? `${founding.remaining} of ${founding.cap} left`
+                  : "Limited to 50"}
+              </p>
+              <ul className="landing-price-list">
                 {[
-                  "Everything in Free, plus:",
-                  "Unlimited drafts, series & version history",
-                  "1 GB image storage, +1 GB every year",
-                  "Full newsletter (unlimited subscribers, 8 sends/mo, scheduling)",
-                  "Custom colors, fonts, layouts, backgrounds & music",
-                  "Custom HTML, CSS & domain (your-site.com)",
-                  "Premium avatar frames & animations",
-                  "Cross-post to Mastodon & Post by Email",
-                  "Read + write API access (300 req/15 min)",
-                  "Plus badge on your profile",
+                  "Plus for as long as Inkwell runs",
+                  "A numbered Founding Member badge",
+                  "Never billed again",
+                  "Helps keep Inkwell independent",
                 ].map((item) => (
-                  <li key={item} className="flex gap-2 items-start">
-                    <span style={{ color: "var(--accent)" }} aria-hidden="true">&#10003;</span>
-                    {item}
-                  </li>
+                  <li key={item}><span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>{item}</li>
                 ))}
               </ul>
-              <Link
-                href="/get-started?plan=plus"
-                className="mt-6 block text-center rounded-full py-2 text-sm font-medium transition-opacity hover:opacity-80 relative z-[1]"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
-                Get started
+              <Link href="/get-started?plan=founding" className="landing-price-cta landing-price-cta-outline">
+                Become a Founding Member
               </Link>
-              <p className="text-xs text-center mt-3 relative z-[1]" style={{ color: "var(--muted)" }}>
-                Upgrade to Plus anytime from your settings
-              </p>
             </div>
+            )}
           </div>
 
-        </div>
-      </section>
-
-      {/* ── Ink Donor — "Keep the Ink Flowing" ─────────────────────── */}
-      <section className="landing-donor" aria-label="Ink Donor">
-        <div className="landing-donor-inner">
-          {/* Animated ink drop */}
-          <div className="landing-donor-drop" aria-hidden="true">
-            <svg width="32" height="40" viewBox="0 0 10 12" fill="currentColor">
-              <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-            </svg>
-          </div>
-
-          <p className="landing-donor-eyebrow">Community sustained</p>
-
-          <h2 className="landing-donor-title">
-            Keep the ink flowing
-          </h2>
-
-          <p className="landing-donor-desc">
-            Not everyone needs Plus — and that&apos;s okay. Ink Donors are the quiet patrons
-            who keep Inkwell ad-free, algorithm-free, and open for everyone. No features
-            unlocked. Just an ink-blue badge, and the knowledge that you helped keep the
-            presses running.
-          </p>
-
-          <div className="landing-donor-amounts">
-            {[
-              { cents: 100, label: "$1" },
-              { cents: 200, label: "$2" },
-              { cents: 300, label: "$3" },
-            ].map(({ cents, label }) => (
-              <div key={cents} className="landing-donor-amount">
-                <span className="landing-donor-amount-value">{label}</span>
-                <span className="landing-donor-amount-period">/month</span>
-              </div>
-            ))}
-          </div>
-
-          <Link href="/settings/billing" className="landing-donor-cta">
-            <svg width="14" height="17" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
-              <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-            </svg>
-            Become an Ink Donor
-          </Link>
-
-          <p className="landing-donor-desc" style={{ marginTop: "2rem", fontSize: "0.95rem" }}>
-            Prefer a one-time contribution? You can also make a single donation of $3, $5, or $10
-            from your <Link href="/settings/billing" style={{ color: "var(--accent)", textDecoration: "underline" }}>billing settings</Link>.
-          </p>
-
-          <p className="landing-donor-footnote">
-            Every drop of ink helps. Cancel anytime.
+          <p className="landing-price-footnote">
+            Inkwell&apos;s costs and income are public.{" "}
+            <Link href="/transparency" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+              See where the money goes
+            </Link>
+            . Prefer to chip in without Plus? <Link href="/settings/billing" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>Ink Donors</Link> give $1&ndash;$3 a month.
           </p>
         </div>
       </section>

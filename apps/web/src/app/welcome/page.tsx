@@ -150,6 +150,7 @@ export default function WelcomePage() {
       if (planCookie) {
         const plan = planCookie.split("=")[1];
         if (plan === "plus") setSelectedTier("plus");
+        else if (plan === "founding") setSelectedTier("founding");
         // Clear cookie after reading
         document.cookie = "inkwell_plan=; path=/; max-age=0";
       }
