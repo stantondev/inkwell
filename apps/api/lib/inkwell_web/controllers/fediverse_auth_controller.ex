@@ -233,7 +233,7 @@ defmodule InkwellWeb.FediverseAuthController do
             update_attrs =
               %{}
               |> maybe_put(:bio, credentials.bio)
-              |> maybe_put(:avatar_url, credentials.avatar_url)
+              |> maybe_put(:avatar_url, imported_avatar(credentials.avatar_url))
 
             user =
               if map_size(update_attrs) > 0 do
@@ -392,5 +392,13 @@ defmodule InkwellWeb.FediverseAuthController do
 
   defp frontend_url do
     Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+  end
+
+  # Store a copy, never the remote link (it breaks when they change it).
+  defp imported_avatar(url) do
+    case Inkwell.Avatars.import_remote(url) do
+      {:ok, data_uri} -> data_uri
+      _ -> nil
+    end
   end
 end

@@ -27,6 +27,51 @@ defmodule Inkwell.Avatars do
   RSS, ActivityPub — needs an absolute URL and must not use these.
   """
 
+  # Accounts created through "Sign in with Mastodon" used to store the remote
+  # server's avatar URL. Those break the moment the person changes their
+  # picture there or the server's media moves (Evan's did), and
+  # `/api/avatars/:username` only serves stored images, so federation and
+  # email never had them at all. Keep a copy instead.
+  @max_import_bytes 2_000_000
+
+  @doc """
+  Downloads a remote avatar and returns it as a data URI we can store.
+  Returns `:none` for Mastodon's default "missing.png", `{:error, reason}`
+  when it can't be fetched or isn't a PNG/JPEG/GIF/WebP under 2 MB.
+  """
+  def import_remote(url) when is_binary(url) do
+    cond do
+      String.ends_with?(URI.parse(url).path || "", "/avatars/original/missing.png") ->
+        :none
+
+      not String.starts_with?(url, "https://") ->
+        {:error, :not_https}
+
+      true ->
+        # No redirects: :httpc would follow them without re-checking the
+        # target against Http's internal-address block.
+        case Inkwell.Federation.Http.get(url, [{~c"accept", ~c"image/*"}], follow_redirects: false) do
+          {:ok, {200, body}} when byte_size(body) <= @max_import_bytes ->
+            case image_type(body) do
+              nil -> {:error, :not_an_image}
+              type -> {:ok, "data:image/#{type};base64," <> Base.encode64(body)}
+            end
+
+          {:ok, {200, _}} -> {:error, :too_large}
+          {:ok, {status, _}} -> {:error, {:http, status}}
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  def import_remote(_), do: {:error, :no_url}
+
+  defp image_type(<<0x89, "PNG", _::binary>>), do: "png"
+  defp image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
+  defp image_type(<<"GIF8", _::binary>>), do: "gif"
+  defp image_type(<<"RIFF", _::binary-size(4), "WEBP", _::binary>>), do: "webp"
+  defp image_type(_), do: nil
+
   @doc "Public URL for a user's avatar, or nil when they have none."
   def avatar_url(%{avatar_url: url} = user), do: public_url(url, user, "avatars")
   def avatar_url(_), do: nil
