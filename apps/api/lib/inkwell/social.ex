@@ -281,6 +281,8 @@ defmodule Inkwell.Social do
     Relationship
     |> where([r], r.follower_id == ^user_id and r.status == :accepted and r.is_mutual == true)
     |> join(:inner, [r], u in Inkwell.Accounts.User, on: r.following_id == u.id)
+    # Suspended accounts are invisible to other members everywhere else.
+    |> where([_r, u], is_nil(u.blocked_at))
     |> select([r, u], u)
     |> Repo.all()
   end

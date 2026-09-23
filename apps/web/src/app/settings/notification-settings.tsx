@@ -11,6 +11,7 @@ export function NotificationSettings() {
   const [popupsDisabled, setPopupsDisabled] = useState(false);
   const [pushDisabled, setPushDisabled] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
+  const [letterEmailsDisabled, setLetterEmailsDisabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   // A failed load must not look like "everything is off": the toggles would
@@ -35,6 +36,7 @@ export function NotificationSettings() {
         setPopupsDisabled(!!data.settings?.notification_popups_disabled);
         setPushDisabled(!!data.settings?.push_notifications_disabled);
         setEmailDisabled(!!data.settings?.email_notifications_disabled);
+        setLetterEmailsDisabled(!!data.settings?.letter_emails_disabled);
       } catch {
         setLoadError(true);
       } finally {
@@ -125,7 +127,7 @@ export function NotificationSettings() {
               {emailDisabled ? "Email notifications disabled" : "Email notifications enabled"}
             </span>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              Receive an email when someone comments on your entries, replies to your comments, or @mentions you.
+              Receive an email when someone comments on your entries, replies to your comments, @mentions you, or sends you a letter you haven&apos;t read.
             </p>
           </div>
           <button
@@ -141,6 +143,31 @@ export function NotificationSettings() {
             {saving ? "..." : emailDisabled ? "Enable" : "Disable"}
           </button>
         </div>
+
+        {!emailDisabled && (
+          <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+            <div>
+              <span className="text-sm font-medium">Letters</span>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                If a letter is still unread after ten minutes, we email you once to say who it&apos;s from.
+                The email never includes what the letter says.
+              </p>
+            </div>
+            <button
+              onClick={() => toggleSetting("letter_emails_disabled", !letterEmailsDisabled, setLetterEmailsDisabled)}
+              disabled={saving}
+              className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors shrink-0 ml-4"
+              style={{
+                background: letterEmailsDisabled ? "var(--accent)" : "var(--surface-hover, var(--border))",
+                color: letterEmailsDisabled ? "white" : "var(--foreground)",
+                opacity: saving ? 0.6 : 1,
+              }}
+              aria-label={letterEmailsDisabled ? "Turn on letter emails" : "Turn off letter emails"}
+            >
+              {saving ? "..." : letterEmailsDisabled ? "Turn on" : "Turn off"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Push Notifications */}

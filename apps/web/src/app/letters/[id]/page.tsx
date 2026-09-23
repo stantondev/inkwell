@@ -29,6 +29,8 @@ export interface ThreadData {
   };
   messages: LetterMessage[];
   has_more: boolean;
+  /** False when you're no longer pen pals or one of you blocked the other. */
+  can_write?: boolean;
 }
 
 export default async function LetterThreadPage({
@@ -63,7 +65,6 @@ export default async function LetterThreadPage({
       <LetterThread
         initialThread={thread}
         conversationId={id}
-        currentUsername={session.user.username}
       />
     </div>
   );

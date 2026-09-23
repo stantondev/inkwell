@@ -69,23 +69,12 @@ export function StationeryModal({
     };
   }, [open]);
 
-  const isDirty = useCallback(() => {
-    const stripped = htmlRef.current.replace(/<[^>]*>/g, "").trim();
-    return stripped.length > 0;
-  }, []);
-
+  // Closing keeps the draft: it's shared with the reply bar and saved in the
+  // browser, so nothing is thrown away by stepping out of the stationery.
   const attemptClose = useCallback(() => {
-    if (isDirty()) {
-      const ok = window.confirm(
-        "Discard this letter? Your draft will be lost."
-      );
-      if (!ok) return;
-      htmlRef.current = "";
-      onDraftChange("");
-    }
     setError(null);
     onClose();
-  }, [isDirty, onDraftChange, onClose]);
+  }, [onClose]);
 
   // Esc to close
   useEffect(() => {
@@ -150,7 +139,6 @@ export function StationeryModal({
         return;
       }
       htmlRef.current = "";
-      onDraftChange("");
       editorKeyRef.current += 1;
       onSent(json.data);
       onClose();
@@ -208,7 +196,12 @@ export function StationeryModal({
             <div className="stationery-paper">
               <LetterEditor
                 key={editorKeyRef.current}
-                content={htmlRef.current}
+                // The editor is created fresh each time the stationery opens
+                // (nothing renders while it's closed), and TipTap reads
+                // `content` only then, so this is the draft as of opening. A
+                // ref here showed the draft from the previous render: empty,
+                // when the draft had been written in the reply bar.
+                content={initialDraftHtml}
                 onChange={(html) => {
                   htmlRef.current = html;
                   onDraftChange(html);
@@ -224,7 +217,7 @@ export function StationeryModal({
                 <div className="stationery-error">{error}</div>
               ) : (
                 <span className="stationery-hint">
-                  {isMac ? "⌘" : "Ctrl+"}↵ to send · Esc to close
+                  {isMac ? "⌘" : "Ctrl+"}↵ to send · Esc keeps your draft
                 </span>
               )}
               <button

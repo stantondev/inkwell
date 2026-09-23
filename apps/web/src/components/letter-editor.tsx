@@ -21,6 +21,12 @@ interface LetterEditorProps {
   autoFocus?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  /** Enter sends and Shift+Enter starts a new line (the reply bar). Phones
+   *  keep Enter as a new line and send with the button. */
+  enterToSend?: boolean;
+  /** The formatting toolbar; off for the one-line reply bar. */
+  toolbar?: boolean;
+  className?: string;
 }
 
 export function LetterEditor({
@@ -32,10 +38,15 @@ export function LetterEditor({
   autoFocus = false,
   disabled = false,
   compact = false,
+  enterToSend = false,
+  toolbar = true,
+  className,
 }: LetterEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onSubmitRef = useRef(onSubmit);
   onSubmitRef.current = onSubmit;
+  const enterToSendRef = useRef(enterToSend);
+  enterToSendRef.current = enterToSend;
 
   const editor = useEditor({
     extensions: [
@@ -64,6 +75,19 @@ export function LetterEditor({
       },
       handleKeyDown: (_view, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          onSubmitRef.current();
+          return true;
+        }
+        if (
+          enterToSendRef.current &&
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.altKey &&
+          !event.isComposing &&
+          // Touch keyboards have no Shift+Enter, so Enter stays a new line.
+          !window.matchMedia("(pointer: coarse)").matches
+        ) {
           event.preventDefault();
           onSubmitRef.current();
           return true;
@@ -122,12 +146,14 @@ export function LetterEditor({
   if (!editor) return null;
 
   return (
-    <div className={compact ? "letter-edit-mode" : ""}>
-      <LetterToolbar
-        editor={editor}
-        onAddLink={addLink}
-        onAddImage={handleImageUpload}
-      />
+    <div className={[compact ? "letter-edit-mode" : "", className ?? ""].join(" ").trim()}>
+      {toolbar && (
+        <LetterToolbar
+          editor={editor}
+          onAddLink={addLink}
+          onAddImage={handleImageUpload}
+        />
+      )}
       <div className="letter-editor-content">
         <EditorContent editor={editor} />
       </div>

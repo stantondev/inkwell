@@ -3368,6 +3368,12 @@ body.eye-comfort .editor-paper::before {
   }
 }
 
+/* A conversation fills the window with the reply bar at the bottom. The
+   site footer below it only let focusing the bar scroll the whole page. */
+body:has(.letter-page-wrapper) .site-footer {
+  display: none;
+}
+
 /* Fill the page wrapper */
 .letter-thread-container {
   display: flex;
@@ -3480,12 +3486,6 @@ body.eye-comfort .editor-paper::before {
   border-color: transparent;
 }
 
-/* Retired: the mobile FAB was hidden by the app's bottom nav bar.
-   The header button (.letter-write-btn-header) now shows on all
-   viewports as a compact icon-only circle on mobile. */
-.letter-write-fab {
-  display: none !important;
-}
 
 /* ─── Empty thread state ─────────────────────────────────────────────── */
 .letter-empty-state {
@@ -3527,124 +3527,400 @@ body.eye-comfort .editor-paper::before {
   margin-bottom: 22px;
 }
 
-/* ─── Reply prompt card ─────────────────────────────────────────────
-   A blank sheet of stationery that sits after the last letter in a
-   thread. Invites the user to write back. Tapping anywhere on the
-   card opens the stationery modal. */
-.letter-reply-prompt {
-  display: block;
-  width: 100%;
-  max-width: 560px;
-  margin: 32px auto 48px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: inherit;
-  appearance: none;
-}
-
-.letter-reply-prompt-inner {
-  position: relative;
-  padding: 28px 32px 26px;
-  background: #fdf8ee;
-  border: 1.5px dashed rgba(180, 160, 100, 0.45);
-  border-radius: 4px;
-  box-shadow: 0 3px 12px -4px rgba(120, 100, 50, 0.12);
-  background-image:
-    repeating-linear-gradient(
-      transparent,
-      transparent 27px,
-      rgba(180, 160, 100, 0.12) 27px,
-      rgba(180, 160, 100, 0.12) 28px
-    );
-  transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease,
-    transform 0.12s ease;
+/* ─── Letter thread: header, letters as pages, reply bar ───────────────
+   Letters are paper in both themes (their text is dark ink), so the pages
+   and the reply field keep light backgrounds; the chrome around them
+   follows the theme. */
+.letter-thread-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.letter-thread-back {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+}
+.letter-thread-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.letter-thread-who-text { display: flex; flex-direction: column; min-width: 0; }
+.letter-thread-who-name {
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--foreground);
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.letter-thread-who-handle { font-size: 12px; color: var(--muted); }
 
-.letter-reply-prompt:hover .letter-reply-prompt-inner {
-  border-color: var(--accent);
-  border-style: solid;
-  box-shadow: 0 6px 20px -6px rgba(45, 74, 138, 0.25);
+.letter-thread-column {
+  max-width: 680px;
+  margin: 0 auto;
 }
-
-.letter-reply-prompt:active .letter-reply-prompt-inner {
-  transform: translateY(1px);
-}
-
-.letter-reply-prompt:focus-visible {
-  outline: none;
-}
-.letter-reply-prompt:focus-visible .letter-reply-prompt-inner {
-  border-color: var(--accent);
-  border-style: solid;
-  box-shadow: 0 0 0 3px rgba(45, 74, 138, 0.18);
-}
-
-/* Small "Your turn" label in italic caps, like a letterhead */
-.letter-reply-prompt-label {
+.letter-older { text-align: center; margin-bottom: 18px; }
+.letter-older-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
   font-family: var(--font-lora, Georgia, serif);
   font-style: italic;
+}
+.letter-older-btn:disabled { cursor: default; opacity: 0.7; }
+.letter-thread-start {
+  text-align: center;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 18px;
+}
+
+.letter-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 14px;
+  color: var(--muted);
   font-size: 11px;
-  color: #8a7a4a;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
-.letter-reply-prompt-heading {
-  font-family: var(--font-lora, Georgia, serif);
-  font-size: 20px;
-  line-height: 1.3;
-  color: #3a2a10;
-  font-weight: 500;
-}
-.letter-reply-prompt-heading em {
-  font-style: italic;
-  color: var(--accent);
-  font-weight: 600;
+.letter-day::before,
+.letter-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
-.letter-reply-prompt-cta {
-  display: inline-flex;
+.letter-page {
+  position: relative;
+  padding: 14px 20px 12px;
+  margin-top: 12px;
+  border-radius: 6px;
+  border: 1px solid #e0d4b8;
+  background: #fdf8ee;
+  box-shadow: 0 1px 2px rgba(80, 60, 20, 0.06), 0 4px 14px -8px rgba(80, 60, 20, 0.18);
+  color: #1a100a;
+}
+.letter-page-mine {
+  border-color: #c8d5f0;
+  background: #f3f6fd;
+}
+/* A little offset tells whose letter is whose at a glance, without chat
+   bubbles squeezing a long letter into a narrow column. */
+@media (min-width: 640px) {
+  .letter-page-theirs { margin-right: 44px; }
+  .letter-page-mine { margin-left: 44px; }
+}
+.letter-page-continued { margin-top: 6px; padding-top: 12px; }
+.letter-page-head {
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-bottom: 8px;
+}
+.letter-page-name {
   font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  font-size: 14px;
+  color: #2a1d0e;
+}
+.letter-page-mine .letter-page-name { color: #22345e; }
+.letter-page-time,
+.letter-page-foot {
+  font-size: 11px;
+  color: #8a7a4a;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+.letter-page-mine .letter-page-time,
+.letter-page-mine .letter-page-foot { color: #6a80aa; }
+.letter-page-time { margin-left: auto; }
+.letter-page-head .letter-page-actions {
+  font-size: 11px;
+  color: #8a7a4a;
+  margin-left: 6px;
+}
+.letter-page-mine .letter-page-head .letter-page-actions { color: #6a80aa; }
+.letter-page-body.prose-letter { font-size: 15px; line-height: 1.7; }
+.letter-page-plain {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  font-family: var(--font-lora, Georgia, serif);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.letter-page-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+.letter-page-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.letter-page:hover .letter-page-actions,
+.letter-page:focus-within .letter-page-actions { opacity: 1; }
+@media (hover: none) {
+  .letter-page-actions { opacity: 1; }
+}
+.letter-link-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.letter-link-btn:hover { text-decoration: underline; }
+.letter-link-btn-danger { color: #aa5555; }
+.letter-link-btn:disabled { opacity: 0.5; cursor: default; }
+.letter-page-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
   font-size: 13px;
-  font-style: italic;
-  color: var(--accent);
-  transition: gap 0.2s ease;
 }
-.letter-reply-prompt:hover .letter-reply-prompt-cta {
+.letter-page-error { font-size: 12px; color: var(--danger); }
+
+.letter-send-btn {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.letter-send-btn:disabled { opacity: 0.45; cursor: default; }
+.letter-icon-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.letter-icon-btn:hover { color: var(--foreground); }
+
+.letter-reply-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 10px 16px 8px;
+}
+.letter-reply-bar-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.letter-reply-bar-field {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e0d4b8;
+  border-radius: 18px;
+  background: #fdf8ee;
+}
+.letter-reply-bar-field:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, #e0d4b8);
+}
+.letter-reply-editor .letter-editor-content .tiptap {
+  min-height: 22px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 7px 14px;
+  font-size: 15px;
+  line-height: 22px;
+}
+/* One line, however long the name. The shared placeholder is a zero-height
+   float, so a wrapped second line spilled out of the field; here it's laid
+   over the empty first line instead. */
+.letter-reply-editor .letter-editor-content .tiptap { position: relative; }
+.letter-reply-editor .letter-editor-content .tiptap p.is-editor-empty:first-child::before {
+  float: none;
+  height: auto;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.letter-reply-bar-meta {
+  max-width: 680px;
+  margin: 4px auto 0;
+  min-height: 16px;
+  padding-left: 14px;
+}
+.letter-reply-hint { font-size: 11px; color: var(--muted); }
+@media (pointer: coarse) {
+  .letter-reply-hint { display: none; }
+}
+.letter-reply-closed {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 14px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ─── Letterbox toolbar + New letter picker ─────────────────────────── */
+.letterbox-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.letterbox-search {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 16px; /* under 16px, iOS zooms the page on focus */
+}
+@media (min-width: 640px) {
+  .letterbox-search { font-size: 14px; }
+}
+.letterbox-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.letter-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 10, 0.4);
+  z-index: 60;
+}
+.letter-picker {
+  position: fixed;
+  z-index: 61;
+  left: 50%;
+  top: 12vh;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.letter-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 8px;
+}
+.letter-picker-head h2 {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+.letter-picker-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.letter-picker-search {
+  margin: 4px 18px 10px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 16px;
+}
+.letter-picker-list {
+  overflow-y: auto;
+  padding: 0 8px 10px;
+}
+.letter-picker-note {
+  padding: 16px 12px;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.letter-picker-note a { color: var(--accent); }
+.letter-picker-row {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-
-@media (max-width: 640px) {
-  .letter-reply-prompt {
-    margin: 24px auto 32px;
-  }
-  .letter-reply-prompt-inner {
-    padding: 22px 24px 20px;
-  }
-  .letter-reply-prompt-heading {
-    font-size: 18px;
-  }
+.letter-picker-row:hover,
+.letter-picker-row:focus-visible { background: var(--surface-hover); }
+.letter-picker-row:disabled { cursor: default; opacity: 0.7; }
+.letter-picker-row-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.letter-picker-row-name {
+  font-weight: 500;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .letter-reply-prompt-inner,
-  .letter-reply-prompt-cta {
-    transition: none;
-  }
-}
+.letter-picker-row-handle { font-size: 12px; color: var(--muted); }
 
 /* ─── Rich Letter Content (.prose-letter) ───────────────────────────── */
 .prose-letter {

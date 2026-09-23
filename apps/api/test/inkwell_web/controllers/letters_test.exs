@@ -164,6 +164,14 @@ defmodule InkwellWeb.LettersTest do
              |> json_response(403)
     end
 
+    test "the thread says whether you can still write", %{conn: conn, alice: alice, bob: bob, conv: conv} do
+      authed = log_in_user(conn, alice)
+      assert authed |> get("/api/conversations/#{conv.id}") |> json_response(200) |> get_in(["data", "can_write"])
+
+      Repo.delete_all(from r in Inkwell.Social.Relationship, where: r.follower_id in [^alice.id, ^bob.id])
+      refute authed |> get("/api/conversations/#{conv.id}") |> json_response(200) |> get_in(["data", "can_write"])
+    end
+
     test "a follow in either direction keeps it open", %{alice: alice, bob: bob, conv: conv} do
       Repo.delete_all(from r in Inkwell.Social.Relationship, where: r.follower_id == ^alice.id)
       assert {:ok, _} = Letters.send_letter(conv.id, alice.id, "one-way is fine")

@@ -184,6 +184,7 @@ defmodule Inkwell.Letters do
               |> Repo.update()
 
               notify_recipient(conv, sender_id, recipient_id)
+              schedule_letter_email(conv.id, recipient_id)
 
               {:ok, Repo.preload(message, :sender)}
 
@@ -276,6 +277,83 @@ defmodule Inkwell.Letters do
   end
 
   # ---------------------------------------------------------------------------
+  # Email about unread letters
+  # ---------------------------------------------------------------------------
+
+  @letter_email_delay_seconds 600
+
+  # Ten minutes after a letter arrives, email the recipient if it's still
+  # unread. Oban uniqueness folds a burst of letters into one job.
+  defp schedule_letter_email(conversation_id, recipient_id) do
+    %{conversation_id: conversation_id, recipient_id: recipient_id}
+    |> Inkwell.Workers.LetterEmailWorker.new(schedule_in: @letter_email_delay_seconds)
+    |> Oban.insert()
+  rescue
+    e ->
+      require Logger
+      Logger.warning("[LetterEmail] Failed to schedule: #{inspect(e)}")
+  end
+
+  @doc """
+  Whether `recipient_id` should get an email about `conversation_id` now:
+  they have unread letters there, and haven't been emailed about it since
+  they last read it. So each unread stretch sends at most one email,
+  however many letters arrive during it.
+  """
+  def letter_email_due?(conversation_id, recipient_id) do
+    read = Repo.get_by(ConversationRead, conversation_id: conversation_id, user_id: recipient_id)
+
+    already_emailed =
+      case read do
+        %{emailed_at: %DateTime{} = emailed_at, last_read_at: last_read_at} ->
+          DateTime.compare(emailed_at, last_read_at) != :lt
+
+        _ ->
+          false
+      end
+
+    not already_emailed and
+      Repo.exists?(
+        unread_letters_query(recipient_id)
+        |> where([m], m.conversation_id == ^conversation_id)
+      )
+  end
+
+  @doc "Record that `recipient_id` was emailed about `conversation_id`."
+  def mark_emailed(conversation_id, recipient_id) do
+    now = DateTime.utc_now()
+
+    # A first email in a conversation they've never opened has no read row
+    # yet. The Unix epoch as last_read_at means "read nothing", the same as
+    # no row.
+    Repo.insert!(
+      %ConversationRead{
+        conversation_id: conversation_id,
+        user_id: recipient_id,
+        last_read_at: DateTime.from_unix!(0, :microsecond),
+        emailed_at: now
+      },
+      on_conflict: [set: [emailed_at: now]],
+      conflict_target: [:conversation_id, :user_id]
+    )
+  end
+
+  @doc """
+  The conversation plus who's in it, for the letter email worker. Returns
+  `{:ok, conv, sender}` where sender is the other participant, or `:error`
+  when the recipient isn't in it or the two have blocked each other.
+  """
+  def letter_email_context(conversation_id, recipient_id) do
+    with %Conversation{} = conv <- get_participant_conversation(conversation_id, recipient_id),
+         sender = other_user(conv, recipient_id),
+         false <- blocked?(sender.id, recipient_id) do
+      {:ok, conv, sender}
+    else
+      _ -> :error
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Unread counts
   # ---------------------------------------------------------------------------
 
@@ -316,6 +394,16 @@ defmodule Inkwell.Letters do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  @doc """
+  Whether `user_id` can send a letter in `conv` right now: not blocked either
+  way, and still pen pals (see the moduledoc). The thread shows a note in
+  place of the reply bar when this is false.
+  """
+  def can_write_in?(%Conversation{} = conv, user_id) do
+    other_id = other_participant_id(conv, user_id)
+    not blocked?(user_id, other_id) and can_write?(conv, user_id, other_id)
+  end
 
   @doc false
   # Whether `sender_id` may write in `conv` right now (blocks are checked

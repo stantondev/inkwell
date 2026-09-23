@@ -40,7 +40,7 @@ const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = 
 
 export function Footer({ selfHosted }: { selfHosted?: boolean }) {
   return (
-    <footer className="border-t mt-auto" style={{ borderColor: "var(--border)" }}>
+    <footer className="site-footer border-t mt-auto" style={{ borderColor: "var(--border)" }}>
       <div className="mx-auto max-w-5xl px-4 pt-10 pb-6 text-sm" style={{ color: "var(--muted)" }}>
         <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div className="col-span-2 md:col-span-1">

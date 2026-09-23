@@ -77,7 +77,8 @@ defmodule InkwellWeb.ConversationController do
             id: conv.id,
             other_user: LetterJSON.user(other),
             messages: Enum.map(messages, &LetterJSON.message(&1, user.id)),
-            has_more: has_more
+            has_more: has_more,
+            can_write: Letters.can_write_in?(conv, user.id)
           }
         })
 

@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { LETTERS_ARRIVED_EVENT } from "@/components/live-nav-counts";
+import { NewLetterPicker } from "./new-letter-picker";
 import type { ConversationPreview } from "./page";
+
+// Search appears once there's more than a handful to look through.
+const SEARCH_FROM = 5;
 
 interface Props {
   initialConversations: ConversationPreview[];
@@ -235,12 +239,72 @@ function EnvelopeCard({
 }
 
 export function Letterbox({ initialConversations }: Props) {
-  const [conversations] = useState(initialConversations);
+  const [conversations, setConversations] = useState(initialConversations);
+  const [query, setQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const router = useRouter();
+
+  // Keep the list current: when a new letter arrives (the nav's 15-second
+  // check announces it) and when you come back to the tab.
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/letters", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (Array.isArray(json.data)) setConversations(json.data);
+    } catch {
+      // keep what's shown
+    }
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    window.addEventListener(LETTERS_ARRIVED_EVENT, refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(LETTERS_ARRIVED_EVENT, refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh]);
+
+  const closePicker = useCallback(() => setPickerOpen(false), []);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase().replace(/^@/, "");
+    if (!q) return conversations;
+    return conversations.filter(
+      (c) =>
+        c.other_user.username.toLowerCase().includes(q) ||
+        (c.other_user.display_name || "").toLowerCase().includes(q)
+    );
+  }, [conversations, query]);
 
   return (
     <div>
+      <div className="letterbox-toolbar">
+        {conversations.length >= SEARCH_FROM && (
+          <input
+            type="search"
+            className="letterbox-search"
+            placeholder="Search your letters by name"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search your letters by name"
+          />
+        )}
+        <button type="button" className="letter-send-btn letterbox-new" onClick={() => setPickerOpen(true)}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          New letter
+        </button>
+      </div>
+
+      <NewLetterPicker open={pickerOpen} onClose={closePicker} />
+
       <AnimatePresence mode="wait">
         {conversations.length === 0 ? (
           <motion.div
@@ -277,10 +341,10 @@ export function Letterbox({ initialConversations }: Props) {
               Your letterbox is empty
             </h2>
             <p style={{ fontSize: "14px", color: "var(--envelope-text-muted)", marginBottom: "24px" }}>
-              Visit a pen pal&apos;s profile and write them a letter to get started.
+              Letters are private notes between pen pals. Write to one to get started.
             </p>
             <button
-              onClick={() => router.push("/pen-pals")}
+              onClick={() => setPickerOpen(true)}
               style={{
                 padding: "10px 20px",
                 borderRadius: "9999px",
@@ -292,12 +356,17 @@ export function Letterbox({ initialConversations }: Props) {
                 fontWeight: "500",
               }}
             >
-              Browse Pen Pals
+              Write a letter
             </button>
           </motion.div>
         ) : (
           <motion.div key="list">
-            {conversations.map((conv, index) => (
+            {shown.length === 0 && (
+              <p style={{ textAlign: "center", color: "var(--muted)", fontSize: "14px", padding: "24px 0" }}>
+                No letters with anyone matching “{query}”.
+              </p>
+            )}
+            {shown.map((conv, index) => (
               <EnvelopeCard
                 key={conv.id}
                 conv={conv}

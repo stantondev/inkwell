@@ -9,6 +9,7 @@ defmodule Inkwell.Letters.ConversationRead do
     field :conversation_id, :binary_id, primary_key: true
     field :user_id, :binary_id, primary_key: true
     field :last_read_at, :utc_datetime_usec
+    field :emailed_at, :utc_datetime_usec
   end
 
   def changeset(read, attrs) do

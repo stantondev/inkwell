@@ -1,95 +1,119 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Avatar } from "@/components/avatar";
 import { LetterEditor } from "@/components/letter-editor";
+import {
+  clearLetterDraft,
+  isBlankLetter,
+  loadLetterDraft,
+  saveLetterDraft,
+} from "@/lib/letter-drafts";
 import { StationeryModal } from "./stationery-modal";
 import type { LetterMessage, ThreadData } from "./page";
 
-// Deterministic "random" rotation from message ID — gives each note a slight tilt
-function seedRotation(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash << 5) - hash + id.charCodeAt(i);
-    hash |= 0;
-  }
-  return ((hash % 100) / 100) * 3 - 1.5;
+// Letters from the same person this close together read as one sitting, so
+// only the first shows the name and time.
+const CONTINUATION_MS = 10 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// Dates. The server renders in UTC; the browser switches to the reader's own
+// zone right after hydration. Starting both in UTC keeps the two renders
+// identical, so day separators can't cause a hydration mismatch.
+// ---------------------------------------------------------------------------
+
+function dayKey(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
 }
 
-function formatMessageTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
+function dayLabel(iso: string, timeZone: string): string {
+  const key = dayKey(iso, timeZone);
+  const now = Date.now();
+  if (key === dayKey(new Date(now).toISOString(), timeZone)) return "Today";
+  if (key === dayKey(new Date(now - 86_400_000).toISOString(), timeZone)) return "Yesterday";
+  const date = new Date(iso);
+  const sameYear =
+    new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(date) ===
+    new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(new Date(now));
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "long",
     day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
+    ...(sameYear ? {} : { year: "numeric" }),
+  }).format(date);
+}
+
+function timeLabel(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(
+    new Date(iso)
+  );
+}
+
+function fullDate(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, dateStyle: "full", timeStyle: "short" }).format(
+    new Date(iso)
+  );
+}
+
+// Older letters were plain text. Escape before handing them to the editor.
+function plainToHtml(text: string): string {
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<p>${escaped.replace(/\n/g, "</p><p>")}</p>`;
 }
 
 // ---------------------------------------------------------------------------
-// LetterNote — individual message
+// One letter
 // ---------------------------------------------------------------------------
 
-function LetterNote({
+function LetterPage({
   message,
   conversationId,
-  onDelete,
-  onUpdate,
-  prefersReducedMotion,
+  timeZone,
+  continued,
   isNew,
   isEditing,
   onStartEdit,
   onCancelEdit,
+  onDelete,
+  onUpdate,
+  prefersReducedMotion,
 }: {
   message: LetterMessage;
   conversationId: string;
-  onDelete: (id: string) => void;
-  onUpdate: (id: string, updated: LetterMessage) => void;
-  prefersReducedMotion: boolean;
+  timeZone: string;
+  continued: boolean;
   isNew: boolean;
   isEditing: boolean;
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, updated: LetterMessage) => void;
+  prefersReducedMotion: boolean;
 }) {
-  const [showActions, setShowActions] = useState(false);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const editHtmlRef = useRef(message.body_html || message.body || "");
-  const rotation = prefersReducedMotion ? 0 : seedRotation(message.id);
-
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  }, []);
-
-  // On touch devices, always show actions for own messages (no hover available)
-  const actionsVisible = isTouchDevice ? message.is_mine : showActions;
 
   const handleDelete = async () => {
     // Removing only hides it for you; the other person keeps their copy.
     if (!confirm("Remove this letter from your letterbox? They'll still have their copy.")) return;
     setDeleting(true);
     try {
-      const res = await fetch(
-        `/api/letters/${conversationId}/messages/${message.id}`,
-        { method: "DELETE" }
-      );
+      const res = await fetch(`/api/letters/${conversationId}/messages/${message.id}`, {
+        method: "DELETE",
+      });
       if (res.ok) onDelete(message.id);
+      else setDeleting(false);
     } catch {
       setDeleting(false);
     }
@@ -97,290 +121,247 @@ function LetterNote({
 
   const handleSaveEdit = async () => {
     const html = editHtmlRef.current;
-    if (!html || saving) return;
+    if (isBlankLetter(html) || saving) return;
     setSaving(true);
     setEditError(null);
-
     try {
-      const res = await fetch(
-        `/api/letters/${conversationId}/messages/${message.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body_html: html }),
-        }
-      );
-      const json = await res.json();
+      const res = await fetch(`/api/letters/${conversationId}/messages/${message.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body_html: html }),
+      });
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setEditError(json.error || "Failed to save");
+        setEditError(json.error || "Couldn't save — please try again");
         return;
       }
       onUpdate(message.id, json.data);
       onCancelEdit();
     } catch {
-      setEditError("Failed to save — please try again");
+      setEditError("Couldn't save — please try again");
     } finally {
       setSaving(false);
     }
   };
 
+  const name = message.is_mine ? "You" : message.sender_display_name;
+
+  const actions = message.is_mine && !isEditing && (
+    <span className="letter-page-actions">
+      <button type="button" className="letter-link-btn" onClick={() => onStartEdit(message.id)}>
+        edit
+      </button>
+      <span aria-hidden="true">·</span>
+      <button
+        type="button"
+        className="letter-link-btn letter-link-btn-danger"
+        onClick={handleDelete}
+        disabled={deleting}
+        title="Remove from your letterbox (they keep their copy)"
+      >
+        remove for me
+      </button>
+    </span>
+  );
+
   return (
-    <motion.div
-      initial={
-        prefersReducedMotion
-          ? false
-          : isNew
-          ? { opacity: 0, y: 30, scale: 0.95 }
-          : { opacity: 0, y: 16 }
-      }
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      transition={
-        isNew
-          ? { type: "spring", stiffness: 260, damping: 22 }
-          : { duration: 0.35, ease: "easeOut" }
-      }
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: message.is_mine ? "flex-end" : "flex-start",
-        marginBottom: "20px",
-      }}
-      onMouseEnter={isTouchDevice ? undefined : () => setShowActions(true)}
-      onMouseLeave={isTouchDevice ? undefined : () => setShowActions(false)}
+    <motion.article
+      className={`letter-page ${message.is_mine ? "letter-page-mine" : "letter-page-theirs"} ${
+        continued ? "letter-page-continued" : ""
+      }`}
+      initial={prefersReducedMotion || !isNew ? false : { opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      aria-label={`Letter from ${name}, ${fullDate(message.inserted_at, timeZone)}`}
     >
-      {/* Sender label */}
-      {!message.is_mine && (
-        <div
-          style={{
-            fontSize: "11px",
-            color: "var(--muted)",
-            marginBottom: "4px",
-            fontFamily: "var(--font-lora, Georgia, serif)",
-            fontStyle: "italic",
-            paddingLeft: "4px",
-          }}
-        >
-          {message.sender_display_name}
-        </div>
+      {!continued && (
+        <header className="letter-page-head">
+          <Avatar url={message.sender_avatar_url} name={message.sender_display_name} size={28} />
+          <span className="letter-page-name">{name}</span>
+          {actions}
+          <time
+            className="letter-page-time"
+            dateTime={message.inserted_at}
+            title={fullDate(message.inserted_at, timeZone)}
+          >
+            {timeLabel(message.inserted_at, timeZone)}
+          </time>
+        </header>
       )}
 
-      {/* Paper note */}
-      <div
-        style={{
-          maxWidth: "min(480px, 80%)",
-          position: "relative",
-          transform: isEditing ? "none" : `rotate(${rotation}deg)`,
-          transition: prefersReducedMotion ? "none" : "transform 0.2s ease",
-        }}
-      >
-        {/* Drop shadow */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: "3px -1px -4px 1px",
-            background: "rgba(0,0,0,0.08)",
-            borderRadius: "4px",
-            filter: "blur(4px)",
-            zIndex: 0,
-          }}
-        />
-
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            background: message.is_mine ? "#f0f4fd" : "#fdf8ee",
-            borderRadius: "4px",
-            padding: isEditing ? "8px" : "14px 18px",
-            border: `1px solid ${message.is_mine ? "#c8d5f0" : "#e0d4b8"}`,
-            backgroundImage: message.is_mine
-              ? `repeating-linear-gradient(
-                  transparent,
-                  transparent 23px,
-                  rgba(180,200,240,0.25) 23px,
-                  rgba(180,200,240,0.25) 24px
-                )`
-              : `repeating-linear-gradient(
-                  transparent,
-                  transparent 23px,
-                  rgba(180,160,100,0.2) 23px,
-                  rgba(180,160,100,0.2) 24px
-                )`,
-          }}
-        >
-          {/* Message body — edit mode or display mode */}
-          {isEditing ? (
-            <div>
-              <LetterEditor
-                content={message.body_html || `<p>${(message.body || "").replace(/\n/g, "</p><p>")}</p>`}
-                onChange={(html) => { editHtmlRef.current = html; }}
-                onSubmit={handleSaveEdit}
-                compact
-                autoFocus
-              />
-              {editError && (
-                <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "6px" }}>
-                  {editError}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: "8px", marginTop: "8px", justifyContent: "flex-end" }}>
-                <button
-                  onClick={onCancelEdit}
-                  style={{
-                    background: "none",
-                    border: "1px solid rgba(180,160,100,0.3)",
-                    borderRadius: "6px",
-                    padding: "4px 12px",
-                    fontSize: "12px",
-                    color: "#6a5a3a",
-                    cursor: "pointer",
-                    fontFamily: "var(--font-lora, Georgia, serif)",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={saving}
-                  style={{
-                    background: "var(--accent)",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "4px 12px",
-                    fontSize: "12px",
-                    color: "white",
-                    cursor: saving ? "not-allowed" : "pointer",
-                    fontFamily: "var(--font-lora, Georgia, serif)",
-                    opacity: saving ? 0.6 : 1,
-                  }}
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Render rich HTML or plain text */}
-              {message.body_html ? (
-                <div
-                  className="prose-letter"
-                  dangerouslySetInnerHTML={{ __html: message.body_html }}
-                />
-              ) : (
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "14px",
-                    lineHeight: "24px",
-                    fontFamily: "var(--font-lora, Georgia, serif)",
-                    color: "#1a100a",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {message.body}
-                </p>
-              )}
-            </>
-          )}
-
-          {/* Footer: timestamp + actions */}
-          {!isEditing && (
-            <div
-              style={{
-                marginTop: "10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: message.is_mine ? "#6a80aa" : "#8a7a4a",
-                  fontVariant: "small-caps",
-                  letterSpacing: "0.06em",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                {formatMessageTime(message.inserted_at)}
-                {message.edited_at && (
-                  <span
-                    title={`Edited ${new Date(message.edited_at).toLocaleString()}`}
-                    style={{ fontStyle: "italic", opacity: 0.7 }}
-                  >
-                    (edited)
-                  </span>
-                )}
-              </span>
-
-              {/* Edit + Delete buttons (own messages only) */}
-              {message.is_mine && (
-                <AnimatePresence>
-                  {actionsVisible && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.15 }}
-                      style={{ display: "flex", gap: "4px", alignItems: "center" }}
-                    >
-                      <button
-                        onClick={() => onStartEdit(message.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          color: message.is_mine ? "#6a80aa" : "#8a7a4a",
-                          padding: "2px 4px",
-                        }}
-                        title="Edit this letter"
-                      >
-                        edit
-                      </button>
-                      <span style={{ fontSize: "10px", color: "var(--muted)", opacity: 0.4 }}>·</span>
-                      <button
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          color: "#aa6666",
-                          padding: "2px 4px",
-                          opacity: deleting ? 0.5 : 1,
-                        }}
-                        title="Remove from your letterbox (they keep their copy)"
-                      >
-                        remove for me
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              )}
-            </div>
-          )}
+      {isEditing ? (
+        <div className="letter-page-edit">
+          <LetterEditor
+            content={message.body_html || plainToHtml(message.body || "")}
+            onChange={(html) => {
+              editHtmlRef.current = html;
+            }}
+            onSubmit={handleSaveEdit}
+            compact
+            autoFocus
+          />
+          {editError && <div className="letter-page-error">{editError}</div>}
+          <div className="letter-page-edit-actions">
+            <button type="button" className="letter-link-btn" onClick={onCancelEdit}>
+              Cancel
+            </button>
+            <button type="button" className="letter-send-btn" onClick={handleSaveEdit} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
-      </div>
-    </motion.div>
+      ) : message.body_html ? (
+        <div className="prose-letter letter-page-body" dangerouslySetInnerHTML={{ __html: message.body_html }} />
+      ) : (
+        <p className="letter-page-body letter-page-plain">{message.body}</p>
+      )}
+
+      {/* A continued letter has no header, so its time and links go here. */}
+      {!isEditing && (message.edited_at || continued) && (
+        <footer className="letter-page-foot">
+          {continued && actions}
+          {message.edited_at && (
+            <span title={`Edited ${fullDate(message.edited_at, timeZone)}`}>edited</span>
+          )}
+          {continued && (
+            <time dateTime={message.inserted_at} title={fullDate(message.inserted_at, timeZone)}>
+              {timeLabel(message.inserted_at, timeZone)}
+            </time>
+          )}
+        </footer>
+      )}
+    </motion.article>
   );
 }
 
 // ---------------------------------------------------------------------------
-// LetterThread — main thread component
+// Reply bar: quick replies at the bottom of the thread. Shares its draft
+// with the stationery.
+// ---------------------------------------------------------------------------
+
+function ReplyBar({
+  conversationId,
+  recipientName,
+  draftHtml,
+  editorKey,
+  onDraftChange,
+  onSent,
+  onExpand,
+}: {
+  conversationId: string;
+  recipientName: string;
+  draftHtml: string;
+  editorKey: number;
+  onDraftChange: (html: string) => void;
+  onSent: (message: LetterMessage) => void;
+  onExpand: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(isBlankLetter(draftHtml));
+  const htmlRef = useRef(draftHtml);
+
+  useEffect(() => {
+    htmlRef.current = draftHtml;
+    setEmpty(isBlankLetter(draftHtml));
+    // Only when the editor is re-created (draft loaded, stationery closed,
+    // letter sent), not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorKey]);
+
+  const send = async () => {
+    const html = htmlRef.current;
+    if (isBlankLetter(html) || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/letters/${conversationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body_html: html }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          json.errors?.body?.[0] ??
+            (json.errors?.body_html ? "This letter is too long to send in one piece." : null) ??
+            json.error ??
+            "Couldn't send — please try again"
+        );
+        return;
+      }
+      onSent(json.data);
+    } catch {
+      setError("Couldn't send — please try again");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="letter-reply-bar">
+      <div className="letter-reply-bar-inner">
+        <div className="letter-reply-bar-field">
+          <LetterEditor
+            key={editorKey}
+            content={draftHtml}
+            onChange={(html) => {
+              htmlRef.current = html;
+              setEmpty(isBlankLetter(html));
+              onDraftChange(html);
+            }}
+            onSubmit={send}
+            enterToSend
+            toolbar={false}
+            className="letter-reply-editor"
+            placeholder={`Write back to ${recipientName}…`}
+          />
+        </div>
+        <button
+          type="button"
+          className="letter-icon-btn"
+          onClick={onExpand}
+          title="Open the stationery (formatting, pictures, room to write)"
+          aria-label="Open the stationery"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 3h6v6" />
+            <path d="M9 21H3v-6" />
+            <path d="M21 3l-7 7" />
+            <path d="M3 21l7-7" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="letter-send-btn"
+          onClick={send}
+          disabled={sending || empty}
+          aria-label="Send letter"
+        >
+          {sending ? "Sending…" : "Send"}
+        </button>
+      </div>
+      <div className="letter-reply-bar-meta">
+        {error ? (
+          <span className="letter-page-error" role="alert">
+            {error}
+          </span>
+        ) : (
+          <span className="letter-reply-hint">Enter to send · Shift+Enter for a new line</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The thread
 // ---------------------------------------------------------------------------
 
 interface Props {
   initialThread: ThreadData;
   conversationId: string;
-  currentUsername: string;
 }
 
 export function LetterThread({ initialThread, conversationId }: Props) {
@@ -391,12 +372,37 @@ export function LetterThread({ initialThread, conversationId }: Props) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [draftHtml, setDraftHtml] = useState("");
+  const [replyKey, setReplyKey] = useState(0);
+  const [timeZone, setTimeZone] = useState("UTC");
   const prefersReducedMotion = usePrefersReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(
     messages.length > 0 ? messages[messages.length - 1].id : null
   );
   const isAtBottomRef = useRef(true);
+  // Height before older letters were added above, to keep the reader's place.
+  const prependAnchorRef = useRef<number | null>(null);
+  const other = initialThread.other_user;
+  const canWrite = initialThread.can_write !== false;
+
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  }, []);
+
+  // Pick up any unsent letter from last time.
+  useEffect(() => {
+    const saved = loadLetterDraft(conversationId);
+    if (saved) {
+      setDraftHtml(saved);
+      setReplyKey((k) => k + 1);
+    }
+  }, [conversationId]);
+
+  // Save the draft a moment after typing stops.
+  useEffect(() => {
+    const t = setTimeout(() => saveLetterDraft(conversationId, draftHtml), 400);
+    return () => clearTimeout(t);
+  }, [conversationId, draftHtml]);
 
   // Mark as read on mount and refresh nav badge
   useEffect(() => {
@@ -405,99 +411,95 @@ export function LetterThread({ initialThread, conversationId }: Props) {
       .catch(() => {});
   }, [conversationId]);
 
-  // Auto-scroll to bottom on initial load
+  // Start at the newest letter.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  // Track whether user is near the bottom
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    isAtBottomRef.current = distFromBottom < 80;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   }, []);
 
-  // Scroll to bottom when new messages arrive (only if already at bottom)
-  useEffect(() => {
-    if (isAtBottomRef.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // New letters at the bottom follow along if you're there; older letters
+  // added at the top keep what you were reading in place.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (prependAnchorRef.current !== null) {
+      el.scrollTop += el.scrollHeight - prependAnchorRef.current;
+      prependAnchorRef.current = null;
+    } else if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
 
-  // 5-second polling for new messages when tab is focused
+  // Check for new letters every 5 seconds while the page is visible.
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
-    const startPolling = () => {
-      interval = setInterval(async () => {
-        const lastId = lastMessageIdRef.current;
+    const poll = async () => {
+      const lastId = lastMessageIdRef.current;
+      try {
+        // With no letters yet there's no cursor, so ask for the thread itself.
+        const res = await fetch(
+          lastId
+            ? `/api/letters/${conversationId}?since=${encodeURIComponent(lastId)}`
+            : `/api/letters/${conversationId}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        const received = lastId ? json.data : json.data?.messages;
+        const newMsgs: LetterMessage[] = Array.isArray(received) ? received : [];
 
-        try {
-          // With no letters yet there's no cursor, so ask for the thread
-          // itself; otherwise a first letter from the other person would only
-          // appear on reload.
-          const res = await fetch(
-            lastId
-              ? `/api/letters/${conversationId}?since=${encodeURIComponent(lastId)}`
-              : `/api/letters/${conversationId}`,
-            { cache: "no-store" }
-          );
-          if (!res.ok) return;
-          const json = await res.json();
-          const received = lastId ? json.data : json.data?.messages;
-          const newMsgs: LetterMessage[] = Array.isArray(received) ? received : [];
+        if (newMsgs.length > 0) {
+          const ids = new Set(newMsgs.map((m) => m.id));
+          setNewMessageIds((prev) => new Set([...prev, ...ids]));
+          // Never add a letter twice (one you just sent can come back here).
+          setMessages((prev) => {
+            const have = new Set(prev.map((m) => m.id));
+            return [...prev, ...newMsgs.filter((m) => !have.has(m.id))];
+          });
+          lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
 
-          if (newMsgs.length > 0) {
-            const ids = new Set(newMsgs.map((m) => m.id));
-            setNewMessageIds((prev) => new Set([...prev, ...ids]));
-            // Never add a letter twice (one you just sent can come back here).
-            setMessages((prev) => {
-              const have = new Set(prev.map((m) => m.id));
-              return [...prev, ...newMsgs.filter((m) => !have.has(m.id))];
-            });
-            lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
-
-            fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
-              .then(() => window.dispatchEvent(new Event("inkwell-nav-refresh")))
-              .catch(() => {});
-          }
-        } catch {
-          // silently ignore poll errors
+          fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
+            .then(() => window.dispatchEvent(new Event("inkwell-nav-refresh")))
+            .catch(() => {});
         }
-      }, 5000);
-    };
-
-    const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
+      } catch {
+        // try again next time
       }
     };
 
-    const handleVisibilityChange = () => {
+    const start = () => {
+      if (!interval) interval = setInterval(poll, 5000);
+    };
+    const stop = () => {
+      if (interval) clearInterval(interval);
+      interval = null;
+    };
+    const onVisibility = () => {
       if (document.hidden) {
-        stopPolling();
+        stop();
       } else {
-        startPolling();
+        poll();
+        start();
       }
     };
 
-    if (!document.hidden) startPolling();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      stopPolling();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [conversationId]);
 
-  // Keep lastMessageIdRef current
   useEffect(() => {
-    if (messages.length > 0) {
-      lastMessageIdRef.current = messages[messages.length - 1].id;
-    }
+    if (messages.length > 0) lastMessageIdRef.current = messages[messages.length - 1].id;
   }, [messages]);
 
   const handleDelete = useCallback((id: string) => {
@@ -505,289 +507,185 @@ export function LetterThread({ initialThread, conversationId }: Props) {
   }, []);
 
   const handleUpdate = useCallback((id: string, updated: LetterMessage) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? updated : m))
-    );
+    setMessages((prev) => prev.map((m) => (m.id === id ? updated : m)));
   }, []);
 
   const loadOlderLetters = async () => {
     const oldest = messages[0];
-    if (!oldest) return;
+    if (!oldest || loadingOlder) return;
     setLoadingOlder(true);
     try {
-      const res = await fetch(
-        `/api/letters/${conversationId}?before=${encodeURIComponent(oldest.id)}`
-      );
+      const res = await fetch(`/api/letters/${conversationId}?before=${encodeURIComponent(oldest.id)}`);
       if (!res.ok) return;
       const json = await res.json();
       const data = json.data;
       const older: LetterMessage[] = Array.isArray(data?.messages) ? data.messages : [];
+      prependAnchorRef.current = scrollRef.current?.scrollHeight ?? null;
       setMessages((prev) => {
         const have = new Set(prev.map((m) => m.id));
         return [...older.filter((m) => !have.has(m.id)), ...prev];
       });
       setHasMore(Boolean(data?.has_more));
     } catch {
-      // ignore
+      // leave the button for another try
     } finally {
       setLoadingOlder(false);
     }
   };
 
-  const handleSent = useCallback((message: LetterMessage) => {
-    setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
-    setNewMessageIds((prev) => new Set([...prev, message.id]));
-    lastMessageIdRef.current = message.id;
-    // Ensure we scroll to the new letter even if the user had scrolled up
-    isAtBottomRef.current = true;
+  const handleSent = useCallback(
+    (message: LetterMessage) => {
+      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+      setNewMessageIds((prev) => new Set([...prev, message.id]));
+      lastMessageIdRef.current = message.id;
+      isAtBottomRef.current = true;
+      setDraftHtml("");
+      clearLetterDraft(conversationId);
+      setReplyKey((k) => k + 1);
+    },
+    [conversationId]
+  );
+
+  const closeStationery = useCallback(() => {
+    setComposeOpen(false);
+    // Show whatever was written there back in the reply bar.
+    setReplyKey((k) => k + 1);
   }, []);
+
+  // Day separators and "same sitting" grouping.
+  const rows = useMemo(() => {
+    return messages.map((message, i) => {
+      const prev = messages[i - 1];
+      const day = dayKey(message.inserted_at, timeZone);
+      const newDay = !prev || dayKey(prev.inserted_at, timeZone) !== day;
+      const continued =
+        !!prev &&
+        !newDay &&
+        prev.sender_username === message.sender_username &&
+        new Date(message.inserted_at).getTime() - new Date(prev.inserted_at).getTime() < CONTINUATION_MS;
+      return { message, newDay, continued };
+    });
+  }, [messages, timeZone]);
 
   return (
     <div className="letter-thread-container">
-      {/* Header */}
-      <div
-        style={{
-          padding: "16px 20px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          flexShrink: 0,
-        }}
-      >
-        <Link
-          href="/letters"
-          style={{
-            color: "var(--muted)",
-            textDecoration: "none",
-            fontSize: "20px",
-            lineHeight: "1",
-            marginRight: "4px",
-          }}
-          title="Back to Letterbox"
-        >
+      <div className="letter-thread-header">
+        <Link href="/letters" className="letter-thread-back" title="Back to Letterbox" aria-label="Back to Letterbox">
           ←
         </Link>
-
-        <Avatar
-          url={initialThread.other_user.avatar_url}
-          name={initialThread.other_user.display_name}
-          size={36}
-        />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              fontWeight: "600",
-              fontSize: "15px",
-              color: "var(--foreground)",
-            }}
+        <Link href={`/${other.username}`} className="letter-thread-who">
+          <Avatar url={other.avatar_url} name={other.display_name} size={36} />
+          <span className="letter-thread-who-text">
+            <span className="letter-thread-who-name">{other.display_name}</span>
+            <span className="letter-thread-who-handle">@{other.username}</span>
+          </span>
+        </Link>
+        {canWrite && (
+          <button
+            type="button"
+            className="letter-write-btn letter-write-btn-header"
+            onClick={() => setComposeOpen(true)}
+            title="Open the stationery"
           >
-            {initialThread.other_user.display_name}
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-            <Link
-              href={`/${initialThread.other_user.username}`}
-              style={{ color: "var(--muted)", textDecoration: "none" }}
-            >
-              @{initialThread.other_user.username}
-            </Link>
-          </div>
-        </div>
-
-        {/* Write a letter button (desktop, hidden on narrow screens) */}
-        <button
-          type="button"
-          className="letter-write-btn letter-write-btn-header"
-          onClick={() => setComposeOpen(true)}
-          title="Write a letter"
-        >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-            <polyline points="22,6 12,13 2,6" />
-          </svg>
-          <span>Write a letter</span>
-        </button>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            <span>Stationery</span>
+          </button>
+        )}
       </div>
 
-      {/* Messages area — full-width, no sidebar */}
       <div className="letter-thread-body">
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="letter-thread-messages"
-          style={{
-            background: `
-              repeating-linear-gradient(
-                90deg,
-                transparent,
-                transparent 40px,
-                rgba(180,160,100,0.03) 40px,
-                rgba(180,160,100,0.03) 41px
-              ),
-              var(--background)
-            `,
-          }}
-        >
-          {/* Load older letters */}
-          {hasMore && (
-            <div style={{ textAlign: "center", marginBottom: "20px" }}>
-              <button
-                onClick={loadOlderLetters}
-                disabled={loadingOlder}
-                style={{
-                  background: "none",
-                  border: "1px solid var(--border)",
-                  borderRadius: "9999px",
-                  padding: "6px 16px",
-                  fontSize: "12px",
-                  color: "var(--muted)",
-                  cursor: loadingOlder ? "default" : "pointer",
-                  fontFamily: "var(--font-lora, Georgia, serif)",
-                  fontStyle: "italic",
-                }}
-              >
-                {loadingOlder ? "Loading..." : "↑ Load older letters"}
-              </button>
-            </div>
-          )}
-
-          {/* Messages */}
-          <AnimatePresence initial={false}>
-            {messages.map((message) => (
-              <LetterNote
-                key={message.id}
-                message={message}
-                conversationId={conversationId}
-                onDelete={handleDelete}
-                onUpdate={handleUpdate}
-                prefersReducedMotion={prefersReducedMotion}
-                isNew={newMessageIds.has(message.id)}
-                isEditing={editingMessageId === message.id}
-                onStartEdit={(id) => setEditingMessageId(id)}
-                onCancelEdit={() => setEditingMessageId(null)}
-              />
-            ))}
-          </AnimatePresence>
-
-          {messages.length === 0 && (
-            <div className="letter-empty-state">
-              <div className="letter-empty-icon" aria-hidden="true">
-                <svg
-                  width="44"
-                  height="44"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
+        <div ref={scrollRef} onScroll={handleScroll} className="letter-thread-messages">
+          <div className="letter-thread-column">
+            {hasMore && (
+              <div className="letter-older">
+                <button type="button" className="letter-older-btn" onClick={loadOlderLetters} disabled={loadingOlder}>
+                  {loadingOlder ? "Loading…" : "↑ Earlier letters"}
+                </button>
               </div>
-              <div className="letter-empty-heading">
-                Begin your correspondence
-              </div>
-              <div className="letter-empty-sub">
-                Pull out a sheet of stationery and write the first letter.
-              </div>
-              <button
-                type="button"
-                className="letter-write-btn letter-write-btn-empty"
-                onClick={() => setComposeOpen(true)}
-              >
-                Write the first letter
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Reply prompt — blank stationery waiting to be written on.
-              Appended after the last message so the user's eyes land right on it. */}
-          {messages.length > 0 && (
-            <button
-              type="button"
-              className="letter-reply-prompt"
-              onClick={() => setComposeOpen(true)}
-              aria-label={`Write back to ${initialThread.other_user.display_name}`}
-            >
-              <div className="letter-reply-prompt-inner">
-                <span className="letter-reply-prompt-label">Your turn</span>
-                <span className="letter-reply-prompt-heading">
-                  Write back to{" "}
-                  <em>{initialThread.other_user.display_name}</em>
-                </span>
-                <span className="letter-reply-prompt-cta">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
+            {!hasMore && messages.length > 0 && (
+              <p className="letter-thread-start">
+                The beginning of your letters with {other.display_name}
+              </p>
+            )}
+
+            <AnimatePresence initial={false}>
+              {rows.map(({ message, newDay, continued }) => (
+                <div key={message.id}>
+                  {newDay && (
+                    <div className="letter-day" role="separator">
+                      <span>{dayLabel(message.inserted_at, timeZone)}</span>
+                    </div>
+                  )}
+                  <LetterPage
+                    message={message}
+                    conversationId={conversationId}
+                    timeZone={timeZone}
+                    continued={continued}
+                    isNew={newMessageIds.has(message.id)}
+                    isEditing={editingMessageId === message.id}
+                    onStartEdit={(id) => setEditingMessageId(id)}
+                    onCancelEdit={() => setEditingMessageId(null)}
+                    onDelete={handleDelete}
+                    onUpdate={handleUpdate}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
+                </div>
+              ))}
+            </AnimatePresence>
+
+            {messages.length === 0 && (
+              <div className="letter-empty-state">
+                <div className="letter-empty-icon" aria-hidden="true">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                     <polyline points="22,6 12,13 2,6" />
                   </svg>
-                  Open a fresh sheet of stationery
-                </span>
+                </div>
+                <div className="letter-empty-heading">Begin your correspondence</div>
+                <div className="letter-empty-sub">
+                  Write a quick note below, or open the stationery for a longer letter.
+                </div>
               </div>
-            </button>
-          )}
+            )}
+          </div>
         </div>
+
+        {canWrite ? (
+          <ReplyBar
+            conversationId={conversationId}
+            recipientName={other.display_name}
+            draftHtml={draftHtml}
+            editorKey={replyKey}
+            onDraftChange={setDraftHtml}
+            onSent={handleSent}
+            onExpand={() => setComposeOpen(true)}
+          />
+        ) : (
+          <div className="letter-reply-closed" role="status">
+            You and {other.display_name} are no longer pen pals, so this conversation is closed to new
+            letters. Your letters stay here.
+          </div>
+        )}
       </div>
 
-      {/* Mobile: floating action button */}
-      <button
-        type="button"
-        className="letter-write-fab"
-        onClick={() => setComposeOpen(true)}
-        aria-label="Write a letter"
-      >
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-          <polyline points="22,6 12,13 2,6" />
-        </svg>
-      </button>
-
-      {/* Stationery compose modal */}
-      <StationeryModal
-        open={composeOpen}
-        onClose={() => setComposeOpen(false)}
-        conversationId={conversationId}
-        recipientDisplayName={initialThread.other_user.display_name}
-        recipientUsername={initialThread.other_user.username}
-        recipientAvatarUrl={initialThread.other_user.avatar_url}
-        initialDraftHtml={draftHtml}
-        onDraftChange={setDraftHtml}
-        onSent={handleSent}
-      />
+      {canWrite && (
+        <StationeryModal
+          open={composeOpen}
+          onClose={closeStationery}
+          conversationId={conversationId}
+          recipientDisplayName={other.display_name}
+          recipientUsername={other.username}
+          recipientAvatarUrl={other.avatar_url}
+          initialDraftHtml={draftHtml}
+          onDraftChange={setDraftHtml}
+          onSent={handleSent}
+        />
+      )}
     </div>
   );
 }

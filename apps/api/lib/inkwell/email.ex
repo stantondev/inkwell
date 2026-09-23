@@ -177,6 +177,66 @@ defmodule Inkwell.Email do
     end
   end
 
+  @doc """
+  Tell `recipient` a letter from `sender` is waiting. Names the sender and
+  links to the conversation; never includes the letter itself (letters are
+  private and email isn't). Carries the same one-click unsubscribe as other
+  notification emails.
+  """
+  def send_letter_notification(recipient, sender, conversation_url) do
+    unsubscribe_url = build_unsubscribe_url(recipient.id)
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    sender_name = sender.display_name || sender.username
+    name = escape_html(sender_name)
+    username = escape_html(sender.username)
+    url = escape_html(conversation_url)
+
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Georgia, 'Times New Roman', serif; background: #faf9f6; color: #333; margin: 0; padding: 0;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 32px 20px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="font-size: 13px; color: #2d4a8a; letter-spacing: 0.15em; text-transform: uppercase;
+                       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">Inkwell</span>
+        </div>
+        <div style="background: #fdf8ee; border: 1px solid #e0d4b8; border-radius: 12px; padding: 32px 28px; text-align: center;">
+          <div style="font-size: 36px; line-height: 1; margin-bottom: 14px; color: #2d4a8a;">&#9993;</div>
+          <h1 style="font-size: 21px; font-weight: normal; margin: 0 0 8px; color: #1a1a1a;">
+            A letter from <strong>#{name}</strong>
+          </h1>
+          <p style="font-size: 14px; color: #6a5a3a; margin: 0 0 24px;">
+            <a href="#{frontend_url}/#{username}" style="color: #6a5a3a; text-decoration: none;">@#{username}</a>
+            wrote to you. It's waiting in your Letterbox.
+          </p>
+          <a href="#{url}"
+             style="display: inline-block; background: #2d4a8a; color: #fff; text-decoration: none;
+                    padding: 12px 26px; border-radius: 9999px; font-size: 15px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">Read the letter</a>
+        </div>
+        <p style="font-size: 12px; color: #8a8a8a; text-align: center; line-height: 1.6; margin: 24px 0 0;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          We only email once while a letter is unread, and never include what it says.<br>
+          Turn these off in Settings &rarr; Notifications, or
+          <a href="#{unsubscribe_url}" style="color: #8a8a8a;">unsubscribe from all Inkwell emails</a>.
+        </p>
+      </div>
+    </body>
+    </html>
+    """
+
+    headers = %{
+      "List-Unsubscribe" => "<#{unsubscribe_url}>",
+      "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click"
+    }
+
+    do_send_email(recipient.email, "#{sender_name} sent you a letter", html, headers: headers)
+  end
+
   @doc "Send a batch of emails. Max 100 per call for Resend; SMTP sends sequentially."
   def send_batch(emails) when is_list(emails) do
     case email_provider() do
