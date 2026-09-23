@@ -33,6 +33,8 @@ interface TranslateButtonProps {
   } | null) => void;
   size?: number;
   className?: string;
+  /** Show a text label next to the globe ("Translate"), for places where a bare icon is easy to miss */
+  showLabel?: boolean;
 }
 
 export function TranslateButton({
@@ -42,6 +44,7 @@ export function TranslateButton({
   onTranslation,
   size = 15,
   className = "",
+  showLabel = false,
 }: TranslateButtonProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -159,11 +162,13 @@ export function TranslateButton({
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
           </svg>
         )}
-        {showTranslation && (
+        {showTranslation ? (
           <span className="text-xs" style={{ color: "var(--accent)" }}>
             {sourceLangName ? `From ${sourceLangName}` : "Translated"}
           </span>
-        )}
+        ) : showLabel ? (
+          <span className="text-xs">{isTranslating ? "Translating…" : "Translate"}</span>
+        ) : null}
       </button>
 
       {/* Translation status bar — shown below when translation is active */}

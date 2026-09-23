@@ -70,7 +70,7 @@ defmodule Inkwell.DeepL do
               Enum.map(translations, fn t ->
                 %{
                   text: t["text"],
-                  detected_source_language: t["detectedSourceLanguage"]
+                  detected_source_language: t["detected_source_language"] || t["detectedSourceLanguage"]
                 }
               end)
 

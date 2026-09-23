@@ -29,7 +29,7 @@ import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
 import { SignupCta } from "@/components/signup-cta";
 import { PaywallCard } from "@/components/paywall-card";
-import { TranslatableEntry } from "@/components/translatable-entry";
+import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-entry";
 import { GalleryHydrator } from "@/components/gallery-hydrator";
 import { MarginaliaReader } from "@/components/marginalia/marginalia-reader";
 import { StickyNoteCard } from "@/components/sticky-note-card";
@@ -744,7 +744,7 @@ export default async function EntryPage({ params }: EntryParams) {
               className="text-2xl sm:text-4xl font-bold leading-tight mb-7 pr-20 sm:pr-28"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
             >
-              {entry.title}
+              <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle>
             </h1>
           )}
 
@@ -872,6 +872,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 originalBodyHtml={entry.body_html}
                 preferredLanguage={session?.user.preferred_language}
                 isLoggedIn={!!session}
+                loginHref={`/login?next=${encodeURIComponent(`/${username}/${slug}`)}`}
               >
                 <EntryContent
                   html={entry.body_html}

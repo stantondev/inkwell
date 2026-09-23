@@ -9,7 +9,7 @@ import { EnrichableContent } from "./enrichable-content";
 import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
-import { TranslateButton } from "@/components/translate-button";
+import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-entry";
 import { SignupCta } from "@/components/signup-cta";
 import { CommentSection } from "@/app/[username]/[slug]/comment-section";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
@@ -192,14 +192,6 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
               size={18}
               apiPath={`/api/remote-entries/${entry.id}/reprint/toggle`}
             />
-            {session && (
-              <TranslateButton
-                type="remote_entry"
-                id={entry.id}
-                preferredLanguage={session.user.preferred_language}
-                size={18}
-              />
-            )}
             <ShareButton
               url={`https://inkwell.social/fediverse/${entry.id}`}
               title={entry.title || `Post by ${author.display_name}`}
@@ -264,17 +256,26 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
             className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 leading-tight"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            {entry.title}
+            <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle>
           </h1>
         )}
 
         {/* Content */}
         <ContentWarning isSensitive={entry.is_sensitive} contentWarning={entry.content_warning}>
-          <EnrichableContent
-            entryId={entry.id}
-            initialHtml={entry.body_html}
-            enriching={enrichingPreview}
-          />
+          <TranslatableEntry
+            type="remote_entry"
+            id={entry.id}
+            originalBodyHtml={entry.body_html}
+            preferredLanguage={session?.user.preferred_language}
+            isLoggedIn={!!session}
+            loginHref={`/login?next=${encodeURIComponent(`/fediverse/${entry.id}`)}`}
+          >
+            <EnrichableContent
+              entryId={entry.id}
+              initialHtml={entry.body_html}
+              enriching={enrichingPreview}
+            />
+          </TranslatableEntry>
 
           {/* Tags */}
           {entry.tags.length > 0 && (

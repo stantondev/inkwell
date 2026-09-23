@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { TranslateButton } from "@/components/translate-button";
+
+/**
+ * The title and the body of an entry page are rendered in different places,
+ * so the body's translation is broadcast for <TranslatableTitle> to pick up.
+ */
+const TITLE_EVENT = "inkwell-entry-title-translation";
+
+interface TitleDetail {
+  id: string;
+  title: string | null;
+}
 
 interface TranslatableEntryProps {
   type: string;
@@ -9,6 +21,8 @@ interface TranslatableEntryProps {
   originalBodyHtml: string;
   preferredLanguage?: string | null;
   isLoggedIn: boolean;
+  /** Where signed-out readers are sent to sign in and come back */
+  loginHref?: string;
   className?: string;
   /** Server-rendered original content */
   children: React.ReactNode;
@@ -22,14 +36,13 @@ interface TranslatableEntryProps {
 export function TranslatableEntry({
   type,
   id,
-  originalBodyHtml,
   preferredLanguage,
   isLoggedIn,
+  loginHref,
   className,
   children,
 }: TranslatableEntryProps) {
   const [translatedBody, setTranslatedBody] = useState<string | null>(null);
-  const [sourceLang, setSourceLang] = useState<string | null>(null);
   const [isTranslated, setIsTranslated] = useState(false);
 
   const handleTranslation = useCallback(
@@ -42,17 +55,35 @@ export function TranslatableEntry({
     ) => {
       if (translation) {
         setTranslatedBody(translation.translated_body);
-        setSourceLang(translation.source_language);
         setIsTranslated(true);
       } else {
         setIsTranslated(false);
       }
+      window.dispatchEvent(
+        new CustomEvent<TitleDetail>(TITLE_EVENT, {
+          detail: { id, title: translation?.translated_title ?? null },
+        })
+      );
     },
-    []
+    [id]
   );
 
   if (!isLoggedIn) {
-    return <>{children}</>;
+    return (
+      <div className={className}>
+        {loginHref && (
+          <Link
+            href={loginHref}
+            className="inline-flex items-center gap-1 mb-3 text-xs hover:underline"
+            style={{ color: "var(--muted)" }}
+          >
+            <GlobeIcon />
+            Sign in to translate
+          </Link>
+        )}
+        {children}
+      </div>
+    );
   }
 
   return (
@@ -63,6 +94,8 @@ export function TranslatableEntry({
         preferredLanguage={preferredLanguage}
         onTranslation={handleTranslation}
         size={16}
+        showLabel
+        className="mb-3"
       />
 
       {/* Show translated content when active, original otherwise */}
@@ -76,5 +109,31 @@ export function TranslatableEntry({
         children
       )}
     </div>
+  );
+}
+
+/** Shows the translated title while the entry's body is translated. */
+export function TranslatableTitle({ id, children }: { id: string; children: React.ReactNode }) {
+  const [title, setTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onTranslation(e: Event) {
+      const detail = (e as CustomEvent<TitleDetail>).detail;
+      if (detail?.id === id) setTitle(detail.title);
+    }
+    window.addEventListener(TITLE_EVENT, onTranslation);
+    return () => window.removeEventListener(TITLE_EVENT, onTranslation);
+  }, [id]);
+
+  return <>{title ?? children}</>;
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
   );
 }
