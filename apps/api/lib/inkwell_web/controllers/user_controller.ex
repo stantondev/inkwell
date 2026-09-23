@@ -90,6 +90,12 @@ defmodule InkwellWeb.UserController do
             fediverse_follower_count: fediverse_follower_count,
             relationship_status: relationship_status,
             incoming_request: incoming_request,
+            # "letter", "request" (they take letter requests) or nil
+            letter_access:
+              case Inkwell.Letters.letter_access(conn.assigns[:current_user], user) do
+                nil -> nil
+                access -> to_string(access)
+              end,
             custom_domain: custom_domain,
             noindex: Inkwell.Journals.held_back_from_search?(user.id),
             top_friends: Enum.map(top_friends, fn {pos, u} ->

@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 
 interface Props {
   username: string;
+  /** They take letter requests and you aren't pen pals: one letter, into their Requests. */
+  request?: boolean;
 }
 
-export function WriteLetterButton({ username }: Props) {
+export function WriteLetterButton({ username, request = false }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -54,7 +56,7 @@ export function WriteLetterButton({ username }: Props) {
         opacity: loading ? 0.7 : 1,
         transition: "opacity 0.2s",
       }}
-      title="Write a private letter"
+      title={request ? "Send one letter; it waits in their Requests until they accept" : "Write a private letter"}
     >
       <svg
         width="14"
@@ -70,7 +72,7 @@ export function WriteLetterButton({ username }: Props) {
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
         <polyline points="22,6 12,13 2,6" />
       </svg>
-      {loading ? "Opening..." : "Write a Letter"}
+      {loading ? "Opening..." : request ? "Send a letter request" : "Write a Letter"}
     </button>
     {error && (
       <span role="alert" style={{ fontSize: "12px", color: "var(--danger)" }}>

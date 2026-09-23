@@ -29,6 +29,11 @@ defmodule InkwellWeb.LetterController do
           |> put_status(:forbidden)
           |> json(%{error: "You're no longer pen pals, so you can't send letters here"})
 
+        {:error, :request_pending} ->
+          conn
+          |> put_status(:forbidden)
+          |> json(%{error: "Your letter is waiting to be accepted. You can write more once it is."})
+
         {:error, %Ecto.Changeset{} = changeset} ->
           errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
           conn |> put_status(:unprocessable_entity) |> json(%{errors: errors})

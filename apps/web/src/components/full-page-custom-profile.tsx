@@ -116,6 +116,7 @@ export function FullPageCustomProfile({
           isLoggedIn={templateContext.isLoggedIn}
           relationshipStatus={templateContext.relationshipStatus}
           incomingRequest={templateContext.incomingRequest}
+          letterAccess={templateContext.letterAccess ?? null}
           styles={styles}
           followerCount={templateContext.followerCount}
           followingCount={templateContext.followingCount}

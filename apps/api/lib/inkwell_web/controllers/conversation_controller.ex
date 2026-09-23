@@ -4,16 +4,56 @@ defmodule InkwellWeb.ConversationController do
   alias Inkwell.Letters
   alias InkwellWeb.LetterJSON
 
-  # GET /api/conversations — list all conversations for current user
-  def index(conn, _params) do
+  @folders %{"inbox" => :inbox, "requests" => :requests, "archived" => :archived}
+
+  # GET /api/conversations[?folder=inbox|requests|archived] — one Letterbox
+  # tab, plus how many are waiting in the other two.
+  def index(conn, params) do
     user = conn.assigns.current_user
+    folder = Map.get(@folders, params["folder"], :inbox)
 
     json(conn, %{
       data:
-        Enum.map(Letters.list_conversations(user.id), fn {conv, other, last_msg, unread} ->
-          LetterJSON.conversation(conv, other, last_msg, unread)
-        end)
+        Enum.map(Letters.list_conversations(user.id, folder), fn {conv, other, last_msg, unread, view} ->
+          LetterJSON.conversation(conv, other, last_msg, unread, view)
+        end),
+      meta: %{
+        folder: folder,
+        counts: Letters.folder_counts(user.id),
+        letters_from: (user.settings || %{})["letters_from"] || "pen_pals"
+      }
     })
+  end
+
+  # GET /api/conversations/search?q= — letters you can see that mention q
+  def search(conn, params) do
+    user = conn.assigns.current_user
+    q = if is_binary(params["q"]), do: params["q"], else: ""
+
+    json(conn, %{data: Enum.map(Letters.search_letters(user.id, q), &LetterJSON.search_hit(&1, user.id))})
+  end
+
+  # POST /api/conversations/:id/actions {"action": ...} — your own archive,
+  # mute, mark unread, delete for me, and answers to letter requests.
+  # (Not named `action/2`: that's the function every Phoenix controller
+  # dispatches through, and defining it swallowed every request.)
+  def update_view(conn, %{"id" => id, "action" => action}) when is_binary(action) do
+    user = conn.assigns.current_user
+
+    case Letters.apply_action(id, user.id, action) do
+      {:ok, _conv} ->
+        json(conn, %{ok: true})
+
+      {:error, :invalid} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "That can't be done to this conversation"})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Conversation not found"})
+    end
+  end
+
+  def update_view(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing action"})
   end
 
   # POST /api/conversations — find or create a conversation with a pen pal
@@ -36,6 +76,11 @@ defmodule InkwellWeb.ConversationController do
 
       {:error, :blocked} ->
         conn |> put_status(:forbidden) |> json(%{error: "Unable to start a letter exchange with this user"})
+
+      {:error, :request_limit} ->
+        conn
+        |> put_status(:too_many_requests)
+        |> json(%{error: "You've sent as many letter requests as you can today. Try again tomorrow."})
 
       {:error, _} ->
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to create conversation"})
@@ -71,6 +116,7 @@ defmodule InkwellWeb.ConversationController do
     case Letters.get_conversation(id, user.id, before: params["before"]) do
       {:ok, conv, messages, has_more} ->
         other = if conv.participant_a == user.id, do: conv.participant_b_user, else: conv.participant_a_user
+        view = Letters.thread_view(conv, user.id)
 
         json(conn, %{
           data: %{
@@ -78,7 +124,11 @@ defmodule InkwellWeb.ConversationController do
             other_user: LetterJSON.user(other),
             messages: Enum.map(messages, &LetterJSON.message(&1, user.id)),
             has_more: has_more,
-            can_write: Letters.can_write_in?(conv, user.id)
+            can_write: view.can_write,
+            muted: view.muted,
+            archived: view.archived,
+            request: LetterJSON.request(view.request),
+            request_waiting: view.request_waiting
           }
         })
 

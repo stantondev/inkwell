@@ -54,7 +54,7 @@ defmodule Inkwell.LetterEmailTest do
     write(conv, alice)
     assert emailed_at(conv, bob)
     assert Letters.count_unread_letters(bob.id) == 1
-    assert [{_, _, _, 1}] = Letters.list_conversations(bob.id)
+    assert [{_, _, _, 1, _}] = Letters.list_conversations(bob.id)
   end
 
   # Letters inserted directly skip `send_letter`, so no job runs until we run it.

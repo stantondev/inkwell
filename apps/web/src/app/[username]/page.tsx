@@ -498,6 +498,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
   let fediverseFollowerCount = 0;
   let relationshipStatus: string | null = null;
   let incomingRequest = false;
+  let letterAccess: string | null = null;
 
   let entryYears: number[] = [];
   let entryMonths: { year: number; month: number; count: number }[] = [];
@@ -524,6 +525,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
         entry_tags?: { tag: string; count: number }[];
         entry_categories?: { category: string; count: number }[];
         incoming_request?: boolean;
+        letter_access?: string | null;
       };
     }>(username, session?.token);
 
@@ -537,6 +539,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
     topFriends = data.meta.top_friends ?? [];
     relationshipStatus = data.meta.relationship_status ?? null;
     incomingRequest = data.meta.incoming_request ?? false;
+    letterAccess = data.meta.letter_access ?? null;
     entryYears = data.meta.entry_years ?? [];
     entryMonths = data.meta.entry_months ?? [];
     entryTags = data.meta.entry_tags ?? [];
@@ -772,6 +775,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
       isLoggedIn: !!session,
       relationshipStatus,
       incomingRequest,
+      letterAccess,
     };
 
     // Extract CSS overrides from user's custom CSS so hydrated widgets
@@ -1169,8 +1173,8 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
                     }
                   />
                   {/* Write a Letter button — only for accepted pen pals */}
-                  {relationshipStatus === "accepted" && session && (
-                    <WriteLetterButton username={username} />
+                  {(letterAccess === "letter" || letterAccess === "request") && session && (
+                    <WriteLetterButton username={username} request={letterAccess === "request"} />
                   )}
                   {session && (
                     <BlockButton targetUsername={username} initialBlocked={false} />

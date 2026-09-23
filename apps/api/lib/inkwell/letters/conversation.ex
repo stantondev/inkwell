@@ -7,6 +7,10 @@ defmodule Inkwell.Letters.Conversation do
 
   schema "conversations" do
     field :last_message_at, :utc_datetime_usec
+    # nil, or "pending" / "accepted" / "declined" for a letter request.
+    field :request_status, :string
+    belongs_to :requested_by, Inkwell.Accounts.User, foreign_key: :requested_by_id
+    field :requested_at, :utc_datetime_usec
 
     belongs_to :participant_a_user, Inkwell.Accounts.User, foreign_key: :participant_a
     belongs_to :participant_b_user, Inkwell.Accounts.User, foreign_key: :participant_b

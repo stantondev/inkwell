@@ -11,13 +11,34 @@ defmodule InkwellWeb.LetterJSON do
 
   alias Inkwell.Avatars
 
-  def conversation(conv, other, last_msg, unread) do
+  def conversation(conv, other, last_msg, unread, view \\ %{}) do
     %{
       id: conv.id,
       other_user: user(other),
       last_message: if(last_msg, do: preview(last_msg), else: nil),
       unread_count: unread,
-      last_message_at: conv.last_message_at
+      last_message_at: conv.last_message_at,
+      muted: Map.get(view, :muted, false),
+      request: view |> Map.get(:request) |> request()
+    }
+  end
+
+  @doc "`:incoming` / `:outgoing` / nil as a string for the page."
+  def request(nil), do: nil
+  def request(side), do: to_string(side)
+
+  @doc "A search hit: the letter plus who the conversation is with."
+  def search_hit(message, viewer_id) do
+    conv = message.conversation
+    other = if conv.participant_a == viewer_id, do: conv.participant_b_user, else: conv.participant_a_user
+
+    %{
+      conversation_id: conv.id,
+      letter_id: message.id,
+      other_user: user(other),
+      is_mine: message.sender_id == viewer_id,
+      body: String.slice(message.body, 0, 400),
+      inserted_at: message.inserted_at
     }
   end
 

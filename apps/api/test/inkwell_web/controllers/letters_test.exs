@@ -109,7 +109,7 @@ defmodule InkwellWeb.LettersTest do
       letter(conv, bob, "one")
       letter(conv, bob, "two")
 
-      assert [{_, other, last, 2}] = Letters.list_conversations(alice.id)
+      assert [{_, other, last, 2, _}] = Letters.list_conversations(alice.id)
       assert other.id == bob.id
       assert last.body == "two"
       assert Letters.count_unread_letters(alice.id) == 1
@@ -117,7 +117,7 @@ defmodule InkwellWeb.LettersTest do
 
       Letters.mark_read(conv.id, alice.id)
       assert Letters.count_unread_letters(alice.id) == 0
-      assert [{_, _, _, 0}] = Letters.list_conversations(alice.id)
+      assert [{_, _, _, 0, _}] = Letters.list_conversations(alice.id)
     end
 
     test "a letter its sender removed disappears for them only", %{alice: alice, bob: bob, conv: conv} do
@@ -126,8 +126,8 @@ defmodule InkwellWeb.LettersTest do
       removed = letter(conv, alice, "removed")
       {:ok, _} = Letters.delete_letter(removed.id, alice.id)
 
-      assert [{_, _, %{body: "kept"}, _}] = Letters.list_conversations(alice.id)
-      assert [{_, _, %{body: "removed"}, 2}] = Letters.list_conversations(bob.id)
+      assert [{_, _, %{body: "kept"}, _, _}] = Letters.list_conversations(alice.id)
+      assert [{_, _, %{body: "removed"}, 2, _}] = Letters.list_conversations(bob.id)
     end
 
     test "avatars are links, never the stored image", %{conn: conn, alice: alice, bob: bob, conv: conv} do

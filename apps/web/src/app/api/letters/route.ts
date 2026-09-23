@@ -3,12 +3,15 @@ import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
-// GET /api/letters — list all conversations
-export async function GET() {
+// GET /api/letters[?folder=inbox|requests|archived] — one Letterbox tab
+export async function GET(request: NextRequest) {
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  const res = await upstreamFetch(`${SERVER_API}/api/conversations`, {
+  const folder = request.nextUrl.searchParams.get("folder");
+  const query = folder && /^(inbox|requests|archived)$/.test(folder) ? `?folder=${folder}` : "";
+
+  const res = await upstreamFetch(`${SERVER_API}/api/conversations${query}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

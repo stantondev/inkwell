@@ -399,6 +399,8 @@ defmodule InkwellWeb.Router do
 
     # Letters (private messaging between pen pals)
     get  "/conversations",                              ConversationController, :index
+    get  "/conversations/search",                       ConversationController, :search
+    post "/conversations/:id/actions",                  ConversationController, :update_view
     post "/conversations",                              ConversationController, :create
     get  "/conversations/:id",                          ConversationController, :show
     post "/conversations/:id/read",                     ConversationController, :mark_read

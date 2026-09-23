@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
+import { FloatingPopup } from "@/components/floating-popup";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Avatar } from "@/components/avatar";
 import { LetterEditor } from "@/components/letter-editor";
@@ -79,6 +81,7 @@ function LetterPage({
   conversationId,
   timeZone,
   continued,
+  highlighted,
   isNew,
   isEditing,
   onStartEdit,
@@ -91,6 +94,7 @@ function LetterPage({
   conversationId: string;
   timeZone: string;
   continued: boolean;
+  highlighted: boolean;
   isNew: boolean;
   isEditing: boolean;
   onStartEdit: (id: string) => void;
@@ -166,9 +170,10 @@ function LetterPage({
 
   return (
     <motion.article
+      id={`letter-${message.id}`}
       className={`letter-page ${message.is_mine ? "letter-page-mine" : "letter-page-theirs"} ${
         continued ? "letter-page-continued" : ""
-      }`}
+      } ${highlighted ? "letter-page-highlight" : ""}`}
       initial={prefersReducedMotion || !isNew ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, transition: { duration: 0.15 } }}
@@ -362,9 +367,23 @@ function ReplyBar({
 interface Props {
   initialThread: ThreadData;
   conversationId: string;
+  /** A letter to scroll to, from a Letterbox search result. */
+  focusLetterId?: string | null;
 }
 
-export function LetterThread({ initialThread, conversationId }: Props) {
+type ThreadAction = "archive" | "unarchive" | "mute" | "unmute" | "unread" | "delete" | "accept" | "decline";
+
+export function LetterThread({ initialThread, conversationId, focusLetterId = null }: Props) {
+  const router = useRouter();
+  const [muted, setMuted] = useState(Boolean(initialThread.muted));
+  const [archived, setArchived] = useState(Boolean(initialThread.archived));
+  const [request, setRequest] = useState<string | null>(initialThread.request ?? null);
+  const [waiting, setWaiting] = useState(Boolean(initialThread.request_waiting));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const menuAnchorRef = useRef<HTMLButtonElement>(null);
+  const focusAttemptsRef = useRef(0);
   const [messages, setMessages] = useState<LetterMessage[]>(initialThread.messages);
   const [hasMore, setHasMore] = useState(initialThread.has_more);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -383,7 +402,7 @@ export function LetterThread({ initialThread, conversationId }: Props) {
   // Height before older letters were added above, to keep the reader's place.
   const prependAnchorRef = useRef<number | null>(null);
   const other = initialThread.other_user;
-  const canWrite = initialThread.can_write !== false;
+  const canWrite = initialThread.can_write !== false && !waiting;
 
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
@@ -542,9 +561,86 @@ export function LetterThread({ initialThread, conversationId }: Props) {
       setDraftHtml("");
       clearLetterDraft(conversationId);
       setReplyKey((k) => k + 1);
+      // A request gets one letter until it's accepted; replying to one accepts it.
+      if (request === "outgoing") setWaiting(true);
+      if (request === "incoming") setRequest(null);
     },
-    [conversationId]
+    [conversationId, request]
   );
+
+  const runAction = async (action: ThreadAction) => {
+    setMenuOpen(false);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/letters/${conversationId}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionError(json.error || "Couldn't do that — please try again");
+        return false;
+      }
+      window.dispatchEvent(new Event("inkwell-nav-refresh"));
+      return true;
+    } catch {
+      setActionError("Couldn't do that — please try again");
+      return false;
+    }
+  };
+
+  const handleMenu = async (action: ThreadAction) => {
+    if (action === "delete") {
+      const ok = confirm(
+        `Delete this conversation for you? The letters disappear from your letterbox; ${other.display_name} keeps theirs. New letters will still reach you.`
+      );
+      if (!ok) return;
+    }
+    if (!(await runAction(action))) return;
+    if (action === "mute") setMuted(true);
+    if (action === "unmute") setMuted(false);
+    if (action === "unarchive") setArchived(false);
+    // These all take you back to the Letterbox, where the change shows.
+    if (action === "unread" || action === "archive" || action === "delete") router.push("/letters");
+  };
+
+  const answerRequest = async (answer: "accept" | "decline" | "block") => {
+    if (answer === "block") {
+      if (!confirm(`Block ${other.display_name}? They won't be able to write to you or see your journal.`)) return;
+      try {
+        const res = await fetch(`/api/block/${encodeURIComponent(other.username)}`, { method: "POST" });
+        if (!res.ok) throw new Error();
+      } catch {
+        setActionError("Couldn't block — please try again");
+        return;
+      }
+      await runAction("decline");
+      router.push("/letters?tab=requests");
+      return;
+    }
+    if (!(await runAction(answer))) return;
+    if (answer === "accept") setRequest(null);
+    else router.push("/letters?tab=requests");
+  };
+
+  // A letter opened from search: load back until it's there, then show it.
+  useEffect(() => {
+    if (!focusLetterId || highlightId === focusLetterId) return;
+    const el = document.getElementById(`letter-${focusLetterId}`);
+    if (el) {
+      el.scrollIntoView({ block: "center" });
+      isAtBottomRef.current = false;
+      setHighlightId(focusLetterId);
+      return;
+    }
+    if (hasMore && !loadingOlder && focusAttemptsRef.current < 20) {
+      focusAttemptsRef.current += 1;
+      loadOlderLetters();
+    }
+    // loadOlderLetters is recreated each render; messages/hasMore drive this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusLetterId, messages, hasMore, loadingOlder, highlightId]);
 
   const closeStationery = useCallback(() => {
     setComposeOpen(false);
@@ -580,6 +676,11 @@ export function LetterThread({ initialThread, conversationId }: Props) {
             <span className="letter-thread-who-handle">@{other.username}</span>
           </span>
         </Link>
+        {muted && (
+          <span className="letterbox-tag" title="Muted: no notifications from this conversation">
+            muted
+          </span>
+        )}
         {canWrite && (
           <button
             type="button"
@@ -594,7 +695,52 @@ export function LetterThread({ initialThread, conversationId }: Props) {
             <span>Stationery</span>
           </button>
         )}
+        <button
+          ref={menuAnchorRef}
+          type="button"
+          className="letter-icon-btn"
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label="Conversation options"
+          title="Conversation options"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+          </svg>
+        </button>
+        <FloatingPopup anchorRef={menuAnchorRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom">
+          <div className="letter-menu" role="menu">
+            {request !== "incoming" && messages.some((m) => !m.is_mine) && (
+              <button type="button" role="menuitem" onClick={() => handleMenu("unread")}>
+                Mark as unread
+              </button>
+            )}
+            <button type="button" role="menuitem" onClick={() => handleMenu(muted ? "unmute" : "mute")}>
+              {muted ? "Unmute" : "Mute notifications"}
+            </button>
+            {request !== "incoming" && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => handleMenu(archived ? "unarchive" : "archive")}
+              >
+                {archived ? "Move back to Letters" : "Archive"}
+              </button>
+            )}
+            <button type="button" role="menuitem" className="letter-menu-danger" onClick={() => handleMenu("delete")}>
+              Delete for me
+            </button>
+          </div>
+        </FloatingPopup>
       </div>
+      {actionError && (
+        <div className="letter-action-error" role="alert">
+          {actionError}
+        </div>
+      )}
 
       <div className="letter-thread-body">
         <div ref={scrollRef} onScroll={handleScroll} className="letter-thread-messages">
@@ -626,6 +772,7 @@ export function LetterThread({ initialThread, conversationId }: Props) {
                     conversationId={conversationId}
                     timeZone={timeZone}
                     continued={continued}
+                    highlighted={highlightId === message.id}
                     isNew={newMessageIds.has(message.id)}
                     isEditing={editingMessageId === message.id}
                     onStartEdit={(id) => setEditingMessageId(id)}
@@ -655,6 +802,30 @@ export function LetterThread({ initialThread, conversationId }: Props) {
           </div>
         </div>
 
+        {request === "incoming" && (
+          <div className="letter-request-banner" role="region" aria-label="Letter request">
+            <p>
+              <strong>{other.display_name}</strong> isn&apos;t your pen pal and would like to write to you. Accept (or
+              just reply) to keep writing; decline and they won&apos;t be told.
+            </p>
+            <div className="letter-request-actions">
+              <button type="button" className="letter-send-btn" onClick={() => answerRequest("accept")}>
+                Accept
+              </button>
+              <button type="button" className="letter-link-btn" onClick={() => answerRequest("decline")}>
+                Decline
+              </button>
+              <button type="button" className="letter-link-btn letter-link-btn-danger" onClick={() => answerRequest("block")}>
+                Block
+              </button>
+            </div>
+          </div>
+        )}
+        {request === "outgoing" && !waiting && canWrite && (
+          <div className="letter-request-note">
+            {other.display_name} takes letters from people who aren&apos;t pen pals. You can send one; more once they accept.
+          </div>
+        )}
         {canWrite ? (
           <ReplyBar
             conversationId={conversationId}
@@ -665,6 +836,10 @@ export function LetterThread({ initialThread, conversationId }: Props) {
             onSent={handleSent}
             onExpand={() => setComposeOpen(true)}
           />
+        ) : waiting ? (
+          <div className="letter-reply-closed" role="status">
+            Your letter is waiting for {other.display_name} to accept it. You can write more once they do.
+          </div>
         ) : (
           <div className="letter-reply-closed" role="status">
             You and {other.display_name} are no longer pen pals, so this conversation is closed to new

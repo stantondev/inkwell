@@ -3922,6 +3922,212 @@ body:has(.letter-page-wrapper) .site-footer {
 }
 .letter-picker-row-handle { font-size: 12px; color: var(--muted); }
 
+/* ─── Letters phase 3: tabs, tags, search, who-can-write, menu, requests ─ */
+.letterbox-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.letterbox-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+.letterbox-tab:hover { color: var(--foreground); }
+.letterbox-tab-active {
+  color: var(--foreground);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.letterbox-tab-count {
+  font-size: 11px;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--surface-hover, var(--border));
+  color: var(--muted);
+  text-align: center;
+}
+.letterbox-tab-count-new { background: var(--accent); color: white; }
+.letterbox-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  border: 1px solid var(--envelope-border, var(--border));
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--envelope-text-muted, var(--muted));
+  vertical-align: middle;
+}
+.letterbox-tag-request {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.letterbox-note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 24px 12px;
+}
+.letterbox-hits {
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 6px;
+}
+.letterbox-hits-title {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+  margin: 0;
+  font-weight: 600;
+}
+.letterbox-hit {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.letterbox-hit:hover,
+.letterbox-hit:focus-visible { background: var(--surface-hover); }
+.letterbox-hit-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.letterbox-hit-who { font-size: 13px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.letterbox-hit-date { font-size: 11px; font-weight: 400; color: var(--muted); }
+.letterbox-hit-body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.letterbox-hit-body mark {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--foreground);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.letterbox-setting {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.letterbox-setting h2 {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.letterbox-segment {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 3px;
+  background: var(--surface);
+}
+.letterbox-segment-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 9999px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.letterbox-segment-btn-on { background: var(--accent); color: white; }
+.letterbox-segment-btn:disabled { cursor: default; }
+.letterbox-setting-help {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 10px;
+  max-width: 520px;
+}
+
+.letter-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.25);
+}
+.letter-menu button {
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--foreground);
+  font-size: 14px;
+  cursor: pointer;
+}
+.letter-menu button:hover,
+.letter-menu button:focus-visible { background: var(--surface-hover); }
+.letter-menu .letter-menu-danger { color: var(--danger); }
+.letter-action-error {
+  padding: 8px 20px;
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.letter-request-banner {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  padding: 12px 16px;
+}
+.letter-request-banner p {
+  max-width: 680px;
+  margin: 0 auto 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.letter-request-actions {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.letter-request-note {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 10px 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.letter-request-note + .letter-reply-bar { border-top: none; }
+.letter-page-highlight {
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 14px -8px rgba(80, 60, 20, 0.18);
+  transition: box-shadow 0.3s;
+}
+
 /* ─── Rich Letter Content (.prose-letter) ───────────────────────────── */
 .prose-letter {
   font-size: 14px;

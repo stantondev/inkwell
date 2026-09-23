@@ -127,6 +127,8 @@ export interface TemplateContext {
   isOwnProfile: boolean;
   isLoggedIn: boolean;
   relationshipStatus: string | null;
+  /** "letter", "request" (they take letter requests) or null. */
+  letterAccess?: string | null;
   incomingRequest: boolean;
 }
 

@@ -90,6 +90,7 @@ interface HydratorProps {
   isLoggedIn: boolean;
   relationshipStatus: string | null;
   incomingRequest: boolean;
+  letterAccess?: string | null;
   styles: ProfileStyles;
   // Counts
   followerCount: number;
@@ -120,6 +121,7 @@ export function CustomProfileHydrator({
   isLoggedIn,
   relationshipStatus,
   incomingRequest,
+  letterAccess = null,
   styles,
   followerCount,
   followingCount,
@@ -209,8 +211,8 @@ export function CustomProfileHydrator({
                               : "idle"
                       }
                     />
-                    {relationshipStatus === "accepted" && isLoggedIn && (
-                      <WriteLetterButton username={username} />
+                    {(letterAccess === "letter" || letterAccess === "request") && isLoggedIn && (
+                      <WriteLetterButton username={username} request={letterAccess === "request"} />
                     )}
                     {isLoggedIn && (
                       <BlockButton targetUsername={username} initialBlocked={false} />

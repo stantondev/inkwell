@@ -31,17 +31,26 @@ export interface ThreadData {
   has_more: boolean;
   /** False when you're no longer pen pals or one of you blocked the other. */
   can_write?: boolean;
+  muted?: boolean;
+  archived?: boolean;
+  /** "incoming" | "outgoing" for a letter request, else null. */
+  request?: string | null;
+  /** You sent a request and it hasn't been accepted yet. */
+  request_waiting?: boolean;
 }
 
 export default async function LetterThreadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ letter?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const { id } = await params;
+  const { letter } = await searchParams;
 
   let thread: ThreadData | null = null;
   try {
@@ -65,6 +74,7 @@ export default async function LetterThreadPage({
       <LetterThread
         initialThread={thread}
         conversationId={id}
+        focusLetterId={typeof letter === "string" ? letter : null}
       />
     </div>
   );
