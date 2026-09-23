@@ -1,7 +1,16 @@
 defmodule Inkwell.Letters do
   @moduledoc """
   Context for the Letters (private messaging) feature.
-  Only accepted pen pals may exchange letters.
+
+  Who can write to whom (`can_write?/3`): two people can exchange letters
+  while either follows the other with an accepted follow, i.e. they are pen
+  pals, and neither has blocked the other. Starting a conversation needs the
+  starter to follow the other person. Letters from an admin can always be
+  answered, so account notices never become dead ends.
+
+  Before Sept 2026 the pen-pal check ran only when a conversation was first
+  opened, so someone who had been dropped as a pen pal could keep writing
+  into the old conversation for as long as it existed.
   """
 
   import Ecto.Query
@@ -10,14 +19,22 @@ defmodule Inkwell.Letters do
   alias Inkwell.Social.Relationship
   alias Inkwell.Letters.{Conversation, DirectMessage, ConversationRead}
 
+  @per_page 50
+
   # ---------------------------------------------------------------------------
   # Conversations
   # ---------------------------------------------------------------------------
 
   @doc """
-  List all conversations for `user_id`, ordered by most recent letter.
-  Returns each conversation with the other participant, the latest message
-  preview, and an unread count.
+  List conversations for `user_id`, most recent letter first, as
+  `{conversation, other_user, last_visible_letter, unread_count}`.
+
+  Three queries in all however many conversations there are (this used to
+  run three per conversation).
+
+  A conversation with nothing visible in it is left out: "Write a Letter"
+  creates the conversation before anything is written, and one abandoned
+  click used to leave an empty envelope in the Letterbox for good.
   """
   def list_conversations(user_id) do
     conversations =
@@ -27,110 +44,108 @@ defmodule Inkwell.Letters do
       |> preload([:participant_a_user, :participant_b_user])
       |> Repo.all()
 
-    Enum.map(conversations, fn conv ->
-      other = other_user(conv, user_id)
-      last_msg = get_last_visible_message(conv, user_id)
-      unread = count_unread_in_conversation(conv.id, user_id)
-      {conv, other, last_msg, unread}
+    last_messages = last_visible_messages(Enum.map(conversations, & &1.id), user_id)
+    unread_counts = unread_counts_by_conversation(user_id)
+
+    Enum.flat_map(conversations, fn conv ->
+      case Map.get(last_messages, conv.id) do
+        nil -> []
+        last -> [{conv, other_user(conv, user_id), last, Map.get(unread_counts, conv.id, 0)}]
+      end
     end)
   end
 
   @doc """
   Find an existing conversation with `target_username`, or create one.
   Returns `{:ok, conversation}`, `{:error, :not_found}`, `{:error, :not_pen_pals}`,
-  or `{:error, :blocked}`.
+  `{:error, :cannot_message_self}` or `{:error, :blocked}`.
   """
   def get_or_create_conversation(user_id, target_username) do
     case Accounts.get_user_by_username(target_username) do
       nil ->
         {:error, :not_found}
 
-      target when target.id == user_id ->
+      %{id: ^user_id} ->
         {:error, :cannot_message_self}
+
+      # Suspended accounts don't exist as far as other members can tell.
+      %{blocked_at: blocked_at} when not is_nil(blocked_at) ->
+        {:error, :not_found}
 
       target ->
         cond do
-          blocked?(user_id, target.id) ->
-            {:error, :blocked}
-
-          not are_pen_pals?(user_id, target.id) ->
-            {:error, :not_pen_pals}
-
-          true ->
-            find_or_create(user_id, target.id)
+          blocked?(user_id, target.id) -> {:error, :blocked}
+          not follows?(user_id, target.id) -> {:error, :not_pen_pals}
+          true -> find_or_create(user_id, target.id)
         end
     end
   end
 
   @doc """
-  Get a conversation by ID, verifying `viewer_id` is a participant.
-  Returns messages (last 50, oldest-first for display) and marks as read.
+  Load a conversation `viewer_id` is part of, with up to 50 letters, oldest
+  first for display.
+
+  With `before: letter_id`, returns the 50 letters written before that one: a
+  cursor, so a letter arriving while someone reads back can't shift the pages
+  and show a letter twice (page offsets did).
+
+  Returns `{:ok, conv, letters, has_more}` or `{:error, :not_found}` (also for
+  a malformed id or cursor). Opening the newest page marks the conversation
+  read; reading back through older letters doesn't.
   """
   def get_conversation(id, viewer_id, opts \\ []) do
-    page = Keyword.get(opts, :page, 1)
-    per_page = 50
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         %Conversation{} = conv <- get_participant_conversation(id, viewer_id),
+         {:ok, before_at} <- cursor_time(Keyword.get(opts, :before), id) do
+      query =
+        DirectMessage
+        |> where([m], m.conversation_id == ^id)
+        |> visible_to(conv, viewer_id)
 
-    case get_participant_conversation(id, viewer_id) do
-      nil ->
-        {:error, :not_found}
+      query = if before_at, do: where(query, [m], m.inserted_at < ^before_at), else: query
 
-      conv ->
-        is_participant_a = conv.participant_a == viewer_id
+      rows =
+        query
+        |> order_by([m], desc: m.inserted_at)
+        |> limit(^(@per_page + 1))
+        |> preload(:sender)
+        |> Repo.all()
 
-        total =
-          DirectMessage
-          |> where([m], m.conversation_id == ^id)
-          |> filter_deleted_for(is_participant_a)
-          |> Repo.aggregate(:count)
+      unless before_at, do: mark_read(id, viewer_id)
 
-        messages =
-          DirectMessage
-          |> where([m], m.conversation_id == ^id)
-          |> filter_deleted_for(is_participant_a)
-          |> order_by([m], desc: m.inserted_at)
-          |> limit(^per_page)
-          |> offset(^((page - 1) * per_page))
-          |> preload(:sender)
-          |> Repo.all()
-          |> Enum.reverse()
-
-        mark_read(id, viewer_id)
-
-        {:ok, conv, messages, total, page}
+      {:ok, conv, rows |> Enum.take(@per_page) |> Enum.reverse(), length(rows) > @per_page}
+    else
+      _ -> {:error, :not_found}
     end
   end
 
   @doc """
-  Return messages inserted after `since_id` (for 5-second polling).
+  Letters written after `since_id` in the conversation, oldest first. Used by
+  the open thread to pick up new letters. Doesn't mark anything read.
   """
   def list_messages_since(conversation_id, viewer_id, since_id) do
-    case get_participant_conversation(conversation_id, viewer_id) do
-      nil ->
-        {:error, :not_found}
+    with {:ok, conversation_id} <- Ecto.UUID.cast(conversation_id),
+         %Conversation{} = conv <- get_participant_conversation(conversation_id, viewer_id),
+         {:ok, since_at} when not is_nil(since_at) <- cursor_time(since_id, conversation_id) do
+      messages =
+        DirectMessage
+        |> where([m], m.conversation_id == ^conversation_id and m.inserted_at > ^since_at)
+        |> visible_to(conv, viewer_id)
+        |> order_by([m], asc: m.inserted_at)
+        |> preload(:sender)
+        |> Repo.all()
 
-      conv ->
-        is_participant_a = conv.participant_a == viewer_id
+      {:ok, messages}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
 
-        since_at =
-          DirectMessage
-          |> where([m], m.id == ^since_id)
-          |> select([m], m.inserted_at)
-          |> Repo.one()
-
-        if is_nil(since_at) do
-          {:ok, []}
-        else
-          messages =
-            DirectMessage
-            |> where([m], m.conversation_id == ^conversation_id)
-            |> where([m], m.inserted_at > ^since_at)
-            |> filter_deleted_for(is_participant_a)
-            |> order_by([m], asc: m.inserted_at)
-            |> preload(:sender)
-            |> Repo.all()
-
-          {:ok, messages}
-        end
+  @doc "True when `user_id` is one of the two people in the conversation."
+  def participant?(conversation_id, user_id) do
+    case Ecto.UUID.cast(conversation_id) do
+      {:ok, id} -> not is_nil(get_participant_conversation(id, user_id))
+      :error -> false
     end
   end
 
@@ -139,88 +154,22 @@ defmodule Inkwell.Letters do
   # ---------------------------------------------------------------------------
 
   @doc """
-  Send a letter in `conversation_id` from `sender_id`.
-  Accepts a map with `body` (plain text) and optionally `body_html` (rich text).
+  Send a letter in `conversation_id` from `sender_id`: plain-text `body` and
+  optional rich `body_html` (sanitized by the schema).
   """
   def send_letter(conversation_id, sender_id, body, body_html \\ nil) do
-    case get_participant_conversation(conversation_id, sender_id) do
-      nil ->
-        {:error, :not_found}
+    with {:ok, conversation_id} <- Ecto.UUID.cast(conversation_id),
+         %Conversation{} = conv <- get_participant_conversation(conversation_id, sender_id) do
+      recipient_id = other_participant_id(conv, sender_id)
 
-      conv ->
-        recipient_id = other_participant_id(conv, sender_id)
-
-        if blocked?(sender_id, recipient_id) do
+      cond do
+        blocked?(sender_id, recipient_id) ->
           {:error, :blocked}
-        else
-          attrs = %{
-            conversation_id: conversation_id,
-            sender_id: sender_id,
-            body: String.trim(body),
-            body_html: body_html
-          }
 
-          case %DirectMessage{} |> DirectMessage.changeset(attrs) |> Repo.insert() do
-            {:ok, message} ->
-              conv
-              |> Ecto.Changeset.change(last_message_at: message.inserted_at)
-              |> Repo.update()
+        not can_write?(conv, sender_id, recipient_id) ->
+          {:error, :not_pen_pals}
 
-              maybe_notify_recipient(conv, message, sender_id, recipient_id)
-
-              {:ok, Repo.preload(message, :sender)}
-
-            error ->
-              error
-          end
-        end
-    end
-  end
-
-  @doc """
-  Edit an existing letter. Only the sender can edit their own messages.
-  """
-  def update_letter(message_id, sender_id, attrs) do
-    case Repo.get(DirectMessage, message_id) do
-      nil ->
-        {:error, :not_found}
-
-      message ->
-        if message.sender_id != sender_id do
-          {:error, :forbidden}
-        else
-          message
-          |> DirectMessage.edit_changeset(attrs)
-          |> Repo.update()
-          |> case do
-            {:ok, msg} -> {:ok, Repo.preload(msg, :sender)}
-            error -> error
-          end
-        end
-    end
-  end
-
-  @doc """
-  Send a letter from an admin (or system account) to any user, bypassing the
-  pen-pal requirement and block check. Used for billing apologies, account
-  notices, and other admin communications that need to reach users regardless
-  of their existing relationship.
-
-  This skips the normal `send_letter` constraints because:
-  - Admins need to reach users they aren't pen pals with (e.g., for billing
-    issues affecting a small group).
-  - The recipient still controls their letterbox: they can reply or ignore
-    the letter via the standard letter UI.
-
-  Logs every admin letter for audit. Returns `{:ok, message}` on success.
-  """
-  def send_admin_letter(sender_id, recipient_id, body, body_html \\ nil)
-      when is_binary(sender_id) and is_binary(recipient_id) do
-    if sender_id == recipient_id do
-      {:error, :cannot_message_self}
-    else
-      case find_or_create(sender_id, recipient_id) do
-        {:ok, conv} ->
+        true ->
           attrs = %{
             conversation_id: conv.id,
             sender_id: sender_id,
@@ -234,55 +183,83 @@ defmodule Inkwell.Letters do
               |> Ecto.Changeset.change(last_message_at: message.inserted_at)
               |> Repo.update()
 
-              maybe_notify_recipient(conv, message, sender_id, recipient_id)
-
-              require Logger
-              Logger.info("[admin letter] #{sender_id} -> #{recipient_id} (conv #{conv.id}, msg #{message.id})")
+              notify_recipient(conv, sender_id, recipient_id)
 
               {:ok, Repo.preload(message, :sender)}
 
             error ->
               error
           end
-
-        {:error, reason} ->
-          {:error, reason}
       end
+    else
+      _ -> {:error, :not_found}
     end
   end
 
   @doc """
-  Soft-delete a letter on the sender's side.
+  Edit a letter. Only its sender can, only while they can still write to the
+  other person (so a blocked sender can't rewrite what's already delivered),
+  and not after they've removed it from their side.
   """
-  def delete_letter(message_id, deleter_id) do
-    case Repo.get(DirectMessage, message_id) do
-      nil ->
-        {:error, :not_found}
+  def update_letter(message_id, sender_id, attrs) do
+    with {:ok, message_id} <- Ecto.UUID.cast(message_id),
+         %DirectMessage{} = message <- Repo.get(DirectMessage, message_id),
+         :ok <- own_letter(message, sender_id),
+         %Conversation{} = conv <- Repo.get(Conversation, message.conversation_id),
+         false <- removed_by?(message, conv, sender_id) do
+      recipient_id = other_participant_id(conv, sender_id)
 
-      message ->
-        if message.sender_id != deleter_id do
-          {:error, :forbidden}
-        else
-          conv = Repo.get!(Conversation, message.conversation_id)
-
-          update_attrs =
-            if conv.participant_a == deleter_id,
-              do: %{deleted_by_a: true},
-              else: %{deleted_by_b: true}
-
-          message
-          |> Ecto.Changeset.change(update_attrs)
-          |> Repo.update()
+      if blocked?(sender_id, recipient_id) do
+        {:error, :blocked}
+      else
+        message
+        |> DirectMessage.edit_changeset(attrs)
+        |> Repo.update()
+        |> case do
+          {:ok, msg} -> {:ok, Repo.preload(msg, :sender)}
+          error -> error
         end
+      end
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      _ -> {:error, :not_found}
     end
   end
+
+  @doc """
+  Remove a letter from its sender's own view. The recipient keeps their copy.
+  """
+  def delete_letter(message_id, deleter_id) do
+    with {:ok, message_id} <- Ecto.UUID.cast(message_id),
+         %DirectMessage{} = message <- Repo.get(DirectMessage, message_id),
+         :ok <- own_letter(message, deleter_id),
+         %Conversation{} = conv <- Repo.get(Conversation, message.conversation_id) do
+      update_attrs =
+        if conv.participant_a == deleter_id,
+          do: %{deleted_by_a: true},
+          else: %{deleted_by_b: true}
+
+      message
+      |> Ecto.Changeset.change(update_attrs)
+      |> Repo.update()
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp own_letter(%DirectMessage{sender_id: sender_id}, sender_id), do: :ok
+  defp own_letter(_, _), do: {:error, :forbidden}
+
+  defp removed_by?(message, %Conversation{participant_a: user_id}, user_id), do: message.deleted_by_a
+  defp removed_by?(message, _conv, _user_id), do: message.deleted_by_b
 
   # ---------------------------------------------------------------------------
   # Read state
   # ---------------------------------------------------------------------------
 
   @doc """
-  Mark all messages in `conversation_id` as read for `user_id`.
+  Mark all letters in `conversation_id` as read for `user_id`.
   """
   def mark_read(conversation_id, user_id) do
     now = DateTime.utc_now()
@@ -303,26 +280,61 @@ defmodule Inkwell.Letters do
   # ---------------------------------------------------------------------------
 
   @doc """
-  Count conversations that have at least one unread letter for `user_id`.
-  Used in GET /api/auth/me for the nav badge.
+  Number of conversations with at least one unread letter for `user_id`.
+  Part of every `GET /api/auth/me`, which every open tab polls every 15
+  seconds, so it's a single query (it used to be three per conversation).
   """
   def count_unread_letters(user_id) do
-    convs =
-      Conversation
-      |> where([c], c.participant_a == ^user_id or c.participant_b == ^user_id)
-      |> Repo.all()
+    unread_letters_query(user_id)
+    |> select([m], count(m.conversation_id, :distinct))
+    |> Repo.one()
+  end
 
-    Enum.count(convs, fn conv ->
-      count_unread_in_conversation(conv.id, user_id) > 0
-    end)
+  defp unread_counts_by_conversation(user_id) do
+    unread_letters_query(user_id)
+    |> group_by([m], m.conversation_id)
+    |> select([m], {m.conversation_id, count(m.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  # Letters to `user_id` that they can see and haven't read.
+  defp unread_letters_query(user_id) do
+    from m in DirectMessage,
+      join: c in Conversation,
+      on: c.id == m.conversation_id,
+      left_join: r in ConversationRead,
+      on: r.conversation_id == c.id and r.user_id == ^user_id,
+      where: c.participant_a == ^user_id or c.participant_b == ^user_id,
+      where: m.sender_id != ^user_id,
+      where:
+        (c.participant_a == ^user_id and m.deleted_by_a == false) or
+          (c.participant_b == ^user_id and m.deleted_by_b == false),
+      where: is_nil(r.last_read_at) or m.inserted_at > r.last_read_at
   end
 
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  # Pen pal = the viewer follows the target with accepted status
-  defp are_pen_pals?(user_id, other_id) do
+  @doc false
+  # Whether `sender_id` may write in `conv` right now (blocks are checked
+  # separately). See the moduledoc.
+  def can_write?(conv, sender_id, recipient_id) do
+    follows?(sender_id, recipient_id) or follows?(recipient_id, sender_id) or
+      admin_letter_to_answer?(conv, sender_id, recipient_id)
+  end
+
+  defp admin_letter_to_answer?(conv, sender_id, recipient_id) do
+    Accounts.is_admin?(Repo.get(Accounts.User, sender_id)) or
+      (Accounts.is_admin?(Repo.get(Accounts.User, recipient_id)) and
+         Repo.exists?(
+           from m in DirectMessage,
+             where: m.conversation_id == ^conv.id and m.sender_id == ^recipient_id
+         ))
+  end
+
+  defp follows?(user_id, other_id) do
     Relationship
     |> where([r],
       r.follower_id == ^user_id and
@@ -366,6 +378,22 @@ defmodule Inkwell.Letters do
     |> Repo.one()
   end
 
+  # A letter id from this conversation, as a timestamp to page or poll from.
+  defp cursor_time(nil, _conversation_id), do: {:ok, nil}
+
+  defp cursor_time(letter_id, conversation_id) do
+    with {:ok, letter_id} <- Ecto.UUID.cast(letter_id),
+         %DateTime{} = at <-
+           DirectMessage
+           |> where([m], m.id == ^letter_id and m.conversation_id == ^conversation_id)
+           |> select([m], m.inserted_at)
+           |> Repo.one() do
+      {:ok, at}
+    else
+      _ -> :error
+    end
+  end
+
   defp other_participant_id(conv, user_id) do
     if conv.participant_a == user_id, do: conv.participant_b, else: conv.participant_a
   end
@@ -377,78 +405,54 @@ defmodule Inkwell.Letters do
   # Canonical ordering: lower UUID string goes into participant_a
   defp canonical_order(a, b), do: if(a < b, do: {a, b}, else: {b, a})
 
-  # Add a where clause to hide messages deleted by the viewer.
-  # `is_participant_a` is a boolean determined before the query.
-  defp filter_deleted_for(query, true = _is_participant_a) do
-    where(query, [m], m.deleted_by_a == false)
+  # Hide letters the viewer removed from their side.
+  defp visible_to(query, %Conversation{participant_a: viewer_id}, viewer_id),
+    do: where(query, [m], m.deleted_by_a == false)
+
+  defp visible_to(query, _conv, _viewer_id),
+    do: where(query, [m], m.deleted_by_b == false)
+
+  # Newest letter each viewer can see, per conversation, in one query.
+  defp last_visible_messages([], _user_id), do: %{}
+
+  defp last_visible_messages(conversation_ids, user_id) do
+    from(m in DirectMessage,
+      join: c in Conversation,
+      on: c.id == m.conversation_id,
+      where: m.conversation_id in ^conversation_ids,
+      where:
+        (c.participant_a == ^user_id and m.deleted_by_a == false) or
+          (c.participant_b == ^user_id and m.deleted_by_b == false),
+      distinct: m.conversation_id,
+      order_by: [asc: m.conversation_id, desc: m.inserted_at]
+    )
+    |> Repo.all()
+    |> Map.new(&{&1.conversation_id, &1})
   end
 
-  defp filter_deleted_for(query, false = _is_participant_b) do
-    where(query, [m], m.deleted_by_b == false)
-  end
-
-  defp get_last_visible_message(conv, viewer_id) do
-    is_participant_a = conv.participant_a == viewer_id
-
-    DirectMessage
-    |> where([m], m.conversation_id == ^conv.id)
-    |> filter_deleted_for(is_participant_a)
-    |> order_by([m], desc: m.inserted_at)
-    |> limit(1)
-    |> Repo.one()
-  end
-
-  defp count_unread_in_conversation(conversation_id, user_id) do
-    conv = Repo.get(Conversation, conversation_id)
-
-    if is_nil(conv) do
-      0
-    else
-      is_participant_a = conv.participant_a == user_id
-
-      last_read =
-        ConversationRead
-        |> where([r], r.conversation_id == ^conversation_id and r.user_id == ^user_id)
-        |> select([r], r.last_read_at)
-        |> Repo.one()
-
-      query =
-        DirectMessage
-        |> where([m], m.conversation_id == ^conversation_id)
-        |> where([m], m.sender_id != ^user_id)
-        |> filter_deleted_for(is_participant_a)
-
-      query =
-        if last_read,
-          do: where(query, [m], m.inserted_at > ^last_read),
-          else: query
-
-      Repo.aggregate(query, :count)
-    end
-  end
-
-  defp maybe_notify_recipient(_conv, message, sender_id, recipient_id) do
-    # Don't create a database notification — the unread letter badge handles in-app state.
-    # But DO send a web push notification so users get alerted when not on the site.
+  # No database notification: the Letterbox badge covers in-app state. A web
+  # push goes out so people hear about letters when they're away. It names the
+  # sender but never shows the letter itself, since it can land on a lock
+  # screen. One tag per conversation, so a run of letters replaces a single
+  # notification instead of stacking.
+  defp notify_recipient(conv, sender_id, recipient_id) do
     if Inkwell.Push.configured?() do
       try do
-        recipient = Repo.get(Inkwell.Accounts.User, recipient_id)
+        recipient = Repo.get(Accounts.User, recipient_id)
         push_disabled = match?(%{settings: %{"push_notifications_disabled" => true}}, recipient)
 
         unless push_disabled do
-          sender = Repo.get(Inkwell.Accounts.User, sender_id)
+          sender = Repo.get(Accounts.User, sender_id)
           actor_name = (sender && (sender.display_name || sender.username)) || "Someone"
 
-          payload = %{
+          Inkwell.Push.deliver(recipient_id, %{
             title: "New letter",
             body: "#{actor_name} sent you a letter",
             icon: "/favicon.svg",
             badge: "/favicon.svg",
-            tag: "inkwell-letter-#{message.id}",
-            data: %{url: "/letters"}
-          }
-
-          Inkwell.Push.deliver(recipient_id, payload)
+            tag: "inkwell-letter-#{conv.id}",
+            data: %{url: "/letters/#{conv.id}"}
+          })
         end
       rescue
         e ->

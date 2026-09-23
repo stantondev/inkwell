@@ -99,7 +99,7 @@ export async function generateMetadata({ params }: FediverseEntryParams): Promis
       },
     };
   } catch {
-    return { title: "Fediverse Post · Inkwell" };
+    return { title: "Fediverse Post" };
   }
 }
 

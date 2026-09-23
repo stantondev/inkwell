@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
@@ -82,7 +81,8 @@ function LetterNote({
   const actionsVisible = isTouchDevice ? message.is_mine : showActions;
 
   const handleDelete = async () => {
-    if (!confirm("Remove this letter from your side?")) return;
+    // Removing only hides it for you; the other person keeps their copy.
+    if (!confirm("Remove this letter from your letterbox? They'll still have their copy.")) return;
     setDeleting(true);
     try {
       const res = await fetch(
@@ -357,9 +357,9 @@ function LetterNote({
                           padding: "2px 4px",
                           opacity: deleting ? 0.5 : 1,
                         }}
-                        title="Remove this letter"
+                        title="Remove from your letterbox (they keep their copy)"
                       >
-                        remove
+                        remove for me
                       </button>
                     </motion.div>
                   )}
@@ -386,7 +386,6 @@ interface Props {
 export function LetterThread({ initialThread, conversationId }: Props) {
   const [messages, setMessages] = useState<LetterMessage[]>(initialThread.messages);
   const [hasMore, setHasMore] = useState(initialThread.has_more);
-  const [page, setPage] = useState(initialThread.page);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -398,7 +397,6 @@ export function LetterThread({ initialThread, conversationId }: Props) {
     messages.length > 0 ? messages[messages.length - 1].id : null
   );
   const isAtBottomRef = useRef(true);
-  const router = useRouter();
 
   // Mark as read on mount and refresh nav badge
   useEffect(() => {
@@ -435,20 +433,30 @@ export function LetterThread({ initialThread, conversationId }: Props) {
     const startPolling = () => {
       interval = setInterval(async () => {
         const lastId = lastMessageIdRef.current;
-        if (!lastId) return;
 
         try {
-          const res = await fetch(`/api/letters/${conversationId}?since=${lastId}`, {
-            cache: "no-store",
-          });
+          // With no letters yet there's no cursor, so ask for the thread
+          // itself; otherwise a first letter from the other person would only
+          // appear on reload.
+          const res = await fetch(
+            lastId
+              ? `/api/letters/${conversationId}?since=${encodeURIComponent(lastId)}`
+              : `/api/letters/${conversationId}`,
+            { cache: "no-store" }
+          );
           if (!res.ok) return;
           const json = await res.json();
-          const newMsgs: LetterMessage[] = json.data ?? [];
+          const received = lastId ? json.data : json.data?.messages;
+          const newMsgs: LetterMessage[] = Array.isArray(received) ? received : [];
 
           if (newMsgs.length > 0) {
             const ids = new Set(newMsgs.map((m) => m.id));
             setNewMessageIds((prev) => new Set([...prev, ...ids]));
-            setMessages((prev) => [...prev, ...newMsgs]);
+            // Never add a letter twice (one you just sent can come back here).
+            setMessages((prev) => {
+              const have = new Set(prev.map((m) => m.id));
+              return [...prev, ...newMsgs.filter((m) => !have.has(m.id))];
+            });
             lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
 
             fetch(`/api/letters/${conversationId}/read`, { method: "POST" })
@@ -483,7 +491,7 @@ export function LetterThread({ initialThread, conversationId }: Props) {
       stopPolling();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [conversationId, router]);
+  }, [conversationId]);
 
   // Keep lastMessageIdRef current
   useEffect(() => {
@@ -503,16 +511,22 @@ export function LetterThread({ initialThread, conversationId }: Props) {
   }, []);
 
   const loadOlderLetters = async () => {
+    const oldest = messages[0];
+    if (!oldest) return;
     setLoadingOlder(true);
     try {
-      const nextPage = page + 1;
-      const res = await fetch(`/api/letters/${conversationId}?page=${nextPage}`);
+      const res = await fetch(
+        `/api/letters/${conversationId}?before=${encodeURIComponent(oldest.id)}`
+      );
       if (!res.ok) return;
       const json = await res.json();
       const data = json.data;
-      setMessages((prev) => [...(data.messages ?? []), ...prev]);
-      setHasMore(data.has_more);
-      setPage(nextPage);
+      const older: LetterMessage[] = Array.isArray(data?.messages) ? data.messages : [];
+      setMessages((prev) => {
+        const have = new Set(prev.map((m) => m.id));
+        return [...older.filter((m) => !have.has(m.id)), ...prev];
+      });
+      setHasMore(Boolean(data?.has_more));
     } catch {
       // ignore
     } finally {
@@ -521,13 +535,12 @@ export function LetterThread({ initialThread, conversationId }: Props) {
   };
 
   const handleSent = useCallback((message: LetterMessage) => {
-    setMessages((prev) => [...prev, message]);
+    setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
     setNewMessageIds((prev) => new Set([...prev, message.id]));
     lastMessageIdRef.current = message.id;
     // Ensure we scroll to the new letter even if the user had scrolled up
     isAtBottomRef.current = true;
-    router.refresh();
-  }, [router]);
+  }, []);
 
   return (
     <div className="letter-thread-container">

@@ -9,26 +9,33 @@ interface Props {
 
 export function WriteLetterButton({ username }: Props) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleClick = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/letters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (res.ok && json.data?.id) {
         router.push(`/letters/${json.data.id}`);
+        return;
       }
+      // Before, a refusal left the button stuck on "Opening..." with no reason.
+      setError(json.error || "Couldn't open a letter right now. Please try again.");
     } catch {
-      setLoading(false);
+      setError("Couldn't open a letter right now. Please try again.");
     }
+    setLoading(false);
   };
 
   return (
+    <>
     <button
       onClick={handleClick}
       disabled={loading}
@@ -65,5 +72,11 @@ export function WriteLetterButton({ username }: Props) {
       </svg>
       {loading ? "Opening..." : "Write a Letter"}
     </button>
+    {error && (
+      <span role="alert" style={{ fontSize: "12px", color: "var(--danger)" }}>
+        {error}
+      </span>
+    )}
+    </>
   );
 }

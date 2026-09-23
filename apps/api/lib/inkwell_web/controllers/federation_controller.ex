@@ -969,7 +969,8 @@ defmodule InkwellWeb.FederationController do
     actor_uri = activity["actor"]
 
     with true <- target_user != nil,
-         {:ok, remote_actor} <- RemoteActor.fetch(actor_uri) do
+         {:ok, remote_actor} <- RemoteActor.fetch(actor_uri),
+         {:blocked, false} <- {:blocked, blocked_for_user?(target_user.id, remote_actor)} do
 
       case create_remote_follow(remote_actor, target_user) do
         {:ok, :created, _rel} ->
@@ -1005,6 +1006,11 @@ defmodule InkwellWeb.FederationController do
 
       :ok
     else
+      {:blocked, true} ->
+        # No Accept: their server keeps it as a pending request forever.
+        Logger.info("Ignoring follow from #{actor_uri}: blocked by @#{target_user.username}")
+        :ok
+
       _ ->
         Logger.warning("Follow handling failed for #{actor_uri}")
         :ok
@@ -1199,8 +1205,17 @@ defmodule InkwellWeb.FederationController do
     case object do
       %{"type" => type, "inReplyTo" => reply_to}
           when type in ["Note", "Article", "Page"] and is_binary(reply_to) ->
-        # Reply to a local entry (Note, Article, or Page)
-        handle_incoming_reply(object, activity["actor"])
+        if publicly_addressed?(object) do
+          # Reply to a local entry (Note, Article, or Page)
+          handle_incoming_reply(object, activity["actor"])
+        else
+          # A followers-only or direct ("private mention") reply. Its author
+          # chose who could read it, so it must not become a comment anyone
+          # can see. The people it mentions get it as a private notification,
+          # the same way a Mastodon direct message already arrives.
+          Logger.info("handle_create: non-public reply #{inspect(object["id"])} delivered privately, not as a comment")
+          maybe_create_mention_notification(object, activity["actor"], target_user)
+        end
 
       %{"type" => type} = obj when type in ["Note", "Article", "Page"] ->
         # Standalone public post — store as remote entry for Explore
@@ -1267,10 +1282,51 @@ defmodule InkwellWeb.FederationController do
   def process_incoming_reply_for_backfill(_, _), do: :error
 
   defp handle_incoming_reply(note, actor_uri) do
-    # Accept all replies to known local entries regardless of visibility scope.
-    # Many Mastodon replies are "unlisted" (addressed to author + followers, no Public URI).
-    # Per FEP-7458: inReplyTo indicates the relationship — if they're replying
-    # to our content, we should accept it.
+    if publicly_addressed?(note) do
+      do_handle_incoming_reply(note, actor_uri)
+    else
+      # Also reached from the reply backfill, which has no inbox owner to
+      # notify. Never turn a followers-only or direct reply into a comment.
+      Logger.info("handle_incoming_reply: skipping non-public reply #{inspect(note["id"])}")
+      :ok
+    end
+  end
+
+  @public_addresses [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "as:Public",
+    "Public"
+  ]
+
+  @doc """
+  True when an object is addressed to the public collection, in `to` or `cc`.
+  Public and unlisted posts are; followers-only and direct posts are not.
+  Anything we display to people other than its addressees must pass this.
+  """
+  def publicly_addressed?(object) when is_map(object) do
+    [object["to"], object["cc"]]
+    |> List.flatten()
+    |> Enum.any?(&(&1 in @public_addresses))
+  end
+
+  def publicly_addressed?(_), do: false
+
+  # A local user's fediverse blocks (Settings → Blocked: an account or a whole
+  # domain) and instance defederation. Checked wherever an inbound activity
+  # would put something in front of that user.
+  defp blocked_for_user?(nil, _remote_actor), do: false
+
+  defp blocked_for_user?(user_id, remote_actor) do
+    Inkwell.Moderation.FediverseBlocks.should_reject_actor?(
+      user_id,
+      remote_actor.id,
+      remote_actor.domain || ""
+    )
+  end
+
+  defp do_handle_incoming_reply(note, actor_uri) do
+    # Public and unlisted replies to our content. Unlisted replies carry the
+    # Public collection in `cc`, so they pass `publicly_addressed?/1`.
     in_reply_to = note["inReplyTo"]
     Logger.info("handle_incoming_reply: inReplyTo=#{in_reply_to}, actor=#{actor_uri}, note_id=#{note["id"]}")
 
@@ -1312,29 +1368,37 @@ defmodule InkwellWeb.FederationController do
   defp do_handle_reply_to_entry(note, actor_uri, entry) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
-        profile_url = remote_actor_profile_url(remote_actor)
-
-        # Use string keys throughout — `Journals.create_comment/1`'s
-        # depth-enforcement step adds string keys, and Ecto rejects mixed maps.
-        comment_attrs = %{
-          "entry_id" => entry.id,
-          "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
-          "ap_id" => note["id"],
-          "url" => extract_note_url(note),
-          "remote_author" => build_remote_author_data(remote_actor, profile_url)
-        }
-
-        case Journals.create_comment(comment_attrs) do
-          {:ok, comment} ->
-            Logger.info("Created federated comment #{comment.id} on entry #{entry.id} from #{actor_uri}")
-            create_reply_notification(entry, remote_actor)
-
-          {:error, reason} ->
-            Logger.warning("Failed to create federated comment: #{inspect(reason)}")
+        if blocked_for_user?(entry.user_id, remote_actor) do
+          Logger.info("Dropping reply from #{actor_uri}: blocked by the entry's author")
+        else
+          create_federated_entry_comment(note, entry, remote_actor)
         end
 
       {:error, reason} ->
         Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
+    end
+  end
+
+  defp create_federated_entry_comment(note, entry, remote_actor) do
+    profile_url = remote_actor_profile_url(remote_actor)
+
+    # Use string keys throughout — `Journals.create_comment/1`'s
+    # depth-enforcement step adds string keys, and Ecto rejects mixed maps.
+    comment_attrs = %{
+      "entry_id" => entry.id,
+      "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+      "ap_id" => note["id"],
+      "url" => extract_note_url(note),
+      "remote_author" => build_remote_author_data(remote_actor, profile_url)
+    }
+
+    case Journals.create_comment(comment_attrs) do
+      {:ok, comment} ->
+        Logger.info("Created federated comment #{comment.id} on entry #{entry.id} from #{remote_actor.ap_id}")
+        create_reply_notification(entry, remote_actor)
+
+      {:error, reason} ->
+        Logger.warning("Failed to create federated comment: #{inspect(reason)}")
     end
   end
 
@@ -1361,32 +1425,53 @@ defmodule InkwellWeb.FederationController do
   defp do_handle_reply_to_comment(note, actor_uri, parent_comment) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
-        profile_url = remote_actor_profile_url(remote_actor)
-
-        # String keys throughout: `Journals.create_comment/1`'s
-        # `compute_and_enforce_depth/1` adds `"depth"` and `"parent_comment_id"`
-        # as strings, and Ecto's cast rejects maps that mix atom and string keys.
-        comment_attrs = %{
-          "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
-          "ap_id" => note["id"],
-          "url" => extract_note_url(note),
-          "parent_comment_id" => parent_comment.id,
-          "entry_id" => parent_comment.entry_id,
-          "remote_entry_id" => parent_comment.remote_entry_id,
-          "remote_author" => build_remote_author_data(remote_actor, profile_url)
-        }
-
-        case Journals.create_comment(comment_attrs) do
-          {:ok, comment} ->
-            Logger.info("Created federated reply-to-comment #{comment.id} parent=#{parent_comment.id} from #{actor_uri}")
-            maybe_notify_parent_comment_author(parent_comment, remote_actor, profile_url)
-
-          {:error, reason} ->
-            Logger.warning("Failed to create federated reply-to-comment: #{inspect(reason)}")
+        if reply_to_comment_blocked?(parent_comment, remote_actor) do
+          Logger.info("Dropping reply-to-comment from #{actor_uri}: blocked by the entry's author or the comment's author")
+        else
+          create_federated_comment_reply(note, parent_comment, remote_actor)
         end
 
       {:error, reason} ->
         Logger.warning("Failed to fetch remote actor #{actor_uri}: #{inspect(reason)}")
+    end
+  end
+
+  # The reply lands in the entry author's comments and in the parent comment
+  # author's notifications; either one's block keeps it out.
+  defp reply_to_comment_blocked?(parent_comment, remote_actor) do
+    entry_owner_id =
+      case parent_comment.entry_id && Repo.get(Inkwell.Journals.Entry, parent_comment.entry_id) do
+        %{user_id: user_id} -> user_id
+        _ -> nil
+      end
+
+    blocked_for_user?(entry_owner_id, remote_actor) or
+      blocked_for_user?(parent_comment.user_id, remote_actor)
+  end
+
+  defp create_federated_comment_reply(note, parent_comment, remote_actor) do
+    profile_url = remote_actor_profile_url(remote_actor)
+
+    # String keys throughout: `Journals.create_comment/1`'s
+    # `compute_and_enforce_depth/1` adds `"depth"` and `"parent_comment_id"`
+    # as strings, and Ecto's cast rejects maps that mix atom and string keys.
+    comment_attrs = %{
+      "body_html" => Inkwell.HtmlSanitizer.sanitize(note["content"] || ""),
+      "ap_id" => note["id"],
+      "url" => extract_note_url(note),
+      "parent_comment_id" => parent_comment.id,
+      "entry_id" => parent_comment.entry_id,
+      "remote_entry_id" => parent_comment.remote_entry_id,
+      "remote_author" => build_remote_author_data(remote_actor, profile_url)
+    }
+
+    case Journals.create_comment(comment_attrs) do
+      {:ok, comment} ->
+        Logger.info("Created federated reply-to-comment #{comment.id} parent=#{parent_comment.id} from #{remote_actor.ap_id}")
+        maybe_notify_parent_comment_author(parent_comment, remote_actor, profile_url)
+
+      {:error, reason} ->
+        Logger.warning("Failed to create federated reply-to-comment: #{inspect(reason)}")
     end
   end
 
@@ -1852,61 +1937,69 @@ defmodule InkwellWeb.FederationController do
   defp create_mention_notification_for_user(object, actor_uri, user) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
-        profile_url =
-          case remote_actor.raw_data do
-            %{"url" => url} when is_binary(url) -> url
-            _ -> remote_actor.ap_id
-          end
-
-        raw_content = object["content"] || ""
-
-        # Plain-text preview. HTML entities have to be decoded after stripping
-        # tags, or the notification shows "haven&#39;t" instead of "haven't".
-        content_preview =
-          raw_content
-          |> String.replace(~r/<[^>]+>/, " ")
-          |> decode_html_entities()
-          |> String.replace(~r/\s+/, " ")
-          |> String.trim()
-          |> String.slice(0, 500)
-
-        post_url =
-          case object do
-            %{"url" => url} when is_binary(url) -> url
-            %{"id" => id} when is_binary(id) -> id
-            _ -> nil
-          end
-
-        # Direct and followers-only posts 404 for anyone who isn't signed in
-        # on the remote server, so only link out when the post is public.
-        public? =
-          [object["to"], object["cc"]]
-          |> List.flatten()
-          |> Enum.filter(&is_binary/1)
-          |> Enum.any?(&(&1 == "https://www.w3.org/ns/activitystreams#Public"))
-
-        Accounts.create_notification(%{
-          user_id: user.id,
-          type: :fediverse_mention,
-          data: %{
-            remote_actor: %{
-              display_name: remote_actor.display_name || remote_actor.username,
-              username: remote_actor.username,
-              domain: remote_actor.domain,
-              avatar_url: remote_actor.avatar_url,
-              profile_url: profile_url,
-              ap_id: remote_actor.ap_id
-            },
-            content_preview: content_preview,
-            content_html: Inkwell.HtmlSanitizer.sanitize(raw_content) |> String.slice(0, 5000),
-            post_url: post_url,
-            public: public?
-          }
-        })
+        if blocked_for_user?(user.id, remote_actor) do
+          Logger.info("Dropping mention of @#{user.username} from #{actor_uri}: blocked")
+        else
+          do_create_mention_notification(object, user, remote_actor)
+        end
 
       {:error, reason} ->
         Logger.warning("Failed to fetch actor for mention notification: #{inspect(reason)}")
     end
+  end
+
+  defp do_create_mention_notification(object, user, remote_actor) do
+    profile_url =
+      case remote_actor.raw_data do
+        %{"url" => url} when is_binary(url) -> url
+        _ -> remote_actor.ap_id
+      end
+
+    raw_content = object["content"] || ""
+
+    # Plain-text preview. HTML entities have to be decoded after stripping
+    # tags, or the notification shows "haven&#39;t" instead of "haven't".
+    content_preview =
+      raw_content
+      |> String.replace(~r/<[^>]+>/, " ")
+      |> decode_html_entities()
+      |> String.replace(~r/\s+/, " ")
+      |> String.trim()
+      |> String.slice(0, 500)
+
+    post_url =
+      case object do
+        %{"url" => url} when is_binary(url) -> url
+        %{"id" => id} when is_binary(id) -> id
+        _ -> nil
+      end
+
+    # Direct and followers-only posts 404 for anyone who isn't signed in
+    # on the remote server, so only link out when the post is public.
+    public? =
+      [object["to"], object["cc"]]
+      |> List.flatten()
+      |> Enum.filter(&is_binary/1)
+      |> Enum.any?(&(&1 == "https://www.w3.org/ns/activitystreams#Public"))
+
+    Accounts.create_notification(%{
+      user_id: user.id,
+      type: :fediverse_mention,
+      data: %{
+        remote_actor: %{
+          display_name: remote_actor.display_name || remote_actor.username,
+          username: remote_actor.username,
+          domain: remote_actor.domain,
+          avatar_url: remote_actor.avatar_url,
+          profile_url: profile_url,
+          ap_id: remote_actor.ap_id
+        },
+        content_preview: content_preview,
+        content_html: Inkwell.HtmlSanitizer.sanitize(raw_content) |> String.slice(0, 5000),
+        post_url: post_url,
+        public: public?
+      }
+    })
   end
 
   # ── Entry lookup helper ──────────────────────────────────────────────────
@@ -2019,60 +2112,68 @@ defmodule InkwellWeb.FederationController do
   defp handle_guestbook_reply(note, actor_uri, profile_user) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
-        profile_url =
-          case remote_actor.raw_data do
-            %{"url" => url} when is_binary(url) -> url
-            _ -> remote_actor.ap_id
-          end
-
-        # Strip HTML to plain text and truncate to 500 chars
-        body =
-          (note["content"] || "")
-          |> String.replace(~r/<[^>]+>/, "")
-          |> String.trim()
-          |> String.slice(0, 500)
-
-        attrs = %{
-          body: body,
-          profile_user_id: profile_user.id,
-          ap_id: note["id"],
-          remote_author: %{
-            ap_id: remote_actor.ap_id,
-            username: remote_actor.username,
-            domain: remote_actor.domain,
-            display_name: remote_actor.display_name,
-            avatar_url: remote_actor.avatar_url,
-            profile_url: profile_url
-          }
-        }
-
-        case Inkwell.Guestbook.create_entry_from_ap(attrs) do
-          {:ok, _entry} ->
-            Logger.info("Created federated guestbook entry from #{remote_actor.username}@#{remote_actor.domain}")
-
-            # Create notification for the profile owner
-            Accounts.create_notification(%{
-              user_id: profile_user.id,
-              type: :guestbook,
-              data: %{
-                profile_username: profile_user.username,
-                remote_actor: %{
-                  display_name: remote_actor.display_name || remote_actor.username,
-                  username: remote_actor.username,
-                  domain: remote_actor.domain,
-                  avatar_url: remote_actor.avatar_url,
-                  profile_url: profile_url,
-                  ap_id: remote_actor.ap_id
-                }
-              }
-            })
-
-          {:error, reason} ->
-            Logger.warning("Failed to create federated guestbook entry: #{inspect(reason)}")
+        if blocked_for_user?(profile_user.id, remote_actor) do
+          Logger.info("Dropping guestbook reply from #{actor_uri}: blocked by @#{profile_user.username}")
+        else
+          create_federated_guestbook_entry(note, profile_user, remote_actor)
         end
 
       {:error, reason} ->
         Logger.warning("Failed to fetch actor for guestbook reply: #{inspect(reason)}")
+    end
+  end
+
+  defp create_federated_guestbook_entry(note, profile_user, remote_actor) do
+    profile_url =
+      case remote_actor.raw_data do
+        %{"url" => url} when is_binary(url) -> url
+        _ -> remote_actor.ap_id
+      end
+
+    # Strip HTML to plain text and truncate to 500 chars
+    body =
+      (note["content"] || "")
+      |> String.replace(~r/<[^>]+>/, "")
+      |> String.trim()
+      |> String.slice(0, 500)
+
+    attrs = %{
+      body: body,
+      profile_user_id: profile_user.id,
+      ap_id: note["id"],
+      remote_author: %{
+        ap_id: remote_actor.ap_id,
+        username: remote_actor.username,
+        domain: remote_actor.domain,
+        display_name: remote_actor.display_name,
+        avatar_url: remote_actor.avatar_url,
+        profile_url: profile_url
+      }
+    }
+
+    case Inkwell.Guestbook.create_entry_from_ap(attrs) do
+      {:ok, _entry} ->
+        Logger.info("Created federated guestbook entry from #{remote_actor.username}@#{remote_actor.domain}")
+
+        # Create notification for the profile owner
+        Accounts.create_notification(%{
+          user_id: profile_user.id,
+          type: :guestbook,
+          data: %{
+            profile_username: profile_user.username,
+            remote_actor: %{
+              display_name: remote_actor.display_name || remote_actor.username,
+              username: remote_actor.username,
+              domain: remote_actor.domain,
+              avatar_url: remote_actor.avatar_url,
+              profile_url: profile_url,
+              ap_id: remote_actor.ap_id
+            }
+          }
+        })
+
+      {:error, reason} ->
+        Logger.warning("Failed to create federated guestbook entry: #{inspect(reason)}")
     end
   end
 

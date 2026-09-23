@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { LetterThread } from "./letter-thread";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 
-export const metadata: Metadata = { title: "Letters · Inkwell" };
+export const metadata: Metadata = { title: "Letters" };
 
 export interface LetterMessage {
   id: string;
@@ -28,9 +28,7 @@ export interface ThreadData {
     avatar_url: string | null;
   };
   messages: LetterMessage[];
-  page: number;
   has_more: boolean;
-  total: number;
 }
 
 export default async function LetterThreadPage({

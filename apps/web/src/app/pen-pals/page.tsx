@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { PenPalsClient } from "./pen-pals-client";
 import { FetchError } from "@/components/fetch-error";
 
-export const metadata: Metadata = { title: "Pen Pals · Inkwell" };
+export const metadata: Metadata = { title: "Pen Pals" };
 
 interface PenPal {
   id: string;

@@ -7,7 +7,7 @@ import { PollComments } from "./poll-comments";
 import { notFound } from "next/navigation";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 
-export const metadata: Metadata = { title: "Poll · Inkwell" };
+export const metadata: Metadata = { title: "Poll" };
 
 export default async function PollDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

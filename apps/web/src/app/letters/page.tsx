@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { Letterbox } from "./letterbox";
 import { FetchError } from "@/components/fetch-error";
 
-export const metadata: Metadata = { title: "Letterbox · Inkwell" };
+export const metadata: Metadata = { title: "Letterbox" };
 
 export interface ConversationPreview {
   id: string;

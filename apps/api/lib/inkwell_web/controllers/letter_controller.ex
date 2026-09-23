@@ -16,13 +16,18 @@ defmodule InkwellWeb.LetterController do
         {:ok, message} ->
           conn
           |> put_status(:created)
-          |> json(%{data: render_message(message, user.id)})
+          |> json(%{data: InkwellWeb.LetterJSON.message(message, user.id)})
 
         {:error, :not_found} ->
           conn |> put_status(:not_found) |> json(%{error: "Conversation not found"})
 
         {:error, :blocked} ->
           conn |> put_status(:forbidden) |> json(%{error: "Unable to send letter to this user"})
+
+        {:error, :not_pen_pals} ->
+          conn
+          |> put_status(:forbidden)
+          |> json(%{error: "You're no longer pen pals, so you can't send letters here"})
 
         {:error, %Ecto.Changeset{} = changeset} ->
           errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
@@ -47,13 +52,16 @@ defmodule InkwellWeb.LetterController do
 
       case Letters.update_letter(message_id, user.id, attrs) do
         {:ok, message} ->
-          json(conn, %{data: render_message(message, user.id)})
+          json(conn, %{data: InkwellWeb.LetterJSON.message(message, user.id)})
 
         {:error, :not_found} ->
           conn |> put_status(:not_found) |> json(%{error: "Letter not found"})
 
         {:error, :forbidden} ->
           conn |> put_status(:forbidden) |> json(%{error: "You can only edit your own letters"})
+
+        {:error, :blocked} ->
+          conn |> put_status(:forbidden) |> json(%{error: "Unable to edit this letter"})
 
         {:error, %Ecto.Changeset{} = changeset} ->
           errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
@@ -87,20 +95,6 @@ defmodule InkwellWeb.LetterController do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
-
-  defp render_message(message, viewer_id) do
-    %{
-      id: message.id,
-      body: message.body,
-      body_html: message.body_html,
-      edited_at: message.edited_at,
-      sender_username: message.sender.username,
-      sender_display_name: message.sender.display_name,
-      sender_avatar_url: message.sender.avatar_url,
-      is_mine: message.sender_id == viewer_id,
-      inserted_at: message.inserted_at
-    }
-  end
 
   defp sanitize_html(nil), do: nil
   defp sanitize_html(""), do: nil

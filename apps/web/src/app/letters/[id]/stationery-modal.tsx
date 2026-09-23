@@ -142,7 +142,10 @@ export function StationeryModal({
       const json = await res.json();
       if (!res.ok) {
         setError(
-          json.errors?.body?.[0] ?? json.error ?? "Failed to send letter"
+          json.errors?.body?.[0] ??
+            (json.errors?.body_html ? "This letter is too long to send in one piece." : null) ??
+            json.error ??
+            "Failed to send letter"
         );
         return;
       }

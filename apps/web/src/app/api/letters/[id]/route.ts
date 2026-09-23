@@ -3,7 +3,8 @@ import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
-// GET /api/letters/[id] — load thread (with optional ?since=messageId for polling)
+// GET /api/letters/[id] — load thread. ?since=<letterId> returns only newer
+// letters (polling); ?before=<letterId> returns the 50 letters before it.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,11 +15,14 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const since = searchParams.get("since");
-  const page = searchParams.get("page") || "1";
+  const before = searchParams.get("before");
+  const base = `${SERVER_API}/api/conversations/${encodeURIComponent(id)}`;
 
   const url = since
-    ? `${SERVER_API}/api/conversations/${id}?since=${encodeURIComponent(since)}`
-    : `${SERVER_API}/api/conversations/${id}?page=${page}`;
+    ? `${base}?since=${encodeURIComponent(since)}`
+    : before
+      ? `${base}?before=${encodeURIComponent(before)}`
+      : base;
 
   const res = await upstreamFetch(url, {
     headers: { Authorization: `Bearer ${token}` },
