@@ -617,7 +617,9 @@ defmodule InkwellWeb.EntryController do
           updated_at: entry.updated_at,
           created_at: entry.inserted_at,
           kind: entry.kind || "entry",
-          excerpt: if(entry.kind == "sticky", do: entry.excerpt)
+          excerpt: if(entry.kind == "sticky", do: entry.excerpt),
+          imported_from: entry.imported_from,
+          archive_mark: entry.archive_mark || false
         }
       end),
       pagination: %{page: filter_opts[:page], per_page: filter_opts[:per_page], total: total}
@@ -662,6 +664,8 @@ defmodule InkwellWeb.EntryController do
         "remove_tags" -> handle_bulk_tags(conn, user, entry_ids, params["tags"], :remove)
         "set_category" -> handle_bulk_category(conn, user, entry_ids, params["category"])
         "publish" -> handle_bulk_publish(conn, user, entry_ids, params["federate_older"] == true)
+        "archive_mark_on" -> handle_bulk_archive_mark(conn, user, entry_ids, true)
+        "archive_mark_off" -> handle_bulk_archive_mark(conn, user, entry_ids, false)
         _ -> conn |> put_status(:bad_request) |> json(%{error: "Unknown action"})
       end
     end
@@ -669,6 +673,13 @@ defmodule InkwellWeb.EntryController do
 
   def bulk_action(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "Missing action or entry_ids"})
+  end
+
+  defp handle_bulk_archive_mark(conn, user, entry_ids, on?) do
+    case Inkwell.Journals.Archive.set_mark_for(user.id, entry_ids, on?) do
+      {:ok, count} -> json(conn, %{ok: true, count: count})
+      {:error, :unauthorized} -> conn |> put_status(:forbidden) |> json(%{error: "One or more entries not found or not yours"})
+    end
   end
 
   defp handle_bulk_delete(conn, user, entry_ids) do
@@ -980,6 +991,9 @@ defmodule InkwellWeb.EntryController do
       kind: entry.kind || "entry",
       sticky_color: entry.sticky_color,
       source_sticky_id: entry.source_sticky_id,
+      imported_from: entry.imported_from,
+      imported_url: entry.imported_url,
+      archive_mark: entry.archive_mark || false,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }
@@ -1108,7 +1122,12 @@ defmodule InkwellWeb.EntryController do
     entry
     |> render_entry()
     |> Map.put(:author, UserController.render_user(author))
+    |> Map.put(:archive_note, archive_note(entry, author))
   end
+
+  # The writer's own cover-letter note for their archive posts.
+  defp archive_note(%{archive_mark: true}, %{settings: %{"archive_note" => note}}) when is_binary(note) and note != "", do: note
+  defp archive_note(_entry, _author), do: nil
 
   defp parse_int(nil, default), do: default
   defp parse_int(val, default) when is_binary(val) do

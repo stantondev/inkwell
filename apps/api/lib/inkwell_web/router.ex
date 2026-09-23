@@ -243,6 +243,8 @@ defmodule InkwellWeb.Router do
     # Image uploads
     post "/images", EntryImageController, :create
     get "/me/storage", EntryImageController, :storage
+    get "/me/archive", ArchiveController, :show
+    patch "/me/archive", ArchiveController, :update
     get "/me/reads", ReadController, :summary
     get "/me/bluesky", BlueskyBridgeController, :show
     post "/me/bluesky", BlueskyBridgeController, :enable

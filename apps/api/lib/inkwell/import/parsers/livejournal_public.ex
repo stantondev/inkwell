@@ -146,6 +146,7 @@ defmodule Inkwell.Import.Parsers.LivejournalPublic do
         published_at: unix(meta["eventtime"]),
         tags: tags(article_region(html)),
         source_id: url,
+        origin: "livejournal",
         # The post's own comment count ("replycount" appears once, for this
         # entry). Nil when the page doesn't say, so comments are fetched anyway.
         reply_count: reply_count(html)

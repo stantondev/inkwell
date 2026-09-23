@@ -130,6 +130,8 @@ defmodule Inkwell.Workers.ImportDataWorker do
       # Re-running an import brings in comments the first run didn't have
       # (e.g. imports from before comments were supported), once.
       if entry_map[:comments] not in [nil, []] and not has_comments?(existing), do: import_comments(existing, entry_map[:comments], import_record)
+      # …and records where it came from, for posts imported before we kept that.
+      if is_nil(existing.imported_from), do: put_origin(existing, entry_map, import_record)
       {:skipped, "Duplicate entry (same title and date)"}
     else
       attrs = build_entry_attrs(entry_map, user_id, import_record)
@@ -231,8 +233,39 @@ defmodule Inkwell.Workers.ImportDataWorker do
   # anonymous ones as Anonymous.
 
   defp with_comments(entry, entry_map, import_record) do
+    entry = put_origin(entry, entry_map, import_record)
     import_comments(entry, entry_map[:comments] || [], import_record)
     entry
+  end
+
+  # ── Where it came from ───────────────────────────────────────────────────
+
+  @format_origins %{
+    "livejournal" => "livejournal",
+    "livejournal_public" => "livejournal",
+    "wordpress_wxr" => "wordpress",
+    "medium_html" => "medium",
+    "substack" => "substack",
+    "substack_csv" => "substack"
+  }
+
+  defp put_origin(entry, entry_map, import_record) do
+    origin = entry_map[:origin] || Map.get(@format_origins, import_record.format)
+    url = entry_map[:source_id]
+    url = if is_binary(url) and String.starts_with?(url, "https://") and byte_size(url) <= 500, do: url
+    mark = (import_record.options || %{})["archive_mark"] == true and not is_nil(origin)
+
+    if origin do
+      attrs = %{imported_from: origin, imported_url: url}
+      attrs = if mark, do: Map.put(attrs, :archive_mark, true), else: attrs
+
+      case entry |> Inkwell.Journals.Entry.archive_changeset(attrs) |> Repo.update() do
+        {:ok, updated} -> updated
+        _ -> entry
+      end
+    else
+      entry
+    end
   end
 
   defp has_comments?(entry) do

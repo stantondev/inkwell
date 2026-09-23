@@ -15244,3 +15244,216 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   padding: 0.06em 0.12em 0 0;
   color: var(--accent);
 }
+
+/* ─── Archive mark (imported posts) ────────────────────────────────────
+   A postmark naming where a post first lived, and a cover letter clipped to
+   the top of it on the entry page. Tokens so dark mode gets its own paper. */
+
+:root {
+  --archive-ink: #28407a;
+  --archive-paper: #fbf6e9;
+  --archive-paper-edge: #e8dfc8;
+  --archive-letter-ink: #2b2620;
+  --archive-letter-muted: rgba(43, 38, 32, 0.64);
+  --archive-clip: #8a8f98;
+  --archive-shadow: 0 1px 2px rgba(60, 45, 20, 0.1), 0 10px 22px -10px rgba(60, 45, 20, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --archive-ink: #a9bdf0;
+    --archive-paper: #2e2a23;
+    --archive-paper-edge: #3d372d;
+    --archive-letter-ink: #efe9dd;
+    --archive-letter-muted: rgba(239, 233, 221, 0.64);
+    --archive-clip: #b5bac3;
+    --archive-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 24px -10px rgba(0, 0, 0, 0.7);
+  }
+}
+
+.archive-postmark {
+  color: var(--archive-ink);
+  opacity: 0.72;
+  mix-blend-mode: multiply;
+  overflow: visible;
+  flex-shrink: 0;
+}
+@media (prefers-color-scheme: dark) {
+  .archive-postmark { mix-blend-mode: screen; opacity: 0.6; }
+}
+
+/* Cards: a small postmark beside the date */
+.archive-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.archive-seal .archive-postmark { transform: rotate(-10deg); opacity: 0.9; }
+
+/* Entry page: the cover letter */
+.archive-letter {
+  position: relative;
+  max-width: 600px;
+  margin: 2rem 0 0.5rem;
+  padding: 1.5rem 1.75rem 1.1rem;
+  background: var(--archive-paper);
+  color: var(--archive-letter-ink);
+  border: 1px solid var(--archive-paper-edge);
+  border-radius: 2px;
+  box-shadow: var(--archive-shadow);
+  transform: rotate(-0.5deg);
+  transform-origin: 12% 0;
+  font-family: var(--font-lora, Georgia, serif);
+}
+/* The folded bottom-right corner: it grows when the letter is peeled off */
+.archive-letter::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(315deg, var(--background) 50%, var(--archive-paper-edge) 50%, var(--archive-paper) 78%);
+  box-shadow: -2px -2px 4px -2px rgba(0, 0, 0, 0.12);
+  transition: width 0.25s ease, height 0.25s ease;
+}
+.archive-letter:hover::after { width: 30px; height: 30px; }
+
+.archive-letter.is-peeling { animation: archive-peel 0.7s cubic-bezier(0.55, 0, 0.8, 0.4) forwards; pointer-events: none; }
+.archive-letter.is-peeling::after { animation: archive-peel-corner 0.45s ease-in forwards; }
+
+@keyframes archive-peel {
+  0% { transform: rotate(-0.5deg); opacity: 1; }
+  35% { transform: rotate(-3deg) translate(-4px, -6px); opacity: 1; }
+  100% { transform: rotate(14deg) translate(60px, -70px); opacity: 0; }
+}
+@keyframes archive-peel-corner {
+  to { width: 140px; height: 140px; }
+}
+
+.archive-letter-clip {
+  position: absolute;
+  top: -20px;
+  left: 4px;
+  color: var(--archive-clip);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+}
+
+.archive-letter-postmark {
+  position: absolute;
+  top: -34px;
+  right: -36px;
+  transform: rotate(-9deg);
+  pointer-events: none;
+}
+
+.archive-letter-kicker {
+  margin: 0 0 0.75rem;
+  padding-right: 7.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--archive-ink);
+}
+
+.archive-letter-note {
+  margin: 0 0 0.35rem;
+  padding-right: 5rem;
+  font-size: 1.125rem;
+  font-style: italic;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.archive-letter-signature {
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--archive-letter-muted);
+}
+
+.archive-letter-fact {
+  margin: 0;
+  padding-right: 5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--archive-letter-muted);
+}
+.archive-letter-fact--lead {
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--archive-letter-ink);
+}
+
+.archive-letter-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  font-family: system-ui, sans-serif;
+  color: var(--archive-letter-muted);
+}
+.archive-letter-hint a { text-decoration: underline; }
+
+.archive-letter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--archive-paper-edge);
+  font-size: 0.85rem;
+}
+.archive-letter-actions a { color: var(--archive-ink); text-decoration: underline; text-underline-offset: 2px; }
+.archive-letter-aside {
+  font-style: italic;
+  color: var(--archive-letter-muted);
+  padding: 0.2rem 1.4rem 0.2rem 0;
+}
+.archive-letter-aside:hover { color: var(--archive-letter-ink); }
+
+/* Once set aside: a small tab that reopens it */
+.archive-letter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.5rem 0 0.25rem;
+  padding: 0.35rem 0.9rem 0.35rem 0.5rem;
+  background: var(--archive-paper);
+  color: var(--archive-letter-ink);
+  border: 1px solid var(--archive-paper-edge);
+  border-radius: 2px;
+  box-shadow: var(--archive-shadow);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.85rem;
+  text-align: left;
+  animation: archive-tab-in 0.3s ease both;
+}
+.archive-letter-tab strong { font-weight: 600; }
+.archive-letter-tab-open {
+  margin-left: 0.6rem;
+  font-style: italic;
+  color: var(--archive-letter-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.archive-letter-tab:hover .archive-letter-tab-open { color: var(--archive-letter-ink); }
+@keyframes archive-tab-in { from { opacity: 0; transform: translateY(-4px); } }
+
+@media (max-width: 640px) {
+  .archive-letter { padding: 1.35rem 1.1rem 1rem; margin-top: 2.25rem; }
+  .archive-letter-postmark { width: 124px; height: auto; top: -34px; right: -6px; }
+  .archive-letter-clip { left: -8px; }
+  .archive-letter-kicker { padding-right: 5.5rem; }
+  .archive-letter-note, .archive-letter-fact { padding-right: 0; }
+  .archive-letter-tab-open { display: block; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .archive-letter.is-peeling, .archive-letter.is-peeling::after, .archive-letter-tab { animation: none; }
+}

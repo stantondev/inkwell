@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/categories";
+import { ArchivePostmark } from "@/components/archive-postmark";
+import { archiveOriginName } from "@/lib/archive";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,8 @@ interface ManageEntry {
   created_at: string;
   kind?: "entry" | "sticky";
   excerpt?: string | null;
+  imported_from?: string | null;
+  archive_mark?: boolean;
 }
 
 /** Stickies have no title: show the start of the thought instead. */
@@ -41,7 +45,23 @@ function EntryLabel({ entry }: { entry: ManageEntry }) {
       </>
     );
   }
-  return <>{entry.title || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Untitled</span>}</>;
+  return (
+    <>
+      {entry.archive_mark && entry.imported_from && (
+        <span className="inline-block align-middle mr-1.5">
+          <ArchivePostmark
+            origin={entry.imported_from}
+            publishedAt={entry.published_at}
+            uid={`manage-${entry.id}`}
+            width={20}
+            waves={false}
+            title={`Postmarked: from the ${archiveOriginName(entry.imported_from)} archive`}
+          />
+        </span>
+      )}
+      {entry.title || <span style={{ color: "var(--muted)", fontStyle: "italic" }}>Untitled</span>}
+    </>
+  );
 }
 
 interface SeriesItem {
@@ -148,6 +168,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
   const [showBulkCategory, setShowBulkCategory] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [showBulkTags, setShowBulkTags] = useState(false);
+  const [showBulkArchive, setShowBulkArchive] = useState(false);
   // Dates are formatted in the reader's time zone, which the server can't know,
   // so they're filled in after the first render.
   const [mounted, setMounted] = useState(false);
@@ -385,9 +406,11 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
     setShowBulkSeries(false);
     setShowBulkCategory(false);
     setShowBulkTags(false);
+    setShowBulkArchive(false);
   };
 
   const hasSelectedDrafts = selectedDrafts.length > 0;
+  const hasImports = entries.some((e) => e.imported_from);
   const totalPages = Math.ceil(total / perPage);
   const entryDate = (entry: ManageEntry) =>
     !mounted
@@ -892,6 +915,31 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                 </div>
               )}
             </div>
+
+            {/* Archive postmark (imported posts only) */}
+            {hasImports && (
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => { const open = !showBulkArchive; closeMenus(); setShowBulkArchive(open); }}
+                  className="manage-bulk-btn"
+                >
+                  Postmark ▾
+                </button>
+                {showBulkArchive && (
+                  <div className="manage-bulk-dropdown">
+                    <button onClick={() => { setShowBulkArchive(false); runBulk("archive_mark_on", selectedIds); }} className="manage-bulk-dropdown-item">
+                      Postmark as from my archive
+                    </button>
+                    <button onClick={() => { setShowBulkArchive(false); runBulk("archive_mark_off", selectedIds); }} className="manage-bulk-dropdown-item">
+                      Remove the postmark
+                    </button>
+                    <p className="px-3 pb-2 pt-1 text-xs" style={{ color: "var(--muted)", maxWidth: 240 }}>
+                      Only imported posts can be postmarked; others are left as they are.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Publish drafts */}
             {hasSelectedDrafts && (

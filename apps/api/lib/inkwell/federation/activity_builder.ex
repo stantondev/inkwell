@@ -863,6 +863,22 @@ defmodule Inkwell.Federation.ActivityBuilder do
   # Builds the Article `content` field with a clean text hook prepended.
   # Front-loads title + excerpt + "Read more" link so Mastodon's truncated
   # display shows meaningful text instead of the start of raw HTML body.
+  @archive_origin_names %{
+    "livejournal" => "LiveJournal",
+    "dreamwidth" => "Dreamwidth",
+    "wordpress" => "WordPress",
+    "medium" => "Medium",
+    "substack" => "Substack"
+  }
+
+  @doc false
+  def archive_line(%{archive_mark: true, imported_from: origin, published_at: %DateTime{} = at}) when is_binary(origin) do
+    name = Map.get(@archive_origin_names, origin, String.capitalize(origin))
+    "From my #{name} archive, first written #{Calendar.strftime(at, "%B %-d, %Y")}."
+  end
+
+  def archive_line(_), do: nil
+
   defp build_article_content(entry, sanitized_body, page_url) do
     parts = []
 
@@ -872,6 +888,13 @@ defmodule Inkwell.Federation.ActivityBuilder do
         parts ++ ["<p><strong>#{html_escape(entry.title)}</strong></p>"]
       else
         parts
+      end
+
+    # Archive posts say so up front, so a post from 2004 doesn't read as news.
+    parts =
+      case archive_line(entry) do
+        nil -> parts
+        line -> parts ++ ["<p><em>#{html_escape(line)}</em></p>"]
       end
 
     # Excerpt or auto-generated summary

@@ -14,6 +14,7 @@ import { EntryActions } from "./entry-actions";
 import { ReportButton } from "./report-button";
 import { ReadingProgress } from "./reading-progress";
 import { EntryStamps } from "./entry-stamps";
+import { ArchiveCoverLetter } from "@/components/archive-cover-letter";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { SeriesNav } from "@/components/series-nav";
@@ -109,6 +110,10 @@ interface EntryData {
   tip_count?: number;
   poll?: PollData | null;
   entry_source?: string | null;
+  imported_from?: string | null;
+  imported_url?: string | null;
+  archive_mark?: boolean;
+  archive_note?: string | null;
   is_paywalled?: boolean;
   quoted_entry?: {
     id: string;
@@ -807,6 +812,19 @@ export default async function EntryPage({ params }: EntryParams) {
           {/* ── Embedded music player ──────────────────────────────── */}
           {musicEmbed && (
             <EntryMusicEmbed embed={musicEmbed} music={entry.music!} />
+          )}
+
+          {/* ── Archive cover letter (posts brought over from LiveJournal etc.) ── */}
+          {entry.archive_mark && entry.imported_from && (
+            <ArchiveCoverLetter
+              entryId={entry.id}
+              origin={entry.imported_from}
+              publishedAt={entry.published_at}
+              originalUrl={entry.imported_url ?? null}
+              note={entry.archive_note ?? null}
+              authorName={author.display_name || `@${username}`}
+              isOwnEntry={isOwnEntry ?? false}
+            />
           )}
         </div>
       </div>

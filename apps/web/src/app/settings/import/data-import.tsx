@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { ArchivePostmark } from "@/components/archive-postmark";
 
 interface ImportStatus {
   id: string;
@@ -158,6 +159,10 @@ export function DataImport() {
   const [ljUsername, setLjUsername] = useState("");
   const [ljOwnName, setLjOwnName] = useState("");
   const [confirmOwner, setConfirmOwner] = useState(false);
+  // LiveJournal/Dreamwidth: show imported posts with the archive postmark
+  // and cover letter, so readers can tell old posts from new ones.
+  const [archiveMark, setArchiveMark] = useState(true);
+  const isLjFormat = format === "livejournal" || format === "livejournal_public";
 
   // /settings/import?from=livejournal (or ?from=livejournal_public) opens
   // with that source chosen; the Switch pages link here.
@@ -194,6 +199,16 @@ export function DataImport() {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Tell the "Your archive" card below to reload once an import finishes.
+  const lastStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const prev = lastStatus.current;
+    lastStatus.current = importData?.status;
+    if (importData?.status === "completed" && (prev === "pending" || prev === "processing")) {
+      window.dispatchEvent(new Event("inkwell-import-finished"));
+    }
+  }, [importData?.status]);
+
   // Poll while pending/processing
   useEffect(() => {
     if (
@@ -229,6 +244,7 @@ export function DataImport() {
       formData.append("format", format);
       formData.append("import_mode", importMode);
       formData.append("default_privacy", privacy);
+      if (isLjFormat && archiveMark) formData.append("archive_mark", "true");
 
       if (format === "livejournal" && ljOwnName.trim()) {
         formData.append("lj_username", ljOwnName.trim());
@@ -603,6 +619,29 @@ export function DataImport() {
                 entries, or include ljdump&apos;s C- files.
               </p>
             </div>
+          )}
+
+          {isLjFormat && (
+            <label className="flex items-start gap-3 text-sm cursor-pointer rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+              <input
+                type="checkbox"
+                checked={archiveMark}
+                onChange={(e) => setArchiveMark(e.target.checked)}
+                className="mt-1"
+                style={{ accentColor: "var(--accent)" }}
+              />
+              <span className="flex-1">
+                <span className="block font-medium" style={{ color: "var(--foreground)" }}>
+                  Postmark them as from my archive
+                </span>
+                <span className="block text-xs mt-1" style={{ color: "var(--muted)" }}>
+                  Each post gets a LiveJournal postmark with the date you first wrote it, and a
+                  cover letter clipped to the top, so readers know it&apos;s from years ago. Handy for
+                  old journals; skip it if these are recent. You can change it any time below.
+                </span>
+              </span>
+              <ArchivePostmark origin="livejournal" publishedAt="2004-03-23T00:00:00Z" uid="import-preview" width={96} className="hidden sm:block" />
+            </label>
           )}
 
           {/* File Upload */}

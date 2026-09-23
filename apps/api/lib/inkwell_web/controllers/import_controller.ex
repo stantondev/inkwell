@@ -33,7 +33,7 @@ defmodule InkwellWeb.ImportController do
             file_name: file_name,
             file_size: file_size,
             status: "pending",
-            options: import_options(format, params, file_data)
+            options: import_options(format, params, file_data) |> put_archive_mark(params)
           }
 
           case Import.create_import(attrs) do
@@ -119,6 +119,13 @@ defmodule InkwellWeb.ImportController do
   end
 
   defp import_options(_, _, _), do: %{}
+
+  # "Show these as from my archive": each imported post gets the archive
+  # postmark and cover letter. The writer can switch it on or off later for
+  # everything they've imported (Settings → Import) or per post (Posts page).
+  defp put_archive_mark(options, params) do
+    if params["archive_mark"] in [true, "true"], do: Map.put(options, "archive_mark", true), else: options
+  end
 
   defp read_upload(%{"file" => %Plug.Upload{} = upload}) do
     case File.read(upload.path) do

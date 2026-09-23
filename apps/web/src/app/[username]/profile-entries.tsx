@@ -10,6 +10,8 @@ import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { decodeEntities } from "@/lib/decode-entities";
 import type { ProfileStyles } from "@/lib/profile-styles";
 import type { ProfileFilters } from "./profile-search-bar";
+import { ArchivePostmark, ArchiveSeal } from "@/components/archive-postmark";
+import { archiveOriginName } from "@/lib/archive";
 
 interface ProfileEntry {
   id: string;
@@ -26,6 +28,16 @@ interface ProfileEntry {
   excerpt?: string | null;
   cover_image_id?: string | null;
   category?: string | null;
+  imported_from?: string | null;
+  archive_mark?: boolean;
+}
+
+function isArchive(entry: ProfileEntry) {
+  return !!(entry.archive_mark && entry.imported_from);
+}
+
+function Seal({ entry, where }: { entry: ProfileEntry; where: string }) {
+  return <ArchiveSeal origin={entry.imported_from} publishedAt={entry.published_at} uid={`${where}-${entry.id}`} />;
 }
 
 
@@ -214,13 +226,16 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
 
       <div className="p-4 sm:p-6 lg:p-8">
         {/* Date */}
-        <time
-          className="block text-xs mb-4 tracking-wide uppercase"
-          style={{ color: styles.muted, fontFamily: "var(--font-lora, Georgia, serif)", letterSpacing: "0.06em" }}
-          dateTime={entry.published_at}
-        >
-          {formatDate(entry.published_at)}
-        </time>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4">
+          <time
+            className="block text-xs tracking-wide uppercase"
+            style={{ color: styles.muted, fontFamily: "var(--font-lora, Georgia, serif)", letterSpacing: "0.06em" }}
+            dateTime={entry.published_at}
+          >
+            {formatDate(entry.published_at)}
+          </time>
+          {isArchive(entry) && <Seal entry={entry} where="full" />}
+        </div>
 
         {/* Title */}
         {entry.title && (
@@ -346,6 +361,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs" style={{ color: styles.muted }}>
           <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
           {rt && <><span>·</span><span>{rt}</span></>}
+          {isArchive(entry) && <Seal entry={entry} where="card" />}
           {entry.category && (
             <Link
               href={`/category/${getCategorySlug(entry.category)}`}
@@ -437,6 +453,7 @@ function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; use
             <span suppressHydrationWarning>{formatDate(entry.published_at)}</span>
             {rt && <> · {rt}</>}
           </p>
+          {isArchive(entry) && <p className="-mt-4 mb-6"><Seal entry={entry} where="feature" /></p>}
         </div>
         {image && (
           <Link href={href} className={`block overflow-hidden ${styles.borderRadius} @4xl:order-1`}>
@@ -488,6 +505,7 @@ function MagazineStory({ entry, username, styles }: { entry: ProfileEntry; usern
         {rt && <> · {rt}</>}
         {(entry.comment_count ?? 0) > 0 && <> · {entry.comment_count} {entry.comment_count === 1 ? "comment" : "comments"}</>}
       </p>
+      {isArchive(entry) && <p className="mt-2"><Seal entry={entry} where="story" /></p>}
     </article>
   );
 }
@@ -535,6 +553,16 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
       <div className="flex items-center gap-2 shrink-0 text-xs" style={{ color: styles.muted }}>
         {entry.stamps && entry.stamps.length > 0 && (
           <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
+        )}
+        {isArchive(entry) && (
+          <ArchivePostmark
+            origin={entry.imported_from}
+            publishedAt={entry.published_at}
+            uid={`tl-${entry.id}`}
+            width={22}
+            waves={false}
+            title={`From the ${archiveOriginName(entry.imported_from)} archive`}
+          />
         )}
         {rt && <span className="hidden sm:inline">{rt}</span>}
         <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>

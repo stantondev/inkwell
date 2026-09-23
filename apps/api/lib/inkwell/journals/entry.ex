@@ -75,6 +75,14 @@ defmodule Inkwell.Journals.Entry do
     # An entry written by expanding a sticky points back at it.
     belongs_to :source_sticky, Inkwell.Journals.Entry
 
+    # Imported posts: where they first lived ("livejournal", "dreamwidth", …),
+    # their address there when known, and whether the writer shows the
+    # archive postmark and cover letter on them. Set only by imports and the
+    # archive settings (archive_changeset/2), never from editor params.
+    field :imported_from, :string
+    field :imported_url, :string
+    field :archive_mark, :boolean, default: false
+
     timestamps(type: :utc_datetime_usec)
   end
 
@@ -163,6 +171,15 @@ defmodule Inkwell.Journals.Entry do
     do: validate_not_future(changeset, :published_at)
 
   defp validate_edited_date_not_future(changeset, _entry), do: changeset
+
+  @doc "Where an imported entry came from, and whether it wears the archive mark."
+  def archive_changeset(entry, attrs) do
+    entry
+    |> cast(attrs, [:imported_from, :imported_url, :archive_mark])
+    |> validate_length(:imported_from, max: 40)
+    |> validate_length(:imported_url, max: 500)
+    |> validate_format(:imported_url, ~r{\Ahttps://}, message: "must be an https link")
+  end
 
   @doc "Changeset for creating/updating drafts — relaxed validation."
   def draft_changeset(entry, attrs) do

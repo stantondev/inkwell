@@ -126,7 +126,8 @@ defmodule Inkwell.Import.Parsers.Livejournal do
         music: clean_text(field(props, "current_music") || field(block, "current_music")),
         tags: tags(field(props, "taglist")),
         privacy: LivejournalMarkup.privacy(String.downcase(field(block, "security") || "public"), field(block, "allowmask")),
-        source_id: field(block, "itemid")
+        source_id: field(block, "itemid"),
+        origin: Atom.to_string(site)
       }
     end
   end

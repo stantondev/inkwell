@@ -10,6 +10,7 @@ import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { getMusicLabel } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
 import { StickyNoteCard } from "@/components/sticky-note-card";
+import { ArchiveSeal } from "./archive-postmark";
 
 export interface JournalEntry {
   id: string;
@@ -81,6 +82,9 @@ export interface JournalEntry {
   source?: "local" | "remote" | "reprint";
   /** The entry's creation source — e.g., "email" for Post by Email */
   entry_source?: string | null;
+  /** Imported posts: where they first lived, and whether they wear the archive postmark */
+  imported_from?: string | null;
+  archive_mark?: boolean;
   /** Reprinter info — present when source is "reprint" */
   reprinter?: {
     id: string;
@@ -146,7 +150,11 @@ function timeAgo(isoString: string): string {
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 60) return `${days}d ago`;
+  // Old posts (imports from 2004) read "21y ago", not "7659d ago".
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 interface JournalEntryCardProps {
@@ -220,17 +228,22 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
 
         {/* Date — compact fediverse posts use inline relative time */}
         {!isCompact && (
-          <time
-            className="block text-xs mb-4 tracking-wide uppercase"
-            style={{
-              color: "var(--muted)",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              letterSpacing: "0.06em",
-            }}
-            dateTime={entry.published_at}
-          >
-            {formatDate(entry.published_at)}
-          </time>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-14 sm:pr-24">
+            <time
+              className="block text-xs tracking-wide uppercase"
+              style={{
+                color: "var(--muted)",
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                letterSpacing: "0.06em",
+              }}
+              dateTime={entry.published_at}
+            >
+              {formatDate(entry.published_at)}
+            </time>
+            {entry.archive_mark && entry.imported_from && (
+              <ArchiveSeal origin={entry.imported_from} publishedAt={entry.published_at} uid={`card-${entry.id}`} />
+            )}
+          </div>
         )}
 
         {/* Title — hidden on feed cards for quote reprints (the quoted post speaks for itself) */}
