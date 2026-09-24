@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LocalDate, FULL_DATE, SHORT_DATE } from "@/components/local-date";
 
 import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
@@ -161,14 +162,6 @@ interface EntryData {
 import type { Comment } from "@/lib/comment-utils";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string) {
-  // Pinned to UTC so every reader sees the same day, and so this agrees with
-  // the feed card (which must pin it to survive hydration).
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
-  });
-}
 
 function readingTime(html: string): number {
   const words = html.replace(/<[^>]+>/g, "").trim().split(/\s+/).filter(Boolean).length;
@@ -725,13 +718,12 @@ export default async function EntryPage({ params }: EntryParams) {
           </div>
 
           {/* Date */}
-          <time
+          <LocalDate
+            iso={entry.published_at}
+            options={FULL_DATE}
             className="block text-sm mb-5"
             style={{ color: "var(--muted)", letterSpacing: "0.01em" }}
-            dateTime={entry.published_at}
-          >
-            {formatDate(entry.published_at)}
-          </time>
+          />
 
           {entry.source_sticky && (
             <Link
@@ -988,7 +980,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 rel="prev"
               >
                 <span className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
-                  ← Older · {journalNavDate(entry.journal_nav.older.published_at)}
+                  ← Older · <LocalDate iso={entry.journal_nav.older.published_at} options={SHORT_DATE} />
                 </span>
                 <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
                   {entry.journal_nav.older.title || "Untitled entry"}
@@ -1005,7 +997,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 rel="next"
               >
                 <span className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
-                  {journalNavDate(entry.journal_nav.newer.published_at)} · Newer →
+                  <LocalDate iso={entry.journal_nav.newer.published_at} options={SHORT_DATE} /> · Newer →
                 </span>
                 <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
                   {entry.journal_nav.newer.title || "Untitled entry"}
@@ -1070,10 +1062,6 @@ export default async function EntryPage({ params }: EntryParams) {
 
 // ─── A Sticky's own page ───────────────────────────────────────────────────
 
-function journalNavDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
 function StickyPage({
   entry,
   username,
@@ -1105,7 +1093,7 @@ function StickyPage({
             <span className="min-w-0">
               <span className="block font-semibold truncate group-hover:underline">{author.display_name}</span>
               <span className="block text-sm" style={{ color: "var(--muted)" }}>
-                @{username} &middot; <time dateTime={entry.published_at}>{formatDate(entry.published_at)}</time>
+                @{username} &middot; <LocalDate iso={entry.published_at} options={FULL_DATE} />
               </span>
             </span>
           </Link>

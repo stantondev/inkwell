@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { LocalDate, FULL_DATE } from "@/components/local-date";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
@@ -72,16 +73,6 @@ function timeAgo(isoString: string): string {
   if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;
   return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 function readingTime(wordCount?: number): string | null {
@@ -232,7 +223,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
             style={{ color: styles.muted, fontFamily: "var(--font-lora, Georgia, serif)", letterSpacing: "0.06em" }}
             dateTime={entry.published_at}
           >
-            {formatDate(entry.published_at)}
+            <LocalDate iso={entry.published_at} options={FULL_DATE} asTime={false} />
           </time>
           {isArchive(entry) && <Seal entry={entry} where="full" />}
         </div>
@@ -450,7 +441,7 @@ function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; use
             </Link>
           </h3>
           <p className="text-sm mb-6" style={{ color: styles.muted }}>
-            <span suppressHydrationWarning>{formatDate(entry.published_at)}</span>
+            <LocalDate iso={entry.published_at} options={FULL_DATE} />
             {rt && <> · {rt}</>}
           </p>
           {isArchive(entry) && <p className="-mt-4 mb-6"><Seal entry={entry} where="feature" /></p>}

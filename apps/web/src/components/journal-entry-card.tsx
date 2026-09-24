@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocalDate, FULL_DATE } from "@/components/local-date";
 import { Avatar, AvatarWithFrame } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
@@ -129,21 +130,6 @@ function extractFirstImage(html: string): string | null {
   return match ? match[1] : null;
 }
 
-function formatDate(iso: string): string {
-  // timeZone is pinned: without it this renders in the server's zone during
-  // SSR (Fly runs UTC) and in the reader's on the client, so an entry
-  // published near midnight UTC produces two different days — a text mismatch
-  // that makes React discard the server HTML for the whole page. UTC also
-  // keeps this card agreeing with the entry page, which formats server-side.
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 function timeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -238,7 +224,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               }}
               dateTime={entry.published_at}
             >
-              {formatDate(entry.published_at)}
+              <LocalDate iso={entry.published_at} options={FULL_DATE} asTime={false} />
             </time>
             {entry.archive_mark && entry.imported_from && (
               <ArchiveSeal origin={entry.imported_from} publishedAt={entry.published_at} uid={`card-${entry.id}`} />

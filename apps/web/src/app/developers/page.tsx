@@ -270,6 +270,16 @@ export default function DevelopersPage() {
               would go over returns <code style={{ fontFamily: "monospace" }}>422</code> with <code style={{ fontFamily: "monospace" }}>{`{"error": "storage_limit_exceeded"}`}</code> and
               your current <code style={{ fontFamily: "monospace" }}>storage</code> summary.
             </li>
+            <li>
+              <strong style={{ color: "var(--foreground)" }}>Unused images are removed automatically:</strong> once a day,
+              Inkwell deletes uploaded images more than 24 hours old that nothing uses, and your storage goes down to match.
+              An image counts as used if its <code style={{ fontFamily: "monospace" }}>/api/images/:id</code> URL (relative
+              or absolute) appears in any entry or draft&apos;s <code style={{ fontFamily: "monospace" }}>body_html</code>, or
+              it&apos;s an entry or series <code style={{ fontFamily: "monospace" }}>cover_image_id</code>. To replace an
+              image, upload the new one and update the entry; there&apos;s no need to delete the old one. If your tool uploads
+              images well before it publishes, save the entry as a draft (<code style={{ fontFamily: "monospace" }}>{`"status": "draft"`}</code>)
+              within 24 hours so its images are kept.
+            </li>
           </ul>
         </section>
 
