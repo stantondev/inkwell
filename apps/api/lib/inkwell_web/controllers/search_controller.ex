@@ -298,18 +298,13 @@ defmodule InkwellWeb.SearchController do
         crop_length: 200
       ]
 
-      # For entries, only show public content; for users, exclude inactive
-      opts = cond do
-        type == "entries" ->
-          Keyword.put(opts, :filter, "privacy = public")
-
-        type == "users" ->
-          cutoff = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.to_unix()
-          Keyword.put(opts, :filter, "last_active_at >= #{cutoff}")
-
-        true ->
-          opts
-      end
+      # For entries, only show public content. Writers are searchable however
+      # long ago they last signed in: someone looking for a friend by name should
+      # find them (suspended accounts aren't in the users index at all).
+      opts =
+        if type == "entries",
+          do: Keyword.put(opts, :filter, "privacy = public"),
+          else: opts
 
       Inkwell.Search.search(index, q, opts)
     end
@@ -321,17 +316,15 @@ defmodule InkwellWeb.SearchController do
     import Ecto.Query
 
     pattern = "%#{q}%"
-    active_ids = Inkwell.Accounts.active_user_ids_subquery()
 
     Inkwell.Accounts.User
     |> where([u], ilike(u.username, ^pattern) or ilike(u.display_name, ^pattern))
     |> where([u], is_nil(u.blocked_at))
-    |> where([u], u.id in subquery(active_ids))
     |> limit(20)
     |> Inkwell.Repo.all()
     |> Enum.map(fn u ->
       %{id: u.id, username: u.username, display_name: u.display_name,
-        avatar_url: u.avatar_url, bio: u.bio}
+        avatar_url: Inkwell.Avatars.avatar_url(u), bio: u.bio}
     end)
   end
 

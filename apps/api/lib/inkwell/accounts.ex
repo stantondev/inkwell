@@ -120,26 +120,44 @@ defmodule Inkwell.Accounts do
   end
 
   @doc "Search users by username prefix for @mention autocomplete. Returns up to `limit` users."
+  # @mention autocomplete. Matches the start of a username or of any word in the
+  # display name. Deliberately no activity filter: someone who hasn't signed in
+  # lately is exactly who a friend wants to tag to bring them back. Suspended
+  # accounts (spam) and the relay machine actor are left out.
   def search_users_by_prefix(prefix, limit \\ 10, exclude_ids \\ []) do
-    prefix = String.trim(prefix) |> String.downcase()
+    prefix = prefix |> String.trim() |> String.trim_leading("@") |> String.downcase()
 
     if String.length(prefix) < 1 do
       []
     else
-      like_pattern = "#{prefix}%"
-
-      # Use the longer threshold (30 days) for mention autocomplete to be conservative
-      activity_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_with_posts_days, :day)
+      escaped = String.replace(prefix, ~r/([\\%_])/, "\\\\\\1")
+      starts = "#{escaped}%"
+      word_starts = "% #{escaped}%"
 
       query =
         User
-        |> where([u], like(u.username, ^like_pattern))
         |> where([u], not is_nil(u.username))
         |> where([u], is_nil(u.blocked_at))
-        |> where([u], u.last_active_at >= ^activity_cutoff or is_nil(u.last_active_at))
-        |> order_by([u], asc: u.username)
+        |> where([u], u.username != ^Inkwell.Federation.InstanceActor.username())
+        |> where(
+          [u],
+          like(fragment("lower(?)", u.username), ^starts) or
+            ilike(u.display_name, ^starts) or
+            ilike(u.display_name, ^word_starts)
+        )
+        |> order_by([u],
+          asc: fragment("CASE WHEN lower(?) LIKE ? THEN 0 ELSE 1 END", u.username, ^starts),
+          asc: fragment("length(?)", u.username),
+          asc: u.username
+        )
         |> limit(^limit)
-        |> select([u], %{id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url})
+        |> select([u], %{
+          id: u.id,
+          username: u.username,
+          display_name: u.display_name,
+          avatar_url: u.avatar_url,
+          updated_at: u.updated_at
+        })
 
       query =
         if exclude_ids != [] do
@@ -148,7 +166,13 @@ defmodule Inkwell.Accounts do
           query
         end
 
-      Repo.all(query)
+      query
+      |> Repo.all()
+      |> Enum.map(fn u ->
+        u
+        |> Map.put(:avatar_url, Inkwell.Avatars.avatar_url(u))
+        |> Map.delete(:updated_at)
+      end)
     end
   end
 
