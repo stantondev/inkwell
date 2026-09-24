@@ -104,7 +104,7 @@ export function MoodInput({
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => pick(m)}
       >
-        <MoodIcon family={m.family} theme={theme} size={18} />
+        <MoodIcon moodKey={m.key} theme={theme} size={18} />
         <span className="truncate">{m.label}</span>
       </button>
     );
@@ -122,7 +122,7 @@ export function MoodInput({
           aria-label={resolved ? `Face: ${resolved.mood?.label ?? resolved.family}. Choose a face` : "Choose a face"}
         >
           {resolved ? (
-            <MoodIcon family={resolved.family} theme={theme} size={20} />
+            <MoodIcon moodKey={moodKey} mood={value} theme={theme} size={20} />
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.4"
               strokeDasharray="2.5 2" aria-hidden="true">

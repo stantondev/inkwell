@@ -776,6 +776,7 @@ a.mention:hover,
   --mood-paper: #fdf8ee;
   --mood-ink-red: #ffd9c7;
   --mood-ink-green: #e1edc2;
+  --mood-ink-blue: #d6eaff;
   --mood-heart: #d9364e;
   --mood-water: #5aa8f0;
   --mood-gold: #f2c230;
@@ -787,6 +788,7 @@ a.mention:hover,
     --mood-paper: #252a38;
     --mood-ink-red: #4a2a22;
     --mood-ink-green: #2c3a22;
+    --mood-ink-blue: #1f3048;
     --mood-glyph: #eadfc4;
   }
 }
@@ -795,6 +797,7 @@ a.mention:hover,
   --mood-paper: #252a38;
   --mood-ink-red: #4a2a22;
   --mood-ink-green: #2c3a22;
+  --mood-ink-blue: #1f3048;
   --mood-glyph: #eadfc4;
 }
 
