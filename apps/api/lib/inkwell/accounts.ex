@@ -79,11 +79,22 @@ defmodule Inkwell.Accounts do
     |> Repo.update()
   end
 
+  # Fields that appear in the ActivityPub actor; changing one tells followers'
+  # servers so they don't keep showing the old avatar, name or bio.
+  @federated_profile_fields [:display_name, :bio, :bio_html, :avatar_url, :profile_banner_url, :social_links]
+
   def update_user_profile(%User{} = user, attrs) do
-    user
-    |> User.profile_changeset(attrs)
+    changeset = User.profile_changeset(user, attrs)
+    federated? = Enum.any?(@federated_profile_fields, &Map.has_key?(changeset.changes, &1))
+
+    changeset
     |> Repo.update()
-    |> tap_ok(&enqueue_search_index_user/1)
+    |> tap_ok(fn updated ->
+      enqueue_search_index_user(updated)
+
+      if federated? and is_binary(updated.username),
+        do: Inkwell.Federation.Workers.FanOutWorker.enqueue_profile_update(updated.id)
+    end)
   end
 
   def update_user_email(%User{} = user, new_email) do

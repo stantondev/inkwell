@@ -30,6 +30,19 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
     deliver_to_followers(activity, user)
   end
 
+  # Profile changed (avatar, banner, name, bio, links). Built at run time so a
+  # burst of saves sends the latest profile once.
+  def perform(%Oban.Job{args: %{"action" => "update_profile", "user_id" => user_id}}) do
+    case Repo.get(Inkwell.Accounts.User, user_id) do
+      %{blocked_at: nil} = user ->
+        Logger.info("Fan-out profile update for user #{user_id}")
+        deliver_to_followers(ActivityBuilder.build_update_person(user), user)
+
+      _ ->
+        :ok
+    end
+  end
+
   # Handle delete where entry may already be gone
   def perform(%Oban.Job{args: %{"entry_ap_id" => entry_ap_id, "action" => "delete", "user_id" => user_id}}) do
     user = Accounts.get_user!(user_id)
@@ -67,6 +80,16 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
 
     Logger.info("Fan-out #{action} for #{entry_ap_id}")
     deliver_to_followers(activity, user)
+  end
+
+  @doc "Queues an Update{Person} to the user's followers, coalescing saves within a minute."
+  def enqueue_profile_update(user_id) do
+    %{action: "update_profile", user_id: user_id}
+    |> new(
+      schedule_in: 30,
+      unique: [period: 60, keys: [:action, :user_id], states: [:scheduled, :available]]
+    )
+    |> Oban.insert()
   end
 
   # Stream inboxes in batches and enqueue delivery jobs — never holds

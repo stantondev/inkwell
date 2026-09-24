@@ -381,7 +381,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
         Map.put(person, "icon", %{
           "type" => "Image",
           "mediaType" => detect_media_type(user.avatar_url),
-          "url" => "https://#{instance_host}/api/avatars/#{user.username}"
+          "url" => "https://#{instance_host}/api/avatars/#{user.username}#{image_version(user.avatar_url)}"
         })
       else
         person
@@ -392,7 +392,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
         Map.put(person, "image", %{
           "type" => "Image",
           "mediaType" => detect_media_type(user.profile_banner_url),
-          "url" => "https://#{instance_host}/api/banners/#{user.username}"
+          "url" => "https://#{instance_host}/api/banners/#{user.username}#{image_version(user.profile_banner_url)}"
         })
       else
         person
@@ -407,6 +407,37 @@ defmodule Inkwell.Federation.ActivityBuilder do
     person
   end
 
+  # Mastodon only re-downloads an avatar or banner when its URL changes, so a
+  # fixed /api/avatars/:username kept every server showing whatever picture it
+  # first saw. A hash of the stored image changes the URL exactly when the
+  # image does (a timestamp would also change on every bio edit).
+  defp image_version(data) when is_binary(data) and data != "" do
+    "?v=" <> (:crypto.hash(:sha256, data) |> Base.url_encode64(padding: false) |> binary_part(0, 12))
+  end
+
+  defp image_version(_), do: ""
+
+  @doc """
+  Builds an Update{Person} announcing a changed profile (avatar, banner, name,
+  bio, links) to followers. Without it, servers only noticed changes whenever
+  they happened to re-fetch the actor.
+  """
+  def build_update_person(user) do
+    actor_url = actor_url(user)
+    {context, person} = Map.pop(build_person(user), "@context")
+
+    %{
+      "@context" => context,
+      "type" => "Update",
+      "id" => "#{actor_url}#updates/#{System.system_time(:nanosecond)}",
+      "actor" => actor_url,
+      "published" => format_datetime(DateTime.utc_now()),
+      "to" => [@public],
+      "cc" => ["#{actor_url}/followers"],
+      "object" => person
+    }
+  end
+
   defp add_property_values(person, user) do
     links = user.social_links || %{}
 
@@ -415,8 +446,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
         if(links["website"], do: {"Website", link_html(links["website"])}),
         if(links["bluesky"], do: {"Bluesky", links["bluesky"]}),
         if(links["mastodon"], do: {"Mastodon", link_html(links["mastodon"])}),
-        if(links["github"], do: {"GitHub", link_html("https://github.com/#{links["github"]}")}),
-        if(links["twitter"], do: {"X/Twitter", link_html("https://x.com/#{links["twitter"]}")})
+        if(links["github"], do: {"GitHub", link_html(profile_link(links["github"], "https://github.com/"))}),
+        if(links["twitter"], do: {"X/Twitter", link_html(profile_link(links["twitter"], "https://x.com/"))})
       ]
       |> Enum.reject(&is_nil/1)
       |> Enum.map(fn {name, value} ->
@@ -433,6 +464,10 @@ defmodule Inkwell.Federation.ActivityBuilder do
       end)
     end
   end
+
+  # Settings asks for full URLs; older values may be bare handles.
+  defp profile_link("http" <> _ = url, _base), do: url
+  defp profile_link(handle, base), do: base <> String.trim_leading(handle, "@")
 
   defp link_html(url) when is_binary(url) do
     "<a href=\"#{html_escape(url)}\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">#{html_escape(url)}</a>"
