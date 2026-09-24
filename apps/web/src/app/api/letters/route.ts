@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/letters — find or create a conversation with a pen pal
-// Body: { username: string }
+// Body: { username: string } for a member, or { remote_actor_id: string } for a
+// fediverse account you follow or that follows you
 export async function POST(request: NextRequest) {
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });

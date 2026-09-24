@@ -176,6 +176,11 @@ function EnvelopeCard({
                 }}
               >
                 {conv.other_user.display_name}
+                {conv.other_user.remote && (
+                  <span className="letterbox-tag" title={conv.other_user.handle}>
+                    fediverse
+                  </span>
+                )}
                 {conv.muted && (
                   <span className="letterbox-tag" title="Muted: no notifications">
                     muted

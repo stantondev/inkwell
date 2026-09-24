@@ -56,13 +56,27 @@ defmodule InkwellWeb.ConversationController do
     conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing action"})
   end
 
-  # POST /api/conversations — find or create a conversation with a pen pal
+  # POST /api/conversations {"remote_actor_id"} — a conversation with a
+  # fediverse account you follow or that follows you
+  def create(conn, %{"remote_actor_id" => actor_id}) when is_binary(actor_id) do
+    user = conn.assigns.current_user
+    create_result(conn, user, Letters.get_or_create_remote_conversation(user.id, actor_id))
+  end
+
+  # POST /api/conversations {"username"} — find or create a conversation with a pen pal
   def create(conn, %{"username" => username}) when is_binary(username) do
     user = conn.assigns.current_user
+    create_result(conn, user, Letters.get_or_create_conversation(user.id, username))
+  end
 
-    case Letters.get_or_create_conversation(user.id, username) do
+  def create(conn, _params) do
+    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing username parameter"})
+  end
+
+  defp create_result(conn, user, result) do
+    case result do
       {:ok, conv} ->
-        other = if conv.participant_a == user.id, do: conv.participant_b_user, else: conv.participant_a_user
+        other = Letters.other_party(conv, user.id)
         conn |> put_status(:ok) |> json(%{data: %{id: conv.id, other_user: LetterJSON.user(other)}})
 
       {:error, :not_found} ->
@@ -85,10 +99,6 @@ defmodule InkwellWeb.ConversationController do
       {:error, _} ->
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to create conversation"})
     end
-  end
-
-  def create(conn, _params) do
-    conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing username parameter"})
   end
 
   # GET /api/conversations/:id?since=<letter_id> — letters newer than one the
@@ -115,7 +125,7 @@ defmodule InkwellWeb.ConversationController do
 
     case Letters.get_conversation(id, user.id, before: params["before"]) do
       {:ok, conv, messages, has_more} ->
-        other = if conv.participant_a == user.id, do: conv.participant_b_user, else: conv.participant_a_user
+        other = Letters.other_party(conv, user.id)
         view = Letters.thread_view(conv, user.id)
 
         json(conn, %{

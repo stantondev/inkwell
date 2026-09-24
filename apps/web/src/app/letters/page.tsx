@@ -14,6 +14,8 @@ export interface ConversationPreview {
     username: string;
     display_name: string;
     avatar_url: string | null;
+    remote?: boolean;
+    handle?: string;
   };
   last_message: {
     body: string;

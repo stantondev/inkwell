@@ -609,7 +609,14 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
     if (answer === "block") {
       if (!confirm(`Block ${other.display_name}? They won't be able to write to you or see your journal.`)) return;
       try {
-        const res = await fetch(`/api/block/${encodeURIComponent(other.username)}`, { method: "POST" });
+        // A fediverse account is blocked in your fediverse blocks, by its id.
+        const res = other.remote
+          ? await fetch("/api/fediverse-blocks/actors", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ remote_actor_id: other.id }),
+            })
+          : await fetch(`/api/block/${encodeURIComponent(other.username)}`, { method: "POST" });
         if (!res.ok) throw new Error();
       } catch {
         setActionError("Couldn't block — please try again");
@@ -669,13 +676,29 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
         <Link href="/letters" className="letter-thread-back" title="Back to Letterbox" aria-label="Back to Letterbox">
           ←
         </Link>
-        <Link href={`/${other.username}`} className="letter-thread-who">
-          <Avatar url={other.avatar_url} name={other.display_name} size={36} />
-          <span className="letter-thread-who-text">
-            <span className="letter-thread-who-name">{other.display_name}</span>
-            <span className="letter-thread-who-handle">@{other.username}</span>
-          </span>
-        </Link>
+        {other.remote ? (
+          <a
+            href={other.profile_url || "#"}
+            className="letter-thread-who"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            title="Their profile on the fediverse"
+          >
+            <Avatar url={other.avatar_url} name={other.display_name} size={36} />
+            <span className="letter-thread-who-text">
+              <span className="letter-thread-who-name">{other.display_name}</span>
+              <span className="letter-thread-who-handle">{other.handle || `@${other.username}`}</span>
+            </span>
+          </a>
+        ) : (
+          <Link href={`/${other.username}`} className="letter-thread-who">
+            <Avatar url={other.avatar_url} name={other.display_name} size={36} />
+            <span className="letter-thread-who-text">
+              <span className="letter-thread-who-name">{other.display_name}</span>
+              <span className="letter-thread-who-handle">@{other.username}</span>
+            </span>
+          </Link>
+        )}
         {muted && (
           <span className="letterbox-tag" title="Muted: no notifications from this conversation">
             muted
@@ -804,10 +827,18 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
 
         {request === "incoming" && (
           <div className="letter-request-banner" role="region" aria-label="Letter request">
-            <p>
-              <strong>{other.display_name}</strong> isn&apos;t your pen pal and would like to write to you. Accept (or
-              just reply) to keep writing; decline and they won&apos;t be told.
-            </p>
+            {other.remote ? (
+              <p>
+                <strong>{other.display_name}</strong> ({other.handle}) wrote to you from the fediverse. You don&apos;t
+                follow each other, so it&apos;s a request. Accept (or just reply) to keep writing; decline and nothing
+                more from them reaches your letters, and they won&apos;t be told.
+              </p>
+            ) : (
+              <p>
+                <strong>{other.display_name}</strong> isn&apos;t your pen pal and would like to write to you. Accept (or
+                just reply) to keep writing; decline and they won&apos;t be told.
+              </p>
+            )}
             <div className="letter-request-actions">
               <button type="button" className="letter-send-btn" onClick={() => answerRequest("accept")}>
                 Accept
@@ -826,6 +857,12 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
             {other.display_name} takes letters from people who aren&apos;t pen pals. You can send one; more once they accept.
           </div>
         )}
+        {other.remote && canWrite && (
+          <div className="letter-request-note">
+            Your letters reach {other.handle || other.display_name} as a private message on their server, which keeps
+            its own copy. Removing a letter here only hides it for you.
+          </div>
+        )}
         {canWrite ? (
           <ReplyBar
             conversationId={conversationId}
@@ -842,8 +879,9 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
           </div>
         ) : (
           <div className="letter-reply-closed" role="status">
-            You and {other.display_name} are no longer pen pals, so this conversation is closed to new
-            letters. Your letters stay here.
+            {other.remote
+              ? `You and ${other.display_name} no longer follow each other, so this conversation is closed to new letters. Your letters stay here.`
+              : `You and ${other.display_name} are no longer pen pals, so this conversation is closed to new letters. Your letters stay here.`}
           </div>
         )}
       </div>

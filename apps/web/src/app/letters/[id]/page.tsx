@@ -15,6 +15,8 @@ export interface LetterMessage {
   sender_username: string;
   sender_display_name: string;
   sender_avatar_url: string | null;
+  /** Set for a letter from a fediverse account: their profile there. */
+  sender_profile_url?: string | null;
   is_mine: boolean;
   inserted_at: string;
 }
@@ -23,9 +25,14 @@ export interface ThreadData {
   id: string;
   other_user: {
     id: string;
+    /** user@domain for a fediverse account. */
     username: string;
     display_name: string;
     avatar_url: string | null;
+    /** A fediverse account rather than a member. */
+    remote?: boolean;
+    handle?: string;
+    profile_url?: string;
   };
   messages: LetterMessage[];
   has_more: boolean;

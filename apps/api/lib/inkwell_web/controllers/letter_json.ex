@@ -10,6 +10,7 @@ defmodule InkwellWeb.LetterJSON do
   """
 
   alias Inkwell.Avatars
+  alias Inkwell.Federation.RemoteActorSchema
 
   def conversation(conv, other, last_msg, unread, view \\ %{}) do
     %{
@@ -30,7 +31,7 @@ defmodule InkwellWeb.LetterJSON do
   @doc "A search hit: the letter plus who the conversation is with."
   def search_hit(message, viewer_id) do
     conv = message.conversation
-    other = if conv.participant_a == viewer_id, do: conv.participant_b_user, else: conv.participant_a_user
+    other = Inkwell.Letters.other_party(conv, viewer_id)
 
     %{
       conversation_id: conv.id,
@@ -44,6 +45,21 @@ defmodule InkwellWeb.LetterJSON do
 
   def user(nil), do: nil
 
+  # A fediverse account. `username` is user@domain so it can't be mistaken
+  # for a member's; `profile_url` is where their profile lives.
+  def user(%RemoteActorSchema{} = actor) do
+    %{
+      id: actor.id,
+      username: "#{actor.username}@#{actor.domain}",
+      display_name: actor.display_name || actor.username,
+      avatar_url: actor.avatar_url,
+      avatar_frame: nil,
+      remote: true,
+      handle: "@#{actor.username}@#{actor.domain}",
+      profile_url: Inkwell.Letters.remote_profile_url(actor)
+    }
+  end
+
   def user(user) do
     %{
       id: user.id,
@@ -55,15 +71,19 @@ defmodule InkwellWeb.LetterJSON do
   end
 
   def message(message, viewer_id) do
+    sender = message.sender || message.sender_remote_actor
+    who = user(sender) || %{username: nil, display_name: "Someone", avatar_url: nil}
+
     %{
       id: message.id,
       body: message.body,
       body_html: message.body_html,
       edited_at: message.edited_at,
-      sender_username: message.sender.username,
-      sender_display_name: message.sender.display_name || message.sender.username,
-      sender_avatar_url: Avatars.avatar_url(message.sender),
-      is_mine: message.sender_id == viewer_id,
+      sender_username: who.username,
+      sender_display_name: who.display_name,
+      sender_avatar_url: who.avatar_url,
+      sender_profile_url: Map.get(who, :profile_url),
+      is_mine: not is_nil(message.sender_id) and message.sender_id == viewer_id,
       inserted_at: message.inserted_at
     }
   end

@@ -1202,6 +1202,16 @@ defmodule InkwellWeb.FederationController do
     in_reply_to = if is_map(object), do: object["inReplyTo"], else: nil
     Logger.info("handle_create: object type=#{object_type}, inReplyTo=#{inspect(in_reply_to)}, actor=#{activity["actor"]}")
 
+    # A private message to one member becomes a letter (or a request). What
+    # isn't one carries on below exactly as before.
+    if Inkwell.Letters.Federation.receive_note(object, activity["actor"], target_user) == :handled do
+      :ok
+    else
+      handle_create_object(object, activity, target_user, object_type)
+    end
+  end
+
+  defp handle_create_object(object, activity, target_user, object_type) do
     case object do
       %{"type" => type, "inReplyTo" => reply_to}
           when type in ["Note", "Article", "Page"] and is_binary(reply_to) ->
@@ -1234,6 +1244,13 @@ defmodule InkwellWeb.FederationController do
   # ── Update handling (inbound edits) ────────────────────────────────────
 
   defp handle_update(activity, _target_user) do
+    case Inkwell.Letters.Federation.receive_update(activity["object"], activity["actor"]) do
+      :handled -> :ok
+      :not_a_letter -> handle_update_object(activity)
+    end
+  end
+
+  defp handle_update_object(activity) do
     case activity["object"] do
       %{"type" => type, "inReplyTo" => _} = object when type in ["Note", "Article", "Page"] ->
         # This is an edited comment — find and update it
@@ -1739,6 +1756,9 @@ defmodule InkwellWeb.FederationController do
       end
 
     if object_id do
+      # A letter its author deleted (only ever by that author).
+      Inkwell.Letters.Federation.receive_delete(object_id, activity["actor"])
+
       # Try deleting a federated comment
       case Repo.get_by(Inkwell.Journals.Comment, ap_id: object_id) do
         nil -> :ok

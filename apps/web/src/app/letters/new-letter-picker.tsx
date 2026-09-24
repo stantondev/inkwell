@@ -12,11 +12,29 @@ interface PenPal {
   display_name: string | null;
   avatar_url: string | null;
   avatar_frame?: string | null;
+  /** A fediverse account (username is then user@domain). */
+  remote?: boolean;
+}
+
+interface FediverseAccount {
+  id: string;
+  username: string;
+  domain: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+async function loadList<T>(url: string): Promise<T[]> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(url);
+  const json = await res.json();
+  return Array.isArray(json.data) ? json.data : [];
 }
 
 /**
- * "New letter": choose a pen pal and open (or reopen) your letters with them.
- * Letters are for pen pals only, so that's the whole list.
+ * "New letter": choose someone to write to and open (or reopen) your letters
+ * with them. That's your pen pals, plus fediverse accounts you follow or that
+ * follow you (their letters go as private messages).
  */
 export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -37,9 +55,27 @@ export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () 
     setTimeout(() => inputRef.current?.focus(), 30);
 
     if (pals === null) {
-      fetch("/api/pen-pals", { cache: "no-store" })
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
-        .then((json) => setPals(Array.isArray(json.data) ? json.data : []))
+      // Pen pals are required; the fediverse lists are a bonus, so a failure
+      // there just leaves them out.
+      Promise.all([
+        loadList<PenPal>("/api/pen-pals"),
+        loadList<FediverseAccount>("/api/fediverse-followers").catch(() => []),
+        loadList<FediverseAccount>("/api/fediverse-following").catch(() => []),
+      ])
+        .then(([local, followers, following]) => {
+          const remote = new Map<string, PenPal>();
+          for (const a of [...followers, ...following]) {
+            if (!a.username || !a.domain) continue;
+            remote.set(a.id, {
+              id: a.id,
+              username: `${a.username}@${a.domain}`,
+              display_name: a.display_name,
+              avatar_url: a.avatar_url,
+              remote: true,
+            });
+          }
+          setPals([...local, ...remote.values()]);
+        })
         .catch(() => setLoadError(true));
     }
 
@@ -73,7 +109,7 @@ export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () 
       const res = await fetch("/api/letters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: pal.username }),
+        body: JSON.stringify(pal.remote ? { remote_actor_id: pal.id } : { username: pal.username }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.data?.id) {
@@ -123,7 +159,7 @@ export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () 
             <p className="letter-picker-note">Loading…</p>
           ) : pals.length === 0 ? (
             <p className="letter-picker-note">
-              Letters are for pen pals: people you follow who follow you back. Find some on{" "}
+              Letters are for pen pals, here and on the fediverse. Find some on{" "}
               <Link href="/explore">Explore</Link>, or see <Link href="/pen-pals">your pen pals</Link>.
             </p>
           ) : shown.length === 0 ? (
@@ -131,7 +167,7 @@ export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () 
           ) : (
             shown.map((pal) => (
               <button
-                key={pal.id}
+                key={pal.remote ? `fedi-${pal.id}` : pal.id}
                 type="button"
                 className="letter-picker-row"
                 onClick={() => start(pal)}
@@ -145,7 +181,10 @@ export function NewLetterPicker({ open, onClose }: { open: boolean; onClose: () 
                 />
                 <span className="letter-picker-row-text">
                   <span className="letter-picker-row-name">{pal.display_name || pal.username}</span>
-                  <span className="letter-picker-row-handle">@{pal.username}</span>
+                  <span className="letter-picker-row-handle">
+                    @{pal.username}
+                    {pal.remote && " · fediverse"}
+                  </span>
                 </span>
                 {opening === pal.username && <span className="letter-picker-row-handle">Opening…</span>}
               </button>

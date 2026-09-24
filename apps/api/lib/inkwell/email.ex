@@ -190,6 +190,8 @@ defmodule Inkwell.Email do
     name = escape_html(sender_name)
     username = escape_html(sender.username)
     url = escape_html(conversation_url)
+    # A fediverse account links to its own profile, not an Inkwell page.
+    profile_url = escape_html(Map.get(sender, :profile_url) || "#{frontend_url}/#{sender.username}")
 
     html = """
     <!DOCTYPE html>
@@ -210,7 +212,7 @@ defmodule Inkwell.Email do
             A letter from <strong>#{name}</strong>
           </h1>
           <p style="font-size: 14px; color: #6a5a3a; margin: 0 0 24px;">
-            <a href="#{frontend_url}/#{username}" style="color: #6a5a3a; text-decoration: none;">@#{username}</a>
+            <a href="#{profile_url}" style="color: #6a5a3a; text-decoration: none;">@#{username}</a>
             wrote to you. It's waiting in your Letterbox.
           </p>
           <a href="#{url}"

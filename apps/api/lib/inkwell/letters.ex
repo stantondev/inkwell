@@ -32,6 +32,18 @@ defmodule Inkwell.Letters do
     * archived: out of the Letterbox until a newer letter arrives
     * muted: no push, no email, not in the badge (still marked unread)
     * cleared ("delete for me"): letters up to then are hidden for them
+
+  ## Letters with fediverse accounts
+
+  A conversation can be with a fediverse account instead of a member: the
+  member is `participant_a`, `participant_b` is nil and `remote_actor_id`
+  names the account. Its letters from them have no `sender_id`, only
+  `sender_remote_actor_id`, so every query about "letters from the other
+  person" has to allow a NULL sender (`sender_id != me` is NULL, not true,
+  for those). The member writes only to accounts they follow or that follow
+  them (or that wrote to them and were accepted). Sending, receiving and
+  routing live in `Inkwell.Letters.Federation`; this module keeps the
+  conversation rules in one place.
   """
 
   import Ecto.Query
@@ -39,6 +51,10 @@ defmodule Inkwell.Letters do
   alias Inkwell.Accounts
   alias Inkwell.Social.Relationship
   alias Inkwell.Letters.{Conversation, DirectMessage, ConversationRead}
+  alias Inkwell.Federation.RemoteActorSchema
+
+  @conv_preloads [:participant_a_user, :participant_b_user, :remote_actor]
+  @message_preloads [:sender, :sender_remote_actor]
 
   @per_page 50
   @request_min_account_age_days 3
@@ -87,7 +103,7 @@ defmodule Inkwell.Letters do
       Conversation
       |> where([c], c.participant_a == ^user_id or c.participant_b == ^user_id)
       |> order_by([c], desc_nulls_last: c.last_message_at)
-      |> preload([:participant_a_user, :participant_b_user])
+      |> preload(^@conv_preloads)
       |> Repo.all()
 
     ids = Enum.map(conversations, & &1.id)
@@ -280,7 +296,7 @@ defmodule Inkwell.Letters do
   end
 
   defp preload_participants({:ok, conv}),
-    do: {:ok, Repo.preload(conv, [:participant_a_user, :participant_b_user], force: true)}
+    do: {:ok, Repo.preload(conv, @conv_preloads, force: true)}
 
   defp preload_participants(error), do: error
 
@@ -289,7 +305,7 @@ defmodule Inkwell.Letters do
 
     Conversation
     |> where([c], c.participant_a == ^pa and c.participant_b == ^pb)
-    |> preload([:participant_a_user, :participant_b_user])
+    |> preload(^@conv_preloads)
     |> Repo.one()
   end
 
@@ -320,7 +336,7 @@ defmodule Inkwell.Letters do
         query
         |> order_by([m], desc: m.inserted_at)
         |> limit(^(@per_page + 1))
-        |> preload(:sender)
+        |> preload(^@message_preloads)
         |> Repo.all()
 
       unless before_at, do: mark_read(id, viewer_id)
@@ -344,7 +360,7 @@ defmodule Inkwell.Letters do
         |> where([m], m.conversation_id == ^conversation_id and m.inserted_at > ^since_at)
         |> visible_to(conv, viewer_id)
         |> order_by([m], asc: m.inserted_at)
-        |> preload(:sender)
+        |> preload(^@message_preloads)
         |> Repo.all()
 
       {:ok, messages}
@@ -367,6 +383,15 @@ defmodule Inkwell.Letters do
   on. `request_waiting` is true for someone who sent a request and can't
   write more until it's accepted.
   """
+  def thread_view(%Conversation{remote_actor_id: actor_id} = conv, user_id) when not is_nil(actor_id) do
+    read = Repo.get_by(ConversationRead, conversation_id: conv.id, user_id: user_id)
+
+    Map.merge(view_of(conv, read, user_id), %{
+      can_write: remote_can_write?(conv, user_id),
+      request_waiting: false
+    })
+  end
+
   def thread_view(%Conversation{} = conv, user_id) do
     read = Repo.get_by(ConversationRead, conversation_id: conv.id, user_id: user_id)
     view = view_of(conv, read, user_id)
@@ -438,7 +463,7 @@ defmodule Inkwell.Letters do
   defp mark_unread(conv, user_id) do
     newest_from_them =
       DirectMessage
-      |> where([m], m.conversation_id == ^conv.id and m.sender_id != ^user_id)
+      |> where([m], m.conversation_id == ^conv.id and (is_nil(m.sender_id) or m.sender_id != ^user_id))
       |> visible_to(conv, user_id)
       |> select([m], max(m.inserted_at))
       |> Repo.one()
@@ -508,7 +533,7 @@ defmodule Inkwell.Letters do
         where: ilike(m.body, ^pattern),
         order_by: [desc: m.inserted_at],
         limit: @search_limit,
-        preload: [:sender, conversation: [:participant_a_user, :participant_b_user]]
+        preload: [:sender, :sender_remote_actor, conversation: ^@conv_preloads]
       )
       |> Repo.all()
     end
@@ -533,9 +558,18 @@ defmodule Inkwell.Letters do
   def send_letter(conversation_id, sender_id, body, body_html \\ nil) do
     with {:ok, conversation_id} <- Ecto.UUID.cast(conversation_id),
          %Conversation{} = conv <- get_participant_conversation(conversation_id, sender_id) do
-      recipient_id = other_participant_id(conv, sender_id)
+      if conv.remote_actor_id,
+        do: send_remote_letter(conv, sender_id, body, body_html),
+        else: send_local_letter(conv, sender_id, body, body_html)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
 
-      cond do
+  defp send_local_letter(conv, sender_id, body, body_html) do
+    recipient_id = other_participant_id(conv, sender_id)
+
+    cond do
         blocked?(sender_id, recipient_id) ->
           {:error, :blocked}
 
@@ -574,14 +608,46 @@ defmodule Inkwell.Letters do
                 schedule_letter_email(conv.id, recipient_id)
               end
 
-              {:ok, Repo.preload(message, :sender)}
+              {:ok, Repo.preload(message, @message_preloads)}
 
             error ->
               error
           end
       end
-    else
-      _ -> {:error, :not_found}
+  end
+
+  # A member writing to a fediverse account. It goes out as a private mention
+  # (`Inkwell.Letters.Federation.deliver/3`); there are no push or email on
+  # our side, since the other person isn't here.
+  defp send_remote_letter(conv, sender_id, body, body_html) do
+    cond do
+      remote_blocked?(conv, sender_id) ->
+        {:error, :blocked}
+
+      not remote_can_write?(conv, sender_id) ->
+        {:error, :not_pen_pals}
+
+      true ->
+        attrs = %{conversation_id: conv.id, sender_id: sender_id, body: String.trim(body), body_html: body_html}
+
+        with {:ok, message} <- %DirectMessage{} |> DirectMessage.changeset(attrs) |> Repo.insert() do
+          message =
+            message
+            |> Ecto.Changeset.change(ap_id: Inkwell.Letters.Federation.note_id(message))
+            |> Repo.update!()
+
+          # Writing back to a request accepts it, as between members.
+          changes =
+            if conv.request_status in ["pending", "declined"],
+              do: [last_message_at: message.inserted_at, request_status: "accepted"],
+              else: [last_message_at: message.inserted_at]
+
+          {:ok, conv} = conv |> Ecto.Changeset.change(changes) |> Repo.update()
+
+          message = Repo.preload(message, @message_preloads)
+          Inkwell.Letters.Federation.deliver(message, conv, :create)
+          {:ok, message}
+        end
     end
   end
 
@@ -611,17 +677,28 @@ defmodule Inkwell.Letters do
          :ok <- own_letter(message, sender_id),
          %Conversation{} = conv <- Repo.get(Conversation, message.conversation_id),
          false <- removed_by?(message, conv, sender_id) do
-      recipient_id = other_participant_id(conv, sender_id)
+      blocked =
+        if conv.remote_actor_id,
+          do: remote_blocked?(conv, sender_id),
+          else: blocked?(sender_id, other_participant_id(conv, sender_id))
 
-      if blocked?(sender_id, recipient_id) do
+      if blocked do
         {:error, :blocked}
       else
         message
         |> DirectMessage.edit_changeset(attrs)
         |> Repo.update()
         |> case do
-          {:ok, msg} -> {:ok, Repo.preload(msg, :sender)}
-          error -> error
+          {:ok, msg} ->
+            msg = Repo.preload(msg, @message_preloads)
+
+            if conv.remote_actor_id,
+              do: Inkwell.Letters.Federation.deliver(msg, Repo.preload(conv, :remote_actor), :update)
+
+            {:ok, msg}
+
+          error ->
+            error
         end
       end
     else
@@ -736,6 +813,33 @@ defmodule Inkwell.Letters do
   request that hasn't been accepted.
   """
   def letter_email_context(conversation_id, recipient_id) do
+    case get_participant_conversation(conversation_id, recipient_id) do
+      %Conversation{remote_actor_id: actor_id} = conv when not is_nil(actor_id) ->
+        if incoming_request?(conv, recipient_id) or remote_blocked?(conv, recipient_id),
+          do: :error,
+          else: {:ok, conv, remote_sender(conv.remote_actor)}
+
+      _ ->
+        local_letter_email_context(conversation_id, recipient_id)
+    end
+  end
+
+  # The fields the email needs, for a fediverse account.
+  defp remote_sender(actor) do
+    %{
+      id: nil,
+      blocked_at: nil,
+      display_name: actor.display_name || actor.username,
+      username: "#{actor.username}@#{actor.domain}",
+      profile_url: remote_profile_url(actor)
+    }
+  end
+
+  @doc "Where a fediverse account's profile is, for people (not the AP id)."
+  def remote_profile_url(%{raw_data: %{"url" => url}}) when is_binary(url), do: url
+  def remote_profile_url(actor), do: actor.ap_id
+
+  defp local_letter_email_context(conversation_id, recipient_id) do
     with %Conversation{} = conv <- get_participant_conversation(conversation_id, recipient_id),
          false <- incoming_request?(conv, recipient_id),
          sender = other_user(conv, recipient_id),
@@ -778,7 +882,8 @@ defmodule Inkwell.Letters do
       left_join: r in ConversationRead,
       on: r.conversation_id == c.id and r.user_id == ^user_id,
       where: c.participant_a == ^user_id or c.participant_b == ^user_id,
-      where: m.sender_id != ^user_id,
+      # A letter from a fediverse account has no sender_id.
+      where: is_nil(m.sender_id) or m.sender_id != ^user_id,
       where:
         (c.participant_a == ^user_id and m.deleted_by_a == false) or
           (c.participant_b == ^user_id and m.deleted_by_b == false),
@@ -794,6 +899,9 @@ defmodule Inkwell.Letters do
   Whether `user_id` can send a letter in `conv` right now. The thread uses
   `thread_view/2`, which also accounts for a request waiting on an answer.
   """
+  def can_write_in?(%Conversation{remote_actor_id: actor_id} = conv, user_id) when not is_nil(actor_id),
+    do: remote_can_write?(conv, user_id)
+
   def can_write_in?(%Conversation{} = conv, user_id) do
     other_id = other_participant_id(conv, user_id)
 
@@ -840,6 +948,89 @@ defmodule Inkwell.Letters do
     |> Repo.exists?()
   end
 
+  # ---------------------------------------------------------------------------
+  # Conversations with fediverse accounts
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Find or open a conversation between member `user_id` and a fediverse
+  account. Allowed when one follows the other (accepted), or when there's
+  already a conversation that isn't waiting on anyone. Returns
+  `{:ok, conv}`, `{:error, :not_found}`, `{:error, :blocked}` or
+  `{:error, :not_pen_pals}`.
+  """
+  def get_or_create_remote_conversation(user_id, remote_actor_id) do
+    with {:ok, remote_actor_id} <- Ecto.UUID.cast(remote_actor_id),
+         %RemoteActorSchema{} = actor <- Repo.get(RemoteActorSchema, remote_actor_id) do
+      existing = remote_conversation(user_id, actor.id)
+
+      cond do
+        actor_blocked?(user_id, actor) -> {:error, :blocked}
+        existing && existing.request_status in ["pending", "accepted", "declined"] -> {:ok, existing}
+        remote_connected?(user_id, actor.id) -> ensure_remote_conversation(user_id, actor, existing)
+        true -> {:error, :not_pen_pals}
+      end
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  @doc false
+  def remote_conversation(user_id, remote_actor_id) do
+    Conversation
+    |> where([c], c.participant_a == ^user_id and c.remote_actor_id == ^remote_actor_id)
+    |> preload(^@conv_preloads)
+    |> Repo.one()
+  end
+
+  @doc false
+  def ensure_remote_conversation(_user_id, _actor, %Conversation{} = existing), do: {:ok, existing}
+
+  def ensure_remote_conversation(user_id, actor, nil) do
+    %Conversation{participant_a: user_id, remote_actor_id: actor.id}
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.unique_constraint([:participant_a, :remote_actor_id],
+      name: :conversations_participant_a_remote_actor_id_index
+    )
+    |> Repo.insert()
+    |> case do
+      {:ok, conv} -> preload_participants({:ok, conv})
+      # Two deliveries at once: the other one made it.
+      {:error, _} -> {:ok, remote_conversation(user_id, actor.id)}
+    end
+  end
+
+  @doc "True when the member follows the account or the account follows the member."
+  def remote_connected?(user_id, remote_actor_id) do
+    Repo.exists?(
+      from r in Relationship,
+        where: r.remote_actor_id == ^remote_actor_id and r.status == :accepted,
+        where: r.follower_id == ^user_id or r.following_id == ^user_id
+    )
+  end
+
+  @doc "The member blocked the account or its server, or the server is defederated."
+  def actor_blocked?(user_id, actor) do
+    Inkwell.Moderation.FediverseBlocks.should_reject_actor?(user_id, actor.id, actor.domain || "")
+  end
+
+  defp remote_blocked?(conv, user_id) do
+    conv = Repo.preload(conv, :remote_actor)
+    is_nil(conv.remote_actor) or actor_blocked?(user_id, conv.remote_actor)
+  end
+
+  # Whether the member may write in a conversation with a fediverse account
+  # (blocks aside): still connected, or they wrote in and it was accepted
+  # (or is waiting for the member, who accepts it by replying).
+  defp remote_can_write?(conv, user_id) do
+    not remote_blocked?(conv, user_id) and
+      (conv.request_status in ["accepted", "pending", "declined"] or
+         remote_connected?(user_id, conv.remote_actor_id))
+  end
+
+  @doc false
+  def preloads, do: {@conv_preloads, @message_preloads}
+
   defp find_or_create(user_id, target_id) do
     case conversation_between(user_id, target_id) do
       %Conversation{} = conv ->
@@ -858,7 +1049,7 @@ defmodule Inkwell.Letters do
   defp get_participant_conversation(id, user_id) do
     Conversation
     |> where([c], c.id == ^id and (c.participant_a == ^user_id or c.participant_b == ^user_id))
-    |> preload([:participant_a_user, :participant_b_user])
+    |> preload(^@conv_preloads)
     |> Repo.one()
   end
 
@@ -881,6 +1072,12 @@ defmodule Inkwell.Letters do
   defp other_participant_id(conv, user_id) do
     if conv.participant_a == user_id, do: conv.participant_b, else: conv.participant_a
   end
+
+  @doc "The other person in a conversation: a member, or a fediverse account (`RemoteActorSchema`)."
+  def other_party(conv, user_id), do: other_user(conv, user_id)
+
+  defp other_user(%Conversation{remote_actor_id: actor_id} = conv, _user_id) when not is_nil(actor_id),
+    do: conv.remote_actor
 
   defp other_user(conv, user_id) do
     if conv.participant_a == user_id, do: conv.participant_b_user, else: conv.participant_a_user
@@ -933,6 +1130,18 @@ defmodule Inkwell.Letters do
   # itself, since it can land on a lock screen. One tag per conversation, so
   # a run of letters replaces a single notification instead of stacking.
   defp notify_recipient(conv, sender_id, recipient_id) do
+    sender = Repo.get(Accounts.User, sender_id)
+    notify_recipient_named(conv, (sender && (sender.display_name || sender.username)) || "Someone", recipient_id)
+  end
+
+  @doc false
+  # Push + email for a letter to `recipient_id`, from whoever `actor_name` is.
+  def notify_new_letter(conv, actor_name, recipient_id) do
+    notify_recipient_named(conv, actor_name, recipient_id)
+    schedule_letter_email(conv.id, recipient_id)
+  end
+
+  defp notify_recipient_named(conv, actor_name, recipient_id) do
     if Inkwell.Push.configured?() do
       try do
         recipient = Repo.get(Accounts.User, recipient_id)
@@ -945,9 +1154,6 @@ defmodule Inkwell.Letters do
           )
 
         unless push_disabled or muted do
-          sender = Repo.get(Accounts.User, sender_id)
-          actor_name = (sender && (sender.display_name || sender.username)) || "Someone"
-
           Inkwell.Push.deliver(recipient_id, %{
             title: "New letter",
             body: "#{actor_name} sent you a letter",

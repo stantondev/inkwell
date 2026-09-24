@@ -748,6 +748,104 @@ defmodule Inkwell.Federation.ActivityBuilder do
     if comment.edited_at, do: Map.put(note, "updated", format_datetime(comment.edited_at)), else: note
   end
 
+  # ── Letters to fediverse accounts ────────────────────────────────────────
+
+  @doc """
+  A letter to a fediverse account, as a private mention: a Note addressed
+  only to them (no Public, no followers), with a Mention tag, which Mastodon
+  and others show as a direct message. `kind` is `:create` or `:update`.
+
+  `in_reply_to` is the last note in the conversation so it threads on their
+  side; `context` is their server's conversation id when we know it.
+  """
+  def build_letter_activity(kind, message, author, remote_actor, opts \\ []) do
+    actor = actor_url(author)
+    note_id = message.ap_id
+    recipient = remote_actor.ap_id
+    frontend = federation_config(:frontend_host)
+    now = format_datetime(DateTime.utc_now())
+
+    profile = Inkwell.Letters.remote_profile_url(remote_actor)
+    handle = "@#{remote_actor.username}"
+
+    mention_html =
+      ~s(<p><span class="h-card"><a href="#{escape_attr(profile)}" class="u-url mention">) <>
+        ~s(@<span>#{escape_text(remote_actor.username)}</span></a></span></p>)
+
+    body =
+      case message.body_html do
+        html when is_binary(html) and html != "" -> html
+        _ -> plain_letter_html(message.body)
+      end
+
+    content = mention_html <> absolutize_urls(body, frontend)
+
+    note =
+      %{
+        "type" => "Note",
+        "id" => note_id,
+        "attributedTo" => actor,
+        "content" => content,
+        "published" => format_datetime(message.inserted_at),
+        "to" => [recipient],
+        "cc" => [],
+        "sensitive" => false,
+        "tag" => [
+          %{"type" => "Mention", "href" => recipient, "name" => "#{handle}@#{remote_actor.domain}"}
+        ]
+      }
+      |> put_if("inReplyTo", Keyword.get(opts, :in_reply_to))
+      |> put_if("context", Keyword.get(opts, :context))
+      |> put_if("conversation", Keyword.get(opts, :context))
+      |> put_if("updated", if(kind == :update, do: now))
+
+    note =
+      case extract_inline_images(absolutize_urls(body, frontend)) do
+        [] -> note
+        images -> Map.put(note, "attachment", images)
+      end
+
+    {type, id} =
+      case kind do
+        :create -> {"Create", "#{note_id}/activity"}
+        :update -> {"Update", "#{note_id}/update-#{System.system_time(:nanosecond)}"}
+      end
+
+    %{
+      "@context" => ap_context(),
+      "type" => type,
+      "id" => id,
+      "actor" => actor,
+      "published" => now,
+      "to" => [recipient],
+      "cc" => [],
+      "object" => note
+    }
+  end
+
+  defp put_if(map, _key, nil), do: map
+  defp put_if(map, key, value), do: Map.put(map, key, value)
+
+  defp plain_letter_html(text) do
+    (text || "")
+    |> String.split(~r/\n{2,}/, trim: true)
+    |> Enum.map_join("", fn para ->
+      "<p>" <> (para |> escape_text() |> String.replace("\n", "<br>")) <> "</p>"
+    end)
+  end
+
+  defp escape_text(text) do
+    text
+    |> to_string()
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+    |> String.replace("'", "&#39;")
+  end
+
+  defp escape_attr(text), do: escape_text(text)
+
   # ── URL Helpers ──────────────────────────────────────────────────────────
 
   @doc """
