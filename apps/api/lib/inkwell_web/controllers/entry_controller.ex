@@ -1337,7 +1337,7 @@ defmodule InkwellWeb.EntryController do
         "newsletter_subject" => if(is_binary(opts["newsletter_subject"]), do: String.slice(opts["newsletter_subject"], 0, 500)),
         "newsletter_scheduled_at" => if(is_binary(opts["newsletter_scheduled_at"]), do: opts["newsletter_scheduled_at"]),
         "crosspost_to" => if(is_list(opts["crosspost_to"]), do: Enum.filter(opts["crosspost_to"], &is_binary/1), else: []),
-        "circle_as_prompt" => opts["circle_as_prompt"] == true
+        "circle_as_prompt" => if(opts["circle_as_prompt"] == true, do: true)
       }
       |> Map.reject(fn {_k, v} -> is_nil(v) end)
 
