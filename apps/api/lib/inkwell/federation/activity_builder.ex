@@ -14,6 +14,51 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @public "https://www.w3.org/ns/activitystreams#Public"
 
+  # FEP-0c7f (draft, written for Inkwell): `importedFrom` marks a post brought
+  # over from another platform so receivers don't treat it as new.
+  @imported_from_term %{
+    "importedFrom" => %{"@id" => "https://w3id.org/fep/0c7f#importedFrom", "@type" => "@id"}
+  }
+
+  @imported_origins %{
+    "livejournal" => {"LiveJournal", "https://www.livejournal.com/"},
+    "dreamwidth" => {"Dreamwidth", "https://www.dreamwidth.org/"},
+    "wordpress" => {"WordPress", nil},
+    "medium" => {"Medium", "https://medium.com/"},
+    "substack" => {"Substack", "https://substack.com/"}
+  }
+
+  @doc """
+  The FEP-0c7f `importedFrom` Link for an imported entry, or nil. `href` is
+  the original post when the importer knew it, else the platform's home page.
+  WordPress blogs are self-hosted, so without the post's own URL there is no
+  honest `href` and the property is left out.
+  """
+  def imported_from(%{imported_from: origin} = entry) when is_binary(origin) and origin != "" do
+    {name, home} = Map.get(@imported_origins, origin, {String.capitalize(origin), nil})
+
+    href =
+      case Map.get(entry, :imported_url) do
+        "https://" <> _ = url -> url
+        _ -> home
+      end
+
+    if href, do: %{"type" => "Link", "href" => href, "name" => name}
+  end
+
+  def imported_from(_), do: nil
+
+  defp put_imported_from(object, entry) do
+    case imported_from(entry) do
+      nil -> object
+      link -> Map.put(object, "importedFrom", link)
+    end
+  end
+
+  @doc "The JSON-LD context for an activity or object, with the FEP-0c7f term when it's used."
+  def context_for(%{"importedFrom" => _}), do: ap_context() ++ [@imported_from_term]
+  def context_for(_), do: ap_context()
+
   @doc """
   Builds a Create activity wrapping an Article for a published entry.
   """
@@ -23,7 +68,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     article = build_article(entry, author)
 
     %{
-      "@context" => ap_context(),
+      "@context" => context_for(article),
       "type" => "Create",
       "id" => "#{entry_url}/activity",
       "actor" => actor_url,
@@ -37,9 +82,12 @@ defmodule Inkwell.Federation.ActivityBuilder do
   @doc """
   Builds an Article object from an entry (FEP-b2b8 compliant).
   """
-  def build_article(%{kind: "sticky"} = entry, author), do: build_sticky_note(entry, author)
+  def build_article(%{kind: "sticky"} = entry, author),
+    do: build_sticky_note(entry, author) |> put_imported_from(entry)
 
-  def build_article(entry, author) do
+  def build_article(entry, author), do: build_entry_article(entry, author) |> put_imported_from(entry)
+
+  defp build_entry_article(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
     frontend_host = federation_config(:frontend_host)
@@ -259,7 +307,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     article = build_article(entry, author)
 
     %{
-      "@context" => ap_context(),
+      "@context" => context_for(article),
       "type" => "Update",
       "id" => "#{entry_url}/activity#update-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,

@@ -53,7 +53,7 @@ defmodule InkwellWeb.FederationController do
           user = Accounts.get_user!(entry.user_id)
           article =
             ActivityBuilder.build_article(entry, user)
-            |> Map.put("@context", ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"])
+            |> then(&Map.put(&1, "@context", ActivityBuilder.context_for(&1)))
 
           conn
           |> put_resp_content_type("application/activity+json")
@@ -71,7 +71,7 @@ defmodule InkwellWeb.FederationController do
          true <- entry.status == :published and entry.privacy == :public do
       article =
         ActivityBuilder.build_article(entry, user)
-        |> Map.put("@context", ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"])
+        |> then(&Map.put(&1, "@context", ActivityBuilder.context_for(&1)))
 
       conn
       |> put_resp_content_type("application/activity+json")
@@ -1926,6 +1926,13 @@ defmodule InkwellWeb.FederationController do
   # ── Fediverse mention notification ──────────────────────────────────────
 
   # Shared inbox (target_user nil) — scan Mention tags for any local users
+  # FEP-0c7f: a post imported from another platform isn't new, and the people
+  # it names (often years ago, elsewhere) shouldn't be notified about it.
+  defp maybe_create_mention_notification(%{"importedFrom" => _} = object, _actor_uri, _target_user) do
+    Logger.info("Mention in imported post #{inspect(object["id"])} not notified (importedFrom)")
+    :ok
+  end
+
   defp maybe_create_mention_notification(object, actor_uri, nil) do
     tags = object["tag"] || []
 

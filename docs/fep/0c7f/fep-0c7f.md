@@ -140,7 +140,7 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 
 ## Implementations
 
-- **Inkwell** (<https://inkwell.social>): imports from LiveJournal, Dreamwidth, WordPress, Medium and Substack keep their original dates and are not delivered to followers. Drafts dated more than 7 days back that are published in bulk are not delivered unless the author asks. Imported entries record their source platform and, when the importer knows it, their original URL, and can show an "archive" mark. Emitting `importedFrom` is planned.
+- **Inkwell** (<https://inkwell.social>), as publisher: imports from LiveJournal, Dreamwidth, WordPress, Medium and Substack keep their original dates and are not delivered to followers. Drafts dated more than 7 days back that are published in bulk are not delivered unless the author asks. Imported entries carry `importedFrom`, with `href` set to the original post when the importer knew it and to the platform's home page otherwise; WordPress posts without their original URL omit it, since a self-hosted blog has no platform page to point to. As receiver: mentions in incoming objects with `importedFrom` do not create notifications.
 
 ## Open questions
 
@@ -168,6 +168,10 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 [FEP-6fcd]: https://codeberg.org/fediverse/fep/src/branch/main/fep/6fcd/fep-6fcd.md
 [FEP-b2b8]: https://codeberg.org/fediverse/fep/src/branch/main/fep/b2b8/fep-b2b8.md
 [FEP-888d]: https://codeberg.org/fediverse/fep/src/branch/main/fep/888d/fep-888d.md
+
+## Acknowledgements
+
+This proposal describes behavior implemented in Inkwell. The text was drafted with the help of an AI assistant (Claude, by Anthropic) and reviewed, edited and checked against the implementation and the cited FEPs by the author, who is responsible for its content.
 
 ## Copyright
 

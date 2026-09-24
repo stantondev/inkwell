@@ -24,6 +24,7 @@ This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/m
 | [FEP-7458](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) Replies collection | When a fediverse post is opened on Inkwell, its `replies` collection is read to fill in the conversation. Inkwell does not publish `replies` collections itself. |
 | [FEP-400e](https://codeberg.org/fediverse/fep/src/branch/main/fep/400e/fep-400e.md) Publicly-appendable collections | The profile guestbook. See [Guestbook](#guestbook-fep-400e). |
 | [FEP-2345](https://codeberg.org/fediverse/fep/src/branch/main/fep/2345/fep-2345.md) `fediverse:creator` | Entry and profile pages carry `<meta name="fediverse:creator">`; actors list `attributionDomains`. |
+| [FEP-0c7f](docs/fep/0c7f/fep-0c7f.md) Imported Objects (**draft by Inkwell, not yet submitted**) | Imported entries carry `importedFrom`; mentions in incoming objects that carry it don't notify. See [Imported entries](#imported-entries-fep-0c7f). |
 
 ---
 
@@ -136,6 +137,29 @@ Entries are `Article`s following FEP-b2b8.
 - Entries fetched by their page URL (`/alice/entry-slug` with an ActivityPub `Accept` header) return the same `Article`.
 - Entries imported from another platform and marked as archive posts start their content with a line such as "From my LiveJournal archive, first written March 23, 2004."
 
+### Imported entries (FEP-0c7f)
+
+Entries imported from LiveJournal, Dreamwidth, WordPress, Medium or Substack keep their original `published` date, are not delivered to followers when imported, and carry `importedFrom`:
+
+```json
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    { "importedFrom": { "@id": "https://w3id.org/fep/0c7f#importedFrom", "@type": "@id" } }
+  ],
+  "type": "Article",
+  "published": "2004-06-11T21:14:00Z",
+  "importedFrom": {
+    "type": "Link",
+    "href": "https://alice.livejournal.com/12345.html",
+    "name": "LiveJournal"
+  }
+}
+```
+
+`href` is the original post when the importer knew it, otherwise the platform's home page. WordPress posts without their original URL have no `importedFrom`. The term's context is only added to objects (and the `Create`/`Update` wrapping them) that use it. FEP-0c7f is Inkwell's own draft; see [docs/fep/0c7f](docs/fep/0c7f/fep-0c7f.md).
+
 ### Note (stickies)
 
 Stickies (short posts, up to 500 characters, no title) are sent as `Note`s with the full text, so Mastodon shows them whole. Their ids are also `/entries/{uuid}`.
@@ -225,7 +249,7 @@ Inbox and shared inbox (`POST /users/{username}/inbox`, `POST /inbox`) verify th
 | `Create {Note}` targeting a guestbook | Signs it. See [Guestbook](#guestbook-fep-400e). |
 | `Create {Note}`, reply to a guestbook post | Signs the guestbook (the older way). |
 | `Create {Note}`, private, to exactly one member | Becomes a letter if the two are connected; otherwise a letter request (if the member accepts them), or a mention notification. |
-| `Create {Note/Article/Page}`, other public posts | Stored as a fediverse post for Explore and Feed. A mention of the inbox's owner notifies them. Video and audio attachments become players; image attachments are kept. |
+| `Create {Note/Article/Page}`, other public posts | Stored as a fediverse post for Explore and Feed. A mention of the inbox's owner notifies them, unless the object carries `importedFrom` (FEP-0c7f). Video and audio attachments become players; image attachments are kept. |
 | `Update` | Updates the stored comment, post or letter. Only a letter's own author can edit it. |
 | `Delete` | Removes the matching comment, post, guestbook signature or letter. A `Delete` of an actor removes that account and everything cached from it. |
 | `Like` | Counts as an ink on the entry (Inkwell's discovery signal) and notifies the writer. |
