@@ -130,9 +130,9 @@ export default function GuidePage() {
           <p>
             Not ready to publish? Save your work as a <strong>draft</strong> and
             come back to it later. You can also add a category, tags, mood,
-            cover image, and excerpt to give readers context. Pick a future
-            date in the editor&rsquo;s settings and <strong>Publish</strong> becomes{" "}
-            <strong>Schedule</strong>; a past date backdates the entry.
+            cover image, and excerpt to give readers context. To publish later,
+            press the clock next to <strong>Publish</strong> and pick a time;
+            a past date in the editor&rsquo;s settings backdates the entry.
           </p>
           <p>
             For a quick thought that doesn&rsquo;t need a title, <strong>jot a

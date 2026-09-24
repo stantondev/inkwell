@@ -18,6 +18,22 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-schedule-button",
+    date: "2026-09-24",
+    title: "Schedule a post right from the Publish button",
+    body: "Next to Publish there's now a clock. Pick “Tomorrow morning”, “Saturday morning” or any time you like, then press Schedule and the entry publishes itself.",
+    href: "/editor",
+    cta: "Open the editor",
+    tag: "Writing",
+  },
+  {
+    id: "2026-09-24-phone-filters",
+    date: "2026-09-24",
+    title: "Feed and Explore get to the writing faster on phones",
+    body: "Filters (source, sort and topics) now fold behind a single row that tells you what's showing, so the first entry is on screen when the page opens.",
+    tag: "Mobile",
+  },
+  {
     id: "2026-09-24-guestbook-notifications",
     date: "2026-09-24",
     title: "Know when someone signs your guestbook",
@@ -154,7 +170,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     date: "2026-09-19",
     title: "Schedule posts for later",
     body: "Write now, publish Tuesday at 9am. Scheduled posts go out on their own — including your newsletter and cross-posts.",
-    howTo: "In the editor, open Settings and pick a future date. Publish becomes Schedule.",
+    howTo: "Use the clock next to Publish in the editor. Publish becomes Schedule.",
     href: "/editor",
     cta: "Open the editor",
     tag: "Writing",

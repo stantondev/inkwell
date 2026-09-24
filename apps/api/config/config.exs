@@ -72,6 +72,9 @@ config :inkwell, Oban,
        {"0 14 * * *", Inkwell.Workers.AutoModerationWorker, args: %{"scope" => "digest"}},
        # End free Plus trials whose 14 days are up — hourly at :41.
        {"41 * * * *", Inkwell.Workers.ExpirePlusTrialsWorker},
+       # "Your first page" email to signups 3–10 days old who haven't written.
+       # Does nothing unless FIRST_ENTRY_NUDGE_ENABLED=true.
+       {"0 16 * * *", Inkwell.Workers.FirstEntryNudgeWorker},
        # Checkouts started vs. subscriptions completed — Mondays 15:00 UTC.
        {"0 15 * * 1", Inkwell.Workers.BillingFunnelWorker},
        {"* * * * *", Inkwell.Workers.PublishScheduledEntriesWorker},

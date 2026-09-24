@@ -91,7 +91,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "schedule",
     question: "Can I schedule a post, or change an entry's date?",
     answer:
-      "Yes. In the editor, open <strong>Settings</strong> and set the <strong>Date</strong>. A future date turns <strong>Publish</strong> into <strong>Schedule</strong>, and the entry goes out on its own at that time (with your newsletter and cross-posts, if you chose them). A past date backdates the entry — handy for old journal entries.",
+      "Yes. In the editor, press the <strong>clock</strong> next to Publish and pick a time (or set the <strong>Date</strong> in Settings). A future time turns <strong>Publish</strong> into <strong>Schedule</strong>, and the entry goes out on its own at that time (with your newsletter and cross-posts, if you chose them). A past date in Settings backdates the entry, handy for old journal entries.",
     category: "writing",
   },
   {

@@ -4,6 +4,8 @@ if mode = System.get_env("AUTO_MODERATION_MODE") do
   config :inkwell, :auto_moderation_mode, String.to_atom(mode)
 end
 
+config :inkwell, :first_entry_nudge_enabled, System.get_env("FIRST_ENTRY_NUDGE_ENABLED") == "true"
+
 if config_env() == :prod do
   config :inkwell, :env, :prod
 
