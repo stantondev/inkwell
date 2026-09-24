@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
 
 interface MemberUser {
   id: string;
@@ -135,10 +136,11 @@ export default function MembersSection({
                 return (
                   <div key={m.id} className="circle-member-card">
                     <Link href={`/${m.user.username}`} className="circle-member-info">
-                      <img
-                        src={m.user.avatar_url || `/api/avatars/${m.user.username}`}
-                        alt={m.user.display_name || m.user.username}
-                        className="circle-member-avatar"
+                      <AvatarWithFrame
+                        url={m.user.avatar_url}
+                        name={m.user.display_name || m.user.username}
+                        size={32}
+                        frame={m.user.avatar_frame}
                       />
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>

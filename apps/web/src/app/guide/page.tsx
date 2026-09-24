@@ -186,6 +186,18 @@ export default function GuidePage() {
             public hello on someone&rsquo;s page. They get a notification.
           </p>
           <p>
+            <strong>Circles</strong> are small communities of writers. Join one
+            on{" "}
+            <Link href="/circles" className="underline" style={{ color: "var(--accent)" }}>
+              Circles
+            </Link>
+            , then choose it under <em>Circle</em> in the editor&rsquo;s Entry
+            Settings. Your entry stays on your journal and also shows on the
+            circle page and in every member&rsquo;s Feed, publicly or for
+            members only. If the circle has a prompt, press <em>Write about
+            this</em> to answer it.
+          </p>
+          <p>
             You can follow writers from other fediverse platforms too — just
             search for their full handle (like{" "}
             <span style={{ fontFamily: "monospace", fontSize: "13px" }}>

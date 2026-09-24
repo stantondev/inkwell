@@ -26,6 +26,7 @@ defmodule InkwellWeb.EntryPublishing do
       |> Oban.insert()
     end
 
+    Inkwell.Circles.after_entry_published(entry)
     maybe_queue_spam_check(user, entry)
     maybe_send_newsletter(entry, user, options)
     maybe_enqueue_crossposts(entry, user, options)

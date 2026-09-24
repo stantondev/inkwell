@@ -18,9 +18,13 @@ defmodule Inkwell.Circles.Circle do
     field :is_starter, :boolean, default: false
     field :last_activity_at, :utc_datetime_usec
 
+    # The current prompt: an entry posted here that the owner or a moderator pinned.
+    belongs_to :prompt_entry, Inkwell.Journals.Entry
+
     belongs_to :owner, Inkwell.Accounts.User
     has_many :members, Inkwell.Circles.CircleMember
     has_many :discussions, Inkwell.Circles.CircleDiscussion
+    has_many :entries, Inkwell.Journals.Entry
 
     timestamps(type: :utc_datetime_usec)
   end

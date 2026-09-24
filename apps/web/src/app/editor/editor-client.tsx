@@ -36,7 +36,7 @@ import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
 import { isMarkdown, isPlainTextHtml, markdownToHtml } from "@/lib/markdown-paste";
 
-type Privacy = "public" | "friends_only" | "private" | "custom" | "paid";
+type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
 
 interface FriendFilter {
   id: string;
@@ -64,6 +64,15 @@ interface EditorState {
   contentWarning: string;
   /** Entry date as a datetime-local value (local time), or "" for none. */
   publishedAt: string;
+  /** The circle this entry is posted in, and the circle prompt it answers. */
+  circleId: string | null;
+  circlePromptId: string | null;
+}
+
+interface MyCircle {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 // <input type="datetime-local"> works in the writer's local time, to the minute.
@@ -1560,10 +1569,17 @@ export function EditorClient() {
   const fromStickyId = editId ? null : searchParams.get("from_sticky");
   // "Write about this" from the Gazette: start from the story and link back to it
   const fromGazetteId = editId ? null : searchParams.get("gazette");
+  // "Write in this circle" / "Write about this" from a circle page
+  const fromCircleId = editId ? null : searchParams.get("circle");
+  const fromCirclePromptId = editId ? null : searchParams.get("circle_prompt");
 
   const [state, setState] = useState<EditorState>({
     title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
+    circleId: fromCircleId, circlePromptId: fromCircleId ? fromCirclePromptId : null,
   });
+  const [myCircles, setMyCircles] = useState<MyCircle[] | null>(null);
+  // Title of the prompt being answered, when it's the circle's current one.
+  const [circlePromptTitle, setCirclePromptTitle] = useState<string | null>(null);
   // The entry's date as loaded, so saves only send it when the writer changes it.
   const [loadedPublishedAt, setLoadedPublishedAt] = useState("");
   // Whether the draft was already scheduled when it was opened.
@@ -2075,6 +2091,38 @@ export function EditorClient() {
     })();
   }, []);
 
+  // The writer's circles, for "Post in a circle"
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/my-circles")
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((d: { data?: MyCircle[] }) => {
+        if (!cancelled) setMyCircles((d.data ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug })));
+      })
+      .catch(() => !cancelled && setMyCircles([]));
+    return () => { cancelled = true; };
+  }, []);
+
+  // Name the prompt being answered (only the circle's current prompt has a
+  // title handy; an older one just says "a prompt").
+  const promptCircleSlug = myCircles?.find((c) => c.id === state.circleId)?.slug;
+  useEffect(() => {
+    if (!state.circlePromptId || !promptCircleSlug) {
+      setCirclePromptTitle(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/circles/${encodeURIComponent(promptCircleSlug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const prompt = d?.data?.prompt;
+        setCirclePromptTitle(prompt && prompt.id === state.circlePromptId ? prompt.title || "Untitled" : null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [state.circlePromptId, promptCircleSlug]);
+
   // Fetch series options eagerly on mount
   useEffect(() => {
     if (seriesLoaded) return;
@@ -2147,6 +2195,8 @@ export function EditorClient() {
           sensitive: entry.sensitive ?? false,
           contentWarning: entry.content_warning ?? "",
           publishedAt: toLocalInput(entry.scheduled_at || entry.published_at),
+          circleId: entry.circle_id ?? null,
+          circlePromptId: entry.circle_prompt_id ?? null,
         });
         setLoadedPublishedAt(toLocalInput(entry.scheduled_at || entry.published_at));
         setWasScheduled(!!entry.scheduled_at);
@@ -2360,6 +2410,8 @@ export function EditorClient() {
         ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
         ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
         ...(gazetteStoryRef.current ? { gazette_story_id: gazetteStoryRef.current } : {}),
+        circle_id: state.circleId,
+        circle_prompt_id: state.circleId ? state.circlePromptId : null,
       };
 
       if (savedEntryId) {
@@ -2653,6 +2705,8 @@ export function EditorClient() {
       ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
       ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
       ...(gazetteStoryRef.current ? { gazette_story_id: gazetteStoryRef.current } : {}),
+      circle_id: state.circleId,
+      circle_prompt_id: state.circleId ? state.circlePromptId : null,
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
@@ -2993,8 +3047,10 @@ export function EditorClient() {
               onRestore={() => {
                 const d = recoveryData;
                 setState((s) => ({
-                  // Recovery data doesn't include the date, so keep the loaded one.
+                  // Recovery data doesn't include the date or circle, so keep the loaded ones.
                   publishedAt: s.publishedAt,
+                  circleId: s.circleId,
+                  circlePromptId: s.circlePromptId,
                   title: d.title,
                   mood: d.mood,
                   music: d.music,
@@ -3043,6 +3099,16 @@ export function EditorClient() {
             <div className={`editor-dateline${focusMode ? " hidden" : ""}`}>
               <span>{today}</span>
             </div>
+            {state.circleId && !focusMode && (
+              <div className="editor-circle-note">
+                ◎ Posting in{" "}
+                <strong>{myCircles?.find((c) => c.id === state.circleId)?.name ?? "a circle"}</strong>
+                {state.circlePromptId && (
+                  <> · answering {circlePromptTitle ? <>&ldquo;{circlePromptTitle}&rdquo;</> : "the prompt"}</>
+                )}
+                {state.privacy === "circle" && <> · members only</>}
+              </div>
+            )}
 
             {/* ── Cover image ──────────────────────────── */}
             <div className={focusMode ? "hidden" : ""}>
@@ -3365,6 +3431,53 @@ export function EditorClient() {
             </div>
             <div className="editor-settings-body">
 
+              {/* Circle */}
+              {myCircles && (myCircles.length > 0 || state.circleId) && (
+                <div className="editor-settings-section">
+                  <div className="editor-settings-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/>
+                    </svg>
+                    Circle
+                  </div>
+                  <select
+                    value={state.circleId ?? ""}
+                    onChange={(e) => {
+                      const id = e.target.value || null;
+                      // In a circle a post is public or for members; leaving
+                      // one drops "members only" to private, never to public.
+                      const privacy: Privacy = id
+                        ? (state.privacy === "public" || state.privacy === "circle" ? state.privacy : "circle")
+                        : (state.privacy === "circle" ? "private" : state.privacy);
+                      update({ circleId: id, circlePromptId: null, privacy, customFilterId: null });
+                    }}
+                    className="editor-settings-select">
+                    <option value="">Not in a circle</option>
+                    {(myCircles ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                    {state.circleId && !(myCircles ?? []).some((c) => c.id === state.circleId) && (
+                      <option value={state.circleId}>A circle you&rsquo;ve left</option>
+                    )}
+                  </select>
+                  {state.circleId && (
+                    <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                      {state.circlePromptId ? (
+                        <>
+                          Answering {circlePromptTitle ? <>&ldquo;{circlePromptTitle}&rdquo;</> : "a prompt"}.{" "}
+                          <button type="button" onClick={() => update({ circlePromptId: null })}
+                            style={{ color: "var(--accent)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
+                            Don&rsquo;t link it
+                          </button>
+                        </>
+                      ) : (
+                        "It stays on your journal and shows on the circle page and in members' Feeds."
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Privacy */}
               <div className="editor-settings-section">
                 <div className="editor-settings-label">
@@ -3376,13 +3489,27 @@ export function EditorClient() {
                 <select value={state.privacy}
                   onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
                   className="editor-settings-select">
-                  {PRIVACY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
-                  ))}
-                  {isPlus && hasStripeConnect && hasWriterPlan && (
-                    <option value="paid">💰 Paid subscribers only</option>
+                  {state.circleId ? (
+                    <>
+                      <option value="public">🌍 Public</option>
+                      <option value="circle">◎ Circle members only</option>
+                    </>
+                  ) : (
+                    <>
+                      {PRIVACY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
+                      ))}
+                      {isPlus && hasStripeConnect && hasWriterPlan && (
+                        <option value="paid">💰 Paid subscribers only</option>
+                      )}
+                    </>
                   )}
                 </select>
+                {state.privacy === "circle" && (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    Only members of the circle can read it. It isn&rsquo;t sent to the fediverse.
+                  </div>
+                )}
                 {state.privacy === "paid" && (
                   <div className="editor-settings-hint" style={{ marginTop: 8 }}>
                     Only your paid subscribers can read this entry.

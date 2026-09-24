@@ -108,7 +108,7 @@ export default function CreateCircleForm() {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What is this circle about? What kind of discussions happen here?"
+          placeholder="Who is it for, and what do people write here?"
           maxLength={5000}
           rows={4}
           style={{
@@ -133,7 +133,7 @@ export default function CreateCircleForm() {
         className="circle-btn"
         style={{ width: "100%", padding: "0.625rem", fontSize: "0.9375rem" }}
       >
-        {submitting ? "Creating..." : "Found Your Circle"}
+        {submitting ? "Starting…" : "Start the circle"}
       </button>
 
       {error && <p style={{ color: "#c53030", fontSize: "0.8125rem", marginTop: "0.75rem", textAlign: "center" }}>{error}</p>}

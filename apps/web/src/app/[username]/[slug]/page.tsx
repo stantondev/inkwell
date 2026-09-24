@@ -157,6 +157,8 @@ interface EntryData {
   expanded_into?: { slug: string; title: string | null; username: string } | null;
   source_sticky?: { slug: string; username: string; excerpt: string | null } | null;
   gazette_story?: { id: string; title: string; url: string; provider_name: string | null } | null;
+  circle?: { id: string; name: string; slug: string; is_prompt: boolean; viewer_role: string | null } | null;
+  circle_prompt?: { id: string; title: string | null; slug: string; username: string } | null;
   author: EntryAuthor;
 }
 
@@ -747,6 +749,25 @@ export default async function EntryPage({ params }: EntryParams) {
             >
               In response to &ldquo;{entry.gazette_story.title}&rdquo; in the Gazette &rarr;
             </Link>
+          )}
+
+          {entry.circle && (
+            <div className="entry-circle-line">
+              <Link href={`/circles/${entry.circle.slug}`} className="entry-grew-from">
+                {entry.circle.is_prompt ? "The prompt" : "Posted"} in {entry.circle.name}
+                {entry.privacy === "circle" ? " · members only" : ""} &rarr;
+              </Link>
+              {entry.circle_prompt && (
+                <Link href={`/${entry.circle_prompt.username}/${entry.circle_prompt.slug}`} className="entry-grew-from">
+                  Answering &ldquo;{entry.circle_prompt.title || "the prompt"}&rdquo; &rarr;
+                </Link>
+              )}
+              {entry.circle.is_prompt && entry.circle.viewer_role && (
+                <Link href={`/editor?circle=${entry.circle.id}&circle_prompt=${entry.id}`} className="entry-grew-from">
+                  Write about this &rarr;
+                </Link>
+              )}
+            </div>
           )}
 
           {/* Title */}

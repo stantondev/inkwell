@@ -37,6 +37,7 @@ defmodule InkwellWeb.FeedController do
         else: Journals.list_feed_entries(user.id, friend_ids,
           page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids,
           subscribed_writer_ids: subscribed_writer_ids,
+          circle_ids: Inkwell.Circles.member_circle_ids(user.id),
           category: category_filter, sort: sort_filter,
           exclude_stickies: EntryController.hides_stickies?(user))
 
@@ -234,7 +235,7 @@ defmodule InkwellWeb.FeedController do
         }
     end)
 
-    data = EntryController.put_sticky_expansions(data, user.id)
+    data = data |> EntryController.put_sticky_expansions(user.id) |> EntryController.put_circle_labels()
 
     json(conn, %{
       data: data,

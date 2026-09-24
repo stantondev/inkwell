@@ -4,28 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CircleCard from "./circle-card";
-
-interface Circle {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: string;
-  member_count: number;
-  discussion_count: number;
-  is_starter: boolean;
-  last_activity_at: string | null;
-  inserted_at: string;
-  is_member?: boolean;
-  owner: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-    avatar_frame: string | null;
-    subscription_tier: string;
-  } | null;
-}
+import type { Circle } from "./circle-types";
 
 interface Props {
   initialCircles: Circle[];
@@ -36,7 +15,8 @@ interface Props {
   currentCategory: string;
   currentSearch: string;
   isLoggedIn: boolean;
-  isPlus: boolean;
+  canCreate: boolean;
+  createMessage: string | null;
 }
 
 export default function CircleBrowseClient({
@@ -48,7 +28,8 @@ export default function CircleBrowseClient({
   currentCategory,
   currentSearch,
   isLoggedIn,
-  isPlus,
+  canCreate,
+  createMessage,
 }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState(currentSearch);
@@ -73,26 +54,29 @@ export default function CircleBrowseClient({
 
   return (
     <>
-      {/* My Circles */}
+      {/* Your circles, with what's new since you last looked */}
       {myCircles.length > 0 && (
         <div style={{ marginBottom: "2rem" }}>
-          <h2 className="circle-section-heading">My Circles</h2>
+          <h2 className="circle-section-heading">Your circles</h2>
           <div className="circle-my-circles-scroll">
             {myCircles.map((circle) => (
               <Link
                 key={circle.id}
                 href={`/circles/${circle.slug}`}
-                style={{
-                  flex: "0 0 220px",
-                  textDecoration: "none",
-                }}
+                style={{ flex: "0 0 220px", textDecoration: "none" }}
               >
-                <div className="circle-card" style={{ padding: "0.875rem" }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--foreground)", marginBottom: "0.25rem" }}>
-                    {circle.name}
+                <div className="circle-card" style={{ padding: "0.875rem", height: "100%" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--foreground)" }}>
+                      {circle.name}
+                    </span>
+                    {(circle.unread_count ?? 0) > 0 && (
+                      <span className="circle-unread">{circle.unread_count} new</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                    {circle.member_count} member{circle.member_count !== 1 ? "s" : ""}
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.25rem" }}>
+                    {circle.member_count} member{circle.member_count !== 1 ? "s" : ""} · {circle.entry_count ?? 0} post
+                    {(circle.entry_count ?? 0) !== 1 ? "s" : ""}
                   </div>
                 </div>
               </Link>
@@ -105,14 +89,15 @@ export default function CircleBrowseClient({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
         <form onSubmit={handleSearch} style={{ display: "flex", gap: "0.5rem", flex: 1, maxWidth: 320 }}>
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search circles..."
+            placeholder="Search circles…"
+            aria-label="Search circles"
             style={{
               flex: 1,
               padding: "0.375rem 0.75rem",
-              fontSize: "0.8125rem",
+              fontSize: "16px",
               border: "1px solid var(--border)",
               borderRadius: "9999px",
               background: "var(--surface)",
@@ -122,14 +107,13 @@ export default function CircleBrowseClient({
           />
         </form>
 
-        {isLoggedIn && (
-          <Link
-            href={isPlus ? "/circles/new" : "/settings/billing"}
-            className="circle-btn"
-            style={{ textDecoration: "none", fontSize: "0.8125rem" }}
-          >
-            {isPlus ? "+ Found a Circle" : "✦ Plus to Create"}
+        {isLoggedIn && canCreate && (
+          <Link href="/circles/new" className="circle-btn" style={{ textDecoration: "none", fontSize: "0.8125rem" }}>
+            + Start a circle
           </Link>
+        )}
+        {isLoggedIn && !canCreate && createMessage && (
+          <p style={{ fontSize: "0.75rem", color: "var(--muted)", maxWidth: 360, margin: 0 }}>{createMessage}</p>
         )}
       </div>
 
@@ -142,7 +126,7 @@ export default function CircleBrowseClient({
             cursor: "pointer",
             border: "none",
             background: !currentCategory ? "var(--accent)" : "color-mix(in srgb, var(--accent) 10%, var(--surface))",
-            color: !currentCategory ? "#fff" : "var(--accent)",
+            color: !currentCategory ? "var(--background)" : "var(--accent)",
           }}
         >
           All
@@ -156,7 +140,7 @@ export default function CircleBrowseClient({
               cursor: "pointer",
               border: "none",
               background: currentCategory === cat.value ? "var(--accent)" : "color-mix(in srgb, var(--accent) 10%, var(--surface))",
-              color: currentCategory === cat.value ? "#fff" : "var(--accent)",
+              color: currentCategory === cat.value ? "var(--background)" : "var(--accent)",
             }}
           >
             {cat.label}
@@ -171,7 +155,7 @@ export default function CircleBrowseClient({
             No circles found
           </p>
           <p style={{ fontSize: "0.875rem", marginTop: "0.5rem" }}>
-            {currentSearch || currentCategory ? "Try adjusting your filters" : "Be the first to create a circle"}
+            {currentSearch || currentCategory ? "Try adjusting your filters" : "Be the first to start one"}
           </p>
         </div>
       ) : (
@@ -195,7 +179,7 @@ export default function CircleBrowseClient({
                 borderRadius: "0.375rem",
                 border: "1px solid var(--border)",
                 background: p === initialPage ? "var(--accent)" : "var(--surface)",
-                color: p === initialPage ? "#fff" : "var(--foreground)",
+                color: p === initialPage ? "var(--background)" : "var(--foreground)",
                 cursor: "pointer",
               }}
             >

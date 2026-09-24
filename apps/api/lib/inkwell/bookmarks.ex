@@ -86,6 +86,12 @@ defmodule Inkwell.Bookmarks do
                      r.status == :accepted
                )
              )) or
+          (e.privacy == :circle and
+             exists(
+               from(m in Inkwell.Circles.CircleMember,
+                 where: m.circle_id == parent_as(:entry).circle_id and m.user_id == ^user_id
+               )
+             )) or
           (e.privacy == :custom and
              exists(
                from(f in FriendFilter,

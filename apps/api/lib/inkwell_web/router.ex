@@ -159,6 +159,7 @@ defmodule InkwellWeb.Router do
     # Circles (optional auth for browse + detail with is_member)
     get "/circles", CircleController, :index
     get "/circles/:slug", CircleController, :show
+    get "/circles/:id/entries", CircleController, :entries
 
     # Writer plans (public/optional-auth)
     get "/writer-plans/by-writer/:username", WriterSubscriptionController, :get_writer_plan
@@ -450,6 +451,9 @@ defmodule InkwellWeb.Router do
     get "/circles/:id/members", CircleController, :members
     patch "/circles/:id/members/:user_id", CircleController, :update_member_role
     delete "/circles/:id/members/:user_id", CircleController, :remove_member
+    post "/circles/:id/prompt", CircleController, :set_prompt
+    delete "/circles/:id/prompt", CircleController, :clear_prompt
+    delete "/circles/:id/entries/:entry_id", CircleController, :remove_entry
     get "/circles/:id/discussions", CircleController, :list_discussions
     post "/circles/:id/discussions", CircleController, :create_discussion
     get "/circles/discussions/:discussion_id", CircleController, :show_discussion

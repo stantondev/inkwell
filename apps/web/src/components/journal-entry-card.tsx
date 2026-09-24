@@ -107,6 +107,8 @@ export interface JournalEntry {
   expanded_into?: { slug: string; title: string | null; username: string } | null;
   /** For an entry: the sticky it was expanded from */
   source_sticky_id?: string | null;
+  /** The circle this entry was posted in */
+  circle?: { id: string; name: string; slug: string } | null;
   author: {
     id?: string;
     username: string;
@@ -228,6 +230,12 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
             </time>
             {entry.archive_mark && entry.imported_from && (
               <ArchiveSeal origin={entry.imported_from} publishedAt={entry.published_at} uid={`card-${entry.id}`} />
+            )}
+            {entry.circle && (
+              <Link href={`/circles/${entry.circle.slug}`} className="entry-circle-label">
+                ◎ in {entry.circle.name}
+                {entry.privacy === "circle" ? " · members only" : ""}
+              </Link>
             )}
           </div>
         )}

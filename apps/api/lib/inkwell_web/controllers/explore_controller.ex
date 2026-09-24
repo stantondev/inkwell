@@ -285,7 +285,7 @@ defmodule InkwellWeb.ExploreController do
         }
     end)
 
-    data = EntryController.put_sticky_expansions(data, viewer && viewer.id)
+    data = data |> EntryController.put_sticky_expansions(viewer && viewer.id) |> EntryController.put_circle_labels()
 
     json(conn, %{
       data: data,

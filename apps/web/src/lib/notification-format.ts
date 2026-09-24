@@ -118,6 +118,15 @@ export function notificationText(n: Notification): string {
       const circleName2 = n.data?.circle_name as string | undefined;
       return circleName2 ? `mentioned you in ${circleName2}` : "mentioned you in a circle";
     }
+    case "circle_prompt": {
+      const where = n.data?.circle_name ? ` in ${n.data.circle_name}` : "";
+      const title = n.data?.prompt_title as string | undefined;
+      return `posted a new prompt${where}${title ? `: “${title}”` : ""}`;
+    }
+    case "circle_prompt_response": {
+      const where = n.data?.circle_name ? ` in ${n.data.circle_name}` : "";
+      return `answered your prompt${where}`;
+    }
     case "circle_new_member": {
       const circleName3 = n.data?.circle_name as string | undefined;
       return circleName3 ? `joined ${circleName3}` : "joined your circle";

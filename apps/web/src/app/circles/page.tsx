@@ -3,44 +3,14 @@ import { getSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import CircleBrowseClient from "./circle-browse-client";
 import { FetchError } from "@/components/fetch-error";
+import { CIRCLE_CATEGORIES, type Circle, type MyCirclesMeta } from "./circle-types";
 
 export const metadata: Metadata = {
-  title: "Writing Circles",
-  description: "Join intimate writing circles. Collaborative spaces for discussion, feedback, and creative community.",
-  openGraph: { title: "Writing Circles — Inkwell", description: "Join intimate writing circles on Inkwell." },
+  title: "Circles",
+  description:
+    "Circles are small communities of writers on Inkwell. Members post journal entries to a circle, answer its prompts, and read each other in their Feed.",
+  openGraph: { title: "Circles · Inkwell", description: "Small communities of writers on Inkwell." },
 };
-
-const CIRCLE_CATEGORIES = [
-  { value: "writing_craft", label: "Writing & Craft" },
-  { value: "reading_books", label: "Reading & Books" },
-  { value: "creative_arts", label: "Creative Arts" },
-  { value: "lifestyle_interests", label: "Lifestyle" },
-  { value: "tech_learning", label: "Tech & Learning" },
-  { value: "community", label: "Community" },
-];
-
-interface Circle {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: string;
-  cover_image_id: string | null;
-  member_count: number;
-  discussion_count: number;
-  is_starter: boolean;
-  last_activity_at: string | null;
-  inserted_at: string;
-  is_member?: boolean;
-  owner: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-    avatar_frame: string | null;
-    subscription_tier: string;
-  } | null;
-}
 
 export default async function CirclesPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
@@ -52,6 +22,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
   let circles: Circle[] = [];
   let total = 0;
   let myCircles: Circle[] = [];
+  let meta: MyCirclesMeta | null = null;
   let fetchFailed = false;
 
   try {
@@ -69,39 +40,42 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
 
   if (session) {
     try {
-      const res = await apiFetch<{ data: Circle[] }>("/api/my-circles", {}, session.token);
+      const res = await apiFetch<{ data: Circle[]; meta: MyCirclesMeta }>("/api/my-circles", {}, session.token);
       myCircles = res.data;
+      meta = res.meta;
     } catch {
-      // silently fail
+      // The browse list still works without "Your circles".
     }
   }
 
   return (
     <div className="circle-page">
       <div className="circle-hero">
-        <h1>Writing Circles</h1>
-        <p>Group discussions for writers. No upvotes, no algorithms. Just conversation.</p>
-        {total > 0 && (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.5rem" }}>
-            {total} circle{total !== 1 ? "s" : ""} · {circles.reduce((acc, c) => acc + c.discussion_count, 0)} discussion{circles.reduce((acc, c) => acc + c.discussion_count, 0) !== 1 ? "s" : ""}
-          </p>
-        )}
+        <h1>Circles</h1>
+        <p>Small communities of writers. Post an entry to a circle and everyone in it reads it in their Feed.</p>
       </div>
 
-      <div className="max-w-5xl mx-auto" style={{ padding: "1.5rem 1rem" }}>
+      <div className="max-w-5xl mx-auto" style={{ padding: "0 1rem 3rem" }}>
+        <ol className="circle-steps">
+          <li><strong>Join</strong> a circle that fits what you write or read.</li>
+          <li><strong>Write</strong> an entry and choose the circle in its settings. It stays on your journal too.</li>
+          <li><strong>Answer prompts</strong> and read the circle&rsquo;s posts in your Feed.</li>
+        </ol>
+
         {fetchFailed ? (
           <FetchError message="We couldn't load circles." />
         ) : (
           <CircleBrowseClient
             initialCircles={circles}
             initialTotal={total}
-            initialPage={parseInt(page)}
+            initialPage={parseInt(page) || 1}
             myCircles={myCircles}
             categories={CIRCLE_CATEGORIES}
             currentCategory={category}
             currentSearch={search}
             isLoggedIn={!!session}
-            isPlus={session?.user?.subscription_tier === "plus"}
+            canCreate={meta?.can_create ?? false}
+            createMessage={meta?.create_message ?? null}
           />
         )}
       </div>

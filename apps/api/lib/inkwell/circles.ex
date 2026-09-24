@@ -1,53 +1,97 @@
 defmodule Inkwell.Circles do
   @moduledoc """
-  Context for Circles — writing circles (group discussion spaces) with Writer's Salon aesthetic.
-  Plus-only creation (up to 10). Free users can join and participate.
+  Circles are LiveJournal-style communities. Members post ordinary entries
+  "to" a circle (`entries.circle_id`); each entry stays on its writer's
+  journal and also shows on the circle page and in every member's Feed.
+  `privacy: :circle` limits an entry to the circle's members. The owner or a
+  moderator can pin one entry as the circle's prompt; entries answering it
+  carry `circle_prompt_id`.
+
+  Anyone established can start a circle (7+ days old, not moderation-limited):
+  3 on the free plan, 10 on Plus.
+
+  The discussion/response tables are from the first version (March 2026) and
+  are kept read-only as each circle's archive.
   """
 
   import Ecto.Query
   alias Ecto.Multi
   alias Inkwell.Repo
   alias Inkwell.Circles.{Circle, CircleDiscussion, CircleMember, CircleResponse}
+  alias Inkwell.Journals.Entry
 
-  @max_circles_per_user 10
+  @free_circle_limit 3
+  @plus_circle_limit 10
+  @min_account_age_days 7
 
   # ── Circle CRUD ──────────────────────────────────────────────────────────
 
-  def create_circle(user, attrs) do
-    count = count_circles_by_owner(user.id)
+  @doc """
+  Whether `user` may start a circle: `%{can_create, reason, limit, owned}`.
+  `reason` is nil, `:too_new`, `:limited` or `:limit_reached`.
+  """
+  def creation_status(user) do
+    owned = count_circles_by_owner(user.id)
 
-    if count >= @max_circles_per_user do
-      {:error, :circle_limit_reached}
-    else
-      now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    limit =
+      if Inkwell.SelfHosted.effective_tier(user) == "plus", do: @plus_circle_limit, else: @free_circle_limit
 
-      multi =
-        Multi.new()
-        |> Multi.insert(:circle, Circle.changeset(%Circle{}, Map.put(attrs, "owner_id", user.id)))
-        |> Multi.run(:owner_member, fn repo, %{circle: circle} ->
-          %CircleMember{}
-          |> CircleMember.changeset(%{circle_id: circle.id, user_id: user.id, role: :owner})
-          |> repo.insert()
-        end)
-        |> Multi.run(:set_counts, fn repo, %{circle: circle} ->
-          Circle
-          |> where(id: ^circle.id)
-          |> repo.update_all(set: [member_count: 1, last_activity_at: now])
-
-          {:ok, :done}
-        end)
-
-      case Repo.transaction(multi) do
-        {:ok, %{circle: circle}} ->
-          # Reload to pick up member_count/last_activity_at set by update_all
-          {:ok, Repo.get!(Circle, circle.id) |> Repo.preload(:owner)}
-
-        {:error, :circle, changeset, _} ->
-          {:error, changeset}
-
-        {:error, _, reason, _} ->
-          {:error, reason}
+    age_days =
+      case user.inserted_at do
+        %NaiveDateTime{} = at -> NaiveDateTime.diff(NaiveDateTime.utc_now(), at, :day)
+        %DateTime{} = at -> DateTime.diff(DateTime.utc_now(), at, :day)
+        _ -> 0
       end
+
+    reason =
+      cond do
+        user.role == "admin" -> nil
+        age_days < @min_account_age_days -> :too_new
+        user.moderation_state == "limited" -> :limited
+        owned >= limit -> :limit_reached
+        true -> nil
+      end
+
+    %{can_create: is_nil(reason), reason: reason, limit: limit, owned: owned,
+      min_account_age_days: @min_account_age_days}
+  end
+
+  def create_circle(user, attrs) do
+    case creation_status(user) do
+      %{reason: nil} -> do_create_circle(user, attrs)
+      %{reason: reason} -> {:error, reason}
+    end
+  end
+
+  defp do_create_circle(user, attrs) do
+    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+
+    multi =
+      Multi.new()
+      |> Multi.insert(:circle, Circle.changeset(%Circle{}, Map.put(attrs, "owner_id", user.id)))
+      |> Multi.run(:owner_member, fn repo, %{circle: circle} ->
+        %CircleMember{}
+        |> CircleMember.changeset(%{circle_id: circle.id, user_id: user.id, role: :owner})
+        |> repo.insert()
+      end)
+      |> Multi.run(:set_counts, fn repo, %{circle: circle} ->
+        Circle
+        |> where(id: ^circle.id)
+        |> repo.update_all(set: [member_count: 1, last_activity_at: now])
+
+        {:ok, :done}
+      end)
+
+    case Repo.transaction(multi) do
+      {:ok, %{circle: circle}} ->
+        # Reload to pick up member_count/last_activity_at set by update_all
+        {:ok, Repo.get!(Circle, circle.id) |> Repo.preload(:owner)}
+
+      {:error, :circle, changeset, _} ->
+        {:error, changeset}
+
+      {:error, _, reason, _} ->
+        {:error, reason}
     end
   end
 
@@ -73,8 +117,19 @@ defmodule Inkwell.Circles do
     |> Repo.update()
   end
 
+  # Members-only posts would become visible to nobody but their writer once the
+  # circle is gone (circle_id is nilified); make that explicit by marking them
+  # private.
   def delete_circle(%Circle{} = circle) do
-    Repo.delete(circle)
+    Repo.transaction(fn ->
+      from(e in Entry, where: e.circle_id == ^circle.id and e.privacy == :circle)
+      |> Repo.update_all(set: [privacy: :private])
+
+      case Repo.delete(circle) do
+        {:ok, deleted} -> deleted
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
   end
 
   def count_circles_by_owner(user_id) do
@@ -321,6 +376,244 @@ defmodule Inkwell.Circles do
           {:error, _, reason, _} -> {:error, reason}
         end
     end
+  end
+
+  # ── Entries posted to circles ────────────────────────────────────────────
+
+  @doc "Ids of the circles `user_id` belongs to (a list, for `in ^ids`)."
+  def member_circle_ids(nil), do: []
+
+  def member_circle_ids(user_id) do
+    CircleMember
+    |> where(user_id: ^user_id)
+    |> select([m], m.circle_id)
+    |> Repo.all()
+  end
+
+  # Published entries in a circle that `viewer` may read: public ones for
+  # everybody, members-only ones for members, the viewer's own always. Never
+  # from suspended accounts or across a block.
+  defp circle_entries_query(%Circle{id: circle_id}, viewer) do
+    viewer_id = viewer && viewer.id
+    member? = viewer_id != nil and is_member?(circle_id, viewer_id)
+    blocked = if viewer_id, do: Inkwell.Social.get_blocked_user_ids(viewer_id), else: []
+
+    query =
+      from(e in Entry,
+        join: u in assoc(e, :user),
+        where: e.circle_id == ^circle_id and e.status == :published,
+        where: not is_nil(e.published_at) and is_nil(u.blocked_at)
+      )
+
+    query =
+      cond do
+        member? -> where(query, [e], e.privacy in [:public, :circle] or e.user_id == ^viewer_id)
+        viewer_id -> where(query, [e], e.privacy == :public or e.user_id == ^viewer_id)
+        true -> where(query, [e], e.privacy == :public)
+      end
+
+    if blocked == [], do: query, else: where(query, [e], e.user_id not in ^blocked)
+  end
+
+  @doc """
+  `{entries, total}` posted to `circle`, newest first. `prompt_id:` limits it
+  to entries answering that prompt.
+  """
+  def list_circle_entries(%Circle{} = circle, viewer, opts \\ []) do
+    page = max(Keyword.get(opts, :page, 1), 1)
+    per_page = Keyword.get(opts, :per_page, 20)
+
+    query = circle_entries_query(circle, viewer)
+
+    query =
+      case Keyword.get(opts, :prompt_id) do
+        id when is_binary(id) -> where(query, [e], e.circle_prompt_id == ^id)
+        _ -> query
+      end
+
+    total = Repo.aggregate(query, :count)
+
+    entries =
+      query
+      |> order_by([e], desc: e.published_at)
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> preload([:user])
+      |> Repo.all()
+
+    {entries, total}
+  end
+
+  @doc "The circle's current prompt, if `viewer` may read it."
+  def current_prompt(%Circle{prompt_entry_id: nil}, _viewer), do: nil
+
+  def current_prompt(%Circle{prompt_entry_id: id} = circle, viewer) do
+    circle
+    |> circle_entries_query(viewer)
+    |> where([e], e.id == ^id)
+    |> preload([:user])
+    |> Repo.one()
+  end
+
+  @doc "Published entries per circle: `%{circle_id => count}`."
+  def entry_counts([]), do: %{}
+
+  def entry_counts(circle_ids) do
+    from(e in Entry,
+      where: e.circle_id in ^circle_ids and e.status == :published,
+      group_by: e.circle_id,
+      select: {e.circle_id, count(e.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc "Responses per prompt: `%{prompt_entry_id => count}` (published, public or circle)."
+  def prompt_response_counts([]), do: %{}
+
+  def prompt_response_counts(prompt_ids) do
+    from(e in Entry,
+      where: e.circle_prompt_id in ^prompt_ids and e.status == :published,
+      group_by: e.circle_prompt_id,
+      select: {e.circle_prompt_id, count(e.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc "`%{circle_id => %{id, name, slug}}`, for labelling entries in Feed and elsewhere."
+  def labels([]), do: %{}
+
+  def labels(circle_ids) do
+    from(c in Circle, where: c.id in ^Enum.uniq(circle_ids), select: {c.id, %{id: c.id, name: c.name, slug: c.slug}})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
+  Pin `entry_id` as the circle's prompt and tell the other members. It has to
+  be a published entry in this circle that members can read.
+  """
+  def set_prompt(%Circle{} = circle, entry_id, actor) do
+    entry = Repo.get(Entry, entry_id)
+
+    cond do
+      is_nil(entry) or entry.circle_id != circle.id or entry.status != :published or
+          entry.privacy not in [:public, :circle] ->
+        {:error, :not_in_circle}
+
+      circle.prompt_entry_id == entry.id ->
+        {:ok, circle}
+
+      true ->
+        now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+
+        {1, _} =
+          from(c in Circle, where: c.id == ^circle.id)
+          |> Repo.update_all(set: [prompt_entry_id: entry.id, last_activity_at: now])
+
+        notify_members(circle, actor.id, %{
+          type: :circle_prompt,
+          actor_id: actor.id,
+          target_type: "entry",
+          target_id: entry.id,
+          data: %{circle_slug: circle.slug, circle_name: circle.name, prompt_title: entry.title}
+        })
+
+        {:ok, %{circle | prompt_entry_id: entry.id}}
+    end
+  end
+
+  def clear_prompt(%Circle{} = circle) do
+    from(c in Circle, where: c.id == ^circle.id) |> Repo.update_all(set: [prompt_entry_id: nil])
+    {:ok, %{circle | prompt_entry_id: nil}}
+  end
+
+  # One notification per member. Circles are small; the cap keeps a large one
+  # from turning a prompt into thousands of inserts in a request.
+  defp notify_members(%Circle{id: circle_id}, except_user_id, attrs) do
+    from(m in CircleMember,
+      where: m.circle_id == ^circle_id and m.user_id != ^except_user_id,
+      select: m.user_id,
+      limit: 500
+    )
+    |> Repo.all()
+    |> Enum.each(fn user_id ->
+      Inkwell.Accounts.create_notification(Map.put(attrs, :user_id, user_id))
+    end)
+  end
+
+  @doc """
+  Take an entry out of a circle (the owner or a moderator removing something
+  that doesn't belong, or a writer moving their post). It stays on the
+  writer's journal; a members-only post becomes private, since it was never
+  meant for everyone.
+  """
+  def detach_entry(%Circle{} = circle, %Entry{circle_id: circle_id} = entry) when circle_id == circle.id do
+    privacy = if entry.privacy == :circle, do: :private, else: entry.privacy
+
+    from(e in Entry, where: e.id == ^entry.id)
+    |> Repo.update_all(set: [circle_id: nil, circle_prompt_id: nil, privacy: privacy])
+
+    if circle.prompt_entry_id == entry.id, do: clear_prompt(circle)
+    {:ok, %{entry | circle_id: nil, circle_prompt_id: nil, privacy: privacy}}
+  end
+
+  def detach_entry(_circle, _entry), do: {:error, :not_in_circle}
+
+  @doc """
+  Runs when an entry is published (by hand, bulk or on schedule): the circle
+  shows recent activity, and the prompt's writer hears about the answer.
+  """
+  def after_entry_published(%Entry{circle_id: nil}), do: :ok
+
+  def after_entry_published(%Entry{circle_id: circle_id} = entry) do
+    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    from(c in Circle, where: c.id == ^circle_id) |> Repo.update_all(set: [last_activity_at: now])
+
+    with prompt_id when is_binary(prompt_id) <- entry.circle_prompt_id,
+         %Entry{} = prompt <- Repo.get(Entry, prompt_id),
+         true <- prompt.user_id != entry.user_id,
+         %Circle{} = circle <- Repo.get(Circle, circle_id) do
+      Inkwell.Accounts.create_notification(%{
+        type: :circle_prompt_response,
+        user_id: prompt.user_id,
+        actor_id: entry.user_id,
+        target_type: "entry",
+        target_id: entry.id,
+        data: %{circle_slug: circle.slug, circle_name: circle.name, prompt_title: prompt.title}
+      })
+    end
+
+    :ok
+  end
+
+  @doc "Mark the circle read for a member (drives the \"N new\" count)."
+  def mark_read(circle_id, user_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+
+    from(m in CircleMember, where: m.circle_id == ^circle_id and m.user_id == ^user_id)
+    |> Repo.update_all(set: [last_read_at: now])
+
+    :ok
+  end
+
+  @doc """
+  New posts by other people since the member last opened each circle:
+  `%{circle_id => count}`. A member who never opened it counts from joining.
+  """
+  def unread_counts(user_id) do
+    from(m in CircleMember,
+      join: e in Entry,
+      on: e.circle_id == m.circle_id,
+      where: m.user_id == ^user_id and e.status == :published and e.user_id != ^user_id,
+      where: e.privacy in [:public, :circle],
+      where: e.published_at > coalesce(m.last_read_at, m.inserted_at),
+      group_by: m.circle_id,
+      select: {m.circle_id, count(e.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 
   # ── Discussions ──────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ defmodule Inkwell.Journals.Entry do
     field :mood, :string
     field :music, :string
     field :music_metadata, :map
-    field :privacy, Ecto.Enum, values: [:public, :friends_only, :private, :custom, :paid]
+    field :privacy, Ecto.Enum, values: [:public, :friends_only, :private, :custom, :paid, :circle]
     field :slug, :string
     field :tags, {:array, :string}, default: []
     field :published_at, :utc_datetime_usec
@@ -76,6 +76,9 @@ defmodule Inkwell.Journals.Entry do
     belongs_to :source_sticky, Inkwell.Journals.Entry
     # "Write about this" from the Gazette: the news story this entry responds to.
     belongs_to :gazette_story, Inkwell.Gazette.Story
+    # Posted to a circle (LJ-style community). See Inkwell.Circles.
+    belongs_to :circle, Inkwell.Circles.Circle
+    belongs_to :circle_prompt, Inkwell.Journals.Entry
 
     # Imported posts: where they first lived ("livejournal", "dreamwidth", …),
     # their address there when known, and whether the writer shows the
@@ -113,6 +116,25 @@ defmodule Inkwell.Journals.Entry do
   # A sticky has no title, a short plain body, and one of the paper colors.
   # Things only journal entries have (series, category, cover, drafts) are
   # left off by StickyController; this is the backstop.
+  # "Circle members only" needs a circle to be members of, and a post in a
+  # circle is either public or for the circle (as on LiveJournal communities):
+  # a friends-only post there would be seen by some members and not others.
+  defp validate_circle_privacy(changeset) do
+    privacy = get_field(changeset, :privacy)
+    circle_id = get_field(changeset, :circle_id)
+
+    cond do
+      privacy == :circle and is_nil(circle_id) ->
+        add_error(changeset, :privacy, "circle members only needs a circle")
+
+      circle_id != nil and privacy not in [:public, :circle] ->
+        add_error(changeset, :privacy, "a post in a circle is public or for circle members")
+
+      true ->
+        changeset
+    end
+  end
+
   defp validate_sticky(changeset) do
     case get_field(changeset, :kind) do
       "sticky" ->
@@ -147,7 +169,8 @@ defmodule Inkwell.Journals.Entry do
       :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
       :quoted_entry_id, :quoted_remote_entry_id,
-      :kind, :sticky_color, :source_sticky_id, :gazette_story_id
+      :kind, :sticky_color, :source_sticky_id, :gazette_story_id,
+      :circle_id, :circle_prompt_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy, :user_id])
@@ -157,7 +180,8 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
-    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
+    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid, :circle])
+    |> validate_circle_privacy()
     |> validate_edited_date_not_future(entry)
     |> generate_slug()
     |> ensure_unique_slug()
@@ -199,6 +223,7 @@ defmodule Inkwell.Journals.Entry do
       :scheduled_at, :scheduled_options,
       :source_sticky_id,
       :gazette_story_id,
+      :circle_id, :circle_prompt_id,
       # "import" for imported posts, so the editor opens them in the rich
       # editor rather than as raw HTML.
       :source
@@ -223,7 +248,7 @@ defmodule Inkwell.Journals.Entry do
       :privacy, :tags, :custom_filter_id, :user_icon_id,
       :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning,
-      :published_at
+      :published_at, :circle_id, :circle_prompt_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy])
@@ -233,7 +258,8 @@ defmodule Inkwell.Journals.Entry do
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
-    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid])
+    |> validate_inclusion(:privacy, [:public, :friends_only, :private, :custom, :paid, :circle])
+    |> validate_circle_privacy()
     |> put_change(:status, :published)
     |> put_change(:scheduled_at, nil)
     |> put_change(:scheduled_options, %{})

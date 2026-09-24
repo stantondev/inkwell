@@ -8619,7 +8619,9 @@ html.dark .poll-vote-option--selected {
   border-radius: 9999px;
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  /* The page background reads on the accent in both themes; white didn't
+     on dark mode's light-blue accent (about 2:1). */
+  color: var(--background);
   cursor: pointer;
   transition: background-color 0.15s, opacity 0.15s;
 }
@@ -8976,6 +8978,269 @@ html.dark .poll-vote-option--selected {
   font-weight: 600;
   color: var(--foreground);
   margin-bottom: 1rem;
+}
+
+/* ── Circles as communities (2026-09-24) ── */
+.circle-back-link {
+  display: inline-flex;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+.circle-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--foreground);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.circle-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.circle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  color: var(--muted);
+}
+.circle-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  cursor: pointer;
+}
+.circle-link-btn:hover { text-decoration: underline; }
+.circle-link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.circle-howto {
+  margin-top: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 38rem;
+}
+.circle-steps {
+  list-style: none;
+  counter-reset: circle-step;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0 0 2rem;
+}
+.circle-steps li {
+  counter-increment: circle-step;
+  position: relative;
+  padding: 0.75rem 0.875rem 0.75rem 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.circle-steps li strong { color: var(--foreground); font-weight: 600; }
+.circle-steps li::before {
+  content: counter(circle-step);
+  position: absolute;
+  left: 0.875rem;
+  top: 0.75rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-weight: 600;
+  color: var(--accent);
+}
+.circle-unread {
+  flex-shrink: 0;
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--background);
+}
+.circle-prompt-title {
+  display: block;
+  margin-top: 0.375rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.1875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.circle-prompt-title:hover { color: var(--accent); }
+.circle-prompt-excerpt {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.circle-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 0.875rem;
+}
+.circle-entry {
+  padding: 1.125rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.circle-entry:last-of-type { border-bottom: none; }
+.circle-entry-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+  font-size: 0.8125rem;
+}
+.circle-entry-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: none;
+}
+.circle-entry-author:hover { color: var(--accent); }
+.circle-entry-meta { color: var(--muted); }
+.circle-entry-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.circle-entry-tag--prompt {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.circle-entry-body {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.625rem;
+  text-decoration: none;
+  color: inherit;
+}
+.circle-entry-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+  margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+}
+.circle-entry-body:hover .circle-entry-title { color: var(--accent); }
+.circle-entry-excerpt {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.circle-entry-cover {
+  flex-shrink: 0;
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+.circle-entry-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 1rem;
+  margin-top: 0.625rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.circle-entry-footer a { color: var(--muted); text-decoration: none; }
+.circle-entry-footer a:hover { color: var(--accent); }
+.circle-entry-actions {
+  display: inline-flex;
+  gap: 0.875rem;
+  margin-left: auto;
+}
+.circle-entry-actions button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.circle-entry-actions button:hover { color: var(--accent); text-decoration: underline; }
+.circle-entry-error {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--danger);
+}
+.circle-empty {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.circle-empty-card {
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.circle-empty-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 1.0625rem;
+  color: var(--foreground);
+}
+.editor-circle-note {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-style: italic;
+}
+.editor-circle-note strong { color: var(--accent); font-style: normal; font-weight: 600; }
+/* "in Writing Workshop" on feed/explore cards and the entry page */
+.entry-circle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-circle-label:hover { text-decoration: underline; }
+@media (max-width: 480px) {
+  .circle-entry-cover { width: 72px; height: 56px; }
+  .circle-title { font-size: 1.5rem; }
 }
 
 /* ── Circle Editor (TipTap rich text) ── */
@@ -14639,6 +14904,15 @@ a, button, [role="tab"], [role="button"] {
 .entry-grew-from:hover { color: var(--foreground); text-decoration: underline; }
 /* "In response to … in the Gazette" has no sticky swatch */
 .entry-grew-from--gazette::before { content: none; }
+/* "Posted in <circle>" lines on the entry page */
+.entry-circle-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.25rem;
+  margin: -0.75rem 0 1.25rem;
+}
+.entry-circle-line .entry-grew-from { margin: 0; }
+.entry-circle-line .entry-grew-from::before { content: none; }
 
 .manage-sticky-badge {
   display: inline-block;

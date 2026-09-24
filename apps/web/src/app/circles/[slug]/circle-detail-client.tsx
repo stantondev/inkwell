@@ -6,32 +6,9 @@ import { useRouter } from "next/navigation";
 import MemberStrip from "./member-strip";
 import MembersSection from "./members-section";
 import DiscussionCard from "./discussion-card";
-import CreateDiscussionForm from "./create-discussion-form";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  writing_craft: "Writing & Craft",
-  reading_books: "Reading & Books",
-  creative_arts: "Creative Arts",
-  lifestyle_interests: "Lifestyle",
-  tech_learning: "Tech & Learning",
-  community: "Community",
-};
-
-interface Circle {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: string;
-  member_count: number;
-  discussion_count: number;
-  is_starter: boolean;
-  is_member: boolean;
-  viewer_role: string | null;
-  member_preview: { id: string; role: string; user: { id: string; username: string; display_name: string; avatar_url: string | null; avatar_frame: string | null } | null }[];
-  owner: { id: string; username: string; display_name: string; avatar_url: string | null } | null;
-  discussion_preview?: { id: string; title: string; is_prompt: boolean; response_count: number; inserted_at: string; author_name: string | null }[];
-}
+import CircleEntryCard from "./circle-entry-card";
+import { ShareButton } from "@/components/share-button";
+import { CATEGORY_LABELS, type Circle, type CircleEntry } from "../circle-types";
 
 interface Discussion {
   id: string;
@@ -51,64 +28,99 @@ export default function CircleDetailClient({
   circle,
   isLoggedIn,
   currentUserId,
+  shareUrl,
 }: {
   circle: Circle;
   isLoggedIn: boolean;
   currentUserId: string | null;
+  shareUrl: string;
 }) {
   const router = useRouter();
-  const [isMember, setIsMember] = useState(circle.is_member);
+  const [isMember, setIsMember] = useState(!!circle.is_member);
   const [memberCount, setMemberCount] = useState(circle.member_count);
   const [joining, setJoining] = useState(false);
-  const [discussions, setDiscussions] = useState<Discussion[]>([]);
-  const [loadingDiscussions, setLoadingDiscussions] = useState(false);
-  const [showNewDiscussion, setShowNewDiscussion] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
-  const fetchDiscussions = useCallback(async () => {
-    if (!isMember) return;
-    setLoadingDiscussions(true);
-    try {
-      const res = await fetch(`/api/circles/${circle.id}/discussions`);
-      if (res.ok) {
-        const data = await res.json();
-        setDiscussions(data.data || []);
-      }
-    } catch {
-      // ignore
-    }
-    setLoadingDiscussions(false);
-  }, [circle.id, isMember]);
+  const [entries, setEntries] = useState<CircleEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [promptFilter, setPromptFilter] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archive, setArchive] = useState<Discussion[] | null>(null);
+
+  const prompt = circle.prompt ?? null;
+  const isOwner = circle.viewer_role === "owner";
+  const canModerate = circle.viewer_role === "owner" || circle.viewer_role === "moderator";
+
+  // Entries posted to the circle. Members also get the members-only ones, so
+  // this reloads when membership changes.
   useEffect(() => {
-    fetchDiscussions();
-  }, [fetchDiscussions]);
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    const qs = new URLSearchParams({ page: String(page) });
+    if (promptFilter && prompt) qs.set("prompt", prompt.id);
+
+    fetch(`/api/circles/${circle.id}/entries?${qs}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data: { data: CircleEntry[]; pagination: { total: number } }) => {
+        if (cancelled) return;
+        setEntries((prev) => (page === 1 ? data.data : [...prev, ...data.data]));
+        setTotal(data.pagination.total);
+      })
+      .catch(() => !cancelled && setLoadError(true))
+      .finally(() => !cancelled && setLoading(false));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [circle.id, page, promptFilter, prompt, isMember, reloadKey]);
+
+  const reload = useCallback(() => {
+    // Prompt/removal changes also change the header, so refresh server data too.
+    setPage(1);
+    setReloadKey((k) => k + 1);
+    router.refresh();
+  }, [router]);
 
   const handleJoin = async () => {
     if (!isLoggedIn) {
-      router.push("/get-started");
+      router.push(`/login?next=${encodeURIComponent(`/circles/${circle.slug}`)}`);
       return;
     }
     setJoining(true);
+    setJoinError("");
     try {
       const res = await fetch(`/api/circles/${circle.id}/join`, { method: "POST" });
       if (res.ok) {
         setIsMember(true);
         setMemberCount((c) => c + 1);
+        setPage(1);
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setJoinError(data.error || "Couldn't join the circle. Try again.");
       }
     } catch {
-      // ignore
+      setJoinError("Couldn't join the circle. Try again.");
     }
     setJoining(false);
   };
 
   const handleLeave = async () => {
+    if (!window.confirm(`Leave ${circle.name}? Your posts stay in the circle.`)) return;
     setJoining(true);
     try {
       const res = await fetch(`/api/circles/${circle.id}/leave`, { method: "DELETE" });
       if (res.ok) {
         setIsMember(false);
         setMemberCount((c) => Math.max(0, c - 1));
-        setDiscussions([]);
+        setPage(1);
+        router.refresh();
       }
     } catch {
       // ignore
@@ -116,179 +128,219 @@ export default function CircleDetailClient({
     setJoining(false);
   };
 
-  const isOwner = circle.viewer_role === "owner";
-  const canModerate = circle.viewer_role === "owner" || circle.viewer_role === "moderator";
+  const clearPrompt = async () => {
+    if (!window.confirm("Clear the prompt? The entry stays in the circle.")) return;
+    const res = await fetch(`/api/circles/${circle.id}/prompt`, { method: "DELETE" });
+    if (res.ok) {
+      setPromptFilter(false);
+      reload();
+    }
+  };
+
+  const toggleArchive = async () => {
+    const next = !archiveOpen;
+    setArchiveOpen(next);
+    if (next && archive === null) {
+      try {
+        const res = await fetch(`/api/circles/${circle.id}/discussions`);
+        const data = res.ok ? await res.json() : { data: [] };
+        setArchive(data.data || []);
+      } catch {
+        setArchive([]);
+      }
+    }
+  };
+
+  const writeHref = `/editor?circle=${circle.id}`;
+  const entryCount = circle.entry_count ?? 0;
 
   return (
     <>
-      {/* Back link */}
-      <Link href="/circles" style={{ fontSize: "0.8125rem", color: "var(--accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", marginBottom: "1rem" }}>
-        ← All Circles
+      <Link href="/circles" className="circle-back-link">
+        ← All circles
       </Link>
 
       {/* Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.75rem", fontWeight: 600, color: "var(--foreground)", margin: 0, lineHeight: 1.3 }}>
-              {circle.name}
-            </h1>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-              <span className="circle-category-pill">
-                {CATEGORY_LABELS[circle.category] || circle.category}
-              </span>
-              <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-                {memberCount} member{memberCount !== 1 ? "s" : ""} · {circle.discussion_count} discussion{circle.discussion_count !== 1 ? "s" : ""}
-              </span>
-            </div>
-            {circle.owner && (
-              <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.375rem" }}>
-                Founded by{" "}
-                <Link href={`/${circle.owner.username}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
-                  @{circle.owner.username}
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div>
-            {isOwner ? (
-              <span style={{ fontSize: "0.8125rem", color: "var(--accent)", fontWeight: 500, fontStyle: "italic" }}>Owner</span>
-            ) : isMember ? (
-              <button onClick={handleLeave} disabled={joining} className="circle-btn circle-btn--outline">
-                {joining ? "..." : "Leave Circle"}
-              </button>
-            ) : (
-              <button onClick={handleJoin} disabled={joining} className="circle-btn">
-                {joining ? "Joining..." : "Join Circle"}
-              </button>
-            )}
-          </div>
+      <header style={{ marginBottom: "1.25rem" }}>
+        <h1 className="circle-title">{circle.name}</h1>
+        <div className="circle-header-meta">
+          <span className="circle-category-pill">{CATEGORY_LABELS[circle.category] || circle.category}</span>
+          <span>
+            {memberCount} member{memberCount !== 1 ? "s" : ""} · {entryCount} post{entryCount !== 1 ? "s" : ""}
+          </span>
+          {circle.owner && (
+            <span>
+              Started by{" "}
+              <Link href={`/${circle.owner.username}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
+                @{circle.owner.username}
+              </Link>
+            </span>
+          )}
         </div>
 
         {circle.description && (
           <div
             className="prose-discussion"
-            style={{ marginTop: "1rem" }}
+            style={{ marginTop: "0.875rem" }}
             dangerouslySetInnerHTML={{ __html: circle.description }}
           />
         )}
-      </div>
 
-      {/* Member strip */}
-      {circle.member_preview.length > 0 && (
-        <div style={{ marginBottom: "1.5rem" }}>
+        <div className="circle-actions">
+          {isMember ? (
+            <Link href={writeHref} className="circle-btn" style={{ textDecoration: "none" }}>
+              Write in this circle
+            </Link>
+          ) : (
+            <button onClick={handleJoin} disabled={joining} className="circle-btn">
+              {joining ? "Joining…" : "Join circle"}
+            </button>
+          )}
+          <ShareButton url={shareUrl} title={circle.name} description={`A circle on Inkwell`} />
+          {isMember && !isOwner && (
+            <button onClick={handleLeave} disabled={joining} className="circle-link-btn">
+              Leave
+            </button>
+          )}
+        </div>
+        {joinError && <p className="circle-entry-error">{joinError}</p>}
+
+        {!isMember && (
+          <p className="circle-howto">
+            Members post journal entries here. Each post stays on its writer&rsquo;s journal and shows up in every
+            member&rsquo;s Feed; some are for members only. Join to read those and to post.
+          </p>
+        )}
+      </header>
+
+      {circle.member_preview && circle.member_preview.length > 0 && (
+        <div style={{ marginBottom: "1.25rem" }}>
           <MemberStrip members={circle.member_preview} totalCount={memberCount} circleId={circle.id} isMember={isMember} />
         </div>
       )}
 
-      {/* Full member list (members only) */}
-      {isMember && (
-        <MembersSection
-          circleId={circle.id}
-          isOwner={isOwner}
-          memberCount={memberCount}
-          onMemberCountChange={setMemberCount}
-        />
-      )}
-
-      <div className="circle-divider" />
-
-      {/* Discussions */}
-      {isMember ? (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2 className="circle-section-heading" style={{ marginBottom: 0 }}>Discussions</h2>
-            <button onClick={() => setShowNewDiscussion(!showNewDiscussion)} className="circle-btn" style={{ fontSize: "0.8125rem", padding: "0.3rem 0.875rem" }}>
-              {showNewDiscussion ? "Cancel" : "+ New Discussion"}
-            </button>
-          </div>
-
-          {showNewDiscussion && (
-            <CreateDiscussionForm
-              circleId={circle.id}
-              circleSlug={circle.slug}
-              canCreatePrompt={canModerate}
-              onCreated={() => {
-                setShowNewDiscussion(false);
-                fetchDiscussions();
-              }}
-            />
-          )}
-
-          {loadingDiscussions ? (
-            <p style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.875rem" }}>Loading discussions...</p>
-          ) : discussions.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
-              <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.0625rem", fontStyle: "italic", color: "var(--foreground)", marginBottom: "0.5rem" }}>
-                This circle is waiting for its first voice
-              </p>
-              <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1.25rem" }}>
-                {circle.category === "writing_craft" ? "Try: \"What are you working on right now?\"" :
-                 circle.category === "reading_books" ? "Try: \"What are you reading this month?\"" :
-                 circle.category === "creative_arts" ? "Try: \"Share something you created recently\"" :
-                 "Try: \"Introduce yourself to the circle\""}
-              </p>
-              <button onClick={() => setShowNewDiscussion(true)} className="circle-btn" style={{ fontSize: "0.8125rem" }}>
-                Start the First Discussion
-              </button>
-            </div>
-          ) : (
-            <div>
-              {discussions.map((d) => (
-                <DiscussionCard key={d.id} discussion={d} circleSlug={circle.slug} />
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ padding: "1.5rem 0" }}>
-          {circle.discussion_preview && circle.discussion_preview.length > 0 ? (
-            <>
-              <h2 className="circle-section-heading">Recent Discussions</h2>
-              <div style={{ marginBottom: "1.5rem" }}>
-                {circle.discussion_preview.map((d) => (
-                  <div key={d.id} className="circle-preview-item">
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", flexWrap: "wrap" }}>
-                      {d.is_prompt && <span className="circle-prompt-label">Circle Prompt</span>}
-                      <span style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
-                        {d.title}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.25rem" }}>
-                      {d.author_name && <span>{d.author_name} · </span>}
-                      {d.response_count} response{d.response_count !== 1 ? "s" : ""}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: "center", padding: "1rem 0", marginBottom: "1rem" }}>
-              <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1rem", fontStyle: "italic", color: "var(--muted)" }}>
-                Be one of the first to start a conversation
-              </p>
-            </div>
-          )}
-
-          <div style={{ textAlign: "center", padding: "1rem 0", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "1.0625rem", fontStyle: "italic", color: "var(--foreground)", marginBottom: "0.375rem" }}>
-              Join to discuss, share feedback, and connect with fellow writers
-            </p>
-            <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "1rem" }}>
-              All voices are equal — no upvotes, no karma, just conversation
-            </p>
-            {isLoggedIn ? (
-              <button onClick={handleJoin} disabled={joining} className="circle-btn" style={{ fontSize: "0.9375rem", padding: "0.5rem 1.5rem" }}>
-                {joining ? "Joining..." : "Join This Circle"}
-              </button>
+      {/* The prompt */}
+      {prompt && (
+        <section className="circle-prompt" aria-label="This circle's prompt">
+          <div className="circle-prompt-label">This circle&rsquo;s prompt</div>
+          <Link
+            href={prompt.author ? `/${prompt.author.username}/${prompt.slug}` : "#"}
+            className="circle-prompt-title"
+          >
+            {prompt.title || "Untitled"}
+          </Link>
+          {prompt.excerpt && <p className="circle-prompt-excerpt">{prompt.excerpt}</p>}
+          <div className="circle-prompt-actions">
+            {isMember ? (
+              <Link href={`${writeHref}&circle_prompt=${prompt.id}`} className="circle-btn" style={{ textDecoration: "none" }}>
+                Write about this
+              </Link>
             ) : (
-              <a href="/get-started" className="circle-btn" style={{ textDecoration: "none", display: "inline-flex", fontSize: "0.9375rem", padding: "0.5rem 1.5rem" }}>
-                Join Inkwell to participate
-              </a>
+              <button onClick={handleJoin} className="circle-btn" disabled={joining}>
+                Join to answer
+              </button>
+            )}
+            {(prompt.response_count ?? 0) > 0 && (
+              <button
+                className="circle-link-btn"
+                onClick={() => {
+                  setPromptFilter((v) => !v);
+                  setPage(1);
+                }}
+              >
+                {promptFilter
+                  ? "Show every post"
+                  : `Read ${prompt.response_count} answer${prompt.response_count === 1 ? "" : "s"}`}
+              </button>
+            )}
+            {canModerate && (
+              <button className="circle-link-btn" onClick={clearPrompt}>
+                Clear prompt
+              </button>
             )}
           </div>
-        </div>
+        </section>
+      )}
+
+      {/* Posts */}
+      <section style={{ marginTop: "1.5rem" }}>
+        <h2 className="circle-section-heading">{promptFilter ? "Answers to the prompt" : "Posts"}</h2>
+
+        {loadError && entries.length === 0 ? (
+          <p className="circle-empty">We couldn&rsquo;t load this circle&rsquo;s posts. Refresh to try again.</p>
+        ) : loading && entries.length === 0 ? (
+          <p className="circle-empty">Loading…</p>
+        ) : entries.length === 0 ? (
+          <div className="circle-empty-card">
+            <p className="circle-empty-title">Nothing posted here yet</p>
+            {isMember ? (
+              <>
+                <p className="circle-empty">
+                  Write an entry and it&rsquo;ll appear here and in every member&rsquo;s Feed.
+                  {canModerate ? " Then make it the circle's prompt to give everyone something to write about." : ""}
+                </p>
+                <Link href={writeHref} className="circle-btn" style={{ textDecoration: "none" }}>
+                  Write the first post
+                </Link>
+              </>
+            ) : (
+              <p className="circle-empty">Join and write the first post.</p>
+            )}
+          </div>
+        ) : (
+          <>
+            {entries.map((e) => (
+              <CircleEntryCard
+                key={e.id}
+                entry={e}
+                circleId={circle.id}
+                canModerate={canModerate}
+                currentUserId={currentUserId}
+                onChanged={reload}
+              />
+            ))}
+            {entries.length < total && (
+              <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                <button className="circle-btn circle-btn--outline" disabled={loading} onClick={() => setPage((p) => p + 1)}>
+                  {loading ? "Loading…" : "Older posts"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {isMember && (
+        <>
+          <div className="circle-divider" />
+          <MembersSection
+            circleId={circle.id}
+            isOwner={isOwner}
+            memberCount={memberCount}
+            onMemberCountChange={setMemberCount}
+          />
+        </>
+      )}
+
+      {/* The first version's discussions, read-only */}
+      {circle.has_archive && (
+        <section style={{ marginTop: "1.5rem" }}>
+          <button className="circle-members-toggle" onClick={toggleArchive} aria-expanded={archiveOpen}>
+            {archiveOpen ? "▾" : "▸"} Earlier discussions ({circle.discussion_count})
+          </button>
+          {archiveOpen && (
+            <div style={{ marginTop: "0.75rem" }}>
+              <p className="circle-empty" style={{ marginBottom: "0.75rem" }}>
+                From before circles used journal entries. You can still read them.
+              </p>
+              {archive === null ? (
+                <p className="circle-empty">Loading…</p>
+              ) : (
+                archive.map((d) => <DiscussionCard key={d.id} discussion={d} circleSlug={circle.slug} />)
+              )}
+            </div>
+          )}
+        </section>
       )}
     </>
   );

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-circles",
+    date: "2026-09-24",
+    title: "Circles are communities you write into",
+    body: "A circle is now like a LiveJournal community. Write an ordinary entry, choose a circle in its settings, and it shows on the circle page and in every member’s Feed while staying on your journal. Posts can be public or for circle members only. Circle owners can pin an entry as the prompt, with a “Write about this” button. And anyone whose account is a week old can start a circle now, not just Plus members.",
+    howTo: "Circles in the sidebar (or You → Circles on your phone). Join one, then pick it under Circle in the editor’s Entry Settings.",
+    href: "/circles",
+    cta: "Find a circle",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-24-gazette",
     date: "2026-09-24",
     title: "A new Gazette: the news the fediverse is sharing, twice a day",

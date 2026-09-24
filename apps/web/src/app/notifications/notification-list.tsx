@@ -396,7 +396,7 @@ export function NotificationIcon({
       </svg>
     );
   }
-  if (type === "circle_response" || type === "circle_mention" || type === "circle_new_member") {
+  if (type === "circle_response" || type === "circle_mention" || type === "circle_new_member" || type === "circle_prompt" || type === "circle_prompt_response") {
     return (
       <svg
         width="14"
@@ -1081,7 +1081,9 @@ export function NotificationList({
                         {!!n.data?.circle_name &&
                           (n.type === "circle_response" ||
                             n.type === "circle_mention" ||
-                            n.type === "circle_new_member") && (
+                            n.type === "circle_new_member" ||
+                            n.type === "circle_prompt" ||
+                            n.type === "circle_prompt_response") && (
                             <a
                               href={
                                 n.data?.discussion_id

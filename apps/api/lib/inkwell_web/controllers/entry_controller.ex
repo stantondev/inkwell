@@ -65,7 +65,8 @@ defmodule InkwellWeb.EntryController do
             |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
             |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
           end)
-          |> put_sticky_expansions(viewer && viewer.id),
+          |> put_sticky_expansions(viewer && viewer.id)
+          |> put_circle_labels(),
         pagination: %{page: page, per_page: per_page, total: total_count}
       })
       end
@@ -144,6 +145,10 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:orphaned_marginalia, orphaned_marginalia)
           |> Map.put(:source_sticky, source_sticky_link(entry, viewer))
           |> Map.put(:gazette_story, gazette_story_link(entry))
+          |> then(fn rendered ->
+            {circle, prompt} = circle_links(entry, viewer)
+            rendered |> Map.put(:circle, circle) |> Map.put(:circle_prompt, prompt)
+          end)
           |> then(fn rendered -> hd(put_sticky_expansions([rendered], viewer && viewer.id)) end)
 
         # Include per-entry postage stats for the author only
@@ -170,6 +175,13 @@ defmodule InkwellWeb.EntryController do
 
         entry.privacy == :friends_only ->
           if viewer && (viewer.id == user.id || Social.is_friend?(viewer.id, user.id)) do
+            json(conn, %{data: render_with_stamps.()})
+          else
+            conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
+          end
+
+        entry.privacy == :circle ->
+          if viewer && (viewer.id == user.id || (entry.circle_id && Inkwell.Circles.is_member?(entry.circle_id, viewer.id))) do
             json(conn, %{data: render_with_stamps.()})
           else
             conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
@@ -296,17 +308,21 @@ defmodule InkwellWeb.EntryController do
         |> put_word_count()
         |> put_excerpt(nil)
 
-      case Journals.create_draft(attrs) do
-        {:ok, entry} ->
-          record_entry_creation(user.id)
-          conn
-          |> put_status(:created)
-          |> json(%{data: render_entry_full(entry, user)})
+      with {:ok, attrs} <- put_circle(attrs, params, user.id) do
+        case Journals.create_draft(attrs) do
+          {:ok, entry} ->
+            record_entry_creation(user.id)
+            conn
+            |> put_status(:created)
+            |> json(%{data: render_entry_full(entry, user)})
 
-        {:error, changeset} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{errors: format_errors(changeset)})
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_errors(changeset)})
+        end
+      else
+        {:error, :not_circle_member} -> not_circle_member(conn)
       end
       end
     else
@@ -328,7 +344,8 @@ defmodule InkwellWeb.EntryController do
         |> put_excerpt(nil)
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id),
-           :ok <- validate_paid_privacy(attrs, user) do
+           :ok <- validate_paid_privacy(attrs, user),
+           {:ok, attrs} <- put_circle(attrs, params, user.id) do
         case Journals.create_entry(attrs) do
           {:ok, entry} ->
             record_entry_creation(user.id)
@@ -347,6 +364,9 @@ defmodule InkwellWeb.EntryController do
       else
         {:error, :filter_not_found} ->
           conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+
+        {:error, :not_circle_member} ->
+          not_circle_member(conn)
 
         {:error, :paid_requires_plus} ->
           conn |> put_status(:unprocessable_entity) |> json(%{error: "Paid entries require a Plus subscription"})
@@ -383,7 +403,8 @@ defmodule InkwellWeb.EntryController do
       # Only auto-assign series_order for published entries, not drafts
       attrs = if entry.status == :published, do: maybe_auto_series_order(attrs, entry), else: attrs
 
-      with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+      with :ok <- validate_custom_filter_ownership(attrs, user.id),
+           {:ok, attrs} <- put_circle(attrs, params, user.id, entry) do
         result =
           if entry.status == :draft do
             Journals.update_draft(entry, attrs)
@@ -411,6 +432,9 @@ defmodule InkwellWeb.EntryController do
       else
         {:error, :filter_not_found} ->
           conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+
+        {:error, :not_circle_member} ->
+          not_circle_member(conn)
       end
     else
       {:error, :forbidden} ->
@@ -460,6 +484,106 @@ defmodule InkwellWeb.EntryController do
 
   # "Write about this" from the Gazette sends the story it came from. A story
   # that no longer exists is dropped rather than failing the save.
+  # "circle_id" is the circle to post in and "circle_prompt_id" the prompt the
+  # entry answers. Only members post in a circle (an entry already there can
+  # stay after its writer leaves); a prompt that isn't an entry in that circle
+  # is dropped. A request without "circle_id" leaves both unchanged.
+  defp put_circle(attrs, params, user_id, current \\ nil) do
+    case Map.fetch(params, "circle_id") do
+      :error ->
+        {:ok, attrs}
+
+      {:ok, id} when id in [nil, ""] ->
+        {:ok, attrs |> Map.put("circle_id", nil) |> Map.put("circle_prompt_id", nil)}
+
+      {:ok, id} when is_binary(id) ->
+        staying? = current != nil and current.circle_id == id
+
+        cond do
+          Ecto.UUID.cast(id) == :error -> {:error, :not_circle_member}
+          staying? or Inkwell.Circles.is_member?(id, user_id) -> {:ok, put_circle_prompt(attrs, params, id, current)}
+          true -> {:error, :not_circle_member}
+        end
+
+      _ ->
+        {:error, :not_circle_member}
+    end
+  end
+
+  defp put_circle_prompt(attrs, params, circle_id, current) do
+    prompt_id =
+      case Map.fetch(params, "circle_prompt_id") do
+        {:ok, pid} when is_binary(pid) and pid != "" ->
+          with {:ok, _} <- Ecto.UUID.cast(pid),
+               %Inkwell.Journals.Entry{circle_id: ^circle_id} = prompt <- Repo.get(Inkwell.Journals.Entry, pid),
+               true <- current == nil or prompt.id != current.id do
+            prompt.id
+          else
+            _ -> nil
+          end
+
+        {:ok, _} ->
+          nil
+
+        # Not sent: keep it, unless the entry moved to another circle.
+        :error ->
+          if current && current.circle_id == circle_id, do: current.circle_prompt_id, else: nil
+      end
+
+    attrs |> Map.put("circle_id", circle_id) |> Map.put("circle_prompt_id", prompt_id)
+  end
+
+  defp not_circle_member(conn) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "Join the circle before posting in it"})
+  end
+
+  @doc """
+  Adds `circle` (`%{id, name, slug}`) to each rendered entry posted to a
+  circle, for the "in Writing Workshop" label on cards.
+  """
+  def put_circle_labels(items) do
+    ids = for %{circle_id: id} when is_binary(id) <- items, uniq: true, do: id
+    labels = Inkwell.Circles.labels(ids)
+
+    Enum.map(items, fn
+      %{circle_id: id} = item when is_binary(id) -> Map.put(item, :circle, Map.get(labels, id))
+      item -> item
+    end)
+  end
+
+  # The circle an entry was posted in, and the prompt it answers (if the
+  # viewer can read the prompt), for the entry page.
+  defp circle_links(%{circle_id: nil}, _viewer), do: {nil, nil}
+
+  defp circle_links(entry, viewer) do
+    case Inkwell.Circles.get_circle(entry.circle_id) do
+      nil ->
+        {nil, nil}
+
+      circle ->
+        prompt =
+          with pid when is_binary(pid) <- entry.circle_prompt_id,
+               %Inkwell.Journals.Entry{} = p <- Repo.get(Inkwell.Journals.Entry, pid) |> Repo.preload(:user),
+               true <- Journals.viewable_by?(p, viewer) do
+            %{id: p.id, title: p.title, slug: p.slug, username: p.user.username}
+          else
+            _ -> nil
+          end
+
+        circle_info = %{
+          id: circle.id,
+          name: circle.name,
+          slug: circle.slug,
+          is_prompt: circle.prompt_entry_id == entry.id,
+          viewer_role: viewer && Inkwell.Circles.get_user_role(circle.id, viewer.id)
+        }
+
+        {circle_info, prompt}
+    end
+  end
+
   defp put_gazette_story(%{"gazette_story_id" => id} = attrs) when is_binary(id) and id != "" do
     case Inkwell.Gazette.get_story(id) do
       %{id: story_id} -> Map.put(attrs, "gazette_story_id", story_id)
@@ -513,7 +637,8 @@ defmodule InkwellWeb.EntryController do
           end
           |> maybe_auto_series_order()
 
-        with :ok <- validate_custom_filter_ownership(attrs, user.id) do
+        with :ok <- validate_custom_filter_ownership(attrs, user.id),
+             {:ok, attrs} <- put_circle(attrs, params, user.id, entry) do
           case Journals.publish_draft(entry, attrs) do
             {:ok, published} ->
               published = EntryPublishing.after_publish(published, user, params)
@@ -528,6 +653,9 @@ defmodule InkwellWeb.EntryController do
         else
           {:error, :filter_not_found} ->
             conn |> put_status(:unprocessable_entity) |> json(%{error: "Filter not found or does not belong to you"})
+
+          {:error, :not_circle_member} ->
+            not_circle_member(conn)
         end
       end
     else
@@ -1020,6 +1148,8 @@ defmodule InkwellWeb.EntryController do
       imported_from: entry.imported_from,
       imported_url: entry.imported_url,
       archive_mark: entry.archive_mark || false,
+      circle_id: entry.circle_id,
+      circle_prompt_id: entry.circle_prompt_id,
       created_at: entry.inserted_at,
       updated_at: entry.updated_at
     }

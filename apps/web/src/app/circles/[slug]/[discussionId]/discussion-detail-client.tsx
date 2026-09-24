@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ResponseCard from "./response-card";
-import CircleResponseForm from "./circle-response-form";
 import { CircleEditor } from "@/components/circle-editor";
 
 interface Discussion {
@@ -256,19 +255,12 @@ export default function DiscussionDetailClient({
         </div>
       )}
 
-      {/* Response form */}
-      {d.is_locked ? (
-        <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--muted)", fontSize: "0.875rem", fontStyle: "italic", marginTop: "1rem" }}>
-          This discussion is locked — no new responses
-        </div>
-      ) : (
-        <div style={{ marginTop: "1.5rem" }}>
-          <CircleResponseForm
-            discussionId={d.id}
-            onSubmitted={fetchResponses}
-          />
-        </div>
-      )}
+      <p className="circle-empty" style={{ marginTop: "1.5rem", textAlign: "center" }}>
+        This discussion is from before circles used journal entries, so it&rsquo;s closed to new responses.{" "}
+        <a href={`/circles/${circleSlug}`} style={{ color: "var(--accent)" }}>
+          Back to the circle
+        </a>
+      </p>
     </>
   );
 }

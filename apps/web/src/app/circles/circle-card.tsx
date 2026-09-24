@@ -1,42 +1,5 @@
 import Link from "next/link";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  writing_craft: "Writing & Craft",
-  reading_books: "Reading & Books",
-  creative_arts: "Creative Arts",
-  lifestyle_interests: "Lifestyle",
-  tech_learning: "Tech & Learning",
-  community: "Community",
-};
-
-interface Circle {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: string;
-  member_count: number;
-  discussion_count: number;
-  is_starter: boolean;
-  last_activity_at: string | null;
-  owner: {
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  } | null;
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
+import { CATEGORY_LABELS, timeAgo, type Circle } from "./circle-types";
 
 function isRecentlyActive(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -89,10 +52,10 @@ export default function CircleCard({ circle }: { circle: Circle }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--muted)", marginTop: "auto" }}>
           <div style={{ display: "flex", gap: "0.75rem" }}>
             <span>{circle.member_count} member{circle.member_count !== 1 ? "s" : ""}</span>
-            <span>{circle.discussion_count} discussion{circle.discussion_count !== 1 ? "s" : ""}</span>
+            <span>{circle.entry_count ?? 0} post{(circle.entry_count ?? 0) !== 1 ? "s" : ""}</span>
           </div>
-          {circle.last_activity_at && (
-            <span style={isRecentlyActive(circle.last_activity_at) ? { color: "var(--accent)", fontWeight: 500 } : undefined}>
+          {circle.last_activity_at && (circle.entry_count ?? 0) > 0 && (
+            <span suppressHydrationWarning style={isRecentlyActive(circle.last_activity_at) ? { color: "var(--accent)", fontWeight: 500 } : undefined}>
               {isRecentlyActive(circle.last_activity_at) && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", marginRight: "0.25rem", verticalAlign: "middle" }} />}
               {timeAgo(circle.last_activity_at)}
             </span>
@@ -102,13 +65,14 @@ export default function CircleCard({ circle }: { circle: Circle }) {
         {circle.owner && (
           <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--muted)" }}>
             {circle.owner.avatar_url && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={circle.owner.avatar_url}
                 alt=""
                 style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }}
               />
             )}
-            <span>by {circle.owner.display_name || circle.owner.username}</span>
+            <span>started by {circle.owner.display_name || circle.owner.username}</span>
           </div>
         )}
       </div>

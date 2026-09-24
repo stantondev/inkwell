@@ -178,7 +178,14 @@ defmodule Inkwell.Journals do
           )
           |> Repo.all()
 
-        where(query, [e], e.privacy in ^visible or (e.privacy == :custom and e.custom_filter_id in ^filter_ids))
+        circle_ids = Inkwell.Circles.member_circle_ids(viewer_id)
+
+        where(
+          query,
+          [e],
+          e.privacy in ^visible or (e.privacy == :custom and e.custom_filter_id in ^filter_ids) or
+            (e.privacy == :circle and e.circle_id in ^circle_ids)
+        )
     end
   end
 
@@ -207,6 +214,9 @@ defmodule Inkwell.Journals do
     custom_filter_ids = get_filters_containing_user(user_id)
 
     subscribed_writer_ids = Keyword.get(opts, :subscribed_writer_ids, [])
+    # Everything posted to the viewer's circles, whoever wrote it (LJ's
+    # friends page showed community posts the same way).
+    circle_ids = Keyword.get(opts, :circle_ids, [])
 
     query =
       Entry
@@ -220,7 +230,9 @@ defmodule Inkwell.Journals do
           # Custom-privacy entries where viewer is in the filter
           (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids) or
           # Paid entries from writers the viewer subscribes to
-          (e.privacy == :paid and e.user_id in ^subscribed_writer_ids)
+          (e.privacy == :paid and e.user_id in ^subscribed_writer_ids) or
+          # Posts in the viewer's circles (public, or for circle members)
+          (e.circle_id in ^circle_ids and e.privacy in [:public, :circle])
         )
 
     query =
@@ -718,6 +730,8 @@ defmodule Inkwell.Journals do
         entry.privacy == :custom && entry.custom_filter_id != nil ->
           filter = Repo.get(Inkwell.Social.FriendFilter, entry.custom_filter_id)
           filter != nil && viewer_id in (filter.member_ids || [])
+        entry.privacy == :circle ->
+          entry.circle_id != nil and Inkwell.Circles.is_member?(entry.circle_id, viewer_id)
         entry.privacy == :private -> false
         true -> false
       end
@@ -749,7 +763,8 @@ defmodule Inkwell.Journals do
   entry page. Published only (authors see their own drafts), then privacy:
   public; private = author; friends_only = author or someone they follow
   accepted; custom = author or a member of the chosen list; paid = author or a
-  subscriber. Never across a block.
+  subscriber; circle = author or a member of the entry's circle. Never across
+  a block.
   """
   def viewable_by?(%Entry{} = entry, viewer) do
     viewer_id = viewer && viewer.id
@@ -764,6 +779,7 @@ defmodule Inkwell.Journals do
       entry.privacy == :friends_only -> Inkwell.Social.is_friend?(viewer_id, entry.user_id)
       entry.privacy == :custom -> in_custom_filter?(entry, viewer_id)
       entry.privacy == :paid -> Inkwell.WriterSubscriptions.is_subscribed?(viewer_id, entry.user_id)
+      entry.privacy == :circle -> entry.circle_id != nil and Inkwell.Circles.is_member?(entry.circle_id, viewer_id)
       true -> false
     end
   end

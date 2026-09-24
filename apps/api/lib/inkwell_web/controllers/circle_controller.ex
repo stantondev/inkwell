@@ -5,7 +5,9 @@ defmodule InkwellWeb.CircleController do
   alias Inkwell.Circles
   alias Inkwell.Accounts
   alias Inkwell.Social
+  alias Inkwell.Avatars
   alias InkwellWeb.Helpers.MentionHelper
+  alias InkwellWeb.EntryController
 
   # ── Public (optional auth) ─────────────────────────────────────────────────
 
@@ -22,11 +24,14 @@ defmodule InkwellWeb.CircleController do
     membership_ids =
       if viewer, do: Circles.get_user_membership_ids(viewer.id), else: MapSet.new()
 
+    counts = Circles.entry_counts(Enum.map(circles, & &1.id))
+
     rendered =
       Enum.map(circles, fn circle ->
         render_circle(circle, %{
           is_member: MapSet.member?(membership_ids, circle.id),
-          viewer_role: nil
+          viewer_role: nil,
+          entry_count: Map.get(counts, circle.id, 0)
         })
       end)
 
@@ -67,12 +72,18 @@ defmodule InkwellWeb.CircleController do
 
           is_member = viewer_role != nil
 
-          # For non-members, include a preview of recent discussions
-          discussion_preview =
-            if !is_member do
-              Circles.get_discussion_preview(circle.id)
-              |> Enum.reject(fn d -> d.author_id in blocked_ids end)
-              |> Enum.map(&render_discussion_preview/1)
+          # Reading the circle page counts as catching up on it.
+          if is_member, do: Circles.mark_read(circle.id, viewer.id)
+
+          prompt =
+            case Circles.current_prompt(circle, viewer) do
+              nil ->
+                nil
+
+              entry ->
+                entry
+                |> render_circle_entry(circle)
+                |> Map.put(:response_count, Map.get(Circles.prompt_response_counts([entry.id]), entry.id, 0))
             end
 
           json(conn, %{
@@ -81,7 +92,10 @@ defmodule InkwellWeb.CircleController do
                 is_member: is_member,
                 viewer_role: viewer_role,
                 member_preview: Enum.map(member_preview, &render_member/1),
-                discussion_preview: discussion_preview
+                entry_count: Map.get(Circles.entry_counts([circle.id]), circle.id, 0),
+                prompt: prompt,
+                # The first version's discussions, kept read-only for members.
+                has_archive: is_member and circle.discussion_count > 0
               })
           })
         end
@@ -93,24 +107,22 @@ defmodule InkwellWeb.CircleController do
   def create(conn, params) do
     user = conn.assigns.current_user
 
-    if user.subscription_tier != "plus" do
-      conn
-      |> put_status(:forbidden)
-      |> json(%{error: "Plus subscription required to create circles"})
-    else
-      case Circles.create_circle(user, params) do
-        {:ok, circle} ->
-          conn |> put_status(:created) |> json(%{data: render_circle(circle, %{is_member: true, viewer_role: :owner})})
+    params = Map.take(params, ["name", "description", "category"])
 
-        {:error, :circle_limit_reached} ->
-          conn |> put_status(:forbidden) |> json(%{error: "You can create up to 10 circles"})
+    case Circles.create_circle(user, params) do
+      {:ok, circle} ->
+        conn |> put_status(:created) |> json(%{data: render_circle(circle, %{is_member: true, viewer_role: :owner})})
 
-        {:error, %Ecto.Changeset{} = changeset} ->
-          conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+      {:error, reason} when reason in [:too_new, :limited, :limit_reached] ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{error: creation_message(Circles.creation_status(user)), code: to_string(reason)})
 
-        {:error, reason} ->
-          conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(reason)})
-      end
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
+
+      {:error, _reason} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Couldn't create the circle"})
     end
   end
 
@@ -158,16 +170,34 @@ defmodule InkwellWeb.CircleController do
   def my_circles(conn, _params) do
     user = conn.assigns.current_user
     memberships = Circles.get_user_memberships(user.id)
+    unread = Circles.unread_counts(user.id)
+    counts = Circles.entry_counts(Enum.map(memberships, & &1.circle_id))
 
     rendered =
-      Enum.map(memberships, fn membership ->
+      memberships
+      |> Enum.map(fn membership ->
         render_circle(membership.circle, %{
           is_member: true,
-          viewer_role: membership.role
+          viewer_role: membership.role,
+          unread_count: Map.get(unread, membership.circle_id, 0),
+          entry_count: Map.get(counts, membership.circle_id, 0)
         })
       end)
+      # Circles with something new first, then the most recently active.
+      |> Enum.sort_by(fn c -> {c.unread_count == 0, -sort_time(c.last_activity_at)} end)
 
-    json(conn, %{data: rendered})
+    status = Circles.creation_status(user)
+
+    json(conn, %{
+      data: rendered,
+      meta: %{
+        can_create: status.can_create,
+        create_reason: status.reason && to_string(status.reason),
+        create_message: if(status.can_create, do: nil, else: creation_message(status)),
+        circle_limit: status.limit,
+        circles_owned: status.owned
+      }
+    })
   end
 
   def join(conn, %{"id" => id}) do
@@ -278,58 +308,11 @@ defmodule InkwellWeb.CircleController do
     end
   end
 
-  def create_discussion(conn, %{"id" => circle_id} = params) do
-    user = conn.assigns.current_user
-
-    unless Circles.is_member?(circle_id, user.id) do
-      conn |> put_status(:forbidden) |> json(%{error: "Members only"})
-    else
-      # Prompts require owner or moderator
-      is_prompt = params["is_prompt"] == true || params["is_prompt"] == "true"
-      role = Circles.get_user_role(circle_id, user.id)
-
-      if is_prompt && role not in [:owner, :moderator] do
-        conn |> put_status(:forbidden) |> json(%{error: "Only owners and moderators can create prompts"})
-      else
-        {processed_body, body_html, mentioned_users} = process_circle_body(params)
-
-        attrs =
-          params
-          |> Map.put("circle_id", circle_id)
-          |> Map.put("author_id", user.id)
-          |> Map.put("is_prompt", is_prompt)
-          |> Map.put("body", processed_body)
-          |> Map.put("body_html", body_html)
-
-        case Circles.create_discussion(attrs) do
-          {:ok, discussion} ->
-            # Notify mentioned users (BUG FIX — was missing for discussions)
-            circle = Circles.get_circle(circle_id)
-
-            Enum.each(mentioned_users, fn mentioned ->
-              if mentioned.id != user.id do
-                Accounts.create_notification(%{
-                  type: :circle_mention,
-                  user_id: mentioned.id,
-                  actor_id: user.id,
-                  target_type: "circle_discussion",
-                  target_id: discussion.id,
-                  data: %{
-                    circle_slug: circle.slug,
-                    circle_name: circle.name,
-                    discussion_title: discussion.title
-                  }
-                })
-              end
-            end)
-
-            conn |> put_status(:created) |> json(%{data: render_discussion(discussion)})
-
-          {:error, %Ecto.Changeset{} = changeset} ->
-            conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
-        end
-      end
-    end
+  # The first version's discussions are an archive now; new posts are entries.
+  def create_discussion(conn, _params) do
+    conn
+    |> put_status(:gone)
+    |> json(%{error: "Circles now use journal entries. Write an entry and choose this circle in its settings."})
   end
 
   def show_discussion(conn, %{"discussion_id" => did}) do
@@ -468,79 +451,10 @@ defmodule InkwellWeb.CircleController do
     end
   end
 
-  def create_response(conn, %{"discussion_id" => did} = params) do
-    user = conn.assigns.current_user
-
-    case Circles.get_discussion(did) do
-      nil ->
-        conn |> put_status(:not_found) |> json(%{error: "Discussion not found"})
-
-      discussion ->
-        unless Circles.is_member?(discussion.circle_id, user.id) do
-          conn |> put_status(:forbidden) |> json(%{error: "Members only"})
-        else
-          if discussion.is_locked do
-            conn |> put_status(:forbidden) |> json(%{error: "This discussion is locked"})
-          else
-            {processed_body, body_html, mentioned_users} = process_circle_body(params)
-
-            attrs = %{
-              "body" => processed_body,
-              "body_html" => body_html,
-              "discussion_id" => did,
-              "author_id" => user.id
-            }
-
-            case Circles.create_response(attrs) do
-              {:ok, response} ->
-                # Get circle info for notifications
-                circle = Circles.get_circle(discussion.circle_id) || discussion.circle
-
-                # Notify discussion author
-                if discussion.author_id && discussion.author_id != user.id do
-                  Accounts.create_notification(%{
-                    type: :circle_response,
-                    user_id: discussion.author_id,
-                    actor_id: user.id,
-                    target_type: "circle_discussion",
-                    target_id: discussion.id,
-                    data: %{
-                      circle_slug: circle.slug,
-                      circle_name: circle.name,
-                      discussion_title: discussion.title
-                    }
-                  })
-                end
-
-                # Notify mentioned users
-                Enum.each(mentioned_users, fn mentioned ->
-                  if mentioned.id != user.id && mentioned.id != discussion.author_id do
-                    Accounts.create_notification(%{
-                      type: :circle_mention,
-                      user_id: mentioned.id,
-                      actor_id: user.id,
-                      target_type: "circle_discussion",
-                      target_id: discussion.id,
-                      data: %{
-                        circle_slug: circle.slug,
-                        circle_name: circle.name,
-                        discussion_title: discussion.title
-                      }
-                    })
-                  end
-                end)
-
-                conn |> put_status(:created) |> json(%{data: render_response(response)})
-
-              {:error, %Ecto.Changeset{} = changeset} ->
-                conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
-
-              {:error, :discussion_not_found} ->
-                conn |> put_status(:not_found) |> json(%{error: "Discussion not found"})
-            end
-          end
-        end
-    end
+  def create_response(conn, _params) do
+    conn
+    |> put_status(:gone)
+    |> json(%{error: "Circles now use journal entries. Write an entry and choose this circle in its settings."})
   end
 
   def update_response(conn, %{"response_id" => rid} = params) do
@@ -597,6 +511,148 @@ defmodule InkwellWeb.CircleController do
           conn |> put_status(:forbidden) |> json(%{error: "Not authorized to delete this response"})
         end
     end
+  end
+
+  # ── Entries posted to a circle ───────────────────────────────────────────
+
+  # GET /api/circles/:id/entries?page=&prompt= (optional auth)
+  def entries(conn, %{"id" => id} = params) do
+    viewer = conn.assigns[:current_user]
+
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         %{} = circle <- Circles.get_circle(id),
+         false <- viewer != nil and Social.is_blocked_between?(viewer.id, circle.owner_id) do
+      page = parse_int(params["page"], 1)
+      prompt_id = with p when is_binary(p) <- params["prompt"], {:ok, p} <- Ecto.UUID.cast(p), do: p, else: (_ -> nil)
+
+      {entries, total} = Circles.list_circle_entries(circle, viewer, page: page, per_page: 20, prompt_id: prompt_id)
+
+      comment_counts = Inkwell.Journals.count_comments_for_entries(Enum.map(entries, & &1.id))
+      response_counts = Circles.prompt_response_counts(if circle.prompt_entry_id, do: [circle.prompt_entry_id], else: [])
+
+      my_inks =
+        if viewer, do: Inkwell.Inks.get_user_inks_for_entries(viewer.id, Enum.map(entries, & &1.id)), else: MapSet.new()
+
+      data =
+        Enum.map(entries, fn entry ->
+          entry
+          |> render_circle_entry(circle)
+          |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
+          |> Map.put(:my_ink, MapSet.member?(my_inks, entry.id))
+          |> Map.put(:response_count, Map.get(response_counts, entry.id))
+        end)
+
+      json(conn, %{
+        data: data,
+        pagination: %{page: page, per_page: 20, total: total, total_pages: ceil(total / 20)}
+      })
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
+    end
+  end
+
+  # POST /api/circles/:id/prompt {entry_id} — owner or moderator
+  def set_prompt(conn, %{"id" => id, "entry_id" => entry_id}) do
+    user = conn.assigns.current_user
+
+    with_moderator(conn, id, user, fn circle ->
+      case Circles.set_prompt(circle, entry_id, user) do
+        {:ok, _} -> json(conn, %{ok: true, prompt_entry_id: entry_id})
+        {:error, _} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "Only a published entry in this circle can be its prompt"})
+      end
+    end)
+  end
+
+  def set_prompt(conn, _params),
+    do: conn |> put_status(:unprocessable_entity) |> json(%{error: "entry_id is required"})
+
+  # DELETE /api/circles/:id/prompt — owner or moderator
+  def clear_prompt(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    with_moderator(conn, id, user, fn circle ->
+      {:ok, _} = Circles.clear_prompt(circle)
+      json(conn, %{ok: true})
+    end)
+  end
+
+  # DELETE /api/circles/:id/entries/:entry_id — the owner, a moderator, or the
+  # entry's writer takes it out of the circle (it stays on their journal).
+  def remove_entry(conn, %{"id" => id, "entry_id" => entry_id}) do
+    user = conn.assigns.current_user
+
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         {:ok, _} <- Ecto.UUID.cast(entry_id),
+         %{} = circle <- Circles.get_circle(id),
+         %Inkwell.Journals.Entry{} = entry <- Repo.get(Inkwell.Journals.Entry, entry_id) do
+      role = Circles.get_user_role(circle.id, user.id)
+
+      if entry.user_id == user.id or role in [:owner, :moderator] do
+        case Circles.detach_entry(circle, entry) do
+          {:ok, _} -> json(conn, %{ok: true})
+          {:error, _} -> conn |> put_status(:not_found) |> json(%{error: "That entry isn't in this circle"})
+        end
+      else
+        conn |> put_status(:forbidden) |> json(%{error: "Only the circle's owner or moderators can remove posts"})
+      end
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Not found"})
+    end
+  end
+
+  defp with_moderator(conn, id, user, fun) do
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         %{} = circle <- Circles.get_circle(id) do
+      if Circles.get_user_role(circle.id, user.id) in [:owner, :moderator] do
+        fun.(circle)
+      else
+        conn |> put_status(:forbidden) |> json(%{error: "Only the circle's owner or moderators can do that"})
+      end
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
+    end
+  end
+
+  defp creation_message(%{reason: :too_new, min_account_age_days: days}),
+    do: "You can start a circle once your account is #{days} days old. You can join and post in circles now."
+
+  defp creation_message(%{reason: :limited}),
+    do: "Your account can't start circles right now. If you think that's a mistake, write to hello@inkwell.social."
+
+  defp creation_message(%{reason: :limit_reached, limit: 3}),
+    do: "You've started 3 circles, the most on the free plan. Plus members can start up to 10."
+
+  defp creation_message(%{reason: :limit_reached, limit: limit}),
+    do: "You've started #{limit} circles, the most you can have."
+
+  defp creation_message(_), do: nil
+
+  defp sort_time(nil), do: 0
+  defp sort_time(%DateTime{} = at), do: DateTime.to_unix(at, :microsecond)
+  defp sort_time(%NaiveDateTime{} = at), do: at |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix(:microsecond)
+
+  defp render_circle_entry(entry, circle) do
+    user = entry.user
+
+    entry
+    |> EntryController.render_entry()
+    |> Map.drop([:body_raw, :scheduled_at, :custom_filter_id, :newsletter_sent_at])
+    |> Map.put(:is_prompt, circle.prompt_entry_id == entry.id)
+    |> Map.put(:author, render_person(user))
+  end
+
+  defp render_person(nil), do: nil
+
+  defp render_person(user) do
+    %{
+      id: user.id,
+      username: user.username,
+      display_name: user.display_name,
+      avatar_url: Avatars.avatar_url(user),
+      avatar_frame: user.avatar_frame,
+      avatar_animation: user.avatar_animation,
+      subscription_tier: Inkwell.SelfHosted.effective_tier(user)
+    }
   end
 
   # ── Member management ────────────────────────────────────────────────────
@@ -685,7 +741,7 @@ defmodule InkwellWeb.CircleController do
             id: owner.id,
             username: owner.username,
             display_name: owner.display_name,
-            avatar_url: owner.avatar_url,
+            avatar_url: Avatars.avatar_url(owner),
             avatar_frame: owner.avatar_frame,
             avatar_animation: owner.avatar_animation,
             subscription_tier: Inkwell.SelfHosted.effective_tier(owner)
@@ -697,20 +753,10 @@ defmodule InkwellWeb.CircleController do
     |> maybe_put(:is_member, meta[:is_member])
     |> maybe_put(:viewer_role, meta[:viewer_role])
     |> maybe_put(:member_preview, meta[:member_preview])
-    |> maybe_put(:discussion_preview, meta[:discussion_preview])
-  end
-
-  defp render_discussion_preview(discussion) do
-    author = if Ecto.assoc_loaded?(discussion.author) && discussion.author, do: discussion.author, else: nil
-
-    %{
-      id: discussion.id,
-      title: discussion.title,
-      is_prompt: discussion.is_prompt,
-      response_count: discussion.response_count,
-      inserted_at: discussion.inserted_at,
-      author_name: if(author, do: author.display_name || author.username, else: nil)
-    }
+    |> maybe_put(:entry_count, meta[:entry_count])
+    |> maybe_put(:unread_count, meta[:unread_count])
+    |> maybe_put(:has_archive, meta[:has_archive])
+    |> Map.put(:prompt, meta[:prompt])
   end
 
   defp render_member(member) do
@@ -726,7 +772,7 @@ defmodule InkwellWeb.CircleController do
             id: user.id,
             username: user.username,
             display_name: user.display_name,
-            avatar_url: user.avatar_url,
+            avatar_url: Avatars.avatar_url(user),
             avatar_frame: user.avatar_frame,
             avatar_animation: user.avatar_animation,
             subscription_tier: Inkwell.SelfHosted.effective_tier(user)
@@ -768,7 +814,7 @@ defmodule InkwellWeb.CircleController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url,
+            avatar_url: Avatars.avatar_url(author),
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation
           }
@@ -801,7 +847,7 @@ defmodule InkwellWeb.CircleController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url,
+            avatar_url: Avatars.avatar_url(author),
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation
           }

@@ -47,7 +47,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "s-letters", title: "Letters (private messages)", snippet: "Private letters with pen pals and fediverse friends; archive, mute, search, requests.", keywords: ["letter", "message", "dm", "private", "letterbox", "archive", "mute", "request"], category: "social", href: "/help/faq#letters" },
   { id: "s-guestbook", title: "Guestbooks", snippet: "Leave a public hello on someone's profile; they're notified.", keywords: ["guestbook", "sign", "profile", "hello"], category: "social", href: "/help/faq#guestbook" },
   { id: "s-translate", title: "Translating entries", snippet: "Read writing in other languages with the Translate button.", keywords: ["translate", "language", "spanish", "deepl"], category: "social", href: "/help/faq#translate" },
-  { id: "s-circles", title: "Circles (group discussions)", snippet: "Join writing circles for group discussions with a salon aesthetic.", keywords: ["circle", "group", "discussion", "salon", "community"], category: "social", href: "/help/faq#circles" },
+  { id: "s-circles", title: "Circles (writing communities)", snippet: "Join a circle, post entries to it, answer its prompts, and read it in your Feed.", keywords: ["circle", "group", "community", "prompt", "members only", "livejournal community"], category: "social", href: "/help/faq#circles" },
   { id: "s-comments", title: "Comments (marginalia)", snippet: "Leave threaded comments with @mentions on entries.", keywords: ["comment", "reply", "mention", "marginalia", "thread"], category: "social", href: "/guide#interaction" },
 
   // ── The Fediverse ──

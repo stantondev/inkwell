@@ -7,6 +7,7 @@ defmodule Inkwell.Circles.CircleMember do
 
   schema "circle_members" do
     field :role, Ecto.Enum, values: [:owner, :moderator, :member], default: :member
+    field :last_read_at, :utc_datetime_usec
 
     belongs_to :circle, Inkwell.Circles.Circle
     belongs_to :user, Inkwell.Accounts.User
