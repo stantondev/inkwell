@@ -1718,6 +1718,8 @@ ActivityPub federation depends on specific URLs being publicly reachable. **Brea
 | Person `guestbook` (FEP-400e) + its pages | `/users/:username/guestbook[?page=N]` | `FederationController.guestbook_collection/2` | `apps/web/src/app/users/[username]/guestbook/route.ts` |
 | Guestbook signature Note (written on Inkwell) | `/users/:username/guestbook/:id` | `FederationController.guestbook_note/2` | `apps/web/src/app/users/[username]/guestbook/[id]/route.ts` |
 
+**`FEDERATION.md` (repo root, FEP-67ff) is the public description of all of this.** It was rewritten from the code on 2026-09-24 after drifting badly (it still said inks sent boosts). Any change to what Inkwell sends, accepts, or serves over ActivityPub updates it in the same commit.
+
 **Rules for any code change touching federation:**
 1. If you add a new URL to any AP object (`build_person`, `build_article`, etc.), you MUST verify both the Phoenix endpoint AND the Next.js proxy route exist and return 200.
 2. If you rename or move a Phoenix route that serves AP content, you MUST update the corresponding Next.js proxy route.

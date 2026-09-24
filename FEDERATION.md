@@ -1,431 +1,329 @@
 # FEDERATION.md
 
-Inkwell is a federated social journaling platform built on ActivityPub. Users are discoverable and followable from Mastodon, Pleroma, GoToSocial, Pixelfed, and other fediverse software at `@username@inkwell.social`.
+Inkwell is a social journaling platform that federates over ActivityPub. Every member is followable from Mastodon, GoToSocial, Pleroma/Akkoma, Misskey, Pixelfed, NodeBB, WordPress and other fediverse software as `@username@inkwell.social`.
 
-This document follows the [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md) convention for describing federation behavior.
+This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md). It describes what the code does today; when they disagree, the code wins and this file is out of date. Last reviewed 2026-09-24.
 
-## Supported Federation Protocols and Standards
+## Supported federation protocols and standards
 
-- [ActivityPub](https://www.w3.org/TR/activitypub/) (Server-to-Server only)
-- [WebFinger](https://www.rfc-editor.org/rfc/rfc7033) (RFC 7033)
-- [HTTP Signatures](https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures) (Cavage draft, RSA-SHA256)
-- [NodeInfo 2.1](https://nodeinfo.diaspora.software/protocol)
+- [ActivityPub](https://www.w3.org/TR/activitypub/), server-to-server only (no client-to-server API)
+- [WebFinger](https://www.rfc-editor.org/rfc/rfc7033)
+- HTTP signatures:
+  - [draft-cavage HTTP Signatures](https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures), `rsa-sha256`, sent and verified
+  - [RFC 9421 HTTP Message Signatures](https://www.rfc-editor.org/rfc/rfc9421) with [RFC 9530](https://www.rfc-editor.org/rfc/rfc9530) `Content-Digest`, verified on inbound requests (`rsa-v1_5-sha256` only; Mastodon 4.7 sends these)
+- [NodeInfo](https://nodeinfo.diaspora.software/protocol) 2.0 and 2.1
 
 ## Supported FEPs
 
-- [FEP-67ff: FEDERATION.md](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md) — this document
-- [FEP-b2b8: Long-form Text](https://codeberg.org/fediverse/fep/src/branch/main/fep/b2b8/fep-b2b8.md) — entries federated as `Article` with `preview` Note for microblogging consumers
-- [FEP-7458: Using replies collection](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) — inbound replies accepted regardless of visibility scope (not just Public-addressed)
+| FEP | How Inkwell uses it |
+|---|---|
+| [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md) FEDERATION.md | This document. NodeInfo 2.1 `software.repository` points to the repository that holds it. |
+| [FEP-f1d5](https://codeberg.org/fediverse/fep/src/branch/main/fep/f1d5/fep-f1d5.md) / [FEP-0151](https://codeberg.org/fediverse/fep/src/branch/main/fep/0151/fep-0151.md) NodeInfo | NodeInfo with `metadata.nodeName`, `nodeDescription`, `staffAccounts` and `federation.enabled`. Usage counts leave out suspended accounts, drafts, hidden posts and stored fediverse replies. |
+| [FEP-b2b8](https://codeberg.org/fediverse/fep/src/branch/main/fep/b2b8/fep-b2b8.md) Long-form Text | Journal entries are `Article`s with `name`, `summary`, `preview` and a cover `image`. |
+| [FEP-e232](https://codeberg.org/fediverse/fep/src/branch/main/fep/e232/fep-e232.md) Object Links | Quote reprints carry an object-link `tag` to the quoted post (plus `quoteUri`, `quoteUrl`, `_misskey_quote` and a `quote-inline` fallback paragraph). Sent only. |
+| [FEP-7458](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) Replies collection | When a fediverse post is opened on Inkwell, its `replies` collection is read to fill in the conversation. Inkwell does not publish `replies` collections itself. |
+| [FEP-400e](https://codeberg.org/fediverse/fep/src/branch/main/fep/400e/fep-400e.md) Publicly-appendable collections | The profile guestbook. See [Guestbook](#guestbook-fep-400e). |
+| [FEP-2345](https://codeberg.org/fediverse/fep/src/branch/main/fep/2345/fep-2345.md) `fediverse:creator` | Entry and profile pages carry `<meta name="fediverse:creator">`; actors list `attributionDomains`. |
 
 ---
 
-## ActivityPub Details
+## Hosts
 
-### Actor Type
+Inkwell runs a web app and an API on separate hosts; both answer on `inkwell.social` for federation.
 
-Inkwell users are represented as `Person` actors.
+- Actor, object and collection ids use `https://inkwell.social/...`. The web app proxies these paths to the API (`X-Original-Host` carries the original host so signatures verify).
+- A member's profile and entry pages may also be served on their own domain (a Plus feature). Their ActivityPub identity never changes: it stays `@username@inkwell.social`. Server-level endpoints (NodeInfo) return 404 on those domains.
+- WebFinger accepts `acct:` resources on `inkwell.social`, `api.inkwell.social` and `inkwell-api.fly.dev`, and always answers with the `inkwell.social` subject.
+
+---
+
+## Actors
+
+Members are `Person` actors.
 
 ```json
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
-    "https://w3id.org/security/v1"
+    "https://w3id.org/security/v1",
+    {
+      "inkwell": "https://inkwell.social/ns#",
+      "guestbook": { "@id": "inkwell:guestbook", "@type": "@id" },
+      "attributionDomains": {
+        "@id": "https://joinmastodon.org/ns#attributionDomains",
+        "@container": "@set"
+      }
+    }
   ],
   "type": "Person",
-  "id": "https://inkwell-api.fly.dev/users/alice",
+  "id": "https://inkwell.social/users/alice",
   "preferredUsername": "alice",
   "name": "Alice",
   "summary": "<p>Bio as HTML</p>",
   "url": "https://inkwell.social/alice",
-  "inbox": "https://inkwell-api.fly.dev/users/alice/inbox",
-  "outbox": "https://inkwell-api.fly.dev/users/alice/outbox",
-  "followers": "https://inkwell-api.fly.dev/users/alice/followers",
-  "following": "https://inkwell-api.fly.dev/users/alice/following",
-  "featured": "https://inkwell-api.fly.dev/users/alice/featured",
+  "inbox": "https://inkwell.social/users/alice/inbox",
+  "outbox": "https://inkwell.social/users/alice/outbox",
+  "followers": "https://inkwell.social/users/alice/followers",
+  "following": "https://inkwell.social/users/alice/following",
+  "featured": "https://inkwell.social/users/alice/featured",
+  "guestbook": "https://inkwell.social/users/alice/guestbook",
+  "endpoints": { "sharedInbox": "https://inkwell.social/inbox" },
   "discoverable": true,
-  "attachment": [
-    {
-      "type": "PropertyValue",
-      "name": "Website",
-      "value": "<a href=\"https://example.com\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">example.com</a>"
-    },
-    {
-      "type": "PropertyValue",
-      "name": "Bluesky",
-      "value": "@alice.bsky.social"
-    }
-  ],
+  "attributionDomains": ["inkwell.social", "alice-writes.example"],
   "publicKey": {
-    "id": "https://inkwell-api.fly.dev/users/alice#main-key",
-    "owner": "https://inkwell-api.fly.dev/users/alice",
-    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+    "id": "https://inkwell.social/users/alice#main-key",
+    "owner": "https://inkwell.social/users/alice",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n..."
   },
   "icon": {
     "type": "Image",
     "mediaType": "image/jpeg",
-    "url": "https://inkwell-api.fly.dev/api/avatars/alice"
+    "url": "https://inkwell.social/api/avatars/alice?v=Xk3p9QaZr1Lm"
   },
   "image": {
     "type": "Image",
     "mediaType": "image/jpeg",
-    "url": "https://inkwell-api.fly.dev/api/banners/alice"
-  }
-}
-```
-
-- `id` and inbox/outbox URLs use the API host (`inkwell-api.fly.dev`)
-- `url` points to the frontend profile page (`inkwell.social`)
-- `featured` points to the user's pinned posts collection (see Collections below)
-- `attachment` contains `PropertyValue` entries for social links (website, Bluesky, Mastodon, GitHub, X/Twitter) — displayed as verified profile fields on Mastodon. Only non-empty links are included. Requires `"https://schema.org"` in `@context`
-- `icon` and `image` are served as binary images from API endpoints (not inline data URIs)
-- RSA-2048 key pairs are generated on user registration
-- Actors without an avatar or banner omit those fields entirely
-
-### Object Types
-
-#### Article (Journal Entries)
-
-Inkwell publishes journal entries as `Article` objects per [FEP-b2b8](https://codeberg.org/fediverse/fep/src/branch/main/fep/b2b8/fep-b2b8.md).
-
-```json
-{
-  "type": "Article",
-  "id": "https://inkwell-api.fly.dev/entries/550e8400-e29b-41d4-a716-446655440000",
-  "attributedTo": "https://inkwell-api.fly.dev/users/alice",
-  "name": "Entry Title",
-  "content": "<p>Full entry body as HTML</p>",
-  "summary": "Plain text excerpt (max 300 chars)",
-  "url": "https://inkwell.social/alice/entry-slug",
-  "published": "2026-03-13T12:00:00Z",
-  "updated": "2026-03-13T14:30:00Z",
-  "to": ["https://www.w3.org/ns/activitystreams#Public"],
-  "cc": ["https://inkwell-api.fly.dev/users/alice/followers"],
-  "image": {
-    "type": "Link",
-    "href": "https://inkwell-api.fly.dev/api/images/image-uuid",
-    "mediaType": "image/jpeg"
+    "url": "https://inkwell.social/api/banners/alice?v=b7Tq0Pw2sNcd"
   },
-  "tag": [
-    {
-      "type": "Hashtag",
-      "name": "#journaling",
-      "href": "https://inkwell.social/tag/journaling"
-    }
-  ],
-  "generator": {
-    "type": "Application",
-    "name": "Inkwell",
-    "url": "https://inkwell.social"
-  },
-  "preview": {
-    "type": "Note",
-    "content": "<p><strong>Entry Title</strong></p><p>Excerpt text...</p>"
-  }
-}
-```
-
-- Only **public, published** entries are federated
-- `name` is the entry title (plain text). Omitted if the entry has no title
-- `summary` is the entry excerpt (plain text). **Not** a content warning — see Sensitive Content below
-- `updated` is included only when the entry was edited more than 60 seconds after publication (avoids false positives from same-transaction timestamp differences)
-- `image` is the cover image, if one exists
-- `preview` contains a simplified `Note` for microblogging consumers (e.g., Mastodon) that don't render `Article` objects inline. Contains the title as bold text plus the excerpt or a truncated body
-
-#### Note (Replies)
-
-Comments on remote entries are sent as `Note` objects with `inReplyTo`:
-
-```json
-{
-  "type": "Note",
-  "id": "https://inkwell-api.fly.dev/users/alice#reply-1710000000",
-  "attributedTo": "https://inkwell-api.fly.dev/users/alice",
-  "content": "<p>Great post!</p>",
-  "inReplyTo": "https://remote.example/posts/12345",
-  "published": "2026-03-13T12:00:00Z",
-  "to": ["https://remote.example/users/bob"],
-  "cc": [
-    "https://www.w3.org/ns/activitystreams#Public",
-    "https://inkwell-api.fly.dev/users/alice/followers"
-  ],
-  "tag": [
-    {
-      "type": "Mention",
-      "href": "https://remote.example/users/bob",
-      "name": "@bob@remote.example"
-    }
+  "attachment": [
+    { "type": "PropertyValue", "name": "Website", "value": "<a href=\"https://example.com\" rel=\"nofollow noopener noreferrer\" target=\"_blank\">https://example.com</a>" }
   ]
 }
 ```
 
-- Reply is addressed `to` the original post author (ensures notification)
-- Public URI and commenter's followers in `cc`
-- `Mention` tag included with `@user@domain` name
+- `icon` and `image` URLs carry `?v=` with a hash of the stored image, so the URL changes exactly when the picture does (Mastodon only re-downloads an avatar when its URL changes). Actors without an avatar or banner omit them.
+- `attachment` holds profile links (website, Bluesky, Mastodon, GitHub, X) as `PropertyValue`s.
+- `attributionDomains` is `inkwell.social` plus the member's custom domain when one is active (FEP-2345).
+- Profile edits that change anything above are sent to followers as `Update{Person}`, at most once a minute per member.
+- RSA-2048 keys are generated at signup.
+- `GET /users/{username}` is content-negotiated: `application/activity+json` or `application/ld+json` gets the actor; browsers are redirected to the profile page. The same applies to the guestbook URLs below.
 
-#### Note (Guestbook Post)
+An instance actor with the reserved username `relay` signs outbound fetches and follows relays. It has no guestbook.
 
-Each user has a permanent guestbook post — a `Note` object that fediverse users can reply to in order to sign the user's guestbook.
+---
 
-```json
-{
-  "type": "Note",
-  "id": "https://inkwell-api.fly.dev/users/alice/guestbook-post",
-  "attributedTo": "https://inkwell-api.fly.dev/users/alice",
-  "content": "<p>Sign my guestbook! Reply to this post from your fediverse account to leave a message on my Inkwell profile. ✍️</p>",
-  "to": ["https://www.w3.org/ns/activitystreams#Public"],
-  "cc": ["https://inkwell-api.fly.dev/users/alice/followers"],
-  "published": "2026-01-15T00:00:00Z",
-  "url": "https://inkwell.social/alice#guestbook"
-}
-```
+## Objects
 
-**Flow for fediverse users**:
-1. Copy the guestbook post URL (shown on the user's profile guestbook widget)
-2. Paste into Mastodon's search bar — the Note appears
-3. Reply to the Note — the reply arrives at Inkwell's inbox with `inReplyTo` pointing to the guestbook post URL
-4. Inkwell detects the guestbook post pattern in `inReplyTo` and creates a guestbook entry (not a comment)
-5. The entry appears in the guestbook with a globe icon and `@user@domain` handle
+### Article (journal entries)
 
-- Reply body is stripped to plain text and truncated to 500 characters
-- Guestbook entries are deduplicated by `ap_id` (the reply's `id`)
-- `Delete` activities targeting a reply's `id` remove the corresponding guestbook entry
-- Profile owner receives a `:guestbook` notification
-
-### Sensitive Content
-
-When an entry is marked as sensitive (by author or admin):
+Entries are `Article`s following FEP-b2b8.
 
 ```json
 {
   "type": "Article",
-  "sensitive": true,
-  "summary": "Content warning text here",
-  ...
+  "id": "https://inkwell.social/entries/550e8400-e29b-41d4-a716-446655440000",
+  "url": "https://inkwell.social/alice/entry-slug",
+  "attributedTo": "https://inkwell.social/users/alice",
+  "name": "Entry title",
+  "summary": "Plain-text excerpt",
+  "content": "<p><strong>Entry title</strong></p><p>Excerpt…</p><p><a href=\"…\">Read the full entry on Inkwell</a></p><hr><p>Full body…</p>",
+  "published": "2026-03-13T12:00:00Z",
+  "updated": "2026-03-13T14:30:00Z",
+  "to": ["https://www.w3.org/ns/activitystreams#Public"],
+  "cc": ["https://inkwell.social/users/alice/followers"],
+  "image": { "type": "Link", "href": "https://inkwell.social/api/images/…", "mediaType": "image/jpeg" },
+  "tag": [{ "type": "Hashtag", "name": "#journaling", "href": "https://inkwell.social/tag/journaling" }],
+  "generator": { "type": "Application", "name": "Inkwell", "url": "https://inkwell.social" },
+  "preview": { "type": "Note", "content": "Excerpt, at most 280 characters" }
 }
 ```
 
-- `sensitive: true` flag follows the Mastodon convention
-- `summary` is repurposed as the content warning text (max 200 chars). Falls back to "Sensitive content" if no warning text is set
-- When `sensitive` is true, `summary` is always the content warning — never the excerpt. Non-sensitive entries use `summary` for the excerpt per FEP-b2b8
+- Only **public, published** entries federate. Friends-only, custom-list, circle-members-only and private entries are never sent and 404 when fetched.
+- `content` starts with a short readable lead (title, excerpt, link, hashtags) and then the full body after an `<hr>`. Mastodon cuts `Article` content short, so the lead is what Mastodon readers see. Clients that render the whole Article get the full text.
+- `summary` is the excerpt, always present (generated from the body when the writer didn't write one). For sensitive entries it is the content warning instead; see [Sensitive content](#sensitive-content).
+- `preview` is the excerpt alone, cut at a word boundary to at most 280 characters. Bridgy Fed uses it as the Bluesky post text.
+- Relative links and images in the body are made absolute.
+- Entries fetched by their page URL (`/alice/entry-slug` with an ActivityPub `Accept` header) return the same `Article`.
+- Entries imported from another platform and marked as archive posts start their content with a line such as "From my LiveJournal archive, first written March 23, 2004."
 
-### Hashtags
+### Note (stickies)
 
-- Entry tags are included in the `tag` array as `Hashtag` objects
-- `name` is prefixed with `#` (e.g., `#journaling`)
-- `href` links to the tag browse page on Inkwell
-- Inbound hashtags are normalized to lowercase and stored without the `#` prefix
+Stickies (short posts, up to 500 characters, no title) are sent as `Note`s with the full text, so Mastodon shows them whole. Their ids are also `/entries/{uuid}`.
+
+### Note (comments)
+
+Comments written on Inkwell go out as `Note`s with `inReplyTo`:
+
+- A comment on a **fediverse post** replies to that post, is addressed `to` its author with the public collection and the commenter's followers in `cc`, and carries a `Mention` of the author.
+- A comment on an **Inkwell entry** is sent to the entry author's followers' servers so it threads under the entry.
+- A reply to another comment points `inReplyTo` at that comment (our `/comments/{id}` or the fediverse comment's own id) and mentions its author.
+- Comment ids are `https://inkwell.social/comments/{id}` and dereference to the `Note` (browsers are redirected to the conversation).
+
+Editing or deleting a comment is not federated yet.
+
+### Note (letters)
+
+Letters are Inkwell's private messages. A letter to a fediverse account is a `Create{Note}` addressed to that account alone (`to: [actor]`, `cc: []`) with a `Mention` tag. `inReplyTo` is the previous note in the conversation, and `context`/`conversation` are copied from the other side when known. Edits are sent as `Update`. Letter ids (`/letters/notes/{id}`) return 404, like any private post.
+
+Members can only write to fediverse accounts they follow, that follow them, or that wrote to them first and were accepted.
+
+### Guestbook (FEP-400e)
+
+Each member's guestbook is a publicly-appendable `OrderedCollection` at `/users/{username}/guestbook`:
+
+```json
+{
+  "type": "OrderedCollection",
+  "id": "https://inkwell.social/users/alice/guestbook",
+  "attributedTo": "https://inkwell.social/users/alice",
+  "totalItems": 7,
+  "first": "https://inkwell.social/users/alice/guestbook?page=1"
+}
+```
+
+- Pages hold 20 items, newest first. Items are ids: `https://inkwell.social/users/alice/guestbook/{id}` for signatures written on Inkwell (these dereference to a `Note` with `target`), or the signer's own object id for fediverse signatures.
+- **To sign it**, send a public `Create{Note}` to the owner whose `target` is the collection (either the id string or `{ "type": "OrderedCollection", "id": …, "attributedTo": … }`). The note must be `attributedTo` the actor that sends it. Inkwell stores the note as plain text (at most 500 characters, with a leading @mention of the owner removed) and answers the signer with `Add { object: note, target: guestbook }`.
+- When the owner removes a fediverse signature, Inkwell sends the signer `Remove { object: note, target: guestbook }`. A `Delete` of the note from its author removes it too.
+- Signatures from accounts the owner blocked, from blocked domains or from defederated servers are dropped without an `Add`.
+
+For Mastodon users, the older way still works. Each member has a public note at `/users/{username}/guestbook-post`, and replying to it signs the guestbook.
+
+### Sensitive content
+
+Entries marked sensitive by their writer or an admin are sent with `sensitive: true`, and `summary` holds the content-warning text (default "Sensitive content"), following Mastodon's convention. Check `sensitive` to tell whether `summary` is a warning or an excerpt.
+
+### Hashtags and mentions
+
+Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded, so non-Latin tags work). Mentions of members and fediverse accounts are `Mention` tags with an h-card link in the content. Inbound hashtags are stored lowercase without the `#`.
 
 ---
 
-## Activities Sent (Outbound)
+## Activities sent
 
-| Activity | When | Addressing |
+| Activity | When | Sent to |
 |---|---|---|
-| `Create { Article }` | Entry published with public visibility | `to: [Public]`, `cc: [followers]` |
-| `Update { Article }` | Published entry edited | `to: [Public]`, `cc: [followers]` |
-| `Delete { Tombstone }` | Entry or comment deleted | `to: [Public]`, `cc: [followers]` |
-| `Follow` | Relay subscription (from instance actor) | `to: [relay actor]` |
-| `Accept { Follow }` | Inbound Follow request auto-accepted | `to: [remote actor]` |
-| `Undo { Follow }` | Relay unsubscription | `to: [relay actor]` |
-| `Like` | User stamps a remote entry | `to: [post author]` |
-| `Undo { Like }` | User removes stamp from remote entry | `to: [post author]` |
-| `Announce` | User inks (boosts) a public entry | `to: [Public]`, `cc: [followers]` |
-| `Undo { Announce }` | User removes ink from entry | `to: [Public]`, `cc: [followers]` |
-| `Create { Note }` | User comments on a remote entry | `to: [post author]`, `cc: [Public, followers]` |
+| `Create {Article}` / `Create {Note}` | A public entry or sticky is published, or a published post is made public | Followers |
+| `Update {Article}` / `Update {Note}` | A public post is edited | Followers |
+| `Delete {Tombstone}` | A public post is deleted, or made non-public | Followers |
+| `Update {Person}` | A profile edit changes what the actor shows | Followers |
+| `Create {Note}` (comment) | A member comments on a fediverse post or an Inkwell entry | The post's author and the relevant followers |
+| `Create {Note}` / `Update {Note}` (letter) | A letter to a fediverse account is sent or edited | That account only |
+| `Like` / `Undo {Like}` | A member stamps (or unstamps) a fediverse post | The post's author |
+| `Announce` / `Undo {Announce}` | A member reprints (or un-reprints) a public post | The member's followers |
+| `Create {Article}` with FEP-e232 tag | A member quote-reprints a post | The member's followers |
+| `Follow` / `Undo {Follow}` | A member follows or unfollows a fediverse account; the instance actor subscribes to a relay | That account or relay |
+| `Accept {Follow}` | A fediverse account follows a member (accepted automatically) | The follower |
+| `Add` / `Remove` | A guestbook signature is accepted or taken down | The signer |
+| `Follow`, `Block`, `Undo {Block}` | A member switches sharing to Bluesky on or off (Bridgy Fed opts people in with a follow and out with a block) | `https://bsky.brid.gy/bsky.brid.gy` |
 
-**Delivery**: Activities are sent asynchronously via background workers to the shared inbox (preferred) or individual inbox of each remote follower. Duplicate inbox URLs are deduplicated before delivery.
+- **Old posts go out quietly.** Drafts dated more than 7 days back that are published in bulk (for example after an import) are not sent to followers unless the writer asks. They can still be fetched. Bulk "make public" follows the same rule.
+- **Delivery** is asynchronous, to shared inboxes when available, deduplicated per inbox, with retries for timeouts and 5xx responses and none for 401/403/404/410.
+- Inks (Inkwell's discovery signal) are local only and send nothing.
 
 ---
 
-## Activities Handled (Inbound)
+## Activities received
 
-All inbound activities **require a valid HTTP Signature**. Activities with missing, malformed, or invalid signatures are rejected with `401 Unauthorized`.
+Inbox and shared inbox (`POST /users/{username}/inbox`, `POST /inbox`) verify the signature and the actor's origin, then process the activity in the background and answer `202`.
 
 | Activity | Behavior |
 |---|---|
-| `Follow` | Auto-accepted. Creates follower relationship. Sends `Accept` back. Creates notification for the local user. Duplicate Follow re-sends Accept without creating a new notification. |
-| `Undo { Follow }` | Removes follower relationship. |
-| `Create { Note }` (reply) | If `inReplyTo` references a local entry, stored as a federated comment. If `inReplyTo` matches a guestbook post URL (`/users/{username}/guestbook-post`), stored as a guestbook entry with `remote_author`. Other replies are silently ignored. Accepts replies regardless of addressing (per FEP-7458). |
-| `Create { Note/Article/Page }` (standalone) | Public posts stored as remote entries for Explore discovery. If delivered to a personal inbox and contains a `Mention` tag targeting the inbox owner's actor URL, creates a `:fediverse_mention` notification. Non-public posts are ignored. |
-| `Update { Note/Article/Page }` | Updates existing comment body or remote entry content in-place. |
-| `Delete` | Removes the matching comment, remote entry, or guestbook entry. Associated data (inks, stamps, comments) cleaned up via foreign key cascade. |
-| `Accept { Follow }` | Marks our outbound Follow request as accepted. Sets mutual follow flags. For relay subscriptions, triggers outbox backfill. |
-| `Like` | Creates a federated ink on the liked entry. Increments `ink_count`. Creates notification. Deduplicated by `[remote_actor_id, entry_id]`. |
-| `Undo { Like }` | Removes the federated ink. Decrements `ink_count`. |
-| `Announce` | If the announced object is a local entry, creates a federated ink (boost). If the announced object is remote and from a relay, fetches and stores the object. |
-| `Undo { Announce }` | Removes the federated ink created by the Announce. |
-| Other types | Logged and silently accepted (202). |
+| `Follow` | Accepted automatically; `Accept` sent back; the member is notified once. Dropped silently if the member blocked the account or its domain. |
+| `Undo {Follow}` | Removes the follower. |
+| `Accept {Follow}` | Marks our follow as accepted. For relays, starts receiving relayed posts. |
+| `Create {Note/Article/Page}`, reply to an Inkwell entry or comment | Stored as a comment and threaded, **only if the reply is publicly addressed** (public or unlisted). Followers-only and direct replies reach the people they mention as a private notification instead. |
+| `Create {Note}` targeting a guestbook | Signs it. See [Guestbook](#guestbook-fep-400e). |
+| `Create {Note}`, reply to a guestbook post | Signs the guestbook (the older way). |
+| `Create {Note}`, private, to exactly one member | Becomes a letter if the two are connected; otherwise a letter request (if the member accepts them), or a mention notification. |
+| `Create {Note/Article/Page}`, other public posts | Stored as a fediverse post for Explore and Feed. A mention of the inbox's owner notifies them. Video and audio attachments become players; image attachments are kept. |
+| `Update` | Updates the stored comment, post or letter. Only a letter's own author can edit it. |
+| `Delete` | Removes the matching comment, post, guestbook signature or letter. A `Delete` of an actor removes that account and everything cached from it. |
+| `Like` | Counts as an ink on the entry (Inkwell's discovery signal) and notifies the writer. |
+| `Undo {Like}` | Removes that ink. |
+| `Announce` | A boost of an Inkwell entry is recorded as a reprint and notifies the writer. An `Announce` from a subscribed relay fetches and stores the relayed post. |
+| `Undo {Announce}` | Removes the reprint. |
+| Anything else | Accepted with `202` and ignored. |
 
-### Inkwell-Specific Mapping
+Additional rules:
 
-Inkwell has two interaction types that map to/from standard ActivityPub activities:
-
-- **Stamps** (appreciation tokens like postage stamps) map to `Like` in ActivityPub. Stamping a remote entry sends a `Like`; receiving a `Like` creates a federated ink (not a stamp — stamps are a local-only UI concept)
-- **Inks** (discovery/boost signal) map to `Announce` in ActivityPub. Inking a public entry sends an `Announce` (appears as a boost on Mastodon); receiving an `Announce` of a local entry creates a federated ink
-
----
-
-## Content Negotiation
-
-The actor endpoint (`GET /users/{username}`) is content-negotiated:
-- Requests with `Accept: application/activity+json` or `Accept: application/ld+json` receive the AP Person JSON
-- All other requests are redirected to the frontend profile page
-
-Entry objects are similarly content-negotiated:
-- `GET /entries/{uuid}` returns Article JSON for AP requests, 404 otherwise
-- `GET /{username}/{slug}` — the Next.js middleware detects AP Accept headers on 2-segment paths and proxies to the API for Article JSON
-
----
-
-## WebFinger
-
-**Endpoint**: `GET /.well-known/webfinger?resource=acct:{username}@{domain}`
-
-Returns a JRD (JSON Resource Descriptor) with:
-- `rel: "self"` pointing to the AP actor endpoint (`application/activity+json`)
-- `rel: "http://webfinger.net/rel/profile-page"` pointing to the frontend profile (`text/html`)
-
-Accepted domains: `inkwell.social`, `api.inkwell.social`, `inkwell-api.fly.dev`.
-
----
-
-## NodeInfo
-
-**Schema**: [NodeInfo 2.1](https://nodeinfo.diaspora.software/protocol)
-
-**Discovery**: `GET /.well-known/nodeinfo` returns a links array pointing to `GET /nodeinfo/2.1`.
-
-**Response** includes:
-- `software.name`: `"inkwell"`
-- `software.repository`: `"https://github.com/stantondev/inkwell"`
-- `software.homepage`: `"https://inkwell.social"`
-- `protocols`: `["activitypub"]`
-- `usage.users.total`, `usage.users.activeHalfyear`, `usage.users.activeMonth`
-- `usage.localPosts` (published entries), `usage.localComments`
-- `openRegistrations`: `true`
-
----
-
-## HTTP Signatures
-
-**Algorithm**: `hs2019` (forward-compatible; actual algorithm is RSA-SHA256 / RSASSA-PKCS1-v1_5 with SHA-256)
-
-**Outbound POST signing** (inbox delivery):
-- Signed headers: `(request-target)`, `host`, `date`, `digest`, `content-type`
-- Digest: `SHA-256=` + Base64 of SHA-256 hash of the request body
-- Standard Base64 with padding (not URL-safe)
-- Key ID format: `{actor_url}#main-key`
-
-**Outbound GET signing** (authorized fetch):
-- Signed headers: `(request-target)`, `host`, `date`, `accept`
-- Signed with the instance actor's key (reserved username `"relay"`)
-- Enables fetching from GoToSocial (always requires signed GETs) and Mastodon secure mode
-
-**Inbound verification**:
-1. Parse `Signature` header to extract `keyId`, `headers`, `algorithm`, `signature`
-2. Resolve actor URI from `keyId`:
-   - **Fragment URI** (Mastodon style, e.g. `…/users/alice#main-key`): strip fragment
-   - **Path URI** (GoToSocial style, e.g. `…/users/alice/main-key`): fetch the key URL; if the response is a `Key`/`CryptographicKey` document with an `owner` property, follow it to the actor
-3. Fetch remote actor document (cached 24 hours)
-4. Extract `publicKeyPem` from actor's `publicKey` object
-5. **Date skew check**: reject if `Date` header is more than ±12 hours from server time (replay prevention). Missing `Date` headers are allowed (some implementations use `(created)` instead)
-6. **Digest validation** (CVE-2023-49079 prevention): if `digest` is in the signed headers, compute SHA-256 of the actual request body and compare using constant-time comparison (`Plug.Crypto.secure_compare`). Reject on mismatch
-7. Reconstruct signing string from the headers listed in the signature
-8. Verify the cryptographic signature against the public key
-9. **Key rotation retry**: on signature failure, re-fetch the actor document (bypassing cache) and retry verification once. This handles key rotation without breaking federation
-
-**Hard reject**: All inbound inbox activities without a valid signature are rejected with `401 Unauthorized`. There is no permissive/soft-fail mode.
-
----
-
-## Shared Inbox
-
-Inkwell accepts activities at both:
-- **User inbox**: `POST /users/{username}/inbox`
-- **Shared inbox**: `POST /inbox`
-
-Both endpoints perform identical signature verification and activity processing. Remote servers should prefer the shared inbox to reduce delivery requests.
-
----
-
-## Relay Support
-
-Inkwell supports subscribing to ActivityPub relays for content discovery.
-
-**Subscription flow**:
-1. Admin enters a relay actor URL
-2. Inkwell sends `Follow` from an instance actor (reserved username `"relay"`)
-3. Relay sends `Accept { Follow }`
-4. Relay broadcasts `Announce { Note/Article/Page }` activities
-5. Inkwell fetches the announced objects and stores them as remote entries
-
-**Supported relay protocols**: ActivityRelay-style relays that broadcast via `Announce` activities. The relay actor is followed directly (not the Public collection).
-
-**Content retention**: Relay-sourced content is retained for 14 days, then automatically cleaned up.
+- **Duplicates.** Replies and letters are unique by their ActivityPub id; a redelivery (common when a post mentions two members) is stored once and notifies once.
+- **Blocks.** A member's blocked accounts and blocked domains cannot comment, sign their guestbook, mention or message them, or follow them. Inbound Likes and Announces are not filtered yet; they only change counts. Admin-defederated domains are dropped for everyone.
+- **Deleted accounts.** A `Delete` from an account whose server returns 404/410 for its key is accepted rather than refused. The key is gone, so the signature can never verify, and refusing it only makes the sender retry for days. The account is removed only when it deletes itself.
+- **Forwarded activities** (signed by a different server than the actor's) are refused for now. Inkwell does not verify LD Signatures.
 
 ---
 
 ## Collections
 
-| Collection | URL | Behavior |
+| Collection | URL | Contents |
 |---|---|---|
-| Outbox | `/users/{username}/outbox` | Paginated (20 items/page). Contains `Create { Article }` activities for public published entries only. |
-| Followers | `/users/{username}/followers` | Returns total count only (`totalItems`). Individual follower URIs are not exposed. |
-| Following | `/users/{username}/following` | Returns total count only (`totalItems`). Individual following URIs are not exposed. |
-| Featured | `/users/{username}/featured` | `OrderedCollection` of pinned `Article` objects. Contains the user's pinned entries (up to 3, public+published only). Mastodon displays these as "pinned posts" on profile pages. |
-| Guestbook Post | `/users/{username}/guestbook-post` | Permanent `Note` object. Replies to this Note create guestbook entries. See "Note (Guestbook Post)" above. |
+| Outbox | `/users/{username}/outbox` | `Create` activities for public published posts, 20 per page. |
+| Followers | `/users/{username}/followers` | `totalItems` only. Members aren't listed. |
+| Following | `/users/{username}/following` | `totalItems` only. |
+| Featured | `/users/{username}/featured` | Up to 5 entry ids: pinned entries first, then the newest public entries. Mastodon only loads these when it first discovers an account, so this is how a new writer's profile on Mastodon isn't empty. |
+| Guestbook | `/users/{username}/guestbook` | FEP-400e collection, paged. See above. |
 
 ---
 
-## Content Limits
+## HTTP signatures
 
-| Field | Maximum |
-|---|---|
-| Entry title | 500 characters |
-| Entry body | No hard limit (HTML) |
-| Entry excerpt | 300 characters |
-| Content warning | 200 characters |
-| Display name | 100 characters |
-| Bio (plain text) | 2,000 characters |
-| Bio (HTML) | 10,000 characters |
-| Comment body | 2,000 characters |
-| Guestbook entry body | 500 characters (HTML stripped to plain text) |
-| Hashtags per entry | No explicit limit |
+**Outbound POST** (delivery): draft-cavage, `algorithm="rsa-sha256"`, signed headers `(request-target) host date digest`, `Digest: SHA-256=…`, key id `https://inkwell.social/users/{username}#main-key`.
 
----
+**Outbound GET** (fetching actors): signed with the instance actor's key over `(request-target) host date accept`, so servers that require signed fetches (GoToSocial, Mastodon's authorized fetch mode) answer.
 
-## Remote Entry Verification
+**Inbound:**
 
-Inkwell periodically verifies that remote (fediverse) entries still exist at their source by making HTTP HEAD requests to the original URL. Entries returning 404 or 410 are deleted locally (with cascade cleanup of associated inks, comments, and stamps). Entries returning 5xx are assumed temporarily unavailable and skipped. Verification runs every 4 hours in batches of 50 with per-domain rate limiting.
+1. The scheme is chosen by the shape of the `Signature` header: draft-cavage parameters, or RFC 9421 `sig1=:…:` with a `Signature-Input` header.
+2. The key is resolved from `keyId`: fragment ids (`…#main-key`) by removing the fragment, path ids (`…/main-key`, GoToSocial) by fetching the key and following its `owner`.
+3. The `Date` header must be within 12 hours.
+4. `Digest` (draft-cavage) or `Content-Digest` (RFC 9530) is compared to the actual body when it is covered by the signature.
+5. On failure the actor is re-fetched once, in case its key rotated.
+6. Missing or invalid signatures get `401`. There is no permissive mode.
+
+Remote actors are cached for 4 hours; failed fetches are cached for 1 hour. Outbound requests time out after 5 seconds.
+
+Only RSA keys are supported; Ed25519 (FEP-521a `assertionMethod`) is not verified.
 
 ---
 
-## Known Interoperability Notes
+## WebFinger and NodeInfo
 
-- **Mastodon Article rendering**: Mastodon does not natively display `Article` objects inline in timelines. Inkwell includes a `preview` Note inside each Article so Mastodon users see a title + excerpt summary. The full article is accessible via the `url` link.
-- **Two-host architecture**: Inkwell uses separate domains for the API (`inkwell-api.fly.dev` / `api.inkwell.social`) and frontend (`inkwell.social`). AP actor IDs use the API host. The frontend proxies federation requests via `X-Original-Host` header to ensure HTTP signature verification succeeds.
-- **Follow auto-accept**: All Follow requests are automatically accepted. There is no manual approval / locked account mode.
-- **Client-to-Server**: Not implemented. Inkwell uses a custom REST API for client interactions, not the ActivityPub C2S protocol.
-- **Sensitive content summary conflict**: When an entry is sensitive, the `summary` field contains the content warning text (Mastodon convention). When an entry is not sensitive, `summary` contains the excerpt (FEP-b2b8 convention). Consumers should check the `sensitive` flag to determine which interpretation applies.
-- **GoToSocial keyId format**: Inkwell handles both fragment-style (`…#main-key`) and path-style (`…/main-key`) key IDs. Path-style keyIds are fetched directly and the `owner` property is followed to resolve the actor.
-- **Authorized fetch**: Outbound GET requests (actor/object fetches) are signed with the instance actor's key, compatible with GoToSocial and Mastodon secure mode. Falls back to unsigned GETs if no instance actor exists yet.
+- `GET /.well-known/webfinger?resource=acct:{username}@inkwell.social` returns `self` (the actor, `application/activity+json`) and `http://webfinger.net/rel/profile-page`.
+- `GET /.well-known/nodeinfo` links NodeInfo 2.0 and 2.1. 2.1 includes `software.repository` and `software.homepage`. `protocols` is `["activitypub"]`. Registrations are open.
 
 ---
 
-## Source Code
+## Relays
 
-Federation is implemented natively in Elixir/Phoenix (no sidecar).
+The instance actor can follow ActivityRelay-style relays. Relayed posts arrive as `Announce`s, are fetched, filtered (bot accounts, very short posts and link-only posts are skipped) and kept for 14 days.
+
+---
+
+## Bluesky
+
+Members can opt in to sharing on Bluesky through [Bridgy Fed](https://fed.brid.gy/): switching it on follows the Bridgy Fed actor, switching it off sends it a `Block` (switching on again sends `Undo {Block}` first). Only public posts are bridged.
+
+---
+
+## Known limitations
+
+- No client-to-server ActivityPub.
+- No locked accounts: every follow is accepted.
+- Friends-only and custom-list posts don't federate at all, not even to followers on other servers.
+- Comment edits and deletions aren't federated.
+- Inbound `Reject`, `Move`, `Flag` and `Block` are ignored.
+- Forwarded activities are refused (no LD Signatures).
+- Inbound Likes and Announces from blocked accounts still count.
+- Group DMs aren't supported: a private note to more than one member arrives as a mention notification.
+- Signing another server's FEP-400e wall from Inkwell isn't supported; only Inkwell guestbooks can be signed.
+- The `https://inkwell.social/ns#` namespace document doesn't resolve yet.
+
+---
+
+## Source code
+
+Federation is implemented in the Phoenix API.
 
 | File | Purpose |
 |---|---|
-| `apps/api/lib/inkwell/federation/activity_builder.ex` | Builds outbound AP activities and objects (Person, Article, Note, Like, Announce, guestbook post, featured collection) |
-| `apps/api/lib/inkwell_web/controllers/federation_controller.ex` | Inbox processing, actor/outbox/webfinger/featured/guestbook-post endpoints, mention detection, guestbook reply routing |
-| `apps/api/lib/inkwell/federation/http_signature.ex` | HTTP Signature signing and verification |
-| `apps/api/lib/inkwell/federation/http.ex` | Signed HTTP client for fetching remote actors/objects |
-| `apps/api/lib/inkwell/federation/remote_actor.ex` | Remote actor caching and fetching |
-| `apps/api/lib/inkwell/federation/remote_entries.ex` | Remote entry storage and queries |
-| `apps/api/lib/inkwell/federation/relays.ex` | Relay subscription management |
-| `apps/api/lib/inkwell/federation/workers/` | Async delivery, fan-out, relay content, outbox fetch workers |
-| `apps/api/lib/inkwell/guestbook.ex` | Guestbook context (includes `create_entry_from_ap/1`, `delete_by_ap_id/1` for federation) |
+| `apps/api/lib/inkwell/federation/activity_builder.ex` | Builds actors, objects and activities |
+| `apps/api/lib/inkwell_web/controllers/federation_controller.ex` | Actor, collection, object, WebFinger and NodeInfo endpoints; inbox processing |
+| `apps/api/lib/inkwell/federation/http_signature.ex`, `rfc9421.ex` | Signing and verification |
+| `apps/api/lib/inkwell/federation/http.ex`, `remote_actor.ex` | Fetching and caching remote actors and objects |
+| `apps/api/lib/inkwell/federation/workers/` | Delivery, fan-out, relay, outbox and reply-fetch workers |
+| `apps/api/lib/inkwell/guestbook/federation.ex` | Guestbook collection (FEP-400e) |
+| `apps/api/lib/inkwell/letters/federation.ex` | Letters to and from fediverse accounts |
+| `apps/api/lib/inkwell/federation/bluesky_bridge.ex` | Bluesky sharing via Bridgy Fed |
+| `apps/web/src/app/users/`, `inbox/`, `entries/`, `comments/`, `.well-known/` | Next.js proxies that serve these URLs on inkwell.social |
 
-Repository: [github.com/stantondev/inkwell](https://github.com/stantondev/inkwell)
+Repository: [github.com/stantondev/inkwell](https://github.com/stantondev/inkwell). Questions and interoperability reports: [inkwell.social/roadmap](https://inkwell.social/roadmap) or hello@inkwell.social.
