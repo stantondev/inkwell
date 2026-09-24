@@ -44,6 +44,14 @@ export const WHATS_NEW: WhatsNewItem[] = [
     tag: "Profile",
   },
   {
+    id: "2026-09-24-share-previews",
+    date: "2026-09-24",
+    title: "Your writing shows up when you share it",
+    body: "Share an entry on Facebook, iMessage, Slack, LinkedIn or Bluesky and the preview now shows a page with your title, the opening lines, your name and picture, instead of a bare link. Stickies show up as a sticky note in their own colour. A cover photo, if you added one, is still used. Posts behind a content warning show only the warning, and private posts never show their words.",
+    howTo: "Nothing to do: share any public entry. If Facebook still shows an old preview for a link you shared before, paste it into Facebook’s Sharing Debugger and press “Scrape Again”.",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-24-classic-view",
     date: "2026-09-24",
     title: "Classic view: Inkwell the 2004 way",

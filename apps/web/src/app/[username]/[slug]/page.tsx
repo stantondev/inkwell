@@ -79,6 +79,7 @@ interface EntryData {
   slug: string;
   published_at: string;
   created_at: string;
+  updated_at?: string;
   stamps?: string[];
   my_stamp?: string | null;
   bookmarked?: boolean;
@@ -368,17 +369,32 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     // and shares this fetch's result.
     const data = await getEntry<{ data: EntryData }>(username, slug, token);
     const entry = { ...data.data, title: data.data.title ? decodeEntities(data.data.title) : data.data.title };
-    const description = entry.excerpt
-      ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const isSticky = entry.kind === "sticky";
+    // Plain words of the post, entities decoded ("it&#39;s" was reaching
+    // Facebook as-is). Figures, code and the quote-reprint "RE:" line are left out.
+    const plainBody = decodeEntities(
+      (entry.body_html ?? "")
+        .replace(/<p[^>]*class="[^"]*quote-inline[^"]*"[^>]*>[\s\S]*?<\/p>/gi, " ")
+        .replace(/<(figure|pre|script|style|iframe|video|audio|table)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const summarySource = (entry.excerpt ? decodeEntities(entry.excerpt).replace(/\s+/g, " ").trim() : "") || plainBody;
+    // A post behind a content warning never puts its words in a preview.
+    const description = entry.is_sensitive
+      ? entry.content_warning
+        ? `Content warning: ${entry.content_warning}`
+        : "This post has a content warning."
+      : summarySource.length > 300
+        ? `${summarySource.slice(0, 300).replace(/\s+\S*$/, "")}…`
+        : summarySource;
     // Untitled entries (stickies) would otherwise every one of them be
     // titled "Entry by @user" — hundreds of near-duplicate titles competing
     // with each other. Fall back to the post's opening words instead.
-    const plainBody = (entry.excerpt ?? entry.body_html.replace(/<[^>]+>/g, " "))
-      .replace(/\s+/g, " ")
-      .trim();
-    const snippet =
-      plainBody.length > 65 ? `${plainBody.slice(0, 65).replace(/\s+\S*$/, "")}…` : plainBody;
+    const snippet = entry.is_sensitive
+      ? ""
+      : plainBody.length > 65 ? `${plainBody.slice(0, 65).replace(/\s+\S*$/, "")}…` : plainBody;
     const fallbackLabel =
       snippet || (isSticky ? `Sticky by @${username}` : `Entry by @${username}`);
 
@@ -389,13 +405,22 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const entryUrl = effectiveDomain
       ? `https://${effectiveDomain}/${slug}`
       : `https://inkwell.social/${username}/${slug}`;
-    const hasCover = !!entry.cover_image_id;
-    // Only use og:image when there's a real cover photo.
-    // Without a cover, omitting og:image makes Mastodon/social platforms show a
-    // compact text card (title + description + domain) instead of a giant empty card.
+    const hasCover = !!entry.cover_image_id && !entry.is_sensitive;
+    const authorName = entry.author?.display_name || username;
+    // Facebook, iMessage, Slack and LinkedIn lead with the picture and often
+    // drop the description, so a post without one shared as a bare link.
+    // Without a cover we draw the writing itself (/api/og/entry/…); the
+    // version stamp gives an edited post a fresh URL past every cache.
+    const version = entry.updated_at ? Date.parse(entry.updated_at) || "" : "";
+    const imageUrl = hasCover
+      ? `/api/images/${entry.cover_image_id}`
+      : `/api/og/entry/${encodeURIComponent(username)}/${encodeURIComponent(slug)}${version ? `?v=${version}` : ""}`;
+    const imageAlt = hasCover
+      ? ogTitle
+      : `${ogTitle}, by ${authorName}${isSticky ? "" : " — the opening of the entry"}`;
     const ogImages = hasCover
-      ? [{ url: `/api/images/${entry.cover_image_id}`, width: 1200, height: 630, alt: ogTitle }]
-      : [];
+      ? [{ url: imageUrl, alt: imageAlt }]
+      : [{ url: imageUrl, width: 1200, height: 630, alt: imageAlt, type: "image/png" }];
 
     return {
       // Only when actually served on the writer's domain — inkwell.social
@@ -410,16 +435,20 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
         description,
         url: entryUrl,
         type: "article",
+        // A page's openGraph replaces the layout's, so the site name has to be restated.
+        siteName: effectiveDomain ?? "Inkwell",
         publishedTime: entry.published_at,
-        authors: [entry.author?.display_name ?? username],
-        ...(ogImages.length > 0 ? { images: ogImages } : {}),
+        ...(entry.updated_at ? { modifiedTime: entry.updated_at } : {}),
+        authors: [authorName],
+        ...(entry.tags?.length ? { tags: entry.tags.slice(0, 6) } : {}),
+        images: ogImages,
       },
       twitter: {
         site: "@inkwellsocial",
-        card: hasCover ? "summary_large_image" : "summary",
+        card: "summary_large_image",
         title: ogTitle,
         description,
-        ...(hasCover ? { images: [`/api/images/${entry.cover_image_id}`] } : {}),
+        images: [{ url: imageUrl, alt: imageAlt }],
       },
       alternates: {
         canonical: entryUrl,
