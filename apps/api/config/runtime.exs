@@ -205,6 +205,18 @@ if config_env() == :prod do
     end
   end
 
+  # Servers whose trending links make up the Gazette. Comma-separated
+  # hostnames; unset uses the defaults in Inkwell.Gazette.Trends.
+  case System.get_env("GAZETTE_TREND_SOURCES") do
+    value when is_binary(value) and value != "" ->
+      config :inkwell,
+             :gazette_trend_sources,
+             value |> String.split(",", trim: true) |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+    _ ->
+      :ok
+  end
+
   # Fly.io API token (for custom domain certificate management)
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 

@@ -95,11 +95,13 @@ config :inkwell, Oban,
        # Poll close — was every 5m, now every 15m at :11. Polls expire on
        # their own; this just flips the DB status column.
        {"11-59/15 * * * *", Inkwell.Workers.PollCloseWorker},
-       # Gazette ingestion — every 6h at :23. With 1 source instance configured
-       # (GAZETTE_SOURCES) and 24 topics, each tick enqueues ~24 jobs which
-       # drain in ~1 minute. Yields 4 content refreshes/day, sized for current
-       # traffic. Increase frequency or add instances when scale warrants.
-       {"23 */6 * * *", Inkwell.Workers.GazetteIngestionScheduler}
+       # Hashtag polling for Explore's fediverse posts — every 6h at :23.
+       # (It used to feed the Gazette too; the Gazette now reads trending links.)
+       {"23 */6 * * *", Inkwell.Workers.GazetteIngestionScheduler},
+       # Gazette: read the fediverse's trending links hourly, and publish the
+       # morning (11:05 UTC) and evening (22:05 UTC) editions.
+       {"41 * * * *", Inkwell.Workers.GazetteWorker, args: %{"task" => "ingest"}},
+       {"5 11,22 * * *", Inkwell.Workers.GazetteWorker, args: %{"task" => "edition"}}
      ]}
   ]
 

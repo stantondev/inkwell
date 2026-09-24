@@ -40,6 +40,8 @@ defmodule Inkwell.Application do
           :inkwell_nodeinfo_cache,
           # Fediverse media players (Inkwell.MediaEmbeds)
           :media_embed_cache,
+          # Gazette "what people are saying" (Inkwell.Gazette.Conversation)
+          :gazette_conversation_cache,
           # Reader stats: one-day "already counted" marks (Inkwell.Reads)
           :entry_read_seen
         ] do

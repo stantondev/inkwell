@@ -132,9 +132,13 @@ defmodule InkwellWeb.Router do
     # Fediverse search (optional auth for relationship status)
     get "/search/fediverse", SearchController, :fediverse
 
-    # Gazette — fediverse news discovery (optional auth for topic preferences)
+    # Gazette — the stories the fediverse is sharing (optional auth for
+    # blocks, redactions and saved sections)
     get "/gazette", GazetteController, :index
     get "/gazette/topics", GazetteController, :topics
+    get "/gazette/editions", GazetteController, :editions
+    get "/gazette/stories/:id", GazetteController, :story
+    get "/gazette/stories/:id/conversation", GazetteController, :conversation
 
     # Trending entries (optional auth for my_ink)
     get "/explore/trending", ExploreController, :trending

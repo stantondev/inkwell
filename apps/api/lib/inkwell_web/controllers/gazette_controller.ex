@@ -1,173 +1,227 @@
 defmodule InkwellWeb.GazetteController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Redactions, Social}
-  alias Inkwell.Gazette
-  alias Inkwell.Gazette.{AiScorer, Topics}
+  alias Inkwell.{Avatars, Gazette, Redactions}
+  alias Inkwell.Gazette.{Conversation, Editions, Topics, Trends}
+  alias Inkwell.Moderation.FediverseBlocks
 
-  # GET /api/gazette — paginated fediverse news entries filtered by topics
+  # GET /api/gazette — the latest edition, or ?edition=N
   def index(conn, params) do
-    page = parse_int(params["page"], 1)
-    per_page = min(parse_int(params["per_page"], 30), 50)
     viewer = conn.assigns[:current_user]
 
-    # Determine topics: explicit ?topic= param, or user's saved topics
-    topics =
-      cond do
-        is_binary(params["topic"]) && params["topic"] != "" ->
-          [params["topic"]] |> Enum.filter(&Topics.valid_topic?/1)
+    requested = params["edition"]
 
-        viewer ->
-          Topics.get_user_topics(viewer)
-
-        true ->
-          []
+    edition =
+      case parse_int(requested) do
+        nil -> Editions.latest()
+        n -> Editions.get_by_number(n)
       end
 
-    if topics == [] do
-      json(conn, %{
-        data: [],
-        topics: [],
-        needs_topic_selection: true,
-        pagination: %{page: 1, per_page: per_page, total: 0}
-      })
-    else
-      # Build block filters
-      blocked_actor_ids =
-        if viewer do
-          fediverse_blocks = Inkwell.Moderation.FediverseBlocks.get_all_blocks_for_user(viewer.id)
-          fediverse_blocks.blocked_remote_actor_ids
-        else
-          []
-        end
+    case edition do
+      nil when is_nil(requested) ->
+        json(conn, %{edition: nil, stories: [], responses: [], sections: section_list(), my_sections: my_sections(viewer)})
 
-      blocked_domains =
-        admin_domains = Inkwell.Moderation.FediverseBlocks.list_admin_blocked_domains()
-        admin_domain_list = Enum.map(admin_domains, & &1.domain)
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "No such edition"})
 
-        user_domains =
-          if viewer do
-            fediverse_blocks = Inkwell.Moderation.FediverseBlocks.get_all_blocks_for_user(viewer.id)
-            fediverse_blocks.blocked_domains
-          else
-            []
-          end
+      edition ->
+        {prev, next} = Editions.neighbours(edition)
+        blocked = blocked_domains(viewer)
+        words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
 
-        Enum.uniq(admin_domain_list ++ user_domains)
+        items =
+          edition
+          |> Editions.items()
+          |> Enum.reject(&blocked_url?(&1["url"], blocked))
+          |> Enum.reject(fn i -> words != [] and Redactions.matches_redaction?("#{i["title"]} #{i["description"]}", words) end)
 
-      include_sensitive =
-        case viewer do
-          %{settings: %{"show_sensitive_content" => true}} -> true
-          _ -> false
-        end
+        ids = Enum.map(items, & &1["id"])
+        counts = Gazette.response_counts(ids)
+        exclude = if viewer, do: Inkwell.Social.get_blocked_user_ids(viewer.id), else: []
 
-      redacted_words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
+        stories = Enum.map(items, &Map.put(&1, "response_count", Map.get(counts, &1["id"], 0)))
 
-      is_plus = viewer && viewer.subscription_tier == "plus"
-
-      {entries, total} =
-        Gazette.list_entries(
-          topics: topics,
-          page: page,
-          per_page: per_page,
-          blocked_remote_actor_ids: blocked_actor_ids,
-          blocked_domains: blocked_domains,
-          include_sensitive: include_sensitive,
-          redacted_words: redacted_words
-        )
-
-      # Plus users: on-demand AI scoring (cached on entries)
-      {entries, ai_active} =
-        if is_plus && AiScorer.configured?() do
-          scored = AiScorer.score_and_cache(entries)
-
-          # Filter to news-only and re-sort by relevance
-          filtered =
-            scored
-            |> Enum.filter(fn e ->
-              # Keep entries classified as news, or unscored entries (graceful degradation)
-              is_nil(e.gazette_is_news) || e.gazette_is_news == true
-            end)
-            |> Enum.sort_by(fn e -> -(e.gazette_relevance || 0.0) end)
-
-          {filtered, true}
-        else
-          {entries, false}
-        end
-
-      data = Enum.map(entries, &render_gazette_entry/1)
-
-      json(conn, %{
-        data: data,
-        topics: topics,
-        needs_topic_selection: false,
-        ai_curated: ai_active,
-        pagination: %{page: page, per_page: per_page, total: total}
-      })
+        json(conn, %{
+          edition: %{
+            number: edition.number,
+            slot: edition.slot,
+            published_at: edition.published_at,
+            story_count: length(stories),
+            publisher_count: stories |> Enum.map(& &1["provider_name"]) |> Enum.uniq() |> length(),
+            people_sharing: stories |> Enum.map(&(&1["shares_today"] || 0)) |> Enum.sum(),
+            previous_number: prev,
+            next_number: next,
+            latest: is_nil(next)
+          },
+          stories: stories,
+          responses: Gazette.recent_responses(ids, exclude_user_ids: exclude) |> Enum.map(&render_response/1),
+          sections: section_list(),
+          my_sections: my_sections(viewer),
+          method: method()
+        })
     end
   end
 
-  # GET /api/gazette/topics — returns all available topics
-  def topics(conn, _params) do
-    viewer = conn.assigns[:current_user]
-    user_topics = if viewer, do: Topics.get_user_topics(viewer), else: []
+  # GET /api/gazette/editions — the archive
+  def editions(conn, params) do
+    page = parse_int(params["page"]) || 1
+    {editions, total} = Editions.list(page, 30)
 
-    all_topics =
-      Topics.list_topics()
-      |> Enum.map(fn topic ->
-        Map.put(topic, :subscribed, topic.id in user_topics)
-      end)
+    json(conn, %{
+      data:
+        Enum.map(editions, fn e ->
+          lead = e |> Editions.items() |> List.first()
 
-    json(conn, %{topics: all_topics, user_topics: user_topics})
+          %{
+            number: e.number,
+            slot: e.slot,
+            published_at: e.published_at,
+            story_count: e.story_count,
+            lead: lead && %{title: lead["title"], provider_name: lead["provider_name"], image_url: lead["image_url"]}
+          }
+        end),
+      pagination: %{page: page, per_page: 30, total: total}
+    })
   end
 
-  defp render_gazette_entry(entry) do
-    actor = entry.remote_actor
+  # GET /api/gazette/stories/:id
+  def story(conn, %{"id" => id}) do
+    viewer = conn.assigns[:current_user]
+
+    case Gazette.get_story(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Story not found"})
+
+      story ->
+        if blocked_url?(story.url, blocked_domains(viewer)) do
+          conn |> put_status(:not_found) |> json(%{error: "Story not found"})
+        else
+          exclude = if viewer, do: Inkwell.Social.get_blocked_user_ids(viewer.id), else: []
+
+          json(conn, %{
+            data: render_story(story),
+            responses: story |> Gazette.responses_for(exclude_user_ids: exclude) |> Enum.map(&render_response/1),
+            sections: section_list()
+          })
+        end
+    end
+  end
+
+  # GET /api/gazette/stories/:id/conversation
+  def conversation(conn, %{"id" => id}) do
+    viewer = conn.assigns[:current_user]
+
+    case Gazette.get_story(id) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Story not found"})
+
+      story ->
+        case Conversation.for_story(story, blocked_domains(viewer)) do
+          {:ok, posts} ->
+            json(conn, %{data: posts, source: List.first(story.trending_on || []) || "mastodon.social"})
+
+          {:error, _} ->
+            conn |> put_status(:bad_gateway) |> json(%{error: "Couldn't reach the fediverse just now"})
+        end
+    end
+  end
+
+  # GET /api/gazette/topics
+  def topics(conn, _params) do
+    json(conn, %{topics: section_list(), user_topics: my_sections(conn.assigns[:current_user])})
+  end
+
+  # ── rendering ───────────────────────────────────────────────────────
+
+  defp render_story(s) do
+    %{
+      id: s.id,
+      url: s.url,
+      title: s.title,
+      description: s.description,
+      image_url: s.image_url,
+      image_description: s.image_description,
+      provider_name: s.provider_name,
+      provider_url: s.provider_url,
+      author_name: s.author_name,
+      article_published_at: s.article_published_at,
+      opinion: s.opinion,
+      topics: s.topics,
+      shares_today: s.shares_today,
+      shares_week: s.shares_week,
+      trending_on: s.trending_on,
+      first_seen_at: s.first_seen_at,
+      last_seen_at: s.last_seen_at
+    }
+  end
+
+  defp render_response(entry) do
+    user = entry.user
 
     %{
       id: entry.id,
-      ap_id: entry.ap_id,
-      url: entry.url,
       title: entry.title,
-      body_html: entry.body_html,
-      tags: entry.tags || [],
+      slug: entry.slug,
+      excerpt: entry.excerpt,
+      kind: entry.kind,
       published_at: entry.published_at,
-      sensitive: entry.sensitive || false,
-      content_warning: entry.content_warning,
-      quality_score: Map.get(entry, :gazette_quality_score),
+      word_count: entry.word_count,
+      gazette_story_id: entry.gazette_story_id,
       author: %{
-        username: actor && actor.username,
-        display_name: actor && (actor.display_name || actor.username),
-        avatar_url: actor && actor.avatar_url,
-        domain: actor && actor.domain,
-        ap_id: actor && actor.ap_id,
-        profile_url: get_profile_url(actor)
-      },
-      engagement: %{
-        boosts: entry.boosts_count || 0,
-        likes: entry.likes_count || 0,
-        replies: entry.reply_count || 0
+        username: user.username,
+        display_name: user.display_name || user.username,
+        avatar_url: Avatars.avatar_url(user),
+        avatar_frame: user.avatar_frame
       }
     }
   end
 
-  defp get_profile_url(%{ap_id: ap_id, url: url}) do
-    cond do
-      url && url != "" -> url
-      ap_id && ap_id != "" -> ap_id
-      true -> nil
+  # Methodology shown at the foot of the page, generated from the real
+  # settings so the explanation can't drift from what the code does.
+  defp method do
+    %{
+      sources: Trends.sources(),
+      per_publisher: Editions.max_per_publisher()
+    }
+  end
+
+  defp section_list do
+    Enum.map(Topics.list_topics(), &Map.take(&1, [:id, :label]))
+  end
+
+  defp my_sections(nil), do: []
+  defp my_sections(viewer), do: Topics.get_user_topics(viewer)
+
+  defp blocked_domains(nil) do
+    FediverseBlocks.list_admin_blocked_domains() |> Enum.map(&String.downcase(&1.domain))
+  end
+
+  defp blocked_domains(viewer) do
+    FediverseBlocks.get_all_blocks_for_user(viewer.id).blocked_domains |> Enum.map(&String.downcase/1)
+  end
+
+  defp blocked_url?(_url, []), do: false
+
+  defp blocked_url?(url, domains) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{host: host} when is_binary(host) ->
+        Enum.any?(domains, fn d -> host == d or String.ends_with?(host, "." <> d) end)
+
+      _ ->
+        false
     end
   end
 
-  defp get_profile_url(_), do: nil
+  defp blocked_url?(_, _), do: false
 
-  defp parse_int(nil, default), do: default
-  defp parse_int(val, default) when is_binary(val) do
+  defp parse_int(nil), do: nil
+
+  defp parse_int(val) when is_binary(val) do
     case Integer.parse(val) do
-      {n, _} -> max(n, 1)
-      :error -> default
+      {n, ""} when n > 0 -> n
+      _ -> nil
     end
   end
-  defp parse_int(val, _default) when is_integer(val), do: max(val, 1)
-  defp parse_int(_, default), do: default
+
+  defp parse_int(_), do: nil
 end

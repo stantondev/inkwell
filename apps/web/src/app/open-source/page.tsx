@@ -274,7 +274,7 @@ export default function OpenSourcePage() {
               },
               {
                 label: "Release notes",
-                desc: "Read the Inkwell Gazette for detailed changelogs.",
+                desc: "Detailed changelogs of what shipped, and who suggested it.",
                 href: "/roadmap/releases",
                 external: false,
               },

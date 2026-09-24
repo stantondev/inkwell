@@ -156,6 +156,7 @@ interface EntryData {
   sticky_color?: string | null;
   expanded_into?: { slug: string; title: string | null; username: string } | null;
   source_sticky?: { slug: string; username: string; excerpt: string | null } | null;
+  gazette_story?: { id: string; title: string; url: string; provider_name: string | null } | null;
   author: EntryAuthor;
 }
 
@@ -735,6 +736,16 @@ export default async function EntryPage({ params }: EntryParams) {
               title={entry.source_sticky.excerpt ?? undefined}
             >
               Grew from a sticky &rarr;
+            </Link>
+          )}
+
+          {entry.gazette_story && (
+            <Link
+              href={`/gazette/story/${entry.gazette_story.id}`}
+              className="entry-grew-from entry-grew-from--gazette"
+              title={entry.gazette_story.provider_name ?? undefined}
+            >
+              In response to &ldquo;{entry.gazette_story.title}&rdquo; in the Gazette &rarr;
             </Link>
           )}
 

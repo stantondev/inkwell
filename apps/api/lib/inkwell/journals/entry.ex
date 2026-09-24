@@ -74,6 +74,8 @@ defmodule Inkwell.Journals.Entry do
     field :sticky_color, :string
     # An entry written by expanding a sticky points back at it.
     belongs_to :source_sticky, Inkwell.Journals.Entry
+    # "Write about this" from the Gazette: the news story this entry responds to.
+    belongs_to :gazette_story, Inkwell.Gazette.Story
 
     # Imported posts: where they first lived ("livejournal", "dreamwidth", …),
     # their address there when known, and whether the writer shows the
@@ -145,7 +147,7 @@ defmodule Inkwell.Journals.Entry do
       :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
       :quoted_entry_id, :quoted_remote_entry_id,
-      :kind, :sticky_color, :source_sticky_id
+      :kind, :sticky_color, :source_sticky_id, :gazette_story_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:body_html, :privacy, :user_id])
@@ -196,6 +198,7 @@ defmodule Inkwell.Journals.Entry do
       :published_at,
       :scheduled_at, :scheduled_options,
       :source_sticky_id,
+      :gazette_story_id,
       # "import" for imported posts, so the editor opens them in the rich
       # editor rather than as raw HTML.
       :source

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-gazette",
+    date: "2026-09-24",
+    title: "A new Gazette: the news the fediverse is sharing, twice a day",
+    body: "The Gazette is now a real paper: a morning and an evening edition of the articles people across the fediverse are sharing most, ranked by how many people shared them. No algorithm, no AI. Open any story to see what people are saying about it, and press “Write about this” to answer it in your journal. Your entry shows up beside the story.",
+    howTo: "Gazette in the sidebar (or You → Gazette on your phone). Follow a section to put it first.",
+    href: "/gazette",
+    cta: "Read today’s paper",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-24-schedule-button",
     date: "2026-09-24",
     title: "Schedule a post right from the Publish button",

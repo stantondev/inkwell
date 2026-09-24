@@ -1,150 +1,83 @@
 defmodule Inkwell.Gazette do
   @moduledoc """
-  Context module for the Gazette — fediverse news discovery.
-  Queries relay-sourced remote entries filtered by topic hashtags,
-  applies heuristic quality scoring, and supports optional AI scoring for Plus users.
+  The Inkwell Gazette: a twice-daily paper of the stories the fediverse is
+  sharing (`Inkwell.Gazette.Trends` + `Inkwell.Gazette.Editions`), with what
+  people are saying about each (`Inkwell.Gazette.Conversation`) and the
+  journal entries Inkwell writers wrote in response.
+
+  Responses are public, published entries that either came from "Write about
+  this" (`entries.gazette_story_id`) or link to the story's address.
   """
 
   import Ecto.Query
+
   alias Inkwell.Repo
-  alias Inkwell.Federation.RemoteEntry
-  alias Inkwell.Gazette.{Heuristics, Topics}
+  alias Inkwell.Journals.Entry
+  alias Inkwell.Gazette.Story
 
-  @doc """
-  Lists Gazette entries for the given topics, applying heuristic filtering and scoring.
-
-  Options:
-    - :topics — list of topic IDs (required for filtering)
-    - :page — page number (default 1)
-    - :per_page — entries per page (default 30, max 50)
-    - :blocked_remote_actor_ids — IDs of blocked fediverse actors to exclude
-    - :blocked_domains — list of blocked domain strings to exclude
-    - :include_sensitive — whether to include sensitive content (default false)
-    - :redacted_words — list of words to filter out
-  """
-  def list_entries(opts \\ []) do
-    topics = Keyword.get(opts, :topics, [])
-    page = Keyword.get(opts, :page, 1)
-    per_page = min(Keyword.get(opts, :per_page, 30), 50)
-    blocked_actor_ids = Keyword.get(opts, :blocked_remote_actor_ids, [])
-    blocked_domains = Keyword.get(opts, :blocked_domains, [])
-    include_sensitive = Keyword.get(opts, :include_sensitive, false)
-    redacted_words = Keyword.get(opts, :redacted_words, [])
-
-    hashtags = Topics.hashtags_for_topics(topics)
-
-    # If no topics selected or no hashtags match, return empty
-    if hashtags == [] do
-      {[], 0}
-    else
-      # Fetch more than needed so we can post-filter with heuristics
-      fetch_limit = per_page * 3
-
-      entries =
-        base_query()
-        |> filter_by_hashtags(hashtags)
-        |> exclude_blocked_actors(blocked_actor_ids)
-        |> exclude_blocked_domains(blocked_domains)
-        |> maybe_exclude_sensitive(include_sensitive)
-        |> order_by([e], [desc: fragment("(COALESCE(?, 0) + COALESCE(?, 0))", e.boosts_count, e.likes_count), desc: e.published_at])
-        |> limit(^fetch_limit)
-        |> preload(:remote_actor)
-        |> Repo.all()
-
-      # Apply heuristic filtering and scoring
-      scored_entries =
-        entries
-        |> Enum.filter(&Heuristics.passes_gazette_filter?/1)
-        |> filter_redacted(redacted_words)
-        |> Enum.map(fn entry ->
-          score = Heuristics.quality_score(entry)
-          {entry, score}
-        end)
-        |> Enum.sort_by(fn {_entry, score} -> -score end)
-
-      total = length(scored_entries)
-
-      paged =
-        scored_entries
-        |> Enum.drop((page - 1) * per_page)
-        |> Enum.take(per_page)
-        |> Enum.map(fn {entry, score} ->
-          Map.put(entry, :gazette_quality_score, score)
-        end)
-
-      {paged, total}
+  def get_story(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> Repo.get(Story, uuid)
+      :error -> nil
     end
   end
 
-  @doc "Counts total Gazette-eligible entries for the given topics (for pagination)."
-  def count_entries(topics) do
-    hashtags = Topics.hashtags_for_topics(topics)
+  @doc "How many public responses each story has, as `%{story_id => n}`."
+  def response_counts([]), do: %{}
 
-    if hashtags == [] do
-      0
-    else
-      base_query()
-      |> filter_by_hashtags(hashtags)
-      |> Repo.aggregate(:count)
-    end
+  def response_counts(story_ids) do
+    public_responses()
+    |> where([e], e.gazette_story_id in ^story_ids)
+    |> group_by([e], e.gazette_story_id)
+    |> select([e], {e.gazette_story_id, count(e.id)})
+    |> Repo.all()
+    |> Map.new()
   end
 
-  # Base query: relay-, follow-, or hashtag-sourced entries with published_at.
-  # - `relay`: broad sweep from relay subscriptions (14-day TTL). Dormant when
-  #   no active relays are subscribed.
-  # - `follow`: content from fediverse accounts Inkwell users follow (90-day
-  #   TTL). Useful when users follow journalists directly.
-  # - `hashtag`: sweep of public hashtag timelines from trusted Mastodon
-  #   instances (14-day TTL). Primary Gazette source, ingested by
-  #   `Inkwell.Workers.GazetteHashtagPollingWorker`.
-  defp base_query do
-    RemoteEntry
-    |> where([e], e.source in ["relay", "follow", "hashtag"])
-    |> where([e], not is_nil(e.published_at))
+  @doc "Responses to one story, newest first."
+  def responses_for(%Story{} = story, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    exclude_user_ids = Keyword.get(opts, :exclude_user_ids, [])
+    pattern = "%" <> escape_like(story.url) <> "%"
+
+    public_responses()
+    |> where([e], e.gazette_story_id == ^story.id or like(e.body_html, ^pattern))
+    |> exclude_users(exclude_user_ids)
+    |> order_by([e], desc: e.published_at)
+    |> limit(^limit)
+    |> preload(:user)
+    |> Repo.all()
   end
 
-  defp filter_by_hashtags(query, hashtags) do
-    where(query, [e],
-      fragment(
-        "EXISTS (SELECT 1 FROM unnest(?) AS t(tag) WHERE LOWER(t.tag) = ANY(?))",
-        e.tags,
-        ^hashtags
-      )
-    )
+  @doc "The newest responses to any of the given stories (for the front page)."
+  def recent_responses(story_ids, opts \\ [])
+  def recent_responses([], _opts), do: []
+
+  def recent_responses(story_ids, opts) do
+    limit = Keyword.get(opts, :limit, 6)
+    exclude_user_ids = Keyword.get(opts, :exclude_user_ids, [])
+
+    public_responses()
+    |> where([e], e.gazette_story_id in ^story_ids)
+    |> exclude_users(exclude_user_ids)
+    |> order_by([e], desc: e.published_at)
+    |> limit(^limit)
+    |> preload(:user)
+    |> Repo.all()
   end
 
-  defp exclude_blocked_actors(query, []), do: query
-
-  defp exclude_blocked_actors(query, actor_ids) do
-    where(query, [e], e.remote_actor_id not in ^actor_ids)
+  defp public_responses do
+    Entry
+    |> where([e], e.status == :published and e.privacy == :public)
+    |> where([e], e.user_id not in subquery(blocked_user_ids()))
   end
 
-  defp exclude_blocked_domains(query, []), do: query
-
-  defp exclude_blocked_domains(query, domains) do
-    Enum.reduce(domains, query, fn domain, q ->
-      where(q, [e], fragment("? NOT LIKE ?", e.url, ^"%#{domain}%"))
-    end)
+  defp blocked_user_ids do
+    from u in Inkwell.Accounts.User, where: not is_nil(u.blocked_at), select: u.id
   end
 
-  defp maybe_exclude_sensitive(query, true), do: query
+  defp exclude_users(query, []), do: query
+  defp exclude_users(query, ids), do: where(query, [e], e.user_id not in ^ids)
 
-  defp maybe_exclude_sensitive(query, false) do
-    where(query, [e], e.sensitive == false or is_nil(e.sensitive))
-  end
-
-  defp filter_redacted(entries, []), do: entries
-
-  defp filter_redacted(entries, words) do
-    Enum.reject(entries, fn entry ->
-      Inkwell.Redactions.matches_redaction?(entry_text(entry), words)
-    end)
-  end
-
-  defp entry_text(entry) do
-    title = entry.title || ""
-    body = (entry.body_html || "") |> String.replace(~r/<[^>]+>/, " ")
-    tags = (entry.tags || []) |> Enum.join(" ")
-    "#{title} #{body} #{tags}"
-  end
+  defp escape_like(s), do: String.replace(s, ~r/([\\%_])/, "\\\\\\1")
 end

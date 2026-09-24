@@ -143,6 +143,7 @@ defmodule InkwellWeb.EntryController do
           |> Map.put(:marginalia, marginalia)
           |> Map.put(:orphaned_marginalia, orphaned_marginalia)
           |> Map.put(:source_sticky, source_sticky_link(entry, viewer))
+          |> Map.put(:gazette_story, gazette_story_link(entry))
           |> then(fn rendered -> hd(put_sticky_expansions([rendered], viewer && viewer.id)) end)
 
         # Include per-entry postage stats for the author only
@@ -284,8 +285,10 @@ defmodule InkwellWeb.EntryController do
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning", "published_at",
-                      "scheduled_at", "scheduled_options", "source_sticky_id"])
+                      "scheduled_at", "scheduled_options", "source_sticky_id",
+                      "gazette_story_id"])
         |> put_source_sticky(user.id)
+        |> put_gazette_story()
         |> put_music_metadata()
         |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
@@ -312,8 +315,10 @@ defmodule InkwellWeb.EntryController do
         |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
-                      "sensitive", "content_warning", "source_sticky_id"])
+                      "sensitive", "content_warning", "source_sticky_id",
+                      "gazette_story_id"])
         |> put_source_sticky(user.id)
+        |> put_gazette_story()
         |> put_music_metadata()
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
@@ -452,6 +457,27 @@ defmodule InkwellWeb.EntryController do
   end
 
   defp put_source_sticky(attrs, _user_id), do: Map.delete(attrs, "source_sticky_id")
+
+  # "Write about this" from the Gazette sends the story it came from. A story
+  # that no longer exists is dropped rather than failing the save.
+  defp put_gazette_story(%{"gazette_story_id" => id} = attrs) when is_binary(id) and id != "" do
+    case Inkwell.Gazette.get_story(id) do
+      %{id: story_id} -> Map.put(attrs, "gazette_story_id", story_id)
+      nil -> Map.delete(attrs, "gazette_story_id")
+    end
+  end
+
+  defp put_gazette_story(attrs), do: Map.delete(attrs, "gazette_story_id")
+
+  # The Gazette story an entry responds to, for the "In response to" line.
+  defp gazette_story_link(%{gazette_story_id: nil}), do: nil
+
+  defp gazette_story_link(%{gazette_story_id: id}) do
+    case Inkwell.Gazette.get_story(id) do
+      nil -> nil
+      s -> %{id: s.id, title: s.title, url: s.url, provider_name: s.provider_name}
+    end
+  end
 
   # POST /api/entries/:id/publish — transition draft → published
   def publish(conn, %{"id" => id} = params) do

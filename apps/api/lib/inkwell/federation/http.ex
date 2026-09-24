@@ -124,11 +124,14 @@ defmodule Inkwell.Federation.Http do
   # process for 30 seconds, contributing to the multi-endpoint slowdowns
   # observed at peak fan-out times.
   defp http_opts(extra \\ []) do
-    [
-      {:ssl, Inkwell.SSL.httpc_opts()},
-      {:timeout, 5_000},
-      {:connect_timeout, 3_000}
-    ] ++ extra
+    Keyword.merge(
+      [
+        {:ssl, Inkwell.SSL.httpc_opts()},
+        {:timeout, 5_000},
+        {:connect_timeout, 3_000}
+      ],
+      extra
+    )
   end
 
   @doc """
@@ -158,7 +161,15 @@ defmodule Inkwell.Federation.Http do
         redirect_opts =
           if Keyword.get(opts, :follow_redirects, true), do: [], else: [{:autoredirect, false}]
 
-        case :httpc.request(:get, {url_cl, headers}, http_opts(redirect_opts), []) do
+        # `timeout:` for the few non-federation reads that are slow by nature
+        # (Mastodon's link timeline); federation fetches keep the 5s default.
+        timeout_opts =
+          case Keyword.get(opts, :timeout) do
+            ms when is_integer(ms) -> [{:timeout, ms}]
+            _ -> []
+          end
+
+        case :httpc.request(:get, {url_cl, headers}, http_opts(redirect_opts ++ timeout_opts), []) do
           {:ok, {{_, status, _}, _resp_headers, body}} ->
             {:ok, {status, :erlang.list_to_binary(body)}}
 

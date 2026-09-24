@@ -1558,6 +1558,8 @@ export function EditorClient() {
   const promptParam = searchParams.get("prompt");
   // "Expand into an entry" from a sticky: start from its text and link back to it
   const fromStickyId = editId ? null : searchParams.get("from_sticky");
+  // "Write about this" from the Gazette: start from the story and link back to it
+  const fromGazetteId = editId ? null : searchParams.get("gazette");
 
   const [state, setState] = useState<EditorState>({
     title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
@@ -1630,6 +1632,7 @@ export function EditorClient() {
   const createdHereRef = useRef<string | null>(null);
   // Set once the sticky this entry grows from has loaded; sent when the entry is first created.
   const sourceStickyRef = useRef<string | null>(null);
+  const gazetteStoryRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [storageExceeded, setStorageExceeded] = useState(false);
 
@@ -2226,6 +2229,35 @@ export function EditorClient() {
     return () => { cancelled = true; };
   }, [fromStickyId, editor]);
 
+  // Writing about a Gazette story: quote its headline and link it at the top
+  useEffect(() => {
+    if (!fromGazetteId || !editor || gazetteStoryRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/gazette/stories/${encodeURIComponent(fromGazetteId)}`);
+        if (!res.ok) return;
+        const { data: story } = await res.json();
+        if (cancelled || !story?.id || editor.getText().trim()) return;
+        gazetteStoryRef.current = story.id;
+        const esc = (t: string) =>
+          t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const publisher = story.provider_name || new URL(story.url).hostname.replace(/^www\./, "");
+        const deck = story.description ? `<p>${esc(story.description)}</p>` : "";
+        editor.commands.setContent(
+          `<blockquote><p><strong>${esc(story.title)}</strong></p>${deck}` +
+            `<p><a href="${esc(story.url)}">Read it at ${esc(publisher)}</a></p></blockquote><p></p>`
+        );
+        editor.commands.focus("end");
+        setHasContent(true);
+        setWordCount(editor.storage.characterCount.words());
+      } catch {
+        /* start from a blank page */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fromGazetteId, editor]);
+
   // Apply writing prompt for first-time users from onboarding
   const promptApplied = useRef(false);
   useEffect(() => {
@@ -2327,6 +2359,7 @@ export function EditorClient() {
         content_warning: state.sensitive ? (state.contentWarning || null) : null,
         ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
         ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
+        ...(gazetteStoryRef.current ? { gazette_story_id: gazetteStoryRef.current } : {}),
       };
 
       if (savedEntryId) {
@@ -2619,6 +2652,7 @@ export function EditorClient() {
       content_warning: state.sensitive ? (state.contentWarning || null) : null,
       ...datePayload(state.publishedAt, loadedPublishedAt, isDraft, wasScheduled),
       ...(sourceStickyRef.current ? { source_sticky_id: sourceStickyRef.current } : {}),
+      ...(gazetteStoryRef.current ? { gazette_story_id: gazetteStoryRef.current } : {}),
     };
     // Newsletter fields — only include when sending
     if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {

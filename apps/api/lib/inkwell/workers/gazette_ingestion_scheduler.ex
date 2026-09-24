@@ -1,7 +1,8 @@
 defmodule Inkwell.Workers.GazetteIngestionScheduler do
   @moduledoc """
   Oban cron worker that fans out one `GazetteHashtagPollingWorker` job per
-  `{instance, topic}` pair every 30 minutes.
+  `{instance, topic}` pair every 6 hours. The posts it stores feed Explore's
+  fediverse section (the Gazette itself now reads trending links).
 
   Each topic in `Inkwell.Gazette.Topics` has multiple associated hashtags.
   Polling every hashtag on every cycle would generate too many outbound
@@ -83,11 +84,12 @@ defmodule Inkwell.Workers.GazetteIngestionScheduler do
     end
   end
 
-  # Minute-of-day as the rotation index. Cron fires every 30 minutes, so this
-  # advances by 30 each tick — different enough to pick a new hashtag for
-  # each topic on each tick while still being fully deterministic.
-  defp rotation_index do
-    now = DateTime.utc_now()
-    now.hour * 60 + now.minute
+  # One step per 6-hour tick, counted from the Unix epoch, so every tick moves
+  # each topic on to its next hashtag. (This used to be the minute of day,
+  # which moved 360 per tick: topics with 9, 10 or 12 hashtags polled the same
+  # one forever — "World" only ever fetched #unitednations.)
+  @doc false
+  def rotation_index(now \\ DateTime.utc_now()) do
+    div(DateTime.to_unix(now), 6 * 60 * 60)
   end
 end
