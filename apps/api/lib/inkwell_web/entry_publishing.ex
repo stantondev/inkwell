@@ -27,6 +27,7 @@ defmodule InkwellWeb.EntryPublishing do
     end
 
     Inkwell.Circles.after_entry_published(entry)
+    maybe_make_circle_prompt(entry, user, options)
     maybe_queue_spam_check(user, entry)
     maybe_send_newsletter(entry, user, options)
     maybe_enqueue_crossposts(entry, user, options)
@@ -37,6 +38,23 @@ defmodule InkwellWeb.EntryPublishing do
 
     entry
   end
+
+  @doc """
+  "Make this the circle's prompt" from the editor (`"circle_as_prompt": true`).
+  Only for a published entry in a circle whose owner or moderator is `user`;
+  anything else is ignored rather than failing the save.
+  """
+  def maybe_make_circle_prompt(%{status: :published, circle_id: circle_id} = entry, user, %{"circle_as_prompt" => true})
+      when is_binary(circle_id) do
+    with %{} = circle <- Inkwell.Circles.get_circle(circle_id),
+         role when role in [:owner, :moderator] <- Inkwell.Circles.get_user_role(circle_id, user.id) do
+      Inkwell.Circles.set_prompt(circle, entry.id, user)
+    end
+
+    :ok
+  end
+
+  def maybe_make_circle_prompt(_entry, _user, _options), do: :ok
 
   @doc """
   Turns @username in an entry into profile links and, once the entry is

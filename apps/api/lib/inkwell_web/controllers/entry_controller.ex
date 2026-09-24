@@ -250,7 +250,7 @@ defmodule InkwellWeb.EntryController do
               InkwellWeb.PollController.render_poll(poll, my_vote)
           end
 
-        result = render_entry_full(entry, user) |> Map.put(:poll, poll_data)
+        result = render_entry_full(entry, user) |> Map.put(:poll, poll_data) |> put_is_circle_prompt(entry)
         json(conn, %{data: result})
 
       {:error, :not_found} ->
@@ -422,7 +422,9 @@ defmodule InkwellWeb.EntryController do
             # Re-index in Meilisearch (published entries only)
             if updated.status == :published, do: enqueue_search_index(updated.id)
 
-            json(conn, %{data: render_entry_full(updated, user)})
+            EntryPublishing.maybe_make_circle_prompt(updated, user, params)
+
+            json(conn, %{data: render_entry_full(updated, user) |> put_is_circle_prompt(updated)})
 
           {:error, changeset} ->
             conn
@@ -531,6 +533,14 @@ defmodule InkwellWeb.EntryController do
       end
 
     attrs |> Map.put("circle_id", circle_id) |> Map.put("circle_prompt_id", prompt_id)
+  end
+
+  # For the editor's "Make this the circle's prompt" box.
+  defp put_is_circle_prompt(rendered, %{circle_id: nil}), do: Map.put(rendered, :is_circle_prompt, false)
+
+  defp put_is_circle_prompt(rendered, entry) do
+    circle = Inkwell.Circles.get_circle(entry.circle_id)
+    Map.put(rendered, :is_circle_prompt, circle != nil and circle.prompt_entry_id == entry.id)
   end
 
   defp not_circle_member(conn) do
@@ -1326,7 +1336,8 @@ defmodule InkwellWeb.EntryController do
         "send_newsletter" => opts["send_newsletter"] == true,
         "newsletter_subject" => if(is_binary(opts["newsletter_subject"]), do: String.slice(opts["newsletter_subject"], 0, 500)),
         "newsletter_scheduled_at" => if(is_binary(opts["newsletter_scheduled_at"]), do: opts["newsletter_scheduled_at"]),
-        "crosspost_to" => if(is_list(opts["crosspost_to"]), do: Enum.filter(opts["crosspost_to"], &is_binary/1), else: [])
+        "crosspost_to" => if(is_list(opts["crosspost_to"]), do: Enum.filter(opts["crosspost_to"], &is_binary/1), else: []),
+        "circle_as_prompt" => opts["circle_as_prompt"] == true
       }
       |> Map.reject(fn {_k, v} -> is_nil(v) end)
 

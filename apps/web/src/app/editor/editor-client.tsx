@@ -73,6 +73,7 @@ interface MyCircle {
   id: string;
   name: string;
   slug: string;
+  viewer_role?: string | null;
 }
 
 // <input type="datetime-local"> works in the writer's local time, to the minute.
@@ -1578,6 +1579,9 @@ export function EditorClient() {
     circleId: fromCircleId, circlePromptId: fromCircleId ? fromCirclePromptId : null,
   });
   const [myCircles, setMyCircles] = useState<MyCircle[] | null>(null);
+  // "Make this the circle's prompt" (owners and moderators). Pre-ticked by
+  // the circle page's "Write a prompt".
+  const [circleAsPrompt, setCircleAsPrompt] = useState(!!fromCircleId && searchParams.get("circle_as_prompt") === "1");
   // Title of the prompt being answered, when it's the circle's current one.
   const [circlePromptTitle, setCirclePromptTitle] = useState<string | null>(null);
   // The entry's date as loaded, so saves only send it when the writer changes it.
@@ -2097,7 +2101,7 @@ export function EditorClient() {
     fetch("/api/my-circles")
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((d: { data?: MyCircle[] }) => {
-        if (!cancelled) setMyCircles((d.data ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug })));
+        if (!cancelled) setMyCircles((d.data ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug, viewer_role: c.viewer_role })));
       })
       .catch(() => !cancelled && setMyCircles([]));
     return () => { cancelled = true; };
@@ -2198,6 +2202,7 @@ export function EditorClient() {
           circleId: entry.circle_id ?? null,
           circlePromptId: entry.circle_prompt_id ?? null,
         });
+        setCircleAsPrompt(!!entry.is_circle_prompt);
         setLoadedPublishedAt(toLocalInput(entry.scheduled_at || entry.published_at));
         setWasScheduled(!!entry.scheduled_at);
         setCoverImageId(entry.cover_image_id ?? null);
@@ -2720,8 +2725,11 @@ export function EditorClient() {
     if (crosspostTo.size > 0 && state.privacy === "public") {
       payload.crosspost_to = Array.from(crosspostTo);
     }
+    if (state.circleId && circleAsPrompt) {
+      payload.circle_as_prompt = true;
+    }
     return payload;
-  }, [state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
+  }, [circleAsPrompt, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   // Resolves once no autosave is in flight, with the entry id to save to
@@ -2809,7 +2817,7 @@ export function EditorClient() {
       if (scheduling) {
         // Saved as a draft that publishes itself. The newsletter and cross-post
         // choices are kept with it and applied when it goes live.
-        const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, ...rest } = buildPayload();
+        const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, circle_as_prompt, ...rest } = buildPayload();
         const res = await fetch(targetEntryId ? `/api/entries/${targetEntryId}` : "/api/entries", {
           method: targetEntryId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -2817,7 +2825,7 @@ export function EditorClient() {
             ...rest,
             status: "draft",
             scheduled_at: new Date(state.publishedAt).toISOString(),
-            scheduled_options: { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to },
+            scheduled_options: { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, circle_as_prompt },
           }),
         });
         if (!res.ok) {
@@ -3103,7 +3111,8 @@ export function EditorClient() {
               <div className="editor-circle-note">
                 ◎ Posting in{" "}
                 <strong>{myCircles?.find((c) => c.id === state.circleId)?.name ?? "a circle"}</strong>
-                {state.circlePromptId && (
+                {circleAsPrompt && <> · as the circle&rsquo;s prompt</>}
+                {state.circlePromptId && !circleAsPrompt && (
                   <> · answering {circlePromptTitle ? <>&ldquo;{circlePromptTitle}&rdquo;</> : "the prompt"}</>
                 )}
                 {state.privacy === "circle" && <> · members only</>}
@@ -3450,6 +3459,7 @@ export function EditorClient() {
                         ? (state.privacy === "public" || state.privacy === "circle" ? state.privacy : "circle")
                         : (state.privacy === "circle" ? "private" : state.privacy);
                       update({ circleId: id, circlePromptId: null, privacy, customFilterId: null });
+                      if (!id) setCircleAsPrompt(false);
                     }}
                     className="editor-settings-select">
                     <option value="">Not in a circle</option>
@@ -3460,6 +3470,24 @@ export function EditorClient() {
                       <option value={state.circleId}>A circle you&rsquo;ve left</option>
                     )}
                   </select>
+                  {state.circleId &&
+                    ["owner", "moderator"].includes(myCircles?.find((c) => c.id === state.circleId)?.viewer_role ?? "") && (
+                    <label className="editor-circle-prompt-toggle">
+                      <input
+                        type="checkbox"
+                        checked={circleAsPrompt}
+                        onChange={(e) => {
+                          setCircleAsPrompt(e.target.checked);
+                          // A prompt isn't also an answer to another prompt.
+                          if (e.target.checked) update({ circlePromptId: null });
+                        }}
+                      />
+                      <span>
+                        <strong>Make this the circle&rsquo;s prompt</strong>
+                        <span>It&rsquo;s pinned at the top with a &ldquo;Write about this&rdquo; button, and members are told about it when you publish.</span>
+                      </span>
+                    </label>
+                  )}
                   {state.circleId && (
                     <div className="editor-settings-hint" style={{ marginTop: 8 }}>
                       {state.circlePromptId ? (

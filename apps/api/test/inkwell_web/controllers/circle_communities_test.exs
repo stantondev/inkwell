@@ -189,6 +189,40 @@ defmodule InkwellWeb.CircleCommunitiesTest do
       assert circle_entry_ids(member, circle, "?prompt=#{prompt["id"]}") == [answer["id"]]
     end
 
+    test "the editor's checkbox makes a new post the prompt" do
+      owner = established()
+      member = established()
+      circle = make_circle(owner)
+      join(member, circle)
+
+      entry =
+        post_entry(owner, %{circle_id: circle["id"], title: "This month's question", circle_as_prompt: true})
+        |> json_response(201)
+        |> Map.fetch!("data")
+
+      assert Repo.get!(Inkwell.Circles.Circle, circle["id"]).prompt_entry_id == entry["id"]
+      assert Repo.exists?(from n in Notification, where: n.user_id == ^member.id and n.type == :circle_prompt)
+      assert conn_for(owner) |> get("/api/entries/#{entry["id"]}") |> json_response(200) |> get_in(["data", "is_circle_prompt"])
+    end
+
+    test "ticking the box on an already-published post makes it the prompt" do
+      owner = established()
+      circle = make_circle(owner)
+      entry = post_entry(owner, %{circle_id: circle["id"]}) |> json_response(201) |> Map.fetch!("data")
+
+      conn_for(owner) |> patch("/api/entries/#{entry["id"]}", %{circle_as_prompt: true}) |> json_response(200)
+      assert Repo.get!(Inkwell.Circles.Circle, circle["id"]).prompt_entry_id == entry["id"]
+    end
+
+    test "the checkbox does nothing for plain members" do
+      owner = established()
+      member = established()
+      circle = make_circle(owner)
+      join(member, circle)
+      post_entry(member, %{circle_id: circle["id"], circle_as_prompt: true}) |> json_response(201)
+      assert Repo.get!(Inkwell.Circles.Circle, circle["id"]).prompt_entry_id == nil
+    end
+
     test "plain members can't set the prompt" do
       owner = established()
       member = established()

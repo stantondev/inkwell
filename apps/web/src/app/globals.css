@@ -9072,6 +9072,10 @@ html.dark .poll-vote-option--selected {
   background: var(--accent);
   color: var(--background);
 }
+.circle-prompt--empty {
+  border-left-style: dashed;
+  background: transparent;
+}
 .circle-prompt-title {
   display: block;
   margin-top: 0.375rem;
@@ -9217,6 +9221,25 @@ html.dark .poll-vote-option--selected {
   font-size: 1.0625rem;
   color: var(--foreground);
 }
+.editor-circle-prompt-toggle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.editor-circle-prompt-toggle:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.editor-circle-prompt-toggle input { margin-top: 0.2rem; accent-color: var(--accent); }
+.editor-circle-prompt-toggle strong { display: block; color: var(--foreground); font-weight: 600; }
+.editor-circle-prompt-toggle span span { color: var(--muted); font-size: 0.75rem; }
 .editor-circle-note {
   margin: -0.25rem 0 1rem;
   font-size: 0.8125rem;

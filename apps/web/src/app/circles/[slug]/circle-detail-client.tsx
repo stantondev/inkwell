@@ -254,10 +254,31 @@ export default function CircleDetailClient({
               </button>
             )}
             {canModerate && (
-              <button className="circle-link-btn" onClick={clearPrompt}>
-                Clear prompt
-              </button>
+              <>
+                <Link href={`${writeHref}&circle_as_prompt=1`} className="circle-link-btn" style={{ textDecoration: "none" }}>
+                  Write a new prompt
+                </Link>
+                <button className="circle-link-btn" onClick={clearPrompt}>
+                  Clear prompt
+                </button>
+              </>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* No prompt yet: the owner/moderators' way in */}
+      {!prompt && canModerate && (
+        <section className="circle-prompt circle-prompt--empty" aria-label="Write a prompt">
+          <div className="circle-prompt-label">No prompt yet</div>
+          <p className="circle-prompt-excerpt" style={{ marginTop: "0.25rem" }}>
+            Give the circle something to write about. Your prompt is pinned here with a &ldquo;Write about
+            this&rdquo; button, and everyone in the circle is told about it.
+          </p>
+          <div className="circle-prompt-actions">
+            <Link href={`${writeHref}&circle_as_prompt=1`} className="circle-btn" style={{ textDecoration: "none" }}>
+              Write a prompt
+            </Link>
           </div>
         </section>
       )}
@@ -277,7 +298,6 @@ export default function CircleDetailClient({
               <>
                 <p className="circle-empty">
                   Write an entry and it&rsquo;ll appear here and in every member&rsquo;s Feed.
-                  {canModerate ? " Then make it the circle's prompt to give everyone something to write about." : ""}
                 </p>
                 <Link href={writeHref} className="circle-btn" style={{ textDecoration: "none" }}>
                   Write the first post
