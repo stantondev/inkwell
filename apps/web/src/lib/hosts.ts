@@ -25,21 +25,3 @@ export function isCustomDomainHost(host: string | null | undefined): boolean {
   const h = normalizeHost(host);
   return h.length > 0 && !KNOWN_HOSTS.has(h);
 }
-
-/**
- * Writer subdomains (`alice.inkwell.social`) exist only to give writers who
- * share their journal on Bluesky an `@alice.inkwell.social` handle through
- * Bridgy Fed, which reads `/.well-known/atproto-did` on that host. Every other
- * request to one is sent to the writer's profile on inkwell.social, because the
- * session cookie is host-only and the site is not served twice.
- *
- * Returns the username label, or null. DNS labels can't hold underscores, so
- * usernames with one can't have a subdomain handle.
- */
-const RESERVED_SUBDOMAINS = new Set(["www", "api", "post", "mail", "search"]);
-
-export function writerSubdomain(host: string | null | undefined): string | null {
-  const m = /^([a-z0-9]{3,30})\.inkwell\.social$/.exec(normalizeHost(host));
-  if (!m || RESERVED_SUBDOMAINS.has(m[1])) return null;
-  return m[1];
-}

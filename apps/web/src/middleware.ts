@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
-import { KNOWN_HOSTS, writerSubdomain } from "@/lib/hosts";
+import { KNOWN_HOSTS } from "@/lib/hosts";
 import {
   ATTRIBUTION_COOKIE,
   ATTRIBUTION_MAX_AGE,
@@ -82,18 +82,6 @@ export async function middleware(request: NextRequest) {
   if (host === "www.inkwell.social") {
     return NextResponse.redirect(
       new URL(pathname + request.nextUrl.search, "https://inkwell.social"),
-      308
-    );
-  }
-
-  // ── alice.inkwell.social → inkwell.social/alice ───────────────────────
-  // These hosts exist for Bluesky handles (see writerSubdomain); the handle
-  // check itself is a /.well-known route, which this middleware never sees.
-  const subdomainUser = writerSubdomain(host);
-  if (subdomainUser) {
-    const path = pathname === "/" ? "" : pathname;
-    return NextResponse.redirect(
-      new URL(`/${subdomainUser}${path}${request.nextUrl.search}`, "https://inkwell.social"),
       308
     );
   }
