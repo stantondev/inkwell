@@ -39,8 +39,25 @@ export interface CircleEntry {
   circle_prompt_id: string | null;
   response_count?: number | null;
   kind?: string;
+  /** Entries answering this one (it started a thread) */
+  answer_count?: number;
+  answers?: CircleEntry[];
+  /** The post or its newest answer, whichever is later */
+  last_activity_at?: string;
+  body_html?: string;
+  is_current?: boolean;
   author: CirclePerson | null;
 }
+
+export interface CircleThread {
+  circle: { id: string; name: string; slug: string; viewer_role: string | null; is_member: boolean };
+  prompt: CircleEntry;
+  answers: CircleEntry[];
+  answer_count: number;
+  viewer_answered: boolean;
+}
+
+export const threadHref = (circleSlug: string, entryId: string) => `/circles/${circleSlug}/t/${entryId}`;
 
 export interface Circle {
   id: string;

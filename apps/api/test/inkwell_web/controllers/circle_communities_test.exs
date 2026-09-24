@@ -242,6 +242,44 @@ defmodule InkwellWeb.CircleCommunitiesTest do
     end
   end
 
+  describe "threads" do
+    test "any member's post is a thread; answers sit under it, not in the list" do
+      owner = established()
+      member = established()
+      circle = make_circle(owner)
+      join(member, circle)
+
+      thread = post_entry(member, %{circle_id: circle["id"], title: "Rough draft, be kind"}) |> json_response(201) |> Map.fetch!("data")
+      other = post_entry(owner, %{circle_id: circle["id"], title: "Older post"}) |> json_response(201) |> Map.fetch!("data")
+      answer =
+        post_entry(owner, %{circle_id: circle["id"], circle_prompt_id: thread["id"], title: "Loved it"})
+        |> json_response(201)
+        |> Map.fetch!("data")
+
+      # The member hears about the answer to their post
+      assert Repo.exists?(from n in Notification, where: n.user_id == ^member.id and n.type == :circle_prompt_response)
+
+      list = build_conn() |> get("/api/circles/#{circle["id"]}/entries?top_level=1") |> json_response(200) |> Map.fetch!("data")
+      # Answers aren't threads; the thread with the newest answer comes first
+      assert Enum.map(list, & &1["id"]) == [thread["id"], other["id"]]
+      assert hd(list)["answer_count"] == 1
+
+      page = build_conn() |> get("/api/circles/#{circle["id"]}/threads/#{thread["id"]}") |> json_response(200) |> Map.fetch!("data")
+      assert page["prompt"]["title"] == "Rough draft, be kind"
+      assert page["prompt"]["body_html"]
+      assert Enum.map(page["answers"], & &1["id"]) == [answer["id"]]
+      assert hd(page["answers"])["body_html"]
+    end
+
+    test "a thread from another circle isn't found" do
+      owner = established()
+      a = make_circle(owner, "Circle A")
+      b = make_circle(owner, "Circle B")
+      entry = post_entry(owner, %{circle_id: a["id"]}) |> json_response(201) |> Map.fetch!("data")
+      assert build_conn() |> get("/api/circles/#{b["id"]}/threads/#{entry["id"]}") |> json_response(404)
+    end
+  end
+
   describe "removing posts and circles" do
     test "the owner takes a post out; a members-only post becomes private" do
       owner = established()

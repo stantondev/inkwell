@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import MemberStrip from "./member-strip";
 import MembersSection from "./members-section";
 import DiscussionCard from "./discussion-card";
-import CircleEntryCard from "./circle-entry-card";
+import ThreadRow from "./thread-row";
 import { ShareButton } from "@/components/share-button";
-import { CATEGORY_LABELS, type Circle, type CircleEntry } from "../circle-types";
+import { CATEGORY_LABELS, threadHref, type Circle, type CircleEntry } from "../circle-types";
 
 interface Discussion {
   id: string;
@@ -46,7 +46,6 @@ export default function CircleDetailClient({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [promptFilter, setPromptFilter] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -62,8 +61,10 @@ export default function CircleDetailClient({
     let cancelled = false;
     setLoading(true);
     setLoadError(false);
-    const qs = new URLSearchParams({ page: String(page) });
-    if (promptFilter && prompt) qs.set("prompt", prompt.id);
+    // Threads: posts that aren't answers, most recently active first. The
+    // pinned prompt is shown above the list rather than in it.
+    const qs = new URLSearchParams({ page: String(page), top_level: "1" });
+    if (prompt) qs.set("exclude", prompt.id);
 
     fetch(`/api/circles/${circle.id}/entries?${qs}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
@@ -78,7 +79,7 @@ export default function CircleDetailClient({
     return () => {
       cancelled = true;
     };
-  }, [circle.id, page, promptFilter, prompt, isMember, reloadKey]);
+  }, [circle.id, page, prompt, isMember, reloadKey]);
 
   const reload = useCallback(() => {
     // Prompt/removal changes also change the header, so refresh server data too.
@@ -126,15 +127,6 @@ export default function CircleDetailClient({
       // ignore
     }
     setJoining(false);
-  };
-
-  const clearPrompt = async () => {
-    if (!window.confirm("Clear the prompt? The entry stays in the circle.")) return;
-    const res = await fetch(`/api/circles/${circle.id}/prompt`, { method: "DELETE" });
-    if (res.ok) {
-      setPromptFilter(false);
-      reload();
-    }
   };
 
   const toggleArchive = async () => {
@@ -189,7 +181,7 @@ export default function CircleDetailClient({
         <div className="circle-actions">
           {isMember ? (
             <Link href={writeHref} className="circle-btn" style={{ textDecoration: "none" }}>
-              Write in this circle
+              + New thread
             </Link>
           ) : (
             <button onClick={handleJoin} disabled={joining} className="circle-btn">
@@ -207,8 +199,9 @@ export default function CircleDetailClient({
 
         {!isMember && (
           <p className="circle-howto">
-            Members post journal entries here. Each post stays on its writer&rsquo;s journal and shows up in every
-            member&rsquo;s Feed; some are for members only. Join to read those and to post.
+            Every thread here starts with a journal entry, and members answer with entries of their own. They stay on
+            each writer&rsquo;s journal and show up in every member&rsquo;s Feed; some are for members only. Join to
+            read those and to write.
           </p>
         )}
       </header>
@@ -219,101 +212,75 @@ export default function CircleDetailClient({
         </div>
       )}
 
-      {/* The prompt */}
-      {prompt && (
-        <section className="circle-prompt" aria-label="This circle's prompt">
-          <div className="circle-prompt-label">This circle&rsquo;s prompt</div>
-          <Link
-            href={prompt.author ? `/${prompt.author.username}/${prompt.slug}` : "#"}
-            className="circle-prompt-title"
-          >
-            {prompt.title || "Untitled"}
-          </Link>
-          {prompt.excerpt && <p className="circle-prompt-excerpt">{prompt.excerpt}</p>}
-          <div className="circle-prompt-actions">
+      {/* Threads */}
+      <section style={{ marginTop: "0.5rem" }}>
+        <h2 className="circle-section-heading">Threads</h2>
+
+        {prompt && (
+          <ThreadRow
+            entry={prompt}
+            circleId={circle.id}
+            circleSlug={circle.slug}
+            canModerate={canModerate}
+            currentUserId={currentUserId}
+            pinned
+            onChanged={reload}
+          />
+        )}
+        {prompt && (
+          <div className="circle-thread-cta">
             {isMember ? (
               <Link href={`${writeHref}&circle_prompt=${prompt.id}`} className="circle-btn" style={{ textDecoration: "none" }}>
-                Write about this
+                Write your answer
               </Link>
             ) : (
               <button onClick={handleJoin} className="circle-btn" disabled={joining}>
                 Join to answer
               </button>
             )}
-            {(prompt.response_count ?? 0) > 0 && (
-              <button
-                className="circle-link-btn"
-                onClick={() => {
-                  setPromptFilter((v) => !v);
-                  setPage(1);
-                }}
-              >
-                {promptFilter
-                  ? "Show every post"
-                  : `Read ${prompt.response_count} answer${prompt.response_count === 1 ? "" : "s"}`}
-              </button>
-            )}
-            {canModerate && (
-              <>
-                <Link href={`${writeHref}&circle_as_prompt=1`} className="circle-link-btn" style={{ textDecoration: "none" }}>
-                  Write a new prompt
-                </Link>
-                <button className="circle-link-btn" onClick={clearPrompt}>
-                  Clear prompt
-                </button>
-              </>
-            )}
+            <Link href={threadHref(circle.slug, prompt.id)} className="circle-link-btn" style={{ textDecoration: "none" }}>
+              Read the thread &rarr;
+            </Link>
           </div>
-        </section>
-      )}
-
-      {/* No prompt yet: the owner/moderators' way in */}
-      {!prompt && canModerate && (
-        <section className="circle-prompt circle-prompt--empty" aria-label="Write a prompt">
-          <div className="circle-prompt-label">No prompt yet</div>
-          <p className="circle-prompt-excerpt" style={{ marginTop: "0.25rem" }}>
-            Give the circle something to write about. Your prompt is pinned here with a &ldquo;Write about
-            this&rdquo; button, and everyone in the circle is told about it.
-          </p>
-          <div className="circle-prompt-actions">
-            <Link href={`${writeHref}&circle_as_prompt=1`} className="circle-btn" style={{ textDecoration: "none" }}>
+        )}
+        {!prompt && canModerate && (
+          <div className="circle-thread-cta circle-thread-cta--empty">
+            <span>No pinned prompt. Pin one to give everyone something to write about.</span>
+            <Link href={`${writeHref}&circle_as_prompt=1`} className="circle-link-btn" style={{ textDecoration: "none" }}>
               Write a prompt
             </Link>
           </div>
-        </section>
-      )}
-
-      {/* Posts */}
-      <section style={{ marginTop: "1.5rem" }}>
-        <h2 className="circle-section-heading">{promptFilter ? "Answers to the prompt" : "Posts"}</h2>
+        )}
 
         {loadError && entries.length === 0 ? (
-          <p className="circle-empty">We couldn&rsquo;t load this circle&rsquo;s posts. Refresh to try again.</p>
+          <p className="circle-empty">We couldn&rsquo;t load this circle&rsquo;s threads. Refresh to try again.</p>
         ) : loading && entries.length === 0 ? (
           <p className="circle-empty">Loading…</p>
-        ) : entries.length === 0 ? (
+        ) : entries.length === 0 && !prompt ? (
           <div className="circle-empty-card">
-            <p className="circle-empty-title">Nothing posted here yet</p>
+            <p className="circle-empty-title">No threads yet</p>
             {isMember ? (
               <>
                 <p className="circle-empty">
-                  Write an entry and it&rsquo;ll appear here and in every member&rsquo;s Feed.
+                  Start one with a journal entry. It appears here and in every member&rsquo;s Feed, and members
+                  answer it with entries of their own.
                 </p>
                 <Link href={writeHref} className="circle-btn" style={{ textDecoration: "none" }}>
-                  Write the first post
+                  Start the first thread
                 </Link>
               </>
             ) : (
-              <p className="circle-empty">Join and write the first post.</p>
+              <p className="circle-empty">Join and start the first thread.</p>
             )}
           </div>
         ) : (
           <>
             {entries.map((e) => (
-              <CircleEntryCard
+              <ThreadRow
                 key={e.id}
                 entry={e}
                 circleId={circle.id}
+                circleSlug={circle.slug}
                 canModerate={canModerate}
                 currentUserId={currentUserId}
                 onChanged={reload}
@@ -322,7 +289,7 @@ export default function CircleDetailClient({
             {entries.length < total && (
               <div style={{ textAlign: "center", marginTop: "1rem" }}>
                 <button className="circle-btn circle-btn--outline" disabled={loading} onClick={() => setPage((p) => p + 1)}>
-                  {loading ? "Loading…" : "Older posts"}
+                  {loading ? "Loading…" : "More threads"}
                 </button>
               </div>
             )}

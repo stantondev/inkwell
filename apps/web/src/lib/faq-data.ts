@@ -191,7 +191,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "circles",
     question: "What are Circles?",
     answer:
-      'Circles are small communities of writers, like LiveJournal communities. Join one, then write an ordinary entry and choose the circle under Circle in the editor\'s Entry Settings. The entry stays on your journal and also appears on the circle page and in every member\'s Feed. It can be public or for circle members only (members-only posts are never sent to the fediverse). A circle\'s owner or moderators can pin an entry as the prompt, and anyone in the circle can answer it with "Write about this". Anyone whose account is at least a week old can start a circle: up to 3 on the free plan, 10 with Plus. Find them at <a href="/circles">Circles</a>.',
+      'Circles are small communities of writers. A circle is a list of threads: any member starts one by writing an ordinary journal entry in the circle (press "New thread", or choose the circle under Circle in the editor\'s Entry Settings), and members answer it with entries of their own ("Write your answer" on the thread). Answers appear under the thread, and every post stays on its writer\'s journal and shows in members\' Feeds. Posts can be public or for circle members only (never sent to the fediverse). Owners and moderators can pin a thread as the circle\'s prompt. There are no votes: threads are sorted by latest activity. Anyone whose account is at least a week old can start a circle: up to 3 on the free plan, 10 with Plus. Find them at <a href="/circles">Circles</a>.',
     category: "social",
   },
   {

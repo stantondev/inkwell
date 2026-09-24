@@ -431,17 +431,118 @@ defmodule Inkwell.Circles do
         _ -> query
       end
 
+    # The circle page lists answers under their prompt, not as posts of their own.
+    query = if Keyword.get(opts, :top_level), do: where(query, [e], is_nil(e.circle_prompt_id)), else: query
+
+    query =
+      case Keyword.get(opts, :exclude_id) do
+        id when is_binary(id) -> where(query, [e], e.id != ^id)
+        _ -> query
+      end
+
     total = Repo.aggregate(query, :count)
+
+    query =
+      case Keyword.get(opts, :order, :newest) do
+        # Thread list: most recent activity (the post or its newest answer) first
+        :activity ->
+          order_by(query, [e],
+            desc:
+              fragment(
+                "GREATEST(?, COALESCE((SELECT max(a.published_at) FROM entries a WHERE a.circle_prompt_id = ? AND a.status = 'published'), ?))",
+                e.published_at,
+                e.id,
+                e.published_at
+              )
+          )
+
+        # Answers in a thread read top to bottom
+        :oldest ->
+          order_by(query, [e], asc: e.published_at)
+
+        _ ->
+          order_by(query, [e], desc: e.published_at)
+      end
 
     entries =
       query
-      |> order_by([e], desc: e.published_at)
       |> limit(^per_page)
       |> offset(^((page - 1) * per_page))
       |> preload([:user])
       |> Repo.all()
 
     {entries, total}
+  end
+
+  @doc "Newest answer time per thread: `%{entry_id => DateTime}`."
+  def last_answer_at([]), do: %{}
+
+  def last_answer_at(ids) do
+    from(e in Entry,
+      where: e.circle_prompt_id in ^ids and e.status == :published,
+      group_by: e.circle_prompt_id,
+      select: {e.circle_prompt_id, max(e.published_at)}
+    )
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc "One published entry in `circle` that `viewer` may read, or nil."
+  def get_circle_entry(%Circle{} = circle, entry_id, viewer) do
+    circle
+    |> circle_entries_query(viewer)
+    |> where([e], e.id == ^entry_id)
+    |> preload([:user])
+    |> Repo.one()
+  end
+
+  @doc """
+  For each of `prompt_ids`: how many answers `viewer` can read and the newest
+  `limit` of them, as `%{prompt_id => {count, [entry]}}` (oldest first, like a
+  thread).
+  """
+  def answer_previews(_circle, _viewer, [], _limit), do: %{}
+
+  def answer_previews(%Circle{} = circle, viewer, prompt_ids, limit) do
+    base = circle |> circle_entries_query(viewer) |> where([e], e.circle_prompt_id in ^prompt_ids)
+
+    counts =
+      base
+      |> group_by([e], e.circle_prompt_id)
+      |> select([e], {e.circle_prompt_id, count(e.id)})
+      |> Repo.all()
+      |> Map.new()
+
+    ranked =
+      from(e in subquery(
+             base
+             |> select([e], %{
+               id: e.id,
+               prompt_id: e.circle_prompt_id,
+               rank: over(row_number(), partition_by: e.circle_prompt_id, order_by: [desc: e.published_at])
+             })
+           ),
+           where: e.rank <= ^limit,
+           select: {e.prompt_id, e.id}
+      )
+      |> Repo.all()
+
+    entries =
+      from(e in Entry, where: e.id in ^Enum.map(ranked, &elem(&1, 1)), preload: [:user])
+      |> Repo.all()
+      |> Enum.sort_by(& &1.published_at, DateTime)
+      |> Enum.group_by(& &1.circle_prompt_id)
+
+    Map.new(counts, fn {pid, n} -> {pid, {n, Map.get(entries, pid, [])}} end)
+  end
+
+  @doc "`%{entry_id => title}` for a list of entry ids (for \"Answering …\" labels)."
+  def entry_titles([]), do: %{}
+
+  def entry_titles(ids) do
+    from(e in Entry, where: e.id in ^Enum.uniq(ids), select: {e.id, e.title})
+    |> Repo.all()
+    |> Map.new()
   end
 
   @doc "The circle's current prompt, if `viewer` may read it."
@@ -581,7 +682,7 @@ defmodule Inkwell.Circles do
         actor_id: entry.user_id,
         target_type: "entry",
         target_id: entry.id,
-        data: %{circle_slug: circle.slug, circle_name: circle.name, prompt_title: prompt.title}
+        data: %{circle_slug: circle.slug, circle_name: circle.name, prompt_title: prompt.title, prompt_id: prompt.id}
       })
     end
 

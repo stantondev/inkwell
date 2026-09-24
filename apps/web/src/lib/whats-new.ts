@@ -27,9 +27,9 @@ export const WHATS_NEW: WhatsNewItem[] = [
   {
     id: "2026-09-24-circles",
     date: "2026-09-24",
-    title: "Circles are communities you write into",
-    body: "A circle is now like a LiveJournal community. Write an ordinary entry, choose a circle in its settings, and it shows on the circle page and in every member’s Feed while staying on your journal. Posts can be public or for circle members only. Circle owners can pin an entry as the prompt, with a “Write about this” button. And anyone whose account is a week old can start a circle now, not just Plus members.",
-    howTo: "Circles in the sidebar (or You → Circles on your phone). Join one, then pick it under Circle in the editor’s Entry Settings.",
+    title: "Circles are now threads you write into",
+    body: "A circle is now a list of threads. Start one with an ordinary journal entry, and members answer it with entries of their own. Every answer appears under the thread and stays on its writer’s journal, and posts can be public or for circle members only. Owners can pin a thread as the circle’s prompt. And anyone whose account is a week old can start a circle, not just Plus members.",
+    howTo: "Circles in the sidebar (or You → Circles on your phone). Join one, press “New thread”, or open a thread and press “Write your answer”.",
     href: "/circles",
     cta: "Find a circle",
     tag: "Writing",

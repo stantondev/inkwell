@@ -125,7 +125,8 @@ export function notificationText(n: Notification): string {
     }
     case "circle_prompt_response": {
       const where = n.data?.circle_name ? ` in ${n.data.circle_name}` : "";
-      return `answered your prompt${where}`;
+      const title = n.data?.prompt_title as string | undefined;
+      return title ? `answered “${title}”${where}` : `answered your post${where}`;
     }
     case "circle_new_member": {
       const circleName3 = n.data?.circle_name as string | undefined;
@@ -236,6 +237,13 @@ export function getNotificationHref(n: Notification): string | null {
   // Circle notifications link to the circle or discussion
   if ((n.type === "circle_response" || n.type === "circle_mention") && n.data?.circle_slug && n.data?.discussion_id) {
     return `/circles/${n.data.circle_slug}/${n.data.discussion_id}`;
+  }
+  // A new prompt opens its thread; an answer opens the thread at that answer.
+  if (n.type === "circle_prompt" && n.data?.circle_slug && n.target_id) {
+    return `/circles/${n.data.circle_slug}/t/${n.target_id}`;
+  }
+  if (n.type === "circle_prompt_response" && n.data?.circle_slug && n.data?.prompt_id) {
+    return `/circles/${n.data.circle_slug}/t/${n.data.prompt_id}#answer-${n.target_id}`;
   }
   if (n.type === "circle_new_member" && n.data?.circle_slug) {
     return `/circles/${n.data.circle_slug}`;

@@ -5,7 +5,7 @@ import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
 type Params = { params: Promise<{ id: string }> };
 
-// GET /api/circles/:id/entries?page=&prompt= — entries posted to a circle
+// GET /api/circles/:id/entries?page=&prompt=&top_level=1&exclude= — entries posted to a circle
 // (optional auth: members also see members-only posts)
 export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params;
@@ -14,10 +14,10 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const qs = new URLSearchParams();
-  const page = req.nextUrl.searchParams.get("page");
-  const prompt = req.nextUrl.searchParams.get("prompt");
-  if (page) qs.set("page", page);
-  if (prompt) qs.set("prompt", prompt);
+  for (const key of ["page", "prompt", "top_level", "exclude"]) {
+    const value = req.nextUrl.searchParams.get(key);
+    if (value) qs.set(key, value);
+  }
 
   const res = await upstreamFetch(`${SERVER_API}/api/circles/${id}/entries?${qs}`, { headers, cache: "no-store" });
   return proxyJson(res);

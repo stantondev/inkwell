@@ -81,9 +81,8 @@ defmodule InkwellWeb.CircleController do
                 nil
 
               entry ->
-                entry
-                |> render_circle_entry(circle)
-                |> Map.put(:response_count, Map.get(Circles.prompt_response_counts([entry.id]), entry.id, 0))
+                [rendered] = put_answer_previews([render_circle_entry(entry, circle)], circle, viewer, 3)
+                rendered
             end
 
           json(conn, %{
@@ -525,7 +524,15 @@ defmodule InkwellWeb.CircleController do
       page = parse_int(params["page"], 1)
       prompt_id = with p when is_binary(p) <- params["prompt"], {:ok, p} <- Ecto.UUID.cast(p), do: p, else: (_ -> nil)
 
-      {entries, total} = Circles.list_circle_entries(circle, viewer, page: page, per_page: 20, prompt_id: prompt_id)
+      {entries, total} =
+        Circles.list_circle_entries(circle, viewer,
+          page: page,
+          per_page: 20,
+          prompt_id: prompt_id,
+          top_level: params["top_level"] == "1",
+          order: if(params["top_level"] == "1", do: :activity, else: :newest),
+          exclude_id: with(x when is_binary(x) <- params["exclude"], {:ok, x} <- Ecto.UUID.cast(x), do: x, else: (_ -> nil))
+        )
 
       comment_counts = Inkwell.Journals.count_comments_for_entries(Enum.map(entries, & &1.id))
       response_counts = Circles.prompt_response_counts(if circle.prompt_entry_id, do: [circle.prompt_entry_id], else: [])
@@ -533,14 +540,23 @@ defmodule InkwellWeb.CircleController do
       my_inks =
         if viewer, do: Inkwell.Inks.get_user_inks_for_entries(viewer.id, Enum.map(entries, & &1.id)), else: MapSet.new()
 
+      prompt_titles =
+        entries
+        |> Enum.map(& &1.circle_prompt_id)
+        |> Enum.reject(&is_nil/1)
+        |> Circles.entry_titles()
+
       data =
         Enum.map(entries, fn entry ->
           entry
           |> render_circle_entry(circle)
+          |> Map.put(:circle_prompt, entry.circle_prompt_id && %{id: entry.circle_prompt_id, title: Map.get(prompt_titles, entry.circle_prompt_id)})
           |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
           |> Map.put(:my_ink, MapSet.member?(my_inks, entry.id))
           |> Map.put(:response_count, Map.get(response_counts, entry.id))
         end)
+        |> put_answer_previews(circle, viewer, 0)
+        |> put_last_activity()
 
       json(conn, %{
         data: data,
@@ -548,6 +564,57 @@ defmodule InkwellWeb.CircleController do
       })
     else
       _ -> conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
+    end
+  end
+
+  # GET /api/circles/:id/threads/:entry_id (optional auth) — a thread's page:
+  # the post that started it in full, whether it's the pinned prompt, and the
+  # entries written in answer, oldest first.
+  def thread_show(conn, %{"id" => id, "entry_id" => entry_id} = params) do
+    viewer = conn.assigns[:current_user]
+
+    with {:ok, _} <- Ecto.UUID.cast(id),
+         {:ok, _} <- Ecto.UUID.cast(entry_id),
+         %{} = circle <- Circles.get_circle(id),
+         false <- viewer != nil and Social.is_blocked_between?(viewer.id, circle.owner_id),
+         %Inkwell.Journals.Entry{} = prompt <- Circles.get_circle_entry(circle, entry_id, viewer) do
+      page = parse_int(params["page"], 1)
+
+      {answers, total} =
+        Circles.list_circle_entries(circle, viewer, page: page, per_page: 30, prompt_id: prompt.id, order: :oldest)
+
+      comment_counts = Inkwell.Journals.count_comments_for_entries(Enum.map(answers, & &1.id))
+      role = if viewer, do: Circles.get_user_role(circle.id, viewer.id)
+
+      json(conn, %{
+        data: %{
+          circle: %{
+            id: circle.id,
+            name: circle.name,
+            slug: circle.slug,
+            viewer_role: role,
+            is_member: role != nil
+          },
+          prompt:
+            prompt
+            |> render_circle_entry(circle)
+            |> Map.put(:body_html, prompt.body_html)
+            |> Map.put(:is_current, circle.prompt_entry_id == prompt.id)
+            |> Map.put(:comment_count, Map.get(Inkwell.Journals.count_comments_for_entries([prompt.id]), prompt.id, 0)),
+          answers:
+            Enum.map(answers, fn a ->
+              a
+              |> render_circle_entry(circle)
+              |> Map.put(:body_html, a.body_html)
+              |> Map.put(:comment_count, Map.get(comment_counts, a.id, 0))
+            end),
+          answer_count: total,
+          viewer_answered: viewer != nil and Enum.any?(answers, &(&1.user_id == viewer.id)),
+          pagination: %{page: page, per_page: 30, total: total, total_pages: ceil(total / 30)}
+        }
+      })
+    else
+      _ -> conn |> put_status(:not_found) |> json(%{error: "Prompt not found"})
     end
   end
 
@@ -630,6 +697,30 @@ defmodule InkwellWeb.CircleController do
   defp sort_time(nil), do: 0
   defp sort_time(%DateTime{} = at), do: DateTime.to_unix(at, :microsecond)
   defp sort_time(%NaiveDateTime{} = at), do: at |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix(:microsecond)
+
+  # `answers` (newest few, oldest first) and `answer_count` on every entry that
+  # has answers the viewer can read, so prompts render as threads.
+  defp put_answer_previews(rendered, circle, viewer, limit) do
+    previews = Circles.answer_previews(circle, viewer, Enum.map(rendered, & &1.id), limit)
+
+    Enum.map(rendered, fn r ->
+      {count, answers} = Map.get(previews, r.id, {0, []})
+
+      r
+      |> Map.put(:answer_count, count)
+      |> Map.put(:answers, Enum.map(answers, &render_circle_entry(&1, circle)))
+    end)
+  end
+
+  defp put_last_activity(rendered) do
+    latest = Circles.last_answer_at(Enum.map(rendered, & &1.id))
+
+    Enum.map(rendered, fn r ->
+      answered = Map.get(latest, r.id)
+      last = if answered && DateTime.compare(answered, r.published_at) == :gt, do: answered, else: r.published_at
+      Map.put(r, :last_activity_at, last)
+    end)
+  end
 
   defp render_circle_entry(entry, circle) do
     user = entry.user

@@ -160,6 +160,7 @@ defmodule InkwellWeb.Router do
     get "/circles", CircleController, :index
     get "/circles/:slug", CircleController, :show
     get "/circles/:id/entries", CircleController, :entries
+    get "/circles/:id/threads/:entry_id", CircleController, :thread_show
 
     # Writer plans (public/optional-auth)
     get "/writer-plans/by-writer/:username", WriterSubscriptionController, :get_writer_plan

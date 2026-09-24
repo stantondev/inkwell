@@ -757,18 +757,20 @@ export default async function EntryPage({ params }: EntryParams) {
 
           {entry.circle && (
             <div className="entry-circle-line">
-              <Link href={`/circles/${entry.circle.slug}`} className="entry-grew-from">
-                {entry.circle.is_prompt ? "The prompt" : "Posted"} in {entry.circle.name}
-                {entry.privacy === "circle" ? " · members only" : ""} &rarr;
-              </Link>
-              {entry.circle_prompt && (
-                <Link href={`/${entry.circle_prompt.username}/${entry.circle_prompt.slug}`} className="entry-grew-from">
-                  Answering &ldquo;{entry.circle_prompt.title || "the prompt"}&rdquo; &rarr;
+              {entry.circle_prompt ? (
+                <Link href={`/circles/${entry.circle.slug}/t/${entry.circle_prompt.id}`} className="entry-grew-from">
+                  An answer to &ldquo;{entry.circle_prompt.title || "a thread"}&rdquo; in {entry.circle.name}
+                  {entry.privacy === "circle" ? " · members only" : ""} &rarr;
+                </Link>
+              ) : (
+                <Link href={`/circles/${entry.circle.slug}/t/${entry.id}`} className="entry-grew-from">
+                  {entry.circle.is_prompt ? "The pinned prompt" : "A thread"} in {entry.circle.name}
+                  {entry.privacy === "circle" ? " · members only" : ""} &rarr;
                 </Link>
               )}
-              {entry.circle.is_prompt && entry.circle.viewer_role && (
+              {!entry.circle_prompt && entry.circle.viewer_role && (
                 <Link href={`/editor?circle=${entry.circle.id}&circle_prompt=${entry.id}`} className="entry-grew-from">
-                  Write about this &rarr;
+                  Write your answer &rarr;
                 </Link>
               )}
             </div>

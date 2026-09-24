@@ -186,16 +186,16 @@ export default function GuidePage() {
             public hello on someone&rsquo;s page. They get a notification.
           </p>
           <p>
-            <strong>Circles</strong> are small communities of writers. Join one
-            on{" "}
+            <strong>Circles</strong> are small communities of writers, organised
+            in threads. Join one on{" "}
             <Link href="/circles" className="underline" style={{ color: "var(--accent)" }}>
               Circles
             </Link>
-            , then choose it under <em>Circle</em> in the editor&rsquo;s Entry
-            Settings. Your entry stays on your journal and also shows on the
-            circle page and in every member&rsquo;s Feed, publicly or for
-            members only. If the circle has a prompt, press <em>Write about
-            this</em> to answer it.
+            , then press <em>New thread</em> to start one with a journal entry,
+            or open a thread and press <em>Write your answer</em>. Answers
+            appear under the thread, and every post stays on its writer&rsquo;s
+            journal and shows in members&rsquo; Feeds, publicly or for members
+            only.
           </p>
           <p>
             You can follow writers from other fediverse platforms too — just

@@ -1583,7 +1583,10 @@ export function EditorClient() {
   // the circle page's "Write a prompt".
   const [circleAsPrompt, setCircleAsPrompt] = useState(!!fromCircleId && searchParams.get("circle_as_prompt") === "1");
   // Title of the prompt being answered, when it's the circle's current one.
-  const [circlePromptTitle, setCirclePromptTitle] = useState<string | null>(null);
+  // The thread being answered, shown above the title.
+  const [answering, setAnswering] = useState<{ title: string | null; excerpt: string | null; author: string | null } | null>(null);
+  // The circle's pinned prompt, so "Pin as the circle's prompt" can say what it replaces.
+  const [pinnedPrompt, setPinnedPrompt] = useState<{ id: string; title: string | null } | null>(null);
   // The entry's date as loaded, so saves only send it when the writer changes it.
   const [loadedPublishedAt, setLoadedPublishedAt] = useState("");
   // Whether the draft was already scheduled when it was opened.
@@ -2107,25 +2110,44 @@ export function EditorClient() {
     return () => { cancelled = true; };
   }, []);
 
-  // Name the prompt being answered (only the circle's current prompt has a
-  // title handy; an older one just says "a prompt").
-  const promptCircleSlug = myCircles?.find((c) => c.id === state.circleId)?.slug;
+  const circleSlug = myCircles?.find((c) => c.id === state.circleId)?.slug;
+  const circleRole = myCircles?.find((c) => c.id === state.circleId)?.viewer_role ?? null;
+
+  // The thread this entry answers.
   useEffect(() => {
-    if (!state.circlePromptId || !promptCircleSlug) {
-      setCirclePromptTitle(null);
+    if (!state.circleId || !state.circlePromptId) {
+      setAnswering(null);
       return;
     }
     let cancelled = false;
-    fetch(`/api/circles/${encodeURIComponent(promptCircleSlug)}`)
+    fetch(`/api/circles/${state.circleId}/threads/${state.circlePromptId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => {
         if (cancelled) return;
-        const prompt = d?.data?.prompt;
-        setCirclePromptTitle(prompt && prompt.id === state.circlePromptId ? prompt.title || "Untitled" : null);
+        const p = d?.data?.prompt;
+        setAnswering(p ? { title: p.title, excerpt: p.excerpt, author: p.author?.display_name || p.author?.username || null } : null);
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [state.circlePromptId, promptCircleSlug]);
+  }, [state.circleId, state.circlePromptId]);
+
+  // The circle's pinned prompt (only matters to owners and moderators).
+  useEffect(() => {
+    if (!circleSlug || !["owner", "moderator"].includes(circleRole ?? "")) {
+      setPinnedPrompt(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/circles/${encodeURIComponent(circleSlug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const p = d?.data?.prompt;
+        setPinnedPrompt(p ? { id: p.id, title: p.title } : null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [circleSlug, circleRole]);
 
   // Fetch series options eagerly on mount
   useEffect(() => {
@@ -2725,7 +2747,7 @@ export function EditorClient() {
     if (crosspostTo.size > 0 && state.privacy === "public") {
       payload.crosspost_to = Array.from(crosspostTo);
     }
-    if (state.circleId && circleAsPrompt) {
+    if (state.circleId && circleAsPrompt && !state.circlePromptId) {
       payload.circle_as_prompt = true;
     }
     return payload;
@@ -2915,10 +2937,14 @@ export function EditorClient() {
       clearAutosaveTimers();
       clearLocalRecovery();
 
+      // An answer goes back to its thread, where it now appears.
+      const threadSlug = myCircles?.find((c) => c.id === state.circleId)?.slug;
       router.push(
         scheduling
           ? "/drafts?scheduled=1"
-          : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`
+          : state.circlePromptId && threadSlug && entry.status === "published"
+            ? `/circles/${threadSlug}/t/${state.circlePromptId}?answered=${entry.id}`
+            : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`
       );
     } catch (err) {
       const verb = isDraft && isFutureDate(state.publishedAt) ? "schedule" : isDraft ? "publish" : "save";
@@ -2926,7 +2952,7 @@ export function EditorClient() {
     } finally {
       setIsPublishing(false);
     }
-  }, [editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
+  }, [myCircles, state.circleId, state.circlePromptId, editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
   if (loadError) {
     return (
@@ -3111,11 +3137,25 @@ export function EditorClient() {
               <div className="editor-circle-note">
                 ◎ Posting in{" "}
                 <strong>{myCircles?.find((c) => c.id === state.circleId)?.name ?? "a circle"}</strong>
-                {circleAsPrompt && <> · as the circle&rsquo;s prompt</>}
-                {state.circlePromptId && !circleAsPrompt && (
-                  <> · answering {circlePromptTitle ? <>&ldquo;{circlePromptTitle}&rdquo;</> : "the prompt"}</>
-                )}
+                {circleAsPrompt && !state.circlePromptId && <> · pinned as the circle&rsquo;s prompt</>}
                 {state.privacy === "circle" && <> · members only</>}
+              </div>
+            )}
+            {state.circleId && state.circlePromptId && !focusMode && (
+              <div className="editor-answering">
+                <div className="editor-answering-label">You&rsquo;re answering</div>
+                <span className="editor-answering-title">{answering?.title || "a thread"}</span>
+                {answering?.excerpt && <p className="editor-answering-excerpt">{answering.excerpt}</p>}
+                <div className="editor-answering-actions">
+                  {circleSlug && (
+                    <a href={`/circles/${circleSlug}/t/${state.circlePromptId}`} target="_blank" rel="noopener">
+                      Read the thread ↗
+                    </a>
+                  )}
+                  <button type="button" onClick={() => update({ circlePromptId: null })}>
+                    Post it as a new thread instead
+                  </button>
+                </div>
               </div>
             )}
 
@@ -3470,37 +3510,29 @@ export function EditorClient() {
                       <option value={state.circleId}>A circle you&rsquo;ve left</option>
                     )}
                   </select>
-                  {state.circleId &&
-                    ["owner", "moderator"].includes(myCircles?.find((c) => c.id === state.circleId)?.viewer_role ?? "") && (
+                  {state.circleId && !state.circlePromptId &&
+                    ["owner", "moderator"].includes(circleRole ?? "") && (
                     <label className="editor-circle-prompt-toggle">
                       <input
                         type="checkbox"
                         checked={circleAsPrompt}
-                        onChange={(e) => {
-                          setCircleAsPrompt(e.target.checked);
-                          // A prompt isn't also an answer to another prompt.
-                          if (e.target.checked) update({ circlePromptId: null });
-                        }}
+                        onChange={(e) => setCircleAsPrompt(e.target.checked)}
                       />
                       <span>
-                        <strong>Make this the circle&rsquo;s prompt</strong>
-                        <span>It&rsquo;s pinned at the top with a &ldquo;Write about this&rdquo; button, and members are told about it when you publish.</span>
+                        <strong>Pin as the circle&rsquo;s prompt</strong>
+                        <span>
+                          {pinnedPrompt && pinnedPrompt.id !== savedEntryId
+                            ? <>Replaces the pinned prompt, &ldquo;{pinnedPrompt.title || "Untitled"}&rdquo;. Members are told when you publish.</>
+                            : "It's pinned at the top of the circle, and members are told when you publish."}
+                        </span>
                       </span>
                     </label>
                   )}
                   {state.circleId && (
                     <div className="editor-settings-hint" style={{ marginTop: 8 }}>
-                      {state.circlePromptId ? (
-                        <>
-                          Answering {circlePromptTitle ? <>&ldquo;{circlePromptTitle}&rdquo;</> : "a prompt"}.{" "}
-                          <button type="button" onClick={() => update({ circlePromptId: null })}
-                            style={{ color: "var(--accent)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
-                            Don&rsquo;t link it
-                          </button>
-                        </>
-                      ) : (
-                        "It stays on your journal and shows on the circle page and in members' Feeds."
-                      )}
+                      {state.circlePromptId
+                        ? <>An answer in the thread &ldquo;{answering?.title || "…"}&rdquo;. It stays on your journal too.</>
+                        : "Starts a new thread in the circle. It stays on your journal and shows in members' Feeds."}
                     </div>
                   )}
                 </div>
