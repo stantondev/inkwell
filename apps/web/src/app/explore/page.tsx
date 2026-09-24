@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
+import { siteLookOf } from "@/lib/site-look";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
@@ -339,6 +340,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           entries={entries}
           page={page}
           basePath="/explore"
+          look={siteLookOf(session?.user.settings)}
           loadMorePath={(() => {
             const p = new URLSearchParams();
             if (category) p.set("category", category);

@@ -38,7 +38,7 @@ import { MarginaliaReader } from "@/components/marginalia/marginalia-reader";
 import { StickyNoteCard } from "@/components/sticky-note-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { StickyActions } from "./sticky-actions";
-import { MoodIcon } from "@/components/mood-icon";
+import { CurrentBlock } from "@/components/current-block";
 import { resolveMood, familyHue } from "@/lib/moods";
 
 function truncate(str: string, max: number): string {
@@ -185,44 +185,6 @@ function getMoodHue(moodKey: string | null | undefined, mood: string | null): nu
   if (!mood) return null;
   const resolved = resolveMood(moodKey, mood);
   return resolved ? familyHue(resolved.family) : 220;
-}
-
-/**
- * LiveJournal's "Current mood: / Current music: / Current location:" rows,
- * under the byline. Music with a player shows the track's name here and the
- * player below.
- */
-function CurrentBlock({ entry, musicEmbed }: { entry: EntryData; musicEmbed: MusicEmbed | null }) {
-  const music = entry.music ? (musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null;
-  if (!entry.mood && !music && !entry.location) return null;
-  return (
-    <dl className="entry-current">
-      {entry.mood && (
-        <>
-          <dt className="entry-current-label">Current mood:</dt>
-          <dd className="entry-current-value">
-            <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={22} />
-            <span>{entry.mood}</span>
-          </dd>
-        </>
-      )}
-      {music && (
-        <>
-          <dt className="entry-current-label">Current music:</dt>
-          <dd className="entry-current-value">
-            <span aria-hidden="true">♪</span>
-            <span>{music}</span>
-          </dd>
-        </>
-      )}
-      {entry.location && (
-        <>
-          <dt className="entry-current-label">Current location:</dt>
-          <dd className="entry-current-value">{entry.location}</dd>
-        </>
-      )}
-    </dl>
-  );
 }
 
 /** Service icon SVGs for music embed header */
@@ -860,7 +822,13 @@ export default async function EntryPage({ params }: EntryParams) {
 
           </div>
 
-          <CurrentBlock entry={entry} musicEmbed={musicEmbed} />
+          <CurrentBlock
+            mood={entry.mood}
+            moodKey={entry.mood_key}
+            moodTheme={entry.mood_theme}
+            music={entry.music ? (musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
+            location={entry.location}
+          />
 
           {/* ── Embedded music player ──────────────────────────────── */}
           {musicEmbed && (

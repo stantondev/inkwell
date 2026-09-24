@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { getSessionSafe } from "@/lib/session";
+import { siteLookOf } from "@/lib/site-look";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const lora = Lora({ variable: "--font-lora", subsets: ["latin"], display: "swap" });
@@ -93,7 +94,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body className={`${inter.variable} ${lora.variable} antialiased`} suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${lora.variable} antialiased`}
+        data-look={siteLookOf(session?.user.settings) === "classic" ? "classic" : undefined}
+        suppressHydrationWarning
+      >
         {/*
           Browser page translation (Chrome's built-in Google Translate, very
           common on Android) replaces text nodes with <font> wrappers. React

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-classic-view",
+    date: "2026-09-24",
+    title: "Classic view: Inkwell the 2004 way",
+    body: "Turn on Classic view and Feed and Explore become a LiveJournal-style friends page: one long column, big userpics, the username bar with the date, “Subject:”, Current mood / music / location, and “( 3 comments | Leave a comment )”. The rest of the site switches to the colours and type of the early-2000s web, in light and dark. Only you see it, and you can switch back any time.",
+    howTo: "“Classic view (2004)” in the sidebar under Settings (on your phone: You → Classic view), or Settings → Look & feel.",
+    href: "/settings/look",
+    cta: "Choose your look",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-24-moods",
     date: "2026-09-24",
     title: "Moods have faces again",

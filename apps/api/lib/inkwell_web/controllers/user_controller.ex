@@ -165,7 +165,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme()
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -682,6 +682,10 @@ defmodule InkwellWeb.UserController do
   # the default by being dropped.
   defp sanitize_mood_theme(%{"mood_theme" => theme} = settings) when theme in ["classic", "ink"], do: settings
   defp sanitize_mood_theme(settings), do: Map.delete(settings, "mood_theme")
+
+  # Reader's look & feel: "modern" (default) or "classic" (the 2004 view).
+  defp sanitize_site_look(%{"site_look" => look} = settings) when look in ["modern", "classic"], do: settings
+  defp sanitize_site_look(settings), do: Map.delete(settings, "site_look")
 
   defp sanitize_redacted_words(settings) do
     case Map.get(settings, "redacted_words") do

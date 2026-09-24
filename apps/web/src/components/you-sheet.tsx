@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LookSwitch } from "./look-switch";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -187,6 +188,7 @@ export function YouSheet({
               </>
             )}
             <Row href="/settings" label="Settings" icon={<SettingsIcon size={20} />} />
+            <LookSwitch variant="sheet" />
             <Row href="/settings/invite" label="Invite friends" icon={<InviteIcon size={20} />} />
             <Row href="/help" label="Help" icon={<HelpIcon size={20} />} />
             {isAdmin && <Row href="/admin" label="Admin" icon={<AdminIcon size={20} />} />}

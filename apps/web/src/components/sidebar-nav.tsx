@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { LookSwitch } from "./look-switch";
 import Link from "next/link";
 import { useLiveNavCounts } from "./live-nav-counts";
 import { SignOutButton } from "./sign-out-button";
@@ -344,6 +345,7 @@ export function SidebarNav({
           active={isActive("/notifications")}
         />
         <NavItem href="/settings" icon={<SettingsIcon />} label="Settings" active={isActive("/settings")} />
+        <LookSwitch variant="sidebar" />
 
         {subscriptionTier !== "plus" && (
           <Link

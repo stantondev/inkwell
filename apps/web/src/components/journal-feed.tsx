@@ -12,6 +12,7 @@ import { DoubleTapInk } from "./double-tap-ink";
 import { emitEntryState, useEntryState } from "@/lib/entry-state";
 import { packEntriesIntoSpreads } from "@/lib/page-packing";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
+import { ClassicFeed } from "./classic-feed";
 
 interface TranslationData {
   translated_title: string | null;
@@ -38,6 +39,8 @@ interface JournalFeedProps {
   session?: FeedSession | null;
   /** Put stickies the viewer posts at the front of this feed as soon as they're posted. */
   showNewStickies?: boolean;
+  /** "classic": the reader chose the 2004 view, a LiveJournal friends page. */
+  look?: "modern" | "classic";
 }
 
 export function JournalFeed({
@@ -49,6 +52,7 @@ export function JournalFeed({
   emptyState,
   session,
   showNewStickies = false,
+  look = "modern",
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -298,6 +302,19 @@ export function JournalFeed({
       />
     );
   }
+  if (look === "classic") {
+    return (
+      <ClassicFeed
+        entries={entries}
+        renderActions={renderActions}
+        translations={translations}
+        hasMore={hasMore}
+        loading={loading}
+        onLoadMore={loadMorePath ? loadMore : undefined}
+      />
+    );
+  }
+
 
   const renderCard = (entry: JournalEntry, bookMode = false) => {
     const isOwnEntry = session ? entry.author.id === session.userId : false;

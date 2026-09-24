@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
+import { siteLookOf } from "@/lib/site-look";
 import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
@@ -535,6 +536,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
           entries={entries}
           page={page}
           basePath="/feed"
+          look={siteLookOf(session?.user.settings)}
           showNewStickies={(!activeSource || activeSource === "inkwell") && !category}
           loadMorePath={(() => {
             const p = new URLSearchParams();

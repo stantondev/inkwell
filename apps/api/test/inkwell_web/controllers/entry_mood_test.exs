@@ -66,4 +66,15 @@ defmodule InkwellWeb.EntryMoodTest do
 
     refute Map.has_key?(Repo.reload!(user).settings || %{}, "mood_theme")
   end
+
+  test "the Classic view setting keeps only known looks" do
+    user = create_user()
+    conn = build_conn() |> log_in_user(user)
+
+    patch(conn, "/api/me", %{settings: %{site_look: "classic"}}) |> json_response(200)
+    assert Repo.reload!(user).settings["site_look"] == "classic"
+
+    build_conn() |> log_in_user(user) |> patch("/api/me", %{settings: %{site_look: "geocities"}}) |> json_response(200)
+    refute Map.has_key?(Repo.reload!(user).settings, "site_look")
+  end
 end

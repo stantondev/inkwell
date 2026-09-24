@@ -88,6 +88,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "writing",
   },
   {
+    id: "classic-view",
+    question: "Can Inkwell look like LiveJournal did?",
+    answer:
+      "Yes. Turn on <strong>Classic view (2004)</strong> from the sidebar (on your phone: <strong>You</strong> → Classic view), or in Settings → <strong>Look &amp; feel</strong>. Feed and Explore become a LiveJournal-style friends page, and the rest of the site takes on the early-web colours and type. Only you see it; writers&rsquo; journals keep their own themes. Switch back to Modern the same way.",
+    category: "writing",
+  },
+  {
     id: "moods",
     question: "How do moods work?",
     answer:

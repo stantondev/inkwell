@@ -36,11 +36,13 @@ export function LocalDate({
     }
   }, []);
 
+  // Intl.DateTimeFormat prints only the fields asked for, so time-only
+  // options give "4:07 PM" (toLocaleDateString always added the date).
   let text: string;
   try {
-    text = new Date(iso).toLocaleDateString("en-US", { ...options, timeZone });
+    text = new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(new Date(iso));
   } catch {
-    text = new Date(iso).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
+    text = new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(new Date(iso));
   }
 
   if (!asTime) {

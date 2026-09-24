@@ -16343,3 +16343,214 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .gz-masthead-date, .gz-masthead-count { display: none; }
   .gz-responds { padding: 1.1rem; }
 }
+
+/* ─── Classic view (2004) — lib/site-look.ts, components/classic-feed.tsx ──
+   A reader setting. data-look="classic" on <body> re-points the site's colour
+   and font tokens at a LiveJournal-era palette (blue-grey page, white boxes,
+   gradient header bars, Verdana, blue underlined links). Feed and Explore
+   also switch to the friends-page layout. Writers' own profile themes are
+   left alone: a journal still looks the way its writer made it. */
+
+body[data-look="classic"] {
+  --background: #d8e0ec;
+  --surface: #ffffff;
+  --surface-hover: #eef2f9;
+  --border: #9eb0cd;
+  --border-strong: #7387ac;
+  --muted: #546079;
+  --foreground: #1b1b1b;
+  --ink: #1b1b1b;
+  --accent: #1f3fbf;
+  --accent-light: #e0e8fb;
+  --accent-dark: #102a8c;
+  --classic-bar: #ccd9ef;
+  --classic-bar-2: #b2c5e7;
+  --classic-link: #0033cc;
+  --classic-visited: #5c2d91;
+  --font-sans: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
+  --font-inter: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
+  --font-lora: Georgia, "Times New Roman", serif;
+  font-family: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
+  background: var(--background);
+}
+@media (prefers-color-scheme: dark) {
+  body[data-look="classic"] {
+    --background: #0f1728;
+    --surface: #182238;
+    --surface-hover: #212d47;
+    --border: #3b4b6e;
+    --border-strong: #52648c;
+    --muted: #9aa6c0;
+    --foreground: #e3e7f0;
+    --ink: #e3e7f0;
+    --accent: #8fb0ff;
+    --accent-light: #22325a;
+    --accent-dark: #c2d3ff;
+    --classic-bar: #26365a;
+    --classic-bar-2: #1d2a47;
+    --classic-link: #9ab8ff;
+    --classic-visited: #c3a6f0;
+  }
+}
+[data-theme="dark"] body[data-look="classic"] {
+  --background: #0f1728;
+  --surface: #182238;
+  --surface-hover: #212d47;
+  --border: #3b4b6e;
+  --muted: #9aa6c0;
+  --foreground: #e3e7f0;
+  --ink: #e3e7f0;
+  --accent: #8fb0ff;
+  --accent-light: #22325a;
+  --classic-bar: #26365a;
+  --classic-bar-2: #1d2a47;
+  --classic-link: #9ab8ff;
+  --classic-visited: #c3a6f0;
+}
+
+/* 2004 had square-ish corners. */
+body[data-look="classic"] .rounded-lg,
+body[data-look="classic"] .rounded-xl,
+body[data-look="classic"] .rounded-2xl { border-radius: 4px; }
+/* Posts read like a 2004 journal: Verdana, no drop cap. */
+body[data-look="classic"] .prose-entry {
+  font-family: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+body[data-look="classic"] .prose-entry.drop-cap > p:first-of-type::first-letter {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0;
+  font-family: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+body[data-look="classic"] .prose-entry a { color: var(--classic-link); text-decoration: underline; }
+body[data-look="classic"] .prose-entry a:visited { color: var(--classic-visited); }
+
+/* The Current block reads like LJ's: bold labels, no tinted card. */
+body[data-look="classic"] .entry-current {
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.8rem;
+  row-gap: 0.15rem;
+}
+body[data-look="classic"] .entry-current-label {
+  font-family: inherit;
+  font-style: normal;
+  font-weight: bold;
+  color: var(--foreground);
+}
+
+/* ── The friends page ── */
+.classic-feed {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 4px 12px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--foreground);
+}
+.classic-entry {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.classic-entry a { color: var(--classic-link); }
+.classic-entry-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 4px 10px;
+  background: linear-gradient(var(--classic-bar), var(--classic-bar-2));
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.classic-entry-who { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: wrap; }
+.classic-userhead { flex-shrink: 0; color: var(--accent); }
+.classic-username { font-weight: bold; text-decoration: none; overflow-wrap: anywhere; }
+.classic-username:hover { text-decoration: underline; }
+.classic-reprint { font-size: 11px; color: var(--muted); }
+.classic-entry-date { font-size: 11px; color: var(--foreground) !important; text-decoration: none; white-space: nowrap; }
+.classic-entry-date:hover { text-decoration: underline; }
+.classic-entry-main {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px;
+}
+.classic-userpic img,
+.classic-userpic-blank {
+  display: flex;
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+.classic-userpic-blank {
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-family: Georgia, serif;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+.classic-subject { margin-bottom: 4px; }
+.classic-subject-label { font-weight: bold; }
+.classic-subject a { font-weight: bold; }
+.classic-current { margin: 2px 0 10px; font-size: 12px; }
+.classic-feed .classic-body,
+.classic-feed .classic-body.prose-entry {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+.classic-body p { margin: 0 0 0.85em; }
+.classic-body p:last-child { margin-bottom: 0; }
+.classic-body img { max-width: 100%; height: auto; }
+.classic-cut { font-weight: bold; }
+.classic-cw { font-size: 12px; color: var(--muted); }
+.classic-quote {
+  margin: 10px 0 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-left: 3px solid var(--border);
+  background: var(--surface-hover);
+}
+.classic-links { margin: 12px 0 0; font-size: 12px; }
+.classic-actions { margin-top: 6px; padding-top: 6px; border-top: 1px dotted var(--border); }
+.classic-skip { text-align: center; font-size: 12px; font-weight: bold; }
+.classic-skip button { color: var(--classic-link); text-decoration: underline; font-weight: bold; }
+.classic-skip button:disabled { color: var(--muted); text-decoration: none; }
+
+@media (max-width: 640px) {
+  .classic-feed { padding: 4px 8px 32px; gap: 12px; }
+  .classic-entry-main { grid-template-columns: 50px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  .classic-userpic img,
+  .classic-userpic-blank { width: 50px; height: 50px; font-size: 22px; }
+}
+
+/* Look & feel previews (app/settings/look) */
+.look-preview { height: 92px; border-radius: 6px; padding: 8px; display: flex; gap: 6px; overflow: hidden; }
+.look-preview-modern { background: #f4f1ea; }
+.look-preview-modern .look-preview-page {
+  flex: 1; background: #fffdf8; border: 1px solid #e3ddcf; border-radius: 6px;
+  background-image: repeating-linear-gradient(#fffdf8 0 9px, #ece6d8 9px 10px);
+}
+.look-preview-classic { background: #d8e0ec; flex-direction: column; font-size: 0; }
+.look-preview-entry { background: #fff; border: 1px solid #9eb0cd; flex: 1; display: flex; flex-direction: column; }
+.look-preview-bar { height: 7px; background: linear-gradient(#ccd9ef, #b2c5e7); border-bottom: 1px solid #9eb0cd; }
+.look-preview-row { flex: 1; display: flex; gap: 5px; padding: 4px; }
+.look-preview-pic { width: 22px; background: #b9c7e0; border: 1px solid #9eb0cd; }
+.look-preview-lines { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.look-preview-lines span { height: 3px; background: #0033cc; opacity: 0.55; width: 45%; }
+.look-preview-lines span + span { background: #555; opacity: 0.3; width: 90%; }

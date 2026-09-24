@@ -22,6 +22,7 @@ const iconProps = {
 const I = {
   profile: <svg {...iconProps}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
   avatar: <svg {...iconProps}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.2 18.5a6.5 6.5 0 0 1 11.6 0" /></svg>,
+  look: <svg {...iconProps}><rect x="2" y="4" width="20" height="14" rx="1" /><path d="M2 8h20" /><circle cx="5" cy="6" r=".5" fill="currentColor" /><path d="M8 21h8M12 18v3" /></svg>,
   bell: <svg {...iconProps}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>,
   palette: <svg {...iconProps}><circle cx="13.5" cy="6.5" r=".6" fill="currentColor" stroke="none" /><circle cx="17.5" cy="10.5" r=".6" fill="currentColor" stroke="none" /><circle cx="8.5" cy="7.5" r=".6" fill="currentColor" stroke="none" /><circle cx="6.5" cy="12.5" r=".6" fill="currentColor" stroke="none" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.83-.44-1.12-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C21.97 6.01 17.46 2 12 2z" /></svg>,
   pin: <svg {...iconProps}><path d="M9 4v6l-2 4v2h10v-2l-2-4V4" /><line x1="12" y1="16" x2="12" y2="21" /><line x1="8" y1="4" x2="16" y2="4" /></svg>,
@@ -98,6 +99,15 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     icon: I.avatar,
     group: "account",
     keywords: ["picture", "photo", "alien", "frame", "portrait"],
+  },
+  {
+    id: "look",
+    href: "/settings/look",
+    title: "Look & feel",
+    blurb: "Modern, or Classic (2004): Feed and Explore as a LiveJournal-style friends page, with the early-web look everywhere else.",
+    icon: I.look,
+    group: "account",
+    keywords: ["classic", "livejournal", "2004", "retro", "old", "theme", "view", "layout", "friends page", "nostalgia"],
   },
   {
     id: "notifications",
