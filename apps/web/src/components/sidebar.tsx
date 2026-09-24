@@ -33,6 +33,8 @@ export async function Sidebar({ user }: { user: SessionUser }) {
         avatarAnimation={user.avatar_animation}
         subscriptionTier={user.subscription_tier}
         inkDonorStatus={user.ink_donor_status}
+        foundingMemberNumber={user.founding_member_number}
+        selfHosted={user.self_hosted}
         isAdmin={user.is_admin}
         initialNotificationCount={user.unread_notification_count ?? 0}
         initialLetterCount={user.unread_letter_count ?? 0}

@@ -84,7 +84,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "stickies",
     question: "What are stickies?",
     answer:
-      'Stickies are short thoughts — no title, up to 500 characters — drawn as sticky notes. Choose <strong>Jot a sticky</strong> under Write in the sidebar (or Write &rarr; Sticky on your phone). They show on your profile&rsquo;s corkboard and in Feed, go to Mastodon in full, and any sticky can be expanded into a full entry later. Don&rsquo;t want to see them? Turn them off in <a href="/settings/content-safety">Settings &rarr; Content Safety</a>.',
+      'Stickies are short thoughts — no title, up to 500 characters — drawn as sticky notes. Choose the small sticky-note button beside <strong>Write an entry</strong> in the sidebar (or Write &rarr; Sticky on your phone). They show on your profile&rsquo;s corkboard and in Feed, go to Mastodon in full, and any sticky can be expanded into a full entry later. Don&rsquo;t want to see them? Turn them off in <a href="/settings/content-safety">Settings &rarr; Content Safety</a>.',
     category: "writing",
   },
   {
@@ -98,7 +98,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "classic-view",
     question: "Can Inkwell look like LiveJournal did?",
     answer:
-      "Yes. Turn on <strong>Classic view (2004)</strong> from the sidebar (on your phone: <strong>You</strong> → Classic view), or in Settings → <strong>Look &amp; feel</strong>. Feed and Explore become a LiveJournal-style friends page, and the rest of the site takes on the early-web colours and type. Only you see it; writers&rsquo; journals keep their own themes. Switch back to Modern the same way.",
+      "Yes. Click your name at the bottom of the sidebar and set <strong>Look</strong> to <strong>Classic</strong> (on your phone: <strong>You</strong> → Look), or in Settings → <strong>Look &amp; feel</strong>. Feed and Explore become a LiveJournal-style friends page, and the rest of the site takes on the early-web colours and type. Only you see it; writers&rsquo; journals keep their own themes. Switch back to Modern the same way.",
     category: "writing",
   },
   {

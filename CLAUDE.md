@@ -841,7 +841,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - **How it applies**: the root layout puts `data-look="classic"` on `<body>`; `body[data-look="classic"]` in globals.css re-points the colour and font tokens (blue-grey page, white boxes, `--classic-bar` gradients, Verdana, `--font-lora` → Georgia, blue underlined links in posts, 4px corners, no drop cap, LJ-style bold Current labels), with a dark version. Writers' profile themes are untouched: a journal still looks the way its writer made it.
 - **Feed & Explore**: `JournalFeed` takes `look` (Feed/Explore pass `siteLookOf(session.user.settings)`) and renders `components/classic-feed.tsx` (after all its hooks): a friends page with username bar + date | time, 100px userpic (50px on phones), "Subject:", `CurrentBlock`, the post (LJ-cut: over 350 words shows the excerpt and "( Read more… )"), "( N comments | Leave a comment )", the usual action bar, and "« Earlier entries" for the next page. Content-warned posts show a link instead of the body.
 - `components/current-block.tsx` is shared by the entry page and the Classic feed.
-- **Switching**: Settings → Look & feel (`/settings/look`, catalog id `look`, previews of both), and `components/look-switch.tsx` in the sidebar (under Settings) and the You sheet. Signed-out visitors always get Modern.
+- **Switching**: Settings → Look & feel (`/settings/look`, catalog id `look`, previews of both), and `components/look-switch.tsx` (a Modern | Classic segmented control) in the sidebar's account menu and the You sheet. Signed-out visitors always get Modern.
 - `LocalDate` now formats with `Intl.DateTimeFormat`, so time-only options give just the time (`toLocaleDateString` always added the date).
 
 ### Userpics (LiveJournal-style, 2026-09-24)
@@ -1364,20 +1364,23 @@ User-facing brand name: **Postage** ("Send postage" CTA). Fits the correspondenc
 ## Navigation Structure
 
 ### Desktop Sidebar (≥1024px, logged-in)
-Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numeral sections, dot leaders, Lora serif typography, paper texture background, spine shadow. Fully hideable to 0px via "Hide" button or `Cmd/Ctrl + \` (persisted in localStorage). Small reveal tab at left edge when hidden. Hidden in editor focus mode via `body[data-focus-mode]`.
+Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numeral sections, dot leaders, Lora serif typography, paper texture, spine shadow. Reorganised 2026-09-24 (it had grown to ~30 rows and the Classic/Modern switch sat in it as a nav row): **places you go stay in the sidebar; everything about you lives in one account menu**.
 
-- **I. Your Journal**: Feed, Explore, Gazette, + Write (accent CTA button) with "Jot a sticky" (small sticky-note button) stacked under it
-- **II. Connections**: Pen Pals, Letterbox (with unread badge)
-- **III. Library**: Bookmarks, Drafts (with count badge), Posts, Readers (reader stats)
-- **IV. Community**: Roadmap, Polls, Feedback, Invite friends
-- **Ornament divider** (`· · ·`)
-- **User section**: Avatar with frame, display name, @username, Notifications (with badge), Settings, ✦ Upgrade to Plus (if free), Admin (if admin), Sign out
-- **Hide toggle**: "Hide" button at bottom (chevron + italic label), reveal tab at left edge when hidden
+- **Top**: logo (→ /feed) + a small "hide sidebar" icon button; below it **Write an entry** (accent pill) with a square sticky-note button beside it (`openJot()`)
+- **Scrolling middle** (`.sidebar-scroll`), four foldable sections (heading = button, state per browser in localStorage `inkwell-sidebar-sections`; Community starts folded):
+  - **I. Read**: Feed, Explore, Gazette, Circles
+  - **II. Correspondence**: Notifications, Letters (red badges; a red dot on the heading when folded with unread), Pen Pals
+  - **III. Your journal**: Drafts (quiet count badge), Posts, Bookmarks, Readers
+  - **IV. Community**: Polls, Roadmap, Send feedback, + the active poll widget if unvoted (folded heading shows a "poll open" pill)
+- **Footer** (fixed): "Inkwell Plus" card for non-Plus (not self-hosted), then the **account button** (avatar, name, What's-new dot, ⋯). It opens `.account-menu` (portal, fixed above the button; Esc/outside click close, focus returns): Your journal page, Settings, **Look: Modern | Classic** (`LookSwitch variant="menu"`, a segmented control), What's new, Help, Invite friends, "Keep the ink flowing" (non-supporters only, `isSupporter`), Admin, Hide sidebar (⌘\), Sign out.
+- Hidden state unchanged: `Cmd/Ctrl + \`, `data-sidebar-hidden`, reveal tab at the left edge, hidden in focus mode.
+- **Adding a destination**: put it in the section it belongs to only if people go there often; anything about the account or a preference goes in the account menu (and the You sheet on phones). Don't add rows under the account button.
 
 Key files:
 - `apps/web/src/components/app-shell.tsx` — layout wrapper (conditionally renders sidebar vs top nav)
 - `apps/web/src/components/sidebar.tsx` — server component wrapper
-- `apps/web/src/components/sidebar-nav.tsx` — client component with route detection, live badges, hidden state, reveal tab portal
+- `apps/web/src/components/sidebar-nav.tsx` — client component: sections, live badges, account menu, hidden state, reveal tab portal
+- `apps/web/src/components/look-switch.tsx` — Modern/Classic segmented control (`variant` `menu` | `sheet`)
 
 ### Top Nav (< 1024px logged-in, or all sizes logged-out)
 - Hidden at ≥1024px for logged-in users via `AppShell` wrapping in `lg:hidden`

@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-tidier-sidebar",
+    date: "2026-09-24",
+    title: "A tidier sidebar",
+    body: "The sidebar had grown to about thirty rows. Now it holds the places you go, in four short sections (Read, Correspondence, Your journal, Community), and each section folds up and remembers it. Everything about you (your journal page, Settings, Modern or Classic look, What’s new, Help, Invite friends, Sign out) is in one menu that opens from your name at the bottom.",
+    howTo: "Click your name at the bottom of the sidebar. Click a section’s heading to fold it.",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-24-userpics",
     date: "2026-09-24",
     title: "Userpics: a picture for every mood",
@@ -32,7 +40,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     date: "2026-09-24",
     title: "Classic view: Inkwell the 2004 way",
     body: "Turn on Classic view and Feed and Explore become a LiveJournal-style friends page: one long column, big userpics, the username bar with the date, “Subject:”, Current mood / music / location, and “( 3 comments | Leave a comment )”. The rest of the site switches to the colours and type of the early-2000s web, in light and dark. Only you see it, and you can switch back any time.",
-    howTo: "“Classic view (2004)” in the sidebar under Settings (on your phone: You → Classic view), or Settings → Look & feel.",
+    howTo: "Click your name at the bottom of the sidebar and set Look to Classic (on your phone: You → Look), or Settings → Look & feel.",
     href: "/settings/look",
     cta: "Choose your look",
     tag: "Reading",
