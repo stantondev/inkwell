@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "First Pages — Inkwell Help Center",
+  title: "First Pages — Help Center",
   description:
     "Step-by-step guides to help you get started with Inkwell — your first entry, finding people, and making it yours.",
   openGraph: {

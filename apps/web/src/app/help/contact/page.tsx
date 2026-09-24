@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
-  title: "The Correspondence Office — Inkwell Help Center",
+  title: "The Correspondence Office — Help Center",
   description:
     "Send us a private message. We read every letter and respond as quickly as we can.",
   openGraph: {

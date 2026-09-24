@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FaqAccordion } from "./faq-accordion";
 
 export const metadata: Metadata = {
-  title: "Common Queries — Inkwell Help Center",
+  title: "Common Queries — Help Center",
   description:
     "Frequently asked questions about Inkwell — accounts, writing, the fediverse, and more.",
   openGraph: {

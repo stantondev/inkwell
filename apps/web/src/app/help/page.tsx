@@ -4,7 +4,7 @@ import { HELP_CATEGORIES } from "@/lib/help-content";
 import { HelpSearch } from "./help-search";
 
 export const metadata: Metadata = {
-  title: "The Reference Desk — Inkwell Help Center",
+  title: "The Reference Desk — Help Center",
   description:
     "Find answers, guides, and support for everything on Inkwell.",
   openGraph: {
