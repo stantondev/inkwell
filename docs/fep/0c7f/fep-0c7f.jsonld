@@ -1,0 +1,8 @@
+{
+  "@context": {
+    "importedFrom": {
+      "@id": "https://w3id.org/fep/0c7f#importedFrom",
+      "@type": "@id"
+    }
+  }
+}
