@@ -226,9 +226,12 @@ export function CommentEditor({
   }, []);
 
   // Insert mention into TipTap
-  const insertMention = useCallback(() => {
+  // `index` is the name that was clicked. Without it, a click inserted
+  // whichever name was highlighted (the top one): setting the index and then
+  // inserting in the same handler reads the old index.
+  const insertMention = useCallback((index?: number) => {
     if (!editor || mentionQuery === null || mentionUsers.length === 0) return;
-    const user = mentionUsers[mentionIndex];
+    const user = mentionUsers[index ?? mentionIndex];
     if (!user) return;
 
     const { state } = editor;
@@ -357,7 +360,7 @@ export function CommentEditor({
                 onMouseDown={(e) => {
                   e.preventDefault();
                   setMentionIndex(i);
-                  insertMentionRef.current?.();
+                  insertMentionRef.current?.(i);
                 }}
                 className="mention-dropdown-item w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors"
                 style={{
