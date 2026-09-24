@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import CreateCircleForm from "./create-circle-form";
 
 export const metadata: Metadata = {
-  title: "Found a Circle — Inkwell",
+  title: "Found a Circle",
 };
 
 export default async function CreateCirclePage() {

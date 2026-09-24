@@ -18,7 +18,7 @@ export function ExploreSearchWrapper({ children }: ExploreSearchWrapperProps) {
   return (
     <>
       {/* Hero search bar */}
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-3">
+      <div className="mx-auto max-w-7xl px-4 pt-3 pb-2 lg:pt-6 lg:pb-3">
         <ExploreSearchBar
           initialQuery={searchParams.get("q") || ""}
           onQueryChange={setActiveQuery}

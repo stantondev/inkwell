@@ -24,6 +24,7 @@ import type { Editor } from "@tiptap/react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { draftsCreatedHere } from "./created-here";
+import { ScheduleButton } from "./schedule-button";
 import { mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
@@ -2925,6 +2926,13 @@ export function EditorClient() {
                 className="editor-save-draft-btn">
                 Save draft
               </button>
+            )}
+            {isDraft && (
+              <ScheduleButton
+                value={state.publishedAt}
+                isFuture={isFutureDate(state.publishedAt)}
+                onChange={(v) => update({ publishedAt: v })}
+              />
             )}
             <button type="button" onClick={handlePublish}
               disabled={isPublishing || !hasContent}

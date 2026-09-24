@@ -16,9 +16,10 @@ defmodule Inkwell.Letters.Federation do
   A Create{Note} becomes a letter only when it is plainly a private message
   to one member (`direct_message_recipient/3`): not public, addressed to
   exactly one account besides its author, that account is a member, the
-  author wrote it, and it isn't a reply to anything other than an earlier
-  letter. Everything else keeps its old path (a private reply to an entry
-  still arrives as a mention notification).
+  author wrote it, and it isn't a reply to something on Inkwell (a reply to
+  an earlier letter, or to anything on another server, is fine). Everything
+  else keeps its old path (a private reply to an entry still arrives as a
+  mention notification).
 
   Where it lands:
 
@@ -160,18 +161,24 @@ defmodule Inkwell.Letters.Federation do
   defp attributed_to(%{"attributedTo" => %{"id" => by}}) when is_binary(by), do: by
   defp attributed_to(_), do: nil
 
-  # Not a reply, or a reply to a letter already in this conversation.
+  # Not a reply; a reply to a letter already in this conversation; or a reply
+  # to something on another server. Chat software (NodeBB) points every
+  # message at the one before it, so if that one never reached us the whole
+  # conversation would fall out of Letters. What isn't a letter is a private
+  # reply to something *here* (an entry, a comment, a guestbook): that keeps
+  # arriving as a mention notification about that thing.
   defp letter_thread?(nil, _user, _actor_uri), do: true
 
   defp letter_thread?(reply_to, user, actor_uri) when is_binary(reply_to) do
-    Repo.exists?(
-      from(m in DirectMessage,
-        join: c in Conversation,
-        on: c.id == m.conversation_id,
-        join: a in assoc(c, :remote_actor),
-        where: m.ap_id == ^reply_to and c.participant_a == ^user.id and a.ap_id == ^actor_uri
+    not local_url?(reply_to) or
+      Repo.exists?(
+        from(m in DirectMessage,
+          join: c in Conversation,
+          on: c.id == m.conversation_id,
+          join: a in assoc(c, :remote_actor),
+          where: m.ap_id == ^reply_to and c.participant_a == ^user.id and a.ap_id == ^actor_uri
+        )
       )
-    )
   end
 
   defp letter_thread?(_, _, _), do: false
@@ -202,6 +209,31 @@ defmodule Inkwell.Letters.Federation do
   end
 
   def local_user(_), do: nil
+
+  # Hosts our content has ever had ids on. Entry ids are always stored on
+  # inkwell.social, and older ones on the Fly hostnames.
+  @known_hosts ~w(inkwell.social www.inkwell.social api.inkwell.social inkwell-api.fly.dev inkwell-web.fly.dev)
+
+  # Whether a URL is on one of our own hosts (so it names something here).
+  defp local_url?(url) do
+    hosts =
+      [
+        "https://#{instance_host()}",
+        Application.get_env(:inkwell, :frontend_url),
+        Application.get_env(:inkwell, :api_url),
+        InkwellWeb.Endpoint.url(),
+        Application.get_env(:inkwell, :federation, []) |> Keyword.get(:frontend_host)
+      ]
+      |> Enum.filter(&is_binary/1)
+      |> Enum.map(&URI.parse(&1).host)
+      |> Enum.reject(&is_nil/1)
+      |> Kernel.++(@known_hosts)
+
+    case URI.parse(url) do
+      %URI{host: host} when is_binary(host) -> String.downcase(host) in hosts
+      _ -> true
+    end
+  end
 
   defp already_have?(ap_id), do: Repo.exists?(from(m in DirectMessage, where: m.ap_id == ^ap_id))
 

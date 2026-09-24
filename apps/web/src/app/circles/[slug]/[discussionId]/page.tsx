@@ -20,7 +20,7 @@ interface DiscussionData {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; discussionId: string }> }): Promise<Metadata> {
-  return { title: "Discussion — Inkwell" };
+  return { title: "Discussion" };
 }
 
 export default async function DiscussionPage({

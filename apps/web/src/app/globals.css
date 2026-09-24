@@ -16035,3 +16035,102 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .getting-started-step { padding-left: 0; }
   .getting-started-cta { margin-left: 30px; }
 }
+
+/* ── Phone Feed/Explore: filters fold behind one row (components/mobile-filters.tsx) ── */
+.mobile-filters-toggle { display: none; }
+@media (max-width: 1023px) {
+  .mobile-filters-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--foreground);
+    font-size: 14px;
+    text-align: left;
+  }
+  .mobile-filters-label { font-weight: 500; }
+  .mobile-filters-summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+  .mobile-filters-summary.is-active { color: var(--accent); font-weight: 500; }
+  .mobile-filters-chevron { color: var(--muted); transition: transform 0.15s ease; flex-shrink: 0; }
+  .mobile-filters.is-open .mobile-filters-chevron { transform: rotate(180deg); }
+  .mobile-filters-panel { display: none; }
+  .mobile-filters.is-open .mobile-filters-panel { display: block; }
+
+  /* Decorative on phones: the reader is what people came for. The Write tab
+     already offers "Sticky", so the Feed's jot prompt is a duplicate here. */
+  .feed-dispatch-header, .feed-jot-prompt { display: none; }
+}
+
+/* ── Editor: Schedule for later (app/editor/schedule-button.tsx) ── */
+.editor-schedule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.editor-schedule-btn:hover { border-color: var(--foreground); color: var(--foreground); }
+.editor-schedule-btn.is-set { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.editor-schedule-popup {
+  width: min(320px, calc(100vw - 24px));
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  color: var(--foreground);
+}
+.editor-schedule-title { font-family: var(--font-lora, Georgia, serif); font-weight: 600; font-size: 15px; }
+.editor-schedule-sub { font-size: 12.5px; color: var(--muted); margin: 2px 0 10px; }
+.editor-schedule-picks { display: flex; flex-direction: column; gap: 4px; }
+.editor-schedule-pick {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  text-align: left;
+}
+.editor-schedule-pick:hover { background: var(--surface-hover, var(--accent-light)); }
+.editor-schedule-pick-time { color: var(--muted); font-size: 12.5px; }
+.editor-schedule-custom { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.editor-schedule-custom input {
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.editor-schedule-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.editor-schedule-clear { font-size: 13px; color: var(--muted); padding: 6px 8px; }
+.editor-schedule-clear:hover { color: var(--danger); }
+.editor-schedule-set {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+}
+.editor-schedule-set:disabled { opacity: 0.4; cursor: default; }

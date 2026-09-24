@@ -169,6 +169,28 @@ defmodule Inkwell.LettersFederationTest do
       assert Repo.aggregate(DirectMessage, :count) == 0
     end
 
+    test "a chat message pointing at an earlier one we never got is still a letter",
+         %{user: user, actor: actor} do
+      # NodeBB (Sept 2026, @julian@activitypub.space): every chat message has
+      # inReplyTo = the previous one in the room. The first never arrived, so
+      # the second fell back to two mention notifications.
+      follows_member(actor, user)
+      note = dm(actor, user, %{"inReplyTo" => "#{actor.ap_id}/message/754"})
+      deliver(actor, note)
+      deliver(actor, note)
+
+      assert [_] = letters_in(user)
+      assert Repo.aggregate(DirectMessage, :count) == 1
+      assert mentions(user) == []
+    end
+
+    test "a mention delivered twice is one notification", %{user: user, actor: actor} do
+      public = dm(actor, user, %{"to" => [@public], "cc" => [member_url(user)]})
+      deliver(actor, public)
+      deliver(actor, public)
+      assert [_] = mentions(user)
+    end
+
     test "a note written by someone else isn't a letter", %{user: user, actor: actor} do
       follows_member(actor, user)
       deliver(actor, dm(actor, user, %{"attributedTo" => "https://elsewhere.example/users/eve"}))

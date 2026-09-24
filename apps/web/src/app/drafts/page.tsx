@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { DraftsList } from "./drafts-list";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Drafts — Inkwell" };
+export const metadata: Metadata = { title: "Drafts" };
 
 interface DraftEntry {
   id: string;

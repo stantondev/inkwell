@@ -5,7 +5,7 @@ import CircleBrowseClient from "./circle-browse-client";
 import { FetchError } from "@/components/fetch-error";
 
 export const metadata: Metadata = {
-  title: "Writing Circles — Inkwell",
+  title: "Writing Circles",
   description: "Join intimate writing circles. Collaborative spaces for discussion, feedback, and creative community.",
   openGraph: { title: "Writing Circles — Inkwell", description: "Join intimate writing circles on Inkwell." },
 };

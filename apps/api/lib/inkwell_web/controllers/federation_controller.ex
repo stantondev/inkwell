@@ -1957,15 +1957,33 @@ defmodule InkwellWeb.FederationController do
   defp create_mention_notification_for_user(object, actor_uri, user) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
-        if blocked_for_user?(user.id, remote_actor) do
-          Logger.info("Dropping mention of @#{user.username} from #{actor_uri}: blocked")
-        else
-          do_create_mention_notification(object, user, remote_actor)
+        cond do
+          blocked_for_user?(user.id, remote_actor) ->
+            Logger.info("Dropping mention of @#{user.username} from #{actor_uri}: blocked")
+
+          # Servers redeliver (and some deliver once per inbox); one post is
+          # one notification.
+          already_notified?(user, object) ->
+            :ok
+
+          true ->
+            do_create_mention_notification(object, user, remote_actor)
         end
 
       {:error, reason} ->
         Logger.warning("Failed to fetch actor for mention notification: #{inspect(reason)}")
     end
+  end
+
+  defp already_notified?(user, object) do
+    urls = [object["url"], object["id"]] |> Enum.filter(&is_binary/1) |> Enum.uniq()
+
+    urls != [] and
+      Repo.exists?(
+        from n in Accounts.Notification,
+          where: n.user_id == ^user.id and n.type == :fediverse_mention,
+          where: fragment("?->>'post_url'", n.data) in ^urls
+      )
   end
 
   defp do_create_mention_notification(object, user, remote_actor) do

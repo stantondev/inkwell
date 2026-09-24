@@ -65,7 +65,7 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const data = await apiFetch<{ data: FeedbackPost }>(`/api/feedback/${id}`);
-    return { title: `${data.data.title} · Roadmap · Inkwell` };
+    return { title: `${data.data.title} · Roadmap` };
   } catch {
     return { title: "Roadmap" };
   }

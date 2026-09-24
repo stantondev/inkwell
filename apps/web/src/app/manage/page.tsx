@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { PostManager } from "./post-manager";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Posts — Inkwell" };
+export const metadata: Metadata = { title: "Posts" };
 
 interface ManageEntry {
   id: string;

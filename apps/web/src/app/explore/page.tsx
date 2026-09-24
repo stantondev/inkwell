@@ -9,6 +9,8 @@ import { SignupCta } from "@/components/signup-cta";
 import { FilterLink } from "@/components/filter-link";
 import { FetchError } from "@/components/fetch-error";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
+import { MobileFilters } from "@/components/mobile-filters";
+import { filterSummary } from "@/lib/filter-summary";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { isSupporter } from "@/lib/supporter";
@@ -57,6 +59,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
   const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
   const sourceParam = activeSource ? `&source=${activeSource}` : "";
+  const { summary: filterSummaryText, active: filtersActive } =
+    filterSummary(category, activeSource, activeSort, "inkwell", "Inkwell writers, newest first");
 
   let entries: JournalEntry[] = [];
   let fetchFailed = false;
@@ -126,6 +130,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
       <ExploreSearchWrapper>
+        <MobileFilters summary={filterSummaryText} active={filtersActive}>
         {/* Row 2: Source segmented control (left) + Sort toggles (right) */}
         <div className="mx-auto max-w-7xl px-4 pb-1">
           <div className="explore-controls-row">
@@ -234,6 +239,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             })}
           </div>
         </div>
+        </MobileFilters>
 
         {/* Signup banner for logged-out visitors */}
         {!session && (

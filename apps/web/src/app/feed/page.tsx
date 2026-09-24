@@ -15,6 +15,8 @@ import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES } from "@/lib/categories";
+import { filterSummary } from "@/lib/filter-summary";
+import { MobileFilters } from "@/components/mobile-filters";
 import { isSupporter } from "@/lib/supporter";
 
 export const dynamic = "force-dynamic";
@@ -304,6 +306,8 @@ export default async function FeedPage({ searchParams }: PageProps) {
     source === "fediverse" ? "fediverse" :
     null;  // default: show all
   const activeSort = sort === "most_inked" ? "most_inked" : "newest";
+  const { summary: filterSummaryText, active: filtersActive } =
+    filterSummary(category, activeSource, activeSort, null, "Everyone you follow, newest first");
   const sourceParam = activeSource ? `&source=${activeSource}` : "";
   const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
   const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
@@ -352,6 +356,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
       <ExploreSearchWrapper>
+        <MobileFilters summary={filterSummaryText} active={filtersActive}>
         {/* Source filter pills + Sort toggles */}
         <div className="mx-auto max-w-7xl px-4 pb-1">
           <div className="explore-controls-row">
@@ -460,8 +465,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
             })}
           </div>
         </div>
+        </MobileFilters>
 
-        {/* Feed dispatch header */}
+        {/* Feed dispatch header (decorative; hidden on phones to reach the writing sooner) */}
         <div className="mx-auto max-w-7xl px-4 pb-3">
           <div className="feed-dispatch-header">
             <div className="feed-dispatch-rule" />
@@ -479,7 +485,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
             <div className="feed-dispatch-rule" />
           </div>
-          <div className="mt-4">
+          <div className="mt-4 feed-jot-prompt">
             <JotPrompt />
           </div>
         </div>

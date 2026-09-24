@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "AI Policy — Inkwell",
+  title: "AI Policy",
   description:
     "How Inkwell uses AI responsibly, protects your content from AI training, and champions authentic human writing.",
   openGraph: {

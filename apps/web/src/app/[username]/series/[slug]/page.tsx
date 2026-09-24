@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: SeriesPageParams): Promise<Me
         : {}),
     };
   } catch {
-    return { title: "Series — Inkwell" };
+    return { title: "Series" };
   }
 }
 

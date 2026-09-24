@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Open Source — Inkwell",
+  title: "Open Source",
   description:
     "Inkwell is open-source software licensed under AGPL-3.0. View the source code, self-host your own instance, and contribute to the project.",
   openGraph: {
