@@ -27,6 +27,7 @@ interface ProfileEntry {
   published_at: string;
   word_count?: number;
   excerpt?: string | null;
+  excerpt_custom?: boolean;
   cover_image_id?: string | null;
   category?: string | null;
   imported_from?: string | null;
@@ -409,42 +410,116 @@ function firstImageSrc(html: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+function plainText(html: string | null | undefined): string {
+  return decodeEntities(
+    (html ?? "").replace(/<br\s*\/?>/gi, " ").replace(/<\/(p|h[1-6]|li|blockquote|figcaption)>/gi, " ").replace(/<[^>]+>/g, ""),
+  ).replace(/\s+/g, " ").trim();
+}
+
 function leadText(html: string, max = 700): string {
-  const text = decodeEntities(html.replace(/<br\s*\/?>/gi, " ").replace(/<\/p>/gi, " ").replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+  const text = plainText(html);
   if (text.length <= max) return text;
   const cut = text.slice(0, max);
   return cut.slice(0, cut.lastIndexOf(" ")) + "…";
 }
 
+/** The picture a story is shown with: its cover, else the first picture in it. */
+function storyImage(entry: ProfileEntry): string | null {
+  return entry.cover_image_id ? `/api/images/${entry.cover_image_id}` : firstImageSrc(entry.body_html);
+}
+
+/**
+ * The text shown under a headline. Generated excerpts (and custom ones that
+ * are just the opening, often frozen at an early draft and cut mid-word) are
+ * replaced by the entry's current opening; a summary the writer actually
+ * wrote is kept.
+ */
+function storyText(entry: ProfileEntry, max: number): string {
+  const lead = leadText(entry.body_html, max);
+  if (!entry.excerpt || !entry.excerpt_custom) return lead;
+  const excerpt = decodeEntities(entry.excerpt).replace(/\s+/g, " ").trim();
+  const bare = excerpt.replace(/(…|\.\.\.)$/, "").trim();
+  if (!bare || plainText(entry.body_html).startsWith(bare)) return lead;
+  return excerpt;
+}
+
+function storyTitle(entry: ProfileEntry): string {
+  return entry.title ? decodeEntities(entry.title) : "Untitled entry";
+}
+
+function isQuoteReprint(entry: ProfileEntry): boolean {
+  return /^RE: /.test(entry.title ?? "");
+}
+
+function isCoverWorthy(entry: ProfileEntry): boolean {
+  return (entry.word_count ?? 0) >= 80 && !isQuoteReprint(entry);
+}
+
 const SERIF = "var(--font-lora, Georgia, serif)";
 
-/** The newest entry as a cover story: big headline, drop-capped opening, large picture. */
-function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
-  const href = `/${username}/${entry.slug ?? entry.id}`;
+function Kicker({ entry, styles, label }: { entry: ProfileEntry; styles: ProfileStyles; label?: string }) {
+  const parts = [entry.category ? getCategoryLabel(entry.category) : null, label].filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <p className="text-[10px] uppercase tracking-[0.2em] mb-2" style={{ color: styles.accent }}>
+      {parts.join(" · ")}
+    </p>
+  );
+}
+
+function Byline({ entry, styles, full = false }: { entry: ProfileEntry; styles: ProfileStyles; full?: boolean }) {
   const rt = readingTime(entry.word_count);
-  const image = entry.cover_image_id ? `/api/images/${entry.cover_image_id}` : firstImageSrc(entry.body_html);
-  const lead = leadText(entry.body_html);
+  const comments = entry.comment_count ?? 0;
+  return (
+    <p className="text-xs" style={{ color: styles.muted }}>
+      {full ? <LocalDate iso={entry.published_at} options={FULL_DATE} /> : <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>}
+      {rt && <> · {rt}</>}
+      {comments > 0 && <> · {comments} {comments === 1 ? "comment" : "comments"}</>}
+    </p>
+  );
+}
+
+/** Top of the magazine: a double-ruled dateline, like the strip under a masthead. */
+function MagazineDateline({ entries, page, totalPages, total, styles }: {
+  entries: ProfileEntry[]; page: number; totalPages: number; total: number; styles: ProfileStyles;
+}) {
+  const newest = entries[0]?.published_at;
+  const month = newest
+    ? new Date(newest).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+    : null;
+  return (
+    <div
+      className="flex items-center justify-between gap-4 py-1.5 text-[10px] sm:text-[11px] uppercase tracking-[0.2em]"
+      style={{ color: styles.muted, borderTop: `3px double ${styles.foreground}`, borderBottom: `1px solid ${styles.foreground}` }}
+    >
+      <span>{page === 1 ? "This issue" : `Page ${page} of ${totalPages}`}</span>
+      {month && <span className="hidden sm:inline" style={{ fontFamily: SERIF }}>{month}</span>}
+      <span>{total} {total === 1 ? "entry" : "entries"}</span>
+    </div>
+  );
+}
+
+/** The cover story: big headline, picture, drop-capped opening set in two columns. */
+function MagazineFeature({ entry, username, styles, isNewest }: {
+  entry: ProfileEntry; username: string; styles: ProfileStyles; isNewest: boolean;
+}) {
+  const href = `/${username}/${entry.slug ?? entry.id}`;
+  const image = storyImage(entry);
+  const lead = leadText(entry.body_html, image ? 700 : 1100);
 
   return (
     <article className="profile-entry-item magazine-feature min-w-0">
       <div className={image ? "grid gap-6 @4xl:grid-cols-[7fr_5fr] @4xl:items-center" : ""}>
         <div className={image ? "@4xl:order-2" : ""}>
-          <p className="text-xs uppercase tracking-[0.2em] mb-4" style={{ color: styles.accent }}>
-            {entry.category ? `${getCategoryLabel(entry.category)} · ` : ""}Latest entry
-          </p>
+          <Kicker entry={entry} styles={styles} label={isNewest ? "Latest entry" : "Cover story"} />
           <h3
             className="profile-entry-title text-4xl @2xl:text-5xl @5xl:text-6xl font-bold leading-[1.05] tracking-tight mb-4 [overflow-wrap:anywhere]"
             style={{ fontFamily: SERIF }}
           >
-            <Link href={href} className="hover:underline decoration-2 underline-offset-4">
-              {entry.title ? decodeEntities(entry.title) : "Untitled entry"}
-            </Link>
+            <Link href={href} className="hover:underline decoration-2 underline-offset-4">{storyTitle(entry)}</Link>
           </h3>
-          <p className="text-sm mb-6" style={{ color: styles.muted }}>
-            <LocalDate iso={entry.published_at} options={FULL_DATE} />
-            {rt && <> · {rt}</>}
-          </p>
-          {isArchive(entry) && <p className="-mt-4 mb-6"><Seal entry={entry} where="feature" /></p>}
+          <div className="mb-6"><Byline entry={entry} styles={styles} full /></div>
+          {isArchive(entry) && <p className="-mt-3 mb-6"><Seal entry={entry} where="feature" /></p>}
         </div>
         {image && (
           <Link href={href} className={`block overflow-hidden ${styles.borderRadius} @4xl:order-1`}>
@@ -454,7 +529,10 @@ function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; use
         )}
       </div>
       {lead && (
-        <div className={`${lead.length > 200 ? "magazine-lead @3xl:columns-2" : ""} mt-2 gap-10 text-lg leading-relaxed`} style={{ fontFamily: SERIF }}>
+        <div
+          className={`${lead.length > 200 ? "magazine-lead @3xl:columns-2" : ""} mt-4 gap-10 text-lg leading-relaxed`}
+          style={{ fontFamily: SERIF, columnRule: `1px solid ${styles.border}` }}
+        >
           <p>{lead}</p>
         </div>
       )}
@@ -467,37 +545,159 @@ function MagazineFeature({ entry, username, styles }: { entry: ProfileEntry; use
   );
 }
 
-/** A smaller story in the columns below the feature. */
+/** "In this issue": a contents list beside the cover story on wide pages. */
+function MagazineContents({ entries, username, styles }: { entries: ProfileEntry[]; username: string; styles: ProfileStyles }) {
+  return (
+    <nav aria-label="In this issue" className="min-w-0 @5xl:pl-8 @5xl:border-l" style={{ borderColor: styles.border }}>
+      <h4 className="text-[10px] uppercase tracking-[0.2em] pb-2 mb-1 border-b-2" style={{ color: styles.muted, borderColor: styles.foreground }}>
+        In this issue
+      </h4>
+      <ol>
+        {entries.map((entry, i) => (
+          <li key={entry.id} className="flex gap-3 py-3 border-b last:border-0" style={{ borderColor: styles.border }}>
+            <span className="text-2xl font-bold leading-none tabular-nums" style={{ fontFamily: SERIF, color: styles.accent }}>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span className="min-w-0">
+              {entry.category && (
+                <span className="block text-[10px] uppercase tracking-[0.18em] mb-0.5" style={{ color: styles.muted }}>
+                  {getCategoryLabel(entry.category)}
+                </span>
+              )}
+              <Link
+                href={`/${username}/${entry.slug ?? entry.id}`}
+                className="profile-entry-title block text-[15px] font-semibold leading-snug hover:underline [overflow-wrap:anywhere]"
+                style={{ fontFamily: SERIF }}
+              >
+                {storyTitle(entry)}
+              </Link>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+/** A second feature across the page: picture on one side, story on the other. */
+function MagazineSpread({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
+  const href = `/${username}/${entry.slug ?? entry.id}`;
+  const image = storyImage(entry);
+  return (
+    <article className="profile-entry-item min-w-0 grid gap-6 @2xl:grid-cols-2 @2xl:items-center pt-6 border-t" style={{ borderColor: styles.border }}>
+      {image && (
+        <Link href={href} className={`block overflow-hidden ${styles.borderRadius}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt={entry.title ?? "Entry picture"} className="w-full aspect-[3/2] object-cover" loading="lazy" />
+        </Link>
+      )}
+      <div className="min-w-0">
+        <Kicker entry={entry} styles={styles} />
+        <h3 className="profile-entry-title text-3xl @4xl:text-4xl font-bold leading-tight tracking-tight mb-3 [overflow-wrap:anywhere]" style={{ fontFamily: SERIF }}>
+          <Link href={href} className="hover:underline decoration-2 underline-offset-4">{storyTitle(entry)}</Link>
+        </h3>
+        <p className="text-base leading-relaxed mb-4 line-clamp-6" style={{ fontFamily: SERIF, opacity: 0.9 }}>
+          {storyText(entry, 480)}
+        </p>
+        <Byline entry={entry} styles={styles} />
+        {isArchive(entry) && <p className="mt-2"><Seal entry={entry} where="spread" /></p>}
+      </div>
+    </article>
+  );
+}
+
+/**
+ * A story in the newspaper columns. The columns flow like a printed page
+ * (each story as tall as its own text), so a story with a picture never leaves
+ * holes beside the ones without.
+ */
 function MagazineStory({ entry, username, styles }: { entry: ProfileEntry; username: string; styles: ProfileStyles }) {
   const href = `/${username}/${entry.slug ?? entry.id}`;
-  const rt = readingTime(entry.word_count);
-  const image = entry.cover_image_id ? `/api/images/${entry.cover_image_id}` : null;
+  const image = storyImage(entry);
+  const words = entry.word_count ?? 0;
+  const brief = words > 0 && words < 60 && !image;
+  const text = storyText(entry, brief ? 400 : image ? 240 : 420);
+
   return (
-    <article className="profile-entry-item min-w-0 flex flex-col pt-4 border-t" style={{ borderColor: styles.border }}>
+    <article className="profile-entry-item min-w-0 break-inside-avoid pt-4 pb-5 border-b" style={{ borderColor: styles.border }}>
       {image && (
         <Link href={href} className={`block overflow-hidden ${styles.borderRadius} mb-3`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={entry.title ?? "Entry cover"} className="w-full aspect-[3/2] object-cover" loading="lazy" />
+          <img src={image} alt={entry.title ?? "Entry picture"} className="w-full aspect-[3/2] object-cover" loading="lazy" />
         </Link>
       )}
-      {entry.category && (
-        <p className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: styles.accent }}>
-          {getCategoryLabel(entry.category)}
+      <Kicker entry={entry} styles={styles} label={brief ? "In brief" : undefined} />
+      <h3
+        className={`profile-entry-title ${brief ? "text-lg" : "text-xl"} font-bold leading-snug mb-2 [overflow-wrap:anywhere]`}
+        style={{ fontFamily: SERIF }}
+      >
+        <Link href={href} className="hover:underline">{storyTitle(entry)}</Link>
+      </h3>
+      {text && (
+        <p
+          className={`text-sm leading-relaxed mb-3 ${brief ? "italic" : image ? "line-clamp-4" : "line-clamp-[8]"}`}
+          style={{ fontFamily: brief ? SERIF : undefined, opacity: 0.85 }}
+        >
+          {text}
         </p>
       )}
-      <h3 className="profile-entry-title text-xl font-bold leading-snug mb-2 [overflow-wrap:anywhere]" style={{ fontFamily: SERIF }}>
-        <Link href={href} className="hover:underline">{entry.title ? decodeEntities(entry.title) : "Untitled entry"}</Link>
-      </h3>
-      <p className="text-sm leading-relaxed line-clamp-4 mb-3" style={{ opacity: 0.85 }}>
-        {entry.excerpt ? decodeEntities(entry.excerpt) : leadText(entry.body_html, 260)}
-      </p>
-      <p className="text-xs mt-auto" style={{ color: styles.muted }}>
-        <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
-        {rt && <> · {rt}</>}
-        {(entry.comment_count ?? 0) > 0 && <> · {entry.comment_count} {entry.comment_count === 1 ? "comment" : "comments"}</>}
-      </p>
+      <Byline entry={entry} styles={styles} />
       {isArchive(entry) && <p className="mt-2"><Seal entry={entry} where="story" /></p>}
     </article>
+  );
+}
+
+function MagazineIssue({ entries, username, styles, page, totalPages, total, showCover }: {
+  entries: ProfileEntry[]; username: string; styles: ProfileStyles;
+  page: number; totalPages: number; total: number; showCover: boolean;
+}) {
+  // The cover story: the newest entry with some substance (not a quick
+  // "RE:" quote reprint or a one-liner), falling back to the newest.
+  const cover = showCover
+    ? entries.find(isCoverWorthy) ?? entries.find((e) => !isQuoteReprint(e)) ?? entries[0] ?? null
+    : null;
+  let rest = cover ? entries.filter((e) => e.id !== cover.id) : entries;
+  // A second feature across the page: the first remaining story with a
+  // picture, when enough stories are left to fill the columns below it.
+  const spread = rest.length >= 3 ? rest.find((e) => storyImage(e) && (e.word_count ?? 0) >= 40) ?? null : null;
+  if (spread) rest = rest.filter((e) => e.id !== spread.id);
+  const contents = cover ? entries.filter((e) => e.id !== cover.id).slice(0, 5) : [];
+
+  return (
+    <div className="flex flex-col gap-8">
+      <MagazineDateline entries={entries} page={page} totalPages={totalPages} total={total} styles={styles} />
+
+      {cover && (
+        <div className={contents.length >= 2 ? "grid gap-8 @5xl:grid-cols-[1fr_280px]" : ""}>
+          <MagazineFeature entry={cover} username={username} styles={styles} isNewest={cover.id === entries[0]?.id} />
+          {contents.length >= 2 && (
+            <div className="hidden @5xl:block">
+              <MagazineContents entries={contents} username={username} styles={styles} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {spread && <MagazineSpread entry={spread} username={username} styles={styles} />}
+
+      {rest.length > 0 && (
+        <section>
+          {(cover || spread) && (
+            <h3 className="text-xs uppercase tracking-[0.2em] pb-2 border-b-2" style={{ color: styles.muted, borderColor: styles.foreground }}>
+              More entries
+            </h3>
+          )}
+          <div
+            className={`gap-x-8 ${rest.length >= 2 ? "@xl:columns-2" : ""} ${rest.length >= 3 ? "@4xl:columns-3" : ""}`}
+            style={{ columnRule: `1px solid ${styles.border}` }}
+          >
+            {rest.map((entry) => (
+              <MagazineStory key={entry.id} entry={entry} username={username} styles={styles} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
 
@@ -695,35 +895,18 @@ export function ProfileEntries({
         </div>
       )}
 
-      {/* Magazine layout: the newest entry as a cover story, then columns of stories */}
-      {displayMode === "magazine" && (() => {
-        // The cover story: the newest entry with some substance (not a quick
-        // "RE:" quote-reprint or a one-liner), falling back to the newest.
-        const featured =
-          page === 1 && !isFiltering
-            ? entries.find((e) => (e.word_count ?? 0) >= 80 && !/^RE: /.test(e.title ?? "")) ?? entries[0]
-            : null;
-        const rest = featured ? entries.filter((e) => e.id !== featured.id) : entries;
-        return (
-          <div className="flex flex-col gap-10">
-            {featured && <MagazineFeature entry={featured} username={username} styles={styles} />}
-            {rest.length > 0 && (
-              <div>
-                {featured && (
-                  <h3 className="text-xs uppercase tracking-[0.2em] mb-4 pb-2 border-b-2" style={{ color: styles.muted, borderColor: styles.foreground }}>
-                    More entries
-                  </h3>
-                )}
-                <div className="grid gap-x-8 gap-y-8 @xl:grid-cols-2 @4xl:grid-cols-3">
-                  {rest.map((entry) => (
-                    <MagazineStory key={entry.id} entry={entry} username={username} styles={styles} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {/* Magazine layout: dateline, cover story, a spread, then newspaper columns */}
+      {displayMode === "magazine" && (
+        <MagazineIssue
+          entries={entries}
+          username={username}
+          styles={styles}
+          page={page}
+          totalPages={totalPages}
+          total={filteredTotal}
+          showCover={page === 1 && !isFiltering}
+        />
+      )}
 
       {/* Preview / timeline mode */}
       {displayMode === "preview" && (

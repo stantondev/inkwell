@@ -6081,8 +6081,9 @@ body[data-focus-mode] .sidebar-reveal-tab {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-.theme-broadsheet h2,
-.theme-broadsheet h3 {
+/* Section labels, not entry headlines (those keep their own size). */
+.theme-broadsheet h2:not(.profile-entry-title),
+.theme-broadsheet h3:not(.profile-entry-title) {
   letter-spacing: -0.02em;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
@@ -6093,6 +6094,11 @@ body[data-focus-mode] .sidebar-reveal-tab {
 .theme-broadsheet .profile-section-divider {
   border-top: 2px solid var(--profile-foreground, var(--foreground));
   margin: 1.5rem 0;
+}
+
+.theme-broadsheet .profile-entry-title {
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .theme-broadsheet .profile-entries-area .profile-entry-title {

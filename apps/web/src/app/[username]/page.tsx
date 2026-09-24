@@ -1298,7 +1298,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
             <RssWidget />
           </div>
         ) : layout === "magazine" ? (
-          /* Magazine: a feature entry and two columns of stories, widgets as a band below */
+          /* Magazine: cover story, a spread and newspaper columns; widgets as a band below */
           <div className="flex flex-col gap-10">
             <EntriesSection />
 
