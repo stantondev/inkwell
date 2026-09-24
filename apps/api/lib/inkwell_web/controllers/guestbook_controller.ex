@@ -77,7 +77,12 @@ defmodule InkwellWeb.GuestbookController do
     current_user = conn.assigns.current_user
 
     case Guestbook.delete_entry(id, current_user.id) do
-      {:ok, _} ->
+      {:ok, entry} ->
+        # The owner took down a fediverse signature: tell the signer's server
+        # (FEP-400e Remove).
+        if entry.profile_user_id == current_user.id,
+          do: Guestbook.Federation.send_remove(current_user, entry)
+
         json(conn, %{ok: true})
 
       {:error, :not_found} ->

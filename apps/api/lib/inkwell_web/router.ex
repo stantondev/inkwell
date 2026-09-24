@@ -634,6 +634,8 @@ defmodule InkwellWeb.Router do
     get "/users/:username/outbox", FederationController, :outbox
     get "/users/:username/featured", FederationController, :featured
     get "/users/:username/guestbook-post", FederationController, :guestbook_post
+    get "/users/:username/guestbook", FederationController, :guestbook_collection
+    get "/users/:username/guestbook/:id", FederationController, :guestbook_note
     get "/users/:username/followers", FederationController, :followers
     get "/users/:username/following", FederationController, :following
     post "/users/:username/inbox", FederationController, :inbox

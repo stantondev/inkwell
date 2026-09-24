@@ -242,6 +242,7 @@ const SERVICE_ICONS: Record<MusicService, React.ReactNode> = {
 
 import type { MusicEmbed } from "@/lib/music";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { fediverseHandle } from "@/lib/fediverse";
 
 function EntryMusicEmbed({ embed, music }: { embed: MusicEmbed; music: string }) {
   // Direct audio file — native <audio> player
@@ -426,6 +427,9 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
       alternates: {
         canonical: entryUrl,
       },
+      // FEP-2345: Mastodon credits the writer on link previews of this page
+      // (the actor's attributionDomains lists inkwell.social and their domain).
+      other: { "fediverse:creator": fediverseHandle(entry.author?.username ?? username) },
     };
   } catch {
     return { title: `Entry · @${username}` };

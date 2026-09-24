@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-fediverse-credit-guestbook",
+    date: "2026-09-24",
+    title: "Mastodon now credits you when your entries are shared",
+    body: "When someone shares a link to one of your entries on Mastodon, the preview card now names you, with a link to your fediverse profile, so readers can follow you from there. This works for your own domain too. Your guestbook is also now a standard fediverse guestbook: any fediverse app that supports it can sign it directly. Replying to your guestbook post from Mastodon still works as before.",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-09-24-circles",
     date: "2026-09-24",
     title: "Circles are communities you write into",

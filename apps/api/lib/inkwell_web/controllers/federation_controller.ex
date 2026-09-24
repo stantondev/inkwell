@@ -526,6 +526,59 @@ defmodule InkwellWeb.FederationController do
     end
   end
 
+  # ── Guestbook as an FEP-400e collection ─────────────────────────────────
+
+  # GET /users/:username/guestbook[?page=N]
+  def guestbook_collection(conn, %{"username" => username} = params) do
+    with_guestbook_owner(conn, username, "#guestbook", fn owner ->
+      page =
+        case Integer.parse(to_string(params["page"] || "")) do
+          {n, ""} when n >= 1 and n <= 10_000 -> n
+          _ -> nil
+        end
+
+      Inkwell.Guestbook.Federation.collection(owner, page)
+    end)
+  end
+
+  # GET /users/:username/guestbook/:id — a signature written on Inkwell
+  def guestbook_note(conn, %{"username" => username, "id" => id}) do
+    with_guestbook_owner(conn, username, "#guestbook", fn owner ->
+      Inkwell.Guestbook.Federation.note(owner, id)
+    end)
+  end
+
+  defp with_guestbook_owner(conn, username, anchor, build) do
+    accept = get_req_header(conn, "accept") |> List.first() || ""
+
+    ap_request? =
+      String.contains?(accept, "application/activity+json") ||
+        String.contains?(accept, "application/ld+json")
+
+    owner =
+      case Accounts.get_user_by_username(username) do
+        %{blocked_at: nil} = user -> user
+        _ -> nil
+      end
+
+    cond do
+      is_nil(owner) ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      not ap_request? ->
+        redirect(conn, external: "#{federation_config(:frontend_host)}/#{owner.username}#{anchor}")
+
+      true ->
+        case build.(owner) do
+          nil ->
+            conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+          object ->
+            conn |> put_resp_content_type("application/activity+json") |> json(object)
+        end
+    end
+  end
+
   # ── Followers / Following collections ───────────────────────────────────
 
   # GET /users/:username/followers
@@ -1212,7 +1265,13 @@ defmodule InkwellWeb.FederationController do
   end
 
   defp handle_create_object(object, activity, target_user, object_type) do
+    guestbook_owner = if is_map(object), do: Inkwell.Guestbook.Federation.target_owner(object)
+
     case object do
+      # FEP-400e: a Note whose target is a member's guestbook signs it
+      %{"type" => "Note"} when not is_nil(guestbook_owner) ->
+        handle_guestbook_signature(object, activity["actor"], guestbook_owner)
+
       %{"type" => type, "inReplyTo" => reply_to}
           when type in ["Note", "Article", "Page"] and is_binary(reply_to) ->
         if publicly_addressed?(object) do
@@ -2162,6 +2221,33 @@ defmodule InkwellWeb.FederationController do
 
   defp find_guestbook_owner(_), do: nil
 
+  # A signature sent the FEP-400e way. It must be public (it's shown on the
+  # profile) and written by whoever sent it; then it goes down the same path as
+  # a reply to the guestbook post, and we answer with Add.
+  defp handle_guestbook_signature(note, actor_uri, owner) do
+    cond do
+      not publicly_addressed?(note) ->
+        Logger.info("Guestbook: ignoring non-public signature #{inspect(note["id"])} for @#{owner.username}")
+
+      attributed_actor(note) != actor_uri ->
+        Logger.info("Guestbook: #{inspect(note["id"])} isn't by its sender #{actor_uri}, ignoring")
+
+      true ->
+        handle_guestbook_reply(note, actor_uri, owner)
+
+        if is_binary(note["id"]) and Repo.exists?(from(g in Inkwell.Guestbook.GuestbookEntry, where: g.ap_id == ^note["id"])) do
+          Inkwell.Guestbook.Federation.send_add(owner, note["id"], actor_uri)
+        end
+    end
+
+    :ok
+  end
+
+  defp attributed_actor(%{"attributedTo" => id}) when is_binary(id), do: id
+  defp attributed_actor(%{"attributedTo" => %{"id" => id}}) when is_binary(id), do: id
+  defp attributed_actor(%{"attributedTo" => [first | _]}), do: attributed_actor(%{"attributedTo" => first})
+  defp attributed_actor(_), do: nil
+
   defp handle_guestbook_reply(note, actor_uri, profile_user) do
     case RemoteActor.fetch(actor_uri) do
       {:ok, remote_actor} ->
@@ -2183,10 +2269,14 @@ defmodule InkwellWeb.FederationController do
         _ -> remote_actor.ap_id
       end
 
-    # Strip HTML to plain text and truncate to 500 chars
+    # Strip HTML to plain text, drop the leading @mention of the owner that
+    # Mastodon puts on a reply, and truncate to 500 chars
     body =
       (note["content"] || "")
+      |> String.replace(~r/<br\s*\/?>|<\/p>\s*<p[^>]*>/i, "\n")
       |> String.replace(~r/<[^>]+>/, "")
+      |> decode_html_entities()
+      |> String.replace(~r/\A\s*@#{Regex.escape(profile_user.username)}(@[\w.-]+)?\s*/iu, "")
       |> String.trim()
       |> String.slice(0, 500)
 
@@ -2205,6 +2295,10 @@ defmodule InkwellWeb.FederationController do
     }
 
     case Inkwell.Guestbook.create_entry_from_ap(attrs) do
+      {:existing, _entry} ->
+        # A redelivery; the owner already heard about it.
+        :ok
+
       {:ok, _entry} ->
         Logger.info("Created federated guestbook entry from #{remote_actor.username}@#{remote_actor.domain}")
 

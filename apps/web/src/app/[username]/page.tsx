@@ -32,6 +32,7 @@ import { SignupCta } from "@/components/signup-cta";
 import { WriterSubscribeCard } from "@/components/writer-subscribe-card";
 import { FediverseHandle } from "./fediverse-handle";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { fediverseHandle } from "@/lib/fediverse";
 import { archiveQuery, profileFiltersFromParams } from "@/lib/profile-archive-params";
 
 interface ProfileParams {
@@ -436,6 +437,8 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
           "application/rss+xml": rssUrl,
         },
       },
+      // FEP-2345, as on entry pages
+      other: { "fediverse:creator": fediverseHandle(profile.username ?? username) },
     };
   } catch {
     return { title: `@${username}` };

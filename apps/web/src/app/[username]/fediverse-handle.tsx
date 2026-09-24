@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fediverseHandle } from "@/lib/fediverse";
 
 export function FediverseHandle({
   username,
@@ -12,7 +13,7 @@ export function FediverseHandle({
   accentColor: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const handle = `@${username}@inkwell.social`;
+  const handle = fediverseHandle(username);
 
   const copyHandle = async () => {
     try {

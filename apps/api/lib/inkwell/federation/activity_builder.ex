@@ -344,7 +344,17 @@ defmodule Inkwell.Federation.ActivityBuilder do
     person = %{
       "@context" => [
         "https://www.w3.org/ns/activitystreams",
-        "https://w3id.org/security/v1"
+        "https://w3id.org/security/v1",
+        %{
+          "inkwell" => "https://inkwell.social/ns#",
+          # FEP-400e: a publicly-appendable collection (the guestbook)
+          "guestbook" => %{"@id" => "inkwell:guestbook", "@type" => "@id"},
+          # FEP-2345: sites allowed to credit this account via fediverse:creator
+          "attributionDomains" => %{
+            "@id" => "https://joinmastodon.org/ns#attributionDomains",
+            "@container" => "@set"
+          }
+        }
       ],
       "type" => "Person",
       "id" => actor_url,
@@ -401,10 +411,34 @@ defmodule Inkwell.Federation.ActivityBuilder do
     # Add featured collection (pinned posts)
     person = Map.put(person, "featured", "#{actor_url}/featured")
 
+    # FEP-400e guestbook: anyone can sign it with a Create{Note} targeting it
+    person =
+      if user.username == Inkwell.Federation.InstanceActor.username(),
+        do: person,
+        else: Map.put(person, "guestbook", "#{actor_url}/guestbook")
+
+    # FEP-2345: our entry pages carry <meta name="fediverse:creator">, and
+    # Mastodon only honours it for domains the account lists here.
+    person = Map.put(person, "attributionDomains", attribution_domains(user))
+
     # Add social links as PropertyValue attachments (Mastodon profile fields)
     person = add_property_values(person, user)
 
     person
+  end
+
+  # The writer's pages live on inkwell.social and, for Plus members, their own
+  # domain. Mastodon also accepts subdomains of what's listed.
+  defp attribution_domains(user) do
+    frontend = federation_config(:frontend_host) |> to_string() |> URI.parse()
+
+    custom =
+      case user.id && Inkwell.CustomDomains.get_domain_by_user(user.id) do
+        %{status: "active", domain: domain} when is_binary(domain) -> [domain]
+        _ -> []
+      end
+
+    Enum.uniq(Enum.filter([frontend.host], &is_binary/1) ++ custom)
   end
 
   # Mastodon only re-downloads an avatar or banner when its URL changes, so a

@@ -50,7 +50,7 @@ defmodule Inkwell.Guestbook do
     end
   end
 
-  @doc "Create a guestbook entry from an ActivityPub reply. Idempotent on ap_id."
+  @doc "Create a guestbook entry from ActivityPub. Idempotent on ap_id: a redelivery returns `{:existing, entry}`."
   def create_entry_from_ap(attrs) when is_map(attrs) do
     ap_id = attrs[:ap_id] || attrs["ap_id"]
 
@@ -63,7 +63,7 @@ defmodule Inkwell.Guestbook do
         |> Repo.insert()
 
       existing ->
-        {:ok, existing}
+        {:existing, existing}
     end
   end
 
