@@ -440,6 +440,10 @@ function storyText(entry: ProfileEntry, max: number): string {
   const excerpt = decodeEntities(entry.excerpt).replace(/\s+/g, " ").trim();
   const bare = excerpt.replace(/(…|\.\.\.)$/, "").trim();
   if (!bare || plainText(entry.body_html).startsWith(bare)) return lead;
+  // A short fragment that stops mid-sentence is a stale draft opening (often
+  // cut mid-word), not a summary: show the real opening instead.
+  const finished = /[.!?…"'”’)]$/.test(excerpt);
+  if (!finished && excerpt.length < 160) return lead;
   return excerpt;
 }
 
