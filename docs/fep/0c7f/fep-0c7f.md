@@ -18,15 +18,19 @@ It complements [FEP-1580], which moves objects between ActivityPub servers and a
 
 ## Motivation
 
-Moving to the Fediverse usually means leaving your history behind or flooding your followers with it:
+I kept a LiveJournal from 2004 to 2006, starting when I was fifteen. When I built an importer for Inkwell, the journaling platform I run, the first thing I imported was my own journal: 173 entries.
 
-- **Flooding.** A writer imports 800 blog posts. If each is delivered as a `Create`, every follower's timeline fills with posts from years ago, hashtag trends are skewed, and people named in 2009 get notifications today.
-- **Losing the date.** To avoid that, some software publishes imports as brand-new posts dated today, or not at all. The history is either misdated or gone.
-- **No provenance.** A reader who comes across an imported post can't tell it was first written elsewhere, years earlier, or where to find the original.
+That's where I ran into this problem. My choices were:
 
-[FEP-73cd] (Migration User Stories) describes people exporting archives and republishing them on another server (stories 4, 5 and 7). [FEP-1580] handles moves between ActivityPub servers. Neither covers importing from outside ActivityPub, and neither tells receiving servers how to treat an old object when one arrives.
+- **Send them all out.** Every one of my followers would get 173 posts in their timeline, all from twenty years ago. Anyone I mentioned back then would get a notification today, and old hashtags would show up as trending.
+- **Date them today.** No flood, but my 2004 entries would look like I wrote them this week, and anyone reading them would get the wrong idea about who wrote them and when.
+- **Leave them behind.** That's what most people end up doing, and it's the reason I built the importer in the first place.
 
-Implementations currently rely on heuristics such as comparing `published` with the time of delivery. Those differ between implementations, can't tell an import from a delayed delivery, and say nothing about where the object came from.
+None of those is right. What I wanted was for the entries to keep their real dates, sit quietly on my profile for anyone who wants to read them, and not be treated as new by anyone's server. Inkwell does that now, but only Inkwell knows these posts are old. Other servers can't tell an imported post from a new one, or from a post that was just delivered late, and they don't know where it came from.
+
+This isn't just my problem. Since the end of 2025 LiveJournal has limited public posting to paid or verified accounts, and a lot of people are looking for somewhere to take their journals. The same is true of people leaving blogs, newsletters and Fediverse servers that are shutting down. Every piece of software that imports old posts has to solve this on its own right now, and receiving servers have to guess.
+
+[FEP-73cd] (Migration User Stories) describes people exporting archives and republishing them on another server (stories 4, 5 and 7). [FEP-1580] handles moves between ActivityPub servers, keeps the original dates, and already says the new server shouldn't announce migrated objects. Neither covers posts coming from outside ActivityPub, and neither tells receiving servers what to do when an old post turns up. This proposal is an attempt to fill that gap with one small property and a few rules for publishers and receivers.
 
 ## Requirements
 
@@ -171,7 +175,7 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 
 ## Acknowledgements
 
-This proposal describes behavior implemented in Inkwell. The text was drafted with the help of an AI assistant (Claude, by Anthropic) and reviewed, edited and checked against the implementation and the cited FEPs by the author, who is responsible for its content.
+The problem, the design decisions and the Inkwell implementation come from my own experience importing my LiveJournal. I'm not a standards expert. I wrote this with an AI assistant (Claude, by Anthropic): it drafted the text, including the motivation above in my voice, and helped build and test the implementation, following my direction. I've reviewed it and I'm responsible for it, and I'm asking people with more experience in ActivityPub to review it too. Corrections are very welcome.
 
 ## Copyright
 
