@@ -115,7 +115,7 @@ export function ReprintButton({
         {/* Main button: simple reprint toggle */}
         <button
           onClick={handleSimpleToggle}
-          title={reprinted ? "Undo reprint" : "Reprint"}
+          title={reprinted ? "Undo reprint" : "Reprint: share it with your followers (shows as a boost on Mastodon)"}
           aria-label={reprinted ? "Undo reprint" : "Reprint"}
           className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80"
           style={{

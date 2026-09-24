@@ -126,15 +126,36 @@ export default function GuidePage() {
               <strong>Custom</strong> — choose specific people using a friend
               filter
             </li>
-            <li>
-              <strong>Paid subscribers only</strong> — only readers who
-              subscribe to your plan can read the full entry (Plus feature)
-            </li>
           </ul>
           <p>
             Not ready to publish? Save your work as a <strong>draft</strong> and
             come back to it later. You can also add a category, tags, mood,
-            cover image, and excerpt to give readers context.
+            cover image, and excerpt to give readers context. Pick a future
+            date in the editor&rsquo;s settings and <strong>Publish</strong> becomes{" "}
+            <strong>Schedule</strong>; a past date backdates the entry.
+          </p>
+          <p>
+            For a quick thought that doesn&rsquo;t need a title, <strong>jot a
+            sticky</strong> (up to 500 characters). Stickies live on your
+            profile&rsquo;s corkboard and in Feed, and any sticky can grow into a
+            full entry later.
+          </p>
+          <p>
+            Every entry page has a <strong>Translate</strong> button, and the{" "}
+            <Link href="/readers" className="underline" style={{ color: "var(--accent)" }}>
+              Readers
+            </Link>{" "}
+            page shows how many people read you. Bringing an old journal over?
+            See{" "}
+            <Link href="/switch" className="underline" style={{ color: "var(--accent)" }}>
+              Switch to Inkwell
+            </Link>{" "}
+            (WordPress, Substack, Medium, LiveJournal and Dreamwidth), then tidy
+            everything at once on the{" "}
+            <Link href="/manage" className="underline" style={{ color: "var(--accent)" }}>
+              Posts
+            </Link>{" "}
+            page.
           </p>
         </Section>
 
@@ -148,8 +169,21 @@ export default function GuidePage() {
           <p>
             To follow a writer, visit their profile and click the follow button.
             Once they accept your request, their public and friends-only entries
-            will appear in your Feed. You can also send them{" "}
-            <strong>direct letters</strong> (private messages).
+            will appear in your Feed.
+          </p>
+          <p>
+            <strong>Letters</strong> are private messages between pen pals (and
+            fediverse accounts you follow). Open{" "}
+            <Link href="/letters" className="underline" style={{ color: "var(--accent)" }}>
+              Letters
+            </Link>{" "}
+            and press <em>New letter</em>. From there you can archive, mute or
+            search conversations, and choose whether people who aren&rsquo;t
+            your pen pals yet may send you one letter request.
+          </p>
+          <p>
+            Every profile has a <strong>guestbook</strong> — sign it to leave a
+            public hello on someone&rsquo;s page. They get a notification.
           </p>
           <p>
             You can follow writers from other fediverse platforms too — just
@@ -157,7 +191,7 @@ export default function GuidePage() {
             <span style={{ fontFamily: "monospace", fontSize: "13px" }}>
               @user@mastodon.social
             </span>
-            ) on the search page.
+            ) in the search bar on Explore.
           </p>
         </Section>
 
@@ -167,8 +201,7 @@ export default function GuidePage() {
             <strong>Stamps</strong> are Inkwell&rsquo;s way of reacting to
             entries — like pressing an ink stamp onto paper. Each entry shows
             which stamp types have been placed in the top-right corner (like
-            postage on a letter). When someone on the fediverse favorites your
-            entry, it shows up as a stamp too.
+            postage on a letter).
           </p>
           <p>
             You can leave one stamp per entry. Pick the one that fits how the
@@ -183,7 +216,9 @@ export default function GuidePage() {
             The most-inked entries appear in the{" "}
             <strong>Trending This Week</strong> section on Explore, and you can
             sort Explore by &ldquo;Most Inked&rdquo; to find community favorites.
-            Inks are an Inkwell-native feature and stay within the platform.
+            Inks are an Inkwell-native feature and stay within the platform;
+            when someone on Mastodon favorites your entry, it counts as an ink.
+            On a phone, <strong>double-tap a page</strong> to ink it.
           </p>
           <p>
             <strong>Reprints</strong> are how you share someone else&rsquo;s

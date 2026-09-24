@@ -16,69 +16,74 @@ export function FollowButton({
   const [state, setState] = useState<FollowState>(initialState);
   const [hovered, setHovered] = useState(false);
 
-  async function handleSendRequest() {
-    if (!isLoggedIn) {
-      window.location.href = "/get-started";
-      return;
-    }
+  const [error, setError] = useState<string | null>(null);
+
+  // Runs a request; on failure, puts the button back and says so. These used
+  // to reset silently (or claim success when the server refused).
+  async function run(url: string, method: string, onOk: (res: Response) => Promise<void> | void, fallback: FollowState) {
     setState("loading");
+    setError(null);
     try {
-      const res = await fetch(`/api/follow/${targetUsername}`, { method: "POST" });
+      const res = await fetch(url, { method });
       if (res.ok) {
-        const data = await res.json();
-        setState(data.status === "accepted" ? "pen_pals" : "pending");
+        await onOk(res);
       } else {
-        setState("idle");
+        const data = await res.json().catch(() => ({}));
+        setError((typeof data.error === "string" && data.error) || "That didn't go through. Please try again.");
+        setState(fallback);
       }
     } catch {
-      setState("idle");
+      setError("Couldn't reach Inkwell. Please try again.");
+      setState(fallback);
     }
+  }
+
+  async function handleSendRequest() {
+    if (!isLoggedIn) {
+      window.location.href = `/login?next=${encodeURIComponent(`/${targetUsername}`)}`;
+      return;
+    }
+    await run(`/api/follow/${targetUsername}`, "POST", async (res) => {
+      const data = await res.json().catch(() => ({}));
+      setState(data.status === "accepted" ? "pen_pals" : "pending");
+    }, "idle");
   }
 
   async function handleCancel() {
-    setState("loading");
-    try {
-      await fetch(`/api/follow/${targetUsername}`, { method: "DELETE" });
-      setState("idle");
-    } catch {
-      setState("pending");
-    }
+    if (!window.confirm(`Cancel your pen pal request to @${targetUsername}?`)) return;
+    await run(`/api/follow/${targetUsername}`, "DELETE", () => setState("idle"), "pending");
   }
 
   async function handleRemove() {
-    setState("loading");
-    try {
-      await fetch(`/api/follow/${targetUsername}`, { method: "DELETE" });
-      setState("idle");
-    } catch {
-      setState("pen_pals");
-    }
+    if (!window.confirm(`Stop being pen pals with @${targetUsername}? You'll stop seeing their pen-pals-only entries.`)) return;
+    await run(`/api/follow/${targetUsername}`, "DELETE", () => setState("idle"), "pen_pals");
   }
 
   async function handleAccept() {
-    setState("loading");
-    try {
-      const res = await fetch(`/api/follow/${targetUsername}/accept`, { method: "POST" });
-      if (res.ok) {
-        setState("pen_pals");
-      } else {
-        setState("incoming");
-      }
-    } catch {
-      setState("incoming");
-    }
+    await run(`/api/follow/${targetUsername}/accept`, "POST", () => setState("pen_pals"), "incoming");
   }
 
   async function handleDecline() {
-    setState("loading");
-    try {
-      await fetch(`/api/follow/${targetUsername}/reject`, { method: "DELETE" });
-      setState("idle");
-    } catch {
-      setState("incoming");
-    }
+    await run(`/api/follow/${targetUsername}/reject`, "DELETE", () => setState("idle"), "incoming");
   }
 
+  const errorNote = error ? (
+    <p className="text-xs mt-1" role="alert" style={{ color: "var(--danger)" }}>{error}</p>
+  ) : null;
+
+  return (
+    <div className="inline-flex flex-col">
+      {renderButton()}
+      {state === "pending" && !error && (
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          You&apos;ll be pen pals once @{targetUsername} accepts.
+        </p>
+      )}
+      {errorNote}
+    </div>
+  );
+
+  function renderButton() {
   // Incoming request: show Accept + Decline buttons
   if (state === "incoming") {
     return (
@@ -147,4 +152,5 @@ export function FollowButton({
       {state === "loading" ? "..." : "Send Pen Pal Request"}
     </button>
   );
+  }
 }

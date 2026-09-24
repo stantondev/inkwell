@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Comment, CommentThread } from "@/lib/comment-utils";
 import { buildThreadTree, countThreadComments } from "@/lib/comment-utils";
 import { CommentNode } from "./comment-node";
@@ -23,6 +23,8 @@ interface CommentSectionProps {
 
 export function CommentSection({ comments, entryId, session, commentApiPath }: CommentSectionProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [postError, setPostError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -48,10 +50,11 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
   }, []);
 
   const handleSubmitComment = useCallback(
-    async (html: string, parentCommentId?: string | null) => {
-      if (submittingRef.current) return;
+    async (html: string, parentCommentId?: string | null): Promise<boolean> => {
+      if (submittingRef.current) return false;
       submittingRef.current = true;
       setSubmitting(true);
+      setPostError(null);
 
       try {
         const body: Record<string, string> = { body_html: html };
@@ -66,7 +69,17 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
         if (res.ok) {
           setReplyingTo(null);
           router.refresh();
+          return true;
         }
+        const data = await res.json().catch(() => ({}));
+        setPostError(
+          (typeof data.error === "string" && data.error) ||
+            "Your footnote wasn't posted. Your words are still in the box — try again.",
+        );
+        return false;
+      } catch {
+        setPostError("Couldn't reach Inkwell. Your words are still in the box — try again.");
+        return false;
       } finally {
         submittingRef.current = false;
         setSubmitting(false);
@@ -94,8 +107,12 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
 
   const handleDelete = useCallback(
     async (commentId: string) => {
-      if (!confirm("Delete this comment?")) return;
-      await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+      if (!confirm("Delete this footnote?")) return;
+      const res = await fetch(`/api/comments/${commentId}`, { method: "DELETE" }).catch(() => null);
+      if (!res?.ok) {
+        alert("Couldn't delete that footnote. Please try again.");
+        return;
+      }
       router.refresh();
     },
     [router],
@@ -146,11 +163,20 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
         </div>
       ) : (
         <div className="comment-login-prompt">
-          <a href="/get-started" style={{ color: "var(--accent)" }}>
-            Join Inkwell
+          <a href={`/login?next=${encodeURIComponent(`${pathname}#comments`)}`} style={{ color: "var(--accent)" }}>
+            Sign in
           </a>{" "}
-          to leave a comment.
+          or{" "}
+          <a href="/get-started" style={{ color: "var(--accent)" }}>
+            join Inkwell
+          </a>{" "}
+          to leave a footnote.
         </div>
+      )}
+      {postError && (
+        <p className="text-sm mt-2" role="alert" style={{ color: "var(--danger)" }}>
+          {postError}
+        </p>
       )}
     </section>
   );

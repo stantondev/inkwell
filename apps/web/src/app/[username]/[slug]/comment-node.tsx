@@ -20,7 +20,7 @@ interface CommentNodeProps {
   collapsedThreads: Set<string>;
   onReply: (commentId: string | null) => void;
   onToggleCollapse: (commentId: string) => void;
-  onSubmitReply: (html: string, parentCommentId: string) => void;
+  onSubmitReply: (html: string, parentCommentId: string) => void | Promise<boolean>;
   onEdit: (commentId: string, html: string) => Promise<boolean>;
   onDelete: (commentId: string) => void;
 }

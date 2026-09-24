@@ -130,6 +130,48 @@ defmodule Inkwell.Moderation.AutoModerationTest do
     assert Repo.reload!(e).status == :published
   end
 
+  test "a limit lifts once the writer is under the line and responding to others' writing" do
+    u = create_user()
+    publish(u, "Cada día", "<p>Cada día puedes elegir construir.</p>")
+    {:ok, _} = AutoModeration.limit!(u, %{score: 5, reasons: ["test"]})
+    others = for _ <- 1..2, do: writer()
+
+    # A follow alone doesn't count: it's one click for a bot.
+    {:ok, _} = Inkwell.Social.follow(u.id, hd(others).id)
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      AutoModeration.scan_user(u.id)
+      assert Repo.reload!(u).moderation_state == "limited"
+
+      for o <- others do
+        entry = Repo.one!(from e in Entry, where: e.user_id == ^o.id)
+        {:ok, _} = Inkwell.Inks.toggle_ink(u.id, entry.id)
+      end
+
+      AutoModeration.scan_user(u.id)
+    end)
+
+    assert is_nil(Repo.reload!(u).moderation_state)
+    assert Repo.all(from a in ModerationAction, where: a.user_id == ^u.id and is_nil(a.reversed_at)) == []
+  end
+
+  test "an engaged account that still scores as spam stays limited" do
+    u = create_user()
+    publish(u, "Buy", ~s(<p><a href="https://shop.example.com/a">a</a> <a href="https://shop.example.com/b">b</a> <a href="https://shop.example.com/c">c</a> <a href="https://other.example.org">d</a></p>))
+    {:ok, _} = AutoModeration.limit!(u, %{score: 5, reasons: ["test"]})
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      for o <- [writer(), writer()] do
+        entry = Repo.one!(from e in Entry, where: e.user_id == ^o.id)
+        {:ok, _} = Inkwell.Inks.toggle_ink(u.id, entry.id)
+      end
+
+      AutoModeration.scan_user(u.id)
+    end)
+
+    assert Repo.reload!(u).moderation_state == "limited"
+  end
+
   test "illegal-content report from an established member hides the entry right away" do
     author = writer()
     entry = Repo.one!(from e in Entry, where: e.user_id == ^author.id)

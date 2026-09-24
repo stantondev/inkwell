@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { signedInDestination, takeReturnTo } from "@/lib/return-to";
 
 type SessionPollStatus = "polling" | "found" | "timeout" | "idle";
 
@@ -62,7 +63,7 @@ export function useSessionPoll(enabled: boolean, loginSessionId?: string) {
       if (res.ok) {
         const data = await res.json();
         const onboarded = data?.data?.settings?.onboarded;
-        setDestination(onboarded ? "/feed" : "/welcome");
+        setDestination(signedInDestination(onboarded, takeReturnTo()));
         setStatus("found");
         return true;
       }

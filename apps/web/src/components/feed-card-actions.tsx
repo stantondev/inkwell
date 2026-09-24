@@ -413,8 +413,8 @@ export function FeedCardActions({
     setCommentPopupOpen(!commentPopupOpen);
   }
 
-  async function handleSubmitComment(html: string, parentCommentId?: string) {
-    if (submittingRef.current || !isLoggedIn) return;
+  async function handleSubmitComment(html: string, parentCommentId?: string): Promise<boolean> {
+    if (submittingRef.current || !isLoggedIn) return false;
     submittingRef.current = true;
     setSubmitting(true);
     try {
@@ -429,7 +429,14 @@ export function FeedCardActions({
       if (res.ok) {
         setCommentCount((c) => c + 1);
         await loadComments();
+        return true;
       }
+      const data = await res.json().catch(() => ({}));
+      alert((typeof data.error === "string" && data.error) || "Your footnote wasn't posted. Your words are still in the box — try again.");
+      return false;
+    } catch {
+      alert("Couldn't reach Inkwell. Your words are still in the box — try again.");
+      return false;
     } finally {
       submittingRef.current = false;
       setSubmitting(false);

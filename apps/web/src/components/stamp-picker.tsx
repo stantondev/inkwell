@@ -221,7 +221,7 @@ export function StampPicker({
               ? `Your stamp: ${STAMP_CONFIG[myStamp]?.label}. Click to change.`
               : "Stamp this entry"
           }
-          title={myStamp ? `Stamped: ${STAMP_CONFIG[myStamp]?.label}` : "Add a stamp"}
+          title={myStamp ? `Stamped: ${STAMP_CONFIG[myStamp]?.label}` : "Stamp: tell the writer how it made you feel"}
         >
           {myStamp ? (
             <StampFrame stampType={myStamp} size="xs" />

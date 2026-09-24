@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import { JotPrompt } from "@/components/jot-prompt";
 import { EducationCard } from "@/components/education-card";
+import { WhatsNewNotice } from "@/components/whats-new-state";
+import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { PushPrompt } from "@/components/push-prompt";
 import { ResubscribeBanner } from "@/components/resubscribe-banner";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
@@ -290,6 +292,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const session = await getSession();
   if (!session) notFound();
 
+  const accountAgeDays = (Date.now() - new Date(session.user.created_at).getTime()) / 86_400_000;
+  const showGettingStarted = accountAgeDays < 30 && !session.user.settings?.getting_started_dismissed;
+
   const { page: pageParam, source, category, sort } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
@@ -485,6 +490,15 @@ export default async function FeedPage({ searchParams }: PageProps) {
             needsResubscribe={session.user.needs_resubscribe}
             serverDismissed={!!session.user.settings?.resubscribe_banner_dismissed}
           />
+        </div>
+
+        {/* First month: a short checklist. Afterwards: what's new since they last looked. */}
+        <div className="mx-auto max-w-7xl px-4">
+          {showGettingStarted ? (
+            <GettingStartedChecklist username={session.user.username} />
+          ) : (
+            <WhatsNewNotice serverSeen={session.user.settings?.whats_new_seen as string | undefined} />
+          )}
         </div>
 
         {/* Push notification prompt — shown once, dismissible */}

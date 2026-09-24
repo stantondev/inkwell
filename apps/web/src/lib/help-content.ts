@@ -29,7 +29,11 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ── Writing & Publishing ──
   { id: "w-editor", title: "Using the rich text editor", snippet: "Formatting, images, links, tables, task lists, and more.", keywords: ["editor", "formatting", "bold", "italic", "toolbar", "tiptap"], category: "writing", href: "/help/faq#write-entry" },
   { id: "w-drafts", title: "Saving drafts", snippet: "Save work-in-progress entries and publish when you're ready.", keywords: ["draft", "save", "unpublished"], category: "writing", href: "/help/faq#drafts" },
-  { id: "w-visibility", title: "Entry visibility settings", snippet: "Public, friends-only, private, custom filter, or paid subscribers.", keywords: ["visibility", "privacy", "public", "private", "friends"], category: "writing", href: "/help/faq#visibility" },
+  { id: "w-visibility", title: "Entry visibility settings", snippet: "Public, friends-only, private, or a custom list of people.", keywords: ["visibility", "privacy", "public", "private", "friends"], category: "writing", href: "/help/faq#visibility" },
+  { id: "w-stickies", title: "Stickies (short thoughts)", snippet: "Jot a titleless note of up to 500 characters; grow it into an entry later.", keywords: ["sticky", "stickies", "short", "note", "jot", "microblog"], category: "writing", href: "/help/faq#stickies" },
+  { id: "w-schedule", title: "Scheduling and backdating", snippet: "Pick a date in the editor: a future one schedules, a past one backdates.", keywords: ["schedule", "later", "date", "backdate", "time"], category: "writing", href: "/help/faq#schedule" },
+  { id: "w-readers", title: "Reader stats", snippet: "See how many people read your entries, without tracking them.", keywords: ["readers", "stats", "analytics", "views", "reads"], category: "writing", href: "/help/faq#readers" },
+  { id: "w-bulk", title: "Managing many posts at once", snippet: "Change privacy, tags or category, publish or delete in bulk from Posts.", keywords: ["bulk", "manage", "posts", "many", "select all"], category: "writing", href: "/help/faq#bulk-posts" },
   { id: "w-categories", title: "Categories and tags", snippet: "Organize entries by topic for better discovery.", keywords: ["category", "tag", "organize", "topic"], category: "writing", href: "/help/faq#categories-tags" },
   { id: "w-series", title: "Series and collections", snippet: "Group related entries into an ordered series.", keywords: ["series", "collection", "group", "order"], category: "writing", href: "/help/faq#series" },
   { id: "w-cover", title: "Cover images", snippet: "Upload a hero image that appears on feed cards and entry pages.", keywords: ["cover", "image", "photo", "hero"], category: "writing", href: "/help/faq#cover-image" },
@@ -40,7 +44,9 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "s-stamps", title: "Stamps (reactions)", snippet: "Press an ink stamp on entries to share how they made you feel.", keywords: ["stamp", "reaction", "like", "felt", "beautifully said"], category: "social", href: "/help/faq#stamps" },
   { id: "s-inks", title: "Inks (discovery signal)", snippet: "Ink entries to help surface great writing for the community.", keywords: ["ink", "trending", "discovery", "recommend"], category: "social", href: "/help/faq#stamps-vs-inks" },
   { id: "s-reprints", title: "Reprints (sharing)", snippet: "Share entries with your followers like a repost or boost.", keywords: ["reprint", "boost", "share", "repost", "quote"], category: "social", href: "/help/faq#reprints" },
-  { id: "s-letters", title: "Letters (private messages)", snippet: "Send rich text messages privately to other users.", keywords: ["letter", "message", "dm", "private", "letterbox"], category: "social", href: "/help/faq#letters" },
+  { id: "s-letters", title: "Letters (private messages)", snippet: "Private letters with pen pals and fediverse friends; archive, mute, search, requests.", keywords: ["letter", "message", "dm", "private", "letterbox", "archive", "mute", "request"], category: "social", href: "/help/faq#letters" },
+  { id: "s-guestbook", title: "Guestbooks", snippet: "Leave a public hello on someone's profile; they're notified.", keywords: ["guestbook", "sign", "profile", "hello"], category: "social", href: "/help/faq#guestbook" },
+  { id: "s-translate", title: "Translating entries", snippet: "Read writing in other languages with the Translate button.", keywords: ["translate", "language", "spanish", "deepl"], category: "social", href: "/help/faq#translate" },
   { id: "s-circles", title: "Circles (group discussions)", snippet: "Join writing circles for group discussions with a salon aesthetic.", keywords: ["circle", "group", "discussion", "salon", "community"], category: "social", href: "/help/faq#circles" },
   { id: "s-comments", title: "Comments (marginalia)", snippet: "Leave threaded comments with @mentions on entries.", keywords: ["comment", "reply", "mention", "marginalia", "thread"], category: "social", href: "/guide#interaction" },
 
@@ -72,7 +78,8 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   // ── Technical ──
   { id: "t-api", title: "API documentation", snippet: "Programmatic access with API keys and REST endpoints.", keywords: ["api", "developer", "key", "endpoint", "rest"], category: "technical", href: "/developers" },
-  { id: "t-import", title: "Importing content", snippet: "Import from WordPress, Medium, Substack, and more.", keywords: ["import", "wordpress", "medium", "substack", "migrate"], category: "technical", href: "/settings/import" },
+  { id: "t-import", title: "Importing content", snippet: "Import from WordPress, Medium, Substack, LiveJournal and Dreamwidth.", keywords: ["import", "wordpress", "medium", "substack", "livejournal", "dreamwidth", "lj", "migrate"], category: "technical", href: "/switch" },
+  { id: "x-whats-new", title: "What's new on Inkwell", snippet: "Recent features in plain words, with where to find them.", keywords: ["new", "changelog", "updates", "features", "release"], category: "getting-started", href: "/whats-new" },
   { id: "t-rss", title: "RSS feeds", snippet: "Subscribe to any profile or tag via RSS.", keywords: ["rss", "feed", "subscribe", "xml"], category: "technical", href: "/guide#feed-explore" },
   { id: "t-newsletter", title: "Newsletter delivery", snippet: "Send published entries to email subscribers.", keywords: ["newsletter", "email", "subscriber", "send"], category: "technical", href: "/settings/newsletter" },
 

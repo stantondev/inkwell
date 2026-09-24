@@ -899,6 +899,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
             username={username}
             isOwnProfile={isOwnProfile}
             isLoggedIn={!!session}
+            viewerUsername={session?.user?.username}
             styles={styles}
           />
         );

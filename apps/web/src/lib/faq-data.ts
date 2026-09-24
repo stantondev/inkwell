@@ -16,7 +16,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
   { id: "social", label: "Social & Connections" },
   { id: "fediverse", label: "The Fediverse" },
   { id: "customization", label: "Customization" },
-  { id: "billing", label: "Billing & Subscriptions" },
+  { id: "billing", label: "Billing & Plus" },
   { id: "safety", label: "Privacy & Safety" },
 ];
 
@@ -70,7 +70,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "visibility",
     question: "What are the visibility options?",
     answer:
-      '<ul><li><strong>Public</strong> — visible to everyone, including the fediverse</li><li><strong>Friends Only</strong> — only your pen pals can read it</li><li><strong>Private</strong> — only you can see it</li><li><strong>Custom</strong> — visible to specific people via a friend filter</li><li><strong>Paid subscribers only</strong> — only readers who subscribe to your plan (Plus feature)</li></ul>',
+      '<ul><li><strong>Public</strong> — visible to everyone, including the fediverse</li><li><strong>Friends Only</strong> — only your pen pals can read it</li><li><strong>Private</strong> — only you can see it</li><li><strong>Custom</strong> — visible to specific people via a friend filter</li></ul>',
     category: "writing",
   },
   {
@@ -78,6 +78,34 @@ export const FAQ_ITEMS: FaqItem[] = [
     question: "How do drafts work?",
     answer:
       'Click <strong>Save draft</strong> instead of Publish to save your work without making it public. Find your drafts in the sidebar under <strong>Drafts</strong>. You can edit and publish them anytime. Free users can save up to 10 drafts; Plus users get unlimited.',
+    category: "writing",
+  },
+  {
+    id: "stickies",
+    question: "What are stickies?",
+    answer:
+      'Stickies are short thoughts — no title, up to 500 characters — drawn as sticky notes. Choose <strong>Jot a sticky</strong> under Write in the sidebar (or Write &rarr; Sticky on your phone). They show on your profile&rsquo;s corkboard and in Feed, go to Mastodon in full, and any sticky can be expanded into a full entry later. Don&rsquo;t want to see them? Turn them off in <a href="/settings/content-safety">Settings &rarr; Content Safety</a>.',
+    category: "writing",
+  },
+  {
+    id: "schedule",
+    question: "Can I schedule a post, or change an entry's date?",
+    answer:
+      "Yes. In the editor, open <strong>Settings</strong> and set the <strong>Date</strong>. A future date turns <strong>Publish</strong> into <strong>Schedule</strong>, and the entry goes out on its own at that time (with your newsletter and cross-posts, if you chose them). A past date backdates the entry — handy for old journal entries.",
+    category: "writing",
+  },
+  {
+    id: "readers",
+    question: "Can I see how many people read my writing?",
+    answer:
+      'Yes, on the <a href="/readers">Readers</a> page. A read is counted when someone stays on your entry for ten seconds; it uses no cookies and doesn&rsquo;t track who they are. Everyone sees totals; Plus adds a daily chart, your top entries and where readers came from. Reads inside Mastodon apps can&rsquo;t be counted.',
+    category: "writing",
+  },
+  {
+    id: "bulk-posts",
+    question: "How do I change many posts at once?",
+    answer:
+      'Open <a href="/manage">Posts</a>, tick the entries you want (or tick the header box and choose &ldquo;Select all&rdquo;), then change privacy, category, series or tags, publish drafts, or delete them together.',
     category: "writing",
   },
   {
@@ -142,7 +170,21 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "letters",
     question: "What are Letters?",
     answer:
-      'Letters are private messages between you and another user. You can send rich text with formatting and images. Access your conversations from <strong>Letterbox</strong> in the sidebar.',
+      'Letters are private messages between pen pals — and fediverse accounts you follow or that follow you. Open <a href="/letters">Letters</a> and press <strong>New letter</strong>. Use the &#8943; menu on a conversation to archive, mute, mark as unread or delete it for yourself, and the search box to find old letters. Under <strong>Who can write to you</strong> you can let people who aren&rsquo;t your pen pals send one letter request, which waits quietly in your Requests tab until you accept or decline.',
+    category: "social",
+  },
+  {
+    id: "guestbook",
+    question: "What is the guestbook?",
+    answer:
+      "Every profile has a guestbook — a public spot for visitors to leave a short hello, like the guestbooks on old personal websites. You&rsquo;re notified when someone signs yours. You can remove any message on your own guestbook, and you can remove messages you left on someone else&rsquo;s.",
+    category: "social",
+  },
+  {
+    id: "translate",
+    question: "Can I read entries written in another language?",
+    answer:
+      'Yes. Every entry page has a <strong>Translate</strong> button above the text, and feed cards have one too. Set your language in <a href="/settings/profile">Settings &rarr; Profile</a> and it translates in one click.',
     category: "social",
   },
   {

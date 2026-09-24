@@ -246,6 +246,7 @@ defmodule InkwellWeb.Router do
     get "/me/archive", ArchiveController, :show
     patch "/me/archive", ArchiveController, :update
     get "/me/reads", ReadController, :summary
+    get "/me/checklist", ChecklistController, :show
     get "/me/bluesky", BlueskyBridgeController, :show
     post "/me/bluesky", BlueskyBridgeController, :enable
     delete "/me/bluesky", BlueskyBridgeController, :disable

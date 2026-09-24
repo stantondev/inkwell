@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
+import { RETURN_TO_COOKIE, readReturnTo, signedInDestination } from "@/lib/return-to";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -27,10 +28,11 @@ export async function GET(request: NextRequest) {
 
     // Session ready — set the cookie in this context (the PWA's cookie jar)
     if (data.ok && data.token) {
-      const onboarded = data.user?.settings?.onboarded;
-      const destination = onboarded ? "/feed" : "/welcome";
+      const returnTo = readReturnTo(request.cookies.get(RETURN_TO_COOKIE)?.value);
+      const destination = signedInDestination(data.user?.settings?.onboarded, returnTo);
 
       const response = NextResponse.json({ ok: true, destination });
+      if (returnTo) response.cookies.set(RETURN_TO_COOKIE, "", { maxAge: 0, path: "/" });
       response.cookies.set(TOKEN_COOKIE, data.token, {
         httpOnly: true,
         sameSite: "lax",

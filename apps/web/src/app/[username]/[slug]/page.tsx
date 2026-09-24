@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LocalDate, FULL_DATE, SHORT_DATE } from "@/components/local-date";
+import { decodeEntities } from "@/lib/decode-entities";
 
 import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
@@ -365,7 +366,7 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     // Cached via react.cache() — the page component below hits the same key
     // and shares this fetch's result.
     const data = await getEntry<{ data: EntryData }>(username, slug, token);
-    const entry = data.data;
+    const entry = { ...data.data, title: data.data.title ? decodeEntities(data.data.title) : data.data.title };
     const description = entry.excerpt
       ?? entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const isSticky = entry.kind === "sticky";
@@ -530,7 +531,9 @@ export default async function EntryPage({ params }: EntryParams) {
   try {
     // Cached — generateMetadata above already fetched this with the same token.
     const data = await getEntry<{ data: EntryData }>(username, slug, token);
-    entry = data.data;
+    // A few titles were stored with HTML entities in them (old quote-reprint
+    // backfill), which React then printed literally: "you&#39;re".
+    entry = { ...data.data, title: data.data.title ? decodeEntities(data.data.title) : data.data.title };
   } catch (err) {
     notFoundOrRethrow(err);
   }

@@ -105,8 +105,11 @@ export function notificationText(n: Notification): string {
       return "followed you from the fediverse";
     case "fediverse_mention":
       return "mentioned you from the fediverse";
-    case "guestbook":
-      return "signed your guestbook from the fediverse";
+    case "guestbook": {
+      const excerpt = n.data?.excerpt as string | undefined;
+      const where = n.remote_actor ? " from the fediverse" : "";
+      return `signed your guestbook${where}${excerpt ? ` — “${excerpt}”` : ""}`;
+    }
     case "circle_response": {
       const circleName = n.data?.circle_name as string | undefined;
       return circleName ? `responded to your discussion in ${circleName}` : "responded to your discussion";

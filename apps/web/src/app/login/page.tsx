@@ -6,6 +6,7 @@ import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
 import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
 import { HandoffCodeNote } from "@/components/handoff-code-note";
+import { rememberReturnTo } from "@/lib/return-to";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   oauth_denied: "Authorization was denied. You can try again or use email sign-in.",
@@ -359,6 +360,14 @@ export default function LoginPage() {
   const [handoffCode, setHandoffCode] = useState<string | undefined>();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
+  const nextParam = searchParams.get("next");
+
+  // Bring people back to the page that sent them here (a guestbook, a comment
+  // box, a protected page) instead of always to Feed.
+  useEffect(() => {
+    rememberReturnTo(nextParam);
+  }, [nextParam]);
+
   const urlErrorMessage = urlError
     ? OAUTH_ERROR_MESSAGES[urlError] || decodeURIComponent(urlError)
     : null;

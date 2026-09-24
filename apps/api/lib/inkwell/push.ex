@@ -120,7 +120,11 @@ defmodule Inkwell.Push do
   defp build_text("follow_accepted", actor, _), do: {"Request accepted", "#{actor} accepted your pen pal request"}
   defp build_text("fediverse_follow", actor, _), do: {"New fediverse follower", "#{actor} followed you from the fediverse"}
   defp build_text("fediverse_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you from the fediverse"}
-  defp build_text("guestbook", actor, _), do: {"Guestbook signed", "#{actor} signed your guestbook from the fediverse"}
+  defp build_text("guestbook", actor, n) do
+    if get_in_data(n, "remote_actor"),
+      do: {"Guestbook signed", "#{actor} signed your guestbook from the fediverse"},
+      else: {"Guestbook signed", "#{actor} signed your guestbook"}
+  end
   defp build_text("letter", actor, _), do: {"New letter", "#{actor} sent you a letter"}
   defp build_text("circle_response", actor, n), do: {"Circle response", "#{actor} responded in #{get_circle_name(n)}"}
   defp build_text("circle_mention", actor, n), do: {"Circle mention", "#{actor} mentioned you in #{get_circle_name(n)}"}

@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { PollWidget } from "./poll-widget";
 import { openJot } from "@/lib/stickies";
 import { isSupporter } from "@/lib/supporter";
+import { WhatsNewDot } from "./whats-new-state";
 
 interface SidebarNavProps {
   username: string;
@@ -27,6 +28,7 @@ interface SidebarNavProps {
   initialDraftCount: number;
   activePoll?: import("./poll-widget").PollData | null;
   serverSidebarHidden?: boolean;
+  serverWhatsNewSeen?: string;
 }
 
 // Small inline SVG icons (16x16) — reused from mobile-menu
@@ -63,6 +65,7 @@ function CirclesIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="1
 function NotificationsIcon() { return <svg {...iconProps}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>; }
 function SettingsIcon() { return <svg {...iconProps}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>; }
 function AdminIcon() { return <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
+function WhatsNewIcon() { return <svg {...iconProps}><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6l-5 3.6 1.9-5.8L4 8.8h6.1z" /></svg>; }
 function HideIcon() { return <svg {...iconProps} width="14" height="14"><path d="M11 19l-7-7 7-7" /></svg>; }
 function RevealIcon() { return <svg {...iconProps} width="10" height="10"><path d="M9 18l6-6-6-6" /></svg>; }
 
@@ -114,6 +117,7 @@ export function SidebarNav({
   initialDraftCount,
   activePoll,
   serverSidebarHidden,
+  serverWhatsNewSeen,
 }: SidebarNavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -290,6 +294,14 @@ export function SidebarNav({
         <NavItem href="/polls" icon={<PollsIcon />} label="Polls" active={isActive("/polls")} />
         <NavItem href="/circles" icon={<CirclesIcon />} label="Circles" active={isActive("/circles")} />
         <NavItem href="/roadmap/new" icon={<SubmitFeedbackIcon />} label="Feedback" active={pathname === "/roadmap/new"} />
+        <Link
+          href="/whats-new"
+          className={`sidebar-nav-link ${isActive("/whats-new") ? "sidebar-nav-link--active" : ""}`}
+        >
+          <span className="sidebar-nav-icon"><WhatsNewIcon /></span>
+          <span className="sidebar-nav-label">What&rsquo;s new</span>
+          <WhatsNewDot serverSeen={serverWhatsNewSeen} />
+        </Link>
         <NavItem href="/help" icon={<HelpIcon />} label="Help" active={isActive("/help")} />
         <NavItem href="/settings/invite" icon={<InviteIcon />} label="Invite friends" active={isActive("/settings/invite")} />
         {activePoll && !activePoll.my_vote && (

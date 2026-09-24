@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AvatarWithFrame } from "./avatar-with-frame";
+import { WhatsNewDot } from "./whats-new-state";
 import { usePwaInstall } from "@/lib/pwa";
 import {
   DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PenPalsIcon, LettersIcon,
@@ -157,6 +158,11 @@ export function YouSheet({
             <Chip href="/circles" label="Circles" icon={<CirclesIcon size={16} />} />
             <Chip href="/polls" label="Polls" icon={<PollsIcon size={16} />} />
             <Chip href="/roadmap" label="Roadmap" icon={<RoadmapIcon size={16} />} />
+            <Link href="/whats-new" className="you-sheet-chip">
+              <span aria-hidden="true">✦</span>
+              What&rsquo;s new
+              <WhatsNewDot />
+            </Link>
           </div>
 
           <div className="you-sheet-list">

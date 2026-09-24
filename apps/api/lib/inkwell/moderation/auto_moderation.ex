@@ -99,6 +99,7 @@ defmodule Inkwell.Moderation.AutoModeration do
           {:block, result} -> apply_decision(:block, user, result, acc)
           {:limit, result} -> apply_decision(:limit, user, result, acc)
           {:review, result} -> apply_decision(:review, user, result, acc)
+          {:lift, result} -> lift_limit(user, result, acc)
           _ -> acc
         end
       rescue
@@ -128,8 +129,10 @@ defmodule Inkwell.Moderation.AutoModeration do
 
   # ── Evaluation ───────────────────────────────────────────────────────────
 
+  @lift_engagement 2
+
   @doc """
-  Returns `{:block | :limit | :review | :none | :exempt, %{score, reasons}}`
+  Returns `{:block | :limit | :lift | :review | :none | :exempt, %{score, reasons}}`
   without changing anything.
   """
   def evaluate(%User{} = user, learned \\ nil) do
@@ -139,6 +142,13 @@ defmodule Inkwell.Moderation.AutoModeration do
     decision = SpamSignals.decision(result)
 
     cond do
+      # A limit isn't permanent: once the score is under the line and the
+      # writer is reading and responding to others, let them back into
+      # Explore. Follows don't count here — they're one click for a bot.
+      user.moderation_state == "limited" and decision == :none and not result.strong and
+          (facts[:engagement] || 0) >= @lift_engagement ->
+        {:lift, result}
+
       exempt_reason = exemption(user, facts) ->
         if decision == :block and not quietly_cleared?(user, facts),
           do: {:review, Map.update!(result, :reasons, &(&1 ++ ["not acted on: #{exempt_reason}"]))},
@@ -207,10 +217,13 @@ defmodule Inkwell.Moderation.AutoModeration do
       )
       |> Repo.one()
 
-    interactions =
+    engagement =
       Repo.one(from(c in Comment, where: c.user_id == ^user.id, select: count(c.id))) +
         Repo.one(from(i in Inkwell.Inks.Ink, where: i.user_id == ^user.id, select: count(i.id))) +
-        Repo.one(from(s in Inkwell.Stamps.Stamp, where: s.user_id == ^user.id, select: count(s.id))) +
+        Repo.one(from(s in Inkwell.Stamps.Stamp, where: s.user_id == ^user.id, select: count(s.id)))
+
+    interactions =
+      engagement +
         Repo.one(from(r in Inkwell.Social.Relationship, where: r.follower_id == ^user.id, select: count(r.id)))
 
     reports =
@@ -246,6 +259,7 @@ defmodule Inkwell.Moderation.AutoModeration do
           Enum.flat_map(guestbook, &SpamSignals.extract_links/1),
       profile_links: SpamSignals.extract_links(user.bio_html || user.bio) ++ social,
       interactions: interactions,
+      engagement: engagement,
       reports: reports,
       spam_warnings: spam_warnings,
       account_age_days: DateTime.diff(now, user.inserted_at, :day),
@@ -308,6 +322,20 @@ defmodule Inkwell.Moderation.AutoModeration do
       acc
       |> add_alert("• #{if kind == :block, do: "blocked", else: "limited"} @#{user.username} (#{result.score}) — #{short_reasons(result)}")
       |> Map.update!(if(kind == :block, do: :blocked, else: :limited), &[user.username | &1])
+    end
+  end
+
+  defp lift_limit(user, result, acc) do
+    if mode() == :dry_run do
+      add_alert(acc, "• would lift the limit on @#{user.username} (now #{result.score}, engaging with others)")
+    else
+      {:ok, _} = user |> Ecto.Changeset.change(moderation_state: nil) |> Repo.update()
+
+      from(a in ModerationAction, where: a.user_id == ^user.id and a.action == "limit" and is_nil(a.reversed_at))
+      |> Repo.update_all(set: [reversed_at: DateTime.utc_now()])
+
+      Logger.info("[AutoMod] Lifted limit on @#{user.username} (score #{result.score})")
+      add_alert(acc, "• lifted the limit on @#{user.username} (now #{result.score}, engaging with others)")
     end
   end
 

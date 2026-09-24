@@ -64,11 +64,13 @@ export function Guestbook({
   username,
   isOwnProfile,
   isLoggedIn,
+  viewerUsername,
   styles,
 }: {
   username: string;
   isOwnProfile: boolean;
   isLoggedIn: boolean;
+  viewerUsername?: string;
   styles: ProfileStyles;
 }) {
   const [entries, setEntries] = useState<GuestbookEntry[]>([]);
@@ -77,7 +79,9 @@ export function Guestbook({
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [signed, setSigned] = useState(false);
   const [copied, setCopied] = useState(false);
+  const signInHref = `/login?next=${encodeURIComponent(`/${username}#guestbook`)}`;
 
   useEffect(() => {
     fetchEntries();
@@ -117,26 +121,34 @@ export function Guestbook({
         setEntries((prev) => [data.data, ...prev]);
         setTotal((t) => t + 1);
         setMessage("");
+        setSigned(true);
       } else {
-        const data = await res.json();
-        setError(data.error ?? "Failed to post");
+        const data = await res.json().catch(() => ({}));
+        // Validation errors come back as {errors: {field: [msg]}}.
+        const fieldError = data.errors
+          ? Object.values(data.errors as Record<string, string[]>).flat()[0]
+          : null;
+        setError(fieldError ? `Message ${fieldError}` : data.error ?? "Couldn't sign the guestbook. Please try again.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach Inkwell. Check your connection and try again.");
     } finally {
       setPosting(false);
     }
   }
 
   async function handleDelete(entryId: string) {
+    if (!window.confirm("Remove this guestbook message?")) return;
     try {
       const res = await fetch(`/api/guestbook/${entryId}`, { method: "DELETE" });
       if (res.ok) {
         setEntries((prev) => prev.filter((e) => e.id !== entryId));
         setTotal((t) => t - 1);
+      } else {
+        window.alert("Couldn't remove that message. Please try again.");
       }
     } catch {
-      // ignore
+      window.alert("Couldn't reach Inkwell. Please try again.");
     }
   }
 
@@ -149,18 +161,29 @@ export function Guestbook({
   }
 
   return (
-    <div className={`profile-widget-card ${styles.borderRadius} border p-3 sm:p-4`} style={styles.surface}>
-      <h3 className="text-xs font-medium uppercase tracking-widest mb-3" style={{ color: styles.muted }}>
+    <div id="guestbook" className={`profile-widget-card ${styles.borderRadius} border p-3 sm:p-4`} style={styles.surface}>
+      <h3 className="text-xs font-medium uppercase tracking-widest mb-1" style={{ color: styles.muted }}>
         Guestbook {total > 0 && <span className="normal-case font-normal">({total})</span>}
       </h3>
+      <p className="text-xs mb-3" style={{ color: styles.muted }}>
+        {isOwnProfile
+          ? "Notes visitors leave on your page. You're notified when someone signs."
+          : `A public note on ${username}'s page, like an old-school guestbook. They'll be notified.`}
+      </p>
 
       {/* Sign form */}
       {isLoggedIn && !isOwnProfile && (
         <form onSubmit={handleSubmit} className="mb-3">
+          {signed && (
+            <p className="text-xs mb-2" role="status" style={{ color: styles.accent }}>
+              ✓ Signed! {username} will see your note.
+            </p>
+          )}
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Sign the guestbook..."
+            onChange={(e) => { setMessage(e.target.value); if (signed) setSigned(false); }}
+            aria-label={`Sign ${username}'s guestbook`}
+            placeholder={signed ? "Leave another note…" : "Say hello, leave a kind word…"}
             maxLength={500}
             rows={2}
             className="w-full rounded-lg border px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-[var(--accent)] transition resize-none"
@@ -195,10 +218,14 @@ export function Guestbook({
             {isLoggedIn ? "Be the first to sign!" : (
               <>
                 No entries yet.{" "}
-                <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
-                  Join Inkwell
+                <a href={signInHref} className="font-medium hover:underline" style={{ color: styles.accent }}>
+                  Sign in
                 </a>{" "}
-                to sign the guestbook.
+                or{" "}
+                <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+                  join Inkwell
+                </a>{" "}
+                to be the first to sign.
               </>
             )}
           </p>
@@ -256,13 +283,14 @@ export function Guestbook({
                     </div>
                     <p className="text-sm leading-relaxed break-words">{entry.body}</p>
                   </div>
-                  {isOwnProfile && (
+                  {(isOwnProfile || (!!viewerUsername && entry.author?.username === viewerUsername)) && (
                     <button
                       type="button"
                       onClick={() => handleDelete(entry.id)}
-                      className="text-xs flex-shrink-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                      className="text-xs flex-shrink-0 p-1 opacity-50 hover:opacity-100 focus:opacity-100 transition-opacity"
                       style={{ color: styles.muted }}
-                      title="Delete">
+                      aria-label="Remove this message"
+                      title="Remove this message">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -279,14 +307,19 @@ export function Guestbook({
       {/* Logged-out CTA to sign guestbook */}
       {!isLoggedIn && !isOwnProfile && entries.length > 0 && (
         <p className="text-xs mt-3 pt-2 border-t" style={{ color: styles.muted, borderColor: styles.border }}>
+          <a href={signInHref} className="font-medium hover:underline" style={{ color: styles.accent }}>
+            Sign in
+          </a>{" "}
+          or{" "}
           <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
-            Join Inkwell
+            join Inkwell
           </a>{" "}
           to sign {username}&apos;s guestbook.
         </p>
       )}
 
-      {/* From the fediverse? hint */}
+      {/* From the fediverse? hint — for visitors who aren't signed in to Inkwell */}
+      {!isLoggedIn && (
       <div className="mt-3 pt-2 border-t" style={{ borderColor: styles.border }}>
         <div className="flex items-center gap-1.5 mb-1">
           <GlobeIcon />
@@ -314,6 +347,7 @@ export function Guestbook({
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

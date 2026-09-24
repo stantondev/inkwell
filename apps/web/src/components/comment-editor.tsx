@@ -12,7 +12,8 @@ import type { MentionUser } from "@/hooks/use-mention-autocomplete";
 import { MentionDropdown } from "@/components/mention-dropdown";
 
 interface CommentEditorProps {
-  onSubmit: (html: string) => void;
+  /** Return (or resolve to) `false` to keep the text, e.g. when the post failed. */
+  onSubmit: (html: string) => void | boolean | Promise<void | boolean>;
   placeholder?: string;
   compact?: boolean;
   maxLength?: number;
@@ -45,16 +46,23 @@ export function CommentEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isFocused, setIsFocused] = useState(false);
 
-  const handleSubmit = useCallback(() => {
+  // Waits for the post before clearing: it used to clear straight away, so a
+  // failed post threw the writer's words away.
+  const handleSubmit = useCallback(async () => {
     if (submittingRef.current) return;
     const editor = editorRef.current;
     if (!editor) return;
     const html = editor.getHTML();
     if (!html || html === "<p></p>") return;
     submittingRef.current = true;
-    onSubmitRef.current(html);
-    editor.commands.clearContent();
-    submittingRef.current = false;
+    try {
+      const result = await onSubmitRef.current(html);
+      if (result !== false && !editor.isDestroyed) editor.commands.clearContent();
+    } catch {
+      // Keep the text so it can be sent again.
+    } finally {
+      submittingRef.current = false;
+    }
   }, []);
 
   const editorRef = useRef<Editor | null>(null);

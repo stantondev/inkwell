@@ -95,7 +95,7 @@ export function InkButton({
   return (
     <button
       onClick={handleToggle}
-      title={inked ? "Remove ink" : "Ink this entry"}
+      title={inked ? "Remove ink" : "Ink: recommend this entry on Inkwell (helps it reach Trending)"}
       aria-label={inked ? "Remove ink" : "Ink this entry"}
       className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80"
       style={{

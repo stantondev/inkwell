@@ -11,8 +11,8 @@ defmodule InkwellWeb.GuestbookController do
 
       user ->
         viewer = conn.assigns[:current_user]
-        limit = min(String.to_integer(Map.get(params, "limit", "20")), 50)
-        offset = String.to_integer(Map.get(params, "offset", "0"))
+        limit = params |> int_param("limit", 20) |> max(1) |> min(50)
+        offset = params |> int_param("offset", 0) |> max(0)
         entries = Guestbook.list_entries(user.id, limit: limit, offset: offset)
         count = Guestbook.count_entries(user.id)
 
@@ -46,6 +46,18 @@ defmodule InkwellWeb.GuestbookController do
           }) do
             {:ok, entry} ->
               entry = Inkwell.Repo.preload(entry, :author)
+
+              # Tell the owner someone signed. Until 2026-09-24 only fediverse
+              # signatures did, so members never knew their guestbook was used.
+              if profile_user.id != current_user.id do
+                Accounts.create_notification(%{
+                  user_id: profile_user.id,
+                  actor_id: current_user.id,
+                  type: :guestbook,
+                  data: %{profile_username: profile_user.username, excerpt: String.slice(entry.body, 0, 140)}
+                })
+              end
+
               conn |> put_status(:created) |> json(%{data: render_entry(entry)})
 
             {:error, changeset} ->
@@ -76,6 +88,13 @@ defmodule InkwellWeb.GuestbookController do
 
       {:error, _} ->
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to delete entry"})
+    end
+  end
+
+  defp int_param(params, key, default) do
+    case Integer.parse(to_string(Map.get(params, key, default))) do
+      {n, _} -> n
+      :error -> default
     end
   end
 

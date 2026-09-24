@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { signedInDestination, takeReturnTo } from "@/lib/return-to";
 
 type Status = "ready" | "verifying" | "success" | "handoff" | "already" | "error";
 
@@ -47,7 +48,7 @@ export default function VerifyPage() {
       if (!res.ok) return null;
       const data = await res.json();
       if (!data?.data?.id) return null;
-      return data.data.settings?.onboarded ? "/feed" : "/welcome";
+      return signedInDestination(data.data.settings?.onboarded, takeReturnTo());
     } catch {
       return null;
     }

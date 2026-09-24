@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE, HANDOFF_COOKIE } from "@/lib/session";
+import { RETURN_TO_COOKIE, readReturnTo, signedInDestination } from "@/lib/return-to";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -83,9 +84,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const destination = data.user?.settings?.onboarded ? "/feed" : "/welcome";
+  const returnTo = readReturnTo(request.cookies.get(RETURN_TO_COOKIE)?.value);
+  const destination = signedInDestination(data.user?.settings?.onboarded, returnTo);
 
   const response = NextResponse.json({ ok: true, destination, handoff });
+  if (returnTo) response.cookies.set(RETURN_TO_COOKIE, "", { maxAge: 0, path: "/" });
 
   // Set the session cookie
   response.cookies.set(TOKEN_COOKIE, data.token, {
