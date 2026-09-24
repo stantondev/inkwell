@@ -10,7 +10,7 @@ discussionsTo: TBD
 
 ## Summary
 
-People bring their writing to the Fediverse from elsewhere: years of LiveJournal entries, a WordPress blog, a Substack archive, an export from a server that has since shut down. ActivityPub has no way to say that an object is one of these. Receiving servers see a post published today, or a post dated 2004 that arrived today, and treat it as new: it reaches home timelines, notifies the people it mentions, and counts toward trending hashtags.
+People bring their writing to the Fediverse from elsewhere: years of LiveJournal entries, a WordPress blog, a Substack archive, an export from a server that has since shut down. ActivityPub has no way to say that an object is one of these. A receiving server sees a post dated 2004 that arrived today and can't tell it apart from new activity, so it may put it at the top of home timelines, notify the people it mentions, and count it toward trending hashtags.
 
 This proposal defines `importedFrom`, a property that marks an object as brought over from somewhere else and says where. It asks publishers to keep the original publication date and to make imported objects available without pushing them to followers, and it asks receivers to show them as archive material rather than new activity.
 
@@ -22,8 +22,8 @@ I kept a LiveJournal from 2004 to 2006, starting when I was fifteen. When I buil
 
 That's where I ran into this problem. My choices were:
 
-- **Send them all out.** Every one of my followers would get 173 posts in their timeline, all from twenty years ago. Anyone I mentioned back then would get a notification today, and old hashtags would show up as trending.
-- **Date them today.** No flood, but my 2004 entries would look like I wrote them this week, and anyone reading them would get the wrong idea about who wrote them and when.
+- **Send them all out.** Every one of my followers would get 173 posts in their timeline, all from twenty years ago. Anyone I mentioned back then could get a notification today, and old hashtags could count toward what's trending.
+- **Date them today.** No flood, but my 2004 entries would look like I wrote them this week, and anyone reading them would get the wrong idea about when I wrote them and how old I was.
 - **Leave them behind.** That's what most people end up doing, and it's the reason I built the importer in the first place.
 
 None of those is right. What I wanted was for the entries to keep their real dates, sit quietly on my profile for anyone who wants to read them, and not be treated as new by anyone's server. Inkwell does that now, but only Inkwell knows these posts are old. Other servers can't tell an imported post from a new one, or from a post that was just delivered late, and they don't know where it came from.
@@ -105,7 +105,7 @@ The term is defined in the `https://w3id.org/fep/0c7f` namespace:
 }
 ```
 
-Consumers that don't process JSON-LD SHOULD recognise the compact term `importedFrom`.
+Consumers that don't process JSON-LD SHOULD recognize the compact term `importedFrom`.
 
 ## Publishers
 
@@ -138,7 +138,7 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 ## Security and privacy considerations
 
 - **Backdating.** Nothing stops a publisher from giving a new object an old `published` time with `importedFrom`, for example to avoid moderation queues or rate limits that key on recent activity. Receivers MAY apply their usual moderation to imported objects, and MAY treat unusually large numbers of them from one actor as suspicious.
-- **False provenance.** `importedFrom` can name any URL. This is why receivers must not treat it as proof of authorship and should not fetch it automatically (which would also make every receiver a request amplifier toward that URL).
+- **False provenance.** `importedFrom` can name any URL. This is why receivers must not treat it as proof of authorship and should not fetch it automatically. Automatic fetching would also mean every receiver sends a request to that URL, which could be used to flood it.
 - **Old mentions.** Content written years ago on another platform may name people who never expected it to reach them. Not notifying on imported objects, and not converting old mentions into `Mention` tags, limits that exposure.
 - **Visibility.** Importing does not change who may see an object. Publishers MUST apply the author's chosen audience; private or friends-only posts from the original platform MUST NOT become public by being imported.
 
@@ -175,7 +175,7 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 
 ## Acknowledgements
 
-The problem, the design decisions and the Inkwell implementation come from my own experience importing my LiveJournal. I'm not a standards expert. I wrote this with an AI assistant (Claude, by Anthropic): it drafted the text and helped build and test the implementation, following my direction. I've reviewed it and I'm responsible for it, and I'm asking people with more experience in ActivityPub to review it too. Corrections are very welcome.
+The problem, the design decisions and the Inkwell implementation come from my own experience importing my LiveJournal. I'm not a standards expert. I worked on this with an AI assistant (Claude, by Anthropic), which drafted the text and helped build and test the implementation under my direction. I've reviewed it and I'm responsible for it, and I'm asking people with more experience in ActivityPub to review it too. Corrections are very welcome.
 
 ## Copyright
 
