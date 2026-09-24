@@ -175,7 +175,7 @@ Consumers that don't process JSON-LD SHOULD recognise the compact term `imported
 
 ## Acknowledgements
 
-The problem, the design decisions and the Inkwell implementation come from my own experience importing my LiveJournal. I'm not a standards expert. I wrote this with an AI assistant (Claude, by Anthropic): it drafted the text, including the motivation above in my voice, and helped build and test the implementation, following my direction. I've reviewed it and I'm responsible for it, and I'm asking people with more experience in ActivityPub to review it too. Corrections are very welcome.
+The problem, the design decisions and the Inkwell implementation come from my own experience importing my LiveJournal. I'm not a standards expert. I wrote this with an AI assistant (Claude, by Anthropic): it drafted the text and helped build and test the implementation, following my direction. I've reviewed it and I'm responsible for it, and I'm asking people with more experience in ActivityPub to review it too. Corrections are very welcome.
 
 ## Copyright
 
