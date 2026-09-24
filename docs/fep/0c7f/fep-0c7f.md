@@ -22,13 +22,13 @@ I kept a LiveJournal from 2004 to 2006, starting when I was fifteen. When I buil
 
 That's where I ran into this problem. My choices were:
 
-- **Send them all out.** Every one of my followers would get 173 posts in their timeline, all from twenty years ago. Anyone I mentioned back then could get a notification today, and old hashtags could count toward what's trending.
+- **Send them all out.** Every one of my followers would get 173 posts in their timeline, all from twenty years ago, and old hashtags could count toward what's trending.
 - **Date them today.** No flood, but my 2004 entries would look like I wrote them this week, and anyone reading them would get the wrong idea about when I wrote them and how old I was.
 - **Leave them behind.** That's what most people end up doing, and it's the reason I built the importer in the first place.
 
 None of those is right. What I wanted was for the entries to keep their real dates, sit quietly on my profile for anyone who wants to read them, and not be treated as new by anyone's server. Inkwell does that now, but only Inkwell knows these posts are old. Other servers can't tell an imported post from a new one, or from a post that was just delivered late, and they don't know where it came from.
 
-This isn't just my problem. Since the end of 2025 LiveJournal has limited public posting to paid or verified accounts, and a lot of people are looking for somewhere to take their journals. The same is true of people leaving blogs, newsletters and Fediverse servers that are shutting down. Every piece of software that imports old posts has to solve this on its own right now, and receiving servers have to guess.
+This isn't just my problem. Since the end of 2025 LiveJournal has limited public posting to paid or verified accounts, and a lot of people are looking for somewhere to take their journals. The same is true of people leaving blogs, newsletters and Fediverse servers that are shutting down. Every piece of software that imports old posts has to solve this on its own right now, and receiving servers have to guess. It matters even more for posts moved between Fediverse servers, because their mentions point at real, current accounts, and those people would be notified about something they were tagged in years ago.
 
 [FEP-73cd] (Migration User Stories) describes people exporting archives and republishing them on another server (stories 4, 5 and 7). [FEP-1580] handles moves between ActivityPub servers, keeps the original dates, and already says the new server shouldn't announce migrated objects. Neither covers posts coming from outside ActivityPub, and neither tells receiving servers what to do when an old post turns up. This proposal is an attempt to fill that gap with one small property and a few rules for publishers and receivers.
 
