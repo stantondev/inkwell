@@ -31,6 +31,8 @@ defmodule Inkwell.Journals.Comment do
     |> validate_entry_target()
     |> validate_has_author()
     |> compute_depth()
+    # One comment per fediverse post, even when two deliveries arrive at once.
+    |> unique_constraint(:ap_id, name: :comments_remote_ap_id_index)
   end
 
   def edit_changeset(comment, attrs) do

@@ -1415,7 +1415,9 @@ defmodule InkwellWeb.FederationController do
         create_reply_notification(entry, remote_actor)
 
       {:error, reason} ->
-        Logger.warning("Failed to create federated comment: #{inspect(reason)}")
+        if duplicate_delivery?(reason),
+          do: Logger.info("Skipped a second delivery of #{note["id"]}"),
+          else: Logger.warning("Failed to create federated comment: #{inspect(reason)}")
     end
   end
 
@@ -1488,9 +1490,22 @@ defmodule InkwellWeb.FederationController do
         maybe_notify_parent_comment_author(parent_comment, remote_actor, profile_url)
 
       {:error, reason} ->
-        Logger.warning("Failed to create federated reply-to-comment: #{inspect(reason)}")
+        if duplicate_delivery?(reason),
+          do: Logger.info("Skipped a second delivery of #{note["id"]}"),
+          else: Logger.warning("Failed to create federated reply-to-comment: #{inspect(reason)}")
     end
   end
+
+  # The same reply delivered twice at once (the shared inbox and a member's
+  # inbox): the unique index turns the second insert into this error.
+  defp duplicate_delivery?(%Ecto.Changeset{errors: errors}) do
+    case errors[:ap_id] do
+      {_, opts} -> opts[:constraint_name] == "comments_remote_ap_id_index"
+      _ -> false
+    end
+  end
+
+  defp duplicate_delivery?(_), do: false
 
   # Idempotency guard: skip ingesting a reply if we already have a comment with
   # that AP id. Protects against (a) duplicate inbox deliveries from Mastodon,
