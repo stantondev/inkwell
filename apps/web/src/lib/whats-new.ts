@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-userpics",
+    date: "2026-09-24",
+    title: "Userpics: a picture for every mood",
+    body: "Keep a set of pictures, each with a keyword (“coffee”, “rainy day”), and choose one for each entry and each footnote, just like LiveJournal. It shows beside that entry or footnote in place of your avatar, and big in Classic view. Animated GIFs keep moving. Your avatar stays the default. Free accounts get 10 userpics, Plus 50.",
+    howTo: "Settings → Userpics to add them. Then pick one with the little picture at the start of the editor’s mood line, or “Posting as” above the footnote box.",
+    href: "/settings/userpics",
+    cta: "Add userpics",
+    tag: "Profile",
+  },
+  {
     id: "2026-09-24-classic-view",
     date: "2026-09-24",
     title: "Classic view: Inkwell the 2004 way",

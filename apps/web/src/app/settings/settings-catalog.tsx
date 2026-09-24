@@ -101,6 +101,15 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     keywords: ["picture", "photo", "alien", "frame", "portrait"],
   },
   {
+    id: "userpics",
+    href: "/settings/userpics",
+    title: "Userpics",
+    blurb: "A set of pictures with keywords, LiveJournal-style. Pick one for each entry and comment; your avatar stays the default.",
+    icon: I.avatar,
+    group: "account",
+    keywords: ["userpic", "icons", "pictures", "livejournal", "keyword", "gif", "avatar"],
+  },
+  {
     id: "look",
     href: "/settings/look",
     title: "Look & feel",

@@ -36,6 +36,7 @@ import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
 import { isMarkdown, isPlainTextHtml, markdownToHtml } from "@/lib/markdown-paste";
 import { MoodInput, LocationInput } from "@/app/editor/mood-input";
+import { UserpicPicker } from "@/components/userpic-picker";
 import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
@@ -57,6 +58,8 @@ interface EditorState {
   mood: string;
   moodKey: string | null;
   location: string;
+  /** The userpic this entry wears; null is the avatar. */
+  userpicId: string | null;
   music: string;
   privacy: Privacy;
   customFilterId: string | null;
@@ -1147,6 +1150,7 @@ interface RecoveryData {
   mood: string;
   moodKey?: string | null;
   location?: string;
+  userpicId?: string | null;
   music: string;
   privacy: string;
   customFilterId: string | null;
@@ -1522,7 +1526,7 @@ export function EditorClient() {
   const fromCirclePromptId = editId ? null : searchParams.get("circle_prompt");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", moodKey: null, location: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
+    title: "", mood: "", moodKey: null, location: "", userpicId: null, music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
     circleId: fromCircleId, circlePromptId: fromCircleId ? fromCirclePromptId : null,
   });
   const [myCircles, setMyCircles] = useState<MyCircle[] | null>(null);
@@ -1577,6 +1581,7 @@ export function EditorClient() {
   });
   // The writer's mood icon style; a journal-wide setting, changed from the picker.
   const [moodTheme, setMoodTheme] = useState<MoodTheme>("classic");
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const changeMoodTheme = useCallback((theme: MoodTheme) => {
     setMoodTheme(theme);
     fetch("/api/me", {
@@ -2031,6 +2036,7 @@ export function EditorClient() {
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
           setMoodTheme(normalizeMoodTheme(data?.settings?.mood_theme));
+          setMyAvatarUrl(data?.avatar_url ?? null);
           // Sync eye comfort from server (cross-device sync)
           const serverComfort = !!data?.settings?.eye_comfort_mode;
           if (serverComfort !== comfortMode) setComfortMode(serverComfort);
@@ -2169,6 +2175,7 @@ export function EditorClient() {
           mood: entry.mood ?? "",
           moodKey: entry.mood_key ?? null,
           location: entry.location ?? "",
+          userpicId: entry.user_icon_id ?? null,
           music: entry.music ?? "",
           privacy: entry.privacy ?? "public",
           customFilterId: entry.custom_filter_id ?? null,
@@ -2323,6 +2330,7 @@ export function EditorClient() {
         mood: state.mood,
         moodKey: state.moodKey,
         location: state.location,
+        userpicId: state.userpicId,
         music: state.music,
         privacy: state.privacy,
         customFilterId: state.customFilterId,
@@ -2387,6 +2395,7 @@ export function EditorClient() {
         mood: state.mood || null,
         mood_key: state.mood ? state.moodKey : null,
         location: state.location.trim() || null,
+        user_icon_id: state.userpicId ?? "",
         music: state.music || null,
         music_metadata: currentMusicMetadata,
         privacy: state.privacy,
@@ -2684,6 +2693,7 @@ export function EditorClient() {
       mood: state.mood || null,
       mood_key: state.mood ? state.moodKey : null,
       location: state.location.trim() || null,
+      user_icon_id: state.userpicId ?? "",
       music: state.music || null,
       music_metadata: currentMusicMetadata,
       privacy: state.privacy,
@@ -3055,6 +3065,7 @@ export function EditorClient() {
                   mood: d.mood,
                   moodKey: d.moodKey ?? null,
                   location: d.location ?? "",
+                  userpicId: d.userpicId ?? null,
                   music: d.music,
                   privacy: d.privacy as Privacy,
                   customFilterId: d.customFilterId,
@@ -3239,6 +3250,12 @@ export function EditorClient() {
 
             {/* ── Mood + music strip ──────────────────── */}
             <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
+              <UserpicPicker
+                value={state.userpicId}
+                onChange={(id) => update({ userpicId: id })}
+                avatarUrl={myAvatarUrl}
+                size={30}
+              />
               <MoodInput
                 value={state.mood}
                 moodKey={state.moodKey}

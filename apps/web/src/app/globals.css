@@ -16554,3 +16554,44 @@ body[data-look="classic"] .entry-current-label {
 .look-preview-lines { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .look-preview-lines span { height: 3px; background: #0033cc; opacity: 0.55; width: 45%; }
 .look-preview-lines span + span { background: #555; opacity: 0.3; width: 90%; }
+
+/* ─── Userpics (app/settings/userpics, components/userpic-picker.tsx) ─── */
+.userpic-slot {
+  width: 100px; height: 100px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  border: 1px dashed var(--border-strong, var(--border)); border-radius: 6px;
+  background: var(--background); color: var(--muted); font-size: 32px;
+}
+.userpic-slot img { width: 100%; height: 100%; object-fit: cover; }
+.userpic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 14px; }
+.userpic-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.userpic-card img { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.userpic-keyword { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground); }
+.userpic-keyword:hover { text-decoration: underline; }
+.userpic-delete { font-size: 11px; color: var(--muted); }
+.userpic-delete:hover { color: var(--danger); }
+.userpic-picker-button {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-hover); color: var(--muted);
+}
+.userpic-picker-button:hover { border-color: var(--accent); }
+.userpic-picker-button img { width: 100%; height: 100%; object-fit: cover; }
+.userpic-picker-popup {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px;
+  width: min(380px, calc(100vw - 32px)); max-height: 340px; overflow-y: auto; padding: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.15);
+}
+.userpic-picker-option {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px;
+  border-radius: 8px; font-size: 11px; color: var(--foreground); min-width: 0;
+}
+.userpic-picker-option span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.userpic-picker-option img, .userpic-picker-blank { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.userpic-picker-blank { display: block; background: var(--surface-hover); }
+.userpic-picker-option:hover { background: var(--surface-hover); }
+.userpic-picker-option[data-selected="true"] { background: var(--accent-light); color: var(--accent); }
+.userpic-picker-manage { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--muted); text-decoration: underline; padding-top: 4px; }
+.entry-userpic { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.comment-userpic-row:not(:empty) { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }

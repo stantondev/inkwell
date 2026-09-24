@@ -80,6 +80,7 @@ defmodule Inkwell.Journals do
     query
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
+    |> preload(:user_icon)
     |> Repo.all()
   end
 

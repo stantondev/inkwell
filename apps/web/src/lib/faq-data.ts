@@ -88,6 +88,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "writing",
   },
   {
+    id: "userpics",
+    question: "What are userpics?",
+    answer:
+      "Borrowed from LiveJournal: a set of pictures, each with a keyword, that you choose between for each entry and footnote. Add them in Settings → <strong>Userpics</strong> (PNG, JPEG, GIF or WebP; animated GIFs keep moving). In the editor, click the little picture at the start of the mood line; above the footnote box, use <strong>Posting as</strong>. Your avatar stays the default, and deleting a userpic puts your avatar back wherever it was used. Free accounts can keep 10, Plus 50.",
+    category: "customization",
+  },
+  {
     id: "classic-view",
     question: "Can Inkwell look like LiveJournal did?",
     answer:

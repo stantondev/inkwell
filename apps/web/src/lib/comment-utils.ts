@@ -28,6 +28,8 @@ export interface Comment {
   depth: number;
   author: CommentAuthor | null;
   remote_author: CommentRemoteAuthor | null;
+  /** The userpic the commenter chose for this comment (instead of their avatar). */
+  userpic?: { id: string; keyword: string; url: string } | null;
   url?: string | null;
   created_at: string;
   edited_at: string | null;

@@ -51,9 +51,10 @@ function Userpic({ entry }: { entry: JournalEntry }) {
   const name = entry.author.display_name || entry.author.username;
   return (
     <a href={profileHref(entry)} className="classic-userpic" title={name}>
-      {entry.author.avatar_url ? (
+      {entry.userpic || entry.author.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={entry.author.avatar_url} alt="" width={100} height={100} loading="lazy" />
+        <img src={entry.userpic?.url ?? entry.author.avatar_url!} alt="" width={100} height={100} loading="lazy"
+          title={entry.userpic?.keyword} />
       ) : (
         <span className="classic-userpic-blank" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
       )}

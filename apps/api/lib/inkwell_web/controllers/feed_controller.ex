@@ -143,7 +143,6 @@ defmodule InkwellWeb.FeedController do
             subscription_tier: Inkwell.SelfHosted.effective_tier(author),
             ink_donor_status: author.ink_donor_status
           },
-          user_icon: entry.user_icon,
           comment_count: Map.get(comment_counts, entry.id, 0),
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id),
@@ -177,7 +176,6 @@ defmodule InkwellWeb.FeedController do
             subscription_tier: Inkwell.SelfHosted.effective_tier(author),
             ink_donor_status: nil
           },
-          user_icon: nil,
           comment_count: Map.get(comment_counts, entry.id, 0),
           stamps: Map.get(stamp_types_map, entry.id, []),
           my_stamp: Map.get(my_stamps_map, entry.id),

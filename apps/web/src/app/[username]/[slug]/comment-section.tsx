@@ -6,6 +6,7 @@ import type { Comment, CommentThread } from "@/lib/comment-utils";
 import { buildThreadTree, countThreadComments } from "@/lib/comment-utils";
 import { CommentNode } from "./comment-node";
 import { CommentEditor } from "@/components/comment-editor";
+import { UserpicPicker } from "@/components/userpic-picker";
 
 interface CommentSectionProps {
   comments: Comment[];
@@ -15,6 +16,7 @@ interface CommentSectionProps {
       id: string;
       username: string;
       is_admin?: boolean;
+      avatar_url?: string | null;
     };
   } | null;
   /** Override API path for remote entries (e.g., /api/remote-entries/:id/comments) */
@@ -28,6 +30,10 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  // The userpic new footnotes (and replies) wear. Fediverse posts' comments
+  // go out through a different endpoint that doesn't take one.
+  const [userpicId, setUserpicId] = useState<string | null>(null);
+  const canChooseUserpic = !commentApiPath;
   const submittingRef = useRef(false);
 
   const threads = buildThreadTree(comments);
@@ -59,6 +65,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
       try {
         const body: Record<string, string> = { body_html: html };
         if (parentCommentId) body.parent_comment_id = parentCommentId;
+        if (canChooseUserpic && userpicId) body.user_icon_id = userpicId;
 
         const res = await fetch(commentApiPath ?? `/api/entries/${entryId}/comments`, {
           method: "POST",
@@ -85,7 +92,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
         setSubmitting(false);
       }
     },
-    [entryId, router],
+    [entryId, router, commentApiPath, canChooseUserpic, userpicId],
   );
 
   const handleEdit = useCallback(
@@ -155,6 +162,17 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
       {/* Root comment editor */}
       {session ? (
         <div className="comment-root-editor">
+          {canChooseUserpic && (
+            <div className="comment-userpic-row">
+              <UserpicPicker
+                value={userpicId}
+                onChange={setUserpicId}
+                avatarUrl={session.user.avatar_url ?? null}
+                size={36}
+                label="Posting as"
+              />
+            </div>
+          )}
           <CommentEditor
             onSubmit={(html) => handleSubmitComment(html)}
             placeholder="Add a footnote…"

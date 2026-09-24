@@ -60,7 +60,7 @@ export function CommentNode({
       ? comment.remote_author!.display_name || comment.remote_author!.username
       : "Anonymous";
   const avatarUrl = isLocal
-    ? comment.author!.avatar_url
+    ? comment.userpic?.url ?? comment.author!.avatar_url
     : isRemote
       ? comment.remote_author!.avatar_url
       : null;

@@ -23,6 +23,8 @@ export interface JournalEntry {
   /** The writer's mood icon style ("classic" or "ink"). */
   mood_theme?: string | null;
   location?: string | null;
+  /** The userpic the writer chose for this entry (instead of their avatar). */
+  userpic?: { id: string; keyword: string; url: string } | null;
   music: string | null;
   music_metadata?: MusicMetadata | null;
   tags: string[];
@@ -329,7 +331,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               className="flex items-center gap-2 group"
             >
               <AvatarWithFrame
-                url={entry.author.avatar_url}
+                url={entry.userpic?.url ?? entry.author.avatar_url}
                 name={entry.author.display_name}
                 size={28}
                 frame={entry.author.avatar_frame}

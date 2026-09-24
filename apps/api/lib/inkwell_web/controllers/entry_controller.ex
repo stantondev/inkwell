@@ -303,6 +303,7 @@ defmodule InkwellWeb.EntryController do
         |> put_source_sticky(user.id)
         |> put_gazette_story()
         |> put_music_metadata()
+        |> put_userpic(conn.assigns.current_user.id)
         |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
@@ -337,6 +338,7 @@ defmodule InkwellWeb.EntryController do
         |> put_source_sticky(user.id)
         |> put_gazette_story()
         |> put_music_metadata()
+        |> put_userpic(conn.assigns.current_user.id)
         |> Map.put("user_id", user.id)
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
@@ -396,6 +398,7 @@ defmodule InkwellWeb.EntryController do
                        # Drafts only; published entries ignore these.
                        "scheduled_at", "scheduled_options"])
         |> put_music_metadata()
+        |> put_userpic(conn.assigns.current_user.id)
         |> sanitize_scheduled_options()
         |> maybe_clear_custom_filter_id()
         |> put_word_count()
@@ -633,6 +636,7 @@ defmodule InkwellWeb.EntryController do
                         # original date) is preserved by publish_changeset.
                         "published_at"])
         |> put_music_metadata()
+        |> put_userpic(conn.assigns.current_user.id)
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
           |> put_word_count()
@@ -1125,6 +1129,7 @@ defmodule InkwellWeb.EntryController do
       mood: entry.mood,
       mood_key: entry.mood_key,
       mood_theme: mood_theme(entry),
+      userpic: Inkwell.Userpics.render(entry.user_icon),
       location: entry.location,
       music: entry.music,
       music_metadata: entry.music_metadata,
@@ -1168,6 +1173,13 @@ defmodule InkwellWeb.EntryController do
       updated_at: entry.updated_at
     }
   end
+
+  # A userpic chosen for the entry must be one of the writer's own; anything
+  # else is dropped, and "" clears it back to the avatar.
+  defp put_userpic(%{"user_icon_id" => id} = attrs, user_id),
+    do: Map.put(attrs, "user_icon_id", Inkwell.Userpics.owned_id(user_id, id))
+
+  defp put_userpic(attrs, _user_id), do: attrs
 
   # The writer's mood icon theme, when their user row came along with the entry
   # (feed, explore and profile listings preload it). nil means the default.
@@ -1298,6 +1310,7 @@ defmodule InkwellWeb.EntryController do
 
   def render_entry_full(entry, author) do
     entry
+    |> Inkwell.Repo.preload(:user_icon)
     |> render_entry()
     |> Map.put(:author, UserController.render_user(author))
     |> Map.put(:mood_theme, mood_theme(%{user: author}))

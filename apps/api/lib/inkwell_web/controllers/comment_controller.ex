@@ -84,7 +84,7 @@ defmodule InkwellWeb.CommentController do
             "user_id" => user.id,
             "body_html" => params["body_html"],
             "parent_comment_id" => params["parent_comment_id"],
-            "user_icon_id" => params["user_icon_id"],
+            "user_icon_id" => Inkwell.Userpics.owned_id(user.id, params["user_icon_id"]),
             "ap_id" => "https://inkwell.social/comments/#{:erlang.unique_integer([:positive])}"
           }
 
@@ -214,6 +214,8 @@ defmodule InkwellWeb.CommentController do
   end
 
   defp render_comment(comment) do
+    # Listings preload it (no query then); a comment just created doesn't.
+    comment = Inkwell.Repo.preload(comment, :user_icon)
     author =
       if comment.user do
         %{
@@ -251,6 +253,7 @@ defmodule InkwellWeb.CommentController do
       parent_comment_id: comment.parent_comment_id,
       body_html: comment.body_html,
       user_icon_id: comment.user_icon_id,
+      userpic: Inkwell.Userpics.render(comment.user_icon),
       ap_id: comment.ap_id,
       url: comment.url,
       depth: comment.depth,

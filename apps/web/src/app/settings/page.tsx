@@ -90,6 +90,7 @@ export default async function SettingsHomePage() {
     redactions: redactedWords ? `${redactedWords} word${redactedWords === 1 ? "" : "s"}` : "None",
     "content-safety": settings.show_sensitive_content ? "Sensitive shown" : "Sensitive hidden",
     look: settings.site_look === "classic" ? "Classic (2004)" : "Modern",
+    userpics: null,
     blocked: null,
     billing: founding
       ? `Founding Member #${founding}`

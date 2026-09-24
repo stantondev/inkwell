@@ -71,6 +71,7 @@ interface EntryData {
   mood_key?: string | null;
   mood_theme?: string | null;
   location?: string | null;
+  userpic?: { id: string; keyword: string; url: string } | null;
   music: string | null;
   music_metadata?: MusicMetadata | null;
   tags: string[];
@@ -785,7 +786,14 @@ export default async function EntryPage({ params }: EntryParams) {
           {/* Meta chips */}
           <div className="flex flex-wrap items-center gap-2.5">
             <Link href={`/${username}`} className="flex items-center gap-2 hover:underline">
-              <Avatar url={author.avatar_url} name={author.display_name} size={26} />
+              {entry.userpic ? (
+                // A chosen userpic is shown bigger than the default avatar, as on LiveJournal.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={entry.userpic.url} alt="" title={entry.userpic.keyword}
+                  width={48} height={48} className="entry-userpic" />
+              ) : (
+                <Avatar url={author.avatar_url} name={author.display_name} size={26} />
+              )}
               <span className="text-sm font-medium">{author.display_name}</span>
             </Link>
 
