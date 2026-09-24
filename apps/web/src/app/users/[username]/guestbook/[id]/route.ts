@@ -5,6 +5,7 @@
  * guestbook (FEP-400e). Browsers are sent to the guestbook on the profile page.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { publicOrigin } from "@/lib/fediverse";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -16,7 +17,7 @@ export async function GET(
   const accept = request.headers.get("accept") ?? "";
 
   if (!accept.includes("application/activity+json") && !accept.includes("application/ld+json")) {
-    return NextResponse.redirect(new URL(`/${username}#guestbook`, request.url));
+    return NextResponse.redirect(new URL(`/${username}#guestbook`, publicOrigin(request)));
   }
 
   try {

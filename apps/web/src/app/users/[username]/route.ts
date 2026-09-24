@@ -5,6 +5,7 @@
  * Regular browser requests redirect to the profile page (/{username}).
  */
 import { NextRequest, NextResponse } from "next/server";
+import { publicOrigin } from "@/lib/fediverse";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -21,7 +22,7 @@ export async function GET(
 
   if (!isApRequest) {
     // Browser request — redirect to profile page
-    return NextResponse.redirect(new URL(`/${username}`, request.url));
+    return NextResponse.redirect(new URL(`/${username}`, publicOrigin(request)));
   }
 
   try {
