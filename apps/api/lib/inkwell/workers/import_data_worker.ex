@@ -171,7 +171,10 @@ defmodule Inkwell.Workers.ImportDataWorker do
       # whole import (a Substack CSV in February 2026).
       "title" => fit(entry_map[:title], 255),
       "body_html" => body_html,
-      "mood" => fit(entry_map[:mood], 255),
+      # The entry changeset allows 100 characters of mood and location.
+      "mood" => fit(entry_map[:mood], 100),
+      "mood_key" => entry_map[:mood_key],
+      "location" => fit(entry_map[:location], 100),
       "music" => fit(entry_map[:music], 255),
       "tags" => entry_map[:tags] || [],
       "privacy" => stricter_privacy(entry_map[:privacy], import_record.default_privacy),

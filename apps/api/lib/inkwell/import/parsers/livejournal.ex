@@ -117,12 +117,19 @@ defmodule Inkwell.Import.Parsers.Livejournal do
       |> LivejournalMarkup.xml_text()
       |> LivejournalMarkup.to_html(site: site, preformatted: preformatted?)
 
+    mood_key = Inkwell.Moods.key_for_lj_id(field(props, "current_moodid") || field(block, "current_moodid"))
+    mood = clean_text(field(props, "current_mood") || field(block, "current_mood"))
+
     if body do
       %{
         title: clean_text(field(block, "subject")),
         body_html: body,
         published_at: Parser.parse_datetime(field(block, "eventtime") || field(block, "logtime")),
-        mood: clean_text(field(props, "current_mood") || field(block, "current_mood")),
+        # A mood picked from LJ's list is stored only as current_moodid; the
+        # words then come from the list, as LJ showed them.
+        mood: mood || Inkwell.Moods.label_for_key(mood_key),
+        mood_key: mood_key,
+        location: clean_text(field(props, "current_location") || field(block, "current_location")),
         music: clean_text(field(props, "current_music") || field(block, "current_music")),
         tags: tags(field(props, "taglist")),
         privacy: LivejournalMarkup.privacy(String.downcase(field(block, "security") || "public"), field(block, "allowmask")),

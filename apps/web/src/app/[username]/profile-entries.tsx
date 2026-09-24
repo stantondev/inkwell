@@ -13,6 +13,7 @@ import type { ProfileStyles } from "@/lib/profile-styles";
 import type { ProfileFilters } from "./profile-search-bar";
 import { ArchivePostmark, ArchiveSeal } from "@/components/archive-postmark";
 import { archiveOriginName } from "@/lib/archive";
+import { MoodIcon } from "@/components/mood-icon";
 
 interface ProfileEntry {
   id: string;
@@ -20,6 +21,8 @@ interface ProfileEntry {
   title: string | null;
   body_html: string;
   mood: string | null;
+  mood_key?: string | null;
+  mood_theme?: string | null;
   music: string | null;
   tags: string[];
   stamps?: string[];
@@ -250,7 +253,8 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
             </Link>
           )}
           {entry.mood && (
-            <span className="px-2.5 py-0.5 rounded-full border" style={{ borderColor: styles.border }}>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border" style={{ borderColor: styles.border }}>
+              <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={16} />
               {entry.mood}
             </span>
           )}

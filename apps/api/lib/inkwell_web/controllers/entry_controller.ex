@@ -62,6 +62,7 @@ defmodule InkwellWeb.EntryController do
         data:
           Enum.map(entries, fn entry ->
             render_entry(entry)
+            |> Map.put(:mood_theme, mood_theme(%{user: user}))
             |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
             |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
           end)
@@ -293,7 +294,7 @@ defmodule InkwellWeb.EntryController do
       else
       attrs =
         params
-        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+        |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning", "published_at",
@@ -328,7 +329,7 @@ defmodule InkwellWeb.EntryController do
     else
       attrs =
         params
-        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+        |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                       "excerpt", "cover_image_id", "category", "series_id",
                       "sensitive", "content_warning", "source_sticky_id",
@@ -388,7 +389,7 @@ defmodule InkwellWeb.EntryController do
          :ok <- not_a_sticky(entry) do
       attrs =
         params
-        |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+        |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
                        "excerpt", "cover_image_id", "category", "series_id",
                        "sensitive", "content_warning",
@@ -623,7 +624,7 @@ defmodule InkwellWeb.EntryController do
       else
         attrs =
           params
-          |> Map.take(["title", "body_html", "body_raw", "mood", "music", "music_metadata",
+          |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
                         "excerpt", "cover_image_id", "category", "series_id",
                         "sensitive", "content_warning",
@@ -1122,6 +1123,9 @@ defmodule InkwellWeb.EntryController do
       body_html: entry.body_html,
       body_raw: entry.body_raw,
       mood: entry.mood,
+      mood_key: entry.mood_key,
+      mood_theme: mood_theme(entry),
+      location: entry.location,
       music: entry.music,
       music_metadata: entry.music_metadata,
       privacy: entry.privacy,
@@ -1164,6 +1168,14 @@ defmodule InkwellWeb.EntryController do
       updated_at: entry.updated_at
     }
   end
+
+  # The writer's mood icon theme, when their user row came along with the entry
+  # (feed, explore and profile listings preload it). nil means the default.
+  defp mood_theme(%{user: %Inkwell.Accounts.User{settings: %{"mood_theme" => theme}}})
+       when theme in ["classic", "ink"],
+       do: theme
+
+  defp mood_theme(_entry), do: nil
 
   @doc "True when the viewer turned Stickies off in Settings (they're on by default)."
   def hides_stickies?(%{settings: %{"hide_stickies" => true}}), do: true
@@ -1288,6 +1300,7 @@ defmodule InkwellWeb.EntryController do
     entry
     |> render_entry()
     |> Map.put(:author, UserController.render_user(author))
+    |> Map.put(:mood_theme, mood_theme(%{user: author}))
     |> Map.put(:archive_note, archive_note(entry, author))
   end
 

@@ -88,6 +88,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "writing",
   },
   {
+    id: "moods",
+    question: "How do moods work?",
+    answer:
+      "Next to <strong>feeling</strong> in the editor, click <strong>your mood…</strong> and pick one of about 130 moods; each has a little face. You can then change the words and keep the face (the “tired” face with “up way too late”), or click the face to change only the face. At the bottom of the list, choose <strong>Classic</strong> (pixel smileys) or <strong>Ink</strong> (hand-drawn) for your whole journal; readers see your choice. Your mood, music and location appear under the title as <em>Current mood</em>, <em>Current music</em> and <em>Current location</em>.",
+    category: "writing",
+  },
+  {
     id: "schedule",
     question: "Can I schedule a post, or change an entry's date?",
     answer:

@@ -38,6 +38,8 @@ import { MarginaliaReader } from "@/components/marginalia/marginalia-reader";
 import { StickyNoteCard } from "@/components/sticky-note-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { StickyActions } from "./sticky-actions";
+import { MoodIcon } from "@/components/mood-icon";
+import { resolveMood, familyHue } from "@/lib/moods";
 
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
@@ -66,6 +68,9 @@ interface EntryData {
   title: string | null;
   body_html: string;
   mood: string | null;
+  mood_key?: string | null;
+  mood_theme?: string | null;
+  location?: string | null;
   music: string | null;
   music_metadata?: MusicMetadata | null;
   tags: string[];
@@ -173,22 +178,51 @@ function readingTime(html: string): number {
 }
 
 /**
- * Maps mood keywords to an HSL hue for --mood-hue CSS custom property.
- * Used by .mood-pill and .entry-ambient in globals.css.
+ * The mood family's hue, for the --mood-hue CSS custom property.
+ * Used by .entry-current and .entry-ambient in globals.css.
  */
-function getMoodHue(mood: string | null): number | null {
+function getMoodHue(moodKey: string | null | undefined, mood: string | null): number | null {
   if (!mood) return null;
-  const m = mood.toLowerCase();
-  if (/happy|joy|excit|grat|delight/.test(m)) return 45;
-  if (/hopeful|content|peace|calm|serene/.test(m)) return 150;
-  if (/sad|melanchol|blue|down|depress|griev/.test(m)) return 215;
-  if (/anxi|nerv|worr|stress|uneas/.test(m)) return 25;
-  if (/angr|frust|rage|irrit/.test(m)) return 0;
-  if (/nostalg|reflect|pensiv/.test(m)) return 270;
-  if (/tired|exhaust|sleep|weary/.test(m)) return 210;
-  if (/curios|wonder|intrigu/.test(m)) return 195;
-  if (/love|affe|tender|warm/.test(m)) return 340;
-  return 220; // default blue
+  const resolved = resolveMood(moodKey, mood);
+  return resolved ? familyHue(resolved.family) : 220;
+}
+
+/**
+ * LiveJournal's "Current mood: / Current music: / Current location:" rows,
+ * under the byline. Music with a player shows the track's name here and the
+ * player below.
+ */
+function CurrentBlock({ entry, musicEmbed }: { entry: EntryData; musicEmbed: MusicEmbed | null }) {
+  const music = entry.music ? (musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null;
+  if (!entry.mood && !music && !entry.location) return null;
+  return (
+    <dl className="entry-current">
+      {entry.mood && (
+        <>
+          <dt className="entry-current-label">Current mood:</dt>
+          <dd className="entry-current-value">
+            <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={22} />
+            <span>{entry.mood}</span>
+          </dd>
+        </>
+      )}
+      {music && (
+        <>
+          <dt className="entry-current-label">Current music:</dt>
+          <dd className="entry-current-value">
+            <span aria-hidden="true">♪</span>
+            <span>{music}</span>
+          </dd>
+        </>
+      )}
+      {entry.location && (
+        <>
+          <dt className="entry-current-label">Current location:</dt>
+          <dd className="entry-current-value">{entry.location}</dd>
+        </>
+      )}
+    </dl>
+  );
 }
 
 /** Service icon SVGs for music embed header */
@@ -587,7 +621,7 @@ export default async function EntryPage({ params }: EntryParams) {
     );
   }
 
-  const moodHue = getMoodHue(entry.mood);
+  const moodHue = getMoodHue(entry.mood_key, entry.mood);
   // Prefer stored word_count (set at save time); fall back to live HTML computation
   const mins = entry.word_count && entry.word_count > 0
     ? Math.max(1, Math.round(entry.word_count / 200))
@@ -824,23 +858,9 @@ export default async function EntryPage({ params }: EntryParams) {
               </>
             )}
 
-            {entry.mood && (
-              <span className="mood-pill">feeling {entry.mood}</span>
-            )}
-
-            {/* Plain text music (not a URL) — show as chip */}
-            {entry.music && !musicEmbed && (
-              <span className="music-chip">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M9 18V5l12-2v13"/>
-                  <circle cx="6" cy="18" r="3"/>
-                  <circle cx="18" cy="16" r="3"/>
-                </svg>
-                {entry.music}
-              </span>
-            )}
           </div>
+
+          <CurrentBlock entry={entry} musicEmbed={musicEmbed} />
 
           {/* ── Embedded music player ──────────────────────────────── */}
           {musicEmbed && (
@@ -1024,7 +1044,7 @@ export default async function EntryPage({ params }: EntryParams) {
                   ← Older · <LocalDate iso={entry.journal_nav.older.published_at} options={SHORT_DATE} />
                 </span>
                 <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {entry.journal_nav.older.title || "Untitled entry"}
+                  {decodeEntities(entry.journal_nav.older.title || "") || "Untitled entry"}
                 </span>
               </Link>
             ) : (
@@ -1041,7 +1061,7 @@ export default async function EntryPage({ params }: EntryParams) {
                   <LocalDate iso={entry.journal_nav.newer.published_at} options={SHORT_DATE} /> · Newer →
                 </span>
                 <span className="block text-sm font-medium line-clamp-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                  {entry.journal_nav.newer.title || "Untitled entry"}
+                  {decodeEntities(entry.journal_nav.newer.title || "") || "Untitled entry"}
                 </span>
               </Link>
             )}

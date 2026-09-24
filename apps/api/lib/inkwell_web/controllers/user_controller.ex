@@ -165,7 +165,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings()
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -600,6 +600,7 @@ defmodule InkwellWeb.UserController do
       profile_entry_display: user.profile_entry_display || "cards",
       avatar_frame: user.avatar_frame,
       avatar_animation: user.avatar_animation,
+      mood_theme: (user.settings || %{})["mood_theme"],
       profile_effect: user.profile_effect,
       profile_effect_intensity: user.profile_effect_intensity,
       newsletter_enabled: user.newsletter_enabled || false,
@@ -676,6 +677,11 @@ defmodule InkwellWeb.UserController do
       end
     end)
   end
+
+  # Mood icon theme (Classic pixel faces or Ink). Anything else falls back to
+  # the default by being dropped.
+  defp sanitize_mood_theme(%{"mood_theme" => theme} = settings) when theme in ["classic", "ink"], do: settings
+  defp sanitize_mood_theme(settings), do: Map.delete(settings, "mood_theme")
 
   defp sanitize_redacted_words(settings) do
     case Map.get(settings, "redacted_words") do

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-24-moods",
+    date: "2026-09-24",
+    title: "Moods have faces again",
+    body: "Like LiveJournal, your mood now comes with a little animated face: pick from over 130 moods (LiveJournal’s own list, plus a few new ones), or write your own words and keep the face beside them. Choose Classic pixel smileys or hand-drawn Ink faces for your journal. Entries now show a “Current mood / Current music / Current location” block under the title, and older entries get faces from the moods you already wrote. LiveJournal imports now bring back moods picked from LJ’s list, and your location.",
+    howTo: "In the editor, click “your mood…” next to “feeling”. The icon style switch is at the bottom of the list. The pin beside it is for your location.",
+    href: "/editor",
+    cta: "Write an entry",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-24-fediverse-credit-guestbook",
     date: "2026-09-24",
     title: "Mastodon now credits you when your entries are shared",

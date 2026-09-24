@@ -728,30 +728,7 @@ a.mention:hover,
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Mood + ambient theming (HSL-based, set via --mood-hue CSS var) ──── */
-
-.mood-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  padding: 0.25em 0.8em;
-  border-radius: 99px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  font-family: var(--font-sans), system-ui, sans-serif;
-  background: hsl(var(--mood-hue, 220) 70% 94%);
-  color: hsl(var(--mood-hue, 220) 55% 38%);
-  border: 1px solid hsl(var(--mood-hue, 220) 55% 84%);
-  white-space: nowrap;
-}
-
-@media (prefers-color-scheme: dark) {
-  .mood-pill {
-    background: hsl(var(--mood-hue, 220) 40% 18%);
-    color: hsl(var(--mood-hue, 220) 60% 72%);
-    border-color: hsl(var(--mood-hue, 220) 40% 28%);
-  }
-}
+/* ─── Ambient theming (HSL-based, set via --mood-hue CSS var) ──── */
 
 /* Music chip */
 .music-chip {
@@ -788,6 +765,149 @@ a.mention:hover,
       );
   }
 }
+
+/* ─── Mood icons (components/mood-icon.tsx) ──────────────────────────── */
+/* Little LiveJournal-style faces. Each family has one gentle loop; eyes blink
+   on their own clock and accessories (tears, zzz, hearts) drift. Everything
+   stands still under reduced motion. */
+
+:root {
+  --mood-ink: #1a2744;
+  --mood-paper: #fdf8ee;
+  --mood-ink-red: #ffd9c7;
+  --mood-ink-green: #e1edc2;
+  --mood-heart: #d9364e;
+  --mood-water: #5aa8f0;
+  --mood-gold: #f2c230;
+  --mood-glyph: #3b2a17;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mood-ink: #d8def0;
+    --mood-paper: #252a38;
+    --mood-ink-red: #4a2a22;
+    --mood-ink-green: #2c3a22;
+    --mood-glyph: #eadfc4;
+  }
+}
+[data-theme="dark"] {
+  --mood-ink: #d8def0;
+  --mood-paper: #252a38;
+  --mood-ink-red: #4a2a22;
+  --mood-ink-green: #2c3a22;
+  --mood-glyph: #eadfc4;
+}
+
+.mood-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.2em;
+  overflow: visible;
+}
+.mood-icon-classic { image-rendering: pixelated; }
+.mood-icon g { transform-box: fill-box; transform-origin: 50% 50%; }
+.mood-icon .mood-eyes { transform-origin: 50% 60%; animation: mood-blink 4.6s infinite; }
+.mood-anim-bounce .mood-body { animation: mood-bounce 1.6s ease-in-out infinite; }
+.mood-anim-hop .mood-body { animation: mood-hop 0.9s ease-in-out infinite; }
+.mood-anim-pulse .mood-acc { animation: mood-pulse 1.3s ease-in-out infinite; }
+.mood-anim-breathe .mood-body { animation: mood-breathe 3.6s ease-in-out infinite; }
+.mood-anim-sway .mood-body { transform-origin: 50% 90%; animation: mood-sway 3.2s ease-in-out infinite; }
+.mood-anim-shake .mood-body { animation: mood-shake 0.5s linear infinite; }
+.mood-anim-tremble .mood-body { animation: mood-tremble 0.35s linear infinite; }
+.mood-anim-droop .mood-body { animation: mood-droop 3.4s ease-in-out infinite; }
+.mood-anim-wobble .mood-body { transform-origin: 50% 90%; animation: mood-wobble 2.2s ease-in-out infinite; }
+.mood-anim-still .mood-eyes { animation-duration: 7s; }
+
+/* Accessories: tears fall, everything else floats. */
+.mood-icon .mood-acc { animation: mood-float 2.4s ease-in-out infinite; }
+.mood-icon .mood-acc-tear,
+.mood-icon .mood-acc-sweat { animation: mood-fall 1.8s ease-in infinite; }
+.mood-anim-pulse .mood-acc { animation: mood-pulse 1.3s ease-in-out infinite; }
+
+@keyframes mood-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.15); } }
+@keyframes mood-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+@keyframes mood-hop { 0%, 100% { transform: translateY(0) scaleY(1); } 40% { transform: translateY(-11%); } 80% { transform: translateY(0) scaleY(0.94); } }
+@keyframes mood-pulse { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.25); } 55% { transform: scale(0.95); } }
+@keyframes mood-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes mood-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes mood-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4%); } 75% { transform: translateX(4%); } }
+@keyframes mood-tremble { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(2%, -1%); } 66% { transform: translate(-2%, 1%); } }
+@keyframes mood-droop { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(4%) rotate(-4deg); } }
+@keyframes mood-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+@keyframes mood-float { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-18%); opacity: 0.75; } }
+@keyframes mood-fall { 0% { transform: translateY(-10%); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(60%); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mood-icon *, .mood-icon { animation: none !important; }
+}
+
+/* ─── The "Current" block on entry pages ─────────────────────────────── */
+/* LiveJournal printed "Current mood:" / "Current music:" under the subject.
+   Same rows, set like a label in the margin of a letter. */
+
+.entry-current {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.9rem;
+  row-gap: 0.35rem;
+  margin-top: 1.1rem;
+  padding: 0.7rem 0.95rem;
+  border-left: 2px solid hsl(var(--mood-hue, 220) 55% 70%);
+  background: hsl(var(--mood-hue, 220) 60% 97% / 0.7);
+  border-radius: 0 10px 10px 0;
+  font-size: 0.875rem;
+  max-width: 34rem;
+}
+@media (prefers-color-scheme: dark) {
+  .entry-current {
+    border-left-color: hsl(var(--mood-hue, 220) 40% 45%);
+    background: hsl(var(--mood-hue, 220) 30% 14% / 0.6);
+  }
+}
+.entry-current-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.entry-current-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+/* Mood picker in the editor */
+.mood-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 2px 6px;
+}
+.mood-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--foreground);
+  text-align: left;
+  transition: background 0.12s;
+}
+.mood-picker-option:hover,
+.mood-picker-option[data-active="true"] { background: var(--surface-hover); }
+.mood-picker-option[data-selected="true"] { background: var(--accent-light); color: var(--accent); }
+.mood-picker-family {
+  grid-column: 1 / -1;
+  margin: 0.55rem 0 0.1rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mood-picker-family:first-child { margin-top: 0; }
 
 /* ─── Music embed containers ─────────────────────────────────────────── */
 

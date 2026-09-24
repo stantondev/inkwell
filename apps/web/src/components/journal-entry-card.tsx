@@ -12,12 +12,17 @@ import { getMusicLabel } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
 import { StickyNoteCard } from "@/components/sticky-note-card";
 import { ArchiveSeal } from "./archive-postmark";
+import { MoodIcon } from "./mood-icon";
 
 export interface JournalEntry {
   id: string;
   title: string | null;
   body_html: string;
   mood: string | null;
+  mood_key?: string | null;
+  /** The writer's mood icon style ("classic" or "ink"). */
+  mood_theme?: string | null;
+  location?: string | null;
   music: string | null;
   music_metadata?: MusicMetadata | null;
   tags: string[];
@@ -725,7 +730,8 @@ function MetaStrip({
 
   if (entry.mood) {
     items.push(
-      <span key="mood" className="entry-meta-item">
+      <span key="mood" className="entry-meta-item inline-flex items-center gap-1">
+        <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={16} />
         {entry.mood}
       </span>
     );

@@ -11,6 +11,8 @@ defmodule Inkwell.Journals.Entry do
     field :body_html, :string
     field :body_raw, :map
     field :mood, :string
+    field :mood_key, :string
+    field :location, :string
     field :music, :string
     field :music_metadata, :map
     field :privacy, Ecto.Enum, values: [:public, :friends_only, :private, :custom, :paid, :circle]
@@ -164,7 +166,7 @@ defmodule Inkwell.Journals.Entry do
   def changeset(entry, attrs) do
     entry
     |> cast(attrs, [
-      :title, :body_html, :body_raw, :mood, :music, :music_metadata,
+      :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
       :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
@@ -177,6 +179,7 @@ defmodule Inkwell.Journals.Entry do
     |> validate_sticky()
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
+    |> validate_mood_fields()
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
@@ -198,6 +201,24 @@ defmodule Inkwell.Journals.Entry do
 
   defp validate_edited_date_not_future(changeset, _entry), do: changeset
 
+  # mood_key names a face in apps/web/src/lib/moods.ts; unknown keys just show
+  # no face, so only the shape is checked. Blank values are stored as nil.
+  defp validate_mood_fields(changeset) do
+    changeset
+    |> update_change(:mood_key, &blank_to_nil/1)
+    |> update_change(:location, &blank_to_nil/1)
+    |> validate_format(:mood_key, ~r/\A[a-z_]{1,40}\z/)
+    |> validate_length(:location, max: 100)
+  end
+
+  defp blank_to_nil(v) when is_binary(v) do
+    case String.trim(v) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+  defp blank_to_nil(v), do: v
+
   @doc "Where an imported entry came from, and whether it wears the archive mark."
   def archive_changeset(entry, attrs) do
     entry
@@ -211,7 +232,7 @@ defmodule Inkwell.Journals.Entry do
   def draft_changeset(entry, attrs) do
     entry
     |> cast(attrs, [
-      :title, :body_html, :body_raw, :mood, :music, :music_metadata,
+      :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
       :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning,
@@ -234,6 +255,7 @@ defmodule Inkwell.Journals.Entry do
     |> validate_schedule()
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
+    |> validate_mood_fields()
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)
@@ -244,7 +266,7 @@ defmodule Inkwell.Journals.Entry do
   def publish_changeset(entry, attrs) do
     entry
     |> cast(attrs, [
-      :title, :body_html, :body_raw, :mood, :music, :music_metadata,
+      :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
       :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
       :series_id, :series_order, :sensitive, :content_warning,
@@ -255,6 +277,7 @@ defmodule Inkwell.Journals.Entry do
     |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)
     |> validate_length(:mood, max: 100)
+    |> validate_mood_fields()
     |> validate_length(:music, max: 500)
     |> validate_length(:excerpt, max: 300)
     |> validate_length(:content_warning, max: 200)

@@ -35,6 +35,8 @@ import { PhotoGallery, type PhotoGalleryAttrs } from "@/lib/tiptap-photo-gallery
 import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
 import { isMarkdown, isPlainTextHtml, markdownToHtml } from "@/lib/markdown-paste";
+import { MoodInput, LocationInput } from "@/app/editor/mood-input";
+import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
 
@@ -53,6 +55,8 @@ interface SeriesOption {
 interface EditorState {
   title: string;
   mood: string;
+  moodKey: string | null;
+  location: string;
   music: string;
   privacy: Privacy;
   customFilterId: string | null;
@@ -121,13 +125,6 @@ const PRIVACY_OPTIONS: { value: Privacy; label: string; icon: string }[] = [
   { value: "friends_only", label: "Pen Pals only",   icon: "👥" },
   { value: "private",      label: "Private",        icon: "🔒" },
   { value: "custom",       label: "Custom filter",  icon: "⚙️" },
-];
-
-const PRESET_MOODS = [
-  "happy 😊", "excited 🎉", "grateful 🙏", "hopeful 🌅",
-  "peaceful 🌿", "content 🫶", "curious 🔍", "reflective 🌧",
-  "nostalgic 📼", "anxious 😰", "sad 😢", "tired 😴",
-  "angry 😤", "in love 💛",
 ];
 
 const TEXT_COLORS = [
@@ -962,58 +959,6 @@ function EditorDebugOverlay({ editor, isTouchDevice, bubbleVisible, shouldShowLo
   );
 }
 
-// ─── Mood input with preset picker ───────────────────────────────────────────
-
-function MoodInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs flex-shrink-0" style={{ color: "var(--muted)" }}>feeling</span>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setOpen(true)}
-          placeholder="your mood…"
-          className="bg-transparent focus:outline-none text-sm min-w-0 w-32"
-          style={{ color: "var(--foreground)" }}
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={() => { onChange(""); setOpen(false); }}
-            className="text-xs opacity-40 hover:opacity-80 transition flex-shrink-0"
-            aria-label="Clear mood"
-          >×</button>
-        )}
-      </div>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-[45]" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-[50] rounded-xl border p-3 shadow-xl"
-            style={{ background: "var(--surface)", borderColor: "var(--border)", minWidth: 280 }}>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESET_MOODS.map((m) => (
-                <button key={m} type="button"
-                  onClick={() => { onChange(m); setOpen(false); }}
-                  className="text-xs px-2.5 py-1 rounded-full border transition-colors hover:border-[var(--accent)]"
-                  style={{
-                    borderColor: value === m ? "var(--accent)" : "var(--border)",
-                    background: value === m ? "var(--accent-light)" : "transparent",
-                    color: value === m ? "var(--accent)" : "var(--muted)",
-                  }}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Music input with Spotify / YouTube / Apple Music detection ──────────────
 
 function SpotifyIcon({ size = 14 }: { size?: number }) {
@@ -1060,7 +1005,7 @@ function MusicInput({ value, onChange, fediverse, checking }: {
   const embed = parseMusicUrl(value);
 
   return (
-    <div className="flex-1 min-w-0">
+    <div className="flex-1 min-w-[14rem]">
       <div className="flex items-center gap-1.5">
         {embed ? (
           embed.service === "spotify" ? <SpotifyIcon size={14} /> :
@@ -1200,6 +1145,8 @@ interface RecoveryData {
   bodyHtml: string;
   bodyRaw: object | null;
   mood: string;
+  moodKey?: string | null;
+  location?: string;
   music: string;
   privacy: string;
   customFilterId: string | null;
@@ -1575,7 +1522,7 @@ export function EditorClient() {
   const fromCirclePromptId = editId ? null : searchParams.get("circle_prompt");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
+    title: "", mood: "", moodKey: null, location: "", music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
     circleId: fromCircleId, circlePromptId: fromCircleId ? fromCirclePromptId : null,
   });
   const [myCircles, setMyCircles] = useState<MyCircle[] | null>(null);
@@ -1628,6 +1575,16 @@ export function EditorClient() {
     }
     return false;
   });
+  // The writer's mood icon style; a journal-wide setting, changed from the picker.
+  const [moodTheme, setMoodTheme] = useState<MoodTheme>("classic");
+  const changeMoodTheme = useCallback((theme: MoodTheme) => {
+    setMoodTheme(theme);
+    fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: { mood_theme: theme } }),
+    }).catch(() => {});
+  }, []);
   const [coverImageId, setCoverImageId] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
 
@@ -2073,6 +2030,7 @@ export function EditorClient() {
           setHasStripeConnect(!!data?.stripe_connect_enabled);
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
+          setMoodTheme(normalizeMoodTheme(data?.settings?.mood_theme));
           // Sync eye comfort from server (cross-device sync)
           const serverComfort = !!data?.settings?.eye_comfort_mode;
           if (serverComfort !== comfortMode) setComfortMode(serverComfort);
@@ -2209,6 +2167,8 @@ export function EditorClient() {
         setState({
           title: entry.title ?? "",
           mood: entry.mood ?? "",
+          moodKey: entry.mood_key ?? null,
+          location: entry.location ?? "",
           music: entry.music ?? "",
           privacy: entry.privacy ?? "public",
           customFilterId: entry.custom_filter_id ?? null,
@@ -2361,6 +2321,8 @@ export function EditorClient() {
         bodyHtml: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
         bodyRaw: htmlMode ? null : (editor?.getJSON() ?? null),
         mood: state.mood,
+        moodKey: state.moodKey,
+        location: state.location,
         music: state.music,
         privacy: state.privacy,
         customFilterId: state.customFilterId,
@@ -2423,6 +2385,8 @@ export function EditorClient() {
         body_html: htmlMode ? htmlSource : (editor.getHTML()),
         body_raw: htmlMode ? null : (editor.getJSON()),
         mood: state.mood || null,
+        mood_key: state.mood ? state.moodKey : null,
+        location: state.location.trim() || null,
         music: state.music || null,
         music_metadata: currentMusicMetadata,
         privacy: state.privacy,
@@ -2718,6 +2682,8 @@ export function EditorClient() {
       body_html: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
       body_raw: htmlMode ? null : (editor?.getJSON() ?? {}),
       mood: state.mood || null,
+      mood_key: state.mood ? state.moodKey : null,
+      location: state.location.trim() || null,
       music: state.music || null,
       music_metadata: currentMusicMetadata,
       privacy: state.privacy,
@@ -3087,6 +3053,8 @@ export function EditorClient() {
                   circlePromptId: s.circlePromptId,
                   title: d.title,
                   mood: d.mood,
+                  moodKey: d.moodKey ?? null,
+                  location: d.location ?? "",
                   music: d.music,
                   privacy: d.privacy as Privacy,
                   customFilterId: d.customFilterId,
@@ -3271,10 +3239,18 @@ export function EditorClient() {
 
             {/* ── Mood + music strip ──────────────────── */}
             <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
-              <MoodInput value={state.mood} onChange={(v) => update({ mood: v })} />
+              <MoodInput
+                value={state.mood}
+                moodKey={state.moodKey}
+                theme={moodTheme}
+                onChange={({ mood, moodKey }) => update({ mood, moodKey })}
+                onThemeChange={changeMoodTheme}
+              />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
               <MusicInput value={state.music} onChange={(v) => update({ music: v })}
                 fediverse={!!currentMusicMetadata} checking={musicLookup} />
+              <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
+              <LocationInput value={state.location} onChange={(v) => update({ location: v })} />
             </div>
 
             {/* ── Music embed preview ─────────────────── */}

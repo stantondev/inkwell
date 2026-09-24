@@ -84,6 +84,27 @@ defmodule Inkwell.Import.LivejournalTest do
       assert entry.body_html =~ "</table>after"
     end
 
+    test "a mood picked from LJ's list comes back from its id, with location" do
+      xml = """
+      <livejournal><entry>
+      <itemid>7</itemid><eventtime>2005-03-01 22:00:00</eventtime>
+      <subject>ids</subject><event>hi</event><security>public</security>
+      <current_moodid>24</current_moodid>
+      <current_location>the dorm</current_location>
+      </entry><entry>
+      <itemid>8</itemid><eventtime>2005-03-02 22:00:00</eventtime>
+      <subject>custom</subject><event>hi</event><security>public</security>
+      <current_moodid>31</current_moodid><current_mood>so so sleepy</current_mood>
+      </entry></livejournal>
+      """
+
+      assert {:ok, [by_id, custom]} = Livejournal.parse(xml)
+      assert {by_id.mood, by_id.mood_key, by_id.location} == {"pissed off", "pissed_off", "the dorm"}
+      # A custom mood keeps its own words and wears the chosen face.
+      assert {custom.mood, custom.mood_key} == {"so so sleepy", "tired"}
+      assert Inkwell.Moods.key_for_lj_id("999") == nil
+    end
+
     test "several files in a ZIP, without duplicates" do
       {:ok, {_, zip}} =
         :zip.create(~c"lj.zip", [{~c"2004-12.xml", @export}, {~c"again.xml", @export}, {~c"L-42", @ljdump}], [:memory])
