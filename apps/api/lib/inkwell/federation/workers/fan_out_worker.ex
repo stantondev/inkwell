@@ -57,14 +57,26 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
       when action in ["announce_repost_remote", "undo_announce_repost_remote"] do
     user = Accounts.get_user!(user_id)
 
+    # The post's author hears about it too, as with a Mastodon boost: their
+    # server counts it and notifies them. (Before 2026-09-25 only our
+    # followers were told, so authors never knew they'd been reprinted.)
+    author =
+      case Inkwell.Federation.RemoteEntries.get_by_ap_id(remote_entry_ap_id) do
+        %{remote_actor_id: actor_id} when not is_nil(actor_id) -> Repo.get(RemoteActorSchema, actor_id)
+        _ -> nil
+      end
+
+    author_ap_id = author && author.ap_id
+
     activity =
       case action do
-        "announce_repost_remote" -> ActivityBuilder.build_announce(remote_entry_ap_id, user)
-        "undo_announce_repost_remote" -> ActivityBuilder.build_undo_announce(remote_entry_ap_id, user)
+        "announce_repost_remote" -> ActivityBuilder.build_announce(remote_entry_ap_id, user, author_ap_id)
+        "undo_announce_repost_remote" -> ActivityBuilder.build_undo_announce(remote_entry_ap_id, user, author_ap_id)
       end
 
     Logger.info("Fan-out #{action} for #{remote_entry_ap_id}")
-    deliver_to_followers(activity, user)
+    author_inbox = author && (author.shared_inbox || author.inbox)
+    deliver_to_followers(activity, user, List.wrap(author_inbox))
   end
 
   # Handle announce/undo_announce by AP ID (used for inking remote entries)
@@ -95,9 +107,12 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
   # Stream inboxes in batches and enqueue delivery jobs — never holds
   # all inboxes in memory at once. Deduplicates via MapSet since
   # keyset pagination doesn't support DISTINCT across batches.
-  defp deliver_to_followers(activity, user) do
+  # `extra_inboxes`: inboxes outside the follower list that should get it too
+  # (a reprinted post's author). Each inbox gets one delivery.
+  defp deliver_to_followers(activity, user, extra_inboxes \\ []) do
     {count, _seen} =
-      stream_remote_inboxes(user.id)
+      [Enum.map(extra_inboxes, &%{inbox: &1})]
+      |> Stream.concat(stream_remote_inboxes(user.id))
       |> Enum.reduce({0, MapSet.new()}, fn batch, {count, seen} ->
         Enum.reduce(batch, {count, seen}, fn %{inbox: inbox_url}, {c, s} ->
           if MapSet.member?(s, inbox_url) do

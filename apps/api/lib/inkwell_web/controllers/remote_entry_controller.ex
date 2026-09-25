@@ -1,8 +1,8 @@
 defmodule InkwellWeb.RemoteEntryController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Inks, Journals, Reprints, Social, Stamps}
-  alias Inkwell.Federation.{ActivityBuilder, RemoteActor, RemoteEntries, ReplyFetcher}
+  alias Inkwell.{Accounts, Inks, Journals, Social, Stamps}
+  alias Inkwell.Federation.{ActivityBuilder, Engagement, RemoteActor, RemoteEntries, ReplyFetcher}
   alias Inkwell.Journals.Comment
   alias InkwellWeb.Helpers.MentionHelper
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
@@ -34,11 +34,8 @@ defmodule InkwellWeb.RemoteEntryController do
           entry_ids = [id]
           stamp_types_map = Stamps.get_stamp_types_for_remote_entries(entry_ids)
           my_stamps_map = if viewer, do: Stamps.get_user_stamps_for_remote_entries(viewer.id, entry_ids), else: %{}
-          ink_counts = Inks.count_inks_for_remote_entries(entry_ids)
-          inks_set = if viewer, do: Inks.get_user_inks_for_remote_entries(viewer.id, entry_ids), else: MapSet.new()
-          reprint_counts = Reprints.count_reprints_for_remote_entries(entry_ids)
-          reprints_set = if viewer, do: Reprints.get_user_reprints_for_remote_entries(viewer.id, entry_ids), else: MapSet.new()
-          comment_count = Journals.count_comments_for_remote_entries(entry_ids) |> Map.get(id, 0)
+          counts = Engagement.summary(remote_entry, viewer && viewer.id)
+          Engagement.refresh_stale([remote_entry])
 
           # Enqueue link preview enrichment if entry has links but no preview yet
           enriching_preview =
@@ -74,12 +71,12 @@ defmodule InkwellWeb.RemoteEntryController do
               },
               stamps: Map.get(stamp_types_map, id, []),
               my_stamp: Map.get(my_stamps_map, id),
-              comment_count: max(remote_entry.reply_count || 0, comment_count),
-              ink_count: Map.get(ink_counts, id, 0) + (remote_entry.likes_count || 0),
-              reprint_count: Map.get(reprint_counts, id, 0) + (remote_entry.reprint_count || 0),
-              boosts_count: remote_entry.boosts_count || 0,
-              my_ink: MapSet.member?(inks_set, id),
-              my_reprint: MapSet.member?(reprints_set, id),
+              comment_count: counts.comment_count,
+              ink_count: counts.ink_count,
+              reprint_count: counts.reprint_count,
+              boosts_count: counts.boosts_count,
+              my_ink: counts.my_ink,
+              my_reprint: counts.my_reprint,
               sensitive: remote_entry.sensitive || false,
               content_warning: remote_entry.content_warning,
               is_sensitive: remote_entry.sensitive || false
@@ -105,6 +102,7 @@ defmodule InkwellWeb.RemoteEntryController do
           # Send Like activity to the remote actor's inbox
           remote_entry = Repo.preload(remote_entry, :remote_actor)
           deliver_like(remote_entry, user)
+          Engagement.refresh_soon(id)
 
           json(conn, %{data: %{
             stamp_type: Atom.to_string(stamp.stamp_type),
@@ -139,6 +137,7 @@ defmodule InkwellWeb.RemoteEntryController do
             # Send Undo { Like } to remote inbox
             remote_entry = Repo.preload(remote_entry, :remote_actor)
             deliver_undo_like(remote_entry, user)
+            Engagement.refresh_soon(id)
 
             stamps = Stamps.get_stamp_types_for_remote_entries([id]) |> Map.get(id, [])
             json(conn, %{data: %{stamps: stamps, my_stamp: nil}})
@@ -156,17 +155,16 @@ defmodule InkwellWeb.RemoteEntryController do
   def list_comments(conn, %{"id" => id}) do
     case get_remote_entry(id) do
       {:ok, remote_entry} ->
-        # Check if we should trigger a background fetch of fediverse replies
+        # Check if we should trigger a background fetch of fediverse replies.
+        # `fetching` only when a job was queued: a fetch that ran in the last
+        # 5 minutes blocks a new one (FetchRepliesWorker is unique), and the
+        # page would otherwise wait for replies that aren't coming.
         fetching =
-          if ReplyFetcher.needs_fetch?(remote_entry) do
-            %{remote_entry_id: id}
-            |> FetchRepliesWorker.new()
-            |> Oban.insert()
-
-            true
-          else
-            false
-          end
+          ReplyFetcher.needs_fetch?(remote_entry) and
+            match?(
+              {:ok, %Oban.Job{conflict?: false}},
+              %{remote_entry_id: id} |> FetchRepliesWorker.new() |> Oban.insert()
+            )
 
         comments =
           Inkwell.Journals.Comment
@@ -177,6 +175,7 @@ defmodule InkwellWeb.RemoteEntryController do
 
         json(conn, %{
           data: Enum.map(comments, &render_comment/1),
+          comment_count: Engagement.summary(remote_entry).comment_count,
           replies_fetched_at: remote_entry.replies_fetched_at,
           fetching: fetching
         })
@@ -277,15 +276,15 @@ defmodule InkwellWeb.RemoteEntryController do
     user = conn.assigns.current_user
 
     case get_remote_entry(id) do
-      {:ok, _remote_entry} ->
+      {:ok, remote_entry} ->
+        # The count sent back includes the post's fediverse favourites, like the
+        # one the button started with (it used to drop them on every tap).
         case Inks.toggle_ink_remote(user.id, id) do
           {:ok, {:created, _ink}} ->
-            ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
-            json(conn, %{data: %{inked: true, ink_count: ink_count}})
+            json(conn, %{data: %{inked: true, ink_count: Engagement.summary(remote_entry).ink_count}})
 
           {:ok, {:removed, _}} ->
-            ink_count = Inks.count_inks_for_remote_entries([id]) |> Map.get(id, 0)
-            json(conn, %{data: %{inked: false, ink_count: ink_count}})
+            json(conn, %{data: %{inked: false, ink_count: Engagement.summary(remote_entry).ink_count}})
 
           {:error, changeset} ->
             conn

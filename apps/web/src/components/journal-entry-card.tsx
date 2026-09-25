@@ -548,13 +548,13 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
             <span />
           )}
           <div className="flex items-center gap-4">
-            {/* Boosts count (fediverse shares) */}
-            {(entry.boosts_count ?? 0) > 0 && (
-              <span className="flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
+            {/* Reprints (on fediverse posts, Inkwell reprints + fediverse boosts) */}
+            {(entry.reprint_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-sm" style={{ color: "var(--muted)" }} title="Reprints and boosts">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.6 }}>
                   <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
                 </svg>
-                {entry.boosts_count}
+                {entry.reprint_count}
               </span>
             )}
             {/* Ink/favorites count */}

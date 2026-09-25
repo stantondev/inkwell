@@ -2,7 +2,7 @@ defmodule InkwellWeb.ReprintController do
   use InkwellWeb, :controller
 
   alias Inkwell.{Accounts, Journals, Reprints, Repo, Social}
-  alias Inkwell.Federation.{RemoteEntries, Workers.FanOutWorker}
+  alias Inkwell.Federation.{ActivityBuilder, Engagement, RemoteEntries, Workers.FanOutWorker}
 
   # POST /api/entries/:entry_id/reprint — create a quote reprint of a local entry
   # Body: { "body_html": "<p>My thoughts...</p>" }
@@ -151,26 +151,27 @@ defmodule InkwellWeb.ReprintController do
     case get_remote_entry(id) do
       {:ok, remote_entry} ->
         case Reprints.toggle_reprint_remote(user.id, id) do
-          {:ok, {:created, _reprint}} ->
-            remote_entry = Repo.preload(remote_entry, :remote_actor)
+          {:ok, {:created, reprint}} ->
+            # Send AP Announce to followers and the post's author. Marking the
+            # reprint as announced tells the counts the author's server has it.
+            Reprints.mark_announced(reprint, ActivityBuilder.announce_id(remote_entry.ap_id, user))
 
-            # Send AP Announce to followers
             %{remote_entry_ap_id: remote_entry.ap_id, action: "announce_repost_remote", user_id: user.id}
             |> FanOutWorker.new()
             |> Oban.insert()
 
-            reprint_count = Reprints.count_reprints_for_remote_entries([id]) |> Map.get(id, 0)
+            Engagement.refresh_soon(id)
+            reprint_count = Engagement.summary(remote_entry).reprint_count
             json(conn, %{data: %{reprinted: true, reprint_count: reprint_count}})
 
           {:ok, {:removed, _}} ->
-            remote_entry = Repo.preload(remote_entry, :remote_actor)
-
-            # Send Undo { Announce } to followers
+            # Send Undo { Announce } to followers and the post's author
             %{remote_entry_ap_id: remote_entry.ap_id, action: "undo_announce_repost_remote", user_id: user.id}
             |> FanOutWorker.new()
             |> Oban.insert()
 
-            reprint_count = Reprints.count_reprints_for_remote_entries([id]) |> Map.get(id, 0)
+            Engagement.refresh_soon(id)
+            reprint_count = Engagement.summary(remote_entry).reprint_count
             json(conn, %{data: %{reprinted: false, reprint_count: reprint_count}})
 
           {:error, _changeset} ->
@@ -208,8 +209,11 @@ defmodule InkwellWeb.ReprintController do
 
       case Journals.create_entry(entry_attrs) do
         {:ok, quote_entry} ->
-          # Create a reprint record for counting
-          Reprints.toggle_reprint_remote(user.id, id)
+          # A reprint record for counting (toggling would remove one that's
+          # already there). No Announce is sent for a quote.
+          unless MapSet.member?(Reprints.get_user_reprints_for_remote_entries(user.id, [id]), id) do
+            Reprints.toggle_reprint_remote(user.id, id)
+          end
 
           # Fan out the quote entry to fediverse followers
           %{entry_id: quote_entry.id, action: "create", user_id: user.id}
@@ -224,7 +228,7 @@ defmodule InkwellWeb.ReprintController do
               id: quote_entry.id,
               slug: quote_entry.slug,
               reprinted: true,
-              reprint_count: Reprints.count_reprints_for_remote_entries([id]) |> Map.get(id, 0),
+              reprint_count: Engagement.summary(remote_entry).reprint_count,
               quoted_entry: quoted
             }
           })
@@ -303,7 +307,7 @@ defmodule InkwellWeb.ReprintController do
       excerpt: truncate_html(remote_entry.body_html, 300),
       url: remote_entry.url,
       published_at: remote_entry.published_at,
-      ink_count: remote_entry.likes_count || 0,
+      ink_count: Engagement.summary(remote_entry).ink_count,
       author: %{
         username: actor.username,
         display_name: actor.display_name || actor.username,

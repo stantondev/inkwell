@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-fediverse-counts",
+    date: "2026-09-25",
+    title: "Fediverse posts show their real replies, boosts and favourites",
+    body: "Posts from Mastodon and the rest of the fediverse almost always showed 0 comments, 0 inks and 0 reprints, even when people were talking about them; opening the comments was the only way to find out. Now each post's numbers come from its home server and stay up to date while it's new: comments count every reply (including replies to replies, which now come in with the rest of the conversation), inks include its favourites, and reprints include its boosts. Your own inks and reprints of fediverse posts now show on your Feed too. And when you reprint a Mastodon post, its author now hears about it, the same as a boost.",
+    href: "/feed?source=fediverse",
+    cta: "See fediverse posts",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-09-25-explore",
     date: "2026-09-25",
     title: "Explore opens like a bookshop",

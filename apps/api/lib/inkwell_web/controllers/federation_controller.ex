@@ -1669,9 +1669,9 @@ defmodule InkwellWeb.FederationController do
             published_at: parse_ap_datetime(note["published"]),
             remote_actor_id: remote_actor.id,
             sensitive: is_sensitive,
-            content_warning: content_warning,
-            reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"])
+            content_warning: content_warning
           }
+          |> Map.merge(Inkwell.Federation.Engagement.ingest_attrs(note))
 
           case RemoteEntries.upsert_remote_entry(attrs) do
             {:ok, :self_domain_skipped} ->

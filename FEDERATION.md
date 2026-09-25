@@ -21,7 +21,7 @@ This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/m
 | [FEP-f1d5](https://codeberg.org/fediverse/fep/src/branch/main/fep/f1d5/fep-f1d5.md) / [FEP-0151](https://codeberg.org/fediverse/fep/src/branch/main/fep/0151/fep-0151.md) NodeInfo | NodeInfo with `metadata.nodeName`, `nodeDescription`, `staffAccounts` and `federation.enabled`. Usage counts leave out suspended accounts, drafts, hidden posts and stored fediverse replies. |
 | [FEP-b2b8](https://codeberg.org/fediverse/fep/src/branch/main/fep/b2b8/fep-b2b8.md) Long-form Text | Journal entries are `Article`s with `name`, `summary`, `preview` and a cover `image`. |
 | [FEP-e232](https://codeberg.org/fediverse/fep/src/branch/main/fep/e232/fep-e232.md) Object Links | Quote reprints carry an object-link `tag` to the quoted post (plus `quoteUri`, `quoteUrl`, `_misskey_quote` and a `quote-inline` fallback paragraph). Sent only. |
-| [FEP-7458](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) Replies collection | When a fediverse post is opened on Inkwell, its `replies` collection is read to fill in the conversation. Inkwell does not publish `replies` collections itself. |
+| [FEP-7458](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) Replies collection | A fediverse post's `replies` collection is read to fill in the conversation (Mastodon's public context API instead, which returns the whole thread). Inkwell does not publish `replies` collections itself. |
 | [FEP-400e](https://codeberg.org/fediverse/fep/src/branch/main/fep/400e/fep-400e.md) Publicly-appendable collections | The profile guestbook. See [Guestbook](#guestbook-fep-400e). |
 | [FEP-2345](https://codeberg.org/fediverse/fep/src/branch/main/fep/2345/fep-2345.md) `fediverse:creator` | Entry and profile pages carry `<meta name="fediverse:creator">`; actors list `attributionDomains`. |
 | [FEP-0c7f](docs/fep/0c7f/fep-0c7f.md) Imported Objects (**draft by Inkwell, not yet submitted**) | Imported entries carry `importedFrom`; mentions in incoming objects that carry it don't notify. See [Imported entries](#imported-entries-fep-0c7f). |
@@ -223,7 +223,7 @@ Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded
 | `Create {Note}` (comment) | A member comments on a fediverse post or an Inkwell entry | The post's author and the relevant followers |
 | `Create {Note}` / `Update {Note}` (letter) | A letter to a fediverse account is sent or edited | That account only |
 | `Like` / `Undo {Like}` | A member stamps (or unstamps) a fediverse post | The post's author |
-| `Announce` / `Undo {Announce}` | A member reprints (or un-reprints) a public post | The member's followers |
+| `Announce` / `Undo {Announce}` | A member reprints (or un-reprints) a public post | The member's followers, and for a fediverse post its author (cc'd, as Mastodon does with boosts) |
 | `Create {Article}` with FEP-e232 tag | A member quote-reprints a post | The member's followers |
 | `Follow` / `Undo {Follow}` | A member follows or unfollows a fediverse account; the instance actor subscribes to a relay | That account or relay |
 | `Accept {Follow}` | A fediverse account follows a member (accepted automatically) | The follower |
@@ -279,11 +279,23 @@ Additional rules:
 
 ---
 
+## Counts on fediverse posts
+
+Replies, boosts and favourites shown on a fediverse post come from its home server:
+
+- Mastodon (`/users/…/statuses/:id` and `/ap/users/…/statuses/:id` ids): the public `GET /api/v1/statuses/:id`. Mastodon's ActivityPub object has `likes`/`shares` totals but no reply total.
+- Misskey family (`/notes/:id`): `POST /api/notes/show`; reactions count as favourites.
+- Anything else: `totalItems` of the object's `replies`, `likes` and `shares`, following a linked collection on the same server (NodeBB). A total that isn't published is left unknown, never set to 0.
+
+Read again as posts are shown and on a schedule for accounts members follow, from every 15 minutes for a post under two hours old to daily after three days; a minute after a member stamps or reprints the post; and seen by other servers (hashtag polling, edits) only ever upward. Inkwell's own inks and reprints are added on top; a stamp or reprint the home server has already counted (it went out as a `Like`/`Announce`) is not counted twice.
+
+---
+
 ## HTTP signatures
 
 **Outbound POST** (delivery): draft-cavage, `algorithm="rsa-sha256"`, signed headers `(request-target) host date digest`, `Digest: SHA-256=…`, key id `https://inkwell.social/users/{username}#main-key`.
 
-**Outbound GET** (fetching actors): signed with the instance actor's key over `(request-target) host date accept`, so servers that require signed fetches (GoToSocial, Mastodon's authorized fetch mode) answer.
+**Outbound GET** (fetching actors): signed with the instance actor's key over `(request-target) host date accept` (the request target includes the query string), so servers that require signed fetches (GoToSocial, Mastodon's authorized fetch mode) answer. Posts and collections are fetched unsigned first and signed after a 401/403.
 
 **Inbound:**
 
@@ -328,6 +340,7 @@ Members can opt in to sharing on Bluesky through [Bridgy Fed](https://fed.brid.g
 - Inbound `Reject`, `Move`, `Flag` and `Block` are ignored.
 - Forwarded activities are refused (no LD Signatures).
 - Inbound Likes and Announces from blocked accounts still count.
+- Servers that publish no totals (snac) show only the replies Inkwell has fetched, and no boosts or favourites.
 - Group DMs aren't supported: a private note to more than one member arrives as a mention notification.
 - Signing another server's FEP-400e wall from Inkwell isn't supported; only Inkwell guestbooks can be signed.
 - The `https://inkwell.social/ns#` namespace document doesn't resolve yet.

@@ -122,11 +122,9 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
         body_html: body_html,
         tags: tags,
         published_at: parse_datetime(note["published"]),
-        remote_actor_id: remote_actor.id,
-        reply_count: Inkwell.Federation.ReplyFetcher.extract_reply_count(note["replies"]),
-        likes_count: extract_collection_count(note["likes"]),
-        boosts_count: extract_collection_count(note["shares"])
+        remote_actor_id: remote_actor.id
       }
+      |> Map.merge(Inkwell.Federation.Engagement.ingest_attrs(note))
 
       case RemoteEntries.upsert_remote_entry(attrs) do
         {:ok, :self_domain_skipped} ->
@@ -158,10 +156,6 @@ defmodule Inkwell.Federation.Workers.FetchOutboxWorker do
   end
 
   defp extract_hashtags(_), do: []
-
-  defp extract_collection_count(%{"totalItems" => count}) when is_integer(count), do: count
-  defp extract_collection_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
-  defp extract_collection_count(_), do: 0
 
   defp parse_datetime(nil), do: nil
 

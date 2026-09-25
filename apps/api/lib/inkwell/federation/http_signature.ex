@@ -82,7 +82,9 @@ defmodule Inkwell.Federation.HttpSignature do
     date = format_http_date()
 
     headers_to_sign = "(request-target) host date accept"
-    request_target = "get #{uri.path}"
+    # The request target includes the query string: Mastodon's replies pages
+    # (`?page=true&min_id=…`) failed verification when only the path was signed.
+    request_target = "get #{uri.path}#{if uri.query, do: "?" <> uri.query, else: ""}"
 
     signing_string =
       "(request-target): #{request_target}\n" <>

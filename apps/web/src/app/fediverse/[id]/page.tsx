@@ -11,6 +11,7 @@ import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
 import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-entry";
 import { SignupCta } from "@/components/signup-cta";
+import { RefreshOnce } from "./refresh-once";
 import { CommentSection } from "@/app/[username]/[slug]/comment-section";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
 import type { Comment } from "@/lib/comment-utils";
@@ -73,9 +74,10 @@ export async function generateMetadata({ params }: FediverseEntryParams): Promis
     const entry = data.data;
     const plainText = entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
     const description = entry.title ? `${entry.title} — ${plainText}` : plainText;
+    // The layout's title template adds "· Inkwell".
     const title = entry.title
-      ? `${entry.title} · ${entry.author.display_name} · Inkwell`
-      : `Post by ${entry.author.display_name} · Inkwell`;
+      ? `${entry.title} · ${entry.author.display_name}`
+      : `Post by ${entry.author.display_name}`;
 
     return {
       title,
@@ -124,11 +126,14 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
     notFoundOrRethrow(err);
   }
 
-  // Fetch comments
+  // Fetch comments. `fetching`: the replies are being read from the post's
+  // home server right now; the page refreshes once to show them.
   let comments: Comment[] = [];
+  let repliesFetching = false;
   try {
-    const data = await apiFetch<{ data: Comment[] }>(`/api/remote-entries/${id}/comments`, {}, token);
+    const data = await apiFetch<{ data: Comment[]; fetching?: boolean }>(`/api/remote-entries/${id}/comments`, {}, token);
     comments = data.data ?? [];
+    repliesFetching = data.fetching === true;
   } catch {
     // show empty
   }
@@ -245,9 +250,6 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
         {/* Reading time */}
         <div className="mb-6 text-sm italic" style={{ color: "var(--muted)", fontFamily: "var(--font-lora, Georgia, serif)" }}>
           {mins} min read
-          {entry.boosts_count > 0 && (
-            <span> · {entry.boosts_count} boost{entry.boosts_count !== 1 ? "s" : ""}</span>
-          )}
         </div>
 
         {/* Title */}
@@ -312,6 +314,7 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
         <hr className="my-10" style={{ borderColor: "var(--border)" }} />
 
         {/* Comments (Marginalia) */}
+        {repliesFetching && <RefreshOnce />}
         <CommentSection
           entryId={entry.id}
           comments={comments}

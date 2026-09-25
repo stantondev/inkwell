@@ -94,6 +94,16 @@ defmodule Inkwell.Reprints do
     end
   end
 
+  @doc """
+  Records that a member's reprint of a fediverse post went out as an Announce
+  (a boost), so the post's home server counts it (`Engagement.summaries/2`).
+  Quote reprints aren't announced and stay unmarked.
+  """
+  def mark_announced(%Reprint{id: id}, announce_id) do
+    Reprint |> where(id: ^id) |> Repo.update_all(set: [ap_announce_id: announce_id])
+    :ok
+  end
+
   # ── Query helpers ────────────────────────────────────────────────────
 
   @doc "Check if a user has reprinted a specific local entry."

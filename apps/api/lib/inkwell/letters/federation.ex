@@ -214,8 +214,8 @@ defmodule Inkwell.Letters.Federation do
   # inkwell.social, and older ones on the Fly hostnames.
   @known_hosts ~w(inkwell.social www.inkwell.social api.inkwell.social inkwell-api.fly.dev inkwell-web.fly.dev)
 
-  # Whether a URL is on one of our own hosts (so it names something here).
-  defp local_url?(url) do
+  @doc "Whether a URL is on one of our own hosts (so it names something here)."
+  def local_url?(url) do
     hosts =
       [
         "https://#{instance_host()}",

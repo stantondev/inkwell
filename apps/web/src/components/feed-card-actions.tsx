@@ -425,13 +425,17 @@ export function FeedCardActions({
         const data = json.data ?? [];
         setComments(data);
         setCommentsLoaded(true);
+        // The number on the button follows what was just loaded: it was set
+        // once with the card and stayed at 0 while replies showed underneath.
+        setCommentCount((c) =>
+          typeof json.comment_count === "number" ? json.comment_count : Math.max(c, data.length)
+        );
 
-        // For remote entries: if a background fetch was just triggered and
-        // replies haven't been fetched before, re-fetch once after 3s
+        // For remote entries: if a background fetch of the replies was just
+        // started, load once more after 3s to pick them up
         if (
           isRemote &&
           json.fetching === true &&
-          !json.replies_fetched_at &&
           !opts?.skipRefetch
         ) {
           setFetchingReplies(true);

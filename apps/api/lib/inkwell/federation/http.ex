@@ -181,6 +181,84 @@ defmodule Inkwell.Federation.Http do
     end
   end
 
+  @ap_accept ~c"application/activity+json, application/ld+json"
+
+  @doc """
+  Fetches an ActivityPub object as a map. Tries an unsigned GET first and
+  retries signed with the instance actor's key when the server answers 401 or
+  403 (authorized fetch / secure mode).
+  Returns `{:ok, map}`, `{:error, {:http_error, status}}` or `{:error, reason}`.
+  """
+  def get_object(url) when is_binary(url) do
+    case get_map(url, [{~c"accept", @ap_accept}]) do
+      {:error, {:http_error, status}} when status in [401, 403] ->
+        case Inkwell.Federation.RemoteActor.instance_signing_headers(url) do
+          {:ok, signed} -> get_map(url, signed)
+          :error -> {:error, {:http_error, status}}
+        end
+
+      other ->
+        other
+    end
+  end
+
+  def get_object(_), do: {:error, :invalid_url}
+
+  @doc """
+  GETs a JSON API endpoint (Mastodon's public API). Returns `{:ok, decoded}`
+  or an error. Doesn't follow redirects, which would skip `validate_url/1`.
+  """
+  def get_json(url) when is_binary(url) do
+    get_decoded(url, [{~c"accept", ~c"application/json"}], follow_redirects: false)
+  end
+
+  @doc """
+  POSTs a JSON body to a public API endpoint (Misskey's `notes/show`) and
+  decodes the answer. Same URL checks and per-domain limit as `get/3`.
+  """
+  def post_json(url, body) when is_binary(url) and is_map(body) do
+    with :ok <- validate_url(url),
+         :ok <- check_domain_rate(url) do
+      headers = [{~c"user-agent", @user_agent}, {~c"accept", ~c"application/json"}]
+      payload = :erlang.binary_to_list(Jason.encode!(body))
+
+      case :httpc.request(:post, {String.to_charlist(url), headers, ~c"application/json", payload}, http_opts([{:autoredirect, false}]), []) do
+        {:ok, {{_, status, _}, _headers, resp}} when status in 200..299 ->
+          Jason.decode(:erlang.list_to_binary(resp))
+
+        {:ok, {{_, status, _}, _headers, _resp}} ->
+          {:error, {:http_error, status}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp get_map(url, headers) do
+    case get_decoded(url, headers) do
+      {:ok, %{} = map} -> {:ok, map}
+      {:ok, _} -> {:error, :invalid_json}
+      error -> error
+    end
+  end
+
+  defp get_decoded(url, headers, opts \\ []) do
+    case get(url, headers, opts) do
+      {:ok, {status, body}} when status in 200..299 ->
+        case Jason.decode(body) do
+          {:ok, decoded} -> {:ok, decoded}
+          {:error, _} -> {:error, :invalid_json}
+        end
+
+      {:ok, {status, _}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   @doc """
   Make a POST request with the given body and headers.
   `headers` should be a list of `{charlist_key, charlist_value}` tuples

@@ -85,9 +85,9 @@ config :inkwell, Oban,
        # Verify remote entries — was every 4h at :30, now every 8h. Deletion
        # detection latency goes from ~4h → ~8h; fine at this scale.
        {"30 1-23/8 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},
-       # Refresh engagement — was every 2h at :00 (collided with Gazette).
-       # Now every 6h at :17 so it lands in a quiet bucket.
-       {"17 */6 * * *", Inkwell.Workers.RefreshEngagementWorker},
+       # Fediverse posts' replies/boosts/favourites from followed accounts, by
+       # the post's age (Inkwell.Federation.Engagement.ttl_seconds/2).
+       {"*/15 * * * *", Inkwell.Workers.RefreshEngagementWorker},
        # Custom-domain DNS/cert polling — was every 5m, now every 15m at :03.
        # Means a user adding a domain waits up to 15min for the first check
        # instead of 5min; acceptable since they're already waiting on DNS TTLs.

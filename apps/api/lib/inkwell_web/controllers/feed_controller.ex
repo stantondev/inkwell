@@ -3,7 +3,7 @@ defmodule InkwellWeb.FeedController do
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, Timeline, WriterSubscriptions}
   alias Inkwell.Avatars
-  alias Inkwell.Federation.{CategoryHashtags, RemoteEntries}
+  alias Inkwell.Federation.{CategoryHashtags, Engagement, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/feed — authenticated reading feed (friends' + followed remote actors' entries)
@@ -129,7 +129,11 @@ defmodule InkwellWeb.FeedController do
 
     remote_stamp_types_map = Stamps.get_stamp_types_for_remote_entries(remote_entry_ids)
     remote_my_stamps_map = Stamps.get_user_stamps_for_remote_entries(user.id, remote_entry_ids)
-    remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
+
+    # Replies/boosts/favourites from the post's home server + what members did.
+    remote_entries = for %{type: :remote, entry: re} <- all_items, do: re
+    remote_counts = Engagement.summaries(remote_entries, user.id)
+    Engagement.refresh_stale(remote_entries)
 
     data = Enum.map(all_items, fn
       %{type: :local, entry: entry} ->
@@ -222,12 +226,12 @@ defmodule InkwellWeb.FeedController do
           },
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
-          comment_count: max(re.reply_count || 0, Map.get(remote_comment_counts, re.id, 0)),
-          ink_count: re.likes_count || 0,
-          boosts_count: re.boosts_count || 0,
-          my_ink: false,
-          reprint_count: re.reprint_count || 0,
-          my_reprint: false,
+          comment_count: remote_counts[re.id].comment_count,
+          ink_count: remote_counts[re.id].ink_count,
+          boosts_count: remote_counts[re.id].boosts_count,
+          my_ink: remote_counts[re.id].my_ink,
+          reprint_count: remote_counts[re.id].reprint_count,
+          my_reprint: remote_counts[re.id].my_reprint,
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,

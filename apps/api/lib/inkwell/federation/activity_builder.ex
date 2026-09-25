@@ -610,31 +610,39 @@ defmodule Inkwell.Federation.ActivityBuilder do
   # ── Announce (boost/ink) ─────────────────────────────────────────────────
 
   @doc """
-  Builds an Announce activity for inking (boosting) a public entry.
-  Addressed to Public + actor's followers so it appears in followers' timelines.
+  Builds an Announce activity (a reprint, which the fediverse calls a boost).
+  Addressed to Public + the actor's followers so it appears in their
+  timelines; `author_ap_id` (the post's author, for posts from other servers)
+  is cc'd, as Mastodon does, so their server counts the boost and tells them.
   """
-  def build_announce(entry_ap_id, user) do
+  def build_announce(entry_ap_id, user, author_ap_id \\ nil) do
     actor_url = actor_url(user)
 
     %{
       "@context" => ap_context(),
       "type" => "Announce",
-      "id" => "#{actor_url}#announce-#{object_hash(entry_ap_id)}",
+      "id" => announce_id(entry_ap_id, user),
       "actor" => actor_url,
       "published" => format_datetime(DateTime.utc_now()),
       "to" => [@public],
-      "cc" => ["#{actor_url}/followers"],
+      "cc" => announce_cc(actor_url, author_ap_id),
       "object" => entry_ap_id
     }
   end
+
+  @doc "The Announce id for a user's reprint of an object (the same every time)."
+  def announce_id(entry_ap_id, user), do: "#{actor_url(user)}#announce-#{object_hash(entry_ap_id)}"
+
+  defp announce_cc(actor_url, author) when is_binary(author), do: ["#{actor_url}/followers", author]
+  defp announce_cc(actor_url, _author), do: ["#{actor_url}/followers"]
 
   @doc """
   Builds an Undo { Announce } activity for un-inking (unboosting) an entry.
   Inner Announce ID matches the original Announce's deterministic ID.
   """
-  def build_undo_announce(entry_ap_id, user) do
+  def build_undo_announce(entry_ap_id, user, author_ap_id \\ nil) do
     actor_url = actor_url(user)
-    announce_id = "#{actor_url}#announce-#{object_hash(entry_ap_id)}"
+    announce_id = announce_id(entry_ap_id, user)
 
     %{
       "@context" => ap_context(),
@@ -642,7 +650,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "id" => "#{actor_url}#undo-announce-#{System.system_time(:nanosecond)}",
       "actor" => actor_url,
       "to" => [@public],
-      "cc" => ["#{actor_url}/followers"],
+      "cc" => announce_cc(actor_url, author_ap_id),
       "object" => %{
         "type" => "Announce",
         "id" => announce_id,

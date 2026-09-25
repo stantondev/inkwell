@@ -153,7 +153,7 @@ defmodule Inkwell.Federation.RemoteActor do
 
     # Use signed GET for authorized fetch compatibility (GoToSocial, Mastodon secure mode).
     # Signs with the instance actor's key so the remote server can verify our identity.
-    headers = case get_instance_signing_headers(actor_uri) do
+    headers = case instance_signing_headers(actor_uri) do
       {:ok, signed_headers} -> signed_headers
       :error -> [{~c"accept", ~c"application/activity+json, application/ld+json"}]
     end
@@ -183,9 +183,12 @@ defmodule Inkwell.Federation.RemoteActor do
     end
   end
 
-  # Signs a GET request using the instance actor's key.
-  # Returns {:ok, charlist_headers} or :error if no instance actor exists.
-  defp get_instance_signing_headers(url) do
+  @doc """
+  Headers for a GET signed with the instance actor's key, for servers that
+  require authorized fetch. Returns `{:ok, charlist_headers}` or `:error` if
+  there is no instance actor yet.
+  """
+  def instance_signing_headers(url) do
     # Use the instance actor (relay user) to sign outbound GETs.
     # Lazy lookup — don't create the actor just for signing GETs.
     case Repo.get_by(Inkwell.Accounts.User, username: "relay") do

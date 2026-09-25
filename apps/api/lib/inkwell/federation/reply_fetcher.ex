@@ -1,46 +1,45 @@
 defmodule Inkwell.Federation.ReplyFetcher do
   @moduledoc """
-  Fetches reply threads from fediverse servers for remote entries displayed on Inkwell.
+  Fetches a fediverse post's replies from its home server and stores them as
+  comments (the `remote_author` pattern), so they show on Inkwell.
 
-  When a user views comments on a remote entry, this module fetches the AP object's
-  `replies` collection, parses the reply Notes, and stores them as comments in the
-  existing comments table using the `remote_author` pattern.
+  - Mastodon: the public context API (`/api/v1/statuses/:id/context`) returns
+    the whole public thread in one request, replies to replies included, with
+    each account's details. Direct replies the home server no longer shows
+    (deleted, or made private) are removed, but only when the thread came back
+    complete and nobody here has answered them.
+  - Everything else: the ActivityPub `replies` collection, following pages and
+    dereferencing item links (signed when the server requires it).
+
+  Only public and unlisted replies are kept, never ones written here (our own
+  comments come back in these lists) or from defederated servers. Each reply
+  keeps the time it was written.
+
+  Runs when someone opens a post's comments (`needs_fetch?/1`, 15 minutes) and
+  when the engagement refresh sees new replies (`Engagement`).
   """
 
-  alias Inkwell.Federation.{Http, RemoteActor, RemoteEntry}
+  import Ecto.Query
+
+  alias Inkwell.Federation.{AttachmentHelper, Engagement, Http, RemoteActor, RemoteEntry}
   alias Inkwell.Journals
+  alias Inkwell.Journals.Comment
+  alias Inkwell.Letters.Federation, as: LetterFederation
+  alias Inkwell.Moderation.FediverseBlocks
   alias Inkwell.Repo
 
   require Logger
 
-  @doc """
-  Extracts the reply count from an AP object's `replies` field.
-  Used at ingestion time (relay, follow, inbox) to store the count without
-  needing to fetch the full reply thread.
-
-  Handles the various forms of `replies`:
-  - `%{"totalItems" => N}` — inline Collection with count
-  - `%{"first" => %{"totalItems" => N}}` — Mastodon pattern (count on first page)
-  - nil or missing — returns 0
-  """
-  def extract_reply_count(nil), do: 0
-
-  def extract_reply_count(%{"totalItems" => count}) when is_integer(count), do: count
-
-  def extract_reply_count(%{"first" => %{"totalItems" => count}}) when is_integer(count), do: count
-
-  def extract_reply_count(_), do: 0
-
-  @accept_headers [{~c"accept", ~c"application/activity+json, application/ld+json"}]
-  @max_items 100
-  @max_pages 2
-  @max_dereferences 5
+  @public_addresses ["https://www.w3.org/ns/activitystreams#Public", "as:Public", "Public"]
   @fetch_ttl_seconds 15 * 60
+  @max_items 100
+  @max_pages 3
+  @max_dereferences 20
   @domain_delay_ms 500
+  # Mastodon's context API gives signed-out callers at most 60 replies.
+  @mastodon_context_limit 60
 
-  @doc """
-  Returns true if the remote entry's replies should be (re)fetched.
-  """
+  @doc "True if the post's replies should be (re)fetched."
   def needs_fetch?(%RemoteEntry{replies_fetched_at: nil}), do: true
 
   def needs_fetch?(%RemoteEntry{replies_fetched_at: fetched_at}) do
@@ -48,301 +47,393 @@ defmodule Inkwell.Federation.ReplyFetcher do
   end
 
   @doc """
-  Fetches replies for a remote entry from the origin server and stores them as comments.
-  Returns :ok on success (even if 0 replies found), {:error, reason} on failure.
+  Fetches the post's replies and stores the new ones. `:ok` (even with no
+  replies) or `{:error, reason}`.
   """
   def fetch_replies(%RemoteEntry{} = entry) do
-    Logger.info("ReplyFetcher: fetching replies for #{entry.ap_id}")
+    result =
+      case Engagement.api_ref(entry.ap_id) do
+        {:mastodon, host, status_id} ->
+          case Http.get_json("https://#{host}/api/v1/statuses/#{status_id}/context") do
+            {:ok, %{"descendants" => descendants}} when is_list(descendants) ->
+              store_mastodon_thread(entry, status_id, descendants)
 
-    case fetch_ap_object(entry.ap_id) do
-      {:ok, ap_object} ->
-        replies_data = ap_object["replies"]
-        items = extract_reply_items(replies_data)
-        reply_count = extract_reply_count(replies_data)
-        Logger.info("ReplyFetcher: found #{length(items)} reply items (totalItems: #{reply_count}) for #{entry.ap_id}")
+            _ ->
+              fetch_via_activitypub(entry)
+          end
 
-        process_items(items, entry)
-        mark_fetched(entry, reply_count)
+        _ ->
+          fetch_via_activitypub(entry)
+      end
+
+    if result == :ok do
+      from(e in RemoteEntry, where: e.id == ^entry.id)
+      |> Repo.update_all(set: [replies_fetched_at: DateTime.utc_now()])
+    end
+
+    result
+  end
+
+  # ── Mastodon ───────────────────────────────────────────────────────────
+
+  @doc """
+  Stores a thread from Mastodon's context API. `status_id` is the post's id on
+  its home server; `descendants` come in thread order (parents first).
+  """
+  def store_mastodon_thread(%RemoteEntry{} = entry, status_id, descendants) do
+    home = URI.parse(entry.ap_id).host
+    by_id = Map.new(descendants, &{&1["id"], &1})
+    known = existing_ap_ids(entry.id, Enum.map(descendants, & &1["uri"]))
+
+    Enum.reduce(descendants, known, fn status, seen ->
+      uri = status["uri"]
+
+      if is_binary(uri) and not MapSet.member?(seen, uri) and storable_status?(status) do
+        parent_uri =
+          case status["in_reply_to_id"] do
+            ^status_id -> nil
+            id -> get_in(by_id, [id, "uri"])
+          end
+
+        reply = %{
+          ap_id: uri,
+          url: status["url"],
+          body_html: AttachmentHelper.append_media_attachments(status["content"] || "", %{"attachment" => api_media(status)}),
+          published: status["created_at"],
+          parent_ap_id: parent_uri,
+          author: author_from_account(status["account"], home)
+        }
+
+        if store_reply(entry, reply) == :ok, do: MapSet.put(seen, uri), else: seen
+      else
+        seen
+      end
+    end)
+
+    direct = Enum.filter(descendants, &(&1["in_reply_to_id"] == status_id))
+
+    # Complete: under the API's cap, and every reply the home server counts
+    # (read from its own API, `engagement_refreshed_at`) is here.
+    if length(descendants) < @mastodon_context_limit and entry.engagement_refreshed_at != nil and
+         length(direct) >= (entry.reply_count || 0) do
+      prune_missing_direct_replies(entry, direct |> Enum.map(& &1["uri"]) |> Enum.filter(&is_binary/1))
+    end
+
+    :ok
+  end
+
+  defp storable_status?(%{"visibility" => v, "uri" => uri, "account" => %{} = account})
+       when v in ["public", "unlisted"] do
+    not LetterFederation.local_url?(uri) and not defederated?(uri) and
+      not defederated?(account["uri"] || account["url"])
+  end
+
+  defp storable_status?(_), do: false
+
+  defp author_from_account(account, home) do
+    acct = account["acct"] || account["username"] || ""
+
+    {username, domain} =
+      case String.split(acct, "@", parts: 2) do
+        [u, d] -> {u, d}
+        [u] -> {u, home}
+      end
+
+    display_name =
+      case account["display_name"] do
+        name when is_binary(name) and name != "" -> name
+        _ -> username
+      end
+
+    %{
+      "ap_id" => account["uri"],
+      "username" => username,
+      "domain" => domain,
+      "display_name" => display_name,
+      "avatar_url" => account["avatar_static"] || account["avatar"],
+      "profile_url" => account["url"]
+    }
+  end
+
+  # Mastodon API media → ActivityPub-style attachments for AttachmentHelper.
+  defp api_media(%{"media_attachments" => media}) when is_list(media) do
+    Enum.flat_map(media, fn
+      %{"type" => "image", "url" => url} = m when is_binary(url) ->
+        [%{"type" => "Image", "mediaType" => image_type(url), "url" => url, "name" => m["description"]}]
+
+      %{"type" => type, "url" => url} when type in ["video", "gifv"] and is_binary(url) ->
+        [%{"type" => "Video", "url" => url}]
+
+      %{"type" => "audio", "url" => url} when is_binary(url) ->
+        [%{"type" => "Audio", "url" => url}]
+
+      _ ->
+        []
+    end)
+  end
+
+  defp api_media(_), do: []
+
+  defp image_type(url) do
+    case url |> URI.parse() |> Map.get(:path, "") |> to_string() |> Path.extname() |> String.downcase() do
+      ".png" -> "image/png"
+      ".gif" -> "image/gif"
+      ".webp" -> "image/webp"
+      ".avif" -> "image/avif"
+      _ -> "image/jpeg"
+    end
+  end
+
+  # A direct reply the home server no longer lists was deleted or made private.
+  # Replies someone here answered stay, so the answer keeps its context.
+  defp prune_missing_direct_replies(entry, direct_uris) do
+    from(c in Comment,
+      as: :comment,
+      where:
+        c.remote_entry_id == ^entry.id and is_nil(c.user_id) and not is_nil(c.remote_author) and
+          is_nil(c.parent_comment_id) and c.ap_id not in ^direct_uris,
+      where:
+        not exists(
+          from(r in Comment, where: r.parent_comment_id == parent_as(:comment).id, select: 1)
+        )
+    )
+    |> Repo.delete_all()
+    |> case do
+      {0, _} -> :ok
+      {n, _} -> Logger.info("ReplyFetcher: removed #{n} replies no longer on #{entry.ap_id}")
+    end
+  end
+
+  # ── ActivityPub ────────────────────────────────────────────────────────
+
+  defp fetch_via_activitypub(entry) do
+    case Http.get_object(entry.ap_id) do
+      {:ok, object} ->
+        items = collection_items(object["replies"])
+        Logger.info("ReplyFetcher: #{length(items)} reply items for #{entry.ap_id}")
+        store_ap_items(items, entry)
         :ok
 
       {:error, reason} ->
-        Logger.warning("ReplyFetcher: failed to fetch AP object #{entry.ap_id}: #{inspect(reason)}")
+        Logger.warning("ReplyFetcher: couldn't fetch #{entry.ap_id}: #{inspect(reason)}")
         {:error, reason}
     end
   end
 
-  # ── AP Object Fetching ──────────────────────────────────────────────────
+  defp collection_items(nil), do: []
 
-  defp fetch_ap_object(url) do
-    case Http.get(url, @accept_headers) do
-      {:ok, {status, body}} when status in 200..299 ->
-        Jason.decode(body)
-
-      {:ok, {status, _}} ->
-        {:error, {:http_error, status}}
-
-      {:error, reason} ->
-        {:error, reason}
+  defp collection_items(url) when is_binary(url) do
+    case Http.get_object(url) do
+      {:ok, collection} -> collection_items(collection)
+      _ -> []
     end
   end
 
-  # ── Replies Collection Parsing ──────────────────────────────────────────
-
-  # Handle the various forms of the `replies` field in AP objects
-  defp extract_reply_items(nil), do: []
-  defp extract_reply_items(replies) when is_binary(replies) do
-    # `replies` is a URL — fetch the Collection
-    case fetch_ap_object(replies) do
-      {:ok, collection} -> extract_from_collection(collection, 1)
-      {:error, _} -> []
-    end
-  end
-
-  defp extract_reply_items(%{} = replies) do
-    # `replies` is an inline Collection object
-    extract_from_collection(replies, 1)
-  end
-
-  defp extract_reply_items(_), do: []
-
-  # Extract items from a Collection/OrderedCollection, following pagination
-  defp extract_from_collection(collection, page_num) when page_num > @max_pages, do: []
-
-  defp extract_from_collection(collection, page_num) do
-    # Get items from this level (Collection might have items directly)
-    direct_items = get_items(collection)
-
-    # Check for a `first` page (common in Mastodon — Collection wraps a CollectionPage)
-    first_items =
+  defp collection_items(%{} = collection) do
+    first =
       case collection["first"] do
-        nil ->
-          []
-
-        first_url when is_binary(first_url) ->
-          case fetch_ap_object(first_url) do
-            {:ok, page} -> extract_from_page(page, page_num)
-            {:error, _} -> []
+        url when is_binary(url) ->
+          case Http.get_object(url) do
+            {:ok, page} -> page_items(page, 1)
+            _ -> []
           end
 
-        %{} = first_page ->
-          extract_from_page(first_page, page_num)
+        %{} = page ->
+          page_items(page, 1)
+
+        _ ->
+          []
       end
 
-    items = direct_items ++ first_items
-    Enum.take(items, @max_items)
+    Enum.take(items(collection) ++ first, @max_items)
   end
 
-  # Extract items from a CollectionPage, optionally following `next`
-  defp extract_from_page(page, page_num) do
-    items = get_items(page)
+  defp collection_items(_), do: []
 
-    next_items =
-      if page_num < @max_pages do
-        case page["next"] do
-          nil -> []
-          next_url when is_binary(next_url) ->
-            # Small delay before following pagination
-            Process.sleep(@domain_delay_ms)
-            case fetch_ap_object(next_url) do
-              {:ok, next_page} -> extract_from_page(next_page, page_num + 1)
-              {:error, _} -> []
-            end
-          _ -> []
-        end
+  # Mastodon's first page holds the author's own replies; others are on `next`.
+  defp page_items(page, n) do
+    rest =
+      with true <- n < @max_pages,
+           next when is_binary(next) <- page["next"],
+           _ = Process.sleep(@domain_delay_ms),
+           {:ok, next_page} <- Http.get_object(next) do
+        page_items(next_page, n + 1)
       else
-        []
+        _ -> []
       end
 
-    items ++ next_items
+    items(page) ++ rest
   end
 
-  # Get items/orderedItems from a collection or page
-  defp get_items(%{"orderedItems" => items}) when is_list(items), do: items
-  defp get_items(%{"items" => items}) when is_list(items), do: items
-  defp get_items(_), do: []
+  defp items(%{"orderedItems" => items}) when is_list(items), do: items
+  defp items(%{"items" => items}) when is_list(items), do: items
+  defp items(_), do: []
 
-  # ── Item Processing ─────────────────────────────────────────────────────
-
-  defp process_items(items, entry) do
-    # Track domains for rate limiting
-    domain_tracker = :ets.new(:reply_fetch_domains, [:set, :private])
-    deref_count = :counters.new(1, [:atomics])
-
-    # First pass: resolve all items to full objects
-    resolved =
+  defp store_ap_items(items, entry) do
+    {resolved, _derefs} =
       items
       |> Enum.take(@max_items)
-      |> Enum.map(fn item ->
-        resolve_item(item, domain_tracker, deref_count)
-      end)
-      |> Enum.reject(&is_nil/1)
+      |> Enum.map_reduce(0, &resolve_item/2)
 
-    # Build ap_id → resolved map for threading
-    ap_id_map =
-      resolved
-      |> Enum.filter(fn obj -> is_binary(obj["id"]) end)
-      |> Map.new(fn obj -> {obj["id"], obj} end)
+    resolved = Enum.filter(resolved, &storable_object?/1)
+    known = existing_ap_ids(entry.id, Enum.map(resolved, & &1["id"]))
 
-    # Check which ap_ids already exist as comments
-    existing_ap_ids = get_existing_comment_ap_ids(entry.id, Map.keys(ap_id_map))
-
-    # Second pass: create comments with threading
     resolved
-    |> Enum.reject(fn obj -> obj["id"] in existing_ap_ids end)
+    |> Enum.reject(&MapSet.member?(known, &1["id"]))
     |> Enum.each(fn obj ->
-      create_reply_comment(obj, entry, ap_id_map)
-    end)
-
-    :ets.delete(domain_tracker)
-  end
-
-  defp resolve_item(item, _domain_tracker, _deref_count) when is_map(item) do
-    # Inline object — validate type
-    if valid_reply_type?(item), do: item, else: nil
-  end
-
-  defp resolve_item(item, domain_tracker, deref_count) when is_binary(item) do
-    # URI reference — need to dereference
-    current = :counters.get(deref_count, 1)
-    if current >= @max_dereferences do
-      nil
-    else
-      :counters.add(deref_count, 1, 1)
-      maybe_rate_limit_domain(item, domain_tracker)
-
-      case fetch_ap_object(item) do
-        {:ok, obj} when is_map(obj) ->
-          if valid_reply_type?(obj), do: obj, else: nil
-        _ ->
-          nil
+      with actor_uri when is_binary(actor_uri) <- attributed_to(obj),
+           {:ok, actor} <- RemoteActor.fetch(actor_uri) do
+        store_reply(entry, %{
+          ap_id: obj["id"],
+          url: if(is_binary(obj["url"]), do: obj["url"]),
+          body_html: AttachmentHelper.append_media_attachments(obj["content"] || "", obj),
+          published: obj["published"],
+          parent_ap_id: if(obj["inReplyTo"] == entry.ap_id, do: nil, else: obj["inReplyTo"]),
+          author: %{
+            "ap_id" => actor.ap_id,
+            "username" => actor.username,
+            "domain" => actor.domain,
+            "display_name" => actor.display_name,
+            "avatar_url" => actor.avatar_url,
+            "profile_url" => profile_url(actor)
+          }
+        })
+      else
+        _ -> Logger.debug("ReplyFetcher: couldn't resolve the author of #{obj["id"]}")
       end
+    end)
+  end
+
+  # Inline objects are used as they are; links are fetched, at most @max_dereferences.
+  defp resolve_item(%{} = obj, derefs), do: {obj, derefs}
+
+  defp resolve_item(url, derefs) when is_binary(url) and derefs < @max_dereferences do
+    if derefs > 0, do: Process.sleep(div(@domain_delay_ms, 2))
+
+    case Http.get_object(url) do
+      {:ok, obj} -> {obj, derefs + 1}
+      _ -> {nil, derefs + 1}
     end
   end
 
-  defp resolve_item(_, _, _), do: nil
+  defp resolve_item(_, derefs), do: {nil, derefs}
 
-  defp valid_reply_type?(%{"type" => type}) when type in ["Note", "Article", "Page"], do: true
-  defp valid_reply_type?(_), do: false
+  defp storable_object?(%{"type" => type, "id" => id} = obj)
+       when type in ["Note", "Article", "Page"] and is_binary(id) do
+    public?(obj) and not LetterFederation.local_url?(id) and not defederated?(id)
+  end
 
-  defp maybe_rate_limit_domain(url, domain_tracker) do
-    case URI.parse(url) do
-      %URI{host: host} when is_binary(host) ->
-        case :ets.lookup(domain_tracker, host) do
-          [{^host, _}] ->
-            Process.sleep(@domain_delay_ms)
+  defp storable_object?(_), do: false
 
-          [] ->
-            :ok
+  defp public?(obj) do
+    [obj["to"], obj["cc"]] |> List.flatten() |> Enum.any?(&(&1 in @public_addresses))
+  end
+
+  defp attributed_to(%{"attributedTo" => uri}) when is_binary(uri), do: uri
+  defp attributed_to(%{"attributedTo" => [uri | _]}) when is_binary(uri), do: uri
+  defp attributed_to(%{"attributedTo" => %{"id" => uri}}) when is_binary(uri), do: uri
+  defp attributed_to(_), do: nil
+
+  defp profile_url(actor) do
+    case actor.raw_data do
+      %{"url" => url} when is_binary(url) -> url
+      _ -> actor.ap_id
+    end
+  end
+
+  # ── Storing ────────────────────────────────────────────────────────────
+
+  defp store_reply(entry, reply) do
+    attrs =
+      %{
+        "remote_entry_id" => entry.id,
+        "body_html" => reply.body_html,
+        "ap_id" => reply.ap_id,
+        "url" => reply.url,
+        "remote_author" => reply.author
+      }
+
+    attrs =
+      case parent_comment_id(entry, reply.parent_ap_id) do
+        nil -> attrs
+        parent_id -> Map.put(attrs, "parent_comment_id", parent_id)
+      end
+
+    case Journals.create_comment(attrs) do
+      {:ok, comment} ->
+        backdate(comment, reply.published)
+        :ok
+
+      {:error, _changeset} ->
+        # Usually a blank reply, or the same reply arriving through the inbox.
+        :error
+    end
+  end
+
+  # The comment this reply answers, on the same post: a fetched reply, or one
+  # of ours (`https://inkwell.social/comments/<id>`).
+  defp parent_comment_id(_entry, nil), do: nil
+
+  defp parent_comment_id(entry, parent_ap_id) do
+    by_ap_id =
+      Repo.one(
+        from(c in Comment,
+          where: c.remote_entry_id == ^entry.id and c.ap_id == ^parent_ap_id,
+          select: c.id,
+          limit: 1
+        )
+      )
+
+    by_ap_id || local_comment_id(entry, parent_ap_id)
+  end
+
+  defp local_comment_id(entry, url) do
+    with true <- LetterFederation.local_url?(url),
+         [_, id] <- Regex.run(~r"/comments/([0-9a-fA-F-]{36})\z", url),
+         {:ok, id} <- Ecto.UUID.cast(id),
+         %Comment{remote_entry_id: remote_entry_id} when remote_entry_id == entry.id <- Repo.get(Comment, id) do
+      id
+    else
+      _ -> nil
+    end
+  end
+
+  defp backdate(comment, published) when is_binary(published) do
+    case DateTime.from_iso8601(published) do
+      {:ok, at, _offset} ->
+        if DateTime.compare(at, DateTime.utc_now()) == :lt do
+          at = %{at | microsecond: {elem(at.microsecond, 0), 6}}
+          from(c in Comment, where: c.id == ^comment.id) |> Repo.update_all(set: [inserted_at: at])
         end
-        :ets.insert(domain_tracker, {host, true})
 
       _ ->
         :ok
     end
   end
 
-  # Query existing comment ap_ids to avoid duplicates
-  defp get_existing_comment_ap_ids(remote_entry_id, ap_ids) when ap_ids == [], do: MapSet.new()
+  defp backdate(_comment, _published), do: :ok
 
-  defp get_existing_comment_ap_ids(remote_entry_id, ap_ids) do
-    import Ecto.Query
+  defp existing_ap_ids(remote_entry_id, ap_ids) do
+    ap_ids = Enum.filter(ap_ids, &is_binary/1)
 
-    Journals.Comment
-    |> where([c], c.remote_entry_id == ^remote_entry_id)
-    |> where([c], c.ap_id in ^ap_ids)
-    |> select([c], c.ap_id)
-    |> Repo.all()
-    |> MapSet.new()
-  end
-
-  # Create a comment from a resolved AP reply object
-  defp create_reply_comment(obj, entry, ap_id_map) do
-    actor_uri = obj["attributedTo"]
-
-    unless is_binary(actor_uri) do
-      Logger.debug("ReplyFetcher: skipping reply without attributedTo: #{obj["id"]}")
-      :skip
-    end
-
-    case RemoteActor.fetch(actor_uri) do
-      {:ok, remote_actor} ->
-        profile_url =
-          case remote_actor.raw_data do
-            %{"url" => url} when is_binary(url) -> url
-            _ -> remote_actor.ap_id
-          end
-
-        # Determine threading parent
-        in_reply_to = obj["inReplyTo"]
-        parent_comment_id = resolve_parent(in_reply_to, entry, ap_id_map)
-
-        # Use string keys throughout — compute_and_enforce_depth adds "depth" as string key
-        comment_attrs = %{
-          "remote_entry_id" => entry.id,
-          "body_html" => obj["content"] || "",
-          "ap_id" => obj["id"],
-          "remote_author" => %{
-            "ap_id" => remote_actor.ap_id,
-            "username" => remote_actor.username,
-            "domain" => remote_actor.domain,
-            "display_name" => remote_actor.display_name,
-            "avatar_url" => remote_actor.avatar_url,
-            "profile_url" => profile_url
-          }
-        }
-
-        # Add parent for threading — depth is computed by Journals.create_comment
-        comment_attrs =
-          if parent_comment_id do
-            Map.put(comment_attrs, "parent_comment_id", parent_comment_id)
-          else
-            comment_attrs
-          end
-
-        case Journals.create_comment(comment_attrs) do
-          {:ok, comment} ->
-            Logger.debug("ReplyFetcher: created comment #{comment.id} from #{actor_uri}")
-
-          {:error, reason} ->
-            Logger.debug("ReplyFetcher: failed to create comment from #{actor_uri}: #{inspect(reason)}")
-        end
-
-      {:error, reason} ->
-        Logger.debug("ReplyFetcher: failed to fetch actor #{actor_uri}: #{inspect(reason)}")
-    end
-  end
-
-  # Resolve parent: find parent comment ID if inReplyTo matches a sibling
-  defp resolve_parent(in_reply_to, entry, _ap_id_map) when in_reply_to == entry.ap_id do
-    # Direct reply to the entry — root level
-    nil
-  end
-
-  defp resolve_parent(in_reply_to, _entry, ap_id_map) when is_binary(in_reply_to) do
-    # Check if it's a reply to another comment we've fetched/stored
-    if Map.has_key?(ap_id_map, in_reply_to) do
-      import Ecto.Query
-
-      Repo.one(
-        from c in Journals.Comment,
-          where: c.ap_id == ^in_reply_to,
-          select: c.id
-      )
+    if ap_ids == [] do
+      MapSet.new()
     else
-      nil
+      from(c in Comment,
+        where: c.remote_entry_id == ^remote_entry_id and c.ap_id in ^ap_ids,
+        select: c.ap_id
+      )
+      |> Repo.all()
+      |> MapSet.new()
     end
   end
 
-  defp resolve_parent(_, _, _), do: nil
-
-  # ── Mark as fetched ─────────────────────────────────────────────────────
-
-  defp mark_fetched(entry, reply_count \\ 0) do
-    changes = %{replies_fetched_at: DateTime.utc_now()}
-    changes = if reply_count > 0, do: Map.put(changes, :reply_count, reply_count), else: changes
-
-    entry
-    |> Ecto.Changeset.change(changes)
-    |> Repo.update()
+  defp defederated?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{host: host} when is_binary(host) -> FediverseBlocks.is_domain_defederated?(String.downcase(host))
+      _ -> false
+    end
   end
+
+  defp defederated?(_), do: false
 end
