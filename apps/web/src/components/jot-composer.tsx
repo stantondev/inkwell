@@ -10,8 +10,10 @@ import { OPEN_JOT_EVENT, STICKY_COLORS, STICKY_MAX_CHARS, type StickyColor } fro
 
 /** Sent with OPEN_JOT_EVENT to edit an existing sticky instead of writing a new one. */
 export interface JotEditDetail {
-  id: string;
-  body_html: string;
+  id?: string;
+  body_html?: string;
+  /** Start a new sticky with this text instead (shared into Inkwell). */
+  text?: string;
   sticky_color?: string | null;
   privacy?: string;
 }
@@ -81,9 +83,12 @@ export function JotComposer() {
       setPosted(null);
       if (detail?.id) {
         setEditing(detail.id);
-        setText(htmlToText(detail.body_html));
+        setText(htmlToText(detail.body_html ?? ""));
         setColor((STICKY_COLORS.find((c) => c.id === detail.sticky_color)?.id ?? "yellow") as StickyColor);
         setPrivacy(detail.privacy && PRIVACY_OPTIONS.some((p) => p.id === detail.privacy) ? detail.privacy : "public");
+      } else if (detail?.text) {
+        setEditing(null);
+        setText(detail.text.slice(0, STICKY_MAX_CHARS));
       } else if (editing) {
         // Leaving an edit: start a fresh sticky rather than reusing the old text
         setEditing(null);

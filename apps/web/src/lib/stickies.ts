@@ -29,3 +29,10 @@ export const OPEN_JOT_EVENT = "inkwell-open-jot";
 export function openJot() {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(OPEN_JOT_EVENT));
 }
+
+/** Opens the Jot composer with a new sticky starting from `text` (Share into Inkwell). */
+export function openJotWithText(text: string) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(OPEN_JOT_EVENT, { detail: { text } }));
+  }
+}

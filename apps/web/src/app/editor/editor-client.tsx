@@ -1521,6 +1521,10 @@ export function EditorClient() {
   const fromStickyId = editId ? null : searchParams.get("from_sticky");
   // "Write about this" from the Gazette: start from the story and link back to it
   const fromGazetteId = editId ? null : searchParams.get("gazette");
+  // Shared into Inkwell from another app (/share): start from the link/text
+  const sharedUrl = editId ? null : searchParams.get("shared_url");
+  const sharedTitle = editId ? null : searchParams.get("shared_title");
+  const sharedText = editId ? null : searchParams.get("shared_text");
   // "Write in this circle" / "Write about this" from a circle page
   const fromCircleId = editId ? null : searchParams.get("circle");
   const fromCirclePromptId = editId ? null : searchParams.get("circle_prompt");
@@ -2301,6 +2305,29 @@ export function EditorClient() {
     })();
     return () => { cancelled = true; };
   }, [fromGazetteId, editor]);
+
+  // Shared into Inkwell: quote what was shared, with its link, at the top
+  const sharedAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!editor || sharedAppliedRef.current || !(sharedUrl || sharedText || sharedTitle)) return;
+    if (editor.getText().trim()) return;
+    sharedAppliedRef.current = true;
+    const esc = (t: string) =>
+      t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const safeUrl = sharedUrl && /^https?:\/\//i.test(sharedUrl) ? sharedUrl : null;
+    const parts: string[] = [];
+    if (sharedTitle) parts.push(`<p><strong>${esc(sharedTitle)}</strong></p>`);
+    if (sharedText) parts.push(`<p>${esc(sharedText)}</p>`);
+    if (safeUrl) {
+      let host = safeUrl;
+      try { host = new URL(safeUrl).hostname.replace(/^www\./, ""); } catch { /* keep the url */ }
+      parts.push(`<p><a href="${esc(safeUrl)}">${esc(host)}</a></p>`);
+    }
+    editor.commands.setContent(`<blockquote>${parts.join("")}</blockquote><p></p>`);
+    editor.commands.focus("end");
+    setHasContent(true);
+    setWordCount(editor.storage.characterCount.words());
+  }, [editor, sharedUrl, sharedTitle, sharedText]);
 
   // Apply writing prompt for first-time users from onboarding
   const promptApplied = useRef(false);

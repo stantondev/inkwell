@@ -12155,9 +12155,11 @@ button.bottom-tab-item { font: inherit; }
   display: block;
   text-align: center;
   margin-top: 1.75rem;
-  color: var(--muted);
-  opacity: 0.45;
-  font-size: 1.1rem;
+  /* Accent ink rather than faded grey: at 45% of --muted it all but vanished,
+     especially in dark mode. */
+  color: var(--accent);
+  opacity: 0.8;
+  font-size: 1.35rem;
 }
 
 .mobile-book-sentinel {

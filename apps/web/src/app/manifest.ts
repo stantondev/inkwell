@@ -19,6 +19,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "en",
     prefer_related_applications: false,
     categories: ["social", "lifestyle"],
+    // "Share → Inkwell" from other apps (Android, and Chrome on desktop;
+    // iOS doesn't support share targets for web apps).
+    share_target: {
+      action: "/share",
+      method: "GET",
+      params: { title: "title", text: "text", url: "url" },
+    },
     // Long-press the home-screen icon (Android) or right-click the dock icon.
     shortcuts: [
       { name: "Write an entry", short_name: "Write", url: "/editor?source=shortcut", icons: [{ src: "/icons/icon-96x96.png", sizes: "96x96" }] },
