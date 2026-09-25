@@ -1,7 +1,7 @@
 "use client";
 
 // Writers worth following, with a Follow button on each: the empty Feed and
-// Explore's "Writers to meet" page. The list comes from /api/explore/writers
+// the "Writers to meet" row at the top of Explore. The list comes from /api/explore/writers
 // (people who've written lately; the viewer, people they follow, spam-limited
 // and link-farm accounts left out). Following sends a pen pal request; their
 // public entries reach your Feed right away. Signed out, Follow goes to
@@ -35,8 +35,9 @@ export function SuggestedWriters({
   limit?: number;
   /** Rendered by the server; skips the fetch. */
   initial?: SuggestedWriter[];
-  /** "grid": cards two across (empty Feed); "list": rows (a book page). */
-  layout?: "grid" | "list";
+  /** "grid": cards two across (empty Feed); "chips": a small row of
+   *  picture, name and Follow (Explore's first page). */
+  layout?: "grid" | "chips";
   signedIn?: boolean;
 }) {
   const [writers, setWriters] = useState<SuggestedWriter[] | null>(initial ? initial.slice(0, limit) : null);
@@ -70,10 +71,10 @@ export function SuggestedWriters({
   }
   if (writers.length === 0) return null;
 
-  function followButton(w: SuggestedWriter) {
+  function followButton(w: SuggestedWriter, className = "writer-follow") {
     if (!signedIn) {
       return (
-        <a href={`/get-started?follow=${encodeURIComponent(w.username)}`} className="writer-follow">
+        <a href={`/get-started?follow=${encodeURIComponent(w.username)}`} className={className}>
           Follow
         </a>
       );
@@ -85,7 +86,7 @@ export function SuggestedWriters({
         type="button"
         onClick={() => request(w)}
         disabled={done || state === "sending"}
-        className={`writer-follow${done ? " is-done" : ""}`}
+        className={`${className}${done ? " is-done" : ""}`}
       >
         {state === "sending" ? "Following…"
           : state === "accepted" ? "Pen pals ✓"
@@ -96,32 +97,25 @@ export function SuggestedWriters({
     );
   }
 
-  if (layout === "list") {
+  if (layout === "chips") {
     return (
-      <ul className="writer-list">
+      <ul className="writer-chips">
         {writers.map((w) => {
           const name = w.display_name || w.username;
           return (
-            <li key={w.id} className="writer-row">
-              <Link href={`/${w.username}`} className="writer-row-avatar" tabIndex={-1} aria-hidden="true">
+            <li key={w.id} className="writer-chip">
+              <Link href={`/${w.username}`} className="writer-chip-link" title={w.bio ? `${name}: ${w.bio}` : name}>
                 <AvatarWithFrame
                   url={w.avatar_url}
                   name={name}
-                  size={40}
+                  size={36}
                   frame={w.avatar_frame}
                   animation={w.avatar_animation}
                   subscriptionTier={w.subscription_tier}
                 />
+                <span className="writer-chip-name">{name}</span>
               </Link>
-              <div className="writer-row-text">
-                <Link href={`/${w.username}`} className="writer-row-name">{name}</Link>
-                <span className="writer-row-meta">
-                  @{w.username}
-                  {w.entry_count > 0 && <> · {w.entry_count} {w.entry_count === 1 ? "entry" : "entries"}</>}
-                </span>
-                {w.bio && <span className="writer-row-bio">{w.bio}</span>}
-              </div>
-              {followButton(w)}
+              {followButton(w, "writer-chip-follow")}
             </li>
           );
         })}

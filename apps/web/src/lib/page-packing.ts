@@ -5,10 +5,11 @@ import type { JournalEntry } from "@/components/journal-entry-card";
  * Short fediverse posts ≈ 1.5, medium posts ≈ 3, long posts with images ≈ 5+
  */
 function estimateWeight(entry: JournalEntry): number {
-  // Stickies are short and fixed-width: about three fit on a half-page.
+  // Stickies are short and fixed-width: a one-liner is about a sixth of a
+  // half-page, a full 500 characters about a third.
   if (entry.kind === "sticky") {
     const len = entry.body_html ? entry.body_html.replace(/<[^>]+>/g, "").length : 0;
-    return 1.6 + (len > 250 ? 0.6 : 0);
+    return 1.1 + (len > 120 ? 0.4 : 0) + (len > 300 ? 0.5 : 0);
   }
 
   let weight = 1; // base: author row + date + actions
@@ -45,19 +46,28 @@ const PAGE_TARGET_WEIGHT = 6;
 /**
  * Pack entries into half-pages using weight estimation, in reading order.
  * Short entries share a half-page; long ones may get a half-page alone.
- * JournalFeed pairs the halves into spreads, after any front pages (Explore's
- * "Writers to meet" and "Most inked this month").
+ * JournalFeed pairs the halves into spreads.
+ *
+ * `leadWeight` reserves room at the top of the first half (Explore's small
+ * "Writers to meet / Most inked" block sits there, above the entries).
+ *
+ * A half that holds only stickies always takes the next entry too, however
+ * long: half-pages scroll, and a one-line sticky alone on a half-page left it
+ * mostly blank paper (2026-09-25).
  */
-export function packEntriesIntoHalves(entries: JournalEntry[]): JournalEntry[][] {
+export function packEntriesIntoHalves(entries: JournalEntry[], leadWeight = 0): JournalEntry[][] {
   const halves: JournalEntry[][] = [];
   let i = 0;
+  let first = true;
 
   while (i < entries.length) {
     const half: JournalEntry[] = [];
-    let weight = 0;
+    let weight = first ? leadWeight : 0;
+    first = false;
     while (i < entries.length && weight < PAGE_TARGET_WEIGHT) {
       const w = estimateWeight(entries[i]);
-      if (half.length > 0 && weight + w > PAGE_TARGET_WEIGHT + 1) break;
+      const onlyStickies = half.length > 0 && half.every((e) => e.kind === "sticky");
+      if (half.length > 0 && weight + w > PAGE_TARGET_WEIGHT + 1 && !onlyStickies) break;
       half.push(entries[i]);
       weight += w;
       i++;
@@ -66,4 +76,24 @@ export function packEntriesIntoHalves(entries: JournalEntry[]): JournalEntry[][]
   }
 
   return halves;
+}
+
+/**
+ * Pages for the phone reader: one entry per page, with any stickies just
+ * before it on the same page (stuck above it), so a short note never gets a
+ * whole swipe of its own. Stickies at the very end share a last page.
+ */
+export function groupPhonePages(entries: JournalEntry[]): JournalEntry[][] {
+  const pages: JournalEntry[][] = [];
+  let pending: JournalEntry[] = [];
+  for (const e of entries) {
+    if (e.kind === "sticky") {
+      pending.push(e);
+    } else {
+      pages.push([...pending, e]);
+      pending = [];
+    }
+  }
+  if (pending.length > 0) pages.push(pending);
+  return pages;
 }

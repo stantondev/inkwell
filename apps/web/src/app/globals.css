@@ -1470,9 +1470,33 @@ a.mention:hover,
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
-  .journal-book-wrapper:hover .journal-book-nav {
-    opacity: 0.7;
+  /* Always visible: until 2026-09-25 the arrows appeared only while the mouse
+     was over the book and the page counter sat below the fold, so nothing
+     said the book went on to the right. */
+  .journal-book-nav { opacity: 0.9; }
+  .journal-book-nav-next { border-color: var(--accent); color: var(--accent); }
+  /* On the first spread the way on is a filled button that nudges twice, so
+     it's clear the book goes on to the right. */
+  .journal-book-nav-next.is-first {
+    width: 46px;
+    height: 46px;
+    background: var(--accent);
+    color: var(--background);
+    opacity: 1;
+    animation: book-next-nudge 1.2s ease-in-out 0.8s 2;
   }
+  .journal-book-nav-next.is-first:hover { background: var(--accent); filter: brightness(1.08); }
+  @keyframes book-next-nudge {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    50% { transform: translateY(-50%) translateX(5px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .journal-book-nav-next.is-first { animation: none; }
+  }
+  /* A margin on each page's outer edge for the arrows, so they never sit on
+     top of the writing. */
+  .journal-book-half-left { padding-left: 56px; }
+  .journal-book-half-right { padding-right: 56px; }
 
   .journal-book-nav:hover {
     opacity: 1 !important;
@@ -1483,9 +1507,11 @@ a.mention:hover,
   .journal-book-nav-next { right: 12px; }
 
   /* Page counter */
+  /* At the top of the spine: at the bottom it was below the fold until you
+     scrolled, so it never said there were more pages. */
   .journal-book-counter {
     position: absolute;
-    bottom: 12px;
+    top: 6px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 20;
@@ -15190,9 +15216,14 @@ a, button, [role="tab"], [role="button"] {
    wider than the note) left it hugging the left with empty paper beside it. */
 .journal-book-cell-sticky .sticky-note { margin-left: auto; margin-right: auto; }
 
-/* Mobile book: a sticky sits near the top of its page, clear of the tape */
+/* Mobile book: stickies sit near the top of their page, clear of the tape.
+   They share the next entry's page (lib/page-packing.ts groupPhonePages), so
+   a one-line note never gets a whole swipe of its own. */
 .mobile-book-page-sticky { justify-content: flex-start; padding-top: 1.25rem; }
-.mobile-book-page-sticky .sticky-note { margin-left: 0.75rem; margin-right: 0.75rem; }
+.mobile-book-page-sticky .sticky-note,
+.mobile-book-page-with-stickies .sticky-note { margin-left: 0.75rem; margin-right: 0.75rem; }
+.mobile-book-page-with-stickies { padding-top: 1rem; }
+.mobile-book-page-with-stickies .sticky-note { margin-bottom: 1rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .sticky-board .sticky-note { transition: none; }
@@ -16132,55 +16163,81 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .topic-menu-button { height: 36px; }
 }
 
-/* ── Explore front pages (components/explore-front-pages.tsx) ── */
-.journal-book-front { flex: 1 0 auto; }
-.front-page { padding: 2rem 2.25rem 1.5rem; }
-.front-page-kicker {
-  margin: 0 0 4px;
+/* ── Explore's small first-page block (components/explore-lead.tsx) ──
+   Four writers to meet and the month's three most-inked entries, above the
+   first entries on the same page (desktop: top of the first half-page;
+   phones: top of the first page; Classic: a box above the list). */
+.explore-lead {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px 28px;
+  padding: 1.1rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.explore-lead-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
   font-family: var(--font-lora, Georgia, serif);
   font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--muted);
 }
-.front-page-title {
-  margin: 0 0 6px;
-  font-family: var(--font-lora, Georgia, serif);
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1.2;
+.explore-lead-more {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+  white-space: nowrap;
 }
-.front-page-dek { margin: 0 0 16px; max-width: 34rem; font-size: 14px; color: var(--muted); }
+.explore-lead-more:hover { text-decoration: underline; }
 
-.writer-list { list-style: none; margin: 0; padding: 0; }
-.writer-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+.writer-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
-.writer-row:first-child { border-top: 0; }
-.writer-row-avatar { flex-shrink: 0; }
-.writer-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.writer-row-name {
-  font-size: 15px;
+/* Follow buttons line up at the bottom even when one picture has a frame. */
+.writer-chip { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; text-align: center; }
+.writer-chip-link { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--foreground); }
+.writer-chip-name {
+  max-width: 100%;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.writer-row-name:hover { text-decoration: underline; }
-.writer-row-meta { font-size: 12px; color: var(--muted); }
-.writer-row-bio {
-  font-size: 13px;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.writer-chip-link:hover .writer-chip-name { text-decoration: underline; }
+.writer-chip-follow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
+.writer-chip-follow:hover { background: var(--accent-light); }
+.writer-chip-follow.is-done { border-color: var(--border); color: var(--muted); }
+@media (max-width: 1023px) {
+  .writer-chip-follow { min-height: 32px; }
+}
+
 .writer-follow {
   flex-shrink: 0;
   display: inline-flex;
@@ -16203,61 +16260,46 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .writer-follow { min-height: 36px; }
 }
 
-.front-inked { list-style: none; margin: 0; padding: 0; }
-.front-inked-item {
-  display: flex;
-  gap: 14px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-  color: inherit;
-}
-.front-inked li:first-child .front-inked-item { border-top: 0; }
-.front-inked-rank {
+.lead-inked { list-style: none; margin: 0; padding: 0; }
+.lead-inked-item { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; color: inherit; min-width: 0; }
+.lead-inked-rank {
   flex-shrink: 0;
-  min-width: 1.4em;
+  width: 1em;
   font-family: var(--font-lora, Georgia, serif);
   font-style: italic;
-  font-size: 28px;
+  font-size: 18px;
   line-height: 1;
   text-align: right;
   color: var(--accent);
-  opacity: 0.55;
+  opacity: 0.6;
 }
-.front-inked-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.front-inked-title {
+.lead-inked-body { display: flex; flex-direction: column; min-width: 0; }
+.lead-inked-title {
   font-family: var(--font-lora, Georgia, serif);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.3;
-}
-.front-inked-item:hover .front-inked-title { text-decoration: underline; }
-.front-inked-excerpt {
-  font-size: 13px;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.front-inked-meta { font-size: 12px; color: var(--muted); }
-.front-inked-inks { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); }
+.lead-inked-item:hover .lead-inked-title { text-decoration: underline; }
+.lead-inked-meta { font-size: 11px; color: var(--muted); }
+.lead-inked-inks { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); }
 
-/* Phones: the first pages of the reader, on paper like the entries */
-.mobile-book-page-front .front-page {
-  flex: 1 0 auto;
-  padding: 1.5rem 1.25rem;
+/* Desktop: the block's cell in the first half-page */
+.journal-book-lead { flex: none; }
+/* Phones: on paper at the top of the first page, above the first entry */
+.mobile-book-lead { margin: 0 0 8px; }
+.mobile-book-lead .explore-lead {
+  padding: 0.9rem 1rem 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-.mobile-book-page-front .front-page-title { font-size: 24px; }
-
-/* Classic view: two boxes above the list */
-.classic-front { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
-@media (min-width: 900px) { .classic-front { grid-template-columns: 1fr 1fr; } }
-.classic-front-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
-.classic-front-box .front-page { padding: 12px 16px 8px; }
-.classic-front-box .front-page-title { font-size: 20px; }
+/* Classic view: one box above the list */
+.classic-lead { margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+.classic-lead .explore-lead { border-bottom: 0; padding: 12px 16px; }
 
 /* ── Editor: Schedule for later (app/editor/schedule-button.tsx) ── */
 .editor-schedule-btn {

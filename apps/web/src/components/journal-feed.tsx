@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Fragment, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
@@ -10,7 +10,7 @@ import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
 import { DoubleTapInk } from "./double-tap-ink";
 import { emitEntryState, useEntryState } from "@/lib/entry-state";
-import { packEntriesIntoHalves } from "@/lib/page-packing";
+import { groupPhonePages, packEntriesIntoHalves } from "@/lib/page-packing";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
 import { ClassicFeed } from "./classic-feed";
 
@@ -45,15 +45,17 @@ interface JournalFeedProps {
   newSince?: string | null;
   /** Shown after the last entry once there's nothing more to load. */
   endNote?: React.ReactNode;
-  /** Pages before the first entry (Explore: "Writers to meet", "Most inked
-   *  this month"). Each fills a half-page on desktop and a page on phones. */
-  frontPages?: React.ReactNode[];
+  /** A small block above the first entry (Explore: "Writers to meet" and
+   *  "Most inked this month"): top of the first half-page on desktop, top of
+   *  the first page on phones, a box above the list in Classic view. */
+  lead?: React.ReactNode;
+  /** How much of the first half-page `lead` takes, in page-packing units
+   *  (a half-page is about 6). */
+  leadWeight?: number;
 }
 
-/** A half of a book spread: a front page, or entries packed together. */
-type BookHalf = { key: string; front?: React.ReactNode; entries?: JournalEntry[] };
-
-const NO_FRONT_PAGES: React.ReactNode[] = [];
+/** A half of a book spread: entries packed together, the first one with the lead on top. */
+type BookHalf = { key: string; lead?: React.ReactNode; entries: JournalEntry[] };
 
 /**
  * A post short enough to leave most of a phone page blank (a few lines, at
@@ -80,7 +82,8 @@ export function JournalFeed({
   look = "modern",
   newSince = null,
   endNote,
-  frontPages = NO_FRONT_PAGES,
+  lead,
+  leadWeight = 2.5,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -137,16 +140,17 @@ export function JournalFeed({
     enabled: isMobile,
   });
 
-  // Front pages first, then the entries' half-pages, two to a spread.
+  // The entries' half-pages, two to a spread.
   const spreads = useMemo(() => {
-    const halves: BookHalf[] = [
-      ...frontPages.map((front, i) => ({ key: `front-${i}`, front })),
-      ...packEntriesIntoHalves(entries).map((es, i) => ({ key: `half-${i}`, entries: es })),
-    ];
+    const halves: BookHalf[] = packEntriesIntoHalves(entries, lead ? leadWeight : 0)
+      .map((es, i) => ({ key: `half-${i}`, entries: es, lead: i === 0 ? lead : undefined }));
     const out: { left: BookHalf; right: BookHalf | null }[] = [];
     for (let i = 0; i < halves.length; i += 2) out.push({ left: halves[i], right: halves[i + 1] ?? null });
     return out;
-  }, [entries, frontPages]);
+  }, [entries, lead, leadWeight]);
+
+  // Phone pages: one entry each, with the stickies before it on the same page.
+  const phonePages = useMemo(() => groupPhonePages(entries), [entries]);
 
   // Track active spread
   useEffect(() => {
@@ -542,7 +546,7 @@ export function JournalFeed({
         onLoadMore={loadMorePath ? loadMore : undefined}
         isNew={isNewEntry}
         endNote={showEnd ? endNote : null}
-        frontPages={frontPages}
+        lead={lead}
       />
     );
   }
@@ -576,16 +580,16 @@ export function JournalFeed({
     });
   };
 
-  const renderHalf = (half: BookHalf) =>
-    half.front ? (
-      <div className="journal-book-cell journal-book-front">{half.front}</div>
-    ) : (
-      half.entries!.map((entry) => (
+  const renderHalf = (half: BookHalf) => (
+    <>
+      {half.lead && <div className="journal-book-cell journal-book-lead">{half.lead}</div>}
+      {half.entries.map((entry) => (
         <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
           {renderCard(entry, true)}
         </div>
-      ))
-    );
+      ))}
+    </>
+  );
 
   // ─── Desktop: Horizontal Book Spread ──────────────────────────────
   if (isDesktop) {
@@ -644,13 +648,13 @@ export function JournalFeed({
         {totalSpreads > 1 && (
           <>
             {activeSpreadIndex > 0 && (
-              <button onClick={() => goToSpread(activeSpreadIndex - 1)} className="journal-book-nav journal-book-nav-prev" aria-label="Previous spread">
+              <button onClick={() => goToSpread(activeSpreadIndex - 1)} className="journal-book-nav journal-book-nav-prev" aria-label="Previous page">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
               </button>
             )}
             {activeSpreadIndex < totalSpreads - 1 && (
-              <button onClick={() => goToSpread(activeSpreadIndex + 1)} className="journal-book-nav journal-book-nav-next" aria-label="Next spread">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+              <button onClick={() => goToSpread(activeSpreadIndex + 1)} className={`journal-book-nav journal-book-nav-next${activeSpreadIndex === 0 ? " is-first" : ""}`} aria-label="Next page">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
               </button>
             )}
           </>
@@ -694,14 +698,22 @@ export function JournalFeed({
       )}
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
-        {frontPages.map((front, i) => (
-          <div key={`front-${i}`} className="mobile-book-page mobile-book-page-front">{front}</div>
-        ))}
-        {entries.map((entry) => (
-          <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : isShortPost(entry) ? " mobile-book-page-short" : ""}`}>
-            {renderCard(entry, true)}
-          </div>
-        ))}
+        {phonePages.map((pageEntries, idx) => {
+          const onlyStickies = pageEntries.every((e) => e.kind === "sticky");
+          const withStickies = !onlyStickies && pageEntries.length > 1;
+          const solo = pageEntries.length === 1 ? pageEntries[0] : null;
+          const cls = onlyStickies ? " mobile-book-page-sticky"
+            : withStickies ? " mobile-book-page-with-stickies"
+            : solo && isShortPost(solo) && !(idx === 0 && lead) ? " mobile-book-page-short" : "";
+          return (
+            <div key={pageEntries[pageEntries.length - 1].id} className={`mobile-book-page${cls}`}>
+              {idx === 0 && lead && <div className="mobile-book-lead">{lead}</div>}
+              {pageEntries.map((entry) => (
+                <Fragment key={entry.id}>{renderCard(entry, true)}</Fragment>
+              ))}
+            </div>
+          );
+        })}
 
         {/* Load-more sentinel */}
         {hasMore && loadMorePath && (
@@ -726,12 +738,12 @@ export function JournalFeed({
         )}
       </div>
 
-      {/* Page counter (entries only: hidden on the front pages) */}
-      {entries.length > 1 && mobileActiveIndex >= frontPages.length && (
+      {/* Page counter */}
+      {phonePages.length > 1 && (
         <div className="mobile-book-counter">
-          <span>{mobileActiveIndex - frontPages.length + 1}</span>
+          <span>{mobileActiveIndex + 1}</span>
           <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
-          <span>{entries.length}</span>
+          <span>{phonePages.length}</span>
         </div>
       )}
     </div>

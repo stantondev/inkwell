@@ -78,30 +78,43 @@ export default function GuidePage() {
             <strong>Feed</strong> and <strong>Explore</strong>.
           </p>
           <p>
-            <strong>Your Feed</strong> is personal — it shows entries from people
-            you follow. Think of it as your mailbox. Follow a writer and their
-            public entries start arriving right away; once they accept your
-            request you&rsquo;re pen pals, and their pen-pals-only entries
-            arrive too. If you follow
-            writers on Mastodon or other fediverse platforms, their posts appear
-            here too. It&rsquo;s always newest first, with no sorting or ranking;
-            entries that arrived since your last visit are marked{" "}
-            <strong>New</strong>. The switch at the top narrows it to Inkwell
-            writers or fediverse accounts.
+            <strong>Your Feed</strong> is personal: the people you follow,
+            newest first, like letters arriving. Follow a writer and their
+            public entries start arriving right away; once they accept, you&rsquo;re
+            pen pals and their pen-pals-only entries arrive too. Accounts you
+            follow on Mastodon and other fediverse platforms show up here as
+            well. There&rsquo;s no sorting or ranking. Entries that arrived since
+            your last visit are marked <strong>New</strong>, the top of the Feed
+            says how many there are, and it tells you when you&rsquo;ve reached the
+            end. The <strong>Everyone · Inkwell · Fediverse</strong> switch
+            narrows it to one or the other.
           </p>
           <p>
-            <strong>Explore</strong> is public — it shows all public entries from
-            the Inkwell community and the wider fediverse. Think of it as a
-            bookstore. You don&rsquo;t need to follow anyone to see content
-            here. Search, categories and &ldquo;Most Inked&rdquo; live here, to
-            help you find entries about topics you care about.
+            <strong>Explore</strong> is public: writing from everyone on
+            Inkwell, whether you follow them or not. Think of it as a bookshop.
+            It opens with a few <strong>writers to meet</strong> and the
+            month&rsquo;s <strong>most inked</strong> entries, then the newest
+            writing. Use <strong>Topics</strong> to browse one subject,{" "}
+            <strong>Most inked</strong> to see community favourites, and the{" "}
+            <strong>Fediverse</strong> tab for public posts from Mastodon and
+            other servers. The search box finds writers, entries, and
+            fediverse accounts by their @handle.
+          </p>
+          <p>
+            <strong>Turning pages.</strong> On a computer, Feed and Explore read
+            like an open book, two pages at a time. Turn the page with the
+            arrow button on the right, the <kbd>←</kbd> <kbd>→</kbd> keys, or by
+            scrolling sideways; the page number sits at the top, between the
+            pages. On a phone, swipe sideways to turn the page and scroll down
+            to read the rest of it. Double-tap a page to ink it.
           </p>
           <p style={{ color: "var(--muted)" }}>
-            Tip: If your Feed feels empty, head to{" "}
+            Tip: If your Feed is empty, it suggests writers to follow, and
+            there are more on{" "}
             <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
               Explore
-            </Link>{" "}
-            and follow some writers.
+            </Link>
+            .
           </p>
         </Section>
 
@@ -170,13 +183,17 @@ export default function GuidePage() {
         <Section id="pen-pals" number="III" title="Pen Pals & Following">
           <p>
             On Inkwell, connections are called <strong>pen pals</strong> — like
-            exchanging letters. When you follow someone and they follow you
-            back, you&rsquo;re pen pals.
+            exchanging letters. Following someone asks to be their pen pal;
+            when they accept, you both are.
           </p>
           <p>
-            To follow a writer, visit their profile and click the follow button.
-            Once they accept your request, their public and friends-only entries
-            will appear in your Feed.
+            To follow a writer, press <strong>Follow</strong> on their profile,
+            on Explore, or in your Feed&rsquo;s suggestions. The button reads{" "}
+            <strong>Following</strong> while you wait, and their public entries
+            are in your Feed straight away. Once they accept it says{" "}
+            <strong>Pen Pals ✓</strong>, and their pen-pals-only entries arrive
+            too. Pressing it again (Unfollow) takes their entries out of your
+            Feed.
           </p>
           <p>
             <strong>Letters</strong> are private messages between pen pals (and

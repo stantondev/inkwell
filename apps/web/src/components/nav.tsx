@@ -44,10 +44,10 @@ export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null;
             <PublicNavLinks />
             {!hideAuthLinks && (
               <>
-                <Link href="/login" className="text-sm font-medium transition-colors hover:text-[var(--foreground)]"
+                <Link href="/login" className="text-sm font-medium whitespace-nowrap transition-colors hover:text-[var(--foreground)]"
                   style={{ color: "var(--muted)" }}>Sign in</Link>
                 <Link href="/get-started"
-                  className="rounded-full px-3.5 py-1.5 text-sm font-semibold transition-opacity hover:opacity-90"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-opacity hover:opacity-90"
                   style={{ background: "var(--accent)", color: "var(--background)" }}>
                   Get started
                 </Link>

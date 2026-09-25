@@ -30,7 +30,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     id: "2026-09-25-explore",
     date: "2026-09-25",
     title: "Explore opens like a bookshop",
-    body: "Explore now starts on two pages: Writers to meet (people writing here lately, with a Follow button) and the month's most-inked entries. Search, topics and sorting sit in one row at the top, so the writing starts higher up. Inkwell writers and the fediverse are separate tabs now; mixed together, the fediverse drowned out Inkwell writing.",
+    body: "Explore now starts with a few writers to meet (with a Follow button) and the month's most-inked entries, right above the newest writing. Search, topics and sorting sit in one row at the top. Inkwell writers and the fediverse are separate tabs now; mixed together, the fediverse drowned out Inkwell writing. On a computer, the arrow on the right turns the page, and stickies no longer get a page to themselves.",
     href: "/explore",
     cta: "Open Explore",
     tag: "Reading",
