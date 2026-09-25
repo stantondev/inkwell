@@ -13,7 +13,7 @@ const OPTIONS: { id: SiteLook; title: string; blurb: string }[] = [
     id: "classic",
     title: "Classic (2004)",
     blurb:
-      "Feed and Explore become a LiveJournal-style friends page: one long column, big userpics, “Current mood”, and “( 3 comments | Leave a comment )”. The rest of the site switches to the colours and type of the early-2000s web.",
+      "Feed and Explore become one long column of boxed entries, the way journals looked in 2004: big userpics, “Current mood”, and “( 3 comments | Leave a comment )”. The rest of the site switches to the colours and type of the early-2000s web.",
   },
 ];
 

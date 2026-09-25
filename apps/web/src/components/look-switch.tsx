@@ -55,7 +55,7 @@ export function LookSwitch({ variant }: { variant: "menu" | "sheet" }) {
       </span>
       <div className="look-seg-track" role="radiogroup" aria-labelledby={`look-seg-${variant}`}>
         {option("modern", "Modern", "Inkwell's current design")}
-        {option("classic", "Classic", "The 2004 way: a LiveJournal-style friends page")}
+        {option("classic", "Classic", "The 2004 way: one long column of entries")}
       </div>
     </div>
   );

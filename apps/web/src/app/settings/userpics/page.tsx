@@ -95,7 +95,7 @@ export default function UserpicsPage() {
   return (
     <div className="space-y-6">
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Like LiveJournal: keep a set of pictures, each with a keyword, and choose one for each entry
+        Keep a set of pictures, each with a keyword, and choose one for each entry
         and comment. Your avatar stays the default. Animated GIFs keep moving.
       </p>
 
