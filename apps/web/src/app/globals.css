@@ -12078,14 +12078,11 @@ button.bottom-tab-item { font: inherit; }
 .mobile-book-wrapper {
   position: relative;
   width: 100%;
-  /* Exactly the space between the sticky top bar (57px) and the bottom tab bar
-     (56px + home indicator). It was 100svh - 60px, which ignored the tab bar,
-     so every page's action bar — the ink and bookmark buttons — and the page
-     counter sat hidden underneath it. */
-  height: calc(100svh - 57px - 56px - env(safe-area-inset-bottom));
-  height: calc(100dvh - 57px - 56px - env(safe-area-inset-bottom));
-  min-height: 420px;
-  overflow: hidden;
+  /* One page per entry, at the entry's full length: the page itself is the
+     only thing that scrolls up and down (journal-feed.tsx). Until
+     2026-09-25 each entry scrolled inside a fixed-height page, and phones
+     kept giving sideways swipes to that inner scroll. */
+  --reader-page-min: calc(100dvh - 57px - 56px - env(safe-area-inset-bottom));
   scroll-margin-top: 57px;
 }
 
@@ -12093,13 +12090,10 @@ button.bottom-tab-item { font: inherit; }
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
+  align-items: flex-start !important;
   width: 100%;
-  height: 100%;
-  /* Page turns are handled in journal-feed.tsx, not by native sideways
-     scrolling, which lost to the entry's own up/down scrolling on any slanted
-     swipe. Hidden still allows the smooth programmatic scroll. */
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
+  /* Height is set to the current page's height by journal-feed.tsx. */
+  overflow: hidden !important;
   touch-action: pan-y;
   scrollbar-width: none;
 }
@@ -12109,38 +12103,23 @@ button.bottom-tab-item { font: inherit; }
   flex: 0 0 100% !important;
   width: 100% !important;
   min-width: 100%;
-  height: 100% !important;
-  padding: 6px 6px 34px 6px; /* room for the page counter */
+  min-height: var(--reader-page-min);
+  padding: 6px 6px 10px 6px;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box;
 }
 
 .mobile-book-page .journal-page {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  max-height: 100%;
-  min-height: 0;
-  overflow: hidden;
 }
 
-/* Entry body scrolls inside the page; the action bar stays pinned below it */
 .mobile-book-page .journal-book-entry-body {
-  flex: 1;
-  overflow-y: auto;
-  /* No overscroll-behavior: contain here. With it, reaching the end of a long
-     entry swallowed the swipe instead of passing it to the page, and since the
-     reader fills the screen, readers were stuck inside the post (2026-09-25). */
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex: 1 0 auto;
+  overflow: visible;
 }
-/* Until the reader fills the screen, swipes move the page, not the entry
-   (journal-feed.tsx sets data-docked). */
-.mobile-book-wrapper:not([data-docked]) .journal-book-entry-body {
-  overflow-y: hidden;
-}
-.mobile-book-page .journal-book-entry-body::-webkit-scrollbar { display: none; }
 
 .mobile-book-sentinel {
   display: flex;
@@ -12149,10 +12128,11 @@ button.bottom-tab-item { font: inherit; }
 }
 
 .mobile-book-counter {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Rides along the bottom of the screen while you read a long entry. */
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: fit-content;
+  margin: 0 auto 8px;
   display: flex;
   align-items: center;
   font-size: 12px;
@@ -12165,6 +12145,10 @@ button.bottom-tab-item { font: inherit; }
   padding: 3px 12px;
   z-index: 5;
   pointer-events: none;
+}
+
+body:has(.bottom-tab-bar) .mobile-book-counter {
+  bottom: calc(56px + env(safe-area-inset-bottom) + 8px);
 }
 
 /* Gesture hint — first few visits only */

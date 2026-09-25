@@ -155,28 +155,6 @@ export function JournalFeed({
     return () => observer.disconnect();
   }, [isDesktop, hasMore, loadMorePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // An entry only scrolls on its own once the reader fills the screen
-  // ("docked"). Until then every swipe moves the page, so you can't get caught
-  // scrolling a post that's half off screen. Set as an attribute, not state,
-  // so scrolling never re-renders the feed.
-  useEffect(() => {
-    if (isDesktop) return;
-    const wrapper = mobileWrapperRef.current;
-    if (!wrapper) return;
-    const update = () => {
-      const r = wrapper.getBoundingClientRect();
-      const docked = r.top <= 90 && r.bottom > window.innerHeight * 0.6;
-      if (docked !== wrapper.hasAttribute("data-docked")) wrapper.toggleAttribute("data-docked", docked);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [isDesktop, entries.length === 0]);
-
   // Track active mobile page
   useEffect(() => {
     if (isDesktop || !mobileScrollRef.current) return;
@@ -190,21 +168,46 @@ export function JournalFeed({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [isDesktop]);
 
-  // Page turns on phones are ours, not the browser's. Each page's entry
-  // scrolls up and down inside a strip that scrolls sideways, and the phone
-  // gave any slightly slanted swipe to the entry, so turning to the next
-  // post often didn't take (2026-09-25). Now the first ~8px decide: more
-  // sideways than up/down, and the page follows the finger and turns;
-  // otherwise the entry scrolls natively as before. The strip itself is
-  // overflow-x: hidden, so the browser never competes for sideways swipes.
+  // The phone reader. Entries used to scroll up and down inside a strip that
+  // turned sideways, and phones (iPhones most) kept handing swipes that began
+  // in the text to the entry's own scroll, so pages wouldn't turn unless you
+  // swiped on the action bar (2026-09-25). Now there's one vertical scroller,
+  // the page itself: each entry is its full length, the strip is as tall as
+  // the page you're on, and sideways swipes are handled here. The first ~8px
+  // decide: more sideways than up/down turns the page, anything else is an
+  // ordinary page scroll. The strip is overflow: hidden, so the browser
+  // never competes for sideways swipes.
   useEffect(() => {
     if (isDesktop) return;
     const track = mobileScrollRef.current;
-    if (!track) return;
+    const wrapper = mobileWrapperRef.current;
+    if (!track || !wrapper) return;
+
+    const pages = () => Array.from(track.children) as HTMLElement[];
+    const width = () => track.clientWidth || 1;
+    const indexNow = () => Math.round(track.scrollLeft / width());
+    let busy = false; // dragging or animating: leave the height alone
+
+    // The strip is as tall as the page being read.
+    const syncHeight = () => {
+      if (busy) return;
+      const page = pages()[indexNow()];
+      if (page) track.style.height = `${page.offsetHeight}px`;
+    };
+    const ro = new ResizeObserver(syncHeight);
+    pages().forEach((p) => ro.observe(p));
+    syncHeight();
+
+    // Where the reader's top should sit: just under the sticky top bar.
+    const dockLine = () => {
+      const bar = document.querySelector(".mobile-top-bar-shell");
+      return bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+    };
 
     let active = false;
     let axis: "x" | "y" | null = null;
-    let x0 = 0, y0 = 0, t0 = 0, dx = 0, startLeft = 0;
+    let x0 = 0, y0 = 0, t0 = 0, dx = 0, startLeft = 0, from = 0, lift = 0;
+    let frame = 0;
 
     // Leave sideways swipes alone inside things that scroll sideways
     // themselves (photo carousels, wide tables, code blocks).
@@ -219,10 +222,47 @@ export function JournalFeed({
       }
       return false;
     };
-    const lastIndex = () => Math.max(0, track.children.length - 1);
-    const goTo = (i: number) => {
-      const target = Math.min(lastIndex(), Math.max(0, i));
-      track.scrollTo({ left: target * track.clientWidth, behavior: "smooth" });
+
+    // Beginning a turn partway down a long entry: show the neighbours from
+    // their tops, level with the top of the screen, not from the same depth.
+    const beginTurn = () => {
+      busy = true;
+      from = indexNow();
+      lift = Math.max(0, dockLine() - wrapper.getBoundingClientRect().top);
+      const all = pages();
+      let tallest = all[from]?.offsetHeight ?? 0;
+      for (const i of [from - 1, from + 1]) {
+        const p = all[i];
+        if (!p) continue;
+        p.style.transform = lift ? `translateY(${lift}px)` : "";
+        tallest = Math.max(tallest, p.offsetHeight + lift);
+      }
+      track.style.height = `${tallest}px`;
+    };
+    const finishTurn = (to: number) => {
+      pages().forEach((p) => { p.style.transform = ""; });
+      busy = false;
+      // The new page was showing from its top at the top of the screen; keep
+      // it there now that the lift is gone.
+      if (to !== from && lift) window.scrollBy(0, -lift);
+      lift = 0;
+      syncHeight();
+    };
+    const animateTo = (to: number) => {
+      const target = Math.min(pages().length - 1, Math.max(0, to));
+      const start = track.scrollLeft;
+      const end = target * width();
+      const t = performance.now();
+      const ms = Math.min(320, Math.max(160, Math.abs(end - start) * 0.9));
+      cancelAnimationFrame(frame);
+      const step = (now: number) => {
+        const k = Math.min(1, (now - t) / ms);
+        const eased = 1 - Math.pow(1 - k, 3);
+        track.scrollLeft = start + (end - start) * eased;
+        if (k < 1) frame = requestAnimationFrame(step);
+        else finishTurn(target);
+      };
+      frame = requestAnimationFrame(step);
     };
 
     const onStart = (e: TouchEvent) => {
@@ -233,7 +273,6 @@ export function JournalFeed({
       x0 = e.touches[0].clientX;
       y0 = e.touches[0].clientY;
       t0 = e.timeStamp;
-      startLeft = track.scrollLeft;
     };
     const onMove = (e: TouchEvent) => {
       if (!active) return;
@@ -242,23 +281,27 @@ export function JournalFeed({
       if (!axis) {
         if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
         axis = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+        if (axis === "x") {
+          cancelAnimationFrame(frame);
+          if (!busy) beginTurn();
+          startLeft = track.scrollLeft;
+          x0 += mx > 0 ? 8 : -8; // no jump from the 8px dead zone
+        }
       }
       if (axis !== "x") return;
-      // Stops the entry scrolling up/down during a page turn.
-      if (e.cancelable) e.preventDefault();
-      dx = mx;
+      if (e.cancelable) e.preventDefault(); // no page scroll during a turn
+      dx = e.touches[0].clientX - x0;
       track.scrollLeft = startLeft - dx;
     };
     const onEnd = (e: TouchEvent) => {
       if (!active || axis !== "x") { active = false; return; }
       active = false;
-      const w = track.clientWidth;
-      const from = Math.round(startLeft / w);
+      const w = width();
       const speed = dx / Math.max(1, e.timeStamp - t0); // px per ms
       let to = from;
       if (dx < -w * 0.18 || (dx < -20 && speed < -0.35)) to = from + 1;
       else if (dx > w * 0.18 || (dx > 20 && speed > 0.35)) to = from - 1;
-      goTo(to);
+      animateTo(to);
     };
 
     // Trackpads and mice (a narrow window, a tablet with a keyboard): a
@@ -268,10 +311,11 @@ export function JournalFeed({
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      if (e.timeStamp < wheelLockUntil) return;
+      if (busy || e.timeStamp < wheelLockUntil) return;
       wheelSum += e.deltaX;
       if (Math.abs(wheelSum) > 40) {
-        goTo(Math.round(track.scrollLeft / track.clientWidth) + (wheelSum > 0 ? 1 : -1));
+        beginTurn();
+        animateTo(from + (wheelSum > 0 ? 1 : -1));
         wheelSum = 0;
         wheelLockUntil = e.timeStamp + 500;
       }
@@ -279,8 +323,9 @@ export function JournalFeed({
 
     // Keep the current page lined up when the width changes (rotation).
     const onResize = () => {
-      const w = track.clientWidth;
-      if (w) track.scrollLeft = Math.round(track.scrollLeft / w) * w;
+      if (busy) return;
+      track.scrollLeft = indexNow() * width();
+      syncHeight();
     };
 
     track.addEventListener("touchstart", onStart, { passive: true });
@@ -290,6 +335,8 @@ export function JournalFeed({
     track.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("resize", onResize);
     return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
       track.removeEventListener("touchstart", onStart);
       track.removeEventListener("touchmove", onMove);
       track.removeEventListener("touchend", onEnd);
@@ -297,7 +344,7 @@ export function JournalFeed({
       track.removeEventListener("wheel", onWheel);
       window.removeEventListener("resize", onResize);
     };
-  }, [isDesktop, entries.length === 0]);
+  }, [isDesktop, entries.length]);
 
   // Auto-load more on mobile
   useEffect(() => {
