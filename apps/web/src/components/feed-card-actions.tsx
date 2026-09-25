@@ -365,6 +365,48 @@ export function FeedCardActions({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // While the mobile comment sheet is open, the page behind it stays put
+  // (dragging the backdrop used to scroll the feed) and Escape closes it.
+  const sheetOpen = commentPopupOpen && isMobile;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCommentPopupOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [sheetOpen]);
+
+  // Drag the handle down to close the sheet.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; dy: number } | null>(null);
+  const onHandleDown = (e: React.PointerEvent) => {
+    dragRef.current = { startY: e.clientY, dy: 0 };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || !sheetRef.current) return;
+    d.dy = Math.max(0, e.clientY - d.startY);
+    sheetRef.current.style.transition = "none";
+    sheetRef.current.style.transform = `translateY(${d.dy}px)`;
+  };
+  const onHandleUp = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    const el = sheetRef.current;
+    if (!d || !el) return;
+    if (d.dy > 90) {
+      setCommentPopupOpen(false);
+      return;
+    }
+    el.style.transition = "transform 0.2s ease";
+    el.style.transform = "";
+  };
+
   // Clean up refetch timer on unmount
   useEffect(() => {
     return () => {
@@ -450,7 +492,7 @@ export function FeedCardActions({
 
   return (
     <div
-      className="flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t relative"
+      className="feed-card-actions-bar flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t relative"
       style={{ borderColor: "var(--border)" }}
     >
       {/* Left: view on original instance (remote only) or spacer */}
@@ -506,9 +548,15 @@ export function FeedCardActions({
                     onClick={() => setCommentPopupOpen(false)}
                   />
                   {/* Sheet */}
-                  <div className="comment-sheet">
-                    {/* Drag handle */}
-                    <div className="comment-sheet-handle">
+                  <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
+                    {/* Drag handle: pull down to close */}
+                    <div
+                      className="comment-sheet-handle"
+                      onPointerDown={onHandleDown}
+                      onPointerMove={onHandleMove}
+                      onPointerUp={onHandleUp}
+                      onPointerCancel={onHandleUp}
+                    >
                       <div className="comment-sheet-handle-bar" />
                     </div>
                     <CommentPopupContent

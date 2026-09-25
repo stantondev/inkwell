@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-mobile-scroll",
+    date: "2026-09-25",
+    title: "Phones: no more getting stuck in a post",
+    body: "On a phone, scrolling inside a long entry on Feed or Explore could trap you there until you touched the top of the screen. Now a swipe carries on to the page when you reach the end of an entry. Also: iPhones no longer zoom in when you tap a text box, the keyboard no longer covers the Send button in letters and comments, the Ink, Stamp, Bookmark and Share buttons are easier to tap, and you can pull down to refresh on every page.",
+    howTo: "Close the comment sheet by dragging its handle down.",
+    tag: "Mobile",
+  },
+  {
     id: "2026-09-24-tidier-sidebar",
     date: "2026-09-24",
     title: "A tidier sidebar",

@@ -3153,7 +3153,7 @@ export function EditorClient() {
                   <button
                     type="button"
                     onClick={() => setCoverImageId(null)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="editor-cover-remove absolute top-2 right-2 rounded-full flex items-center justify-center transition-opacity"
                     style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
                     aria-label="Remove cover image"
                   >×</button>

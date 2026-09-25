@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -168,6 +168,20 @@ function BioToolbar({
   onAddLink: () => void;
   onAddImage: () => void;
 }) {
+  // The colour menus used to open on hover only, which touch screens don't
+  // have. A tap now opens them; picking a colour or tapping elsewhere closes.
+  const [openMenu, setOpenMenu] = useState<"highlight" | "color" | null>(null);
+  const menusRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openMenu) return;
+    const onDown = (e: PointerEvent) => {
+      if (!menusRef.current?.contains(e.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [openMenu]);
+  const toggleMenu = (m: "highlight" | "color") => setOpenMenu((cur) => (cur === m ? null : m));
+
   if (compact) {
     return (
       <div className="bio-toolbar">
@@ -272,10 +286,11 @@ function BioToolbar({
       </div>
 
       {/* Highlight + Color */}
-      <div className="bio-toolbar-group">
-        <div className="bio-toolbar-dropdown">
+      <div className="bio-toolbar-group" ref={menusRef}>
+        <div className={`bio-toolbar-dropdown${openMenu === "highlight" ? " open" : ""}`}>
           <ToolbarButton
             active={editor.isActive("highlight")}
+            onClick={() => toggleMenu("highlight")}
             title="Highlight"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -289,22 +304,23 @@ function BioToolbar({
                 className="bio-color-swatch"
                 style={{ backgroundColor: c.value }}
                 title={c.label}
-                onClick={() =>
-                  editor.chain().focus().toggleHighlight({ color: c.value }).run()
-                }
+                onClick={() => {
+                  editor.chain().focus().toggleHighlight({ color: c.value }).run();
+                  setOpenMenu(null);
+                }}
               />
             ))}
             <button
               className="bio-color-swatch bio-color-clear"
               title="Remove highlight"
-              onClick={() => editor.chain().focus().unsetHighlight().run()}
+              onClick={() => { editor.chain().focus().unsetHighlight().run(); setOpenMenu(null); }}
             >
               &times;
             </button>
           </div>
         </div>
-        <div className="bio-toolbar-dropdown">
-          <ToolbarButton title="Text color">
+        <div className={`bio-toolbar-dropdown${openMenu === "color" ? " open" : ""}`}>
+          <ToolbarButton title="Text color" onClick={() => toggleMenu("color")}>
             <span style={{ color: editor.getAttributes("textStyle").color || "currentColor", fontWeight: 700 }}>A</span>
           </ToolbarButton>
           <div className="bio-toolbar-dropdown-content">
@@ -323,6 +339,7 @@ function BioToolbar({
                   } else {
                     editor.chain().focus().setColor(c.value).run();
                   }
+                  setOpenMenu(null);
                 }}
               />
             ))}

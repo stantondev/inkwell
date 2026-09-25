@@ -687,8 +687,13 @@ a.mention:hover,
   min-width: 120px;
 }
 
-.bio-toolbar-dropdown:hover .bio-toolbar-dropdown-content {
+.bio-toolbar-dropdown.open .bio-toolbar-dropdown-content {
   display: flex;
+}
+@media (hover: hover) {
+  .bio-toolbar-dropdown:hover .bio-toolbar-dropdown-content {
+    display: flex;
+  }
 }
 
 .bio-color-swatch {
@@ -11397,6 +11402,8 @@ a.comment-author-name:hover {
 .comment-sheet-backdrop {
   position: fixed;
   inset: 0;
+  overscroll-behavior: none;
+  touch-action: none;
   background: rgba(0, 0, 0, 0.4);
   z-index: 999;
   animation: comment-sheet-fade-in 0.2s ease;
@@ -11413,8 +11420,10 @@ a.comment-author-name:hover {
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   max-height: 70vh;
+  max-height: 70dvh;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: contain;
   animation: comment-sheet-slide-up 0.25s ease;
   /* Safe area for notched phones */
   padding-bottom: env(safe-area-inset-bottom);
@@ -11423,7 +11432,9 @@ a.comment-author-name:hover {
 .comment-sheet-handle {
   display: flex;
   justify-content: center;
-  padding: 8px 0 4px;
+  padding: 10px 0 8px;
+  touch-action: none; /* drag down to close (feed-card-actions.tsx) */
+  cursor: grab;
 }
 
 .comment-sheet-handle-bar {
@@ -12119,9 +12130,16 @@ button.bottom-tab-item { font: inherit; }
 .mobile-book-page .journal-book-entry-body {
   flex: 1;
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  /* No overscroll-behavior: contain here. With it, reaching the end of a long
+     entry swallowed the swipe instead of passing it to the page, and since the
+     reader fills the screen, readers were stuck inside the post (2026-09-25). */
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+}
+/* Until the reader fills the screen, swipes move the page, not the entry
+   (journal-feed.tsx sets data-docked). */
+.mobile-book-wrapper:not([data-docked]) .journal-book-entry-body {
+  overflow-y: hidden;
 }
 .mobile-book-page .journal-book-entry-body::-webkit-scrollbar { display: none; }
 
@@ -12338,11 +12356,33 @@ a, button, [role="tab"], [role="button"] {
   header nav a,
   header nav button,
   .comment-actions a,
-  .comment-actions button,
-  .feed-card-actions-bar a,
-  .feed-card-actions-bar button {
+  .comment-actions button {
     min-height: 44px;
     min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* The feed/entry action bar (comment, ink, reprint, stamp, bookmark, share…).
+     This rule targeted a class nothing used until 2026-09-25, so the buttons
+     were ~20px tall. Full 44px widths don't fit eight buttons on a phone, so:
+     full height, a bit of width, and the bar's own padding folded in. */
+  .feed-card-actions-bar {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .feed-card-actions-bar > div:last-child {
+    gap: 0 4px !important;
+    /* Wraps only when the row can't fit (Classic view's narrower column,
+       very small phones) instead of spilling off the card. */
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .feed-card-actions-bar button,
+  .feed-card-actions-bar a {
+    min-height: 44px;
+    min-width: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -12351,7 +12391,7 @@ a, button, [role="tab"], [role="button"] {
   /* Editor toolbar buttons — bump to 36px min */
   .editor-toolbar-wrap button,
   .letter-editor-toolbar button,
-  .bio-editor-toolbar button,
+  .bio-toolbar button,
   .comment-editor-toolbar button {
     min-height: 36px;
     min-width: 36px;
@@ -16728,3 +16768,70 @@ body[data-look="classic"] .entry-current-label {
 .userpic-picker-manage { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--muted); text-decoration: underline; padding-top: 4px; }
 .entry-userpic { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
 .comment-userpic-row:not(:empty) { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+
+/* ==========================================================================
+   Mobile fixes, 2026-09-25 (mobile audit)
+   ========================================================================== */
+
+/* 2. On-screen keyboard (components/mobile-viewport.tsx sets data-keyboard,
+   --vvh, --vv-top and --kb). iOS lays the keyboard over the page, so
+   bottom-pinned things follow the visible area instead. */
+@media (max-width: 1023px) {
+  html[data-keyboard] .letter-page-wrapper {
+    height: calc(var(--vvh, 100dvh) - 57px);
+  }
+  html[data-keyboard] .comment-sheet {
+    bottom: var(--kb, 0px);
+    max-height: calc(var(--vvh, 100dvh) - 24px);
+    padding-bottom: 0;
+  }
+  html[data-keyboard] .editor-settings-sheet {
+    bottom: var(--kb, 0px);
+    max-height: calc(var(--vvh, 100dvh) - 24px);
+  }
+}
+@media (max-width: 640px) {
+  html[data-keyboard] .stationery-modal-wrap {
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vvh, 100dvh);
+  }
+  html[data-keyboard] .stationery-modal {
+    height: 100%;
+  }
+}
+
+/* 4. Removing an editor cover image: the × only appeared on mouse hover. */
+.editor-cover-remove {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  line-height: 1;
+}
+@media (hover: hover) {
+  .editor-cover-remove {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    opacity: 0;
+  }
+  .group:hover .editor-cover-remove,
+  .editor-cover-remove:focus-visible {
+    opacity: 1;
+  }
+}
+
+/* 6. Pull-to-refresh on pages other than Feed/Explore (mobile-viewport.tsx). */
+.global-ptr {
+  position: fixed;
+  top: 57px;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+}

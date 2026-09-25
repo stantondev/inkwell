@@ -8,6 +8,7 @@ import { MobileTopBar } from "./mobile-top-bar";
 import { SearchCommand } from "./search-command";
 import { JotComposer } from "./jot-composer";
 import { NotificationToaster } from "./notification-toaster";
+import { MobileViewport } from "./mobile-viewport";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -72,6 +73,9 @@ export async function AppShell({
 
       {/* Pop-ups for notifications and letters that arrive while you're here */}
       {user && <NotificationToaster />}
+
+      {/* Keyboard-aware CSS variables + pull-to-refresh on phones */}
+      <MobileViewport signedIn={!!user} />
 
       {/* Main content area — bottom padding on mobile for tab bar clearance */}
       <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>

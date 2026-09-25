@@ -69,6 +69,7 @@ export function JournalFeed({
 
   // Mobile hooks (must be called unconditionally before any early returns)
   const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const mobileWrapperRef = useRef<HTMLDivElement>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
   const mobileSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -153,6 +154,28 @@ export function JournalFeed({
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
   }, [isDesktop, hasMore, loadMorePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // An entry only scrolls on its own once the reader fills the screen
+  // ("docked"). Until then every swipe moves the page, so you can't get caught
+  // scrolling a post that's half off screen. Set as an attribute, not state,
+  // so scrolling never re-renders the feed.
+  useEffect(() => {
+    if (isDesktop) return;
+    const wrapper = mobileWrapperRef.current;
+    if (!wrapper) return;
+    const update = () => {
+      const r = wrapper.getBoundingClientRect();
+      const docked = r.top <= 90 && r.bottom > window.innerHeight * 0.6;
+      if (docked !== wrapper.hasAttribute("data-docked")) wrapper.toggleAttribute("data-docked", docked);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [isDesktop, entries.length === 0]);
 
   // Track active mobile page
   useEffect(() => {
@@ -430,7 +453,7 @@ export function JournalFeed({
 
   // ─── Mobile: Horizontal Scroll-Snap (matching desktop book feel) ─────
   return (
-    <div className="mobile-book-wrapper">
+    <div ref={mobileWrapperRef} className="mobile-book-wrapper">
       {/* Pull-to-refresh */}
       {pullDistance > 0 || refreshing ? (
         <div className="pull-to-refresh-indicator" style={{ height: pullDistance || (refreshing ? 40 : 0), position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>

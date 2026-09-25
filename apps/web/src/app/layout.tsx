@@ -13,6 +13,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Android Chrome shrinks the page for the keyboard instead of covering it.
+  interactiveWidget: "resizes-content",
   themeColor: [
     // Match the mobile top bar (--surface), so the installed app's status bar
     // and the header read as one strip instead of a blue band over white.

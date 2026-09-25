@@ -22,6 +22,19 @@ function insideScrolledContent(target: EventTarget | null): boolean {
   return false;
 }
 
+/** A sheet, modal or the keyboard is up: pulling down there isn't a refresh. */
+function overlayOpen(target: EventTarget | null): boolean {
+  const root = document.documentElement;
+  if (root.hasAttribute("data-keyboard")) return true;
+  if (document.body.style.overflow === "hidden" || root.style.overflow === "hidden") return true;
+  let el = target instanceof Element ? target : null;
+  while (el && el !== document.body) {
+    if (el.getAttribute("role") === "dialog" || getComputedStyle(el).position === "fixed") return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
 /**
  * Pull down at the very top of the page to refresh.
  *
@@ -57,7 +70,7 @@ export function usePullToRefresh({
       pulling = false;
       distance = 0;
       if (refreshingRef.current || e.touches.length !== 1 || window.scrollY > 2) return;
-      if (insideScrolledContent(e.target)) return;
+      if (insideScrolledContent(e.target) || overlayOpen(e.target)) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       armed = true;
