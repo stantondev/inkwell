@@ -190,6 +190,115 @@ export function JournalFeed({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [isDesktop]);
 
+  // Page turns on phones are ours, not the browser's. Each page's entry
+  // scrolls up and down inside a strip that scrolls sideways, and the phone
+  // gave any slightly slanted swipe to the entry, so turning to the next
+  // post often didn't take (2026-09-25). Now the first ~8px decide: more
+  // sideways than up/down, and the page follows the finger and turns;
+  // otherwise the entry scrolls natively as before. The strip itself is
+  // overflow-x: hidden, so the browser never competes for sideways swipes.
+  useEffect(() => {
+    if (isDesktop) return;
+    const track = mobileScrollRef.current;
+    if (!track) return;
+
+    let active = false;
+    let axis: "x" | "y" | null = null;
+    let x0 = 0, y0 = 0, t0 = 0, dx = 0, startLeft = 0;
+
+    // Leave sideways swipes alone inside things that scroll sideways
+    // themselves (photo carousels, wide tables, code blocks).
+    const inSidewaysScroller = (target: EventTarget | null) => {
+      let el = target instanceof Element ? target : null;
+      while (el && el !== track) {
+        if (el instanceof HTMLElement && el.scrollWidth > el.clientWidth + 2) {
+          const ox = getComputedStyle(el).overflowX;
+          if (ox === "auto" || ox === "scroll") return true;
+        }
+        el = el.parentElement;
+      }
+      return false;
+    };
+    const lastIndex = () => Math.max(0, track.children.length - 1);
+    const goTo = (i: number) => {
+      const target = Math.min(lastIndex(), Math.max(0, i));
+      track.scrollTo({ left: target * track.clientWidth, behavior: "smooth" });
+    };
+
+    const onStart = (e: TouchEvent) => {
+      active = e.touches.length === 1 && !inSidewaysScroller(e.target);
+      if (!active) return;
+      axis = null;
+      dx = 0;
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+      t0 = e.timeStamp;
+      startLeft = track.scrollLeft;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!active) return;
+      const mx = e.touches[0].clientX - x0;
+      const my = e.touches[0].clientY - y0;
+      if (!axis) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        axis = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+      }
+      if (axis !== "x") return;
+      // Stops the entry scrolling up/down during a page turn.
+      if (e.cancelable) e.preventDefault();
+      dx = mx;
+      track.scrollLeft = startLeft - dx;
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!active || axis !== "x") { active = false; return; }
+      active = false;
+      const w = track.clientWidth;
+      const from = Math.round(startLeft / w);
+      const speed = dx / Math.max(1, e.timeStamp - t0); // px per ms
+      let to = from;
+      if (dx < -w * 0.18 || (dx < -20 && speed < -0.35)) to = from + 1;
+      else if (dx > w * 0.18 || (dx > 20 && speed > 0.35)) to = from - 1;
+      goTo(to);
+    };
+
+    // Trackpads and mice (a narrow window, a tablet with a keyboard): a
+    // sideways scroll turns one page.
+    let wheelSum = 0;
+    let wheelLockUntil = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      if (e.timeStamp < wheelLockUntil) return;
+      wheelSum += e.deltaX;
+      if (Math.abs(wheelSum) > 40) {
+        goTo(Math.round(track.scrollLeft / track.clientWidth) + (wheelSum > 0 ? 1 : -1));
+        wheelSum = 0;
+        wheelLockUntil = e.timeStamp + 500;
+      }
+    };
+
+    // Keep the current page lined up when the width changes (rotation).
+    const onResize = () => {
+      const w = track.clientWidth;
+      if (w) track.scrollLeft = Math.round(track.scrollLeft / w) * w;
+    };
+
+    track.addEventListener("touchstart", onStart, { passive: true });
+    track.addEventListener("touchmove", onMove, { passive: false });
+    track.addEventListener("touchend", onEnd);
+    track.addEventListener("touchcancel", onEnd);
+    track.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("resize", onResize);
+    return () => {
+      track.removeEventListener("touchstart", onStart);
+      track.removeEventListener("touchmove", onMove);
+      track.removeEventListener("touchend", onEnd);
+      track.removeEventListener("touchcancel", onEnd);
+      track.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isDesktop, entries.length === 0]);
+
   // Auto-load more on mobile
   useEffect(() => {
     if (isDesktop || !mobileSentinelRef.current || !hasMore || !loadMorePath) return;

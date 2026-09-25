@@ -12095,11 +12095,12 @@ button.bottom-tab-item { font: inherit; }
   flex-wrap: nowrap !important;
   width: 100%;
   height: 100%;
-  overflow-x: auto !important;
+  /* Page turns are handled in journal-feed.tsx, not by native sideways
+     scrolling, which lost to the entry's own up/down scrolling on any slanted
+     swipe. Hidden still allows the smooth programmatic scroll. */
+  overflow-x: hidden !important;
   overflow-y: hidden !important;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-width: none;
 }
 .mobile-book-scroll::-webkit-scrollbar { display: none; }
@@ -12109,8 +12110,6 @@ button.bottom-tab-item { font: inherit; }
   width: 100% !important;
   min-width: 100%;
   height: 100% !important;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
   padding: 6px 6px 34px 6px; /* room for the page counter */
   display: flex !important;
   flex-direction: column !important;
