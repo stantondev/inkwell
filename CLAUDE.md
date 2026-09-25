@@ -1616,14 +1616,14 @@ Open Docker Desktop app (or check: `docker ps` should show running containers)
 
 **Step 2 — Start Postgres + Meilisearch (if not already up)**
 ```bash
-cd /Users/stanton/Documents/Claude/inkwell
+cd /Users/stanton/Code/inkwell
 docker compose up -d
 ```
 Verify: `docker ps` should show `inkwell-db-1` (healthy) and `inkwell-meilisearch-1`
 
 **Step 3 — Start Phoenix API (Terminal 1)**
 ```bash
-cd /Users/stanton/Documents/Claude/inkwell/apps/api
+cd /Users/stanton/Code/inkwell/apps/api
 mix phx.server
 ```
 Wait for: `Running InkwellWeb.Endpoint with Bandit ... at 0.0.0.0:4000`
@@ -1631,7 +1631,7 @@ Verify: `curl http://localhost:4000/health` should return `{"status":"ok"}`
 
 **Step 4 — Start Next.js frontend (Terminal 2)**
 ```bash
-cd /Users/stanton/Documents/Claude/inkwell
+cd /Users/stanton/Code/inkwell
 npm run dev:web
 ```
 Wait for: `Ready in ...ms` then open `http://localhost:3000`
