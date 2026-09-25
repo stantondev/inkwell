@@ -60,6 +60,13 @@ export const FAQ_ITEMS: FaqItem[] = [
 
   // ── Writing & Publishing ──
   {
+    id: "share-into-inkwell",
+    question: "Can I share links or text from other apps into Inkwell?",
+    answer:
+      'Yes. Use your phone\'s Share menu and pick Inkwell, then choose to jot it as a sticky or start an entry with it. On Android, install Inkwell from Chrome and it appears in the Share menu. On iPhone, Apple only lists App Store apps there, so add the free "Share to Inkwell" Shortcut once; <a href="/help/share-to-inkwell">here are the steps</a>.',
+    category: "writing",
+  },
+  {
     id: "write-entry",
     question: "How do I write and publish an entry?",
     answer:
