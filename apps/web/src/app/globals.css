@@ -15236,6 +15236,10 @@ a, button, [role="tab"], [role="button"] {
 /* Book layout: no accent rule between a sticky and its neighbours */
 .journal-book-cell + .journal-book-cell-sticky::before,
 .journal-book-cell-sticky + .journal-book-cell::before { display: none; }
+/* A sticky keeps its note width (~34rem) and is stuck to the middle of its
+   page. It used to sit at the left edge, which on wide screens (half-pages
+   wider than the note) left it hugging the left with empty paper beside it. */
+.journal-book-cell-sticky .sticky-note { margin-left: auto; margin-right: auto; }
 
 /* Mobile book: a sticky sits near the top of its page, clear of the tape */
 .mobile-book-page-sticky { justify-content: flex-start; padding-top: 1.25rem; }
