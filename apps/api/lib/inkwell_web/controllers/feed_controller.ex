@@ -17,6 +17,10 @@ defmodule InkwellWeb.FeedController do
 
     blocked_ids = Social.get_blocked_user_ids(user.id)
     friend_ids = Social.list_friend_ids(user.id) -- blocked_ids
+    # People you've asked to follow who haven't accepted: their public
+    # entries and reprints are in your Feed already; pen-pals-only waits.
+    requested_ids = Social.list_requested_ids(user.id) -- blocked_ids
+    followed_ids = friend_ids ++ requested_ids
 
     subscribed_writer_ids = WriterSubscriptions.get_subscribed_writer_ids(user.id)
 
@@ -44,6 +48,7 @@ defmodule InkwellWeb.FeedController do
         Timeline.take(fn offset, limit ->
           Journals.list_feed_entries(user.id, friend_ids,
             offset: offset, per_page: limit, exclude_user_ids: blocked_ids,
+            public_ids: requested_ids,
             subscribed_writer_ids: subscribed_writer_ids,
             circle_ids: circle_ids,
             category: category_filter, sort: sort_filter,
@@ -72,8 +77,8 @@ defmodule InkwellWeb.FeedController do
       else
         Timeline.take(fn offset, limit ->
           reprints =
-            Reprints.list_feed_reprints(user.id, friend_ids,
-              exclude_user_ids: blocked_ids, exclude_author_ids: friend_ids,
+            Reprints.list_feed_reprints(user.id, followed_ids,
+              exclude_user_ids: blocked_ids, exclude_author_ids: followed_ids,
               limit: limit, offset: offset)
 
           entries =

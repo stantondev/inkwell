@@ -50,7 +50,7 @@ export function FollowButton({
   }
 
   async function handleCancel() {
-    if (!window.confirm(`Cancel your pen pal request to @${targetUsername}?`)) return;
+    if (!window.confirm(`Unfollow @${targetUsername}? This cancels your pen pal request, and their entries leave your Feed.`)) return;
     await run(`/api/follow/${targetUsername}`, "DELETE", () => setState("idle"), "pending");
   }
 
@@ -76,7 +76,7 @@ export function FollowButton({
       {renderButton()}
       {state === "pending" && !error && (
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          You&apos;ll be pen pals once @{targetUsername} accepts.
+          Their public entries are in your Feed now. You&apos;ll be pen pals once @{targetUsername} accepts.
         </p>
       )}
       {errorNote}
@@ -125,7 +125,7 @@ export function FollowButton({
     );
   }
 
-  // Request sent: show "Request Sent" with click to cancel
+  // Following, waiting for them to accept: click to unfollow
   if (state === "pending") {
     return (
       <button
@@ -135,21 +135,21 @@ export function FollowButton({
         className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
         style={{ borderColor: "var(--border)", color: "var(--muted)" }}
       >
-        {hovered ? "Cancel Request" : "Request Sent"}
+        {hovered ? "Unfollow" : "Following"}
       </button>
     );
   }
 
-  // Idle: show "Send Pen Pal Request"
+  // Idle: "Follow" (sends a pen pal request)
   return (
     <button
       onClick={handleSendRequest}
       disabled={state === "loading"}
       className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
       style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
-      title="Both of you must accept to become pen pals"
+      title="Their public entries come to your Feed; you're pen pals once they accept"
     >
-      {state === "loading" ? "..." : "Send Pen Pal Request"}
+      {state === "loading" ? "..." : "Follow"}
     </button>
   );
   }

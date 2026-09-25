@@ -72,7 +72,7 @@ function FollowButton({ username }: { username: string }) {
     return <span className="explore-follow-btn explore-follow-btn--muted">Pen Pal</span>;
   }
   if (state === "pending") {
-    return <span className="explore-follow-btn explore-follow-btn--muted">Requested</span>;
+    return <span className="explore-follow-btn explore-follow-btn--muted">Following</span>;
   }
   return (
     <button onClick={handleFollow} disabled={state === "loading"} className="explore-follow-btn">

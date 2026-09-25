@@ -13030,25 +13030,78 @@ a, button, [role="tab"], [role="button"] {
 }
 
 
-/* Feed: source switch + "N new since your last visit" */
-/* Centred like the dispatch header below it (and clear of the fixed "Menu"
-   pill when the sidebar is hidden). */
-.feed-source-row {
+/* Feed: the one header row (app/feed/page.tsx). Title + date, the "N new"
+   count, and the Everyone / Inkwell / Fediverse switch; at most one slim
+   notice under it. Keep it short: the book below is a full screen tall. */
+.feed-top {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding-top: 20px;
+  padding-bottom: 14px;
 }
-.feed-since-line {
+.feed-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+.feed-top-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.feed-top-h1 {
   margin: 0;
   font-family: var(--font-lora, Georgia, serif);
-  font-style: italic;
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
 }
-.feed-since-line.has-new { color: var(--accent); }
+.feed-top-date {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.feed-new-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.feed-top-switch { margin-left: auto; }
+.feed-top .whats-new-notice,
+.feed-top .notice-strip,
+.feed-top .getting-started { margin: 0; }
+
+/* Phones: the top bar and the Feed tab already say where you are, so the row
+   is just the switch and the count. The sidebar "Menu" pill only exists on
+   desktop, so nothing overlaps the left edge here. */
 @media (max-width: 1023px) {
-  .feed-source-row .explore-controls-source-segment { min-height: 36px; padding: 0 14px; }
+  .feed-top { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
+  .feed-top-title { display: none; }
+  .feed-top-row { flex-wrap: nowrap; }
+  .feed-top-switch { margin-left: 0; order: -1; flex: 1 1 auto; width: auto; }
+  .feed-top-switch .explore-controls-source-segment { min-height: 36px; padding: 0 10px; }
+  /* Text only, so the switch and "3 new" share one line on a phone. */
+  .feed-top-switch .explore-controls-source-segment svg { display: none; }
+  .feed-new-count { flex-shrink: 0; }
+  .feed-new-count-long { display: none; }
+}
+/* Desktop with the sidebar hidden: the fixed "Menu" pill sits at the top
+   left. Below ~1500px the page's left gutter is narrower than the pill, so
+   start the title clear of it. */
+@media (min-width: 1024px) and (max-width: 1499px) {
+  body[data-sidebar-hidden] .feed-top-row { padding-left: 112px; }
 }
 
 /* "New": arrived since the reader last opened their Feed */
@@ -13109,101 +13162,6 @@ a, button, [role="tab"], [role="button"] {
   color: var(--accent);
 }
 .feed-end-link:hover { text-decoration: underline; }
-
-/* Feed Dispatch Header */
-.feed-dispatch-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0px;
-}
-
-.feed-dispatch-rule {
-  width: 100%;
-  max-width: 480px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--border) 20%,
-    var(--accent) 50%,
-    var(--border) 80%,
-    transparent 100%
-  );
-  opacity: 0.5;
-}
-
-.feed-dispatch-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 4px;
-}
-
-.feed-dispatch-icon {
-  color: var(--accent);
-  opacity: 0.6;
-  margin-bottom: 2px;
-}
-
-.feed-dispatch-tagline {
-  font-family: var(--font-lora, Georgia, serif);
-  font-style: italic;
-  font-size: 16px;
-  color: var(--foreground);
-  letter-spacing: 0.02em;
-}
-
-.feed-dispatch-date {
-  font-family: var(--font-lora, Georgia, serif);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--muted);
-}
-
-/* Feed Search (compact pill) */
-
-.feed-search-form {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 9999px;
-  background: var(--surface);
-  padding: 0 12px;
-  transition: border-color 0.2s;
-}
-
-.feed-search-form:focus-within {
-  border-color: var(--accent);
-}
-
-.feed-search-icon {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-
-.feed-search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--foreground);
-  font-family: var(--font-lora, Georgia, serif);
-  font-style: italic;
-  font-size: 13px;
-  padding: 8px 8px;
-  min-width: 0;
-}
-
-.feed-search-input::placeholder {
-  color: var(--muted);
-  opacity: 0.6;
-  font-style: italic;
-}
-
-
 
 /* ─── Admin Panel ─────────────────────────────────────────────────────── */
 
@@ -16016,7 +15974,8 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   flex-shrink: 0;
 }
 .you-sheet-chip .whats-new-dot { margin-left: 4px; }
-.whats-new-notice {
+.whats-new-notice,
+.notice-strip {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -16029,23 +15988,37 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   background: var(--surface);
   font-size: 14px;
 }
-.whats-new-notice-label {
+.whats-new-notice-label,
+.notice-strip-label {
   font-family: var(--font-lora, Georgia, serif);
   font-style: italic;
   color: var(--accent);
   white-space: nowrap;
 }
-.whats-new-notice-text { flex: 1 1 200px; min-width: 0; }
-.whats-new-notice-link { color: var(--accent); font-weight: 500; white-space: nowrap; }
-.whats-new-notice-link:hover { text-decoration: underline; }
-.whats-new-notice-close {
+.whats-new-notice-text,
+.notice-strip-text { flex: 1 1 200px; min-width: 0; }
+.whats-new-notice-link,
+.notice-strip-link { color: var(--accent); font-weight: 500; white-space: nowrap; }
+.whats-new-notice-link:hover,
+.notice-strip-link:hover { text-decoration: underline; }
+.whats-new-notice-close,
+.notice-strip-close {
   margin-left: auto;
   padding: 0 4px;
   font-size: 18px;
   line-height: 1;
   color: var(--muted);
 }
-.whats-new-notice-close:hover { color: var(--foreground); }
+.whats-new-notice-close:hover,
+.notice-strip-close:hover { color: var(--foreground); }
+.notice-strip-more {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.notice-strip-more:hover { color: var(--foreground); }
 
 /* ── Getting started checklist (components/getting-started-checklist.tsx) ── */
 .getting-started {
@@ -16127,9 +16100,6 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .mobile-filters-panel { display: none; }
   .mobile-filters.is-open .mobile-filters-panel { display: block; }
 
-  /* Decorative on phones: the reader is what people came for. The Write tab
-     already offers "Sticky", so the Feed's jot prompt is a duplicate here. */
-  .feed-dispatch-header, .feed-jot-prompt { display: none; }
 }
 
 /* ── Editor: Schedule for later (app/editor/schedule-button.tsx) ── */

@@ -28,6 +28,9 @@ interface Step {
 export function GettingStartedChecklist({ username }: { username: string }) {
   const [data, setData] = useState<Checklist | null>(null);
   const [hidden, setHidden] = useState(false);
+  // One line (progress + the next step) until opened, so it doesn't push the
+  // Feed down a screen for a member's whole first month.
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +97,28 @@ export function GettingStartedChecklist({ username }: { username: string }) {
     }).catch(() => {});
   }
 
+  const next = steps.find((s) => !s.done)!;
+
+  if (!open) {
+    return (
+      <div className="notice-strip" role="note">
+        <span className="notice-strip-label">Getting started</span>
+        <span className="notice-strip-text">
+          {doneCount} of {steps.length} done · Next: {next.title}
+        </span>
+        {next.href && (
+          <Link href={next.href} className="notice-strip-link">{next.cta} →</Link>
+        )}
+        <button type="button" onClick={() => setOpen(true)} className="notice-strip-more" aria-expanded={false}>
+          All steps
+        </button>
+        <button type="button" onClick={dismiss} className="notice-strip-close" aria-label="Hide getting started">
+          ×
+        </button>
+      </div>
+    );
+  }
+
   return (
     <section className="getting-started" aria-labelledby="getting-started-title">
       <div className="getting-started-head">
@@ -105,9 +130,14 @@ export function GettingStartedChecklist({ username }: { username: string }) {
             {doneCount} of {steps.length} done · a few first steps to feel at home, @{username}
           </p>
         </div>
-        <button type="button" onClick={dismiss} className="getting-started-dismiss">
-          Hide
-        </button>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setOpen(false)} className="getting-started-dismiss" aria-expanded={true}>
+            Show less
+          </button>
+          <button type="button" onClick={dismiss} className="getting-started-dismiss">
+            Hide
+          </button>
+        </div>
       </div>
       <div className="getting-started-bar" aria-hidden="true">
         <span style={{ width: `${(doneCount / steps.length) * 100}%` }} />

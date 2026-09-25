@@ -163,7 +163,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "pen-pals",
     question: "What are pen pals?",
     answer:
-      "Pen pals are Inkwell's term for mutual follows. When you follow someone and they follow you back, you're pen pals. Pen pals can see each other's friends-only entries and send direct letters (private messages).",
+      "Pen pals are Inkwell's term for mutual follows. Following someone sends them a pen pal request, and their public entries start appearing in your Feed straight away. When they accept, you're pen pals: you can see each other's friends-only entries and send letters (private messages).",
     category: "social",
   },
   {

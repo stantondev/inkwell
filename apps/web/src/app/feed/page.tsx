@@ -5,7 +5,6 @@ import { siteLookOf } from "@/lib/site-look";
 import { apiFetch } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
-import { JotPrompt } from "@/components/jot-prompt";
 import { EducationCard } from "@/components/education-card";
 import { WhatsNewNotice } from "@/components/whats-new-state";
 import { LATEST_WHATS_NEW_ID } from "@/lib/whats-new";
@@ -17,6 +16,7 @@ import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { SuggestedWriters } from "@/components/suggested-writers";
 import { FeedSeen } from "@/components/feed-seen";
+import { LocalDate } from "@/components/local-date";
 import { isSupporter } from "@/lib/supporter";
 
 export const dynamic = "force-dynamic";
@@ -46,8 +46,9 @@ function EmptyFeed({ featuredEntries }: { featuredEntries: JournalEntry[] }) {
         </p>
         <p className="text-sm mb-5 text-center" style={{ color: "var(--muted)" }}>
           Your Feed shows new entries from the people you follow, newest first,
-          like letters arriving. Send a few pen pal requests: their entries
-          appear here once they accept.
+          like letters arriving. Follow a few writers and their public entries
+          start arriving right away; once they accept, you&apos;re pen pals and
+          you&apos;ll see their pen-pals-only entries too.
         </p>
 
         <SuggestedWriters limit={6} />
@@ -205,9 +206,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const newCount = seenAt && page === 1
     ? entries.filter((e) => e.author.id !== session.user.id && Date.parse(arrivedAt(e)) > Date.parse(seenAt)).length
     : 0;
-  const sinceLine = !seenAt || page !== 1 || entries.length === 0 ? null
-    : newCount === 0 ? "Nothing new since your last visit."
-    : `${newCount === entries.length && entries.length >= 20 ? "20+" : newCount} new since your last visit`;
+  const nowIso = new Date().toISOString();
 
   // Fetch featured entries for the empty feed state
   let featuredEntries: JournalEntry[] = [];
@@ -240,10 +239,25 @@ export default async function FeedPage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      {/* Everyone you follow / only Inkwell writers / only fediverse accounts */}
-      <div className="mx-auto max-w-7xl px-4 pt-3 lg:pt-6 pb-2">
-        <div className="feed-source-row">
-          <div className="explore-controls-source" role="group" aria-label="Show entries from">
+      {/* The top of the Feed is one row (title, date, what's new, and the
+          Everyone / Inkwell / Fediverse switch) plus at most one slim notice.
+          It used to stack five bands (switch, "new" line, dispatch header, jot
+          box, a notice card) above the book. */}
+      <header className="feed-top mx-auto max-w-7xl px-4">
+        <div className="feed-top-row">
+          <div className="feed-top-title">
+            <h1 className="feed-top-h1">Your Feed</h1>
+            <span className="feed-top-date">
+              <LocalDate iso={nowIso} options={{ weekday: "long", month: "long", day: "numeric" }} />
+            </span>
+          </div>
+          {newCount > 0 && (
+            <span className="feed-new-count">
+              {newCount === entries.length && entries.length >= 20 ? "20+" : newCount} new
+              <span className="feed-new-count-long">&nbsp;since your last visit</span>
+            </span>
+          )}
+          <nav className="explore-controls-source feed-top-switch" aria-label="Show entries from">
             {([
               { label: "Everyone", value: null },
               { label: "Inkwell", value: "inkwell" },
@@ -253,6 +267,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 key={s.label}
                 href={s.value ? `/feed?source=${s.value}` : "/feed"}
                 className={`explore-controls-source-segment${activeSource === s.value ? " active" : ""}`}
+                aria-current={activeSource === s.value ? "page" : undefined}
               >
                 {s.value === "inkwell" && (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
@@ -267,80 +282,34 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 <span>{s.label}</span>
               </FilterLink>
             ))}
-          </div>
-          {sinceLine && (
-            <p className={`feed-since-line${newCount > 0 ? " has-new" : ""}`}>{sinceLine}</p>
-          )}
-        </div>
-      </div>
-      {/* Only the full Feed moves the "last read" mark: a filtered view would
-          mark the other source's unseen entries as read. */}
-      <FeedSeen newest={page === 1 && !activeSource ? newestIso : null} seenAt={seenAt} />
-
-        {/* Feed dispatch header (decorative; hidden on phones to reach the writing sooner) */}
-        <div className="mx-auto max-w-7xl px-4 pb-3">
-          <div className="feed-dispatch-header">
-            <div className="feed-dispatch-rule" />
-            <div className="feed-dispatch-content">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="feed-dispatch-icon" aria-hidden="true">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-              </svg>
-              <p className="feed-dispatch-tagline">
-                Fresh ink from your pen pals
-              </p>
-              <p className="feed-dispatch-date">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-              </p>
-            </div>
-            <div className="feed-dispatch-rule" />
-          </div>
-          <div className="mt-4 feed-jot-prompt">
-            <JotPrompt />
-          </div>
+          </nav>
         </div>
 
-        {/* The one notice (see feedNotice above) */}
+        {/* The one notice (see feedNotice above), as a single line */}
         {feedNotice === "resubscribe" && (
-          <div className="mx-auto max-w-7xl px-4">
-            <ResubscribeBanner needsResubscribe={session.user.needs_resubscribe} serverDismissed={false} />
-          </div>
+          <ResubscribeBanner needsResubscribe={session.user.needs_resubscribe} serverDismissed={false} />
         )}
-        {feedNotice === "checklist" && (
-          <div className="mx-auto max-w-7xl px-4">
-            <GettingStartedChecklist username={session.user.username} />
-          </div>
-        )}
+        {feedNotice === "checklist" && <GettingStartedChecklist username={session.user.username} />}
         {feedNotice === "whats-new" && (
-          <div className="mx-auto max-w-7xl px-4">
-            <WhatsNewNotice serverSeen={settings.whats_new_seen as string | undefined} />
-          </div>
+          <WhatsNewNotice serverSeen={settings.whats_new_seen as string | undefined} />
         )}
-        {feedNotice === "push" && (
-          <PushPrompt serverDismissed={!!settings.push_prompt_dismissed} />
-        )}
+        {feedNotice === "push" && <PushPrompt serverDismissed={!!settings.push_prompt_dismissed} />}
         {feedNotice === "welcome" && (
-        <div className="mx-auto max-w-7xl px-4">
           <EducationCard
+            variant="strip"
             storageKey="inkwell-edu-feed-card"
-            heading="Welcome to your Feed"
+            heading="How it works"
             learnMoreHref="/guide#feed-explore"
             serverDismissed={false}
           >
-            <p>
-              Your Feed shows journal entries from writers you follow, your pen
-              pals. Entries from writers on Mastodon and other fediverse platforms
-              you follow also appear here, newest first, and anything that
-              arrived since your last visit is marked <strong>New</strong>.
-              Looking to discover new voices?{" "}
-              <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
-                Switch to Explore
-              </Link>
-              .
-            </p>
+            Everyone you follow, newest first. Follow a writer and their public
+            entries arrive here right away.
           </EducationCard>
-        </div>
         )}
+      </header>
+      {/* Only the full Feed moves the "last read" mark: a filtered view would
+          mark the other source's unseen entries as read. */}
+      <FeedSeen newest={page === 1 && !activeSource ? newestIso : null} seenAt={seenAt} />
 
         {/* Journal area */}
         <JournalFeed

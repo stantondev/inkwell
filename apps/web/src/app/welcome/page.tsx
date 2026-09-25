@@ -1321,7 +1321,7 @@ export default function WelcomePage() {
               ) : (
                 <>
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    Send pen pal requests to see their entries in your feed. You can always find more on Explore.
+                    Follow writers and their public entries arrive in your Feed right away. When they accept, you&apos;re pen pals. You can always find more on Explore.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {suggestedUsers.map((u) => {
@@ -1376,7 +1376,7 @@ export default function WelcomePage() {
                                 : { borderColor: "var(--accent)", color: "#fff", background: "var(--accent)" }
                             }
                           >
-                            {inFlight ? "…" : followed ? "Requested" : "Send Request"}
+                            {inFlight ? "…" : followed ? "Following ✓" : "Follow"}
                           </button>
                         </div>
                       );

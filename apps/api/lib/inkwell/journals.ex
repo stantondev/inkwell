@@ -215,6 +215,8 @@ defmodule Inkwell.Journals do
     custom_filter_ids = get_filters_containing_user(user_id)
 
     subscribed_writer_ids = Keyword.get(opts, :subscribed_writer_ids, [])
+    # Writers with a pending follow request from the viewer: public entries only.
+    public_ids = Keyword.get(opts, :public_ids, [])
     # Everything posted to the viewer's circles, whoever wrote it (LJ's
     # friends page showed community posts the same way).
     circle_ids = Keyword.get(opts, :circle_ids, [])
@@ -228,6 +230,8 @@ defmodule Inkwell.Journals do
           e.user_id == ^user_id or
           # Friends' public/friends-only entries
           (e.user_id in ^friend_ids and e.privacy in [:public, :friends_only]) or
+          # Public entries of writers the viewer has asked to follow
+          (e.user_id in ^public_ids and e.privacy == :public) or
           # Custom-privacy entries where viewer is in the filter
           (e.privacy == :custom and e.custom_filter_id in ^custom_filter_ids) or
           # Paid entries from writers the viewer subscribes to

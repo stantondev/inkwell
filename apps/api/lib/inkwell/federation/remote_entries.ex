@@ -81,10 +81,12 @@ defmodule Inkwell.Federation.RemoteEntries do
     per_page = Keyword.get(opts, :per_page, 20)
     filter_tags = Keyword.get(opts, :tags, nil)
 
-    # Find remote_actor_ids that this user follows
+    # Find remote_actor_ids that this user follows, including accounts that
+    # haven't approved the follow yet (locked accounts): only public posts are
+    # ever stored, so there's nothing here they haven't published openly.
     followed_actor_ids =
       Inkwell.Social.Relationship
-      |> where([r], r.follower_id == ^user_id and r.status == :accepted and not is_nil(r.remote_actor_id))
+      |> where([r], r.follower_id == ^user_id and r.status in [:accepted, :pending] and not is_nil(r.remote_actor_id))
       |> select([r], r.remote_actor_id)
       |> Repo.all()
 

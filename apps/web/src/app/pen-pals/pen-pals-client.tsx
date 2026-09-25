@@ -233,9 +233,9 @@ export function PenPalsClient({
                 <div className="rounded-2xl border p-8 text-center"
                   style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
                   <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-                    No pen pals yet. Send a pen pal request and once they accept, they&apos;ll appear here.
+                    No pen pals yet. Follow someone and once they accept, they&apos;ll appear here.
                   </p>
-                  <Link href="/search" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+                  <Link href="/explore" className="text-sm font-medium" style={{ color: "var(--accent)" }}>
                     Search for people
                   </Link>
                 </div>

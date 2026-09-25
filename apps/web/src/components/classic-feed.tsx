@@ -182,8 +182,11 @@ export function ClassicFeed({
   isNew?: (entry: JournalEntry) => boolean;
   endNote?: ReactNode;
 }) {
-  // Feed: a rule between what's new since the last visit and what isn't.
-  const firstSeen = isNew && isNew(entries[0]) ? entries.findIndex((e) => !isNew(e)) : -1;
+  // Feed: a rule after the last entry that's new since the last visit (your
+  // own entries are never "new", so this isn't simply the first old one).
+  let lastNew = -1;
+  if (isNew) entries.forEach((e, i) => { if (isNew(e)) lastNew = i; });
+  const firstSeen = lastNew >= 0 && lastNew < entries.length - 1 ? lastNew + 1 : -1;
   return (
     <div className="classic-feed">
       {entries.map((entry, i) => (

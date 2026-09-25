@@ -1,8 +1,9 @@
 "use client";
 
-// Writers worth following, with a pen pal request button on each. Shown on an
-// empty Feed; the list comes from the same endpoint as onboarding's
-// "Discover writers" step (people with published entries you don't follow).
+// Writers worth following, with a Follow button on each. Shown on an empty
+// Feed; the list comes from the same endpoint as onboarding's "Discover
+// writers" step (people with published entries you don't follow). Following
+// sends a pen pal request; their public entries reach your Feed right away.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -96,11 +97,11 @@ export function SuggestedWriters({ limit = 6 }: { limit?: number }) {
                   ? { borderColor: "var(--border)", color: "var(--muted)", background: "transparent" }
                   : { borderColor: "var(--accent)", color: "#fff", background: "var(--accent)" }}
               >
-                {state === "sending" ? "Sending…"
+                {state === "sending" ? "Following…"
                   : state === "accepted" ? "Pen pals ✓"
-                  : state === "requested" ? "Request sent"
+                  : state === "requested" ? "Following ✓"
                   : state === "failed" ? "Try again"
-                  : "Send pen pal request"}
+                  : "Follow"}
               </button>
             </div>
           </div>

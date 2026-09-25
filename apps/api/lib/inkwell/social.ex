@@ -242,6 +242,18 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  @doc """
+  Inkwell writers the user has asked to follow who haven't accepted yet. Their
+  public entries are in the user's Feed straight away (they're public anyway);
+  pen-pals-only entries wait until the request is accepted.
+  """
+  def list_requested_ids(user_id) do
+    Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :pending and not is_nil(r.following_id))
+    |> select([r], r.following_id)
+    |> Repo.all()
+  end
+
   def list_followers(user_id) do
     Relationship
     |> where([r], r.following_id == ^user_id and r.status == :accepted)

@@ -79,8 +79,10 @@ export default function GuidePage() {
           </p>
           <p>
             <strong>Your Feed</strong> is personal — it shows entries from people
-            you follow (your pen pals). Think of it as your mailbox. When a pen
-            pal publishes a new entry, it arrives in your Feed. If you follow
+            you follow. Think of it as your mailbox. Follow a writer and their
+            public entries start arriving right away; once they accept your
+            request you&rsquo;re pen pals, and their pen-pals-only entries
+            arrive too. If you follow
             writers on Mastodon or other fediverse platforms, their posts appear
             here too. It&rsquo;s always newest first, with no sorting or ranking;
             entries that arrived since your last visit are marked{" "}

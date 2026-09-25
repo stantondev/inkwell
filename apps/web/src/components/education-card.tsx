@@ -9,6 +9,8 @@ interface EducationCardProps {
   children: React.ReactNode;
   learnMoreHref?: string;
   serverDismissed?: boolean;
+  /** "strip": one slim line (Feed), for short text; "card" (default): the full card. */
+  variant?: "card" | "strip";
 }
 
 export function EducationCard({
@@ -17,6 +19,7 @@ export function EducationCard({
   children,
   learnMoreHref,
   serverDismissed,
+  variant = "card",
 }: EducationCardProps) {
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -50,6 +53,19 @@ export function EducationCard({
         .catch(() => {});
       setVisible(false);
     }, 300);
+  }
+
+  if (variant === "strip") {
+    return (
+      <div className={`notice-strip${exiting ? " education-card-exit" : ""}`} role="note">
+        <span className="notice-strip-label">{heading}</span>
+        <span className="notice-strip-text">{children}</span>
+        {learnMoreHref && (
+          <Link href={learnMoreHref} className="notice-strip-link">Learn more</Link>
+        )}
+        <button type="button" onClick={dismiss} className="notice-strip-close" aria-label="Dismiss">×</button>
+      </div>
+    );
   }
 
   return (
