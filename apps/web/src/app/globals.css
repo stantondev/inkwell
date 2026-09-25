@@ -16893,3 +16893,29 @@ body[data-look="classic"] .entry-current-label {
     opacity: 0.65;
   }
 }
+
+/* ── Tilt effects (opt-in; components/tilt-effects.tsx) ──────────────────
+   Stamps, archive postmarks and avatar frames move a pixel or two against
+   the page and catch the light as the phone tilts. Uses the independent
+   `translate` property so each element's own transform (a stamp's rotation)
+   is untouched. */
+html[data-tilt] .stamp-frame,
+html[data-tilt] .archive-postmark,
+html[data-tilt] .avatar-frame-overlay {
+  --tilt-light: brightness(calc(1 + var(--tilt-x, 0) * 0.1 - var(--tilt-y, 0) * 0.06));
+  translate: calc(var(--tilt-x, 0) * 2.5px) calc(var(--tilt-y, 0) * 2.5px);
+  filter: var(--tilt-light);
+  transition: translate 0.15s linear, filter 0.15s linear;
+}
+/* Stamps keep their inked look (.stamp-frame's own filter) under the light */
+html[data-tilt] .stamp-frame {
+  filter: saturate(0.85) contrast(1.1) var(--tilt-light);
+}
+@media (prefers-color-scheme: dark) {
+  html[data-tilt] .stamp-frame { filter: saturate(0.8) var(--tilt-light); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-tilt] .stamp-frame,
+  html[data-tilt] .archive-postmark,
+  html[data-tilt] .avatar-frame-overlay { translate: none; filter: none; }
+}
