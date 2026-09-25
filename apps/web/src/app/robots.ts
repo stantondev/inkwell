@@ -33,6 +33,19 @@ const aiCrawlers = [
   "PetalBot",
 ];
 
+// Link previews (Facebook, X, LinkedIn, Slack, Discord…) check robots.txt
+// before fetching a page's og:image. Every preview picture is served under
+// /api/, so the blanket "Disallow: /api/" below hid them all and Facebook fell
+// back to the first picture on the page: the Inkwell logo. These public image
+// routes are allowed back in; the longer Allow wins over "Disallow: /api/".
+const previewImagePaths = [
+  "/api/og/",
+  "/api/images/",
+  "/api/avatars/",
+  "/api/banners/",
+  "/api/userpics/",
+];
+
 const aiRules = aiCrawlers.map((agent) => ({
   userAgent: agent,
   disallow: ["/"],
@@ -50,7 +63,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       rules: [
         {
           userAgent: "*",
-          allow: "/",
+          allow: ["/", ...previewImagePaths],
           disallow: ["/api/", "/auth/"],
         },
         ...aiRules,
@@ -63,7 +76,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
+        allow: ["/", ...previewImagePaths],
         disallow: [
           "/admin",
           "/admin/*",
