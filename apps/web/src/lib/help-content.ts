@@ -83,7 +83,6 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "t-api", title: "API documentation", snippet: "Programmatic access with API keys and REST endpoints.", keywords: ["api", "developer", "key", "endpoint", "rest"], category: "technical", href: "/developers" },
   { id: "t-import", title: "Importing content", snippet: "Import from WordPress, Medium, Substack, LiveJournal and Dreamwidth.", keywords: ["import", "wordpress", "medium", "substack", "livejournal", "dreamwidth", "lj", "migrate"], category: "technical", href: "/switch" },
   { id: "x-whats-new", title: "What's new on Inkwell", snippet: "Recent features in plain words, with where to find them.", keywords: ["new", "changelog", "updates", "features", "release"], category: "getting-started", href: "/whats-new" },
-  { id: "t-share", title: "Share to Inkwell from other apps", snippet: "Send links and text from any app on your phone into Inkwell. iPhone uses a free Apple Shortcut.", keywords: ["share", "share sheet", "shortcut", "iphone", "ios", "android", "safari", "link", "save"], category: "technical", href: "/help/share-to-inkwell" },
   { id: "t-rss", title: "RSS feeds", snippet: "Subscribe to any profile or tag via RSS.", keywords: ["rss", "feed", "subscribe", "xml"], category: "technical", href: "/guide#feed-explore" },
   { id: "t-newsletter", title: "Newsletter delivery", snippet: "Send published entries to email subscribers.", keywords: ["newsletter", "email", "subscriber", "send"], category: "technical", href: "/settings/newsletter" },
 
