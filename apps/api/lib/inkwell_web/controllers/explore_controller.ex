@@ -1,7 +1,7 @@
 defmodule InkwellWeb.ExploreController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, Timeline, WriterSubscriptions}
   alias Inkwell.Avatars
   alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
@@ -10,7 +10,7 @@ defmodule InkwellWeb.ExploreController do
   # Optional params: page, per_page, tag, category, sort
   # Optional auth: populates my_stamp/my_ink when logged in
   def index(conn, params) do
-    page = parse_int(params["page"], 1)
+    page = min(parse_int(params["page"], 1), Timeline.max_page())
     per_page = min(parse_int(params["per_page"], 20), 50)
     tag = params["tag"]
     category = params["category"]
@@ -36,19 +36,27 @@ defmodule InkwellWeb.ExploreController do
       %{blocked_remote_actor_ids: [], blocked_domains: Enum.map(admin_domains, & &1.domain)}
     end
 
-    # Fetch extra from each source to ensure good interleaving after merge
-    fetch_count = per_page * 2
+    # Muted words are checked per source, before paging, so a hidden entry
+    # doesn't leave a short page (the web app reads a short page as the end).
+    redacted_words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
+    not_redacted = fn entry -> not Redactions.matches_redaction?(entry, redacted_words) end
+    needed = page * per_page
 
-    local_entries =
+    local_source =
       if source_filter == "fediverse" do
-        []
+        {[], true}
       else
-        Journals.list_public_explore_entries(
-          page: 1, per_page: fetch_count, tag: tag, category: category,
-          include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
-          sort: sort, exclude_stickies: EntryController.hides_stickies?(viewer),
-          showcase: params["showcase"] in ["1", "true"]
-        )
+        hide_stickies = EntryController.hides_stickies?(viewer)
+        showcase = params["showcase"] in ["1", "true"]
+
+        Timeline.take(fn offset, limit ->
+          Journals.list_public_explore_entries(
+            offset: offset, per_page: limit, tag: tag, category: category,
+            include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
+            sort: sort, exclude_stickies: hide_stickies, showcase: showcase
+          )
+          |> Enum.map(&%{type: :local, entry: &1, published_at: &1.published_at, ink_count: &1.ink_count || 0})
+        end, &not_redacted.(&1.entry), needed)
       end
 
     # Build remote entry filter options based on category/tag
@@ -65,55 +73,32 @@ defmodule InkwellWeb.ExploreController do
           []
       end
 
-    remote_entries =
+    remote_source =
       if source_filter == "inkwell" || remote_filter_opts == :skip do
-        []
+        {[], true}
       else
-        filter_opts = if is_list(remote_filter_opts), do: remote_filter_opts, else: []
-        all_remote = RemoteEntries.list_public_remote_entries([page: 1, per_page: fetch_count] ++ filter_opts)
-
-        all_remote =
-          if include_sensitive do
-            all_remote
-          else
-            Enum.reject(all_remote, fn re -> re.sensitive end)
-          end
-
-        # Filter out mojibake, bot content, and low-quality posts at read time
-        all_remote = ContentQuality.filter_remote_entries(all_remote)
-
-        # Filter out entries from blocked remote actors and blocked domains
         blocked_actor_ids = fediverse_blocks.blocked_remote_actor_ids
         blocked_domains = fediverse_blocks.blocked_domains
 
-        all_remote
-        |> Enum.reject(fn re ->
-          re.remote_actor_id in blocked_actor_ids ||
-            (re.remote_actor && re.remote_actor.domain && String.downcase(re.remote_actor.domain) in blocked_domains)
-        end)
+        # Sensitive, low-quality (mojibake, bots, link-only) and blocked
+        # posts are filtered here, per post, before paging.
+        keep? = fn %{entry: re} ->
+          (include_sensitive or not re.sensitive) and
+            ContentQuality.filter_remote_entries([re]) != [] and
+            re.remote_actor_id not in blocked_actor_ids and
+            not (re.remote_actor && re.remote_actor.domain &&
+                   String.downcase(re.remote_actor.domain) in blocked_domains) and
+            not_redacted.(re)
+        end
+
+        Timeline.take(fn offset, limit ->
+          RemoteEntries.list_public_remote_entries([offset: offset, per_page: limit] ++ remote_filter_opts)
+          |> Enum.map(&%{type: :remote, entry: &1, published_at: &1.published_at, ink_count: 0})
+        end, keep?, needed)
       end
 
-    # Normalize into a common shape
-    local_items = Enum.map(local_entries, fn entry ->
-      %{type: :local, entry: entry, published_at: entry.published_at, ink_count: entry.ink_count || 0}
-    end)
-
-    remote_items = Enum.map(remote_entries, fn re ->
-      %{type: :remote, entry: re, published_at: re.published_at, ink_count: 0}
-    end)
-
-    # Merge and sort based on selected sort mode, then paginate
-    all_items =
-      (local_items ++ remote_items)
-      |> sort_items(sort)
-      |> Enum.drop((page - 1) * per_page)
-      |> Enum.take(per_page)
-
-    # Apply viewer's redacted words filter
-    redacted_words = if viewer, do: Redactions.get_redacted_words(viewer), else: []
-    all_items =
-      if redacted_words == [], do: all_items,
-        else: Enum.reject(all_items, fn item -> Redactions.matches_redaction?(item.entry, redacted_words) end)
+    {all_items, has_more} =
+      Timeline.page([local_source, remote_source], &sort_items(&1, sort), page, per_page)
 
     # Build stamp maps for local entries
     local_entry_ids =
@@ -288,18 +273,19 @@ defmodule InkwellWeb.ExploreController do
 
     json(conn, %{
       data: data,
-      pagination: %{page: page, per_page: per_page, tag: tag, category: category, sort: sort, source: source_filter}
+      pagination: %{page: page, per_page: per_page, has_more: has_more, tag: tag, category: category, sort: sort, source: source_filter}
     })
   end
 
-  # GET /api/explore/trending — top entries by ink count in the last 7 days
+  # GET /api/explore/trending — most-inked entries of the last 30 days.
+  # (It was 7 days and 2+ inks, which nothing met: the row never showed.)
   def trending(conn, _params) do
     viewer = conn.assigns[:current_user]
     blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
 
     entries = Inks.list_trending_entries(
-      days: 7,
-      min_inks: 2,
+      days: 30,
+      min_inks: 1,
       limit: 8,
       exclude_user_ids: blocked_ids
     )

@@ -253,37 +253,35 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Re-subscribe banner for former Stripe subscribers */}
-        {session && (
+        {/* One notice at a time, as on Feed: signed-out visitors get the
+            signup banner above; members get the resubscribe banner, or else
+            the welcome card until they dismiss it. */}
+        {session && (session.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed ? (
           <div className="mx-auto max-w-7xl px-4">
-            <ResubscribeBanner
-              needsResubscribe={session.user.needs_resubscribe}
-              serverDismissed={!!session.user.settings?.resubscribe_banner_dismissed}
-            />
+            <ResubscribeBanner needsResubscribe serverDismissed={false} />
           </div>
-        )}
+        ) : (
+          <div className="mx-auto max-w-7xl px-4">
+            <EducationCard
+              storageKey="inkwell-edu-explore-card-v2"
+              heading="Discover the community"
+              learnMoreHref="/guide#interaction"
+              serverDismissed={((session.user.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-explore-card-v2")}
+            >
+              <p>
+                Explore shows public entries from everyone writing on Inkwell,
+                not just the people you follow. Switch to <strong>All</strong> or{" "}
+                <strong>Fediverse</strong> to add posts from Mastodon and other
+                connected platforms. Tap the <strong>ink drop</strong> on
+                entries you think deserve more readers: the most-inked appear
+                under <strong>Most inked this month</strong>, and{" "}
+                &ldquo;Most Inked&rdquo; sorts by them.
+              </p>
+            </EducationCard>
+          </div>
+        ))}
 
-        {/* Education card — shown once, dismissible; not on top of the resubscribe banner */}
-        {!(session?.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed) && (
-        <div className="mx-auto max-w-7xl px-4">
-          <EducationCard
-            storageKey="inkwell-edu-explore-card-v2"
-            heading="Discover the community"
-            learnMoreHref="/guide#interaction"
-            serverDismissed={((session?.user?.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-explore-card-v2")}
-          >
-            <p>
-              Explore shows all public entries from Inkwell writers and the
-              fediverse (Mastodon and other connected platforms). Click the <strong>ink drop</strong> icon on entries you
-              think deserve more readers — the most-inked entries appear in{" "}
-              <strong>Trending This Week</strong> above, and you can sort
-              by &ldquo;Most Inked&rdquo; to find community favorites.
-            </p>
-          </EducationCard>
-        </div>
-        )}
-
-        {/* Trending This Week */}
+        {/* Most inked this month (hidden when nothing qualifies) */}
         {trending.length > 0 && (
           <div className="mx-auto max-w-7xl px-4 pb-4">
             <h2
@@ -294,7 +292,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                 letterSpacing: "0.1em",
               }}
             >
-              Trending This Week
+              Most inked this month
             </h2>
             <div
               className="flex gap-3 overflow-x-auto pb-2"

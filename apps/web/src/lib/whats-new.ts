@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-feed-paging",
+    date: "2026-09-25",
+    title: "Feed and Explore keep going",
+    body: "Explore stopped after the newest 40 entries and your Feed after a couple of pages, so older writing was out of reach. Both now scroll back through everything. Muted words no longer make the Feed stop early, and a bug that could stop the Feed loading when someone you follow reprinted a post is fixed. On Explore, “Trending This Week”, which almost never had enough inks to appear, is now “Most inked this month”.",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-25-sharing",
     date: "2026-09-25",
     title: "Your posts look good when you share them",

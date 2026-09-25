@@ -378,8 +378,13 @@ export function JournalFeed({
       const sep = loadMorePath.includes("?") ? "&" : "?";
       const res = await fetch(`${loadMorePath}${sep}page=${nextPage}`);
       if (res.ok) {
-        const { data } = await res.json();
-        if (!data || data.length < 20) setHasMore(false);
+        const { data, pagination } = await res.json();
+        // The API says whether there's more; a short page means the end only
+        // for endpoints that don't say.
+        const more = typeof pagination?.has_more === "boolean"
+          ? pagination.has_more
+          : !!data && data.length >= 20;
+        if (!more || !data || data.length === 0) setHasMore(false);
         if (data && data.length > 0) {
           setEntries((prev) => {
             const ids = new Set(prev.map((e) => e.id));

@@ -1,7 +1,7 @@
 defmodule InkwellWeb.FeedController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, WriterSubscriptions}
+  alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, Timeline, WriterSubscriptions}
   alias Inkwell.Avatars
   alias Inkwell.Federation.{CategoryHashtags, RemoteEntries}
   alias InkwellWeb.EntryController
@@ -9,17 +9,14 @@ defmodule InkwellWeb.FeedController do
   # GET /api/feed — authenticated reading feed (friends' + followed remote actors' entries)
   def reading_feed(conn, params) do
     user = conn.assigns.current_user
-    page = parse_int(params["page"], 1)
-    per_page = parse_int(params["per_page"], 20)
+    page = min(parse_int(params["page"], 1), Timeline.max_page())
+    per_page = min(parse_int(params["per_page"], 20), 50)
     source_filter = params["source"]
     category_filter = params["category"]
     sort_filter = params["sort"]
 
     blocked_ids = Social.get_blocked_user_ids(user.id)
     friend_ids = Social.list_friend_ids(user.id) -- blocked_ids
-
-    # Fetch extra from each source to ensure good interleaving after merge
-    fetch_count = per_page * 2
 
     subscribed_writer_ids = WriterSubscriptions.get_subscribed_writer_ids(user.id)
 
@@ -31,75 +28,79 @@ defmodule InkwellWeb.FeedController do
         nil
       end
 
-    local_entries =
-      if source_filter == "fediverse",
-        do: [],
-        else: Journals.list_feed_entries(user.id, friend_ids,
-          page: 1, per_page: fetch_count, exclude_user_ids: blocked_ids,
-          subscribed_writer_ids: subscribed_writer_ids,
-          circle_ids: Inkwell.Circles.member_circle_ids(user.id),
-          category: category_filter, sort: sort_filter,
-          exclude_stickies: EntryController.hides_stickies?(user))
-
-    remote_entries =
-      cond do
-        source_filter == "inkwell" -> []
-        is_list(category_hashtags) && category_hashtags == [] -> []
-        true ->
-          RemoteEntries.list_followed_remote_entries(user.id,
-            page: 1, per_page: fetch_count, tags: category_hashtags)
-      end
-
-    # Fetch reprints by followed users (entries they reprinted appear in our feed)
-    reprint_items =
-      if source_filter == "fediverse" do
-        []
-      else
-        Reprints.list_feed_reprints(user.id, friend_ids,
-          exclude_user_ids: blocked_ids, limit: fetch_count)
-      end
-
-    # Normalize into a common shape and merge
-    local_items = Enum.map(local_entries, fn entry ->
-      %{type: :local, entry: entry, published_at: entry.published_at, ink_count: entry.ink_count || 0}
-    end)
-
-    remote_items = Enum.map(remote_entries, fn re ->
-      %{type: :remote, entry: re, published_at: re.published_at, ink_count: (re.likes_count || 0)}
-    end)
-
-    reprint_feed_items = Enum.map(reprint_items, fn r ->
-      %{type: :reprint, reprint: r, published_at: r.reprinted_at, ink_count: 0}
-    end)
-
-    # Collect reprinted entry IDs for deduplication
-    reprinted_entry_ids = MapSet.new(reprint_items, & &1.entry_id)
-
-    all_items =
-      (local_items ++ remote_items ++ reprint_feed_items)
-      # Deduplicate: if an entry appears both as original and as reprint, keep original
-      |> Enum.reject(fn
-        %{type: :reprint, reprint: r} ->
-          Enum.any?(local_items, fn %{entry: e} -> e.id == r.entry_id end)
-        _ -> false
-      end)
-      |> then(fn items ->
-        if sort_filter == "most_inked" do
-          Enum.sort_by(items, fn i -> {i.ink_count, i.published_at} end, fn {a_ink, a_pub}, {b_ink, b_pub} ->
-            if a_ink == b_ink, do: DateTime.compare(a_pub, b_pub) != :lt, else: a_ink > b_ink
-          end)
-        else
-          Enum.sort_by(items, & &1.published_at, {:desc, DateTime})
-        end
-      end)
-      |> Enum.drop((page - 1) * per_page)
-      |> Enum.take(per_page)
-
-    # Apply user's redacted words filter
+    # Muted words are checked per source, before paging, so a hidden entry
+    # doesn't leave a short page (the web app reads a short page as the end).
     redacted_words = Redactions.get_redacted_words(user)
-    all_items =
-      if redacted_words == [], do: all_items,
-        else: Enum.reject(all_items, fn item -> Redactions.matches_redaction?(item.entry, redacted_words) end)
+    not_redacted = fn item -> not Redactions.matches_redaction?(item.entry, redacted_words) end
+    needed = page * per_page
+
+    local_source =
+      if source_filter == "fediverse" do
+        {[], true}
+      else
+        circle_ids = Inkwell.Circles.member_circle_ids(user.id)
+        hide_stickies = EntryController.hides_stickies?(user)
+
+        Timeline.take(fn offset, limit ->
+          Journals.list_feed_entries(user.id, friend_ids,
+            offset: offset, per_page: limit, exclude_user_ids: blocked_ids,
+            subscribed_writer_ids: subscribed_writer_ids,
+            circle_ids: circle_ids,
+            category: category_filter, sort: sort_filter,
+            exclude_stickies: hide_stickies)
+          |> Enum.map(&%{type: :local, entry: &1, published_at: &1.published_at, ink_count: &1.ink_count || 0})
+        end, not_redacted, needed)
+      end
+
+    remote_source =
+      cond do
+        source_filter == "inkwell" -> {[], true}
+        is_list(category_hashtags) && category_hashtags == [] -> {[], true}
+        true ->
+          Timeline.take(fn offset, limit ->
+            RemoteEntries.list_followed_remote_entries(user.id,
+              offset: offset, per_page: limit, tags: category_hashtags)
+            |> Enum.map(&%{type: :remote, entry: &1, published_at: &1.published_at, ink_count: &1.likes_count || 0})
+          end, not_redacted, needed)
+      end
+
+    # Reprints by people you follow. Reprints of entries by people you follow
+    # are left out in the query: the original is already in the feed.
+    reprint_source =
+      if source_filter == "fediverse" do
+        {[], true}
+      else
+        Timeline.take(fn offset, limit ->
+          reprints =
+            Reprints.list_feed_reprints(user.id, friend_ids,
+              exclude_user_ids: blocked_ids, exclude_author_ids: friend_ids,
+              limit: limit, offset: offset)
+
+          entries =
+            reprints
+            |> Enum.map(& &1.entry_id)
+            |> Journals.get_entries_by_ids()
+            |> Inkwell.Repo.preload(:user_icon)
+            |> Map.new(&{&1.id, &1})
+
+          for r <- reprints, entry = entries[r.entry_id], entry != nil do
+            %{type: :reprint, reprint: r, entry: entry, published_at: r.reprinted_at, ink_count: 0}
+          end
+        end, not_redacted, needed)
+      end
+
+    sorter = fn items ->
+      if sort_filter == "most_inked" do
+        Enum.sort_by(items, fn i -> {i.ink_count, i.published_at} end, fn {a_ink, a_pub}, {b_ink, b_pub} ->
+          if a_ink == b_ink, do: DateTime.compare(a_pub, b_pub) != :lt, else: a_ink > b_ink
+        end)
+      else
+        Enum.sort_by(items, & &1.published_at, {:desc, DateTime})
+      end
+    end
+
+    {all_items, has_more} =
+      Timeline.page([local_source, remote_source, reprint_source], sorter, page, per_page)
 
     # Build stamp/comment maps for local entries
     local_entry_ids =
@@ -155,10 +156,10 @@ defmodule InkwellWeb.FeedController do
           is_paid: entry.privacy == :paid
         })
 
-      %{type: :reprint, reprint: r} ->
-        # Fetch the full entry for rendering
-        entry = Journals.get_entry!(r.entry_id)
-        author = r.author
+      %{type: :reprint, reprint: r, entry: entry} ->
+        # The full user row: the reprint query's author map lacks fields
+        # rendered below, which made any reprint crash the whole Feed.
+        author = entry.user
 
         entry
         |> EntryController.render_entry()
@@ -237,7 +238,7 @@ defmodule InkwellWeb.FeedController do
 
     json(conn, %{
       data: data,
-      pagination: %{page: page, per_page: per_page}
+      pagination: %{page: page, per_page: per_page, has_more: has_more}
     })
   end
 

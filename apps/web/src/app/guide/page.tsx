@@ -228,7 +228,7 @@ export default function GuidePage() {
             Unlike stamps (which express how something made you feel), inks are
             a discovery signal — they help surface great writing on Inkwell.
             The most-inked entries appear in the{" "}
-            <strong>Trending This Week</strong> section on Explore, and you can
+            <strong>Most inked this month</strong> row on Explore, and you can
             sort Explore by &ldquo;Most Inked&rdquo; to find community favorites.
             Inks are an Inkwell-native feature and stay within the platform;
             when someone on Mastodon favorites your entry, it counts as an ink.

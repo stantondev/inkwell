@@ -97,7 +97,7 @@ defmodule Inkwell.Federation.RemoteEntries do
         |> where([e], not is_nil(e.published_at))
         |> order_by(desc: :published_at)
         |> limit(^per_page)
-        |> offset(^((page - 1) * per_page))
+        |> offset(^Keyword.get(opts, :offset, (page - 1) * per_page))
         |> preload(:remote_actor)
 
       query =
@@ -128,7 +128,7 @@ defmodule Inkwell.Federation.RemoteEntries do
       |> where([e], not is_nil(e.published_at))
       |> order_by(desc: :published_at)
       |> limit(^per_page)
-      |> offset(^((page - 1) * per_page))
+      |> offset(^Keyword.get(opts, :offset, (page - 1) * per_page))
       |> preload(:remote_actor)
 
     query =

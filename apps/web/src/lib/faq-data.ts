@@ -177,7 +177,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "stamps-vs-inks",
     question: "What is the difference between stamps and inks?",
     answer:
-      "<strong>Stamps</strong> express how an entry made you feel (reaction). <strong>Inks</strong> signal \"more people should read this\" (discovery). Think of stamps as personal and inks as a recommendation. The most-inked entries appear in Trending on Explore.",
+      "<strong>Stamps</strong> express how an entry made you feel (reaction). <strong>Inks</strong> signal \"more people should read this\" (discovery). Think of stamps as personal and inks as a recommendation. The most-inked entries of the month appear at the top of Explore.",
     category: "social",
   },
   {

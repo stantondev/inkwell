@@ -181,7 +181,7 @@ export default function GettingStartedPage() {
           </p>
           <p>
             <strong>Inks.</strong> Ink entries to help surface great writing for the community.
-            The most-inked entries appear in the &ldquo;Trending This Week&rdquo; section on Explore.
+            The most-inked entries appear in the &ldquo;Most inked this month&rdquo; row on Explore.
           </p>
           <p>
             <strong>Reprints.</strong> Share entries with your followers like a repost. You can do

@@ -179,6 +179,14 @@ defmodule Inkwell.Reprints do
     # Exclude reprinter's own entries (you'd already see them in your feed)
     query = where(query, [r, e], e.user_id != ^user_id)
 
+    # Entries by authors the feed already shows in full (the people you
+    # follow): the original is in the feed, so its reprint would repeat it.
+    query =
+      case Keyword.get(opts, :exclude_author_ids, []) do
+        [] -> query
+        ids -> where(query, [r, e], e.user_id not in ^ids)
+      end
+
     # Exclude blocked user entries
     query =
       if exclude_user_ids != [] do
