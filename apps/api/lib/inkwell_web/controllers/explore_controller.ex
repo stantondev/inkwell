@@ -3,7 +3,7 @@ defmodule InkwellWeb.ExploreController do
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, Timeline, WriterSubscriptions}
   alias Inkwell.Avatars
-  alias Inkwell.Federation.{CategoryHashtags, ContentQuality, Engagement, RemoteEntries}
+  alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/explore — public discovery feed with local + federated entries
@@ -137,10 +137,14 @@ defmodule InkwellWeb.ExploreController do
         %{}
       end
 
-    # Replies/boosts/favourites from the post's home server + what members did.
-    remote_entries = for %{type: :remote, entry: re} <- all_items, do: re
-    remote_counts = Engagement.summaries(remote_entries, viewer && viewer.id)
-    Engagement.refresh_stale(remote_entries)
+    remote_ink_counts = Inks.count_inks_for_remote_entries(remote_entry_ids)
+
+    remote_inks_set =
+      if viewer do
+        Inks.get_user_inks_for_remote_entries(viewer.id, remote_entry_ids)
+      else
+        MapSet.new()
+      end
 
     reprints_set =
       if viewer do
@@ -150,6 +154,16 @@ defmodule InkwellWeb.ExploreController do
       end
 
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
+    remote_reprints_set =
+      if viewer do
+        Reprints.get_user_reprints_for_remote_entries(viewer.id, remote_entry_ids)
+      else
+        MapSet.new()
+      end
+
+    remote_reprint_counts = Reprints.count_reprints_for_remote_entries(remote_entry_ids)
+
+    remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
 
     bookmarks_set =
@@ -238,12 +252,12 @@ defmodule InkwellWeb.ExploreController do
           },
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
-          comment_count: remote_counts[re.id].comment_count,
-          ink_count: remote_counts[re.id].ink_count,
-          reprint_count: remote_counts[re.id].reprint_count,
-          boosts_count: remote_counts[re.id].boosts_count,
-          my_ink: remote_counts[re.id].my_ink,
-          my_reprint: remote_counts[re.id].my_reprint,
+          comment_count: max(re.reply_count || 0, Map.get(remote_comment_counts, re.id, 0)),
+          ink_count: Map.get(remote_ink_counts, re.id, 0) + (re.likes_count || 0),
+          reprint_count: Map.get(remote_reprint_counts, re.id, 0) + (re.reprint_count || 0),
+          boosts_count: re.boosts_count || 0,
+          my_ink: MapSet.member?(remote_inks_set, re.id),
+          my_reprint: MapSet.member?(remote_reprints_set, re.id),
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,
