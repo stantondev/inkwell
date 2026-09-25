@@ -263,7 +263,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Education card — shown once, dismissible */}
+        {/* Education card — shown once, dismissible; not on top of the resubscribe banner */}
+        {!(session?.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed) && (
         <div className="mx-auto max-w-7xl px-4">
           <EducationCard
             storageKey="inkwell-edu-explore-card-v2"
@@ -280,6 +281,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             </p>
           </EducationCard>
         </div>
+        )}
 
         {/* Trending This Week */}
         {trending.length > 0 && (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SessionUser } from "@/lib/session";
 import { BackButton } from "./back-button";
+import { PublicNavLinks } from "./public-nav-links";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -22,7 +23,8 @@ function InkwellLogo() {
 // Nav — server component, receives real user from layout
 //
 // Logged-in mobile (<lg): logo only — bottom tab bar handles all navigation
-// Logged-out (all sizes): logo + Sign in / Get started
+// Logged-out (all sizes): logo + Explore/Gazette/About + Sign in / Get started
+// (phones keep Explore only, as an icon + word)
 // ---------------------------------------------------------------------------
 export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null; hideAuthLinks?: boolean }) {
   return (
@@ -35,16 +37,22 @@ export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null;
           <InkwellLogo />
         </div>
 
-        {/* Right: actions — logged-out only (logged-in uses bottom tab bar) */}
-        {!user && !hideAuthLinks && (
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-medium transition-colors"
-              style={{ color: "var(--muted)" }}>Sign in</Link>
-            <Link href="/get-started"
-              className="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors"
-              style={{ background: "var(--accent)", color: "#fff" }}>
-              Get started
-            </Link>
+        {/* Right: where to look + Sign in / Get started (signed-out only;
+            signed-in phones use the tab bar) */}
+        {!user && (
+          <div className="flex items-center gap-2 sm:gap-4">
+            <PublicNavLinks />
+            {!hideAuthLinks && (
+              <>
+                <Link href="/login" className="text-sm font-medium transition-colors hover:text-[var(--foreground)]"
+                  style={{ color: "var(--muted)" }}>Sign in</Link>
+                <Link href="/get-started"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: "var(--accent)", color: "var(--background)" }}>
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         )}
       </nav>

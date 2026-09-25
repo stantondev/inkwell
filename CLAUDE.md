@@ -1373,7 +1373,8 @@ Fixed 260px left sidebar styled as a book's "Table of Contents" — Roman numera
   - **III. Your journal**: Drafts (quiet count badge), Posts, Bookmarks, Readers
   - **IV. Community**: Polls, Roadmap, Send feedback, + the active poll widget if unvoted (folded heading shows a "poll open" pill)
 - **Footer** (fixed): "Inkwell Plus" card for non-Plus (not self-hosted), then the **account button** (avatar, name, What's-new dot, ⋯). It opens `.account-menu` (portal, fixed above the button; Esc/outside click close, focus returns): Your journal page, Settings, **Look: Modern | Classic** (`LookSwitch variant="menu"`, a segmented control), What's new, Help, Invite friends, "Keep the ink flowing" (non-supporters only, `isSupporter`), Admin, Hide sidebar (⌘\), Sign out.
-- Hidden state unchanged: `Cmd/Ctrl + \`, `data-sidebar-hidden`, reveal tab at the left edge, hidden in focus mode.
+- Hidden: `Cmd/Ctrl + \` or the icon by the logo; `data-sidebar-hidden`. A labelled **Menu** pill (`.sidebar-reveal-tab`, fixed top-left, with the unread count) brings it back; it replaced a 14px half-transparent tab at the left edge that a member couldn't find (2026-09-25). Hidden in focus mode.
+- **Feed shows one notice at a time** (`feedNotice` in `app/feed/page.tsx`): resubscribe → getting-started checklist → welcome card → What's new → push prompt. New Feed notices go into that order, not stacked beside it.
 - **Adding a destination**: put it in the section it belongs to only if people go there often; anything about the account or a preference goes in the account menu (and the You sheet on phones). Don't add rows under the account button.
 
 Key files:
@@ -1382,12 +1383,9 @@ Key files:
 - `apps/web/src/components/sidebar-nav.tsx` — client component: sections, live badges, account menu, hidden state, reveal tab portal
 - `apps/web/src/components/look-switch.tsx` — Modern/Classic segmented control (`variant` `menu` | `sheet`)
 
-### Top Nav (< 1024px logged-in, or all sizes logged-out)
-- Hidden at ≥1024px for logged-in users via `AppShell` wrapping in `lg:hidden`
-- **Left**: Inkwell logo → `/`
-- **Center** (≥640px, logged-in): Feed, Explore, Pen Pals, Bookmarks, Roadmap, Settings, ✦ Plus (if free), Admin (if admin)
-- **Right** (logged-in): Hamburger menu (with red dot when unread notifications), Write button, Badge counts, Profile avatar, Sign out
-- **Right** (logged-out): Sign in, Get started
+### Top Nav (signed-out, all sizes)
+- `components/nav.tsx`: logo, then `PublicNavLinks` (Explore · Gazette · About, active link in accent; below 640px only Explore, and below 380px just its compass icon), then Sign in and Get started. Added 2026-09-25: before that the bar had only Sign in / Get started, so a visitor landing on one entry from search had no way to the rest of Inkwell except the footer.
+- Signed-in phones use `MobileTopBar` + `BottomTabBar` instead (see Mobile Navigation).
 
 ### Mobile (<1024px, logged-in)
 - See "Mobile Navigation (Mobile 2.0)" above: top bar (back · logo · Letters · Search) and tab bar (Feed · Explore · Write · Alerts · You).

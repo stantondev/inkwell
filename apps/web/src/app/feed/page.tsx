@@ -8,6 +8,7 @@ import { JournalFeed } from "@/components/journal-feed";
 import { JotPrompt } from "@/components/jot-prompt";
 import { EducationCard } from "@/components/education-card";
 import { WhatsNewNotice } from "@/components/whats-new-state";
+import { LATEST_WHATS_NEW_ID } from "@/lib/whats-new";
 import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { PushPrompt } from "@/components/push-prompt";
 import { ResubscribeBanner } from "@/components/resubscribe-banner";
@@ -298,6 +299,19 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const accountAgeDays = (Date.now() - new Date(session.user.created_at).getTime()) / 86_400_000;
   const showGettingStarted = accountAgeDays < 30 && !session.user.settings?.getting_started_dismissed;
 
+  // One notice above the feed at a time. Up to five used to stack here
+  // (resubscribe, checklist or What's new, push prompt, welcome card), which on
+  // a phone pushed the first entry below the fold. The rest wait their turn:
+  // dismissing one shows the next on a later visit.
+  const settings = session.user.settings ?? {};
+  const eduFeedDismissed = ((settings.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-feed-card");
+  const feedNotice: "resubscribe" | "checklist" | "welcome" | "whats-new" | "push" =
+    session.user.needs_resubscribe && !settings.resubscribe_banner_dismissed ? "resubscribe"
+    : showGettingStarted ? "checklist"
+    : !eduFeedDismissed ? "welcome"
+    : settings.whats_new_seen !== LATEST_WHATS_NEW_ID ? "whats-new"
+    : "push";
+
   const { page: pageParam, source, category, sort } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
 
@@ -491,33 +505,32 @@ export default async function FeedPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* Re-subscribe banner for former Stripe subscribers */}
-        <div className="mx-auto max-w-7xl px-4">
-          <ResubscribeBanner
-            needsResubscribe={session.user.needs_resubscribe}
-            serverDismissed={!!session.user.settings?.resubscribe_banner_dismissed}
-          />
-        </div>
-
-        {/* First month: a short checklist. Afterwards: what's new since they last looked. */}
-        <div className="mx-auto max-w-7xl px-4">
-          {showGettingStarted ? (
+        {/* The one notice (see feedNotice above) */}
+        {feedNotice === "resubscribe" && (
+          <div className="mx-auto max-w-7xl px-4">
+            <ResubscribeBanner needsResubscribe={session.user.needs_resubscribe} serverDismissed={false} />
+          </div>
+        )}
+        {feedNotice === "checklist" && (
+          <div className="mx-auto max-w-7xl px-4">
             <GettingStartedChecklist username={session.user.username} />
-          ) : (
-            <WhatsNewNotice serverSeen={session.user.settings?.whats_new_seen as string | undefined} />
-          )}
-        </div>
-
-        {/* Push notification prompt — shown once, dismissible */}
-        <PushPrompt serverDismissed={!!session.user.settings?.push_prompt_dismissed} />
-
-        {/* Education card — shown once, dismissible */}
+          </div>
+        )}
+        {feedNotice === "whats-new" && (
+          <div className="mx-auto max-w-7xl px-4">
+            <WhatsNewNotice serverSeen={settings.whats_new_seen as string | undefined} />
+          </div>
+        )}
+        {feedNotice === "push" && (
+          <PushPrompt serverDismissed={!!settings.push_prompt_dismissed} />
+        )}
+        {feedNotice === "welcome" && (
         <div className="mx-auto max-w-7xl px-4">
           <EducationCard
             storageKey="inkwell-edu-feed-card"
             heading="Welcome to your Feed"
             learnMoreHref="/guide#feed-explore"
-            serverDismissed={((session.user.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-feed-card")}
+            serverDismissed={false}
           >
             <p>
               Your Feed shows journal entries from writers you follow, your pen
@@ -530,6 +543,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </p>
           </EducationCard>
         </div>
+        )}
 
         {/* Journal area */}
         <JournalFeed

@@ -22,7 +22,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     date: "2026-09-24",
     title: "A tidier sidebar",
     body: "The sidebar had grown to about thirty rows. Now it holds the places you go, in four short sections (Read, Correspondence, Your journal, Community), and each section folds up and remembers it. Everything about you (your journal page, Settings, Modern or Classic look, What’s new, Help, Invite friends, Sign out) is in one menu that opens from your name at the bottom.",
-    howTo: "Click your name at the bottom of the sidebar. Click a section’s heading to fold it.",
+    howTo: "Click your name at the bottom of the sidebar. Click a section’s heading to fold it. If you hide the sidebar, a Menu button at the top left brings it back. Only one notice now sits above your Feed at a time.",
     tag: "Reading",
   },
   {

@@ -58,7 +58,6 @@ function FeedbackIcon() { return <svg {...iconProps}><path d="M21 15a2 2 0 0 1-2
 function StarIcon() { return <svg {...iconProps}><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6l-5 3.6 1.9-5.8L4 8.8h6.1z" /></svg>; }
 function DropIcon() { return <svg {...iconProps} fill="currentColor" stroke="none"><path d="M12 2C12 2 4 8.5 4 14a8 8 0 0 0 16 0c0-5.5-8-12-8-12Z" /></svg>; }
 function SidebarIcon() { return <svg {...iconProps}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M15 10l-2 2 2 2" /></svg>; }
-function RevealIcon() { return <svg {...iconProps} width="10" height="10"><path d="M9 18l6-6-6-6" /></svg>; }
 function ChevronIcon() { return <svg {...iconProps} width="12" height="12"><path d="M6 9l6 6 6-6" /></svg>; }
 function MoreIcon() { return <svg {...iconProps}><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>; }
 
@@ -404,7 +403,10 @@ export function SidebarNav({
         document.body,
       )}
 
-      {/* ─── Reveal tab when hidden ─── */}
+      {/* ─── Show button when hidden ───
+          Was a 14px half-transparent tab at the left edge, vertically centred,
+          and people who hid the sidebar couldn't find the way back. Now a
+          labelled button where the logo was, with the unread count. */}
       {mounted && createPortal(
         <button
           className="sidebar-reveal-tab hidden lg:flex"
@@ -412,8 +414,15 @@ export function SidebarNav({
           aria-label={`Show sidebar (${shortcutHint})`}
           title={`Show sidebar (${shortcutHint})`}
           tabIndex={hidden ? 0 : -1}
+          aria-hidden={!hidden}
         >
-          <RevealIcon />
+          <SidebarIcon />
+          <span>Menu</span>
+          {unreadNotificationCount + unreadLetterCount > 0 && (
+            <span className="sidebar-reveal-badge">
+              {unreadNotificationCount + unreadLetterCount > 99 ? "99+" : unreadNotificationCount + unreadLetterCount}
+            </span>
+          )}
         </button>,
         document.body,
       )}
