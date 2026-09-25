@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { getSessionSafe } from "@/lib/session";
 import { siteLookOf } from "@/lib/site-look";
+import { splashStartupImages } from "@/lib/splash-screens";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const lora = Lora({ variable: "--font-lora", subsets: ["latin"], display: "swap" });
@@ -45,6 +46,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Inkwell",
+    // Launch screens for the installed app, light and dark, per screen size
+    // (drawn by /api/splash). Without them iOS opens on a blank white screen.
+    startupImage: splashStartupImages(),
   },
 };
 
