@@ -43,6 +43,19 @@ interface JournalFeedProps {
   look?: "modern" | "classic";
 }
 
+/**
+ * A post short enough to leave most of a phone page blank (a few lines, at
+ * most a picture). The mobile reader sets it like a short poem in a book: centred
+ * on the page in larger type, instead of a tall card that is mostly empty.
+ */
+function isShortPost(entry: JournalEntry): boolean {
+  if (entry.quoted_entry) return false;
+  const html = entry.body_html || "";
+  if (/<(video|audio|iframe|table|pre)\b|data-photo-gallery/i.test(html)) return false;
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+  return text.length > 0 && text.length <= 360;
+}
+
 export function JournalFeed({
   entries: initialEntries,
   page,
@@ -634,7 +647,7 @@ export function JournalFeed({
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
         {entries.map((entry) => (
-          <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : ""}`}>
+          <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : isShortPost(entry) ? " mobile-book-page-short" : ""}`}>
             {renderCard(entry, true)}
           </div>
         ))}

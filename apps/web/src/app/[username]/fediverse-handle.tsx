@@ -28,7 +28,7 @@ export function FediverseHandle({
   return (
     <button
       onClick={copyHandle}
-      className="inline-flex items-center gap-1 text-xs mt-0.5 transition-opacity hover:opacity-80"
+      className="inline-flex flex-wrap items-center gap-1 text-xs mt-0.5 transition-opacity hover:opacity-80 max-w-full text-left"
       style={{ color: mutedColor }}
       title={copied ? "Copied!" : "Copy handle. Use this to follow from Mastodon or other platforms."}
     >
@@ -37,7 +37,7 @@ export function FediverseHandle({
         <line x1="2" y1="12" x2="22" y2="12"/>
         <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
       </svg>
-      <span>{handle}</span>
+      <span className="[overflow-wrap:anywhere] min-w-0">{handle}</span>
       {copied ? (
         <span style={{ color: accentColor }} className="font-medium">Copied!</span>
       ) : (

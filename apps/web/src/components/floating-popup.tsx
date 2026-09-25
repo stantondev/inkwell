@@ -27,6 +27,8 @@ export function FloatingPopup({
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: -9999, left: -9999, maxHeight: 9999 });
   const [visible, setVisible] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
@@ -35,29 +37,35 @@ export function FloatingPopup({
 
     const ar = anchor.getBoundingClientRect();
     const pr = popup.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    // The part of the screen actually visible. On a phone with the keyboard
+    // up that's much less than the window (iOS lays the keyboard over the
+    // page), and a popup positioned against the full window hid behind it.
+    const vv = window.visualViewport;
+    const minX = (vv?.offsetLeft ?? 0) + 8;
+    const minY = (vv?.offsetTop ?? 0) + 8;
+    const maxX = (vv ? vv.offsetLeft + vv.width : window.innerWidth) - 8;
+    const maxY = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 8;
 
     // Horizontal: try to right-align to anchor, fall back to left-align, clamp
     let left = ar.right - pr.width;
-    if (left < 8) left = ar.left;
-    left = Math.max(8, Math.min(left, vw - pr.width - 8));
+    if (left < minX) left = ar.left;
+    left = Math.max(minX, Math.min(left, maxX - pr.width));
 
     // Vertical
     let top: number;
     if (placement === "top") {
       top = ar.top - pr.height - 8;
-      if (top < 8) top = ar.bottom + 8; // flip to bottom
+      if (top < minY) top = ar.bottom + 8; // flip to bottom
     } else {
       top = ar.bottom + 8;
-      if (top + pr.height > vh - 8) top = ar.top - pr.height - 8; // flip to top
+      if (top + pr.height > maxY) top = ar.top - pr.height - 8; // flip to top
     }
 
-    // Clamp to viewport bounds so popup never extends off-screen
-    top = Math.max(8, Math.min(top, vh - pr.height - 8));
+    // Clamp to the visible area so the popup never extends off-screen
+    top = Math.max(minY, Math.min(top, maxY - pr.height));
 
     // Compute max height so content scrolls if it can't fit
-    const computedMaxHeight = vh - top - 8;
+    const computedMaxHeight = maxY - top;
 
     setPos({ top, left, maxHeight: computedMaxHeight });
     setVisible(true);
@@ -78,11 +86,24 @@ export function FloatingPopup({
     const handleUpdate = () => updatePosition();
     window.addEventListener("scroll", handleUpdate, true);
     window.addEventListener("resize", handleUpdate);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", handleUpdate);
+    vv?.addEventListener("scroll", handleUpdate);
+    // Content that arrives after opening (comments loading) changes the
+    // popup's size; measure again rather than growing over the anchor.
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleUpdate) : null;
+    if (popupRef.current) ro?.observe(popupRef.current);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
+    window.addEventListener("keydown", onKey);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", handleUpdate, true);
       window.removeEventListener("resize", handleUpdate);
+      vv?.removeEventListener("resize", handleUpdate);
+      vv?.removeEventListener("scroll", handleUpdate);
+      ro?.disconnect();
+      window.removeEventListener("keydown", onKey);
     };
   }, [open, updatePosition]);
 
@@ -125,6 +146,7 @@ export function FloatingPopup({
         zIndex: 9999,
         visibility: visible ? "visible" : "hidden",
         overflowY: "auto",
+        maxWidth: "calc(100vw - 16px)",
         ...restStyle,
         maxHeight: clampedMaxHeight,
       }}

@@ -111,8 +111,8 @@ export function FollowButton({
     return (
       <button
         onClick={handleRemove}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setHovered(true); }}
+        onPointerLeave={() => setHovered(false)}
         className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
         style={{
           borderColor: hovered ? "var(--danger, #ef4444)" : "var(--accent)",
@@ -130,8 +130,8 @@ export function FollowButton({
     return (
       <button
         onClick={handleCancel}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setHovered(true); }}
+        onPointerLeave={() => setHovered(false)}
         className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
         style={{ borderColor: "var(--border)", color: "var(--muted)" }}
       >

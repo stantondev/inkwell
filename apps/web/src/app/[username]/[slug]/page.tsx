@@ -515,7 +515,7 @@ function QuotedPostEmbed({ quoted }: { quoted: NonNullable<EntryData["quoted_ent
 
       {quoted.body_html && (
         <div
-          className="prose-entry reprint-quoted-body"
+          className="prose-entry reprint-quoted-body reprint-quoted-body-full"
           dangerouslySetInnerHTML={{ __html: quoted.body_html }}
         />
       )}

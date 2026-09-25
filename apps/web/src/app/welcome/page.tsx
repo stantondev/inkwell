@@ -1311,7 +1311,7 @@ export default function WelcomePage() {
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
                     Send pen pal requests to see their entries in your feed. You can always find more on Explore.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {suggestedUsers.map((u) => {
                       const followed = followedIds.has(u.id);
                       const inFlight = followingIds.has(u.id);

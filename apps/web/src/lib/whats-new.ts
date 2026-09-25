@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-mobile-polish",
+    date: "2026-09-25",
+    title: "Phones: short posts look like pages, and a round of small fixes",
+    body: "A post of a few lines used to sit at the top of a tall, mostly empty card on a phone. Now it's set in the middle of the page in larger type, like a short poem in a book. Also: bigger buttons in the editor, comments and letters; pop-up menus stay above the keyboard and close with Escape; quoted posts no longer scroll inside the page; tap a day in Readers to see its count; long fediverse handles wrap; and sheets fit iPhone screens properly.",
+    tag: "Mobile",
+  },
+  {
     id: "2026-09-25-mobile-scroll",
     date: "2026-09-25",
     title: "Phones: no more getting stuck in a post",

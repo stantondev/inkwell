@@ -18,7 +18,7 @@ function formatDay(iso: string): string {
   });
 }
 
-/** Reads per day as thin bars. Hover or focus a day for its count. */
+/** Reads per day as thin bars. Hover, tap or focus a day for its count. */
 export function ReadsChart({ daily }: { daily: Day[] }) {
   const [active, setActive] = useState<number | null>(null);
   const max = Math.max(1, ...daily.map((d) => d.reads));
@@ -52,6 +52,7 @@ export function ReadsChart({ daily }: { daily: Day[] }) {
               key={d.day}
               className="flex-1 h-full flex items-end cursor-default"
               onMouseEnter={() => setActive(i)}
+              onClick={() => setActive((a) => (a === i ? null : i))}
               onFocus={() => setActive(i)}
               onBlur={() => setActive(null)}
               tabIndex={0}

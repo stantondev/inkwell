@@ -1813,9 +1813,18 @@ a.mention:hover,
 }
 .reprint-quoted-body {
   padding: 0.5rem 1rem 0;
+  /* Was a 400px scroll box with a hidden scrollbar: it trapped scrolling on
+     phones and hid that the text went on. Now it fades out (the card links
+     to the full entry); the entry page shows the whole post. */
   max-height: 400px;
-  overflow-y: auto;
-  scrollbar-width: none;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+.reprint-quoted-body-full {
+  max-height: none;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .reprint-quoted-body::-webkit-scrollbar {
   display: none;
@@ -3429,6 +3438,7 @@ body.eye-comfort .editor-paper::before {
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     max-height: 85vh;
+    max-height: 85dvh;
     display: flex;
     flex-direction: column;
     animation: editor-settings-sheet-slide-up 0.25s ease;
@@ -3971,9 +3981,11 @@ body:has(.letter-page-wrapper) .site-footer {
   z-index: 61;
   left: 50%;
   top: 12vh;
+  top: max(12dvh, calc(env(safe-area-inset-top) + 16px));
   transform: translateX(-50%);
   width: min(440px, calc(100vw - 32px));
   max-height: 72vh;
+  max-height: 72dvh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -11479,6 +11491,8 @@ a.comment-author-name:hover {
   justify-content: space-around;
   height: calc(56px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   background: var(--surface);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(12px);
@@ -11609,7 +11623,7 @@ body[data-focus-mode] .mobile-top-bar-shell {
   align-items: center;
   justify-content: space-between;
   height: 57px;
-  padding: 0 4px;
+  padding: 0 max(4px, env(safe-area-inset-right)) 0 max(4px, env(safe-area-inset-left));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -12119,6 +12133,31 @@ button.bottom-tab-item { font: inherit; }
 .mobile-book-page .journal-book-entry-body {
   flex: 1 0 auto;
   overflow: visible;
+  /* A post shorter than the page sits in the middle of it, so the spare
+     paper is shared above and below instead of pooling at the bottom.
+     Longer posts are unaffected (nothing to centre). */
+  justify-content: center;
+}
+
+/* Short posts on phones (journal-feed.tsx isShortPost): set like a short poem
+   on a book page, centred in larger type, rather than a tall card that is
+   mostly blank paper. */
+.mobile-book-page-short .journal-book-entry-body {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+.mobile-book-page-short .journal-book-entry-body .prose-entry {
+  font-size: 1.25rem;
+  line-height: 1.7;
+}
+.mobile-book-page-short .journal-book-entry-body::after {
+  content: "\2766";
+  display: block;
+  text-align: center;
+  margin-top: 1.75rem;
+  color: var(--muted);
+  opacity: 0.45;
+  font-size: 1.1rem;
 }
 
 .mobile-book-sentinel {
@@ -14890,11 +14929,12 @@ a, button, [role="tab"], [role="button"] {
     position: relative;
     width: 100%;
     max-height: 70vh;
+    max-height: 70dvh;
     background: var(--surface);
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.25);
-    padding: 12px 16px 24px;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -16817,4 +16857,37 @@ body[data-look="classic"] .entry-current-label {
   justify-content: center;
   pointer-events: none;
   overflow: hidden;
+}
+
+/* ── Mobile fixes, batch 2 (2026-09-25) ─────────────────────────────── */
+
+/* 100vh is taller than what iOS Safari shows while its toolbar is up, so
+   "centred" pages (sign-in, welcome, invites) sat low and scrolled a bit.
+   Tailwind's min-h-screen / h-screen are 100vh; use the visible height.
+   Phones and tablets only: this plain rule outranks Tailwind's layered
+   utilities, and the app shell pairs min-h-screen with lg:min-h-0. */
+@media (max-width: 1023px) {
+  .min-h-screen { min-height: 100vh; min-height: 100dvh; }
+  .h-screen { height: 100vh; height: 100dvh; }
+}
+
+@media (pointer: coarse) {
+  /* Primary buttons that were 22-34px on phones */
+  .editor-back-link { width: 44px; height: 44px; }
+  .editor-save-draft-btn,
+  .editor-settings-toggle { min-height: 40px; }
+  .comment-editor-submit { min-height: 38px; padding-left: 18px; padding-right: 18px; }
+  .letter-editor-btn { min-width: 36px; min-height: 36px; }
+  .ink-toast-close { width: 40px; height: 40px; margin: 4px 4px 0 0; }
+  .set-quick-unpin { width: 36px; height: 36px; top: 4px; right: 4px; opacity: 0.8; }
+}
+
+/* Touch screens have no hover, and the tap highlight is turned off, so give
+   a pressed state instead of nothing. */
+@media (hover: none) {
+  button:not(:disabled):active,
+  [role="button"]:active,
+  a:active {
+    opacity: 0.65;
+  }
 }
