@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { decodeEntities } from "@/lib/decode-entities";
-import { PenNibIcon, truncate, ogFonts } from "../../../og-shared";
+import { PenNibIcon, truncate, ogFonts, fetchImageDataUri } from "../../../og-shared";
 
 /**
  * The link-preview picture for an entry or sticky (og:image / twitter:image).
@@ -11,6 +11,11 @@ import { PenNibIcon, truncate, ogFonts } from "../../../og-shared";
  * else — Facebook often drops the description entirely — so an entry with no
  * cover photo used to share as a bare grey link. This draws the writing itself
  * on a page: title, the opening lines, who wrote it and when.
+ *
+ * An entry with a cover photo gets the photo, full bleed, with the title and
+ * byline over it. Drawing it here (rather than pointing og:image at the raw
+ * upload) means every preview is 1200×630 with its size declared, which
+ * Facebook needs to show a picture on a link's very first share.
  *
  * It fetches the entry the way a signed-out reader would, so only public posts
  * ever render; anything else gets the plain Inkwell card. Posts behind a
@@ -37,6 +42,7 @@ interface EntryPayload {
   excerpt?: string | null;
   excerpt_custom?: boolean;
   published_at: string | null;
+  cover_image_id?: string | null;
   word_count?: number | null;
   mood?: string | null;
   kind?: string;
@@ -85,20 +91,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 async function fetchAvatar(username: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${SERVER_API}/api/avatars/${encodeURIComponent(username)}`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!res.ok) return null;
-    const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-    // Satori decodes PNG and JPEG reliably; anything else is skipped rather than risked.
-    if (type !== "image/jpeg" && type !== "image/png") return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > 2_000_000) return null;
-    return `data:${type};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
+  return fetchImageDataUri(`${SERVER_API}/api/avatars/${encodeURIComponent(username)}`, 2_000_000);
 }
 
 function Byline({
@@ -374,6 +367,89 @@ function StickyImage({
   );
 }
 
+function CoverImage({
+  cover,
+  title,
+  body,
+  avatar,
+  name,
+  handle,
+  meta,
+  site,
+}: {
+  cover: string;
+  title: string | null;
+  body: string;
+  avatar: string | null;
+  name: string;
+  handle: string;
+  meta: string;
+  site: string;
+}) {
+  const heading = title || truncate(body, 120);
+  const headingSize = heading.length > 70 ? 44 : heading.length > 40 ? 52 : 60;
+  return (
+    <div style={{ display: "flex", width: "100%", height: "100%", position: "relative", fontFamily: "Lora", backgroundColor: "#1f1b16" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={cover} width={W} height={H} style={{ position: "absolute", top: 0, left: 0, width: W, height: H, objectFit: "cover" }} />
+      {/* Darken the lower part so the words read on any photo */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 400,
+          backgroundImage: "linear-gradient(to bottom, rgba(20,16,12,0) 0%, rgba(20,16,12,0.62) 45%, rgba(20,16,12,0.9) 100%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 30,
+          right: 34,
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: "rgba(253,250,243,0.92)",
+          borderRadius: 40,
+          padding: "8px 20px 8px 14px",
+        }}
+      >
+        <SiteMark label={site} />
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 56,
+          right: 56,
+          bottom: 40,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            display: "block",
+            fontSize: headingSize,
+            fontWeight: 700,
+            color: "#ffffff",
+            lineHeight: 1.15,
+            lineClamp: 2,
+            marginBottom: 24,
+            textShadow: "0 2px 12px rgba(0,0,0,0.35)",
+          }}
+        >
+          {truncate(heading, 110)}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <Byline avatar={avatar} name={name} handle={handle} size={58} ink="#ffffff" muted="rgba(255,255,255,0.78)" />
+          {meta && <span style={{ fontSize: 20, color: "rgba(255,255,255,0.8)" }}>{meta}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlainCard() {
   return (
     <div
@@ -430,8 +506,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
   const date = formatDate(entry.published_at);
   const isSticky = entry.kind === "sticky";
 
+  // A cover photo leads, unless the post is behind a content warning (the
+  // page leaves its cover out of previews too) or the photo won't decode.
+  const cover =
+    !isSticky && !warning && entry.cover_image_id
+      ? await fetchImageDataUri(`${SERVER_API}/api/images/${encodeURIComponent(entry.cover_image_id)}`, 6_000_000)
+      : null;
+
   let content: React.ReactElement;
-  if (isSticky) {
+  if (cover) {
+    const mins = entry.word_count && entry.word_count > 0 ? Math.max(1, Math.round(entry.word_count / 200)) : null;
+    const meta = [date, mins ? `${mins} min read` : ""].filter(Boolean).join("  ·  ");
+    content = (
+      <CoverImage cover={cover} title={title} body={body} avatar={avatar} name={name} handle={handle} meta={meta} site={site} />
+    );
+  } else if (isSticky) {
     const color = STICKY_COLORS[entry.sticky_color ?? ""] ?? STICKY_COLORS.yellow;
     content = (
       <StickyImage

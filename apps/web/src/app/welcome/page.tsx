@@ -39,7 +39,17 @@ type SuggestedUser = {
   subscription_tier: string;
   entry_count: number;
   ink_count: number;
+  /** The writer whose shared post brought this person here. */
+  brought_you?: boolean;
 };
+
+const FOLLOW_COOKIE = "inkwell_follow";
+
+function broughtByUsername(): string | null {
+  const c = document.cookie.split("; ").find((x) => x.startsWith(`${FOLLOW_COOKIE}=`));
+  const v = c ? decodeURIComponent(c.slice(FOLLOW_COOKIE.length + 1)) : "";
+  return /^[A-Za-z0-9_]{1,30}$/.test(v) ? v : null;
+}
 
 // "How did you find Inkwell?" (optional). Keys match Inkwell.Growth on the API.
 const HEARD_FROM_OPTIONS: { id: string; label: string }[] = [
@@ -285,7 +295,8 @@ export default function WelcomePage() {
   useEffect(() => {
     if (step !== 6) return;
     setLoadingSuggested(true);
-    fetch("/api/discover/writers")
+    const first = broughtByUsername();
+    fetch(`/api/discover/writers${first ? `?first=${first}` : ""}`)
       .then((r) => r.json())
       .then((data) => setSuggestedUsers(data.data ?? []))
       .catch(() => setSuggestedUsers([]))
@@ -366,6 +377,7 @@ export default function WelcomePage() {
     try {
       await fetch(`/api/follow/${user.username}`, { method: "POST" });
       setFollowedIds((prev) => new Set(prev).add(user.id));
+      if (user.brought_you) document.cookie = `${FOLLOW_COOKIE}=; path=/; max-age=0`;
     } catch {
       // non-fatal, user can follow later
     } finally {
@@ -1318,9 +1330,14 @@ export default function WelcomePage() {
                       return (
                         <div
                           key={u.id}
-                          className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center"
-                          style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                          className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center${u.brought_you ? " sm:col-span-2" : ""}`}
+                          style={{ borderColor: u.brought_you ? "var(--accent)" : "var(--border)", background: "var(--background)" }}
                         >
+                          {u.brought_you && (
+                            <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+                              You came here reading {u.display_name ?? u.username}
+                            </p>
+                          )}
                           <AvatarWithFrame
                             url={u.avatar_url}
                             name={u.display_name ?? u.username}

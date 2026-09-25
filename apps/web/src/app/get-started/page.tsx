@@ -51,6 +51,12 @@ export default function GetStartedPage() {
     if (plan === "plus" || plan === "free" || plan === "founding") {
       document.cookie = `inkwell_plan=${plan}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
     }
+    // "Keep reading <writer> → Join free" on a shared post: onboarding
+    // suggests that writer first (see /api/discover/writers?first=).
+    const follow = params.get("follow");
+    if (follow && /^[A-Za-z0-9_]{1,30}$/.test(follow)) {
+      document.cookie = `inkwell_follow=${follow}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+    }
   }, []);
 
   const [step, setStep] = useState<Step>("enter_email");

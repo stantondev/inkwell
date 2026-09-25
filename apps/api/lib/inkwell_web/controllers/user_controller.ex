@@ -235,13 +235,24 @@ defmodule InkwellWeb.UserController do
   end
 
   # GET /api/discover/writers — recently active public writers (authenticated)
-  def suggested(conn, _params) do
+  def suggested(conn, params) do
     user = conn.assigns.current_user
     results = Accounts.list_suggested_users(user.id)
 
+    # ?first=<username>: the writer whose shared post brought this person here
+    # goes first, marked so onboarding can say so.
+    first = Accounts.suggested_writer(user.id, params["first"])
+
+    results =
+      case first do
+        nil -> results
+        %{user: fu} -> [Map.put(first, :brought_you, true) | Enum.reject(results, &(&1.user.id == fu.id))]
+      end
+
     data =
-      Enum.map(results, fn %{user: u, entry_count: ec, total_ink_count: ic} ->
+      Enum.map(results, fn %{user: u, entry_count: ec, total_ink_count: ic} = r ->
         %{
+          brought_you: Map.get(r, :brought_you, false),
           id: u.id,
           username: u.username,
           display_name: u.display_name,

@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-sharing",
+    date: "2026-09-25",
+    title: "Your posts look good when you share them",
+    body: "Links to Inkwell shared on Facebook, X, LinkedIn or Slack were showing just the Inkwell logo. Now every post shares as a proper picture: your cover photo with the title over it, or the opening of your writing on a page. Sharing your journal itself shows your portrait, bio and latest entries. And people who arrive signed out from a shared link now see a “Keep reading” box at the end of your post with every way to follow you: an Inkwell account, their Mastodon or other fediverse account, your newsletter, or RSS.",
+    howTo: "Use the Share button on any post or on your profile. If Facebook still shows an old preview for a link, paste it into Facebook's Sharing Debugger and choose Scrape Again.",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-25-app-feel",
     date: "2026-09-25",
     title: "The Inkwell app: share into it, a proper launch screen, and tilt",

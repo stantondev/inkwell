@@ -178,6 +178,38 @@ defmodule Inkwell.Accounts do
 
   # Returns recently active public writers, excluding current user and anyone already followed/pending.
   # Sorted by entry count + total ink count (quality proxy). Requires min 3 published entries.
+  @doc """
+  One named writer to suggest first during onboarding: the writer whose shared
+  post brought this person to Inkwell (`/get-started?follow=`). Same shape as
+  `list_suggested_users/2`; nil when they're unknown, suspended, the viewer,
+  blocked either way, or already followed.
+  """
+  def suggested_writer(current_user_id, username) when is_binary(username) do
+    with %User{} = u <- get_user_by_username(username),
+         true <- u.id != current_user_id and is_nil(u.blocked_at),
+         false <- Inkwell.Social.is_blocked_between?(current_user_id, u.id),
+         false <-
+           Repo.exists?(
+             from r in Inkwell.Social.Relationship,
+               where:
+                 r.follower_id == ^current_user_id and r.following_id == ^u.id and
+                   r.status in [:pending, :accepted]
+           ) do
+      {count, inks} =
+        Repo.one(
+          from e in Inkwell.Journals.Entry,
+            where: e.user_id == ^u.id and e.status == :published and e.privacy == :public,
+            select: {count(e.id), sum(coalesce(e.ink_count, 0))}
+        )
+
+      %{user: u, entry_count: count, total_ink_count: inks || 0}
+    else
+      _ -> nil
+    end
+  end
+
+  def suggested_writer(_current_user_id, _username), do: nil
+
   def list_suggested_users(current_user_id, limit \\ 12) do
     already_following =
       from r in Inkwell.Social.Relationship,

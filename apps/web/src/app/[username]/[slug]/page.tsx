@@ -30,7 +30,7 @@ import { ReadBeacon } from "@/components/read-beacon";
 import { PinButton } from "@/components/pin-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
-import { SignupCta } from "@/components/signup-cta";
+import { FollowWriterCard } from "@/components/follow-writer-card";
 import { PaywallCard } from "@/components/paywall-card";
 import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-entry";
 import { GalleryHydrator } from "@/components/gallery-hydrator";
@@ -61,6 +61,8 @@ interface EntryAuthor {
   support_label?: string | null;
   stripe_connect_enabled?: boolean;
   subscription_tier?: string | null;
+  newsletter_enabled?: boolean;
+  newsletter_name?: string | null;
 }
 
 interface EntryData {
@@ -408,19 +410,17 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const hasCover = !!entry.cover_image_id && !entry.is_sensitive;
     const authorName = entry.author?.display_name || username;
     // Facebook, iMessage, Slack and LinkedIn lead with the picture and often
-    // drop the description, so a post without one shared as a bare link.
-    // Without a cover we draw the writing itself (/api/og/entry/…); the
-    // version stamp gives an edited post a fresh URL past every cache.
+    // drop the description, so every entry gets a drawn 1200×630 card
+    // (/api/og/entry/…): the cover photo with the title over it, or the
+    // writing itself on a page. Declaring the size lets Facebook show it on a
+    // link's first share. The version stamp gives an edited post a fresh URL
+    // past every cache.
     const version = entry.updated_at ? Date.parse(entry.updated_at) || "" : "";
-    const imageUrl = hasCover
-      ? `/api/images/${entry.cover_image_id}`
-      : `/api/og/entry/${encodeURIComponent(username)}/${encodeURIComponent(slug)}${version ? `?v=${version}` : ""}`;
+    const imageUrl = `/api/og/entry/${encodeURIComponent(username)}/${encodeURIComponent(slug)}${version ? `?v=${version}` : ""}`;
     const imageAlt = hasCover
-      ? ogTitle
+      ? `${ogTitle}, by ${authorName}`
       : `${ogTitle}, by ${authorName}${isSticky ? "" : " — the opening of the entry"}`;
-    const ogImages = hasCover
-      ? [{ url: imageUrl, alt: imageAlt }]
-      : [{ url: imageUrl, width: 1200, height: 630, alt: imageAlt, type: "image/png" }];
+    const ogImages = [{ url: imageUrl, width: 1200, height: 630, alt: imageAlt, type: "image/png" }];
 
     return {
       // Only when actually served on the writer's domain — inkwell.social
@@ -608,7 +608,8 @@ export default async function EntryPage({ params }: EntryParams) {
         isOwnEntry={isOwnEntry ?? false}
         isAdmin={isAdmin}
         shareUrl={effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
-        showSignup={!session && !customDomain}
+        showSignup={!session}
+        onCustomDomain={!!customDomain}
       />
     );
   }
@@ -1093,22 +1094,26 @@ export default async function EntryPage({ params }: EntryParams) {
         </div>
       </article>
 
+      {/* Signed-out readers mostly arrive from a shared link: offer every way
+          to follow this writer, not just "join Inkwell". */}
+      {!session && (
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-10">
+          <FollowWriterCard
+            username={username}
+            displayName={author?.display_name || username}
+            newsletterEnabled={!!author?.newsletter_enabled}
+            newsletterName={author?.newsletter_name}
+            onCustomDomain={!!customDomain}
+          />
+        </div>
+      )}
+
       {/* ── Marginalia (Comments) ───────────────────────────────────── */}
       <CommentSection
         comments={comments}
         entryId={entry.id}
         session={session}
       />
-
-      {/* Signup CTA for logged-out visitors (not on custom domain) */}
-      {!session && !customDomain && (
-        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-          <SignupCta
-            heading="Enjoyed this entry?"
-            subheading="Inkwell is a social journaling platform where writers customize their space, connect with readers, and own their content. No algorithms, no ads."
-          />
-        </div>
-      )}
 
       {/* Subtle attribution footer on custom domain — inside theme wrapper so colors match */}
       {customDomain && (
@@ -1137,6 +1142,7 @@ function StickyPage({
   isAdmin,
   shareUrl,
   showSignup,
+  onCustomDomain,
 }: {
   entry: EntryData;
   username: string;
@@ -1146,6 +1152,7 @@ function StickyPage({
   isAdmin: boolean;
   shareUrl: string;
   showSignup: boolean;
+  onCustomDomain: boolean;
 }) {
   const author = entry.author;
   const excerpt = entry.excerpt || entry.body_html.replace(/<[^>]+>/g, "").slice(0, 160);
@@ -1196,9 +1203,12 @@ function StickyPage({
 
       {showSignup && (
         <div className="mx-auto max-w-2xl px-4 sm:px-6 pb-16">
-          <SignupCta
-            heading="Short thoughts, long entries, one journal."
-            subheading="Inkwell is a social journaling platform where writers customize their space, connect with readers, and own their content. No algorithms, no ads."
+          <FollowWriterCard
+            username={username}
+            displayName={entry.author?.display_name || username}
+            newsletterEnabled={!!entry.author?.newsletter_enabled}
+            newsletterName={entry.author?.newsletter_name}
+            onCustomDomain={onCustomDomain}
           />
         </div>
       )}

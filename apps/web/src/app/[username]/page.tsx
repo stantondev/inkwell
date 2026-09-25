@@ -401,10 +401,13 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const rssUrl = effectiveDomain
       ? `https://${effectiveDomain}/api/users/${username}/feed.xml`
       : `https://inkwell.social/api/users/${username}/feed.xml`;
-    // Use avatar as small OG image for compact preview cards.
-    // No giant dynamic image — text-based cards (title + bio) look much better on Mastodon.
-    const hasAvatar = !!profile.avatar_url;
-    const avatarOgUrl = hasAvatar ? `/api/avatars/${username}` : undefined;
+    // A drawn 1200×630 cover for the journal (banner, portrait, bio, handle):
+    // Facebook and X showed the avatar alone as a small square beside the
+    // link. The avatar URL's ?v= stamp changes with the profile, so reuse it
+    // to give an updated profile a fresh preview past every cache.
+    const version = profile.avatar_url?.match(/[?&]v=([^&]+)/)?.[1];
+    const cardUrl = `/api/og/profile/${encodeURIComponent(username)}${version ? `?v=${version}` : ""}`;
+    const cardAlt = `${displayName}'s journal on Inkwell`;
 
     return {
       ...(data.meta?.noindex ? { robots: { index: false, follow: false } } : {}),
@@ -422,14 +425,15 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
         description: bio,
         url: profileUrl,
         type: "profile",
-        ...(avatarOgUrl ? { images: [{ url: avatarOgUrl, alt: `${displayName}'s avatar` }] } : {}),
+        siteName: effectiveDomain ?? "Inkwell",
+        images: [{ url: cardUrl, width: 1200, height: 630, alt: cardAlt, type: "image/png" }],
       },
       twitter: {
         site: "@inkwellsocial",
-        card: "summary",
+        card: "summary_large_image",
         title: displayName,
         description: bio,
-        ...(avatarOgUrl ? { images: [avatarOgUrl] } : {}),
+        images: [{ url: cardUrl, alt: cardAlt }],
       },
       alternates: {
         canonical: profileUrl,
