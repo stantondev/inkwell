@@ -82,14 +82,17 @@ export default function GuidePage() {
             you follow (your pen pals). Think of it as your mailbox. When a pen
             pal publishes a new entry, it arrives in your Feed. If you follow
             writers on Mastodon or other fediverse platforms, their posts appear
-            here too.
+            here too. It&rsquo;s always newest first, with no sorting or ranking;
+            entries that arrived since your last visit are marked{" "}
+            <strong>New</strong>. The switch at the top narrows it to Inkwell
+            writers or fediverse accounts.
           </p>
           <p>
             <strong>Explore</strong> is public — it shows all public entries from
             the Inkwell community and the wider fediverse. Think of it as a
             bookstore. You don&rsquo;t need to follow anyone to see content
-            here. Use the category filters at the top to find entries about
-            topics you care about.
+            here. Search, categories and &ldquo;Most Inked&rdquo; live here, to
+            help you find entries about topics you care about.
           </p>
           <p style={{ color: "var(--muted)" }}>
             Tip: If your Feed feels empty, head to{" "}

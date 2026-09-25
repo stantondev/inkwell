@@ -13,165 +13,59 @@ import { GettingStartedChecklist } from "@/components/getting-started-checklist"
 import { PushPrompt } from "@/components/push-prompt";
 import { ResubscribeBanner } from "@/components/resubscribe-banner";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
-import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { FilterLink } from "@/components/filter-link";
 import type { JournalEntry } from "@/components/journal-entry-card";
-import { CATEGORIES } from "@/lib/categories";
-import { filterSummary } from "@/lib/filter-summary";
-import { MobileFilters } from "@/components/mobile-filters";
+import { SuggestedWriters } from "@/components/suggested-writers";
+import { FeedSeen } from "@/components/feed-seen";
 import { isSupporter } from "@/lib/supporter";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; source?: string; category?: string; sort?: string }>;
+  // Feed is only the people you follow, newest first. Old ?category= and
+  // ?sort= links (from before 2026-09-25) are ignored; those live on Explore.
+  searchParams: Promise<{ page?: string; source?: string }>;
 }
 
 // ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
-function EmptyFeed({
-  username,
-  featuredEntries,
-}: {
-  username: string;
-  featuredEntries: JournalEntry[];
-}) {
+function EmptyFeed({ featuredEntries }: { featuredEntries: JournalEntry[] }) {
   return (
-    <div className="mx-auto" style={{ maxWidth: "640px" }}>
+    <div className="mx-auto px-4" style={{ maxWidth: "680px" }}>
       <div
-        className="rounded-2xl border p-8 text-center"
+        className="rounded-2xl border p-6 sm:p-8"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
         <p
-          className="text-lg font-semibold mb-2"
+          className="text-lg font-semibold mb-2 text-center"
           style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
         >
           Your Feed is quiet
         </p>
-        <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-          Your Feed fills up as you follow writers. When your pen pals publish
-          new entries, they appear here, like letters arriving in your mailbox.
+        <p className="text-sm mb-5 text-center" style={{ color: "var(--muted)" }}>
+          Your Feed shows new entries from the people you follow, newest first,
+          like letters arriving. Send a few pen pal requests: their entries
+          appear here once they accept.
         </p>
 
-        {/* Action cards */}
-        <div className="flex flex-col gap-2.5 text-left">
-          <Link
-            href="/explore"
-            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
-            style={{ borderColor: "var(--border)", background: "var(--background)" }}
-          >
-            <div
-              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Explore what others are writing</p>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Browse public entries from Inkwell writers and connected platforms
-              </p>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ color: "var(--muted)", flexShrink: 0 }}>
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </Link>
+        <SuggestedWriters limit={6} />
 
-          <Link
-            href="/explore"
-            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
-            style={{ borderColor: "var(--border)", background: "var(--background)" }}
-          >
-            <div
-              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Find writers to follow</p>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Search for writers by name and send a follow request
-              </p>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ color: "var(--muted)", flexShrink: 0 }}>
-              <path d="M9 18l6-6-6-6" />
-            </svg>
+        <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+          <Link href="/explore" className="hover:underline" style={{ color: "var(--accent)" }}>
+            Browse everyone on Explore →
           </Link>
-
-          <Link
-            href="/editor"
-            className="flex items-center gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
-            style={{ borderColor: "var(--border)", background: "var(--background)" }}
-          >
-            <div
-              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Write your first entry</p>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Open the editor and start journaling
-              </p>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ color: "var(--muted)", flexShrink: 0 }}>
-              <path d="M9 18l6-6-6-6" />
-            </svg>
+          <Link href="/explore?focus=search" className="hover:underline" style={{ color: "var(--accent)" }}>
+            Find someone on Mastodon →
           </Link>
-        </div>
-
-        {/* Fediverse hint */}
-        <div
-          className="mt-5 rounded-lg p-3 flex items-start gap-2.5 text-left"
-          style={{ background: "var(--background)", border: "1px dashed var(--border)" }}
-        >
-          <svg
-            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            className="flex-shrink-0 mt-0.5"
-            style={{ color: "var(--accent)" }}
-          >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M2 12h20" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Inkwell connects to the{" "}
-            <Link href="/guide#fediverse" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
-              fediverse
-            </Link>
-            . Follow anyone on Mastodon, Pixelfed, or other platforms and their posts appear in your feed.{" "}
-            <Link href="/explore" className="underline hover:no-underline" style={{ color: "var(--accent)" }}>
-              Find people on Mastodon
-            </Link>
-          </p>
+          <Link href="/editor" className="hover:underline" style={{ color: "var(--accent)" }}>
+            Write an entry →
+          </Link>
         </div>
       </div>
 
-      {/* Featured on Inkwell */}
+      {/* Something to read while the Feed fills up */}
       {featuredEntries.length > 0 && (
         <div className="mt-6">
           <p
@@ -186,19 +80,17 @@ function EmptyFeed({
                 ? Math.max(1, Math.round(entry.word_count / 250))
                 : null;
               const entryHref =
-                entry.source === "remote" && entry.url
-                  ? entry.url
+                entry.source === "remote"
+                  ? `/fediverse/${entry.id}`
                   : `/${entry.author.username}/${entry.slug}`;
 
               return (
                 <Link
                   key={entry.id}
                   href={entryHref}
-                  {...(entry.source === "remote" ? { target: "_blank", rel: "noopener" } : {})}
                   className="flex items-start gap-3 rounded-xl border p-3.5 transition-all hover:border-[var(--accent)]"
                   style={{ borderColor: "var(--border)", background: "var(--surface)" }}
                 >
-                  {/* Cover image or avatar */}
                   {entry.cover_image_id ? (
                     <div
                       className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden"
@@ -245,43 +137,11 @@ function EmptyFeed({
                           </span>
                         </>
                       )}
-                      {(entry.ink_count ?? 0) > 0 && (
-                        <>
-                          <span className="text-xs" style={{ color: "var(--border)" }}>·</span>
-                          <span className="text-xs" style={{ color: "var(--muted)" }}>
-                            <svg
-                              width="10" height="10" viewBox="0 0 24 24"
-                              fill="currentColor" className="inline-block mr-0.5 -mt-px"
-                              style={{ color: "var(--accent)" }}
-                            >
-                              <path d="M12 2C12 2 4 12.5 4 16.5C4 20.09 7.58 22 12 22C16.42 22 20 20.09 20 16.5C20 12.5 12 2 12 2Z" />
-                            </svg>
-                            {entry.ink_count}
-                          </span>
-                        </>
-                      )}
                     </div>
                   </div>
-
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    className="flex-shrink-0 mt-1"
-                    style={{ color: "var(--muted)" }}>
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
                 </Link>
               );
             })}
-          </div>
-
-          <div className="text-center mt-3">
-            <Link
-              href="/explore"
-              className="text-xs font-medium hover:underline"
-              style={{ color: "var(--accent)" }}
-            >
-              See more on Explore →
-            </Link>
           </div>
         </div>
       )}
@@ -312,25 +172,20 @@ export default async function FeedPage({ searchParams }: PageProps) {
     : settings.whats_new_seen !== LATEST_WHATS_NEW_ID ? "whats-new"
     : "push";
 
-  const { page: pageParam, source, category, sort } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const { page: pageParam, source } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  // Default to "all" — Feed shows everything you follow (local + fediverse)
-  const activeSource: string | null =
+  // Default to everyone you follow, on Inkwell and the fediverse
+  const activeSource: "inkwell" | "fediverse" | null =
     source === "inkwell" ? "inkwell" :
     source === "fediverse" ? "fediverse" :
-    null;  // default: show all
-  const activeSort = sort === "most_inked" ? "most_inked" : "newest";
-  const { summary: filterSummaryText, active: filtersActive } =
-    filterSummary(category, activeSource, activeSort, null, "Everyone you follow, newest first");
+    null;
   const sourceParam = activeSource ? `&source=${activeSource}` : "";
-  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
-  const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
   let entries: JournalEntry[] = [];
   let feedError = false;
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/feed?page=${page}${sourceParam}${categoryParam}${sortParam}`,
+      `/api/feed?page=${page}${sourceParam}`,
       {},
       session.token
     );
@@ -338,6 +193,21 @@ export default async function FeedPage({ searchParams }: PageProps) {
   } catch {
     feedError = true;
   }
+
+  // "New since your last visit": entries after settings.feed_seen_at. The very
+  // first visit has nothing to compare with, so nothing is marked.
+  const seenAt = typeof settings.feed_seen_at === "string" ? settings.feed_seen_at : null;
+  const arrivedAt = (e: JournalEntry) => e.reprinted_at ?? e.published_at;
+  const newestIso = entries.reduce<string | null>(
+    (max, e) => (!max || Date.parse(arrivedAt(e)) > Date.parse(max) ? arrivedAt(e) : max),
+    null
+  );
+  const newCount = seenAt && page === 1
+    ? entries.filter((e) => e.author.id !== session.user.id && Date.parse(arrivedAt(e)) > Date.parse(seenAt)).length
+    : 0;
+  const sinceLine = !seenAt || page !== 1 || entries.length === 0 ? null
+    : newCount === 0 ? "Nothing new since your last visit."
+    : `${newCount === entries.length && entries.length >= 20 ? "20+" : newCount} new since your last visit`;
 
   // Fetch featured entries for the empty feed state
   let featuredEntries: JournalEntry[] = [];
@@ -370,117 +240,42 @@ export default async function FeedPage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      <ExploreSearchWrapper>
-        <MobileFilters summary={filterSummaryText} active={filtersActive}>
-        {/* Source filter pills + Sort toggles */}
-        <div className="mx-auto max-w-7xl px-4 pb-1">
-          <div className="explore-controls-row">
-            {/* Source segmented control */}
-            <div className="explore-controls-source">
-              {([
-                { label: "All", value: "all" },
-                { label: "Inkwell", value: "inkwell" },
-                { label: "Fediverse", value: "fediverse" },
-              ] as const).map((s) => {
-                const p = new URLSearchParams();
-                if (s.value !== "all") p.set("source", s.value);
-                if (category) p.set("category", category);
-                if (activeSort !== "newest") p.set("sort", activeSort);
-                const qs = p.toString();
-                const isActive =
-                  (s.value === "all" && activeSource === null) ||
-                  (s.value === "inkwell" && activeSource === "inkwell") ||
-                  (s.value === "fediverse" && activeSource === "fediverse");
-                return (
-                  <FilterLink
-                    key={s.label}
-                    href={`/feed${qs ? `?${qs}` : ""}`}
-                    className={`explore-controls-source-segment${isActive ? " active" : ""}`}
-                  >
-                    {s.value === "inkwell" && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
-                      </svg>
-                    )}
-                    {s.value === "fediverse" && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                      </svg>
-                    )}
-                    <span>{s.label}</span>
-                  </FilterLink>
-                );
-              })}
-            </div>
-
-            {/* Sort icon toggles */}
-            <div className="explore-controls-sort">
-              {([
-                { label: "Newest", value: "newest" },
-                { label: "Most Inked", value: "most_inked" },
-              ] as const).map((s) => {
-                const p = new URLSearchParams();
-                if (category) p.set("category", category);
-                if (s.value !== "newest") p.set("sort", s.value);
-                if (activeSource) p.set("source", activeSource);
-                const qs = p.toString();
-                const isActive = activeSort === s.value;
-                return (
-                  <FilterLink
-                    key={s.label}
-                    href={`/feed${qs ? `?${qs}` : ""}`}
-                    className={`explore-controls-sort-toggle${isActive ? " active" : ""}`}
-                  >
-                    {s.value === "newest" ? (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                      </svg>
-                    ) : (
-                      <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
-                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
-                      </svg>
-                    )}
-                    <span>{s.label}</span>
-                  </FilterLink>
-                );
-              })}
-            </div>
+      {/* Everyone you follow / only Inkwell writers / only fediverse accounts */}
+      <div className="mx-auto max-w-7xl px-4 pt-3 lg:pt-6 pb-2">
+        <div className="feed-source-row">
+          <div className="explore-controls-source" role="group" aria-label="Show entries from">
+            {([
+              { label: "Everyone", value: null },
+              { label: "Inkwell", value: "inkwell" },
+              { label: "Fediverse", value: "fediverse" },
+            ] as const).map((s) => (
+              <FilterLink
+                key={s.label}
+                href={s.value ? `/feed?source=${s.value}` : "/feed"}
+                className={`explore-controls-source-segment${activeSource === s.value ? " active" : ""}`}
+              >
+                {s.value === "inkwell" && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                    <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
+                  </svg>
+                )}
+                {s.value === "fediverse" && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                )}
+                <span>{s.label}</span>
+              </FilterLink>
+            ))}
           </div>
+          {sinceLine && (
+            <p className={`feed-since-line${newCount > 0 ? " has-new" : ""}`}>{sinceLine}</p>
+          )}
         </div>
-
-        {/* Category bookstore shelf */}
-        <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
-          <div className="explore-controls-categories" style={{ minWidth: "max-content" }}>
-            <FilterLink
-              href={(() => {
-                const p = new URLSearchParams();
-                if (activeSort !== "newest") p.set("sort", activeSort);
-                if (activeSource) p.set("source", activeSource);
-                const qs = p.toString();
-                return `/feed${qs ? `?${qs}` : ""}`;
-              })()}
-              className={`explore-controls-category${!category ? " active" : ""}`}
-            >
-              All
-            </FilterLink>
-            {CATEGORIES.map((cat) => {
-              const p = new URLSearchParams();
-              p.set("category", cat.value);
-              if (activeSort !== "newest") p.set("sort", activeSort);
-              if (activeSource) p.set("source", activeSource);
-              return (
-                <FilterLink
-                  key={cat.value}
-                  href={`/feed?${p.toString()}`}
-                  className={`explore-controls-category${category === cat.value ? " active" : ""}`}
-                >
-                  {cat.label}
-                </FilterLink>
-              );
-            })}
-          </div>
-        </div>
-        </MobileFilters>
+      </div>
+      {/* Only the full Feed moves the "last read" mark: a filtered view would
+          mark the other source's unseen entries as read. */}
+      <FeedSeen newest={page === 1 && !activeSource ? newestIso : null} seenAt={seenAt} />
 
         {/* Feed dispatch header (decorative; hidden on phones to reach the writing sooner) */}
         <div className="mx-auto max-w-7xl px-4 pb-3">
@@ -535,7 +330,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
             <p>
               Your Feed shows journal entries from writers you follow, your pen
               pals. Entries from writers on Mastodon and other fediverse platforms
-              you follow also appear here. Looking to discover new voices?{" "}
+              you follow also appear here, newest first, and anything that
+              arrived since your last visit is marked <strong>New</strong>.
+              Looking to discover new voices?{" "}
               <Link href="/explore" className="underline" style={{ color: "var(--accent)" }}>
                 Switch to Explore
               </Link>
@@ -551,16 +348,16 @@ export default async function FeedPage({ searchParams }: PageProps) {
           page={page}
           basePath="/feed"
           look={siteLookOf(session?.user.settings)}
-          showNewStickies={(!activeSource || activeSource === "inkwell") && !category}
-          loadMorePath={(() => {
-            const p = new URLSearchParams();
-            if (activeSource) p.set("source", activeSource);
-            if (category) p.set("category", category);
-            if (activeSort !== "newest") p.set("sort", activeSort);
-            const qs = p.toString();
-            return `/api/feed${qs ? `?${qs}` : ""}`;
-          })()}
-          extraParams={`${sourceParam}${categoryParam}${sortParam}`}
+          showNewStickies={activeSource !== "fediverse"}
+          loadMorePath={`/api/feed${activeSource ? `?source=${activeSource}` : ""}`}
+          extraParams={sourceParam}
+          newSince={seenAt}
+          endNote={
+            <>
+              <p className="feed-end-title">That&apos;s everything from the people you follow.</p>
+              <Link href="/explore" className="feed-end-link">Find more writers on Explore →</Link>
+            </>
+          }
           emptyState={feedError ? (
             <div
               className="rounded-2xl border p-12 text-center"
@@ -573,7 +370,19 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 Something went wrong. Please try refreshing the page.
               </p>
             </div>
-          ) : <EmptyFeed username={session.user.username} featuredEntries={featuredEntries} />}
+          ) : activeSource ? (
+            <div
+              className="rounded-2xl border p-10 text-center mx-auto"
+              style={{ borderColor: "var(--border)", background: "var(--surface)", maxWidth: "480px" }}
+            >
+              <p className="text-base font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+                {activeSource === "inkwell" ? "Nothing from Inkwell writers you follow yet" : "Nothing from fediverse accounts you follow yet"}
+              </p>
+              <Link href="/feed" className="text-sm hover:underline" style={{ color: "var(--accent)" }}>
+                Show everyone you follow →
+              </Link>
+            </div>
+          ) : <EmptyFeed featuredEntries={featuredEntries} />}
           session={{
             userId: session.user.id,
             username: session.user.username,
@@ -651,7 +460,6 @@ export default async function FeedPage({ searchParams }: PageProps) {
             </div>
           </div>
         ) : null}
-      </ExploreSearchWrapper>
     </div>
   );
 }

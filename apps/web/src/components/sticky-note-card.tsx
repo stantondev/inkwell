@@ -43,6 +43,8 @@ interface StickyNoteCardProps {
   translatedBody?: string | null;
   /** The viewer wrote this sticky: shows "Expand into an entry". */
   isOwn?: boolean;
+  /** Arrived since the reader last opened their Feed. */
+  isNew?: boolean;
   /** "feed" (default), "board" (profile corkboard: smaller, no actions), "page" (the sticky's own page). */
   variant?: "feed" | "board" | "page";
 }
@@ -51,7 +53,7 @@ interface StickyNoteCardProps {
  * A Sticky: a short post drawn as a sticky note stuck into the journal.
  * No title, no cover. The paper color is the writer's choice.
  */
-export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, variant = "feed" }: StickyNoteCardProps) {
+export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, isNew = false, variant = "feed" }: StickyNoteCardProps) {
   const href = `/${entry.author.username}/${entry.slug ?? entry.id}`;
   const color = entry.sticky_color || "yellow";
   const expanded = entry.expanded_into;
@@ -92,6 +94,7 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
               />
               <span className="sticky-note-name">{entry.author.display_name}</span>
             </Link>
+            {isNew && <span className="feed-new-tag">New</span>}
             <Link href={href} className="sticky-note-time" title={exactTime(entry.published_at)}>
               <time dateTime={entry.published_at} suppressHydrationWarning>{timeAgo(entry.published_at)}</time>
             </Link>

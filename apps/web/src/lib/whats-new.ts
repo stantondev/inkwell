@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-feed-simpler",
+    date: "2026-09-25",
+    title: "Your Feed: just the people you follow, with what's new marked",
+    body: "The Feed had the same search box, categories and sorting as Explore, which made the two hard to tell apart. Now the Feed is simply everyone you follow, newest first. Entries that arrived since your last visit are marked New, the top of the Feed tells you how many there are, and it says so when you reach the end. Search, categories and Most Inked are on Explore. If your Feed is empty, it now suggests writers to send pen pal requests to.",
+    href: "/feed",
+    cta: "Open your Feed",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-25-feed-paging",
     date: "2026-09-25",
     title: "Feed and Explore keep going",

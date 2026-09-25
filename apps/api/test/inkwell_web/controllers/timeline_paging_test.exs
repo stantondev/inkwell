@@ -126,4 +126,15 @@ defmodule InkwellWeb.TimelinePagingTest do
     assert Enum.count(ids, &(&1 == friends_own.id)) == 1
     assert [%{"source" => "reprint"}] = Enum.filter(data, &(&1["id"] == theirs.id))
   end
+
+  test "the Feed's last-read mark is stored only as a real timestamp", %{conn: conn} do
+    user = create_user()
+    conn = log_in_user(conn, user)
+
+    patch(conn, "/api/me", %{settings: %{feed_seen_at: "2026-09-25T12:00:00.123456Z"}})
+    assert Inkwell.Repo.reload(user).settings["feed_seen_at"] == "2026-09-25T12:00:00.123456Z"
+
+    patch(conn, "/api/me", %{settings: %{feed_seen_at: "<script>"}})
+    refute Map.has_key?(Inkwell.Repo.reload(user).settings, "feed_seen_at")
+  end
 end

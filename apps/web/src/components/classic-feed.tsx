@@ -8,7 +8,7 @@
 // feed's own loading, translations and action bar.
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { JournalEntry } from "./journal-entry-card";
 import { CurrentBlock } from "./current-block";
 import { LocalDate } from "./local-date";
@@ -66,10 +66,12 @@ function ClassicEntry({
   entry,
   actions,
   translatedBody,
+  isNew = false,
 }: {
   entry: JournalEntry;
   actions: ReactNode;
   translatedBody?: string;
+  isNew?: boolean;
 }) {
   const remote = entry.source === "remote";
   const href = entryHref(entry);
@@ -95,6 +97,7 @@ function ClassicEntry({
             </span>
           )}
         </span>
+        {isNew && <span className="feed-new-tag">New</span>}
         <Link href={href} className="classic-entry-date">
           <LocalDate iso={entry.published_at} options={DATE} /> | <LocalDate iso={entry.published_at} options={TIME} />
         </Link>
@@ -167,6 +170,8 @@ export function ClassicFeed({
   hasMore,
   loading,
   onLoadMore,
+  isNew,
+  endNote,
 }: {
   entries: JournalEntry[];
   renderActions: (entry: JournalEntry) => ReactNode;
@@ -174,16 +179,25 @@ export function ClassicFeed({
   hasMore: boolean;
   loading: boolean;
   onLoadMore?: () => void;
+  isNew?: (entry: JournalEntry) => boolean;
+  endNote?: ReactNode;
 }) {
+  // Feed: a rule between what's new since the last visit and what isn't.
+  const firstSeen = isNew && isNew(entries[0]) ? entries.findIndex((e) => !isNew(e)) : -1;
   return (
     <div className="classic-feed">
-      {entries.map((entry) => (
-        <ClassicEntry
-          key={`${entry.source ?? "local"}-${entry.id}-${entry.reprinted_at ?? ""}`}
-          entry={entry}
-          actions={renderActions(entry)}
-          translatedBody={translations[entry.id]?.translated_body}
-        />
+      {entries.map((entry, i) => (
+        <Fragment key={`${entry.source ?? "local"}-${entry.id}-${entry.reprinted_at ?? ""}`}>
+          {i === firstSeen && (
+            <p className="feed-caught-up" role="separator">You&apos;re caught up. Earlier entries below.</p>
+          )}
+          <ClassicEntry
+            entry={entry}
+            actions={renderActions(entry)}
+            translatedBody={translations[entry.id]?.translated_body}
+            isNew={isNew?.(entry) ?? false}
+          />
+        </Fragment>
       ))}
       {hasMore && onLoadMore && (
         <nav className="classic-skip">
@@ -192,6 +206,7 @@ export function ClassicFeed({
           </button> ]
         </nav>
       )}
+      {endNote && <div className="feed-end-note">{endNote}</div>}
     </div>
   );
 }

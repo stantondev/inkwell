@@ -1,13 +1,13 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "@/lib/session";
+import { SERVER_API } from "@/lib/api";
 import { upstreamFetch } from "@/lib/proxy";
 
-const SERVER_API = process.env.API_URL ?? "http://localhost:4000";
-
+// Writers to follow (onboarding's "Discover writers", the empty Feed).
+// Until 2026-09-25 this read a "session_token" cookie that Inkwell never set,
+// so it returned an empty list to everyone since it was added in February.
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session_token")?.value;
-
+  const token = await getToken();
   if (!token) {
     return NextResponse.json({ data: [] }, { status: 200 });
   }

@@ -164,11 +164,13 @@ interface JournalEntryCardProps {
   bookMode?: boolean;
   /** The viewer wrote this entry (stickies show "Expand into an entry") */
   isOwn?: boolean;
+  /** Arrived since the reader last opened their Feed */
+  isNew?: boolean;
 }
 
-export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false, isOwn = false }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false, isOwn = false, isNew = false }: JournalEntryCardProps) {
   if (entry.kind === "sticky") {
-    return <StickyNoteCard entry={entry} actions={actions} translatedBody={translatedBody} isOwn={isOwn} />;
+    return <StickyNoteCard entry={entry} actions={actions} translatedBody={translatedBody} isOwn={isOwn} isNew={isNew} />;
   }
 
   const isRemote = entry.source === "remote";
@@ -221,9 +223,12 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
           </div>
         )}
 
+        {isNew && isCompact && <span className="feed-new-tag self-start mb-2">New</span>}
+
         {/* Date — compact fediverse posts use inline relative time */}
         {!isCompact && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-14 sm:pr-24">
+            {isNew && <span className="feed-new-tag">New</span>}
             <time
               className="block text-xs tracking-wide uppercase"
               style={{

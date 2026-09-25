@@ -41,6 +41,10 @@ interface JournalFeedProps {
   showNewStickies?: boolean;
   /** "classic": the reader chose the 2004 view, a LiveJournal friends page. */
   look?: "modern" | "classic";
+  /** Feed: entries after this time (ISO) are tagged "New". */
+  newSince?: string | null;
+  /** Shown after the last entry once there's nothing more to load. */
+  endNote?: React.ReactNode;
 }
 
 /**
@@ -66,6 +70,8 @@ export function JournalFeed({
   session,
   showNewStickies = false,
   look = "modern",
+  newSince = null,
+  endNote,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -459,6 +465,14 @@ export function JournalFeed({
     });
   }
 
+  // A reprint arrives when it was reprinted, not when the original was written.
+  const newSinceMs = newSince ? Date.parse(newSince) : NaN;
+  const isNewEntry = (entry: JournalEntry) =>
+    !Number.isNaN(newSinceMs) &&
+    entry.author.id !== session?.userId &&
+    Date.parse(entry.reprinted_at ?? entry.published_at) > newSinceMs;
+  const showEnd = !hasMore && !!endNote;
+
   function renderActions(entry: JournalEntry) {
     const isRemote = entry.source === "remote";
     const entryHref = isRemote
@@ -508,6 +522,8 @@ export function JournalFeed({
         hasMore={hasMore}
         loading={loading}
         onLoadMore={loadMorePath ? loadMore : undefined}
+        isNew={isNewEntry}
+        endNote={showEnd ? endNote : null}
       />
     );
   }
@@ -523,6 +539,7 @@ export function JournalFeed({
         translatedTitle={translations[entry.id]?.translated_title ?? null}
         bookMode={bookMode}
         isOwn={isOwnEntry}
+        isNew={isNewEntry(entry)}
       />
     );
     // Mobile: double-tap the page to ink it
@@ -593,6 +610,12 @@ export function JournalFeed({
                   {loading ? "Loading..." : "Turn the page..."}
                 </button>
               </div>
+            </div>
+          )}
+
+          {showEnd && (
+            <div className="journal-book-spread journal-book-sentinel">
+              <div className="journal-book-sentinel-inner feed-end-note">{endNote}</div>
             </div>
           )}
         </div>
@@ -670,6 +693,12 @@ export function JournalFeed({
                 {loading ? "Loading..." : "Turn the page..."}
               </button>
             </div>
+          </div>
+        )}
+
+        {showEnd && (
+          <div className="mobile-book-page mobile-book-sentinel">
+            <div className="flex flex-col items-center justify-center h-full feed-end-note">{endNote}</div>
           </div>
         )}
       </div>
