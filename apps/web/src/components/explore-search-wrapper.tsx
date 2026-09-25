@@ -7,9 +7,16 @@ import { ExploreSearchResults } from "@/components/explore-search-results";
 
 interface ExploreSearchWrapperProps {
   children: React.ReactNode;
+  /** Beside the search box: tabs, topics, sort. */
+  controls?: React.ReactNode;
+  /** One slim line under the row (signup, tips). */
+  notice?: React.ReactNode;
 }
 
-export function ExploreSearchWrapper({ children }: ExploreSearchWrapperProps) {
+// Explore's header: the search box and the controls share one row, with at
+// most one notice line under it, so the book starts near the top of the page.
+// While searching, results appear under the header and the book dims.
+export function ExploreSearchWrapper({ children, controls, notice }: ExploreSearchWrapperProps) {
   const searchParams = useSearchParams();
   const [activeQuery, setActiveQuery] = useState(searchParams.get("q") || "");
 
@@ -17,12 +24,15 @@ export function ExploreSearchWrapper({ children }: ExploreSearchWrapperProps) {
 
   return (
     <>
-      {/* Hero search bar */}
-      <div className="mx-auto max-w-7xl px-4 pt-3 pb-2 lg:pt-6 lg:pb-3">
-        <ExploreSearchBar
-          initialQuery={searchParams.get("q") || ""}
-          onQueryChange={setActiveQuery}
-        />
+      <div className="explore-top mx-auto max-w-7xl px-4">
+        <div className="explore-top-row">
+          <ExploreSearchBar
+            initialQuery={searchParams.get("q") || ""}
+            onQueryChange={setActiveQuery}
+          />
+          {controls && <div className="explore-top-controls">{controls}</div>}
+        </div>
+        {notice}
       </div>
 
       {/* Search results panel — slides in when query is active */}

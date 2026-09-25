@@ -12423,18 +12423,9 @@ a, button, [role="tab"], [role="button"] {
 }
 
 /* ==========================================================================
-   Explore Controls — Source / Sort / Categories
-   Three visually distinct control types for filtering the Explore page.
+   Explore Controls — tabs (Inkwell / Fediverse), Topics menu, sort.
+   The segmented control is shared with the Feed's Everyone/Inkwell/Fediverse.
    ========================================================================== */
-
-/* Row layout: source left, sort right */
-.explore-controls-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 
 /* Source: Segmented Control */
 .explore-controls-source {
@@ -12465,7 +12456,9 @@ a, button, [role="tab"], [role="button"] {
 
 .explore-controls-source-segment.active {
   background: var(--accent);
-  color: #fff;
+  /* The page background reads on the accent in both themes; white didn't on
+     dark mode's light-blue accent (about 2:1). Same as .circle-btn. */
+  color: var(--background);
 }
 
 /* Sort: Icon Toggles */
@@ -12498,55 +12491,11 @@ a, button, [role="tab"], [role="button"] {
   border-bottom-color: var(--accent);
 }
 
-/* Categories: Bookstore Shelf */
-.explore-controls-categories {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-}
-
-.explore-controls-category {
-  display: inline-block;
-  font-family: var(--font-lora, Georgia, serif);
-  font-size: 13px;
-  padding: 6px 14px;
-  color: var(--muted);
-  text-decoration: none;
-  white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.explore-controls-category:hover {
-  color: var(--foreground);
-}
-
-.explore-controls-category.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
-}
-
-/* Mobile: Stack source and sort */
+/* Mobile: segments share the width evenly */
 @media (max-width: 639px) {
-  .explore-controls-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .explore-controls-source {
-    width: 100%;
-  }
-
   .explore-controls-source-segment {
     flex: 1;
     justify-content: center;
-  }
-
-  .explore-controls-sort {
-    gap: 12px;
   }
 }
 
@@ -13111,7 +13060,7 @@ a, button, [role="tab"], [role="button"] {
   padding: 2px 7px;
   border-radius: 9999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--background);
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 10px;
   font-weight: 600;
@@ -16015,6 +15964,21 @@ body[data-focus-mode] .editor-link-notice { display: none; }
 }
 .whats-new-notice-close:hover,
 .notice-strip-close:hover { color: var(--foreground); }
+/* Phones: a notice reads as one short paragraph (label, text, link) with the
+   × in the corner, instead of a label column squeezing the text. */
+@media (max-width: 639px) {
+  .whats-new-notice,
+  .notice-strip { display: block; position: relative; padding-right: 36px; line-height: 1.45; }
+  .whats-new-notice-label,
+  .notice-strip-label { margin-right: 6px; }
+  .whats-new-notice-text::after,
+  .notice-strip-text::after { content: " "; }
+  .whats-new-notice-link,
+  .notice-strip-link,
+  .notice-strip-more { display: inline-block; margin: 4px 14px 0 0; }
+  .whats-new-notice-close,
+  .notice-strip-close { position: absolute; top: 6px; right: 6px; min-width: 32px; min-height: 32px; }
+}
 .notice-strip-more {
   font-size: 13px;
   color: var(--muted);
@@ -16072,39 +16036,228 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .getting-started-cta { margin-left: 30px; }
 }
 
-/* ── Phone Feed/Explore: filters fold behind one row (components/mobile-filters.tsx) ── */
-.mobile-filters-toggle { display: none; }
-@media (max-width: 1023px) {
-  .mobile-filters-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 12px;
-    margin-bottom: 8px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--foreground);
-    font-size: 14px;
-    text-align: left;
-  }
-  .mobile-filters-label { font-weight: 500; }
-  .mobile-filters-summary {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--muted);
-  }
-  .mobile-filters-summary.is-active { color: var(--accent); font-weight: 500; }
-  .mobile-filters-chevron { color: var(--muted); transition: transform 0.15s ease; flex-shrink: 0; }
-  .mobile-filters.is-open .mobile-filters-chevron { transform: rotate(180deg); }
-  .mobile-filters-panel { display: none; }
-  .mobile-filters.is-open .mobile-filters-panel { display: block; }
-
+/* ── Explore header (app/explore/page.tsx, components/explore-search-wrapper.tsx) ──
+   One row: search box, then tabs / Topics / sort; at most one notice line
+   under it. The book below is a full screen tall, so keep this short. */
+.explore-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 20px;
+  padding-bottom: 14px;
 }
+.explore-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+}
+.explore-top .explore-search-bar { flex: 1 1 340px; max-width: 620px; margin: 0; }
+.explore-top .explore-search-input { padding-top: 10px; padding-bottom: 10px; }
+.explore-top-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  margin-left: auto;
+}
+.explore-top .whats-new-notice,
+.explore-top .notice-strip { margin: 0; }
+@media (min-width: 1024px) and (max-width: 1499px) {
+  body[data-sidebar-hidden] .explore-top-row { padding-left: 112px; }
+}
+@media (max-width: 1023px) {
+  .explore-top { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
+  .explore-top .explore-search-bar { flex-basis: 100%; max-width: none; }
+  .explore-top-controls { margin-left: 0; width: 100%; }
+  .explore-top-controls .explore-controls-source { width: auto; }
+  .explore-top-controls .explore-controls-source-segment { flex: none; min-height: 36px; padding: 0 12px; }
+  .explore-top-controls .explore-controls-source-segment svg { display: none; }
+  .explore-top-controls .explore-controls-sort { margin-left: auto; gap: 14px; }
+  /* Icons only; each keeps its name as a title and for screen readers. */
+  .explore-sort-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .explore-controls-sort-toggle { min-height: 36px; min-width: 28px; justify-content: center; }
+}
+
+/* Topics menu (components/topic-menu.tsx) */
+.topic-menu { position: relative; }
+.topic-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.topic-menu-button:hover { color: var(--foreground); }
+.topic-menu-button.is-active { border-color: var(--accent); color: var(--accent); }
+.topic-menu-chevron { transition: transform 0.15s ease; }
+.topic-menu-button[aria-expanded="true"] .topic-menu-chevron { transform: rotate(180deg); }
+.topic-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+}
+.topic-menu-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--foreground);
+}
+.topic-menu-item:hover { background: var(--accent-light); }
+.topic-menu-item.is-active { color: var(--accent); font-weight: 600; background: var(--accent-light); }
+@media (max-width: 1023px) {
+  /* Anchor to the whole controls row so the panel fits the screen. */
+  .topic-menu { position: static; }
+  .topic-menu-panel { left: 0; right: 0; width: auto; }
+  .topic-menu-button { height: 36px; }
+}
+
+/* ── Explore front pages (components/explore-front-pages.tsx) ── */
+.journal-book-front { flex: 1 0 auto; }
+.front-page { padding: 2rem 2.25rem 1.5rem; }
+.front-page-kicker {
+  margin: 0 0 4px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.front-page-title {
+  margin: 0 0 6px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.front-page-dek { margin: 0 0 16px; max-width: 34rem; font-size: 14px; color: var(--muted); }
+
+.writer-list { list-style: none; margin: 0; padding: 0; }
+.writer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.writer-row:first-child { border-top: 0; }
+.writer-row-avatar { flex-shrink: 0; }
+.writer-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.writer-row-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.writer-row-name:hover { text-decoration: underline; }
+.writer-row-meta { font-size: 12px; color: var(--muted); }
+.writer-row-bio {
+  font-size: 13px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.writer-follow {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--background);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.writer-follow:hover { opacity: 0.9; }
+.writer-follow.is-done { background: transparent; color: var(--muted); border-color: var(--border); }
+@media (max-width: 1023px) {
+  .writer-follow { min-height: 36px; }
+}
+
+.front-inked { list-style: none; margin: 0; padding: 0; }
+.front-inked-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  color: inherit;
+}
+.front-inked li:first-child .front-inked-item { border-top: 0; }
+.front-inked-rank {
+  flex-shrink: 0;
+  min-width: 1.4em;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1;
+  text-align: right;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.front-inked-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.front-inked-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.front-inked-item:hover .front-inked-title { text-decoration: underline; }
+.front-inked-excerpt {
+  font-size: 13px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.front-inked-meta { font-size: 12px; color: var(--muted); }
+.front-inked-inks { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); }
+
+/* Phones: the first pages of the reader, on paper like the entries */
+.mobile-book-page-front .front-page {
+  flex: 1 0 auto;
+  padding: 1.5rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.mobile-book-page-front .front-page-title { font-size: 24px; }
+
+/* Classic view: two boxes above the list */
+.classic-front { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
+@media (min-width: 900px) { .classic-front { grid-template-columns: 1fr 1fr; } }
+.classic-front-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+.classic-front-box .front-page { padding: 12px 16px 8px; }
+.classic-front-box .front-page-title { font-size: 20px; }
 
 /* ── Editor: Schedule for later (app/editor/schedule-button.tsx) ── */
 .editor-schedule-btn {

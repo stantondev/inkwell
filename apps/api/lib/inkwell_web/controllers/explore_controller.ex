@@ -3,7 +3,7 @@ defmodule InkwellWeb.ExploreController do
 
   alias Inkwell.{Accounts, Bookmarks, Inks, Journals, Redactions, Reprints, Social, Stamps, Timeline, WriterSubscriptions}
   alias Inkwell.Avatars
-  alias Inkwell.Federation.{CategoryHashtags, ContentQuality, RemoteEntries}
+  alias Inkwell.Federation.{CategoryHashtags, ContentQuality, Engagement, RemoteEntries}
   alias InkwellWeb.EntryController
 
   # GET /api/explore — public discovery feed with local + federated entries
@@ -137,14 +137,10 @@ defmodule InkwellWeb.ExploreController do
         %{}
       end
 
-    remote_ink_counts = Inks.count_inks_for_remote_entries(remote_entry_ids)
-
-    remote_inks_set =
-      if viewer do
-        Inks.get_user_inks_for_remote_entries(viewer.id, remote_entry_ids)
-      else
-        MapSet.new()
-      end
+    # Replies/boosts/favourites from the post's home server + what members did.
+    remote_entries = for %{type: :remote, entry: re} <- all_items, do: re
+    remote_counts = Engagement.summaries(remote_entries, viewer && viewer.id)
+    Engagement.refresh_stale(remote_entries)
 
     reprints_set =
       if viewer do
@@ -153,16 +149,6 @@ defmodule InkwellWeb.ExploreController do
         MapSet.new()
       end
 
-    remote_reprints_set =
-      if viewer do
-        Reprints.get_user_reprints_for_remote_entries(viewer.id, remote_entry_ids)
-      else
-        MapSet.new()
-      end
-
-    remote_reprint_counts = Reprints.count_reprints_for_remote_entries(remote_entry_ids)
-
-    remote_comment_counts = Journals.count_comments_for_remote_entries(remote_entry_ids)
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
 
@@ -252,12 +238,12 @@ defmodule InkwellWeb.ExploreController do
           },
           stamps: Map.get(remote_stamp_types_map, re.id, []),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
-          comment_count: max(re.reply_count || 0, Map.get(remote_comment_counts, re.id, 0)),
-          ink_count: Map.get(remote_ink_counts, re.id, 0) + (re.likes_count || 0),
-          reprint_count: Map.get(remote_reprint_counts, re.id, 0) + (re.reprint_count || 0),
-          boosts_count: re.boosts_count || 0,
-          my_ink: MapSet.member?(remote_inks_set, re.id),
-          my_reprint: MapSet.member?(remote_reprints_set, re.id),
+          comment_count: remote_counts[re.id].comment_count,
+          ink_count: remote_counts[re.id].ink_count,
+          reprint_count: remote_counts[re.id].reprint_count,
+          boosts_count: remote_counts[re.id].boosts_count,
+          my_ink: remote_counts[re.id].my_ink,
+          my_reprint: remote_counts[re.id].my_reprint,
           sensitive: re.sensitive || false,
           content_warning: re.content_warning,
           is_sensitive: re.sensitive || false,
@@ -275,6 +261,19 @@ defmodule InkwellWeb.ExploreController do
       data: data,
       pagination: %{page: page, per_page: per_page, has_more: has_more, tag: tag, category: category, sort: sort, source: source_filter}
     })
+  end
+
+  # GET /api/explore/writers — "Writers to meet" on Explore. Signed out: anyone
+  # active and not spam; signed in: also leaves out people you follow.
+  def writers(conn, params) do
+    viewer = conn.assigns[:current_user]
+    limit = params["limit"] |> parse_int(8) |> min(12)
+
+    data =
+      Accounts.list_suggested_users(viewer && viewer.id, limit, order: :recent, pad: false)
+      |> Enum.map(&InkwellWeb.UserController.render_suggested/1)
+
+    json(conn, %{data: data})
   end
 
   # GET /api/explore/trending — most-inked entries of the last 30 days.

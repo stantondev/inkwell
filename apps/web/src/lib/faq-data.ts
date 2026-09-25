@@ -242,7 +242,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "fediverse-posts",
     question: "Why do I see posts from other platforms on Explore?",
     answer:
-      "Inkwell connects to the wider fediverse, so public posts from Mastodon and other platforms may appear on Explore. These are marked with a globe icon and the originating instance domain. You can filter Explore by source (All / Inkwell / Fediverse).",
+      "Inkwell connects to the wider fediverse, so public posts from Mastodon and other platforms appear on Explore's Fediverse tab (the Inkwell tab shows writing from Inkwell members). They're marked with a globe icon and the server they came from.",
     category: "fediverse",
   },
   {

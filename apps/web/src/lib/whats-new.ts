@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-25-explore",
+    date: "2026-09-25",
+    title: "Explore opens like a bookshop",
+    body: "Explore now starts on two pages: Writers to meet (people writing here lately, with a Follow button) and the month's most-inked entries. Search, topics and sorting sit in one row at the top, so the writing starts higher up. Inkwell writers and the fediverse are separate tabs now; mixed together, the fediverse drowned out Inkwell writing.",
+    href: "/explore",
+    cta: "Open Explore",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-25-feed-simpler",
     date: "2026-09-25",
     title: "Your Feed: just the people you follow, with what's new marked",

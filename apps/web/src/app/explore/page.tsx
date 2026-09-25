@@ -6,20 +6,20 @@ import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { ResubscribeBanner } from "@/components/resubscribe-banner";
-import { SignupCta } from "@/components/signup-cta";
 import { FilterLink } from "@/components/filter-link";
 import { FetchError } from "@/components/fetch-error";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
-import { MobileFilters } from "@/components/mobile-filters";
-import { filterSummary } from "@/lib/filter-summary";
+import { TopicMenu } from "@/components/topic-menu";
+import { WritersToMeetPage, MostInkedPage } from "@/components/explore-front-pages";
+import type { SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
-import { CATEGORIES, getCategoryLabel, getCategorySlug } from "@/lib/categories";
+import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
 import { isSupporter } from "@/lib/supporter";
 
 export const metadata: Metadata = {
   title: "Explore",
   description:
-    "Discover journal entries from the Inkwell community and writers across the fediverse. Browse by category, find trending writing, and connect with new writers.",
+    "Discover journal entries from the Inkwell community and writers across the fediverse. Browse by topic, find the most-inked writing, and meet new writers.",
   openGraph: {
     title: "Explore — Inkwell",
     description:
@@ -29,67 +29,58 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://inkwell.social/explore" },
 };
 
-interface TrendingEntry {
-  id: string;
-  title: string | null;
-  slug: string;
-  ink_count: number;
-  published_at: string;
-  author: {
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-}
-
 interface PageProps {
   searchParams: Promise<{ page?: string; category?: string; sort?: string; source?: string; q?: string }>;
+}
+
+type Source = "inkwell" | "fediverse";
+type Sort = "newest" | "most_inked";
+
+// Explore = the bookstore: everyone's public writing, with search, topics and
+// "Most inked". Two tabs: Inkwell writers (default) and the fediverse. The
+// mixed "All" view is gone (2026-09-25): fediverse posts outnumbered Inkwell
+// writing so heavily that some topics showed no Inkwell entries at all. Old
+// ?source=all links open the Inkwell tab.
+function exploreHref({ source, category, sort }: { source: Source; category?: string | null; sort?: Sort }) {
+  const p = new URLSearchParams();
+  if (source === "fediverse") p.set("source", "fediverse");
+  if (category) p.set("category", category);
+  if (sort === "most_inked" && source === "inkwell") p.set("sort", "most_inked");
+  const qs = p.toString();
+  return `/explore${qs ? `?${qs}` : ""}`;
 }
 
 export default async function ExplorePage({ searchParams }: PageProps) {
   const session = await getSession();
   const { page: pageParam, category, sort, source } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
-  const activeSort = sort === "most_inked" ? "most_inked" : "newest";
-  // Default to Inkwell-only — users opt into fediverse content via "All" or "Fediverse" pills
-  const activeSource: string | null =
-    source === "all" ? null :
-    source === "fediverse" ? "fediverse" :
-    "inkwell";  // default when no source param or source=inkwell
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const activeSource: Source = source === "fediverse" ? "fediverse" : "inkwell";
+  const activeSort: Sort = sort === "most_inked" && activeSource === "inkwell" ? "most_inked" : "newest";
 
-  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : "";
-  const sortParam = activeSort !== "newest" ? `&sort=${activeSort}` : "";
-  const sourceParam = activeSource ? `&source=${activeSource}` : "";
-  const { summary: filterSummaryText, active: filtersActive } =
-    filterSummary(category, activeSource, activeSort, "inkwell", "Inkwell writers, newest first");
+  const params = new URLSearchParams({ source: activeSource });
+  if (category) params.set("category", category);
+  if (activeSort !== "newest") params.set("sort", activeSort);
+  const listQuery = params.toString();
 
-  let entries: JournalEntry[] = [];
-  let fetchFailed = false;
-  try {
-    const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?page=${page}${categoryParam}${sortParam}${sourceParam}`,
-      {},
-      session?.token
-    );
-    entries = data.data ?? [];
-  } catch {
-    fetchFailed = true;
-  }
+  // The default view opens on two front pages: "Writers to meet" and "Most
+  // inked this month". Any topic, sort, the fediverse tab or a later page goes
+  // straight to the entries.
+  const showFront = page === 1 && !category && activeSort === "newest" && activeSource === "inkwell";
 
-  // Fetch trending entries (only on first page, no category filter, newest sort)
-  let trending: TrendingEntry[] = [];
-  if (page === 1 && !category && activeSort === "newest") {
-    try {
-      const data = await apiFetch<{ data: TrendingEntry[] }>(
-        "/api/explore/trending",
-        {},
-        session?.token
-      );
-      trending = data.data ?? [];
-    } catch {
-      // silent
-    }
-  }
+  const [entriesRes, writersRes, inkedRes] = await Promise.allSettled([
+    apiFetch<{ data: JournalEntry[] }>(`/api/explore?page=${page}&${listQuery}`, {}, session?.token),
+    showFront ? apiFetch<{ data: SuggestedWriter[] }>("/api/explore/writers?limit=8", {}, session?.token) : Promise.resolve({ data: [] }),
+    showFront ? apiFetch<{ data: JournalEntry[] }>("/api/explore/trending", {}, session?.token) : Promise.resolve({ data: [] }),
+  ]);
+  const fetchFailed = entriesRes.status === "rejected";
+  const entries = entriesRes.status === "fulfilled" ? entriesRes.value.data ?? [] : [];
+  const writers = writersRes.status === "fulfilled" ? writersRes.value.data ?? [] : [];
+  const mostInked = inkedRes.status === "fulfilled" ? inkedRes.value.data ?? [] : [];
+
+  const frontPages = [
+    ...(writers.length > 0 ? [<WritersToMeetPage key="writers" writers={writers} signedIn={!!session} />] : []),
+    ...(mostInked.length > 0 ? [<MostInkedPage key="inked" entries={mostInked} />] : []),
+  ];
 
   const categoryLabel = category ? getCategoryLabel(category) : null;
 
@@ -116,13 +107,106 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           : "Be the first to write a public journal entry."}
       </p>
       <Link
-        href={category ? "/explore" : "/editor"}
+        href={category ? exploreHref({ source: activeSource }) : "/editor"}
         className="rounded-full px-4 py-2 text-sm font-medium"
         style={{ background: "var(--accent)", color: "#fff" }}
       >
-        {category ? "View all entries" : "Start writing"}
+        {category ? "Show every topic" : "Start writing"}
       </Link>
     </div>
+  );
+
+  const controls = (
+    <>
+      <nav className="explore-controls-source explore-tabs" aria-label="Whose writing">
+        {([
+          { label: "Inkwell", value: "inkwell" },
+          { label: "Fediverse", value: "fediverse" },
+        ] as const).map((s) => (
+          <FilterLink
+            key={s.value}
+            href={exploreHref({ source: s.value, category, sort: activeSort })}
+            className={`explore-controls-source-segment${activeSource === s.value ? " active" : ""}`}
+            aria-current={activeSource === s.value ? "page" : undefined}
+          >
+            {s.value === "inkwell" ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+            )}
+            <span>{s.label}</span>
+          </FilterLink>
+        ))}
+      </nav>
+
+      <TopicMenu
+        items={[
+          { label: "All topics", href: exploreHref({ source: activeSource, sort: activeSort }), active: !category },
+          ...CATEGORIES.map((c) => ({
+            label: c.label,
+            href: exploreHref({ source: activeSource, category: c.value, sort: activeSort }),
+            active: category === c.value,
+          })),
+        ]}
+      />
+
+      {activeSource === "inkwell" && (
+        <div className="explore-controls-sort" role="group" aria-label="Order">
+          {([
+            { label: "Newest", value: "newest" },
+            { label: "Most inked", value: "most_inked" },
+          ] as const).map((s) => (
+            <FilterLink
+              key={s.value}
+              href={exploreHref({ source: activeSource, category, sort: s.value })}
+              className={`explore-controls-sort-toggle${activeSort === s.value ? " active" : ""}`}
+              aria-current={activeSort === s.value ? "page" : undefined}
+              title={s.label}
+            >
+              {s.value === "newest" ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+              ) : (
+                <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                  <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                </svg>
+              )}
+              <span className="explore-sort-label">{s.label}</span>
+            </FilterLink>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  // At most one notice line, as on the Feed.
+  const needsResubscribe = !!session?.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed;
+  const notice = !session ? (
+    <div className="notice-strip" role="note">
+      <span className="notice-strip-label">New here?</span>
+      <span className="notice-strip-text">
+        Inkwell is a quiet place to keep a journal and read other people&rsquo;s. No ads, no algorithm.
+      </span>
+      <a href="/get-started" className="notice-strip-link">Start your journal →</a>
+    </div>
+  ) : needsResubscribe ? (
+    <ResubscribeBanner needsResubscribe serverDismissed={false} />
+  ) : (
+    <EducationCard
+      variant="strip"
+      storageKey="inkwell-edu-explore-card-v2"
+      heading="How it works"
+      learnMoreHref="/guide#feed-explore"
+      serverDismissed={((session.user.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-explore-card-v2")}
+    >
+      Public writing from everyone on Inkwell, not just people you follow. The
+      Fediverse tab shows posts from Mastodon and other servers.
+    </EducationCard>
   );
 
   return (
@@ -130,226 +214,15 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      <ExploreSearchWrapper>
-        <MobileFilters summary={filterSummaryText} active={filtersActive}>
-        {/* Row 2: Source segmented control (left) + Sort toggles (right) */}
-        <div className="mx-auto max-w-7xl px-4 pb-1">
-          <div className="explore-controls-row">
-            {/* Source segmented control */}
-            <div className="explore-controls-source">
-              {([
-                { label: "Inkwell", value: "inkwell" },
-                { label: "All", value: "all" },
-                { label: "Fediverse", value: "fediverse" },
-              ] as const).map((s) => {
-                const p = new URLSearchParams();
-                if (category) p.set("category", category);
-                if (activeSort !== "newest") p.set("sort", activeSort);
-                if (s.value !== "inkwell") p.set("source", s.value);
-                const qs = p.toString();
-                const isActive =
-                  (s.value === "inkwell" && activeSource === "inkwell") ||
-                  (s.value === "all" && activeSource === null) ||
-                  (s.value === "fediverse" && activeSource === "fediverse");
-                return (
-                  <FilterLink
-                    key={s.label}
-                    href={`/explore${qs ? `?${qs}` : ""}`}
-                    className={`explore-controls-source-segment${isActive ? " active" : ""}`}
-                  >
-                    {s.value === "inkwell" && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" />
-                      </svg>
-                    )}
-                    {s.value === "fediverse" && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                      </svg>
-                    )}
-                    <span>{s.label}</span>
-                  </FilterLink>
-                );
-              })}
-            </div>
-
-            {/* Sort icon toggles */}
-            <div className="explore-controls-sort">
-              {([
-                { label: "Newest", value: "newest" },
-                { label: "Most Inked", value: "most_inked" },
-              ] as const).map((s) => {
-                const p = new URLSearchParams();
-                if (category) p.set("category", category);
-                if (s.value !== "newest") p.set("sort", s.value);
-                if (activeSource) p.set("source", activeSource);
-                const qs = p.toString();
-                const isActive = activeSort === s.value;
-                return (
-                  <FilterLink
-                    key={s.label}
-                    href={`/explore${qs ? `?${qs}` : ""}`}
-                    className={`explore-controls-sort-toggle${isActive ? " active" : ""}`}
-                  >
-                    {s.value === "newest" ? (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                      </svg>
-                    ) : (
-                      <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
-                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
-                      </svg>
-                    )}
-                    <span>{s.label}</span>
-                  </FilterLink>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3: Category bookstore shelf */}
-        <div className="mx-auto max-w-7xl px-4 pb-2 overflow-x-auto">
-          <div className="explore-controls-categories" style={{ minWidth: "max-content" }}>
-            <FilterLink
-              href={(() => {
-                const p = new URLSearchParams();
-                if (activeSort !== "newest") p.set("sort", activeSort);
-                if (activeSource) p.set("source", activeSource);
-                const qs = p.toString();
-                return `/explore${qs ? `?${qs}` : ""}`;
-              })()}
-              className={`explore-controls-category${!category ? " active" : ""}`}
-            >
-              All
-            </FilterLink>
-            {CATEGORIES.map((cat) => {
-              const p = new URLSearchParams();
-              p.set("category", cat.value);
-              if (activeSort !== "newest") p.set("sort", activeSort);
-              if (activeSource) p.set("source", activeSource);
-              return (
-                <FilterLink
-                  key={cat.value}
-                  href={`/explore?${p.toString()}`}
-                  className={`explore-controls-category${category === cat.value ? " active" : ""}`}
-                >
-                  {cat.label}
-                </FilterLink>
-              );
-            })}
-          </div>
-        </div>
-        </MobileFilters>
-
-        {/* Signup banner for logged-out visitors */}
-        {!session && (
-          <div className="mx-auto max-w-7xl px-4 mb-2">
-            <SignupCta
-              variant="banner"
-              heading="Discover writers. Start your journal."
-              subheading="No algorithms, no ads — just writing, community, and the open social web."
-            />
-          </div>
-        )}
-
-        {/* One notice at a time, as on Feed: signed-out visitors get the
-            signup banner above; members get the resubscribe banner, or else
-            the welcome card until they dismiss it. */}
-        {session && (session.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed ? (
-          <div className="mx-auto max-w-7xl px-4">
-            <ResubscribeBanner needsResubscribe serverDismissed={false} />
-          </div>
-        ) : (
-          <div className="mx-auto max-w-7xl px-4">
-            <EducationCard
-              storageKey="inkwell-edu-explore-card-v2"
-              heading="Discover the community"
-              learnMoreHref="/guide#interaction"
-              serverDismissed={((session.user.settings?.dismissed_education_cards as string[] | undefined) ?? []).includes("inkwell-edu-explore-card-v2")}
-            >
-              <p>
-                Explore shows public entries from everyone writing on Inkwell,
-                not just the people you follow. Switch to <strong>All</strong> or{" "}
-                <strong>Fediverse</strong> to add posts from Mastodon and other
-                connected platforms. Tap the <strong>ink drop</strong> on
-                entries you think deserve more readers: the most-inked appear
-                under <strong>Most inked this month</strong>, and{" "}
-                &ldquo;Most Inked&rdquo; sorts by them.
-              </p>
-            </EducationCard>
-          </div>
-        ))}
-
-        {/* Most inked this month (hidden when nothing qualifies) */}
-        {trending.length > 0 && (
-          <div className="mx-auto max-w-7xl px-4 pb-4">
-            <h2
-              className="text-xs font-semibold uppercase tracking-widest mb-3"
-              style={{
-                color: "var(--muted)",
-                fontFamily: "var(--font-lora, Georgia, serif)",
-                letterSpacing: "0.1em",
-              }}
-            >
-              Most inked this month
-            </h2>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2"
-              style={{ scrollbarWidth: "thin" }}
-            >
-              {trending.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/${t.author.username}/${t.slug}`}
-                  className="flex-shrink-0 rounded-xl border p-3 transition-colors hover:border-[var(--accent)]"
-                  style={{
-                    borderColor: "var(--border)",
-                    background: "var(--surface)",
-                    width: 220,
-                  }}
-                >
-                  <p
-                    className="text-sm font-medium leading-snug line-clamp-2 mb-2"
-                    style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-                  >
-                    {t.title || "Untitled"}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {t.author.display_name}
-                    </span>
-                    <span
-                      className="text-xs font-medium flex items-center gap-1"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      <svg width="10" height="12" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
-                        <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
-                      </svg>
-                      {t.ink_count}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Journal area */}
+      <ExploreSearchWrapper controls={controls} notice={notice}>
         <JournalFeed
           entries={entries}
           page={page}
           basePath="/explore"
           look={siteLookOf(session?.user.settings)}
-          loadMorePath={(() => {
-            const p = new URLSearchParams();
-            if (category) p.set("category", category);
-            if (activeSort !== "newest") p.set("sort", activeSort);
-            if (activeSource) p.set("source", activeSource);
-            const qs = p.toString();
-            return `/api/explore${qs ? `?${qs}` : ""}`;
-          })()}
-          extraParams={`${category ? `&category=${encodeURIComponent(category)}` : ""}${activeSort !== "newest" ? `&sort=${activeSort}` : ""}${activeSource ? `&source=${activeSource}` : ""}`}
+          frontPages={frontPages}
+          loadMorePath={`/api/explore?${listQuery}`}
+          extraParams={`&${listQuery}`}
           emptyState={emptyState}
           session={session ? {
             userId: session.user.id,
@@ -391,7 +264,6 @@ export default async function ExplorePage({ searchParams }: PageProps) {
             </div>
           </div>
         )}
-
       </ExploreSearchWrapper>
     </div>
   );

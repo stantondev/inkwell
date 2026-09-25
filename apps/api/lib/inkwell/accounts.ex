@@ -210,78 +210,96 @@ defmodule Inkwell.Accounts do
 
   def suggested_writer(_current_user_id, _username), do: nil
 
-  def list_suggested_users(current_user_id, limit \\ 12) do
-    already_following =
-      from r in Inkwell.Social.Relationship,
-        where: r.follower_id == ^current_user_id and r.status in [:pending, :accepted],
-        select: r.following_id
+  @doc """
+  Writers to suggest following: onboarding's "Discover writers", the empty
+  Feed and Explore's "Writers to meet". `viewer_id` may be nil (signed out).
 
-    blocked_ids = Inkwell.Social.get_blocked_user_ids(current_user_id)
+  Leaves out the viewer, anyone they follow or asked to follow, blocks either
+  way, suspended and spam-limited accounts, and new accounts that post outside
+  links but have never interacted with anyone (the homepage showcase rule), so
+  nothing here is a link farm.
 
-    # Primary: users with ≥3 published public entries, sorted by entry count + ink count
+  Options: `order: :popular` (default: entries + inks) or `:recent` (latest
+  public entry first, so the list changes as people write); `pad: true`
+  (default) tops the list up with recent signups who haven't written yet,
+  which only makes sense in onboarding.
+  """
+  def list_suggested_users(viewer_id, limit \\ 12, opts \\ []) do
+    order = Keyword.get(opts, :order, :popular)
+    pad? = Keyword.get(opts, :pad, true)
+
+    # Built as a plain list, not `NOT IN (subquery)`: follows of fediverse
+    # accounts have a NULL following_id, and NOT IN against a list holding a
+    # NULL matches nothing, so anyone following a Mastodon account got no
+    # suggestions at all (until 2026-09-25).
+    excluded =
+      if viewer_id do
+        following =
+          Repo.all(
+            from r in Inkwell.Social.Relationship,
+              where: r.follower_id == ^viewer_id and r.status in [:pending, :accepted],
+              where: not is_nil(r.following_id),
+              select: r.following_id
+          )
+
+        [viewer_id | following] ++ Inkwell.Social.get_blocked_user_ids(viewer_id)
+      else
+        []
+      end
+
+    hidden = Inkwell.Journals.hidden_from_discovery_user_ids()
+    link_farms = Inkwell.Journals.showcase_excluded_user_ids()
     active_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_with_posts_days, :day)
 
-    writers =
-      from u in User,
-        join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
-        where: e.status == :published and e.privacy == :public,
-        where: u.id != ^current_user_id,
-        where: u.id not in subquery(already_following),
-        where: u.id not in ^blocked_ids,
-        where: is_nil(u.blocked_at),
-        where: u.last_active_at >= ^active_cutoff or is_nil(u.last_active_at),
-        group_by: u.id,
-        having: count(e.id) >= 3,
-        order_by: [desc: count(e.id) + sum(coalesce(e.ink_count, 0))],
-        limit: ^limit,
-        select: %{user: u, entry_count: count(e.id), total_ink_count: sum(coalesce(e.ink_count, 0))}
+    writers = fn min_entries, not_ids, count ->
+      query =
+        from u in User,
+          join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
+          where: e.status == :published and e.privacy == :public,
+          where: u.id not in ^not_ids,
+          where: u.id not in subquery(hidden),
+          where: u.id not in subquery(link_farms),
+          where: is_nil(u.blocked_at),
+          where: u.last_active_at >= ^active_cutoff or is_nil(u.last_active_at),
+          group_by: u.id,
+          having: count(e.id) >= ^min_entries,
+          limit: ^count,
+          select: %{user: u, entry_count: count(e.id), total_ink_count: sum(coalesce(e.ink_count, 0))}
 
-    results = Repo.all(writers)
+      query =
+        case order do
+          :recent -> order_by(query, [_u, e], desc: max(e.published_at))
+          _ -> order_by(query, [_u, e], desc: count(e.id) + sum(coalesce(e.ink_count, 0)))
+        end
 
-    # Fallback: if not enough, relax to ≥1 entry
+      Repo.all(query)
+    end
+
+    # Writers with 3+ public entries first, then anyone who has published.
+    results = writers.(3, excluded, limit)
+
     results =
       if length(results) < limit do
-        existing_ids = Enum.map(results, & &1.user.id)
-        remaining = limit - length(results)
-
-        fallback =
-          from u in User,
-            join: e in Inkwell.Journals.Entry, on: e.user_id == u.id,
-            where: e.status == :published and e.privacy == :public,
-            where: u.id != ^current_user_id,
-            where: u.id not in ^existing_ids,
-            where: u.id not in subquery(already_following),
-            where: u.id not in ^blocked_ids,
-            where: is_nil(u.blocked_at),
-            where: u.last_active_at >= ^active_cutoff or is_nil(u.last_active_at),
-            group_by: u.id,
-            order_by: [desc: count(e.id)],
-            limit: ^remaining,
-            select: %{user: u, entry_count: count(e.id), total_ink_count: sum(coalesce(e.ink_count, 0))}
-
-        results ++ Repo.all(fallback)
+        results ++ writers.(1, excluded ++ Enum.map(results, & &1.user.id), limit - length(results))
       else
         results
       end
 
-    # Final fallback: pad with recently joined users (no entries yet)
-    no_posts_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_no_posts_days, :day)
-
-    if length(results) < limit do
-      existing_ids = Enum.map(results, & &1.user.id)
-      remaining = limit - length(results)
+    # Onboarding only: pad with recently joined people (no entries yet).
+    if pad? and length(results) < limit do
+      no_posts_cutoff = DateTime.add(DateTime.utc_now(), -@inactive_no_posts_days, :day)
+      not_ids = excluded ++ Enum.map(results, & &1.user.id)
 
       fallback =
         from u in User,
-          where: u.id != ^current_user_id,
-          where: u.id not in ^existing_ids,
-          where: u.id not in subquery(already_following),
-          where: u.id not in ^blocked_ids,
+          where: u.id not in ^not_ids,
+          where: u.id not in subquery(hidden),
           where: is_nil(u.blocked_at),
           where: not is_nil(u.username),
+          where: u.username != ^Inkwell.Federation.InstanceActor.username(),
           where: u.last_active_at >= ^no_posts_cutoff or is_nil(u.last_active_at),
           order_by: [desc: u.inserted_at],
-          limit: ^remaining,
+          limit: ^(limit - length(results)),
           select: u
 
       results ++ Enum.map(Repo.all(fallback), fn u -> %{user: u, entry_count: 0, total_ink_count: 0} end)

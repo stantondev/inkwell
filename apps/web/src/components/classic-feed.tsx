@@ -172,6 +172,7 @@ export function ClassicFeed({
   onLoadMore,
   isNew,
   endNote,
+  frontPages = [],
 }: {
   entries: JournalEntry[];
   renderActions: (entry: JournalEntry) => ReactNode;
@@ -181,6 +182,8 @@ export function ClassicFeed({
   onLoadMore?: () => void;
   isNew?: (entry: JournalEntry) => boolean;
   endNote?: ReactNode;
+  /** Explore's "Writers to meet" / "Most inked": boxes above the entries. */
+  frontPages?: ReactNode[];
 }) {
   // Feed: a rule after the last entry that's new since the last visit (your
   // own entries are never "new", so this isn't simply the first old one).
@@ -189,6 +192,11 @@ export function ClassicFeed({
   const firstSeen = lastNew >= 0 && lastNew < entries.length - 1 ? lastNew + 1 : -1;
   return (
     <div className="classic-feed">
+      {frontPages.length > 0 && (
+        <div className="classic-front">
+          {frontPages.map((front, i) => <div key={i} className="classic-front-box">{front}</div>)}
+        </div>
+      )}
       {entries.map((entry, i) => (
         <Fragment key={`${entry.source ?? "local"}-${entry.id}-${entry.reprinted_at ?? ""}`}>
           {i === firstSeen && (

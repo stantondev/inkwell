@@ -10,7 +10,7 @@ import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
 import { DoubleTapInk } from "./double-tap-ink";
 import { emitEntryState, useEntryState } from "@/lib/entry-state";
-import { packEntriesIntoSpreads } from "@/lib/page-packing";
+import { packEntriesIntoHalves } from "@/lib/page-packing";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
 import { ClassicFeed } from "./classic-feed";
 
@@ -45,7 +45,15 @@ interface JournalFeedProps {
   newSince?: string | null;
   /** Shown after the last entry once there's nothing more to load. */
   endNote?: React.ReactNode;
+  /** Pages before the first entry (Explore: "Writers to meet", "Most inked
+   *  this month"). Each fills a half-page on desktop and a page on phones. */
+  frontPages?: React.ReactNode[];
 }
+
+/** A half of a book spread: a front page, or entries packed together. */
+type BookHalf = { key: string; front?: React.ReactNode; entries?: JournalEntry[] };
+
+const NO_FRONT_PAGES: React.ReactNode[] = [];
 
 /**
  * A post short enough to leave most of a phone page blank (a few lines, at
@@ -72,6 +80,7 @@ export function JournalFeed({
   look = "modern",
   newSince = null,
   endNote,
+  frontPages = NO_FRONT_PAGES,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -128,7 +137,16 @@ export function JournalFeed({
     enabled: isMobile,
   });
 
-  const spreads = useMemo(() => packEntriesIntoSpreads(entries), [entries]);
+  // Front pages first, then the entries' half-pages, two to a spread.
+  const spreads = useMemo(() => {
+    const halves: BookHalf[] = [
+      ...frontPages.map((front, i) => ({ key: `front-${i}`, front })),
+      ...packEntriesIntoHalves(entries).map((es, i) => ({ key: `half-${i}`, entries: es })),
+    ];
+    const out: { left: BookHalf; right: BookHalf | null }[] = [];
+    for (let i = 0; i < halves.length; i += 2) out.push({ left: halves[i], right: halves[i + 1] ?? null });
+    return out;
+  }, [entries, frontPages]);
 
   // Track active spread
   useEffect(() => {
@@ -524,6 +542,7 @@ export function JournalFeed({
         onLoadMore={loadMorePath ? loadMore : undefined}
         isNew={isNewEntry}
         endNote={showEnd ? endNote : null}
+        frontPages={frontPages}
       />
     );
   }
@@ -557,6 +576,17 @@ export function JournalFeed({
     });
   };
 
+  const renderHalf = (half: BookHalf) =>
+    half.front ? (
+      <div className="journal-book-cell journal-book-front">{half.front}</div>
+    ) : (
+      half.entries!.map((entry) => (
+        <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
+          {renderCard(entry, true)}
+        </div>
+      ))
+    );
+
   // ─── Desktop: Horizontal Book Spread ──────────────────────────────
   if (isDesktop) {
     const totalSpreads = spreads.length;
@@ -568,11 +598,7 @@ export function JournalFeed({
             <div key={idx} className="journal-book-spread">
               {/* Left page */}
               <div className="journal-book-half journal-book-half-left">
-                {spread.left.map((entry) => (
-                  <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
-                    {renderCard(entry, true)}
-                  </div>
-                ))}
+                {renderHalf(spread.left)}
               </div>
 
               {/* Spine */}
@@ -580,13 +606,7 @@ export function JournalFeed({
 
               {/* Right page */}
               <div className="journal-book-half journal-book-half-right">
-                {spread.right.length > 0 ? (
-                  spread.right.map((entry) => (
-                    <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
-                      {renderCard(entry, true)}
-                    </div>
-                  ))
-                ) : (
+                {spread.right ? renderHalf(spread.right) : (
                   <div className="journal-book-cell journal-book-cell-empty">
                     <p style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic", color: "var(--muted)", fontSize: "15px" }}>
                       The next page awaits...
@@ -674,6 +694,9 @@ export function JournalFeed({
       )}
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
+        {frontPages.map((front, i) => (
+          <div key={`front-${i}`} className="mobile-book-page mobile-book-page-front">{front}</div>
+        ))}
         {entries.map((entry) => (
           <div key={entry.id} className={`mobile-book-page${entry.kind === "sticky" ? " mobile-book-page-sticky" : isShortPost(entry) ? " mobile-book-page-short" : ""}`}>
             {renderCard(entry, true)}
@@ -703,10 +726,10 @@ export function JournalFeed({
         )}
       </div>
 
-      {/* Page counter */}
-      {entries.length > 1 && (
+      {/* Page counter (entries only: hidden on the front pages) */}
+      {entries.length > 1 && mobileActiveIndex >= frontPages.length && (
         <div className="mobile-book-counter">
-          <span>{mobileActiveIndex + 1}</span>
+          <span>{mobileActiveIndex - frontPages.length + 1}</span>
           <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
           <span>{entries.length}</span>
         </div>

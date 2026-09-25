@@ -1,11 +1,5 @@
 import type { JournalEntry } from "@/components/journal-entry-card";
 
-/** A spread = left page + right page, each page holds 1+ entries */
-export interface BookSpread {
-  left: JournalEntry[];
-  right: JournalEntry[];
-}
-
 /**
  * Estimate how "tall" an entry will render (arbitrary units, not pixels).
  * Short fediverse posts ≈ 1.5, medium posts ≈ 3, long posts with images ≈ 5+
@@ -49,38 +43,27 @@ function estimateWeight(entry: JournalEntry): number {
 const PAGE_TARGET_WEIGHT = 6;
 
 /**
- * Pack entries into book spreads using weight estimation.
- * Short entries get packed together, long entries may get a half-page alone.
+ * Pack entries into half-pages using weight estimation, in reading order.
+ * Short entries share a half-page; long ones may get a half-page alone.
+ * JournalFeed pairs the halves into spreads, after any front pages (Explore's
+ * "Writers to meet" and "Most inked this month").
  */
-export function packEntriesIntoSpreads(entries: JournalEntry[]): BookSpread[] {
-  const spreads: BookSpread[] = [];
+export function packEntriesIntoHalves(entries: JournalEntry[]): JournalEntry[][] {
+  const halves: JournalEntry[][] = [];
   let i = 0;
 
   while (i < entries.length) {
-    // Fill left page
-    const left: JournalEntry[] = [];
-    let leftWeight = 0;
-    while (i < entries.length && leftWeight < PAGE_TARGET_WEIGHT) {
+    const half: JournalEntry[] = [];
+    let weight = 0;
+    while (i < entries.length && weight < PAGE_TARGET_WEIGHT) {
       const w = estimateWeight(entries[i]);
-      if (left.length > 0 && leftWeight + w > PAGE_TARGET_WEIGHT + 1) break;
-      left.push(entries[i]);
-      leftWeight += w;
+      if (half.length > 0 && weight + w > PAGE_TARGET_WEIGHT + 1) break;
+      half.push(entries[i]);
+      weight += w;
       i++;
     }
-
-    // Fill right page
-    const right: JournalEntry[] = [];
-    let rightWeight = 0;
-    while (i < entries.length && rightWeight < PAGE_TARGET_WEIGHT) {
-      const w = estimateWeight(entries[i]);
-      if (right.length > 0 && rightWeight + w > PAGE_TARGET_WEIGHT + 1) break;
-      right.push(entries[i]);
-      rightWeight += w;
-      i++;
-    }
-
-    spreads.push({ left, right });
+    halves.push(half);
   }
 
-  return spreads;
+  return halves;
 }

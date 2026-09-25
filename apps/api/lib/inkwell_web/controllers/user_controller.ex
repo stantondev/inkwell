@@ -249,25 +249,27 @@ defmodule InkwellWeb.UserController do
         %{user: fu} -> [Map.put(first, :brought_you, true) | Enum.reject(results, &(&1.user.id == fu.id))]
       end
 
-    data =
-      Enum.map(results, fn %{user: u, entry_count: ec, total_ink_count: ic} = r ->
-        %{
-          brought_you: Map.get(r, :brought_you, false),
-          id: u.id,
-          username: u.username,
-          display_name: u.display_name,
-          avatar_url: Avatars.avatar_url(u),
-          bio: u.bio,
-          bio_html: u.bio_html,
-          avatar_frame: u.avatar_frame,
-          avatar_animation: u.avatar_animation,
-          subscription_tier: Inkwell.SelfHosted.effective_tier(u),
-          entry_count: ec,
-          ink_count: ic || 0
-        }
-      end)
+    data = Enum.map(results, &render_suggested/1)
 
     json(conn, %{data: data})
+  end
+
+  @doc "One suggested writer, as onboarding, the Feed and Explore show them."
+  def render_suggested(%{user: u, entry_count: ec, total_ink_count: ic} = r) do
+    %{
+      brought_you: Map.get(r, :brought_you, false),
+      id: u.id,
+      username: u.username,
+      display_name: u.display_name,
+      avatar_url: Avatars.avatar_url(u),
+      bio: u.bio,
+      bio_html: u.bio_html,
+      avatar_frame: u.avatar_frame,
+      avatar_animation: u.avatar_animation,
+      subscription_tier: Inkwell.SelfHosted.effective_tier(u),
+      entry_count: ec,
+      ink_count: ic || 0
+    }
   end
 
   # GET /api/username-available?username=foo (public)
