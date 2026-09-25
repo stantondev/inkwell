@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { saveSiteLook, siteLookOf, type SiteLook } from "@/lib/site-look";
-import { MOTION_EFFECTS_EVENT } from "@/components/tilt-effects";
 
 const OPTIONS: { id: SiteLook; title: string; blurb: string }[] = [
   {
@@ -46,8 +45,6 @@ export default function LookPage() {
   const [current, setCurrent] = useState<SiteLook | null>(null);
   const [saving, setSaving] = useState<SiteLook | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [motion, setMotion] = useState<boolean | null>(null);
-  const [motionNote, setMotionNote] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -56,44 +53,11 @@ export default function LookPage() {
         if (!res.ok) throw new Error();
         const { data } = await res.json();
         setCurrent(siteLookOf(data?.settings));
-        setMotion(data?.settings?.motion_effects === true);
       } catch {
         setError("Couldn't load your setting. Refresh to try again.");
       }
     })();
   }, []);
-
-  async function toggleMotion() {
-    if (motion === null) return;
-    const next = !motion;
-    setMotionNote(null);
-    // iPhones ask permission for the motion sensor, and only during a tap.
-    const Ctor = (typeof DeviceOrientationEvent !== "undefined" ? DeviceOrientationEvent : null) as
-      | (typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> })
-      | null;
-    if (next && Ctor?.requestPermission) {
-      try {
-        if ((await Ctor.requestPermission()) !== "granted") {
-          setMotionNote("Motion access was turned down, so tilt can't work. You can allow it in Safari's settings for this site.");
-          return;
-        }
-      } catch { /* not a tap-driven context; carry on */ }
-    }
-    setMotion(next);
-    window.dispatchEvent(new CustomEvent(MOTION_EFFECTS_EVENT, { detail: next }));
-    try {
-      const res = await fetch("/api/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { motion_effects: next } }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setMotion(!next);
-      window.dispatchEvent(new CustomEvent(MOTION_EFFECTS_EVENT, { detail: !next }));
-      setMotionNote("That didn't save. Try again in a moment.");
-    }
-  }
 
   async function choose(look: SiteLook) {
     if (look === current || saving) return;
@@ -142,31 +106,6 @@ export default function LookPage() {
         })}
       </div>
       {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
-      <div className="rounded-xl border p-4 flex items-start justify-between gap-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <div>
-          <p className="font-semibold">Tilt effects</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            On your phone, stamps, archive postmarks and avatar frames shift a little and catch the light as
-            you tilt it. Off when your device is set to reduce motion.
-          </p>
-          {motionNote && <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>{motionNote}</p>}
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={motion === true}
-          aria-label="Tilt effects"
-          disabled={motion === null}
-          onClick={toggleMotion}
-          className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors"
-          style={{ background: motion ? "var(--accent)" : "var(--border)" }}
-        >
-          <span
-            className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-            style={{ left: motion ? "calc(100% - 22px)" : "2px", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }}
-          />
-        </button>
-      </div>
     </div>
   );
 }

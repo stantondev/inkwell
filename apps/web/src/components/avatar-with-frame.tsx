@@ -96,7 +96,7 @@ export function AvatarWithFrame({
         <img
           src={avatarFrameUrl(effectiveFrame!)}
           alt=""
-          className="avatar-frame-overlay absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
           aria-hidden="true"
           width={outerSize}
           height={outerSize}

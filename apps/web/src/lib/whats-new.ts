@@ -28,11 +28,9 @@ export const WHATS_NEW: WhatsNewItem[] = [
   {
     id: "2026-09-25-app-feel",
     date: "2026-09-25",
-    title: "The Inkwell app: share into it, a proper launch screen, and tilt",
-    body: "On Android, with Inkwell on your home screen, you can now share a link or text from any app straight into Inkwell and jot it as a sticky or start an entry with it. On iPhone and iPad the app opens on an Inkwell launch screen (light or dark, to match your phone) instead of a blank white one. And there's an optional touch of fun: turn on Tilt effects and stamps, archive postmarks and avatar frames shift and catch the light as you tilt your phone.",
-    howTo: "Share (Android): pick Inkwell in your phone's Share menu. Tilt: Settings → Look & feel → Tilt effects.",
-    href: "/settings/look",
-    cta: "Look & feel",
+    title: "The Inkwell app: share into it, and a proper launch screen",
+    body: "On Android, with Inkwell on your home screen, you can now share a link or text from any app straight into Inkwell and jot it as a sticky or start an entry with it. On iPhone and iPad the app opens on an Inkwell launch screen (light or dark, to match your phone) instead of a blank white one.",
+    howTo: "Share (Android): pick Inkwell in your phone's Share menu. Launch screen (iPhone): remove Inkwell from your home screen and add it again once.",
     tag: "Mobile",
   },
   {
