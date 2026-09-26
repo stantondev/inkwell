@@ -64,7 +64,7 @@ defmodule Inkwell.Journals do
 
     query = filter_kind(query, Keyword.get(opts, :kind))
 
-    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = filter_tag(query, tag)
     query = if category, do: where(query, [e], e.category == ^category), else: query
 
     query =
@@ -112,7 +112,7 @@ defmodule Inkwell.Journals do
 
     query = filter_kind(query, Keyword.get(opts, :kind))
 
-    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = filter_tag(query, tag)
     query = if category, do: where(query, [e], e.category == ^category), else: query
 
     query =
@@ -195,6 +195,17 @@ defmodule Inkwell.Journals do
     do: where(query, [e], e.kind == ^kind)
 
   defp filter_kind(query, _), do: query
+
+  # Tags keep the writer's spelling ("Inkwell", "MobileUX") but match without
+  # regard to case, as on Mastodon. Until 2026-09-26 this was an exact match,
+  # so /tag/inkwell found 3 of Stanton's 12 #Inkwell entries, and 15 tags
+  # (#writing, #music, #fediverse…) were split in two. Both sides go through
+  # Postgres lower() so non-English tags lowercase the same way.
+  defp filter_tag(query, tag) when is_binary(tag) and tag != "" do
+    where(query, [e], fragment("EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = lower(?))", e.tags, ^tag))
+  end
+
+  defp filter_tag(query, _), do: query
 
   # Viewers who turned Stickies off in settings.
   defp maybe_exclude_stickies(query, true), do: where(query, [e], e.kind != "sticky")
@@ -452,7 +463,7 @@ defmodule Inkwell.Journals do
 
     query = if privacy, do: where(query, [e], e.privacy == ^privacy), else: query
     query = if category, do: where(query, [e], e.category == ^category), else: query
-    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = filter_tag(query, tag)
 
     query =
       case series_id do
@@ -610,11 +621,18 @@ defmodule Inkwell.Journals do
     if owned_count != length(entry_ids) do
       {:error, :unauthorized}
     else
-      # Use raw SQL to append + deduplicate tags array
+      # Append, dropping any tag the entry already has in another spelling
+      # (tags match without regard to case). Keeps the existing order.
       {count, _} =
         Entry
         |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
-        |> Repo.update_all(set: [tags: dynamic([e], fragment("(SELECT array_agg(DISTINCT t) FROM unnest(? || ?) AS t)", e.tags, ^new_tags))])
+        |> Repo.update_all(set: [tags: dynamic([e], fragment("""
+          (SELECT coalesce(array_agg(t ORDER BY ord), '{}') FROM (
+            SELECT DISTINCT ON (lower(t)) t, ord
+            FROM unnest(? || ?) WITH ORDINALITY AS u(t, ord)
+            ORDER BY lower(t), ord
+          ) s)
+          """, e.tags, ^new_tags))])
 
       {:ok, count}
     end
@@ -630,11 +648,11 @@ defmodule Inkwell.Journals do
     if owned_count != length(entry_ids) do
       {:error, :unauthorized}
     else
-      # Remove specified tags from the array
+      # Remove specified tags from the array, in any spelling
       {count, _} =
         Entry
         |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
-        |> Repo.update_all(set: [tags: dynamic([e], fragment("(SELECT coalesce(array_agg(t), '{}') FROM unnest(?) AS t WHERE t != ALL(?))", e.tags, ^tags_to_remove))])
+        |> Repo.update_all(set: [tags: dynamic([e], fragment("(SELECT coalesce(array_agg(t ORDER BY ord), '{}') FROM unnest(?) WITH ORDINALITY AS u(t, ord) WHERE lower(t) != ALL(SELECT lower(x) FROM unnest(?::text[]) AS x))", e.tags, ^tags_to_remove))])
 
       {:ok, count}
     end
@@ -1074,7 +1092,7 @@ defmodule Inkwell.Journals do
         where(query, [e], e.sensitive == false and e.admin_sensitive == false)
       end
 
-    query = if tag, do: where(query, [e], ^tag in e.tags), else: query
+    query = filter_tag(query, tag)
     query = if category, do: where(query, [e], e.category == ^category), else: query
     query = maybe_exclude_stickies(query, Keyword.get(opts, :exclude_stickies, false))
 
@@ -1190,7 +1208,7 @@ defmodule Inkwell.Journals do
     |> select([e], e.tags)
     |> Repo.all()
     |> List.flatten()
-    |> Enum.frequencies()
+    |> count_tags()
     |> Enum.sort_by(fn {_tag, count} -> -count end)
   end
 
@@ -1199,8 +1217,8 @@ defmodule Inkwell.Journals do
   the last `days` days, ranked by how many different writers used them, then
   by how many entries, so one writer repeating a tag can't top the list.
   Leaves out suspended and spam-limited writers and content-warned posts.
-  Tags are counted case-insensitively; each is returned in its most common
-  spelling (tag pages match the stored spelling exactly). A quiet month with
+  Tags are counted case-insensitively (as tag pages match them); each is
+  returned in its most common spelling. A quiet month with
   fewer than `limit` tags widens to 90 days.
   """
   def list_popular_tags(limit \\ 12, days \\ 30) do
@@ -1240,6 +1258,23 @@ defmodule Inkwell.Journals do
       |> Enum.take(limit)
 
     if length(ranked) < limit and days < 90, do: list_popular_tags(limit, 90), else: ranked
+  end
+
+  @doc """
+  Counts tags with "Inkwell" and "inkwell" as one tag (they match the same
+  entries), shown in its most common spelling. Returns `[{tag, count}]`.
+  """
+  def count_tags(tags) do
+    tags
+    |> Enum.group_by(&String.downcase/1)
+    |> Enum.map(fn {_key, spellings} ->
+      {shown, _} =
+        spellings
+        |> Enum.frequencies()
+        |> Enum.max_by(fn {spelling, n} -> {n, spelling} end)
+
+      {shown, length(spellings)}
+    end)
   end
 
   @doc "List all categories used by a user's published entries with counts."

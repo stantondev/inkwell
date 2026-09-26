@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-26-tag-case",
+    date: "2026-09-26",
+    title: "#Inkwell and #inkwell are the same tag",
+    body: "Tags used to care about capital letters, so a tag page only showed the entries spelled exactly like the link you clicked: #inkwell found 3 entries and #Inkwell another 9. Now every spelling shows together on tag pages, tag RSS feeds, the tags on your profile and the Posts page. Your entries keep the spelling you typed.",
+    href: "/tag/writing",
+    cta: "See #writing",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-26-tag-tabs",
     date: "2026-09-26",
     title: "Tag and topic pages lead with Inkwell writing",

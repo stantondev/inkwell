@@ -74,9 +74,10 @@ defmodule InkwellWeb.SitemapController do
       |> select([e], e.tags)
       |> Repo.all()
       |> List.flatten()
-      |> Enum.frequencies()
+      |> Inkwell.Journals.count_tags()
       |> Enum.filter(fn {_tag, count} -> count >= 2 end)
-      |> Enum.map(fn {tag, _count} -> tag end)
+      # Lowercase, matching the tag page's canonical URL.
+      |> Enum.map(fn {tag, _count} -> String.downcase(tag) end)
 
     categories =
       listed_entries
