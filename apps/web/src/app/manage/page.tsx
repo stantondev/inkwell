@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { PostManager } from "./post-manager";
 
@@ -35,8 +34,7 @@ interface SeriesItem {
 export default async function ManagePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const initialStatus = status === "draft" || status === "published" ? status : "";
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession(initialStatus ? `/manage?status=${initialStatus}` : "/manage");
 
   let entries: ManageEntry[] = [];
   let total = 0;

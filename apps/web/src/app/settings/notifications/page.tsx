@@ -1,10 +1,8 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { NotificationSettings } from "../notification-settings";
 
 export default async function NotificationSettingsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/notifications");
 
   return <NotificationSettings />;
 }

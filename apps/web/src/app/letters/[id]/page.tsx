@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { notFound } from "next/navigation";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { LetterThread } from "./letter-thread";
 import { notFoundOrRethrow } from "@/lib/page-errors";
@@ -53,11 +53,9 @@ export default async function LetterThreadPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ letter?: string }>;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
   const { id } = await params;
   const { letter } = await searchParams;
+  const session = await requireSession(`/letters/${id}${letter ? `?letter=${encodeURIComponent(letter)}` : ""}`);
 
   let thread: ThreadData | null = null;
   try {

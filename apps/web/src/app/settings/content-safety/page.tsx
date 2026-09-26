@@ -1,10 +1,8 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { ContentSafety } from "../content-safety";
 
 export default async function ContentSafetyPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/content-safety");
 
   return <ContentSafety />;
 }

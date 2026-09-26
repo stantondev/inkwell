@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
-import { redirect } from "next/navigation";
 import CreateCircleForm from "./create-circle-form";
 import type { MyCirclesMeta } from "../circle-types";
 
@@ -11,8 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CreateCirclePage() {
-  const session = await getSession();
-  if (!session) redirect("/login?next=/circles/new");
+  const session = await requireSession("/circles/new");
 
   let meta: MyCirclesMeta | null = null;
   try {

@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { TopFriendsEditor } from "./top-friends-editor";
 
@@ -21,8 +20,7 @@ interface Friend {
 }
 
 export default async function TopFriendsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/top-friends");
 
   // No try/catch on purpose: these used to fall back to empty lists, so a
   // failed load showed six empty slots with nobody to add, and pressing Save

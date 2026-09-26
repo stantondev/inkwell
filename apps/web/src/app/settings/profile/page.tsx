@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { ProfileEditForm } from "./profile-edit-form";
 
@@ -17,8 +16,7 @@ interface FullUser {
 }
 
 export default async function ProfileSettingsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/profile");
 
   // No fallback to the session user: it lacks social_links, support_url and
   // email, and the form sends every field on Save, so a failed load here used

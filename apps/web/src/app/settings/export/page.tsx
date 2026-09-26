@@ -1,10 +1,8 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { DataExport } from "../data-export";
 
 export default async function ExportPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/export");
 
   return <DataExport />;
 }

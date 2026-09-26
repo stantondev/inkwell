@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { ReadsChart } from "./reads-chart";
 
@@ -55,8 +54,7 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 export default async function ReadersPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
-  const session = await getSession();
-  if (!session) redirect("/login?next=/readers");
+  const session = await requireSession("/readers");
 
   const { days: daysParam } = await searchParams;
   const days = RANGES.includes(Number(daysParam)) ? Number(daysParam) : 30;

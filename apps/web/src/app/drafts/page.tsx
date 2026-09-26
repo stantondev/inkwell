@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { DraftsList } from "./drafts-list";
 
@@ -21,8 +20,7 @@ interface DraftEntry {
 
 export default async function DraftsPage({ searchParams }: { searchParams: Promise<{ scheduled?: string }> }) {
   const { scheduled } = await searchParams;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/drafts");
 
   let drafts: DraftEntry[] = [];
   try {

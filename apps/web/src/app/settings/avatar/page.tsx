@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { AvatarBuilderPage } from "./avatar-builder-page";
 
@@ -12,8 +11,7 @@ interface UserData {
 }
 
 export default async function AvatarSettingsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/avatar");
 
   let user: UserData = {
     avatar_url: session.user.avatar_url,

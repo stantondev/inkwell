@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { SettingsOverview } from "./settings-overview";
 
@@ -33,8 +32,7 @@ interface MeResponse {
 }
 
 export default async function SettingsHomePage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings");
 
   // One request covers almost every status chip on the page. A failure here is
   // not fatal — the grid still renders, just without the live detail.

@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { ProfileCustomizeEditor } from "./profile-customize-editor";
 
@@ -29,8 +28,7 @@ interface FullUser {
 }
 
 export default async function CustomizePage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/settings/customize");
 
   const data = await apiFetch<{ data: FullUser }>("/api/me", {}, session.token);
 

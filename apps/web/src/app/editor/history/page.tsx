@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getSession, getToken } from "@/lib/session";
+import { getToken } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { HistoryClient } from "./history-client";
 
@@ -35,10 +36,8 @@ interface EntryData {
 }
 
 export default async function HistoryPage({ searchParams }: HistoryPageProps) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
   const { entry: entryId } = await searchParams;
+  await requireSession(entryId ? `/editor/history?entry=${encodeURIComponent(entryId)}` : "/editor/history");
   if (!entryId) redirect("/feed");
 
   const token = await getToken();

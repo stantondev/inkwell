@@ -220,7 +220,10 @@ export async function middleware(request: NextRequest) {
   // Sliding window: refresh cookie expiry on every page visit so active
   // users stay signed in indefinitely. The backend does the same for the
   // DB token, so both browser cookie and server token stay in sync.
-  if (token) {
+  // Not on /auth/* (sign-in, sign-out, clearing a dead cookie): those set the
+  // cookie themselves, and a refresh of the old token alongside made two
+  // Set-Cookie headers that only worked because of their order.
+  if (token && !pathname.startsWith("/auth/")) {
     response.cookies.set(TOKEN_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",

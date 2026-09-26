@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { SavedList } from "./saved-list";
 import type { SavedEntry } from "./saved-list";
@@ -15,8 +14,7 @@ interface PageProps {
 }
 
 export default async function SavedPage({ searchParams }: PageProps) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/saved");
 
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));

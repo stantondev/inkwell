@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { siteLookOf } from "@/lib/site-look";
 import { apiFetch } from "@/lib/api";
-import { notFound } from "next/navigation";
 import { JournalFeed } from "@/components/journal-feed";
 import { EducationCard } from "@/components/education-card";
 import { WhatsNewNotice } from "@/components/whats-new-state";
@@ -154,8 +153,7 @@ function EmptyFeed({ featuredEntries }: { featuredEntries: JournalEntry[] }) {
 // Page
 // ---------------------------------------------------------------------------
 export default async function FeedPage({ searchParams }: PageProps) {
-  const session = await getSession();
-  if (!session) notFound();
+  const session = await requireSession("/feed");
 
   const accountAgeDays = (Date.now() - new Date(session.user.created_at).getTime()) / 86_400_000;
   const showGettingStarted = accountAgeDays < 30 && !session.user.settings?.getting_started_dismissed;

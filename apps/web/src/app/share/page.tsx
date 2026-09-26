@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { signInPath } from "@/lib/require-session";
 import { ShareChooser } from "./share-chooser";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function SharePage({
     const qs = new URLSearchParams();
     for (const k of ["title", "text", "url"] as const) if (sp[k]) qs.set(k, sp[k]!);
     const back = `/share${qs.size ? `?${qs}` : ""}`;
-    redirect(`/login?next=${encodeURIComponent(back)}`);
+    redirect(await signInPath(back));
   }
 
   const title = (sp.title ?? "").trim().slice(0, 300);

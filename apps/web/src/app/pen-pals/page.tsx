@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { PenPalsClient } from "./pen-pals-client";
 import { FetchError } from "@/components/fetch-error";
@@ -26,8 +25,7 @@ interface FediverseConnection {
 }
 
 export default async function PenPalsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/pen-pals");
 
   let penPals: PenPal[] = [];
   let readers: PenPal[] = [];

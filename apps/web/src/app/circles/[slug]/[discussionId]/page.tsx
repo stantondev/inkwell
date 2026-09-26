@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch, ApiError } from "@/lib/api";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import DiscussionDetailClient from "./discussion-detail-client";
 
 interface DiscussionData {
@@ -29,8 +29,7 @@ export default async function DiscussionPage({
   params: Promise<{ slug: string; discussionId: string }>;
 }) {
   const { slug, discussionId } = await params;
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession(`/circles/${slug}/${discussionId}`);
 
   let discussion: DiscussionData;
   try {

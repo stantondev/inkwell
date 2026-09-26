@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { Letterbox, type LetterboxFolder } from "./letterbox";
 import { FetchError } from "@/components/fetch-error";
@@ -41,8 +40,7 @@ export default async function LettersPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requireSession("/letters");
 
   const { tab } = await searchParams;
   const folder: LetterboxFolder = FOLDERS.includes(tab as LetterboxFolder) ? (tab as LetterboxFolder) : "inbox";
