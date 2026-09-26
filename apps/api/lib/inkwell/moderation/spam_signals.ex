@@ -88,7 +88,16 @@ defmodule Inkwell.Moderation.SpamSignals do
     "management software", "helps businesses", "businesses improve", "we offer high",
     "we provide high", "industries such as", "tamper-evident", "ideal for everyday",
     "key features of", "affordable prices", "manufacturer and supplier", "leading provider",
-    "one-stop solution", "customer satisfaction", "our expert team", "our team of experts"
+    "one-stop solution", "customer satisfaction", "our expert team", "our team of experts",
+    # Not everything is in English (Sept 2026: Indonesian slot-casino posts,
+    # Indian "satta" results, Dutch local-service SEO, browser-game farms).
+    # Every one of these was only limited, never blocked, because the list
+    # above had nothing for them. Checked against all 293 active accounts
+    # before adding: only those four spam accounts matched.
+    "slot online", "online slot", "slot gacor", "situs slot", "judi online", "togel", "kasino",
+    "satta king", "satta matka", "satta result", "matka result",
+    "gratis offerte", "offerte aanvragen", "vraag een offerte", "neem vandaag nog contact",
+    "snow rider 3d", "solar smash"
   ]
 
   @doc """

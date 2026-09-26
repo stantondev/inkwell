@@ -995,38 +995,47 @@ defmodule Inkwell.Journals do
   end
 
   @doc """
-  Writers kept off the homepage showcase: accounts under 30 days old that
-  link to outside sites and have never commented, inked, stamped or followed
-  anyone. That is the shape of every SEO spam account we've had, and it
-  doesn't depend on anyone else having read them yet — new writers who
-  don't post outside links show up straight away.
+  Writers kept off the homepage showcase and out of search engines:
+
+    * accounts under 30 days old that link to outside sites and have never
+      commented, inked, stamped or followed anyone. That is the shape of every
+      SEO spam account we've had, and it doesn't depend on anyone else having
+      read them yet — new writers who don't post outside links show up
+      straight away;
+    * accounts the spam checker has limited, however old. Until 2026-09-26 the
+      first rule was the only one, so a spam account only had to wait 30 days:
+      @rothomobani (eight Dutch SEO posts, limited since its first week) was
+      back in Google by September. A limit lifts on its own once the account
+      scores clean and engages with people (`AutoModeration.evaluate/2`).
   """
   def showcase_excluded_user_ids do
     cutoff = DateTime.utc_now() |> DateTime.add(-30, :day)
 
     from(u in Inkwell.Accounts.User,
       as: :u,
-      where: u.inserted_at > ^cutoff,
       where:
-        exists(
-          from(e in Entry,
-            where: e.user_id == parent_as(:u).id and e.status == :published,
-            where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
-          )
-        ),
-      where: not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)),
-      where: not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)),
-      where: not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)),
-      where: not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id)),
+        u.moderation_state == "limited" or
+          (u.inserted_at > ^cutoff and
+             exists(
+               from(e in Entry,
+                 where: e.user_id == parent_as(:u).id and e.status == :published,
+                 where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
+               )
+             ) and
+             not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)) and
+             not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)) and
+             not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)) and
+             not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id))),
       select: u.id
     )
   end
 
   @doc """
   True while a writer matches `showcase_excluded_user_ids/0` (new, links out,
-  never interacted). Their pages carry `noindex` and stay out of the sitemap,
-  so a link-spam account gets nothing from search engines; it lifts on its own
-  once they interact with anyone or pass 30 days.
+  never interacted; or limited by the spam checker). Their pages carry
+  `noindex` and stay out of the sitemap, so a link-spam account gets nothing
+  from search engines. The new-account part lifts once they interact with
+  anyone or pass 30 days; a limit lifts only when the spam checker lifts it.
   """
   def held_back_from_search?(user_id) do
     from(u in Inkwell.Accounts.User,

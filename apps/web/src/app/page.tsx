@@ -2,24 +2,29 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
+// "Inkwell" alone shares its search results with a Rust library, a planner
+// brand and several magazines (Search Console, Jun–Sep 2026: 3,766
+// impressions for "inkwell" at 0.4% CTR), so the title leads with the full
+// name. Describe Inkwell in its own words, never by comparison to other
+// sites (see CLAUDE.md).
 export const metadata: Metadata = {
-  title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
+  title: { absolute: "Inkwell Social — Your Journal, Your Pen Pals, Your Space" },
   description:
-    "A social journaling platform. Write, connect, and customize with no algorithms, no ads, and full ownership of your words. Connected to Mastodon and the open social web. Free forever.",
+    "Keep a journal or blog, write letters to pen pals and make your page your own. Followable from Mastodon. No algorithms, no ads. Free forever.",
   openGraph: {
-    title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
+    title: "Inkwell Social — Your Journal, Your Pen Pals, Your Space",
     description:
-      "A social journaling platform. The warmth of LiveJournal, the creativity of MySpace, rebuilt for the open web.",
+      "A social journaling platform with the warmth of the early web, rebuilt for the open social web. No algorithm, no ads.",
     url: "https://inkwell.social",
     type: "website",
-    images: [{ url: "/api/og", width: 1200, height: 630, alt: "Inkwell — Social Journaling" }],
+    images: [{ url: "/api/og", width: 1200, height: 630, alt: "Inkwell Social — social journaling" }],
   },
   twitter: {
     card: "summary_large_image",
     site: "@inkwellsocial",
-    title: "Inkwell — Your Journal, Your Pen Pals, Your Space",
+    title: "Inkwell Social — Your Journal, Your Pen Pals, Your Space",
     description:
-      "A social journaling platform with no algorithms, no ads. Free forever.",
+      "Keep a journal, write to pen pals, make your page your own. No algorithms, no ads. Free forever.",
     images: ["/api/og"],
   },
   alternates: {

@@ -58,10 +58,18 @@ defmodule InkwellWeb.SitemapController do
         Map.put(e, :custom_domain, Map.get(username_domain_map, e.username))
       end)
 
-    # Only include tags used by at least 2 published entries (skip thin tag pages)
-    tags =
+    # Tag and topic pages list only Inkwell entries (fediverse posts sit on a
+    # noindex tab), and Explore leaves out suspended and limited writers. Count
+    # the same entries here, so the sitemap never lists a page that would open
+    # on its noindex fediverse view.
+    listed_entries =
       Entry
       |> where([e], e.privacy == :public and e.status == :published)
+      |> where([e], e.user_id not in subquery(Inkwell.Journals.hidden_from_discovery_user_ids()))
+
+    # Only include tags used by at least 2 published entries (skip thin tag pages)
+    tags =
+      listed_entries
       |> where([e], fragment("array_length(?, 1) > 0", e.tags))
       |> select([e], e.tags)
       |> Repo.all()
@@ -70,6 +78,14 @@ defmodule InkwellWeb.SitemapController do
       |> Enum.filter(fn {_tag, count} -> count >= 2 end)
       |> Enum.map(fn {tag, _count} -> tag end)
 
-    json(conn, %{users: users, entries: entries, tags: tags})
+    categories =
+      listed_entries
+      |> where([e], not is_nil(e.category))
+      |> distinct(true)
+      |> select([e], e.category)
+      |> Repo.all()
+      |> Enum.map(&to_string/1)
+
+    json(conn, %{users: users, entries: entries, tags: tags, categories: categories})
   end
 end

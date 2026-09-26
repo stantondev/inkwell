@@ -85,6 +85,66 @@ defmodule InkwellWeb.ExploreShowcaseTest do
       assert body =~ writer.username
     end
 
+    # Sept 2026: a limited spam account only had to wait 30 days to be back
+    # in Google (@rothomobani).
+    test "a limited account stays held back after 30 days" do
+      spammer = create_user()
+
+      spammer
+      |> Ecto.Changeset.change(inserted_at: DateTime.utc_now() |> DateTime.add(-60, :day), moderation_state: "limited")
+      |> Inkwell.Repo.update!()
+
+      spam = publish(spammer, ~s(<p><a href="https://seals.example.com">Gratis offerte</a></p>))
+
+      assert Journals.held_back_from_search?(spammer.id)
+      assert spam.id not in showcase_ids()
+
+      body = build_conn() |> get("/api/sitemap-data") |> json_response(200) |> Jason.encode!()
+      refute body =~ spammer.username
+      refute body =~ spam.slug
+
+      # The profile and entry pages carry noindex.
+      meta = build_conn() |> get("/api/users/#{spammer.username}") |> json_response(200) |> Map.fetch!("meta")
+      assert meta["noindex"] == true
+    end
+
+    test "an older writer who links out and never interacts is not held back" do
+      writer = create_user()
+
+      writer
+      |> Ecto.Changeset.change(inserted_at: DateTime.utc_now() |> DateTime.add(-60, :day))
+      |> Inkwell.Repo.update!()
+
+      publish(writer, ~s(<p>Notes on <a href="https://nu.nl/a">the news</a></p>))
+      refute Journals.held_back_from_search?(writer.id)
+    end
+
+    test "tags and topics used only by limited writers stay out of the sitemap" do
+      spammer = create_user()
+      spammer |> Ecto.Changeset.change(moderation_state: "limited") |> Inkwell.Repo.update!()
+      writer = create_user()
+
+      for {user, tag} <- [{spammer, "spamtag"}, {spammer, "spamtag"}, {writer, "poetry"}, {writer, "poetry"}] do
+        {:ok, _} =
+          Journals.create_entry(%{
+            user_id: user.id,
+            title: "T #{System.unique_integer([:positive])}",
+            body_html: "<p>x</p>",
+            tags: [tag],
+            category: if(user.id == writer.id, do: :poetry, else: :finance),
+            privacy: :public,
+            status: :published,
+            published_at: DateTime.utc_now()
+          })
+      end
+
+      data = build_conn() |> get("/api/sitemap-data") |> json_response(200)
+      assert "poetry" in data["tags"]
+      refute "spamtag" in data["tags"]
+      assert "poetry" in data["categories"]
+      refute "finance" in data["categories"]
+    end
+
     test "interacting with someone lifts the hold-back" do
       spammer = create_user()
       publish(spammer, ~s(<p><a href="https://myblog.example">blog</a></p>))

@@ -51,6 +51,36 @@ defmodule Inkwell.Moderation.SpamSignalsTest do
     assert SpamSignals.decision(r) == :block
   end
 
+  # Sept 2026: these three were only limited — the phrase list was English-only
+  # and had no gambling terms outside "casino" — so they stayed in Google.
+  test "non-English and gambling spam is blocked, not just limited" do
+    cases = [
+      # Indonesian slot-casino posts beside an English software ad
+      ["Rahasia Internal Situs Gsc108 Terungkap",
+       "Permainan slot online Gsc108 telah menjadi hiburan kasino yang paling digemari",
+       "IPD Management System helps hospitals"],
+      # Indian "satta" result sites mixed with generic business copy
+      ["SATTA KING 24: Understanding Results", "Fast Satta Result updates",
+       "Vair IT Technologies helps businesses grow"],
+      # Dutch local-service SEO
+      ["Waarom verkiezen mensen het gebruik van Lekkage Gratis Offerte?",
+       "How To Gain Expected Outcomes From School Management Software?"]
+    ]
+
+    for texts <- cases do
+      r =
+        SpamSignals.score(%{
+          email_domain: "gmail.com",
+          texts: texts,
+          links: ["https://a.example.com/x", "https://b.example.com/y", "https://c.example.com/z"],
+          minutes_to_first_post: 7,
+          interactions: 0
+        })
+
+      assert SpamSignals.decision(r) == :block, "expected a block for #{inspect(hd(texts))}: #{inspect(r)}"
+    end
+  end
+
   test "a personal essay mentioning work software is not flagged" do
     r =
       SpamSignals.score(%{

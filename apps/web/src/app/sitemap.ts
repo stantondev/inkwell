@@ -19,7 +19,9 @@ const API = process.env.API_URL ?? "http://localhost:4000";
 
 type SitemapUser = { username: string; updated_at: string; custom_domain?: string | null };
 type SitemapEntry = { username: string; slug: string; updated_at: string; custom_domain?: string | null };
-type SitemapData = { users: SitemapUser[]; entries: SitemapEntry[]; tags: string[] };
+// `categories` lists topics with at least one Inkwell entry; null when the
+// API predates it, in which case every topic is listed as before.
+type SitemapData = { users: SitemapUser[]; entries: SitemapEntry[]; tags: string[]; categories: string[] | null };
 
 async function fetchSitemapData(): Promise<SitemapData> {
   try {
@@ -29,19 +31,20 @@ async function fetchSitemapData(): Promise<SitemapData> {
     });
     if (!res.ok) {
       console.error(`[sitemap] ${API}/api/sitemap-data responded ${res.status} — serving static pages only`);
-      return { users: [], entries: [], tags: [] };
+      return { users: [], entries: [], tags: [], categories: null };
     }
     const data = await res.json();
     return {
       users: data.users ?? [],
       entries: data.entries ?? [],
       tags: data.tags ?? [],
+      categories: Array.isArray(data.categories) ? data.categories : null,
     };
   } catch (err) {
     // Never fail the sitemap outright, but never fail silently either —
     // a quietly truncated sitemap is indistinguishable from a healthy one.
     console.error("[sitemap] could not reach the API — serving static pages only:", err);
-    return { users: [], entries: [], tags: [] };
+    return { users: [], entries: [], tags: [], categories: null };
   }
 }
 
@@ -89,6 +92,8 @@ function mainSitemap(data: SitemapData): MetadataRoute.Sitemap {
     { url: `${BASE}/switch/wordpress`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
     { url: `${BASE}/switch/substack`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
     { url: `${BASE}/switch/medium`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
+    { url: `${BASE}/switch/livejournal`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-22" },
+    { url: `${BASE}/switch/dreamwidth`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-22" },
     { url: `${BASE}/about`, changeFrequency: "monthly", priority: 0.5, lastModified: "2026-03-01" },
     { url: `${BASE}/guide`, changeFrequency: "monthly", priority: 0.5, lastModified: "2026-03-01" },
     { url: `${BASE}/help`, changeFrequency: "monthly", priority: 0.5, lastModified: "2026-03-30" },
@@ -110,7 +115,12 @@ function mainSitemap(data: SitemapData): MetadataRoute.Sitemap {
     { url: `${BASE}/brand`, changeFrequency: "monthly", priority: 0.2, lastModified: "2026-02-27" },
   ];
 
-  const categoryPages: MetadataRoute.Sitemap = CATEGORIES.map((cat) => ({
+  // A topic page with no Inkwell entries opens on its fediverse view, which
+  // is noindex, so only topics Inkwell writers have used are listed.
+  const listedCategories = data.categories
+    ? CATEGORIES.filter((cat) => data.categories!.includes(cat.value))
+    : CATEGORIES;
+  const categoryPages: MetadataRoute.Sitemap = listedCategories.map((cat) => ({
     url: `${BASE}/category/${cat.value.replace(/_/g, "-")}`,
     changeFrequency: "daily" as const,
     priority: 0.6,

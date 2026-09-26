@@ -1,20 +1,86 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import { getSession, getToken } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
+import { SourceTabs, type FeedSource } from "@/components/source-tabs";
+import { notFoundOrRethrow } from "@/lib/page-errors";
 import { CATEGORIES, getCategoryFromSlug, getCategoryLabel } from "@/lib/categories";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; source?: string }>;
 }
 
-export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const label = getCategoryLabel(getCategoryFromSlug(slug));
+function isKnownCategory(value: string): boolean {
+  return CATEGORIES.some((c) => c.value === value);
+}
+
+function categoryHref(slug: string, source: FeedSource): string {
+  return source === "fediverse" ? `/category/${slug}?source=fediverse` : `/category/${slug}`;
+}
+
+const getCategoryEntries = cache(async (category: string, source: FeedSource, page: number, token: string | null): Promise<JournalEntry[]> => {
+  try {
+    const data = await apiFetch<{ data: JournalEntry[] }>(
+      `/api/explore?category=${encodeURIComponent(category)}&source=${source}&page=${page}`,
+      {},
+      token
+    );
+    return data.data ?? [];
+  } catch (err) {
+    notFoundOrRethrow(err);
+  }
+});
+
+const categoryHasEntries = cache(async (category: string, source: FeedSource, token: string | null): Promise<boolean> => {
+  try {
+    const data = await apiFetch<{ data: JournalEntry[] }>(
+      `/api/explore?category=${encodeURIComponent(category)}&source=${source}&per_page=1`,
+      {},
+      token
+    );
+    return (data.data ?? []).length > 0;
+  } catch {
+    return source === "inkwell";
+  }
+});
+
+/**
+ * Topic pages work like tag pages: Inkwell entries first, fediverse posts
+ * (matched by hashtag) on their own noindex tab, and a topic no Inkwell
+ * writer has used yet opens on that tab. See the tag page for why.
+ */
+const resolveCategoryView = cache(async (category: string, sourceParam: string | undefined, page: number, token: string | null) => {
+  const requested: FeedSource = sourceParam === "fediverse" ? "fediverse" : "inkwell";
+  const hasInkwell = await categoryHasEntries(category, "inkwell", token);
+  const source: FeedSource = requested === "inkwell" && !hasInkwell ? "fediverse" : requested;
+  const entries = await getCategoryEntries(category, source, page, token);
+  const hasFediverse = source === "fediverse" || (await categoryHasEntries(category, "fediverse", token));
+
   return {
+    source,
+    entries,
+    showTabs: hasInkwell && hasFediverse,
+    indexable: source === "inkwell" && page === 1 && entries.length > 0,
+  };
+});
+
+export async function generateMetadata({ params, searchParams }: CategoryPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const { page: pageParam, source: sourceParam } = await searchParams;
+  const categoryValue = getCategoryFromSlug(slug);
+  if (!isKnownCategory(categoryValue)) notFound();
+
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const label = getCategoryLabel(categoryValue);
+  const view = await resolveCategoryView(categoryValue, sourceParam, page, await getToken());
+
+  return {
+    ...(view.indexable ? {} : { robots: { index: false, follow: true } }),
     title: label ?? slug,
     description: `Browse ${label ?? slug} journal entries on Inkwell.`,
     openGraph: {
@@ -29,43 +95,14 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const session = await getSession();
   const { slug } = await params;
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const { page: pageParam, source: sourceParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   const categoryValue = getCategoryFromSlug(slug);
+  if (!isKnownCategory(categoryValue)) notFound();
   const categoryLabel = getCategoryLabel(categoryValue);
 
-  // Validate category exists
-  const isValid = CATEGORIES.some((c) => c.value === categoryValue);
-  if (!isValid) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "var(--background)", color: "var(--foreground)" }}
-      >
-        <div className="text-center">
-          <p className="text-lg font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Unknown category
-          </p>
-          <Link href="/explore" className="text-sm underline" style={{ color: "var(--accent)" }}>
-            Back to Explore
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  let entries: JournalEntry[] = [];
-  try {
-    const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?category=${encodeURIComponent(categoryValue)}&page=${page}`,
-      {},
-      session?.token
-    );
-    entries = data.data ?? [];
-  } catch {
-    // show empty state
-  }
+  const { source, entries, showTabs } = await resolveCategoryView(categoryValue, sourceParam, page, await getToken());
 
   const emptyState = (
     <div
@@ -138,8 +175,17 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             </Link>
           </div>
         </div>
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          Public entries in {categoryLabel}
+        {showTabs ? (
+          <div className="mt-3">
+            <SourceTabs active={source} hrefFor={(s) => categoryHref(slug, s)} label="Whose posts" />
+          </div>
+        ) : null}
+        <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+          {source === "inkwell"
+            ? `Public entries in ${categoryLabel}`
+            : showTabs
+              ? `Posts about ${categoryLabel} from across the fediverse`
+              : `No one on Inkwell has written in ${categoryLabel} yet. These are posts from across the fediverse.`}
         </p>
       </div>
 
@@ -147,8 +193,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       <JournalFeed
         entries={entries}
         page={page}
-        basePath={`/category/${slug}`}
-        loadMorePath={`/api/explore?category=${encodeURIComponent(categoryValue)}`}
+        basePath={categoryHref(slug, source)}
+        loadMorePath={`/api/explore?category=${encodeURIComponent(categoryValue)}&source=${source}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,

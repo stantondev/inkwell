@@ -166,9 +166,8 @@ export function HeroSection() {
             delay: prefersReducedMotion ? 0 : 1.8,
           }}
         >
-          A social journaling platform. The richness of LiveJournal,
-          the creativity of early MySpace, rebuilt for the open social web
-          with no algorithm and no ads.
+          A social journaling platform with the warmth of the early web,
+          rebuilt for the open social web with no algorithm and no ads.
         </motion.p>
 
         {/* CTA buttons */}

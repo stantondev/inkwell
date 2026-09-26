@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import { notFound } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getSession, getToken } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 import { JournalFeed } from "@/components/journal-feed";
 import type { JournalEntry } from "@/components/journal-entry-card";
+import { SourceTabs, type FeedSource } from "@/components/source-tabs";
 
 interface TagPageProps {
   params: Promise<{ tag: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; source?: string }>;
 }
 
 /**
@@ -29,17 +30,25 @@ function decodeTag(raw: string): string {
   }
 }
 
+function tagHref(tagName: string, source: FeedSource): string {
+  const base = `/tag/${encodeURIComponent(tagName)}`;
+  return source === "fediverse" ? `${base}?source=fediverse` : base;
+}
+
 /**
- * Shared by generateMetadata and the page below, so the tag is fetched once.
+ * One page of the tag from one source. Shared by generateMetadata and the
+ * page below, so it is fetched once.
  *
  * A failed fetch is rethrown rather than swallowed: an API restart used to
  * render this as "No entries yet", which is why these pages looked empty
  * even when the tag had content.
  */
-const getTagEntries = cache(async (tagName: string, page: number): Promise<JournalEntry[]> => {
+const getTagEntries = cache(async (tagName: string, source: FeedSource, page: number, token: string | null): Promise<JournalEntry[]> => {
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?tag=${encodeURIComponent(tagName)}&page=${page}`
+      `/api/explore?tag=${encodeURIComponent(tagName)}&source=${source}&page=${page}`,
+      {},
+      token
     );
     return data.data ?? [];
   } catch (err) {
@@ -47,61 +56,67 @@ const getTagEntries = cache(async (tagName: string, page: number): Promise<Journ
   }
 });
 
-/**
- * Has any Inkwell writer used this tag?
- *
- * Asked of the API rather than inferred from the entries on screen: a tag
- * can have local posts that page 1 never shows, because the feed is ordered
- * by date and federated posts are far more numerous. /tag/tech has three
- * Inkwell entries and twenty fediverse ones ahead of them, so judging by
- * page 1 alone marked it noindex while the sitemap still listed it.
- */
-const tagHasLocalEntries = cache(async (tagName: string): Promise<boolean> => {
+/** Does the tag have anything from this source? Only decides tabs and fallbacks. */
+const tagHasEntries = cache(async (tagName: string, source: FeedSource, token: string | null): Promise<boolean> => {
   try {
     const data = await apiFetch<{ data: JournalEntry[] }>(
-      `/api/explore?tag=${encodeURIComponent(tagName)}&source=inkwell&per_page=1`
+      `/api/explore?tag=${encodeURIComponent(tagName)}&source=${source}&per_page=1`,
+      {},
+      token
     );
     return (data.data ?? []).length > 0;
   } catch {
-    // Don't let a blip flip a good page to noindex.
-    return true;
+    // A blip mustn't hide Inkwell writing behind the fediverse tab; the
+    // entries fetch below reports a real outage.
+    return source === "inkwell";
   }
 });
 
 /**
- * Whether this tag page is worth putting in Google's index.
+ * Which view to show, and whether search engines may index it.
  *
- * Tag pages are aggregations, and most of what carries a hashtag here comes
- * from the fediverse — posts whose canonical home is another server, and
- * which are deleted again when the relay copy expires. Search Console for
- * Jun–Sep 2026: 822 tag pages indexed against 46 in the sitemap, 4,682
- * impressions, 15 clicks. /tag/birthday alone drew 2,033 impressions at
- * position 2.8 with zero clicks, ranking for someone else's name while
- * showing an empty page, because the federated post behind it was long gone.
+ * Tag pages list Inkwell entries; posts from other servers are on their own
+ * tab. Until 2026-09-26 the two were mixed, so /tag/technology showed 19
+ * fediverse posts and one Inkwell entry, all of it indexable — including
+ * posts by people who haven't opted in to search (Mastodon's "indexable" is
+ * false for about 1 in 5 of the fediverse posts Inkwell stores). The fediverse tab is noindex, and
+ * a tag no Inkwell writer has used opens straight on it.
  *
- * So: a tag page earns indexing only when Inkwell's own writers have used
- * the tag. Pages of purely federated posts stay reachable and useful for
- * readers, but stop competing in search for content we did not write.
+ * Search Console Jun–Sep 2026 for the pages this replaced: 822 tag pages
+ * indexed, 4,682 impressions, 15 clicks; /tag/birthday drew 2,033 of those
+ * for someone else's posts. The value was never in the federated half.
  */
-async function tagIsIndexable(tagName: string, page: number): Promise<boolean> {
-  if (page > 1) return false; // paginated views duplicate page 1
-  return tagHasLocalEntries(tagName);
-}
+const resolveTagView = cache(async (tagName: string, sourceParam: string | undefined, page: number, token: string | null) => {
+  const requested: FeedSource = sourceParam === "fediverse" ? "fediverse" : "inkwell";
+  const hasInkwell = await tagHasEntries(tagName, "inkwell", token);
+  const source: FeedSource = requested === "inkwell" && !hasInkwell ? "fediverse" : requested;
+
+  const entries = await getTagEntries(tagName, source, page, token);
+  // Nothing here: 404 rather than a 200 that says "No entries yet".
+  if (entries.length === 0) notFound();
+
+  const hasFediverse = source === "fediverse" || (await tagHasEntries(tagName, "fediverse", token));
+
+  return {
+    source,
+    entries,
+    showTabs: hasInkwell && hasFediverse,
+    // Paginated views duplicate page 1.
+    indexable: source === "inkwell" && page === 1,
+  };
+});
 
 export async function generateMetadata({ params, searchParams }: TagPageProps): Promise<Metadata> {
   const { tag } = await params;
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const { page: pageParam, source: sourceParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const tagName = decodeTag(tag);
-  const entries = await getTagEntries(tagName, page);
-
-  // Nothing here: 404 rather than a 200 that says "No entries yet".
-  if (entries.length === 0) notFound();
+  const view = await resolveTagView(tagName, sourceParam, page, await getToken());
 
   const canonical = `https://inkwell.social/tag/${encodeURIComponent(tagName)}`;
 
   return {
-    ...((await tagIsIndexable(tagName, page)) ? {} : { robots: { index: false, follow: true } }),
+    ...(view.indexable ? {} : { robots: { index: false, follow: true } }),
     title: `#${tagName}`,
     description: `Public journal entries tagged #${tagName} on Inkwell.`,
     openGraph: {
@@ -116,12 +131,11 @@ export async function generateMetadata({ params, searchParams }: TagPageProps): 
 export default async function TagPage({ params, searchParams }: TagPageProps) {
   const session = await getSession();
   const { tag } = await params;
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+  const { page: pageParam, source: sourceParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const tagName = decodeTag(tag);
 
-  const entries = await getTagEntries(tagName, page);
-  if (entries.length === 0) notFound();
+  const { source, entries, showTabs } = await resolveTagView(tagName, sourceParam, page, await getToken());
 
   const emptyState = (
     <div
@@ -194,8 +208,17 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
             </Link>
           </div>
         </div>
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-          Public entries tagged #{tagName}
+        {showTabs ? (
+          <div className="mt-3">
+            <SourceTabs active={source} hrefFor={(s) => tagHref(tagName, s)} label="Whose posts" />
+          </div>
+        ) : null}
+        <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+          {source === "inkwell"
+            ? `Public entries tagged #${tagName}`
+            : showTabs
+              ? `Posts tagged #${tagName} from across the fediverse`
+              : `No one on Inkwell has used #${tagName} yet. These are posts from across the fediverse.`}
         </p>
       </div>
 
@@ -203,8 +226,8 @@ export default async function TagPage({ params, searchParams }: TagPageProps) {
       <JournalFeed
         entries={entries}
         page={page}
-        basePath={`/tag/${encodeURIComponent(tagName)}`}
-        loadMorePath={`/api/explore?tag=${encodeURIComponent(tagName)}`}
+        basePath={tagHref(tagName, source)}
+        loadMorePath={`/api/explore?tag=${encodeURIComponent(tagName)}&source=${source}`}
         emptyState={emptyState}
         session={session ? {
           userId: session.user.id,

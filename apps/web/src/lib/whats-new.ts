@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-26-tag-tabs",
+    date: "2026-09-26",
+    title: "Tag and topic pages lead with Inkwell writing",
+    body: "A hashtag or topic page (like #technology or Tech) now shows what Inkwell writers wrote first, with posts from the rest of the fediverse on their own Fediverse tab, the same as Explore. Before, a page could show twenty Mastodon posts and bury the one Inkwell entry among them. The Fediverse tab and Explore's Fediverse tab are also kept out of Google and other search engines: those posts belong to other servers, and many of the people who wrote them haven't chosen to be in search results.",
+    href: "/tag/writing",
+    cta: "See #writing",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-26-editor-pictures",
     date: "2026-09-26",
     title: "Captions and alt text for pictures, moving paragraphs, cleaner pasting",

@@ -16,18 +16,25 @@ import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
 import { isSupporter } from "@/lib/supporter";
 
-export const metadata: Metadata = {
-  title: "Explore",
-  description:
-    "Discover journal entries from the Inkwell community and writers across the fediverse. Browse by topic, find the most-inked writing, and meet new writers.",
-  openGraph: {
-    title: "Explore — Inkwell",
+// The Fediverse tab is other servers' posts, many by people who haven't opted
+// in to search (Mastodon's "indexable"). A canonical pointing at /explore
+// wasn't enough: Google indexed /explore?category=career&source=fediverse.
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const { source } = await searchParams;
+  return {
+    ...(source === "fediverse" ? { robots: { index: false, follow: true } } : {}),
+    title: "Explore",
     description:
-      "Discover journal entries from writers across the open web.",
-    url: "https://inkwell.social/explore",
-  },
-  alternates: { canonical: "https://inkwell.social/explore" },
-};
+      "Discover journal entries from the Inkwell community and writers across the fediverse. Browse by topic, find the most-inked writing, and meet new writers.",
+    openGraph: {
+      title: "Explore — Inkwell",
+      description:
+        "Discover journal entries from writers across the open web.",
+      url: "https://inkwell.social/explore",
+    },
+    alternates: { canonical: "https://inkwell.social/explore" },
+  };
+}
 
 interface PageProps {
   searchParams: Promise<{ page?: string; category?: string; sort?: string; source?: string; q?: string }>;
