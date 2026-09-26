@@ -1,7 +1,7 @@
 "use client";
 
 // Writers worth following, with a Follow button on each: the empty Feed and
-// the "Writers to meet" row at the top of Explore. The list comes from /api/explore/writers
+// "Writers to meet" on the cover of Explore. The list comes from /api/explore/writers
 // (people who've written lately; the viewer, people they follow, spam-limited
 // and link-farm accounts left out). Following sends a pen pal request; their
 // public entries reach your Feed right away. Signed out, Follow goes to
@@ -35,9 +35,9 @@ export function SuggestedWriters({
   limit?: number;
   /** Rendered by the server; skips the fetch. */
   initial?: SuggestedWriter[];
-  /** "grid": cards two across (empty Feed); "chips": a small row of
-   *  picture, name and Follow (Explore's first page). */
-  layout?: "grid" | "chips";
+  /** "grid": cards two across (empty Feed); "rows": compact rows of
+   *  picture, name and Follow (the cover of Explore). */
+  layout?: "grid" | "rows";
   signedIn?: boolean;
 }) {
   const [writers, setWriters] = useState<SuggestedWriter[] | null>(initial ? initial.slice(0, limit) : null);
@@ -97,25 +97,31 @@ export function SuggestedWriters({
     );
   }
 
-  if (layout === "chips") {
+  if (layout === "rows") {
     return (
-      <ul className="writer-chips">
+      <ul className="writer-rows">
         {writers.map((w) => {
           const name = w.display_name || w.username;
           return (
-            <li key={w.id} className="writer-chip">
-              <Link href={`/${w.username}`} className="writer-chip-link" title={w.bio ? `${name}: ${w.bio}` : name}>
+            <li key={w.id} className="writer-row">
+              <Link href={`/${w.username}`} className="writer-row-link" title={w.bio ? `${name}: ${w.bio}` : name}>
                 <AvatarWithFrame
                   url={w.avatar_url}
                   name={name}
-                  size={36}
+                  size={32}
                   frame={w.avatar_frame}
                   animation={w.avatar_animation}
                   subscriptionTier={w.subscription_tier}
                 />
-                <span className="writer-chip-name">{name}</span>
+                <span className="writer-row-text">
+                  <span className="writer-row-name">{name}</span>
+                  <span className="writer-row-meta">
+                    @{w.username}
+                    {w.entry_count > 0 && <> · {w.entry_count} {w.entry_count === 1 ? "entry" : "entries"}</>}
+                  </span>
+                </span>
               </Link>
-              {followButton(w, "writer-chip-follow")}
+              {followButton(w, "writer-row-follow")}
             </li>
           );
         })}

@@ -11,6 +11,7 @@ import { FeedCardActions } from "./feed-card-actions";
 import { DoubleTapInk } from "./double-tap-ink";
 import { emitEntryState, useEntryState } from "@/lib/entry-state";
 import { groupPhonePages, packEntriesIntoHalves } from "@/lib/page-packing";
+import { BOOK_NEXT_EVENT } from "@/lib/book-events";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
 import { ClassicFeed } from "./classic-feed";
 
@@ -45,17 +46,15 @@ interface JournalFeedProps {
   newSince?: string | null;
   /** Shown after the last entry once there's nothing more to load. */
   endNote?: React.ReactNode;
-  /** A small block above the first entry (Explore: "Writers to meet" and
-   *  "Most inked this month"): top of the first half-page on desktop, top of
-   *  the first page on phones, a box above the list in Classic view. */
-  lead?: React.ReactNode;
-  /** How much of the first half-page `lead` takes, in page-packing units
-   *  (a half-page is about 6). */
-  leadWeight?: number;
+  /** The book's cover (Explore: writers to meet, most inked, popular tags):
+   *  the left page of the first spread on a computer, so the entries start on
+   *  the facing page; the first page on a phone; a box above the list in
+   *  Classic view. */
+  cover?: React.ReactNode;
 }
 
-/** A half of a book spread: entries packed together, the first one with the lead on top. */
-type BookHalf = { key: string; lead?: React.ReactNode; entries: JournalEntry[] };
+/** A half of a book spread: the cover, or entries packed together. */
+type BookHalf = { key: string; cover?: React.ReactNode; entries: JournalEntry[] };
 
 /**
  * A post short enough to leave most of a phone page blank (a few lines, at
@@ -82,8 +81,7 @@ export function JournalFeed({
   look = "modern",
   newSince = null,
   endNote,
-  lead,
-  leadWeight = 2.5,
+  cover,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -142,12 +140,14 @@ export function JournalFeed({
 
   // The entries' half-pages, two to a spread.
   const spreads = useMemo(() => {
-    const halves: BookHalf[] = packEntriesIntoHalves(entries, lead ? leadWeight : 0)
-      .map((es, i) => ({ key: `half-${i}`, entries: es, lead: i === 0 ? lead : undefined }));
+    const halves: BookHalf[] = [
+      ...(cover ? [{ key: "cover", cover, entries: [] }] : []),
+      ...packEntriesIntoHalves(entries).map((es, i) => ({ key: `half-${i}`, entries: es })),
+    ];
     const out: { left: BookHalf; right: BookHalf | null }[] = [];
     for (let i = 0; i < halves.length; i += 2) out.push({ left: halves[i], right: halves[i + 1] ?? null });
     return out;
-  }, [entries, lead, leadWeight]);
+  }, [entries, cover]);
 
   // Phone pages: one entry each, with the stickies before it on the same page.
   const phonePages = useMemo(() => groupPhonePages(entries), [entries]);
@@ -374,6 +374,13 @@ export function JournalFeed({
     track.addEventListener("touchend", onEnd);
     track.addEventListener("touchcancel", onEnd);
     track.addEventListener("wheel", onWheel, { passive: false });
+    // The cover's "Start reading" button.
+    const onNext = () => {
+      if (busy) return;
+      beginTurn();
+      animateTo(from + 1);
+    };
+    window.addEventListener(BOOK_NEXT_EVENT, onNext);
     window.addEventListener("resize", onResize);
     return () => {
       cancelAnimationFrame(frame);
@@ -383,6 +390,7 @@ export function JournalFeed({
       track.removeEventListener("touchend", onEnd);
       track.removeEventListener("touchcancel", onEnd);
       track.removeEventListener("wheel", onWheel);
+      window.removeEventListener(BOOK_NEXT_EVENT, onNext);
       window.removeEventListener("resize", onResize);
     };
   }, [isDesktop, entries.length]);
@@ -546,7 +554,7 @@ export function JournalFeed({
         onLoadMore={loadMorePath ? loadMore : undefined}
         isNew={isNewEntry}
         endNote={showEnd ? endNote : null}
-        lead={lead}
+        cover={cover}
       />
     );
   }
@@ -582,7 +590,7 @@ export function JournalFeed({
 
   const renderHalf = (half: BookHalf) => (
     <>
-      {half.lead && <div className="journal-book-cell journal-book-lead">{half.lead}</div>}
+      {half.cover && <div className="journal-book-cell journal-book-cover">{half.cover}</div>}
       {half.entries.map((entry) => (
         <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
           {renderCard(entry, true)}
@@ -698,16 +706,16 @@ export function JournalFeed({
       )}
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
-        {phonePages.map((pageEntries, idx) => {
+        {cover && <div className="mobile-book-page mobile-book-page-cover">{cover}</div>}
+        {phonePages.map((pageEntries) => {
           const onlyStickies = pageEntries.every((e) => e.kind === "sticky");
           const withStickies = !onlyStickies && pageEntries.length > 1;
           const solo = pageEntries.length === 1 ? pageEntries[0] : null;
           const cls = onlyStickies ? " mobile-book-page-sticky"
             : withStickies ? " mobile-book-page-with-stickies"
-            : solo && isShortPost(solo) && !(idx === 0 && lead) ? " mobile-book-page-short" : "";
+            : solo && isShortPost(solo) ? " mobile-book-page-short" : "";
           return (
             <div key={pageEntries[pageEntries.length - 1].id} className={`mobile-book-page${cls}`}>
-              {idx === 0 && lead && <div className="mobile-book-lead">{lead}</div>}
               {pageEntries.map((entry) => (
                 <Fragment key={entry.id}>{renderCard(entry, true)}</Fragment>
               ))}
@@ -739,11 +747,11 @@ export function JournalFeed({
       </div>
 
       {/* Page counter */}
-      {phonePages.length > 1 && (
+      {phonePages.length + (cover ? 1 : 0) > 1 && (
         <div className="mobile-book-counter">
           <span>{mobileActiveIndex + 1}</span>
           <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
-          <span>{phonePages.length}</span>
+          <span>{phonePages.length + (cover ? 1 : 0)}</span>
         </div>
       )}
     </div>

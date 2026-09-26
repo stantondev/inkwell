@@ -276,6 +276,12 @@ defmodule InkwellWeb.ExploreController do
     json(conn, %{data: data})
   end
 
+  # GET /api/explore/tags — popular tags for the cover of Explore (public).
+  def tags(conn, params) do
+    limit = params["limit"] |> parse_int(12) |> min(30)
+    json(conn, %{data: Journals.list_popular_tags(limit)})
+  end
+
   # GET /api/explore/trending — most-inked entries of the last 30 days.
   # (It was 7 days and 2+ inks, which nothing met: the row never showed.)
   def trending(conn, _params) do

@@ -10,7 +10,7 @@ import { FilterLink } from "@/components/filter-link";
 import { FetchError } from "@/components/fetch-error";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { TopicMenu } from "@/components/topic-menu";
-import { ExploreLead } from "@/components/explore-lead";
+import { ExploreCover, type PopularTag } from "@/components/explore-cover";
 import type { SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
@@ -62,23 +62,26 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   if (activeSort !== "newest") params.set("sort", activeSort);
   const listQuery = params.toString();
 
-  // The default view starts with a small block above the first entries:
-  // four writers to meet and the month's three most-inked entries. Any topic,
-  // sort, the fediverse tab or a later page goes straight to the entries.
-  const showLead = page === 1 && !category && activeSort === "newest" && activeSource === "inkwell";
+  // The default view opens on a cover: writers to meet, the month's most
+  // inked entries and popular tags (the left page of the first spread; the
+  // entries start on the facing page). Any topic, sort, the fediverse tab or
+  // a later page goes straight to the entries.
+  const showCover = page === 1 && !category && activeSort === "newest" && activeSource === "inkwell";
 
-  const [entriesRes, writersRes, inkedRes] = await Promise.allSettled([
+  const [entriesRes, writersRes, inkedRes, tagsRes] = await Promise.allSettled([
     apiFetch<{ data: JournalEntry[] }>(`/api/explore?page=${page}&${listQuery}`, {}, session?.token),
-    showLead ? apiFetch<{ data: SuggestedWriter[] }>("/api/explore/writers?limit=4", {}, session?.token) : Promise.resolve({ data: [] }),
-    showLead ? apiFetch<{ data: JournalEntry[] }>("/api/explore/trending", {}, session?.token) : Promise.resolve({ data: [] }),
+    showCover ? apiFetch<{ data: SuggestedWriter[] }>("/api/explore/writers?limit=5", {}, session?.token) : Promise.resolve({ data: [] }),
+    showCover ? apiFetch<{ data: JournalEntry[] }>("/api/explore/trending", {}, session?.token) : Promise.resolve({ data: [] }),
+    showCover ? apiFetch<{ data: PopularTag[] }>("/api/explore/tags?limit=12", {}, session?.token) : Promise.resolve({ data: [] }),
   ]);
   const fetchFailed = entriesRes.status === "rejected";
   const entries = entriesRes.status === "fulfilled" ? entriesRes.value.data ?? [] : [];
   const writers = writersRes.status === "fulfilled" ? writersRes.value.data ?? [] : [];
   const mostInked = inkedRes.status === "fulfilled" ? inkedRes.value.data ?? [] : [];
+  const popularTags = tagsRes.status === "fulfilled" ? tagsRes.value.data ?? [] : [];
 
-  const lead = writers.length > 0 || mostInked.length > 0
-    ? <ExploreLead writers={writers} mostInked={mostInked} signedIn={!!session} />
+  const cover = writers.length > 0 || mostInked.length > 0 || popularTags.length > 0
+    ? <ExploreCover writers={writers} mostInked={mostInked} tags={popularTags} signedIn={!!session} />
     : undefined;
 
   const categoryLabel = category ? getCategoryLabel(category) : null;
@@ -219,7 +222,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           page={page}
           basePath="/explore"
           look={siteLookOf(session?.user.settings)}
-          lead={lead}
+          cover={cover}
           loadMorePath={`/api/explore?${listQuery}`}
           extraParams={`&${listQuery}`}
           emptyState={emptyState}

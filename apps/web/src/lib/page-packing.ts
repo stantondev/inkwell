@@ -46,24 +46,20 @@ const PAGE_TARGET_WEIGHT = 6;
 /**
  * Pack entries into half-pages using weight estimation, in reading order.
  * Short entries share a half-page; long ones may get a half-page alone.
- * JournalFeed pairs the halves into spreads.
- *
- * `leadWeight` reserves room at the top of the first half (Explore's small
- * "Writers to meet / Most inked" block sits there, above the entries).
+ * JournalFeed pairs the halves into spreads (after Explore's cover, when
+ * there is one).
  *
  * A half that holds only stickies always takes the next entry too, however
  * long: half-pages scroll, and a one-line sticky alone on a half-page left it
  * mostly blank paper (2026-09-25).
  */
-export function packEntriesIntoHalves(entries: JournalEntry[], leadWeight = 0): JournalEntry[][] {
+export function packEntriesIntoHalves(entries: JournalEntry[]): JournalEntry[][] {
   const halves: JournalEntry[][] = [];
   let i = 0;
-  let first = true;
 
   while (i < entries.length) {
     const half: JournalEntry[] = [];
-    let weight = first ? leadWeight : 0;
-    first = false;
+    let weight = 0;
     while (i < entries.length && weight < PAGE_TARGET_WEIGHT) {
       const w = estimateWeight(entries[i]);
       const onlyStickies = half.length > 0 && half.every((e) => e.kind === "sticky");

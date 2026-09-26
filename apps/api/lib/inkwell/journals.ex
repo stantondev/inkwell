@@ -1185,6 +1185,54 @@ defmodule Inkwell.Journals do
     |> Enum.sort_by(fn {_tag, count} -> -count end)
   end
 
+  @doc """
+  Popular tags for the cover of Explore: tags on public Inkwell entries from
+  the last `days` days, ranked by how many different writers used them, then
+  by how many entries, so one writer repeating a tag can't top the list.
+  Leaves out suspended and spam-limited writers and content-warned posts.
+  Tags are counted case-insensitively; each is returned in its most common
+  spelling (tag pages match the stored spelling exactly). A quiet month with
+  fewer than `limit` tags widens to 90 days.
+  """
+  def list_popular_tags(limit \\ 12, days \\ 30) do
+    since = DateTime.add(DateTime.utc_now(), -days, :day)
+
+    ranked =
+      Entry
+      |> where([e], e.status == :published and e.privacy == :public)
+      |> where([e], e.published_at >= ^since)
+      |> where([e], e.sensitive == false and e.admin_sensitive == false)
+      |> where([e], e.user_id not in subquery(hidden_from_discovery_user_ids()))
+      |> where([e], fragment("array_length(?, 1) > 0", e.tags))
+      |> select([e], {e.user_id, e.tags})
+      |> Repo.all()
+      |> Enum.flat_map(fn {user_id, tags} ->
+        tags
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.uniq_by(&String.downcase/1)
+        |> Enum.map(&{&1, user_id})
+      end)
+      |> Enum.group_by(fn {tag, _} -> String.downcase(tag) end)
+      |> Enum.map(fn {_key, uses} ->
+        spelling =
+          uses
+          |> Enum.frequencies_by(fn {tag, _} -> tag end)
+          |> Enum.max_by(fn {tag, count} -> {count, tag} end)
+          |> elem(0)
+
+        %{
+          tag: spelling,
+          writers: uses |> Enum.map(&elem(&1, 1)) |> Enum.uniq() |> length(),
+          entries: length(uses)
+        }
+      end)
+      |> Enum.sort_by(&{-&1.writers, -&1.entries, &1.tag})
+      |> Enum.take(limit)
+
+    if length(ranked) < limit and days < 90, do: list_popular_tags(limit, 90), else: ranked
+  end
+
   @doc "List all categories used by a user's published entries with counts."
   def list_entry_categories(user_id, viewer \\ :all) do
     Entry

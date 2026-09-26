@@ -144,6 +144,7 @@ defmodule InkwellWeb.Router do
     # Trending entries (optional auth for my_ink)
     get "/explore/trending", ExploreController, :trending
     get "/explore/writers", ExploreController, :writers
+    get "/explore/tags", ExploreController, :tags
     post "/entries/:entry_id/read", ReadController, :create
 
     # Public discovery feed (optional auth for my_stamp)

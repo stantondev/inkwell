@@ -80,4 +80,52 @@ defmodule InkwellWeb.ExploreWritersTest do
     silent = create_user()
     refute silent.username in names(conn)
   end
+
+  describe "popular tags" do
+    defp tagged(user, tags, opts \\ []) do
+      {:ok, e} =
+        Journals.create_entry(%{
+          user_id: user.id,
+          title: "Tagged #{System.unique_integer([:positive])}",
+          body_html: "<p>Words.</p>",
+          privacy: Keyword.get(opts, :privacy, :public),
+          status: :published,
+          sensitive: Keyword.get(opts, :sensitive, false),
+          tags: tags,
+          published_at: DateTime.utc_now()
+        })
+
+      e
+    end
+
+    defp tags(conn), do: conn |> get("/api/explore/tags") |> json_response(200) |> Map.fetch!("data")
+
+    test "ranks by how many writers use a tag, not how often one writer does", %{conn: conn} do
+      [a, b, c] = [create_user(), create_user(), create_user()]
+      for _ <- 1..5, do: tagged(a, ["solo"])
+      tagged(a, ["poetry"])
+      tagged(b, ["Poetry"])
+      tagged(c, ["poetry"])
+
+      [first | _] = tags(conn)
+      assert first["tag"] == "poetry"
+      assert first["writers"] == 3
+      solo = Enum.find(tags(conn), &(&1["tag"] == "solo"))
+      assert solo["writers"] == 1 and solo["entries"] == 5
+    end
+
+    test "leaves out private, content-warned and spam-limited posts", %{conn: conn} do
+      w = create_user()
+      tagged(w, ["hidden-private"], privacy: :private)
+      tagged(w, ["hidden-cw"], sensitive: true)
+      spam = create_user()
+      spam |> Ecto.Changeset.change(moderation_state: "limited") |> Inkwell.Repo.update!()
+      tagged(spam, ["buy-now"])
+
+      names = Enum.map(tags(conn), & &1["tag"])
+      refute "hidden-private" in names
+      refute "hidden-cw" in names
+      refute "buy-now" in names
+    end
+  end
 end
