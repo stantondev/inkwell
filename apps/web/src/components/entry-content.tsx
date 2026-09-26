@@ -46,6 +46,13 @@ export function EntryContent({
       ref.current.innerHTML = bodyHtml;
       lastSetRef.current = bodyHtml;
     }
+    // A checklist is the writer's; readers see it but can't tick it.
+    ref.current
+      .querySelectorAll<HTMLInputElement>('ul[data-type="taskList"] input[type="checkbox"]')
+      .forEach((box) => {
+        box.disabled = true;
+        box.tabIndex = -1;
+      });
   }, [bodyHtml]);
 
   return (

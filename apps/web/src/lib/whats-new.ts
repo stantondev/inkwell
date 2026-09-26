@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-26-editor",
+    date: "2026-09-26",
+    title: "A better editor: lines that line up, a / menu, and a look before you publish",
+    body: "Every line you write now sits on the page's ruled lines, including bullets, numbered lists, checklists, headings and quotes (they used to drift off them). Checklists have proper boxes that line up with their text, on the page and in the editor. On a new line, type / for a menu of headings, lists, checklists, pictures and more. Links get a proper box (select words and press ⌘K), and ⌘S saves, including changes to an entry that's already published. Publish now shows who will be able to read the entry, and whether it will be emailed, cross-posted or put in a circle, before anything goes out. Posting in a circle has moved down to Sharing in Settings, where it's explained. Long titles wrap, the toolbar fits on one line, and on a phone the editor has the whole screen. Also fixed: pressing ⌘K in the editor used to jump to Explore, and opening an imported post in the editor would have squashed its paragraphs together when saved.",
+    href: "/editor",
+    cta: "Write an entry",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-25-fediverse-counts",
     date: "2026-09-25",
     title: "Fediverse posts show their real replies, boosts and favourites",

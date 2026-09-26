@@ -122,13 +122,18 @@ export default function GuidePage() {
         {/* II. Writing & Publishing */}
         <Section id="writing" number="II" title="Writing & Publishing">
           <p>
-            Open the editor from the sidebar (or the top nav on mobile) to start
-            writing. The rich text editor supports headings, bold, italic, links,
-            images, lists, tables, and more.
+            Open the editor from the sidebar (or the Write button on your phone)
+            to start writing. Select words to bold, italicise or link them, and
+            on a new line type <strong>/</strong> for a menu of headings, lists,
+            checklists, quotes, pictures, galleries and more. Markdown works as
+            you type too: start a line with <code>#</code>, <code>-</code>,{" "}
+            <code>1.</code>, <code>[ ]</code> or <code>&gt;</code>. Press{" "}
+            <strong>⌘K</strong> (Ctrl+K on Windows) to add a link and{" "}
+            <strong>⌘S</strong> to save.
           </p>
           <p>
-            Every entry has a <strong>visibility setting</strong> that controls
-            who can read it:
+            In the editor&rsquo;s <strong>Settings</strong>, <em>Who can read it</em>{" "}
+            controls the entry&rsquo;s visibility:
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
@@ -136,7 +141,7 @@ export default function GuidePage() {
               the fediverse (Mastodon, Pixelfed, etc.)
             </li>
             <li>
-              <strong>Friends Only</strong> — only your pen pals can read it
+              <strong>Pen Pals only</strong> — only your pen pals can read it
             </li>
             <li>
               <strong>Private</strong> — only you can see it
@@ -154,6 +159,10 @@ export default function GuidePage() {
             readers context. To publish later,
             press the clock next to <strong>Publish</strong> and pick a time;
             a past date in the editor&rsquo;s settings backdates the entry.
+            Before anything goes out, <strong>Publish</strong> shows who will be
+            able to read it and whether it will be emailed, cross-posted or put
+            in a circle. To share an entry in one of your circles, choose the
+            circle under <em>Sharing</em> in Settings.
           </p>
           <p>
             For a quick thought that doesn&rsquo;t need a title, <strong>jot a

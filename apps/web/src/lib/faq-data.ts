@@ -63,7 +63,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "write-entry",
     question: "How do I write and publish an entry?",
     answer:
-      'Click the <strong>Write</strong> button in the sidebar (or top nav on mobile) to open the editor. Write your entry using the rich text toolbar, set your visibility in the settings panel, then click <strong>Publish</strong>. You can also save as a draft first.',
+      'Click <strong>Write an entry</strong> in the sidebar (or the Write button on your phone) to open the editor. Type <strong>/</strong> on a new line for headings, lists, checklists and pictures, or use the toolbar. Choose who can read it in <strong>Settings</strong>, then click <strong>Publish</strong>: you\'ll see who it goes to before it goes out. Drafts save themselves as you write.',
     category: "writing",
   },
   {

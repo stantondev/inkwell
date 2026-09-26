@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -34,8 +34,14 @@ import { LinkEmbed, type LinkEmbedAttrs } from "@/lib/tiptap-link-embed";
 import { PhotoGallery, type PhotoGalleryAttrs } from "@/lib/tiptap-photo-gallery";
 import { GalleryEditorPanel } from "@/app/editor/gallery-editor-panel";
 import { MentionDropdown } from "@/components/mention-dropdown";
+import { FloatingPopup } from "@/components/floating-popup";
 import { isMarkdown, isPlainTextHtml, markdownToHtml } from "@/lib/markdown-paste";
 import { MoodInput, LocationInput } from "@/app/editor/mood-input";
+import { EditorMenus, type SlashState } from "@/lib/tiptap-editor-menus";
+import { SlashMenu, filterSlashItems, runSlashItem, type SlashItem } from "@/app/editor/slash-menu";
+import { LinkPopover, normalizeLink } from "@/app/editor/link-popover";
+import { TagInput } from "@/app/editor/tag-input";
+import { PublishReview, type PublishReviewLine } from "@/app/editor/publish-review";
 import { UserpicPicker } from "@/components/userpic-picker";
 import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
 
@@ -153,9 +159,11 @@ const HIGHLIGHT_COLORS = [
 // ─── Toolbar components ───────────────────────────────────────────────────────
 
 function Btn({
-  onClick, active = false, disabled = false, title, children, className = "",
+  onClick, active = false, disabled = false, title, children, className = "", expanded,
 }: {
   onClick: () => void; active?: boolean; disabled?: boolean; title: string; children: React.ReactNode; className?: string;
+  /** Set for buttons that open a menu. */
+  expanded?: boolean;
 }) {
   return (
     <button
@@ -163,8 +171,11 @@ function Btn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      aria-pressed={active}
-      className={`w-7 h-7 flex items-center justify-center rounded transition-colors disabled:opacity-25 ${className}`}
+      aria-label={title}
+      aria-pressed={expanded === undefined ? active : undefined}
+      aria-haspopup={expanded === undefined ? undefined : "menu"}
+      aria-expanded={expanded}
+      className={`editor-tool-btn w-7 h-7 flex-none flex items-center justify-center rounded transition-colors disabled:opacity-25 ${className}`}
       style={{
         background: active ? "var(--accent-light)" : "transparent",
         color: active ? "var(--accent)" : "var(--muted)",
@@ -179,44 +190,26 @@ function Sep() {
   return <div className="w-px h-5 mx-0.5 self-center" style={{ background: "var(--border)" }} aria-hidden="true" />;
 }
 
-// Dropdown wrapper for toolbar menus
+// Dropdown wrapper for toolbar menus. The menu is a portal (FloatingPopup):
+// the toolbar scrolls sideways on phones, which clipped menus drawn inside it.
 function ToolbarDropdown({ label, active, renderContent, title }: {
   label: React.ReactNode; active?: boolean; renderContent: (close: () => void) => React.ReactNode; title: string;
+  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", handler);
-    return () => document.removeEventListener("pointerdown", handler);
-  }, [open]);
-
-  // Clamp dropdown to viewport on mobile — flip to right-aligned if overflowing
-  useEffect(() => {
-    if (!open || !menuRef.current) return;
-    const rect = menuRef.current.getBoundingClientRect();
-    if (rect.right > window.innerWidth - 8) {
-      menuRef.current.style.left = "auto";
-      menuRef.current.style.right = "0";
-    }
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
 
   return (
-    <div className="relative" ref={ref}>
-      <Btn onClick={() => setOpen((v) => !v)} active={active || open} title={title}>
+    <div className="relative flex-none" ref={ref}>
+      <Btn onClick={() => setOpen((v) => !v)} active={active || open} title={title} expanded={open}>
         {label}
       </Btn>
-      {open && (
-        <div ref={menuRef} className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[140px]"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-          {renderContent(() => setOpen(false))}
-        </div>
-      )}
+      <FloatingPopup anchorRef={ref} open={open} onClose={close} placement="bottom"
+        className="rounded-lg border shadow-lg py-1 min-w-[160px]"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        {renderContent(close)}
+      </FloatingPopup>
     </div>
   );
 }
@@ -237,40 +230,42 @@ function DropdownItem({ onClick, active, children }: {
 }
 
 // ─── Main Toolbar ─────────────────────────────────────────────────────────────
+// One row: the things writers reach for while writing stay visible; inserts
+// they use now and then live under "+", and page options under "⋯". (It was
+// 27 buttons in two rows.) Everything here is also in the "/" menu or has a
+// Markdown shortcut.
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, onInsertCircle, onInsertLinkEmbed, onInsertGallery }: {
+const Icon = {
+  link: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  image: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  more: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>,
+  alignLeft: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>,
+  alignCenter: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>,
+  alignRight: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>,
+  check: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+};
+
+function MenuCheck({ on }: { on: boolean }) {
+  return <span className="w-3 inline-flex justify-center" style={{ color: "var(--accent)" }}>{on ? Icon.check : null}</span>;
+}
+
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, wide, onToggleWide, onLink, onInsertCircle, onInsertLinkEmbed, onInsertGallery }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
   comfortMode: boolean; onToggleComfort: () => void;
+  wide: boolean; onToggleWide: () => void;
+  onLink: () => void;
   onInsertCircle: () => void;
   onInsertLinkEmbed: () => void;
   onInsertGallery: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageAnchorRef = useRef<HTMLDivElement>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
-
-  const addLink = useCallback(() => {
-    if (!editor) return;
-    const prev = editor.getAttributes("link").href ?? "";
-    const url = window.prompt("URL:", prev);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-    } else {
-      // Don't extendMarkRange when setting — apply link to current selection only.
-      // Then move cursor to end so subsequent typing isn't linked.
-      const { to } = editor.state.selection;
-      editor.chain().focus().setLink({ href: url }).setTextSelection(to).run();
-    }
-  }, [editor]);
-
-  const addImageUrl = useCallback(() => {
-    if (!editor) return;
-    const url = window.prompt("Image URL:");
-    if (url) editor.chain().focus().setImage({ src: url }).run();
-    setShowImageMenu(false);
-  }, [editor]);
+  const [imageUrlOpen, setImageUrlOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -279,404 +274,383 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
     setShowImageMenu(false);
   }, [onUploadImage]);
 
+  const moreMenu = (
+    <ToolbarDropdown label={Icon.more} title="Page options" align="right"
+      renderContent={(close) => (
+        <>
+          <DropdownItem onClick={() => { onToggleWide(); close(); }} active={false}>
+            <MenuCheck on={wide} /> Wide page
+          </DropdownItem>
+          <DropdownItem onClick={() => { onToggleComfort(); close(); }} active={false}>
+            <MenuCheck on={comfortMode} /> Warm paper (easier on the eyes)
+          </DropdownItem>
+          <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
+          <DropdownItem onClick={() => { onToggleHtml(); close(); }} active={false}>
+            <MenuCheck on={htmlMode} /> Edit as HTML
+          </DropdownItem>
+        </>
+      )}
+    />
+  );
+
+  const focusBtn = (
+    <Btn onClick={onToggleFocus} active={focusMode} title={focusMode ? "Leave focus mode (Esc)" : "Focus mode: hide everything but the page"}>
+      {focusMode ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+      )}
+    </Btn>
+  );
+
   if (!editor) return null;
+
+  if (htmlMode) {
+    return (
+      <div className="editor-toolbar-wrap flex items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Editor">
+        <button type="button" onClick={onToggleHtml} className="editor-toolbar-textbtn">
+          ← Back to the visual editor
+        </button>
+        <div className="flex-1" />
+        {focusBtn}
+        {moreMenu}
+      </div>
+    );
+  }
 
   // Determine current block type label
   const blockLabel = editor.isActive("heading", { level: 1 }) ? "H1"
     : editor.isActive("heading", { level: 2 }) ? "H2"
     : editor.isActive("heading", { level: 3 }) ? "H3"
-    : "P";
+    : "Aa";
+
+  const align = editor.isActive({ textAlign: "center" }) ? "center" : editor.isActive({ textAlign: "right" }) ? "right" : "left";
+  const rawSpacing = editor.isActive("bulletList") ? editor.getAttributes("bulletList").spacing
+    : editor.isActive("orderedList") ? editor.getAttributes("orderedList").spacing
+    : editor.isActive("taskList") ? editor.getAttributes("taskList").spacing
+    : editor.getAttributes(editor.isActive("heading") ? "heading" : "paragraph").spacing;
+  // null and "normal" both mean one blank line
+  const spacing = rawSpacing === "normal" ? null : (rawSpacing ?? null);
 
   return (
-    <div className="editor-toolbar-wrap flex flex-wrap items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Text formatting">
-      {!htmlMode && (
-        <>
-          {/* ── Block type dropdown ── */}
-          <ToolbarDropdown
-            label={<span style={{ fontWeight: 700, fontSize: 11, minWidth: 16, textAlign: "center" }}>{blockLabel}</span>}
-            active={editor.isActive("heading")}
-            title="Block type"
-            renderContent={(close) => (
-              <>
-                <DropdownItem onClick={() => { editor.chain().focus().setParagraph().run(); close(); }}
-                  active={!editor.isActive("heading")}>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>P</span> Paragraph
-                </DropdownItem>
-                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); close(); }}
-                  active={editor.isActive("heading", { level: 1 })}>
-                  <span style={{ fontWeight: 700, fontSize: 13 }}>H1</span> Heading 1
-                </DropdownItem>
-                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); close(); }}
-                  active={editor.isActive("heading", { level: 2 })}>
-                  <span style={{ fontWeight: 700, fontSize: 12 }}>H2</span> Heading 2
-                </DropdownItem>
-                <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); close(); }}
-                  active={editor.isActive("heading", { level: 3 })}>
-                  <span style={{ fontWeight: 600, fontSize: 11 }}>H3</span> Heading 3
-                </DropdownItem>
-              </>
-            )}
-          />
-          <Sep />
-
-          {/* ── Inline formatting ── */}
-          <Btn onClick={() => editor.chain().focus().toggleBold().run()}
-            active={editor.isActive("bold")} title="Bold (⌘B)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleItalic().run()}
-            active={editor.isActive("italic")} title="Italic (⌘I)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
-            active={editor.isActive("underline")} title="Underline (⌘U)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
-            active={editor.isActive("strike")} title="Strikethrough">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6a3 3 0 0 0-5.19 2.06C10.03 9.74 10.9 11.06 12 12c1.1.94 2 2.02 2 3.44A3 3 0 0 1 8.5 18"/>
-            </svg>
-          </Btn>
-          <Sep />
-
-          {/* ── Rich text dropdown (highlight, color, sub, sup) ── */}
-          <ToolbarDropdown
-            label={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/>
-              </svg>
-            }
-            active={editor.isActive("highlight") || editor.isActive("textStyle")}
-            title="Text style"
-            renderContent={(close) => (
-              <div className="p-2 w-[200px]">
-                {/* Highlight colors */}
-                <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Highlight</div>
-                <div className="flex gap-1 mb-2 px-1">
-                  <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); close(); }}
-                    className="w-6 h-6 rounded border flex items-center justify-center text-xs"
-                    style={{ borderColor: "var(--border)" }} title="Remove highlight">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                  {HIGHLIGHT_COLORS.map((c) => (
-                    <button key={c.value} type="button"
-                      onClick={() => { editor.chain().focus().toggleHighlight({ color: c.value }).run(); close(); }}
-                      className="w-6 h-6 rounded border"
-                      style={{ background: c.value, borderColor: editor.isActive("highlight", { color: c.value }) ? "var(--accent)" : "transparent" }}
-                      title={c.label} />
-                  ))}
-                </div>
-                {/* Text colors */}
-                <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Text Color</div>
-                <div className="flex flex-wrap gap-1 mb-2 px-1">
-                  {TEXT_COLORS.map((c) => (
-                    <button key={c.label} type="button"
-                      onClick={() => {
-                        if (c.value === "") { editor.chain().focus().unsetColor().run(); }
-                        else { editor.chain().focus().setColor(c.value).run(); }
-                        close();
-                      }}
-                      className="w-6 h-6 rounded border flex items-center justify-center"
-                      style={{
-                        background: c.value || "var(--background)",
-                        borderColor: (c.value && editor.getAttributes("textStyle").color === c.value) ? "var(--accent)" : "var(--border)",
-                      }}
-                      title={c.label}>
-                      {c.value === "" && <span className="text-[9px]" style={{ color: "var(--muted)" }}>Aa</span>}
-                    </button>
-                  ))}
-                </div>
-                {/* Sub/Sup */}
-                <div className="border-t pt-1.5 mt-1 flex gap-1" style={{ borderColor: "var(--border)" }}>
-                  <button type="button" onClick={() => { editor.chain().focus().toggleSubscript().run(); close(); }}
-                    className="flex-1 px-2 py-1 rounded text-xs transition-colors"
-                    style={{
-                      background: editor.isActive("subscript") ? "var(--accent-light)" : "transparent",
-                      color: editor.isActive("subscript") ? "var(--accent)" : "var(--muted)",
-                    }}>
-                    X<sub>2</sub>
-                  </button>
-                  <button type="button" onClick={() => { editor.chain().focus().toggleSuperscript().run(); close(); }}
-                    className="flex-1 px-2 py-1 rounded text-xs transition-colors"
-                    style={{
-                      background: editor.isActive("superscript") ? "var(--accent-light)" : "transparent",
-                      color: editor.isActive("superscript") ? "var(--accent)" : "var(--muted)",
-                    }}>
-                    X<sup>2</sup>
-                  </button>
-                </div>
-              </div>
-            )}
-          />
-          <Sep />
-
-          {/* ── Alignment ── */}
-          <Btn onClick={() => editor.chain().focus().setTextAlign("left").run()}
-            active={editor.isActive({ textAlign: "left" })} title="Align left">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().setTextAlign("center").run()}
-            active={editor.isActive({ textAlign: "center" })} title="Align center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().setTextAlign("right").run()}
-            active={editor.isActive({ textAlign: "right" })} title="Align right">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/>
-            </svg>
-          </Btn>
-          <Sep />
-
-          {/* ── Lists & blocks ── */}
-          <Btn onClick={() => editor.chain().focus().toggleBulletList().run()}
-            active={editor.isActive("bulletList")} title="Bullet list">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
-              <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/>
-              <circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/>
-              <circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            active={editor.isActive("orderedList")} title="Numbered list">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/>
-              <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleTaskList().run()}
-            active={editor.isActive("taskList")} title="Task list">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
-              <line x1="13" y1="8" x2="21" y2="8"/>
-              <rect x="3" y="14" width="6" height="6" rx="1"/>
-              <line x1="13" y1="17" x2="21" y2="17"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            active={editor.isActive("blockquote")} title="Blockquote">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
-              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            active={editor.isActive("codeBlock")} title="Code block">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-            </svg>
-          </Btn>
-          <Sep />
-
-          {/* ── Spacing ── */}
-          <ToolbarDropdown
-            label={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                <path d="M21 3v3M21 21v-3M21 9v1.5M21 13.5V15" strokeWidth="1.5" strokeDasharray="1 1"/>
-              </svg>
-            }
-            active={editor.getAttributes("paragraph").spacing != null || editor.getAttributes("bulletList").spacing != null || editor.getAttributes("orderedList").spacing != null}
-            title="Spacing"
-            renderContent={(close) => (
-              <>
-                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("tight").run(); close(); }}
-                  active={editor.getAttributes("paragraph").spacing === "tight" || editor.getAttributes("bulletList").spacing === "tight"}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>
-                  </svg>
-                  Tight
-                </DropdownItem>
-                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("normal").run(); close(); }}
-                  active={editor.getAttributes("paragraph").spacing == null && editor.getAttributes("bulletList").spacing == null}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                  </svg>
-                  Normal
-                </DropdownItem>
-                <DropdownItem onClick={() => { editor.chain().focus().setSpacing("loose").run(); close(); }}
-                  active={editor.getAttributes("paragraph").spacing === "loose" || editor.getAttributes("bulletList").spacing === "loose"}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="20" x2="21" y2="20"/>
-                  </svg>
-                  Loose
-                </DropdownItem>
-              </>
-            )}
-          />
-          <Sep />
-
-          {/* ── Insert: link, image, hr, table ── */}
-          <Btn onClick={addLink} active={editor.isActive("link")} title="Add link (⌘K)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-          </Btn>
-          {editor.isActive("link") && (
-            <Btn onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()} title="Remove link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M5.16 11.75l-1.72 1.71a5 5 0 0 0 7.07 7.07l1.72-1.71"/>
-                <line x1="2" y1="2" x2="22" y2="22"/>
-              </svg>
-            </Btn>
-          )}
-          <div className="relative">
-            <Btn onClick={() => setShowImageMenu((v) => !v)} disabled={isUploading}
-              title={isUploading ? "Uploading..." : "Add image"}>
-              {isUploading ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  className="animate-spin">
-                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                </svg>
-              )}
-            </Btn>
-            {showImageMenu && (
-              <>
-                <div className="fixed inset-0 z-[45]" onClick={() => setShowImageMenu(false)} />
-                <div className="absolute top-full left-0 mt-1 z-[50] rounded-lg border shadow-lg py-1 min-w-[160px]"
-                  style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                  <button type="button"
-                    onClick={() => { fileInputRef.current?.click(); }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
-                    style={{ color: "var(--foreground)" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    Upload from computer
-                  </button>
-                  <button type="button"
-                    onClick={addImageUrl}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
-                    style={{ color: "var(--foreground)" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                    </svg>
-                    Paste image URL
-                  </button>
-                </div>
-              </>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
-              className="hidden" onChange={handleFileSelect} />
-          </div>
-          <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal rule">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
-              <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
-              <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            title="Insert table">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
-              <line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
-            </svg>
-          </Btn>
-          <Btn onClick={onInsertCircle} title="Embed circle">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>
-            </svg>
-          </Btn>
-          <Btn onClick={onInsertLinkEmbed} title="Embed link preview">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <line x1="7" y1="9" x2="17" y2="9"/>
-              <line x1="7" y1="13" x2="13" y2="13"/>
-            </svg>
-          </Btn>
-          <Btn onClick={onInsertGallery} title="Insert photo gallery">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2"/>
-              <rect x="6" y="6" width="4" height="4" rx="0.5"/>
-              <rect x="14" y="6" width="4" height="4" rx="0.5"/>
-              <rect x="6" y="14" width="4" height="4" rx="0.5"/>
-              <rect x="14" y="14" width="4" height="4" rx="0.5"/>
-            </svg>
-          </Btn>
-          <Sep />
-
-          {/* ── Undo / Redo ── */}
-          <Btn onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()} title="Undo (⌘Z)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-            </svg>
-          </Btn>
-          <Btn onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()} title="Redo (⌘⇧Z)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
-            </svg>
-          </Btn>
-          <Sep />
-        </>
-      )}
-      <Btn onClick={onToggleHtml} active={htmlMode} title={htmlMode ? "Switch to Visual editor" : "Switch to HTML source"}>
-        <span style={{ fontWeight: 600, fontSize: 10, letterSpacing: "-0.02em" }}>&lt;/&gt;</span>
-      </Btn>
-      <Sep />
-      <Btn onClick={onToggleFocus} active={focusMode} title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"}>
-        {focusMode ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-          </svg>
+    <div className="editor-toolbar-wrap flex items-center gap-0.5 px-1 py-1" role="toolbar" aria-label="Formatting">
+      {/* ── Block type ── */}
+      <ToolbarDropdown
+        label={<span style={{ fontWeight: 700, fontSize: 11, minWidth: 16, textAlign: "center", fontFamily: "var(--font-lora, Georgia, serif)" }}>{blockLabel}</span>}
+        active={editor.isActive("heading")}
+        title="Text or heading"
+        renderContent={(close) => (
+          <>
+            <DropdownItem onClick={() => { editor.chain().focus().setParagraph().run(); close(); }}
+              active={!editor.isActive("heading")}>
+              <span className="w-6 text-xs" style={{ color: "var(--muted)" }}>¶</span> Text
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 1 }).run(); close(); }}
+              active={editor.isActive("heading", { level: 1 })}>
+              <span className="w-6" style={{ fontWeight: 700, fontSize: 13 }}>H1</span> Big heading
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 2 }).run(); close(); }}
+              active={editor.isActive("heading", { level: 2 })}>
+              <span className="w-6" style={{ fontWeight: 700, fontSize: 12 }}>H2</span> Heading
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().toggleHeading({ level: 3 }).run(); close(); }}
+              active={editor.isActive("heading", { level: 3 })}>
+              <span className="w-6" style={{ fontWeight: 600, fontSize: 11 }}>H3</span> Small heading
+            </DropdownItem>
+          </>
         )}
-      </Btn>
-      <Btn onClick={onToggleComfort} active={comfortMode} title={comfortMode ? "Normal brightness" : "Eye comfort mode"}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {comfortMode ? (
-            <>
-              <path d="M2 12s3-4 10-4 10 4 10 4-3 4-10 4S2 12 2 12z" opacity="0.5"/>
-              <circle cx="12" cy="12" r="3"/>
-              <line x1="2" y1="2" x2="22" y2="22" opacity="0.5"/>
-            </>
-          ) : (
-            <>
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </>
-          )}
+      />
+      <Sep />
+
+      {/* ── Inline formatting ── */}
+      <Btn onClick={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")} title="Bold (⌘B)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/>
         </svg>
       </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")} title="Italic (⌘I)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={editor.isActive("underline")} title="Underline (⌘U)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
+        active={editor.isActive("strike")} title="Strikethrough (⌘⇧S)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6a3 3 0 0 0-5.19 2.06C10.03 9.74 10.9 11.06 12 12c1.1.94 2 2.02 2 3.44A3 3 0 0 1 8.5 18"/>
+        </svg>
+      </Btn>
+
+      {/* ── Highlight, colour, sub/superscript ── */}
+      <ToolbarDropdown
+        label={
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+          </svg>
+        }
+        active={editor.isActive("highlight") || !!editor.getAttributes("textStyle").color || editor.isActive("subscript") || editor.isActive("superscript")}
+        title="Highlight and colour"
+        renderContent={(close) => (
+          <div className="p-2 w-[208px]">
+            <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Highlight</div>
+            <div className="flex gap-1 mb-2 px-1">
+              <button type="button" onClick={() => { editor.chain().focus().unsetHighlight().run(); close(); }}
+                className="w-6 h-6 rounded border flex items-center justify-center text-xs"
+                style={{ borderColor: "var(--border)" }} title="No highlight">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button key={c.value} type="button"
+                  onClick={() => { editor.chain().focus().toggleHighlight({ color: c.value }).run(); close(); }}
+                  className="w-6 h-6 rounded border"
+                  style={{ background: c.value, borderColor: editor.isActive("highlight", { color: c.value }) ? "var(--accent)" : "transparent" }}
+                  title={c.label} />
+              ))}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider mb-1.5 px-1" style={{ color: "var(--muted)" }}>Text colour</div>
+            <div className="flex flex-wrap gap-1 mb-2 px-1">
+              {TEXT_COLORS.map((c) => (
+                <button key={c.label} type="button"
+                  onClick={() => {
+                    if (c.value === "") { editor.chain().focus().unsetColor().run(); }
+                    else { editor.chain().focus().setColor(c.value).run(); }
+                    close();
+                  }}
+                  className="w-6 h-6 rounded border flex items-center justify-center"
+                  style={{
+                    background: c.value || "var(--background)",
+                    borderColor: (c.value && editor.getAttributes("textStyle").color === c.value) ? "var(--accent)" : "var(--border)",
+                  }}
+                  title={c.label}>
+                  {c.value === "" && <span className="text-[9px]" style={{ color: "var(--muted)" }}>Aa</span>}
+                </button>
+              ))}
+            </div>
+            <div className="border-t pt-1.5 mt-1 flex gap-1" style={{ borderColor: "var(--border)" }}>
+              <button type="button" onClick={() => { editor.chain().focus().toggleSuperscript().run(); close(); }}
+                className="flex-1 px-2 py-1 rounded text-xs transition-colors"
+                style={{
+                  background: editor.isActive("superscript") ? "var(--accent-light)" : "transparent",
+                  color: editor.isActive("superscript") ? "var(--accent)" : "var(--muted)",
+                }}>
+                X<sup>2</sup> Superscript
+              </button>
+              <button type="button" onClick={() => { editor.chain().focus().toggleSubscript().run(); close(); }}
+                className="flex-1 px-2 py-1 rounded text-xs transition-colors"
+                style={{
+                  background: editor.isActive("subscript") ? "var(--accent-light)" : "transparent",
+                  color: editor.isActive("subscript") ? "var(--accent)" : "var(--muted)",
+                }}>
+                X<sub>2</sub> Subscript
+              </button>
+            </div>
+          </div>
+        )}
+      />
+      <Sep />
+
+      {/* ── Lists & quote ── */}
+      <Btn onClick={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive("bulletList")} title="Bulleted list (start a line with -)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
+          <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive("orderedList")} title="Numbered list (start a line with 1.)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/>
+          <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleTaskList().run()}
+        active={editor.isActive("taskList")} title="Checklist (start a line with [ ])">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
+          <line x1="13" y1="8" x2="21" y2="8"/>
+          <rect x="3" y="14" width="6" height="6" rx="1"/>
+          <line x1="13" y1="17" x2="21" y2="17"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        active={editor.isActive("blockquote")} title="Quote (start a line with >)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 7h4v4c0 3-2 5-4 6"/><path d="M14 7h4v4c0 3-2 5-4 6"/>
+        </svg>
+      </Btn>
+      <Sep />
+
+      {/* ── Link, picture, more to add ── */}
+      <Btn onClick={onLink} active={editor.isActive("link")} title="Link (⌘K)">
+        {Icon.link}
+      </Btn>
+      <div className="relative flex-none" ref={imageAnchorRef}>
+        <Btn onClick={() => { setShowImageMenu((v) => !v); setImageUrlOpen(false); }} expanded={showImageMenu} disabled={isUploading}
+          title={isUploading ? "Uploading…" : "Picture"}>
+          {isUploading ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              className="animate-spin">
+              <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+            </svg>
+          ) : Icon.image}
+        </Btn>
+        <FloatingPopup anchorRef={imageAnchorRef} open={showImageMenu} onClose={() => setShowImageMenu(false)} placement="bottom"
+          className="rounded-lg border shadow-lg py-1 min-w-[220px]"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              <button type="button"
+                onClick={() => { fileInputRef.current?.click(); }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
+                style={{ color: "var(--foreground)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Upload from your device
+              </button>
+              {imageUrlOpen ? (
+                <form className="px-2 py-1.5 flex gap-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const src = normalizeLink(imageUrl);
+                    if (src && /^https?:/i.test(src)) editor.chain().focus().setImage({ src }).run();
+                    setImageUrl(""); setImageUrlOpen(false); setShowImageMenu(false);
+                  }}>
+                  <input autoFocus value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://…" aria-label="Picture address"
+                    className="flex-1 min-w-0 rounded border px-2 py-1 text-sm"
+                    style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--foreground)" }} />
+                  <button type="submit" className="rounded px-2 text-xs font-medium" style={{ background: "var(--accent)", color: "var(--background)" }}>Add</button>
+                </form>
+              ) : (
+                <button type="button"
+                  onClick={() => setImageUrlOpen(true)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
+                  style={{ color: "var(--foreground)" }}>
+                  {Icon.link}
+                  From a web address
+                </button>
+              )}
+              <button type="button"
+                onClick={() => { setShowImageMenu(false); onInsertGallery(); }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-light)] transition-colors flex items-center gap-2"
+                style={{ color: "var(--foreground)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>
+                </svg>
+                Photo gallery
+              </button>
+        </FloatingPopup>
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+          className="hidden" onChange={handleFileSelect} />
+      </div>
+      <ToolbarDropdown label={Icon.plus} title="Add a divider, table, link preview… (or type / on a new line)"
+        renderContent={(close) => (
+          <>
+            <DropdownItem onClick={() => { editor.chain().focus().setHorizontalRule().run(); close(); }}>
+              <span className="w-5 text-center" style={{ color: "var(--muted)" }}>—</span> Divider
+            </DropdownItem>
+            <DropdownItem onClick={() => { close(); onInsertLinkEmbed(); }}>
+              <span className="w-5 text-center" style={{ color: "var(--muted)" }}>▭</span> Link preview
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); close(); }}>
+              <span className="w-5 text-center" style={{ color: "var(--muted)" }}>▦</span> Table
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().toggleCodeBlock().run(); close(); }} active={editor.isActive("codeBlock")}>
+              <span className="w-5 text-center text-xs" style={{ color: "var(--muted)" }}>&lt;/&gt;</span> Code
+            </DropdownItem>
+            <DropdownItem onClick={() => { close(); onInsertCircle(); }}>
+              <span className="w-5 text-center" style={{ color: "var(--muted)" }}>◎</span> Circle card
+            </DropdownItem>
+          </>
+        )}
+      />
+      <Sep />
+
+      {/* ── Alignment and spacing ── */}
+      <ToolbarDropdown
+        label={align === "center" ? Icon.alignCenter : align === "right" ? Icon.alignRight : Icon.alignLeft}
+        active={align !== "left"}
+        title="Alignment"
+        renderContent={(close) => (
+          <>
+            <DropdownItem onClick={() => { editor.chain().focus().setTextAlign("left").run(); close(); }} active={align === "left"}>
+              {Icon.alignLeft} Left
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().setTextAlign("center").run(); close(); }} active={align === "center"}>
+              {Icon.alignCenter} Centre
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().setTextAlign("right").run(); close(); }} active={align === "right"}>
+              {Icon.alignRight} Right
+            </DropdownItem>
+          </>
+        )}
+      />
+      <ToolbarDropdown
+        label={
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+            <path d="M3.5 8 5 6.5 6.5 8M3.5 16 5 17.5 6.5 16M5 6.5v11" strokeWidth="1.5"/>
+          </svg>
+        }
+        active={spacing != null && spacing !== "tight"}
+        title="Space between lines of this paragraph and the next"
+        renderContent={(close) => (
+          <>
+            <DropdownItem onClick={() => { editor.chain().focus().setSpacing("tight").run(); close(); }} active={spacing === "tight"}>
+              Next line <span className="text-xs ml-auto" style={{ color: "var(--muted)" }}>tight</span>
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().setSpacing("normal").run(); close(); }} active={spacing == null}>
+              Skip a line <span className="text-xs ml-auto" style={{ color: "var(--muted)" }}>normal</span>
+            </DropdownItem>
+            <DropdownItem onClick={() => { editor.chain().focus().setSpacing("loose").run(); close(); }} active={spacing === "loose"}>
+              Skip two lines <span className="text-xs ml-auto" style={{ color: "var(--muted)" }}>loose</span>
+            </DropdownItem>
+          </>
+        )}
+      />
+      <Sep />
+
+      {/* ── Undo / Redo ── */}
+      <Btn onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()} title="Undo (⌘Z)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+        </svg>
+      </Btn>
+      <Btn onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()} title="Redo (⌘⇧Z)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
+        </svg>
+      </Btn>
+      <div className="flex-1" />
+      {focusBtn}
+      {moreMenu}
     </div>
   );
 }
 
 // ─── Bubble Menu (appears on text selection, positioned well below native popup) ──
 
-function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowLog }: { editor: Editor; isTouchDevice: boolean; onShow: () => void; onHide: () => void; onShouldShowLog?: (msg: string) => void }) {
+function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowLog, onLink }: { editor: Editor; isTouchDevice: boolean; onShow: () => void; onHide: () => void; onShouldShowLog?: (msg: string) => void; onLink: () => void }) {
   const [showColors, setShowColors] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
-  const [showSpacing, setShowSpacing] = useState(false);
 
   // On touch devices: once shown with a valid selection, keep visible until
   // the editor blurs. iOS clears selections as a side effect of native popup
@@ -715,11 +689,19 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
     <BubbleMenu
       editor={editor}
       style={{ zIndex: 50 }}
-      updateDelay={isTouchDevice ? 500 : 250}
+      updateDelay={isTouchDevice ? 500 : 150}
       shouldShow={shouldShow}
-      options={{
+      options={isTouchDevice ? {
+        // Below the selection, well clear of the phone's own copy/paste menu
         placement: "bottom-start",
         offset: 80,
+        flip: true,
+        onShow,
+        onHide,
+      } : {
+        // Just above the selection, where every desktop editor puts it
+        placement: "top",
+        offset: 8,
         flip: true,
         onShow,
         onHide,
@@ -809,13 +791,7 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
           )}
         </div>
         <Sep />
-        <Btn onClick={() => {
-          const prev = editor.getAttributes("link").href ?? "";
-          const url = window.prompt("URL:", prev);
-          if (url === null) return;
-          if (url === "") { editor.chain().focus().extendMarkRange("link").unsetLink().run(); }
-          else { const { to } = editor.state.selection; editor.chain().focus().setLink({ href: url }).setTextSelection(to).run(); }
-        }} active={editor.isActive("link")} title="Link">
+        <Btn onClick={onLink} active={editor.isActive("link")} title="Link (⌘K)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
@@ -830,37 +806,6 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
             </svg>
           </Btn>
         )}
-        <Sep />
-        {/* Spacing */}
-        <div className="relative">
-          <Btn onClick={() => { setShowSpacing((v) => !v); setShowColors(false); setShowHighlights(false); }}
-            active={editor.getAttributes("paragraph").spacing != null}
-            title="Paragraph spacing">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-          </Btn>
-          {showSpacing && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-[55] rounded-lg border shadow-lg p-1 flex flex-col gap-0.5"
-              style={{ background: "var(--surface)", borderColor: "var(--border)", minWidth: 100 }}>
-              <button type="button" onClick={() => { editor.chain().focus().setSpacing("tight").run(); setShowSpacing(false); }}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
-                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "tight") ? 600 : 400 }}>
-                Tight
-              </button>
-              <button type="button" onClick={() => { editor.chain().focus().setSpacing("normal").run(); setShowSpacing(false); }}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
-                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing == null) ? 600 : 400 }}>
-                Normal
-              </button>
-              <button type="button" onClick={() => { editor.chain().focus().setSpacing("loose").run(); setShowSpacing(false); }}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[var(--accent-light)] text-left"
-                style={{ color: "var(--foreground)", fontWeight: (editor.getAttributes("paragraph").spacing === "loose") ? 600 : 400 }}>
-                Loose
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </BubbleMenu>
   );
@@ -1050,7 +995,18 @@ function MusicInput({ value, onChange, fediverse, checking }: {
 
 type SaveStatusType = "idle" | "saving" | "saved" | "error" | "draft_limit";
 
-function SaveStatus({ status, lastSavedAt }: { status: SaveStatusType; lastSavedAt: Date | null }) {
+function SaveStatus({ status, lastSavedAt, unsavedEdits = false }: { status: SaveStatusType; lastSavedAt: Date | null; unsavedEdits?: boolean }) {
+  return (
+    <span role="status" aria-live="polite" className="editor-save-status">
+      <SaveStatusText status={status} lastSavedAt={lastSavedAt} unsavedEdits={unsavedEdits} />
+    </span>
+  );
+}
+
+function SaveStatusText({ status, lastSavedAt, unsavedEdits }: { status: SaveStatusType; lastSavedAt: Date | null; unsavedEdits: boolean }) {
+  if (unsavedEdits && status !== "saving" && status !== "error") {
+    return <span className="text-xs" style={{ color: "var(--muted)" }} title="Press ⌘S or Save changes. Readers still see the last saved version.">Unsaved changes</span>;
+  }
   if (status === "idle") return null;
   if (status === "saved" && lastSavedAt) {
     const time = lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -1496,19 +1452,19 @@ function CirclePickerModal({ onSelect, onClose }: {
 const WELCOME_PROMPTS = [
   {
     title: "Hello, Inkwell",
-    body: "<p>This is your first entry — introduce yourself! What brings you here? What do you hope to write about?</p>",
+    body: "<p data-spacing=\"tight\">This is your first entry — introduce yourself! What brings you here? What do you hope to write about?</p>",
   },
   {
     title: "What I\u2019m reading right now",
-    body: "<p>Share what\u2019s on your nightstand, your screen, or stuck in your head. What are you reading, and why does it matter to you?</p>",
+    body: "<p data-spacing=\"tight\">Share what\u2019s on your nightstand, your screen, or stuck in your head. What are you reading, and why does it matter to you?</p>",
   },
   {
     title: "A letter to my future self",
-    body: "<p>Write to the person you\u2019ll be in a year. What do you want to remember about today? What do you hope will be different?</p>",
+    body: "<p data-spacing=\"tight\">Write to the person you\u2019ll be in a year. What do you want to remember about today? What do you hope will be different?</p>",
   },
   {
     title: "The story behind my username",
-    body: "<p>Every name has a story. What made you pick yours? Is there a memory, an inside joke, or a meaning behind it?</p>",
+    body: "<p data-spacing=\"tight\">Every name has a story. What made you pick yours? Is there a memory, an inside joke, or a meaning behind it?</p>",
   },
 ];
 
@@ -1693,6 +1649,34 @@ export function EditorClient() {
   const editorLoadedRef = useRef(false); // suppress autosave during initial load
   const [recoveryData, setRecoveryData] = useState<RecoveryData | null>(null);
 
+  // "/" menu, link box, and the keys the editor offers them first
+  const [slash, setSlash] = useState<SlashState | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const slashChangeRef = useRef<(next: SlashState | null) => void>(() => {});
+  const menuKeyRef = useRef<(event: KeyboardEvent) => boolean>(() => false);
+  const openLinkRef = useRef<() => void>(() => {});
+  slashChangeRef.current = (next) => {
+    setSlash(next);
+    setSlashIndex(0);
+  };
+  // A published entry with edits that aren't saved yet (drafts autosave).
+  const [dirty, setDirty] = useState(false);
+  // Wide page: the writing column fills the window instead of keeping a
+  // readable line length. Remembered per browser.
+  const [widePage, setWidePage] = useState(false);
+  const [metaOpen, setMetaOpen] = useState(false);
+  useEffect(() => {
+    try { setWidePage(localStorage.getItem("inkwell-editor-wide") === "1"); } catch { /* private mode */ }
+  }, []);
+  const toggleWidePage = useCallback(() => {
+    setWidePage((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("inkwell-editor-wide", next ? "1" : "0"); } catch { /* private mode */ }
+      return next;
+    });
+  }, []);
+
   // @Mention autocomplete state
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionUsers, setMentionUsers] = useState<{ id: string; username: string; display_name: string; avatar_url: string | null }[]>([]);
@@ -1700,6 +1684,14 @@ export function EditorClient() {
   const [mentionPos, setMentionPos] = useState<{ top: number; left: number } | null>(null);
   const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorWrapRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement | null>(null);
+  // The title grows with its text (for browsers without field-sizing).
+  useLayoutEffect(() => {
+    const el = titleRef.current;
+    if (!el || CSS.supports?.("field-sizing", "content")) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [state.title, loading, loadError]);
 
   // Settings panel defaults to CLOSED. On desktop, restore the user's
   // previously-opened state from localStorage. On mobile, never auto-open —
@@ -1822,8 +1814,22 @@ export function EditorClient() {
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({ link: false }),
-      Placeholder.configure({ placeholder: "What's on your mind today?" }),
-      Link.extend({ inclusive() { return false; } }).configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer" } }),
+      Placeholder.configure({
+        // The first line of an empty entry invites writing; an empty line
+        // you're on later says how to add a heading, list or picture.
+        showOnlyCurrent: true,
+        placeholder: ({ editor: ed, node, pos }) => {
+          if (ed.isEmpty) return "What's on your mind today?";
+          if (node.type.name !== "paragraph") return "";
+          try {
+            if (ed.state.doc.resolve(pos).depth !== 0) return "";
+          } catch {
+            return "";
+          }
+          return "Type / for a list, heading, picture…";
+        },
+      }),
+      Link.extend({ inclusive() { return false; } }).configure({ openOnClick: false, defaultProtocol: "https", HTMLAttributes: { rel: "noopener noreferrer" } }),
       Image.configure({ inline: false, allowBase64: true }),
       CharacterCount.configure({ limit: 100_000 }),
       // New extensions
@@ -1842,6 +1848,11 @@ export function EditorClient() {
       TaskList,
       TaskItem.configure({ nested: true }),
       Spacing,
+      EditorMenus.configure({
+        onSlash: (next) => slashChangeRef.current(next),
+        onKeyDown: (event) => menuKeyRef.current(event),
+        onLinkShortcut: () => openLinkRef.current(),
+      }),
       CircleEmbed,
       LinkEmbed,
       PhotoGallery.configure({
@@ -1852,7 +1863,7 @@ export function EditorClient() {
       }),
     ],
     editorProps: {
-      attributes: { class: "prose-entry focus:outline-none min-h-[65vh] py-6" },
+      attributes: { class: "prose-entry focus:outline-none", "aria-label": "Entry", spellcheck: "true" },
       handleDrop: (view, event, _slice, moved) => {
         if (moved || !event.dataTransfer?.files?.length) return false;
         const file = event.dataTransfer.files[0];
@@ -1904,6 +1915,7 @@ export function EditorClient() {
       // Don't trigger autosave during initial content load
       if (editorLoadedRef.current) {
         hasUnsavedChanges.current = true; editRevisionRef.current += 1;
+        setDirty(true);
         scheduleLocalSave();
         scheduleAutosave();
       }
@@ -2198,6 +2210,8 @@ export function EditorClient() {
         setCircleAsPrompt(!!entry.is_circle_prompt);
         setLoadedPublishedAt(toLocalInput(entry.scheduled_at || entry.published_at));
         setWasScheduled(!!entry.scheduled_at);
+        // Loading the cover isn't an edit.
+        prevCoverRef.current = entry.cover_image_id ?? null;
         setCoverImageId(entry.cover_image_id ?? null);
         setMusicMetadata(entry.music_metadata ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
@@ -2294,7 +2308,7 @@ export function EditorClient() {
         const deck = story.description ? `<p>${esc(story.description)}</p>` : "";
         editor.commands.setContent(
           `<blockquote><p><strong>${esc(story.title)}</strong></p>${deck}` +
-            `<p><a href="${esc(story.url)}">Read it at ${esc(publisher)}</a></p></blockquote><p></p>`
+            `<p><a href="${esc(story.url)}">Read it at ${esc(publisher)}</a></p></blockquote><p data-spacing="tight"></p>`
         );
         editor.commands.focus("end");
         setHasContent(true);
@@ -2323,7 +2337,7 @@ export function EditorClient() {
       try { host = new URL(safeUrl).hostname.replace(/^www\./, ""); } catch { /* keep the url */ }
       parts.push(`<p><a href="${esc(safeUrl)}">${esc(host)}</a></p>`);
     }
-    editor.commands.setContent(`<blockquote>${parts.join("")}</blockquote><p></p>`);
+    editor.commands.setContent(`<blockquote>${parts.join("")}</blockquote><p data-spacing="tight"></p>`);
     editor.commands.focus("end");
     setHasContent(true);
     setWordCount(editor.storage.characterCount.words());
@@ -2391,6 +2405,7 @@ export function EditorClient() {
 
   const markUnsaved = useCallback(() => {
     hasUnsavedChanges.current = true; editRevisionRef.current += 1;
+    setDirty(true);
     scheduleLocalSave();
   }, [scheduleLocalSave]);
 
@@ -2482,6 +2497,7 @@ export function EditorClient() {
       // had scheduled, so the last sentence typed during a save was lost.)
       if (editRevisionRef.current === revisionAtStart) {
         hasUnsavedChanges.current = false;
+        setDirty(false);
         clearAutosaveTimers();
       } else {
         clearAutosaveTimers();
@@ -2533,16 +2549,20 @@ export function EditorClient() {
   }, [coverImageId, markUnsaved, scheduleAutosave]);
 
   // ── Cmd/Ctrl+S keyboard shortcut ──────────────────────────────────────────
+  // Drafts: save now. Published entries: save the edits in place and stay in
+  // the editor. (It used to do nothing at all on a published entry, because
+  // autosave deliberately skips those.)
+  const saveShortcutRef = useRef<() => void>(() => {});
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "s" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "s" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
         e.preventDefault();
-        performAutosave();
+        saveShortcutRef.current();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [performAutosave]);
+  }, []);
 
   // ── beforeunload guard ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -2808,6 +2828,7 @@ export function EditorClient() {
       }
       // Autosave integration: mark as saved, clear timers
       hasUnsavedChanges.current = false;
+      setDirty(false);
       clearAutosaveTimers();
       clearLocalRecovery();
       const now = new Date();
@@ -2957,6 +2978,180 @@ export function EditorClient() {
     }
   }, [myCircles, state.circleId, state.circlePromptId, editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
+  // Save a published entry's edits without leaving the editor (⌘S). The
+  // publish-time choices (newsletter, cross-posts) only happen on the button.
+  const savingInPlaceRef = useRef(false);
+  const saveInPlace = useCallback(async () => {
+    if (!editor || isPublishing || !savedEntryId || isDraft || savingInPlaceRef.current) return;
+    if (isFutureDate(state.publishedAt)) {
+      alert("A published entry can't be dated in the future. Pick today or an earlier date in Entry Settings.");
+      return;
+    }
+    const revisionAtStart = editRevisionRef.current;
+    savingInPlaceRef.current = true;
+    setSaveStatus("saving");
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, ...payload } = buildPayload();
+      const res = await fetch(`/api/entries/${savedEntryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(apiErrorMessage(err, "Save failed"));
+      }
+      setLoadedPublishedAt(state.publishedAt);
+      if (editRevisionRef.current === revisionAtStart) {
+        hasUnsavedChanges.current = false;
+        setDirty(false);
+        clearLocalRecovery();
+      }
+      setLastSavedAt(new Date());
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus((prev) => prev === "saved" ? "idle" : prev), 10000);
+    } catch (err) {
+      setSaveStatus("error");
+      alert(`Could not save: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      savingInPlaceRef.current = false;
+    }
+  }, [editor, isPublishing, savedEntryId, isDraft, state.publishedAt, buildPayload, clearLocalRecovery]);
+
+  // Nothing is saved until the entry has loaded (while it loads, or when it
+  // couldn't be loaded, the form is empty but still tied to the real entry),
+  // and only when there's something new to save.
+  saveShortcutRef.current = () => {
+    if (!editorLoadedRef.current || loading || loadError || isPublishing) return;
+    if (!hasUnsavedChanges.current) {
+      if (savedEntryId) {
+        setLastSavedAt((d) => d ?? new Date());
+        setSaveStatus("saved");
+      }
+      return;
+    }
+    // Drafts go through autosave, which knows about saves already in flight
+    // and about typing that happens during one.
+    if (isDraft) void performAutosaveRef.current();
+    else void saveInPlace();
+  };
+
+  // Gallery: edit the one the cursor is on, or the entry's only gallery, or start one.
+  const openGalleryEditor = useCallback(() => {
+    if (editor) {
+      const { from } = editor.state.selection;
+      const node = editor.state.doc.nodeAt(from);
+      if (node?.type.name === "photoGallery") {
+        setEditingGalleryAttrs(node.attrs as PhotoGalleryAttrs);
+        setGalleryEditorOpen(true);
+        return;
+      }
+    }
+    let hasGallery = false;
+    editor?.state.doc.descendants((n) => {
+      if (n.type.name === "photoGallery") hasGallery = true;
+      return !hasGallery;
+    });
+    if (hasGallery) {
+      editor?.state.doc.descendants((n, pos) => {
+        if (n.type.name === "photoGallery") {
+          editor.commands.setNodeSelection(pos);
+          setEditingGalleryAttrs(n.attrs as PhotoGalleryAttrs);
+          setGalleryEditorOpen(true);
+          return false;
+        }
+        return true;
+      });
+    } else {
+      setGalleryEditorOpen(true);
+    }
+  }, [editor]);
+
+  const slashItems = slash ? filterSlashItems(slash.query) : [];
+  const pickSlash = (item: SlashItem) => {
+    if (!editor || !slash) return;
+    runSlashItem(editor, item, slash, {
+      image: () => floatingImageRef.current?.click(),
+      gallery: openGalleryEditor,
+      linkPreview: () => setLinkEmbedOpen(true),
+      circle: () => setCirclePickerOpen(true),
+    });
+    setSlash(null);
+  };
+
+  // Keys go to an open menu before the editor acts on them.
+  menuKeyRef.current = (e) => {
+    if (slash && slashItems.length > 0) {
+      const n = slashItems.length;
+      if (e.key === "ArrowDown") { setSlashIndex((i) => (i + 1) % n); return true; }
+      if (e.key === "ArrowUp") { setSlashIndex((i) => (i - 1 + n) % n); return true; }
+      if (e.key === "Enter" || e.key === "Tab") { pickSlash(slashItems[Math.min(slashIndex, n - 1)]); return true; }
+    }
+    if (mentionQuery !== null && mentionUsers.length > 0) {
+      if (e.key === "ArrowDown") { setMentionIndex((i) => Math.min(i + 1, mentionUsers.length - 1)); return true; }
+      if (e.key === "ArrowUp") { setMentionIndex((i) => Math.max(i - 1, 0)); return true; }
+      if (e.key === "Enter" || e.key === "Tab") { insertMentionRef.current(); return true; }
+      if (e.key === "Escape") { setMentionQuery(null); setMentionUsers([]); return true; }
+    }
+    return false;
+  };
+  openLinkRef.current = () => {
+    if (editor && !htmlMode) setLinkOpen(true);
+  };
+
+  // ── "Ready to publish?" ────────────────────────────────────────────────
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const publishBtnRef = useRef<HTMLButtonElement>(null);
+  const reviewLines = (): PublishReviewLine[] => {
+    const lines: PublishReviewLine[] = [];
+    const circleName = myCircles?.find((c) => c.id === state.circleId)?.name ?? "the circle";
+    const filterName = filters.find((f) => f.id === state.customFilterId)?.name;
+    const who: Record<Privacy, PublishReviewLine> = {
+      public: { icon: "🌍", text: <><strong>Public.</strong> Anyone can read it, here and on the fediverse.</> },
+      friends_only: { icon: "👥", text: <><strong>Pen pals only.</strong></> },
+      private: { icon: "🔒", text: <><strong>Private.</strong> Only you can read it.</> },
+      custom: { icon: "👥", text: <><strong>Only {filterName ? <>&ldquo;{filterName}&rdquo;</> : "your chosen filter"}.</strong></> },
+      paid: { icon: "🔒", text: <><strong>Paid subscribers only.</strong></> },
+      circle: { icon: "◎", text: <><strong>Members of {circleName} only.</strong></> },
+    };
+    lines.push(who[state.privacy]);
+    if (state.privacy === "custom" && !state.customFilterId) {
+      lines.push({ icon: "!", text: "No filter chosen yet, so only you will see it.", tone: "warn" });
+    }
+    if (state.circleId) {
+      lines.push({
+        icon: "◎",
+        text: state.circlePromptId
+          ? <>Posted as an answer in <strong>{circleName}</strong>.</>
+          : <>Starts a thread in <strong>{circleName}</strong>{circleAsPrompt ? ", pinned as its prompt" : ""}.</>,
+      });
+    }
+    if (newsletterEnabled && state.privacy === "public" && !alreadySent) {
+      lines.push(sendNewsletter
+        ? { icon: "✉", text: <>Emailed to <strong>{subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"}</strong>{isPlus && scheduleSend && scheduledAt ? " at the time you set" : ""}.</> }
+        : { icon: "✉", text: "Not emailed to your newsletter subscribers.", tone: "muted" });
+    }
+    if (state.privacy === "public") {
+      for (const account of fediverseAccounts.filter((a) => crosspostTo.has(a.id))) {
+        lines.push({ icon: "↗", text: <>Also posted to <strong>@{account.remote_acct}</strong>.</> });
+      }
+    }
+    if (state.sensitive) {
+      lines.push({ icon: "⚠", text: state.contentWarning ? <>Behind a content warning: &ldquo;{state.contentWarning}&rdquo;.</> : "Behind a content warning." });
+    }
+    if (state.publishedAt && !isFutureDate(state.publishedAt)) {
+      lines.push({ icon: "📅", text: <>Dated {new Date(state.publishedAt).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" })}.</> });
+    }
+    if (pollEnabled && isPlus && pollQuestion.trim()) {
+      lines.push({ icon: "▥", text: <>With the poll &ldquo;{pollQuestion.trim()}&rdquo;.</> });
+    }
+    return lines;
+  };
+  const scheduledLabel = isDraft && isFutureDate(state.publishedAt)
+    ? new Date(state.publishedAt).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : null;
+
   if (loadError) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--background)", color: "var(--foreground)" }}>
@@ -2992,6 +3187,10 @@ export function EditorClient() {
     );
   }
 
+  // On a phone the mood/music/location strip is one tap-to-open link until
+  // something's in it; open, it took three rows before the first line of writing.
+  const metaCollapsed = isMobileLayout && !metaOpen && !state.mood && !state.music && !state.location && !focusMode;
+
   // The page's date line shows the entry's date when one is set, else today.
   const entryDate = state.publishedAt && (isDraft || !isFutureDate(state.publishedAt)) ? new Date(state.publishedAt) : new Date();
   const today = entryDate.toLocaleDateString("en-US", {
@@ -3012,11 +3211,11 @@ export function EditorClient() {
               </svg>
             </NextLink>
             {isDraft && savedEntryId && (
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+              <span className="editor-draft-badge text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
                 {wasScheduled ? "scheduled" : "draft"}
               </span>
             )}
-            <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} />
+            <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} unsavedEdits={!isDraft && !!savedEntryId && dirty} />
           </div>
           <div className="flex items-center gap-2">
             {/* Settings panel toggle */}
@@ -3059,8 +3258,11 @@ export function EditorClient() {
                 onChange={(v) => update({ publishedAt: v })}
               />
             )}
-            <button type="button" onClick={handlePublish}
+            <button type="button" ref={publishBtnRef}
+              onClick={() => (isDraft ? setReviewOpen(true) : handlePublish())}
               disabled={isPublishing || !hasContent}
+              aria-haspopup={isDraft ? "dialog" : undefined}
+              aria-expanded={isDraft ? reviewOpen : undefined}
               className="editor-publish-btn">
               {isDraft && isFutureDate(state.publishedAt)
                 ? (isPublishing ? "Scheduling…" : "Schedule")
@@ -3133,7 +3335,7 @@ export function EditorClient() {
           {storageExceeded && <StorageLimitCard isPlus={isPlus} />}
 
           {/* ── Paper container ───────────────────────── */}
-          <div className="editor-paper">
+          <div className={`editor-paper${widePage ? " editor-paper-wide" : ""}`}>
 
             {/* Date line */}
             <div className={`editor-dateline${focusMode ? " hidden" : ""}`}>
@@ -3219,14 +3421,27 @@ export function EditorClient() {
             </div>
 
             {/* ── Title ────────────────────────────────── */}
-            <input
-              type="text"
+            {/* Wraps as it grows (a long title used to scroll sideways out of
+                sight). Enter or ↓ at the end moves into the entry. */}
+            <textarea
               value={state.title}
-              onChange={(e) => update({ title: e.target.value })}
-              placeholder="Untitled"
+              rows={1}
+              ref={titleRef}
+              onChange={(e) => update({ title: e.target.value.replace(/[\r\n]+/g, " ") })}
+              onKeyDown={(e) => {
+                const el = e.currentTarget;
+                const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+                if (e.key === "Enter" || (e.key === "ArrowDown" && atEnd)) {
+                  if (e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  editor?.commands.focus("start");
+                }
+              }}
+              placeholder="Title"
               className="editor-title-input"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
               aria-label="Entry title"
+              maxLength={300}
             />
 
             {isNewAccount && hasOutsideLink && !focusMode && (
@@ -3242,6 +3457,7 @@ export function EditorClient() {
             {!focusMode && (
               <div className="editor-inline-category">
                 {isMobileLayout ? (
+                  <div className="editor-inline-row">
                   <button
                     type="button"
                     onClick={() => setShowSettings(true)}
@@ -3259,6 +3475,12 @@ export function EditorClient() {
                       <polyline points="9 6 15 12 9 18"/>
                     </svg>
                   </button>
+                  {metaCollapsed && (
+                    <button type="button" className="editor-meta-collapsed" onClick={() => setMetaOpen(true)}>
+                      <span aria-hidden="true">＋</span> Mood, music, place
+                    </button>
+                  )}
+                  </div>
                 ) : (
                   <select
                     value={state.category ?? ""}
@@ -3276,6 +3498,11 @@ export function EditorClient() {
             )}
 
             {/* ── Mood + music strip ──────────────────── */}
+            {/* On a phone it's one tap-to-open row until something's in it;
+                open, it took three rows before the first line of writing. */}
+            {metaCollapsed ? (
+              <div className="editor-meta-strip editor-meta-strip-collapsed" />
+            ) : (
             <div className={`editor-meta-strip${focusMode ? " hidden" : ""}`}>
               <UserpicPicker
                 value={state.userpicId}
@@ -3296,6 +3523,7 @@ export function EditorClient() {
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
               <LocationInput value={state.location} onChange={(v) => update({ location: v })} />
             </div>
+            )}
 
             {/* ── Music embed preview ─────────────────── */}
             {musicEmbed && !focusMode && (
@@ -3332,40 +3560,11 @@ export function EditorClient() {
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
                 comfortMode={comfortMode} onToggleComfort={() => setComfortMode((v) => !v)}
+                wide={widePage} onToggleWide={toggleWidePage}
+                onLink={() => openLinkRef.current()}
                 onInsertCircle={() => setCirclePickerOpen(true)}
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)}
-                onInsertGallery={() => {
-                  // If cursor is on an existing gallery, open editor with its attrs
-                  if (editor) {
-                    const { from } = editor.state.selection;
-                    const node = editor.state.doc.nodeAt(from);
-                    if (node?.type.name === "photoGallery") {
-                      setEditingGalleryAttrs(node.attrs as PhotoGalleryAttrs);
-                      setGalleryEditorOpen(true);
-                      return;
-                    }
-                  }
-                  // Otherwise, open fresh gallery editor (but only if no gallery exists yet)
-                  let hasGallery = false;
-                  editor?.state.doc.descendants((n) => {
-                    if (n.type.name === "photoGallery") hasGallery = true;
-                    return !hasGallery;
-                  });
-                  if (hasGallery) {
-                    // Select the existing gallery and open editor for it
-                    editor?.state.doc.descendants((n, pos) => {
-                      if (n.type.name === "photoGallery") {
-                        editor.commands.setNodeSelection(pos);
-                        setEditingGalleryAttrs(n.attrs as PhotoGalleryAttrs);
-                        setGalleryEditorOpen(true);
-                        return false;
-                      }
-                      return true;
-                    });
-                  } else {
-                    setGalleryEditorOpen(true);
-                  }
-                }} />
+                onInsertGallery={openGalleryEditor} />
             </div>
 
             {/* ── Bubble menu (below selection, 80px offset to clear native popup) ── */}
@@ -3376,7 +3575,22 @@ export function EditorClient() {
                 onShow={() => setBubbleVisible(true)}
                 onHide={() => setBubbleVisible(false)}
                 onShouldShowLog={debugMode ? handleShouldShowLog : undefined}
+                onLink={() => openLinkRef.current()}
               />
+            )}
+
+            {editor && slash && !htmlMode && (
+              <SlashMenu
+                editor={editor}
+                range={slash}
+                items={slashItems}
+                activeIndex={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
+                onPick={pickSlash}
+                onHover={setSlashIndex}
+              />
+            )}
+            {editor && linkOpen && (
+              <LinkPopover editor={editor} onClose={() => setLinkOpen(false)} />
             )}
 
             {/* ── Debug overlay (activate via ?debug=1) ── */}
@@ -3438,26 +3652,7 @@ export function EditorClient() {
                   />
                 </>
               ) : (
-                <div ref={editorWrapRef} style={{ position: "relative" }}
-                  onKeyDown={(e) => {
-                    if (mentionQuery !== null && mentionUsers.length > 0) {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setMentionIndex((i) => Math.min(i + 1, mentionUsers.length - 1));
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setMentionIndex((i) => Math.max(i - 1, 0));
-                      } else if (e.key === "Enter" || e.key === "Tab") {
-                        e.preventDefault();
-                        insertMentionRef.current();
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        setMentionQuery(null);
-                        setMentionUsers([]);
-                      }
-                    }
-                  }}
-                >
+                <div ref={editorWrapRef} style={{ position: "relative" }}>
                   <EditorContent editor={editor} />
                   {mentionQuery !== null && mentionUsers.length > 0 && mentionPos && (
                     <div style={{ position: "absolute", top: mentionPos.top, left: mentionPos.left, zIndex: 50, width: 280 }}>
@@ -3478,7 +3673,9 @@ export function EditorClient() {
 
             {/* Word count footer */}
             <div className="editor-word-count">
-              {htmlMode ? `${htmlSource.length.toLocaleString()} chars` : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}`}
+              {htmlMode
+                ? `${htmlSource.length.toLocaleString()} characters`
+                : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}${wordCount >= 50 ? ` · ${Math.max(1, Math.round(wordCount / 230))} min read` : ""}`}
             </div>
 
           </div>{/* end .editor-paper */}
@@ -3500,71 +3697,13 @@ export function EditorClient() {
             </div>
             <div className="editor-settings-body">
 
-              {/* Circle */}
-              {myCircles && (myCircles.length > 0 || state.circleId) && (
-                <div className="editor-settings-section">
-                  <div className="editor-settings-label">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/>
-                    </svg>
-                    Circle
-                  </div>
-                  <select
-                    value={state.circleId ?? ""}
-                    onChange={(e) => {
-                      const id = e.target.value || null;
-                      // In a circle a post is public or for members; leaving
-                      // one drops "members only" to private, never to public.
-                      const privacy: Privacy = id
-                        ? (state.privacy === "public" || state.privacy === "circle" ? state.privacy : "circle")
-                        : (state.privacy === "circle" ? "private" : state.privacy);
-                      update({ circleId: id, circlePromptId: null, privacy, customFilterId: null });
-                      if (!id) setCircleAsPrompt(false);
-                    }}
-                    className="editor-settings-select">
-                    <option value="">Not in a circle</option>
-                    {(myCircles ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                    {state.circleId && !(myCircles ?? []).some((c) => c.id === state.circleId) && (
-                      <option value={state.circleId}>A circle you&rsquo;ve left</option>
-                    )}
-                  </select>
-                  {state.circleId && !state.circlePromptId &&
-                    ["owner", "moderator"].includes(circleRole ?? "") && (
-                    <label className="editor-circle-prompt-toggle">
-                      <input
-                        type="checkbox"
-                        checked={circleAsPrompt}
-                        onChange={(e) => setCircleAsPrompt(e.target.checked)}
-                      />
-                      <span>
-                        <strong>Pin as the circle&rsquo;s prompt</strong>
-                        <span>
-                          {pinnedPrompt && pinnedPrompt.id !== savedEntryId
-                            ? <>Replaces the pinned prompt, &ldquo;{pinnedPrompt.title || "Untitled"}&rdquo;. Members are told when you publish.</>
-                            : "It's pinned at the top of the circle, and members are told when you publish."}
-                        </span>
-                      </span>
-                    </label>
-                  )}
-                  {state.circleId && (
-                    <div className="editor-settings-hint" style={{ marginTop: 8 }}>
-                      {state.circlePromptId
-                        ? <>An answer in the thread &ldquo;{answering?.title || "…"}&rdquo;. It stays on your journal too.</>
-                        : "Starts a new thread in the circle. It stays on your journal and shows in members' Feeds."}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Privacy */}
               <div className="editor-settings-section">
                 <div className="editor-settings-label">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
-                  Privacy
+                  Who can read it
                 </div>
                 <select value={state.privacy}
                   onChange={(e) => update({ privacy: e.target.value as Privacy, customFilterId: null })}
@@ -3585,11 +3724,28 @@ export function EditorClient() {
                     </>
                   )}
                 </select>
-                {state.privacy === "circle" && (
+                {state.privacy === "circle" ? (
                   <div className="editor-settings-hint" style={{ marginTop: 8 }}>
                     Only members of the circle can read it. It isn&rsquo;t sent to the fediverse.
                   </div>
-                )}
+                ) : state.circleId ? (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    It&rsquo;s posted in a circle, so it&rsquo;s either public or for the circle&rsquo;s members.
+                  </div>
+                ) : state.privacy === "public" ? (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    Anyone can read it, here and on the fediverse.
+                  </div>
+                ) : state.privacy === "friends_only" ? (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    Only your pen pals can read it.
+                  </div>
+                ) : state.privacy === "private" ? (
+                  <div className="editor-settings-hint" style={{ marginTop: 8 }}>
+                    Only you can read it.
+                  </div>
+                ) : null}
+
                 {state.privacy === "paid" && (
                   <div className="editor-settings-hint" style={{ marginTop: 8 }}>
                     Only your paid subscribers can read this entry.
@@ -3619,6 +3775,33 @@ export function EditorClient() {
                         ))}
                       </select>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Content Warning */}
+              <div className="editor-settings-section">
+                <div className="editor-settings-label">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  Content Warning
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={state.sensitive}
+                    onChange={(e) => update({ sensitive: e.target.checked })} />
+                  This entry contains sensitive content
+                </label>
+                {state.sensitive && (
+                  <div style={{ marginTop: 8 }}>
+                    <input type="text" value={state.contentWarning}
+                      onChange={(e) => update({ contentWarning: e.target.value })}
+                      placeholder="Describe the content (optional)"
+                      maxLength={200}
+                      className="editor-settings-input" />
+                    <span className="editor-settings-hint">
+                      Sensitive entries are hidden from Explore by default. Readers can opt in.
+                    </span>
                   </div>
                 )}
               </div>
@@ -3664,31 +3847,16 @@ export function EditorClient() {
                 )}
               </div>
 
-              {/* Content Warning */}
+              {/* Tags */}
               <div className="editor-settings-section">
                 <div className="editor-settings-label">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
                   </svg>
-                  Content Warning
+                  Tags
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-                  <input type="checkbox" checked={state.sensitive}
-                    onChange={(e) => update({ sensitive: e.target.checked })} />
-                  This entry contains sensitive content
-                </label>
-                {state.sensitive && (
-                  <div style={{ marginTop: 8 }}>
-                    <input type="text" value={state.contentWarning}
-                      onChange={(e) => update({ contentWarning: e.target.value })}
-                      placeholder="Describe the content (optional)"
-                      maxLength={200}
-                      className="editor-settings-input" />
-                    <span className="editor-settings-hint">
-                      Sensitive entries are hidden from Explore by default. Readers can opt in.
-                    </span>
-                  </div>
-                )}
+                <TagInput value={state.tags} onChange={(v) => update({ tags: v })} />
+                <div className="editor-settings-hint">Press Enter or a comma after each one. Tags become hashtags on the fediverse.</div>
               </div>
 
               {/* Category */}
@@ -3740,20 +3908,6 @@ export function EditorClient() {
                     ))}
                   </select>
                 )}
-              </div>
-
-              {/* Tags */}
-              <div className="editor-settings-section">
-                <div className="editor-settings-label">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
-                  </svg>
-                  Tags
-                </div>
-                <input type="text" value={state.tags}
-                  onChange={(e) => update({ tags: e.target.value })}
-                  placeholder="coffee, 2026, writing"
-                  className="editor-settings-input" />
               </div>
 
               {/* Excerpt */}
@@ -3869,6 +4023,87 @@ export function EditorClient() {
                 </div>
               )}
 
+              {((newsletterEnabled && state.privacy === "public") || fediverseAccounts.length > 0 || (myCircles && (myCircles.length > 0 || !!state.circleId))) && (
+                <div className="editor-settings-group">Sharing</div>
+              )}
+
+              {/* Newsletter section — only when enabled + public */}
+              {newsletterEnabled && state.privacy === "public" && (
+                <div className="editor-settings-section">
+                  <div className="editor-settings-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    Newsletter
+                  </div>
+                  {alreadySent ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      This entry was already sent as a newsletter.
+                    </div>
+                  ) : sendsThisMonth >= sendLimit ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      You&apos;ve used all {sendLimit} newsletter sends this month.{" "}
+                      {!isPlus ? (
+                        <NextLink href="/settings/billing" className="font-medium" style={{ color: "var(--accent)" }}>Upgrade to Plus</NextLink>
+                      ) : (
+                        <span>Resets next month.</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={sendNewsletter}
+                          onChange={(e) => setSendNewsletter(e.target.checked)}
+                          className="rounded"
+                        />
+                        Send to email subscribers
+                      </label>
+                      {sendNewsletter && (
+                        <>
+                          <div className="editor-settings-hint">
+                            {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
+                            <span className="ml-1">({sendLimit - sendsThisMonth} {sendLimit - sendsThisMonth === 1 ? "send" : "sends"} remaining this month)</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={newsletterSubject}
+                            onChange={(e) => setNewsletterSubject(e.target.value)}
+                            placeholder={state.title || "Email subject line"}
+                            maxLength={200}
+                            className="editor-settings-input"
+                          />
+                          <div className="editor-settings-hint">Subject line (defaults to entry title)</div>
+                          {isPlus && (
+                            <div className="flex flex-col gap-2">
+                              <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={scheduleSend}
+                                  onChange={(e) => setScheduleSend(e.target.checked)}
+                                  className="rounded"
+                                />
+                                Schedule for later
+                              </label>
+                              {scheduleSend && (
+                                <input
+                                  type="datetime-local"
+                                  value={scheduledAt}
+                                  onChange={(e) => setScheduledAt(e.target.value)}
+                                  min={new Date().toISOString().slice(0, 16)}
+                                  className="editor-settings-input"
+                                />
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Cross-post section — shown when user has fediverse accounts with write scope */}
               {(() => {
                 const writeAccounts = fediverseAccounts.filter(a => {
@@ -3948,79 +4183,64 @@ export function EditorClient() {
                 );
               })()}
 
-              {/* Newsletter section — only when enabled + public */}
-              {newsletterEnabled && state.privacy === "public" && (
+              {/* Circle: also share the entry in one of the writer's circles.
+                  It used to be the first thing in this panel, where most people
+                  didn't know what to put; arriving from a circle's page still
+                  sets it for you. */}
+              {myCircles && (myCircles.length > 0 || state.circleId) && (
                 <div className="editor-settings-section">
                   <div className="editor-settings-label">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/>
                     </svg>
-                    Newsletter
+                    Post in a circle
                   </div>
-                  {alreadySent ? (
-                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
-                      This entry was already sent as a newsletter.
-                    </div>
-                  ) : sendsThisMonth >= sendLimit ? (
-                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
-                      You&apos;ve used all {sendLimit} newsletter sends this month.{" "}
-                      {!isPlus ? (
-                        <NextLink href="/settings/billing" className="font-medium" style={{ color: "var(--accent)" }}>Upgrade to Plus</NextLink>
-                      ) : (
-                        <span>Resets next month.</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
-                        <input
-                          type="checkbox"
-                          checked={sendNewsletter}
-                          onChange={(e) => setSendNewsletter(e.target.checked)}
-                          className="rounded"
-                        />
-                        Send to email subscribers
-                      </label>
-                      {sendNewsletter && (
-                        <>
-                          <div className="editor-settings-hint">
-                            {subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive this
-                            <span className="ml-1">({sendLimit - sendsThisMonth} {sendLimit - sendsThisMonth === 1 ? "send" : "sends"} remaining this month)</span>
-                          </div>
-                          <input
-                            type="text"
-                            value={newsletterSubject}
-                            onChange={(e) => setNewsletterSubject(e.target.value)}
-                            placeholder={state.title || "Email subject line"}
-                            maxLength={200}
-                            className="editor-settings-input"
-                          />
-                          <div className="editor-settings-hint">Subject line (defaults to entry title)</div>
-                          {isPlus && (
-                            <div className="flex flex-col gap-2">
-                              <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={scheduleSend}
-                                  onChange={(e) => setScheduleSend(e.target.checked)}
-                                  className="rounded"
-                                />
-                                Schedule for later
-                              </label>
-                              {scheduleSend && (
-                                <input
-                                  type="datetime-local"
-                                  value={scheduledAt}
-                                  onChange={(e) => setScheduledAt(e.target.value)}
-                                  min={new Date().toISOString().slice(0, 16)}
-                                  className="editor-settings-input"
-                                />
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                  <select
+                    value={state.circleId ?? ""}
+                    onChange={(e) => {
+                      const id = e.target.value || null;
+                      // In a circle a post is public or for members; leaving
+                      // one drops "members only" to private, never to public.
+                      const privacy: Privacy = id
+                        ? (state.privacy === "public" || state.privacy === "circle" ? state.privacy : "circle")
+                        : (state.privacy === "circle" ? "private" : state.privacy);
+                      update({ circleId: id, circlePromptId: null, privacy, customFilterId: null });
+                      if (!id) setCircleAsPrompt(false);
+                    }}
+                    aria-label="Post in a circle"
+                    className="editor-settings-select">
+                    <option value="">No, just my journal</option>
+                    {(myCircles ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                    {state.circleId && !(myCircles ?? []).some((c) => c.id === state.circleId) && (
+                      <option value={state.circleId}>A circle you&rsquo;ve left</option>
+                    )}
+                  </select>
+                  <div className="editor-settings-hint" style={{ marginTop: 6 }}>
+                    {!state.circleId
+                      ? "Also share this entry in one of your circles. It stays on your journal either way."
+                      : state.circlePromptId
+                        ? <>An answer in the thread &ldquo;{answering?.title || "…"}&rdquo;. It stays on your journal too.</>
+                        : "Starts a new thread there and shows in members' Feeds. It stays on your journal too."}
+                  </div>
+                  {state.circleId && !state.circlePromptId &&
+                    ["owner", "moderator"].includes(circleRole ?? "") && (
+                    <label className="editor-circle-prompt-toggle">
+                      <input
+                        type="checkbox"
+                        checked={circleAsPrompt}
+                        onChange={(e) => setCircleAsPrompt(e.target.checked)}
+                      />
+                      <span>
+                        <strong>Pin as the circle&rsquo;s prompt</strong>
+                        <span>
+                          {pinnedPrompt && pinnedPrompt.id !== savedEntryId
+                            ? <>Replaces the pinned prompt, &ldquo;{pinnedPrompt.title || "Untitled"}&rdquo;. Members are told when you publish.</>
+                            : "It's pinned at the top of the circle, and members are told when you publish."}
+                        </span>
+                      </span>
+                    </label>
                   )}
                 </div>
               )}
@@ -4054,6 +4274,17 @@ export function EditorClient() {
           return settingsPanelInner;
         })()}
       </div>
+
+      <PublishReview
+        anchorRef={publishBtnRef}
+        open={reviewOpen && isDraft}
+        scheduling={scheduledLabel}
+        lines={reviewOpen ? reviewLines() : []}
+        busy={isPublishing}
+        onCancel={() => setReviewOpen(false)}
+        onOpenSettings={() => { setReviewOpen(false); setShowSettings(true); }}
+        onConfirm={() => { setReviewOpen(false); void handlePublish(); }}
+      />
 
       {/* Circle embed picker modal */}
       {circlePickerOpen && (

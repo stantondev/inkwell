@@ -27,7 +27,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "gs-follow", title: "Following writers", snippet: "Visit a profile and click Follow to add them as a pen pal.", keywords: ["follow", "pen pal", "friend", "connection"], category: "getting-started", href: "/help/getting-started#finding-people" },
 
   // ── Writing & Publishing ──
-  { id: "w-editor", title: "Using the rich text editor", snippet: "Formatting, images, links, tables, task lists, and more.", keywords: ["editor", "formatting", "bold", "italic", "toolbar", "tiptap"], category: "writing", href: "/help/faq#write-entry" },
+  { id: "w-editor", title: "Using the rich text editor", snippet: "Formatting, the / menu, checklists, links (⌘K), pictures, tables and more.", keywords: ["editor", "formatting", "bold", "italic", "toolbar", "slash", "checklist", "todo", "link", "shortcut", "markdown"], category: "writing", href: "/help/faq#write-entry" },
   { id: "w-drafts", title: "Saving drafts", snippet: "Save work-in-progress entries and publish when you're ready.", keywords: ["draft", "save", "unpublished"], category: "writing", href: "/help/faq#drafts" },
   { id: "w-visibility", title: "Entry visibility settings", snippet: "Public, friends-only, private, or a custom list of people.", keywords: ["visibility", "privacy", "public", "private", "friends"], category: "writing", href: "/help/faq#visibility" },
   { id: "w-stickies", title: "Stickies (short thoughts)", snippet: "Jot a titleless note of up to 500 characters; grow it into an entry later.", keywords: ["sticky", "stickies", "short", "note", "jot", "microblog"], category: "writing", href: "/help/faq#stickies" },

@@ -15,8 +15,12 @@ export function SearchCommand() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        // Settings owns ⌘K while you're inside it (the jump palette).
+        // Settings owns ⌘K while you're inside it (the jump palette), and the
+        // editor uses it to add a link.
         if (pathname === "/settings" || pathname.startsWith("/settings/")) return;
+        if (pathname === "/editor" || pathname.startsWith("/editor/")) return;
+        // Rich text boxes (comments, letters, stickies) treat ⌘K as "link".
+        if ((e.target as HTMLElement | null)?.isContentEditable) return;
         e.preventDefault();
         if (pathname === "/search") {
           window.dispatchEvent(new CustomEvent("inkwell-search-focus"));

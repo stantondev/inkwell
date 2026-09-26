@@ -27,8 +27,14 @@ export const Spacing = Extension.create({
         ],
         attributes: {
           spacing: {
+            // Typing starts "tight" (Enter goes to the next line, like a
+            // notebook). Content that arrives as HTML — an imported post opened
+            // here, a paste from a document, Markdown, the HTML view — keeps the
+            // spacing it had: HTML without data-spacing is "normal". (Returning
+            // null here made TipTap fall back to the default, so opening and
+            // saving an imported post would have run all its paragraphs together.)
             default: "tight",
-            parseHTML: (element) => element.getAttribute("data-spacing") || null,
+            parseHTML: (element) => element.getAttribute("data-spacing") || "normal",
             renderHTML: (attributes) => {
               if (!attributes.spacing || attributes.spacing === "normal") return {};
               return { "data-spacing": attributes.spacing };

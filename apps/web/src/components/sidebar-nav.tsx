@@ -189,8 +189,12 @@ export function SidebarNav({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        // Settings has its own ⌘K jump palette; leave it to that.
+        // Settings has its own ⌘K jump palette, and in the editor ⌘K adds a
+        // link. (It used to jump to Explore mid-sentence, unsaved work and all.)
         if (pathname === "/settings" || pathname.startsWith("/settings/")) return;
+        if (pathname === "/editor" || pathname.startsWith("/editor/")) return;
+        // Rich text boxes (comments, letters, stickies) treat ⌘K as "link".
+        if ((e.target as HTMLElement | null)?.isContentEditable) return;
         e.preventDefault();
         if (pathname === "/explore") window.dispatchEvent(new Event("inkwell-search-focus"));
         else router.push("/explore");

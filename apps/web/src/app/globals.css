@@ -150,6 +150,7 @@ img, video, iframe, embed, object {
     -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
   }
   .editor-toolbar-wrap::-webkit-scrollbar { display: none; }
+  .editor-toolbar-wrap { padding-right: 28px !important; }
 
   .letter-editor-toolbar {
     flex-wrap: nowrap !important;
@@ -211,10 +212,12 @@ img, video, iframe, embed, object {
   margin-bottom: 1.25em;
 }
 
-/* Empty paragraphs (from pressing Enter twice) need visible height */
+/* Empty paragraphs (from pressing Enter twice) are one blank line, the
+   same height they have in the editor. */
 .prose-entry p:empty,
 .prose-entry p:has(> br:only-child) {
-  min-height: 1em;
+  min-height: 1.85em;
+  min-height: 1lh;
 }
 
 /* Lists */
@@ -233,6 +236,33 @@ img, video, iframe, embed, object {
 .prose-entry li {
   margin-bottom: 0.35em;
   line-height: 1.75;
+}
+
+/* Markers change with depth, as in every word processor */
+.prose-entry ul ul { list-style: circle; }
+.prose-entry ul ul ul { list-style: square; }
+.prose-entry ol ol { list-style: lower-alpha; }
+.prose-entry ol ol ol { list-style: lower-roman; }
+
+.prose-entry li::marker {
+  color: var(--muted);
+}
+
+/* A list item's text is a paragraph; its gap comes from the item, not the
+   paragraph (a "normal" paragraph's 1.25em made loose lists look broken). */
+.prose-entry li > p,
+.prose-entry li > div > p {
+  margin-bottom: 0;
+}
+
+.prose-entry li > p + p {
+  margin-top: 0.5em;
+}
+
+.prose-entry li > ul,
+.prose-entry li > ol {
+  margin-top: 0.35em;
+  margin-bottom: 0;
 }
 
 /* Horizontal rule — decorative ornament */
@@ -322,8 +352,16 @@ a.mention:hover,
   font-style: italic;
 }
 
-/* Drop cap — only when .drop-cap class is present */
-.prose-entry.drop-cap > p:first-of-type::first-letter {
+/* Drop cap — only when .drop-cap class is present, and only when the entry
+   opens with a paragraph. A list, quote or picture right after that opening
+   starts below the capital rather than being pushed sideways (a list after a
+   short first line used to have its first item indented by it). */
+.prose-entry.drop-cap > p:first-child + :not(p),
+.prose-entry.drop-cap > p:first-child + p + :not(p) {
+  clear: left;
+}
+
+.prose-entry.drop-cap > p:first-child::first-letter {
   float: left;
   font-size: 3.8em;
   line-height: 0.82;
@@ -362,7 +400,10 @@ a.mention:hover,
   background-color: var(--highlight-bg);
 }
 
-/* ── Task lists ───────────────────────────────────────────────────────── */
+/* ── Task lists ───────────────────────────────────────────────────────
+   Shared by the editor and every page that shows an entry. The item is a
+   row: a checkbox exactly one line tall (so it centres on the first line
+   whatever the line height), then the text, which wraps under itself. */
 
 .prose-entry ul[data-type="taskList"] {
   list-style: none;
@@ -373,33 +414,88 @@ a.mention:hover,
 .prose-entry ul[data-type="taskList"] li {
   display: flex;
   align-items: flex-start;
-  gap: 0.5em;
+  gap: 0.6em;
   margin-bottom: 0.35em;
 }
 
 .prose-entry ul[data-type="taskList"] li > label {
+  flex: none;
   display: flex;
   align-items: center;
+  height: 1.75em;
+  height: 1lh;
+  margin: 0;
   user-select: none;
-  flex-shrink: 0;
-  margin-top: 0.35em;
 }
 
-.prose-entry ul[data-type="taskList"] li > label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-  cursor: default;
+.prose-entry ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prose-entry ul[data-type="taskList"] ul[data-type="taskList"] {
+  margin: 0.35em 0 0;
+}
+
+.prose-entry ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  border: 1.5px solid var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 70%, transparent);
+  border-radius: 5px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.prose-entry ul[data-type="taskList"] input[type="checkbox"]::before {
+  content: "";
+  width: 0.62rem;
+  height: 0.62rem;
+  background: var(--background);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 120ms ease;
+}
+
+.prose-entry ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.prose-entry ul[data-type="taskList"] input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+.prose-entry ul[data-type="taskList"] input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .prose-entry ul[data-type="taskList"] li[data-checked="true"] > div {
-  text-decoration: line-through;
   color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* Readers see the list as the writer left it; only the editor ticks boxes. */
+.prose-entry:not(.ProseMirror) ul[data-type="taskList"] input[type="checkbox"] {
+  pointer-events: none;
+  cursor: default;
 }
 
 /* Tight spacing for task lists */
+.prose-entry ul[data-type="taskList"][data-spacing="tight"],
 .prose-entry ul[data-type="taskList"][data-spacing="tight"] li {
   margin-bottom: 0;
+}
+
+.prose-entry ul[data-type="taskList"][data-spacing="loose"] li {
+  margin-bottom: 0.9em;
 }
 
 /* ── Tables ────────────────────────────────────────────────────────────── */
@@ -2654,6 +2750,25 @@ body[data-focus-mode] footer {
   display: none !important;
 }
 
+/* The editor gets the whole screen on phones and tablets: the app's top bar
+   and bottom tabs took 113px of a phone screen, leaving about a quarter of it
+   for writing. The editor's own bar has the way back. No site footer under
+   the page either. */
+@media (max-width: 1023px) {
+  body:has(.editor-shell) .mobile-top-bar-shell,
+  body:has(.editor-shell) .bottom-tab-bar {
+    display: none !important;
+  }
+
+  body:has(.editor-shell) .has-bottom-tabs {
+    padding-bottom: 0;
+  }
+}
+
+body:has(.editor-shell) .site-footer {
+  display: none;
+}
+
 /* ─── Journal Editor — high-design writing experience ─────────────── */
 
 .editor-shell {
@@ -2678,7 +2793,27 @@ body[data-focus-mode] footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.editor-topbar-inner > :last-child {
+  flex: none;
+}
+
+/* Small phones: autosave keeps drafts, so the explicit button can go, and
+   the status stays one short line. */
+@media (max-width: 479px) {
+  .editor-topbar-inner {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .editor-save-draft-btn,
+  .editor-draft-badge {
+    display: none;
+  }
 }
 
 .editor-back-link {
@@ -2796,10 +2931,18 @@ body[data-focus-mode] footer {
   }
 }
 
-/* The paper — wide, filling available space */
+/* The paper. It keeps about the same line length readers get on the
+   published page (so lines break where they will for them); "Wide page" in
+   the toolbar's ⋯ menu lets it fill the window. */
 .editor-paper {
   width: 100%;
+  max-width: 53rem;
+  margin: 0 auto;
   position: relative;
+}
+
+.editor-paper.editor-paper-wide {
+  max-width: none;
 }
 
 .editor-paper::before {
@@ -2842,6 +2985,9 @@ body[data-focus-mode] footer {
   line-height: 1.3;
   padding: 4px 0 8px;
   margin-bottom: 4px;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
 }
 
 .editor-title-input::placeholder {
@@ -2963,6 +3109,18 @@ button.editor-inline-margins-link:hover svg {
   border-color: var(--foreground);
 }
 
+/* The toolbar is one row; when the page is narrow it scrolls sideways
+   (its menus are portals, so nothing gets clipped). */
+.editor-toolbar-wrap {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.editor-toolbar-wrap::-webkit-scrollbar {
+  display: none;
+}
+
 /* Toolbar — styled as part of the page, not a separate bar */
 .editor-toolbar-container {
   position: sticky;
@@ -2974,35 +3132,494 @@ button.editor-inline-margins-link:hover svg {
   border-bottom: 1px solid var(--border);
 }
 
-/* Writing area with subtle ruled lines —
-   Lines must match .prose-entry line-height (1.125rem × 1.85 ≈ 33.3px).
-   --ruled-line is the interval; --ruled-offset aligns the first line
-   with the text baseline inside .tiptap (padding-top 24px offset). */
+/* ── The ruled page ──────────────────────────────────────────────────
+   Every line of text sits on a rule. The rules used to be one background
+   on the whole page at a fixed pitch, so anything that wasn't a plain
+   paragraph (list items at a different line height, headings, "tight"
+   spacing, anything after a picture) drifted off them. Now each top-level
+   block rules itself, starting at its own top, and every text line inside
+   the editor is exactly one rule tall. Spacing between blocks is padding
+   (or a transparent border), so the blank line between paragraphs is
+   ruled too. Pictures, code and tables are islands: the next block picks
+   the lines up again from its own top.
+
+   --line is the pitch (the body's 1.125rem × 1.85). --rule-at is where the
+   rule sits inside a line: about 2px under the baseline of Lora at 18px. */
 .editor-writing-area {
-  --ruled-line: 33.3px;
-  --ruled-offset: 24.3px;
+  --line: calc(1.125rem * 1.85);
+  --rule-at: calc(var(--line) * 0.77);
+  --rule: var(--border);
+  --gap: var(--line);
   position: relative;
   padding-top: 8px;
+}
+
+.editor-writing-area .ProseMirror {
+  --rules: linear-gradient(to bottom,
+    transparent calc(var(--rule-at) - 1px),
+    var(--rule) calc(var(--rule-at) - 1px),
+    var(--rule) var(--rule-at),
+    transparent var(--rule-at));
+  line-height: var(--line);
+  padding-top: 20px;
+  display: flow-root;
+}
+
+/* Room below the last line to keep writing: ruled, and part of the editor,
+   so clicking anywhere on it puts the cursor at the end. */
+.editor-writing-area .ProseMirror::after {
+  content: "";
+  display: block;
+  height: max(12rem, 40vh);
+  background-image: var(--rules);
+  background-size: 100% var(--line);
+  pointer-events: none;
+}
+
+.editor-writing-area .ProseMirror > :is(p, h1, h2, h3, ul, ol) {
+  background-image: var(--rules);
+  background-size: 100% var(--line);
+  background-repeat: repeat-y;
+  margin: 0;
+  padding-bottom: var(--gap);
+}
+
+.editor-writing-area .ProseMirror :is(p, li, h1, h2, h3, blockquote) {
+  line-height: var(--line);
+}
+
+.editor-writing-area .ProseMirror p {
+  margin: 0;
+}
+
+/* Spacing: tight = next line, normal = one blank line, loose = two */
+.editor-writing-area .ProseMirror > [data-spacing="tight"] { --gap: 0px; }
+.editor-writing-area .ProseMirror > [data-spacing="loose"] { --gap: calc(var(--line) * 2); }
+
+/* An empty paragraph is one ruled blank line (the trailing <br> gives it
+   its line box); nothing else to add. */
+.editor-writing-area .ProseMirror p:empty,
+.editor-writing-area .ProseMirror p:has(> br:only-child) {
+  min-height: var(--line);
+}
+
+/* Headings are one line tall and sit on their rule (a little lower than a
+   body line's, for bigger type). A heading after other writing gets a ruled
+   blank line above it, like the space it has on the published page, and
+   the next line of writing follows straight under it. */
+.editor-writing-area .ProseMirror > :is(h1, h2, h3) {
+  --head-rule-at: calc(var(--line) * 0.83);
+  --head-rules: linear-gradient(to bottom,
+    transparent calc(var(--head-rule-at) - 1px),
+    var(--rule) calc(var(--head-rule-at) - 1px),
+    var(--rule) var(--head-rule-at),
+    transparent var(--head-rule-at));
+  padding-top: 0;
+  padding-bottom: 0;
+  background-image: var(--head-rules);
+  background-size: 100% var(--line);
+  background-repeat: repeat-y;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+.editor-writing-area .ProseMirror > :is(h1, h2, h3):not(:first-child) {
+  padding-top: var(--line);
+  background-image: var(--head-rules), var(--rules);
+  background-size: 100% var(--line), 100% var(--line);
+  background-repeat: repeat-y, no-repeat;
+  background-origin: content-box, padding-box;
+  background-clip: content-box, padding-box;
+}
+
+.editor-writing-area .ProseMirror > h1 { font-size: 1.5em; --head-rule-at: calc(var(--line) * 0.88); }
+.editor-writing-area .ProseMirror > h2 { font-size: 1.4em; --head-rule-at: calc(var(--line) * 0.85); }
+.editor-writing-area .ProseMirror > h3 { font-size: 1.15em; --head-rule-at: calc(var(--line) * 0.8); }
+
+/* Lists: every item is one line per line of text, no gaps, so bullets,
+   numbers and checkboxes all sit on the rules. The list rules itself across
+   its full width (markers included). */
+.editor-writing-area .ProseMirror li {
+  margin: 0;
+}
+
+.editor-writing-area .ProseMirror li > p,
+.editor-writing-area .ProseMirror li > div > p {
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+.editor-writing-area .ProseMirror li :is(ul, ol) {
+  margin: 0;
+  padding-bottom: 0;
+  background: none;
+}
+
+.editor-writing-area .ProseMirror ul[data-type="taskList"] li,
+.editor-writing-area .ProseMirror ul[data-type="taskList"] ul[data-type="taskList"] {
+  margin: 0;
+}
+
+/* Quotes: tinted, with the accent bar, drawn only behind the quoted lines;
+   the blank line after the quote is a transparent border that still gets
+   its rule. */
+.editor-writing-area .ProseMirror > blockquote {
+  margin: 0;
+  padding: 0 1.25em;
+  border: 0;
+  border-bottom: var(--gap) solid transparent;
+  border-radius: 0;
+  background-color: transparent;
   background-image:
-    repeating-linear-gradient(
-      transparent,
-      transparent calc(var(--ruled-line) - 1px),
-      var(--border) calc(var(--ruled-line) - 1px),
-      var(--border) var(--ruled-line)
-    );
-  background-position: 0 var(--ruled-offset);
-  min-height: 55vh;
+    var(--rules),
+    linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--surface-hover), var(--surface-hover));
+  background-size: 100% var(--line), 3px 100%, 100% 100%;
+  background-repeat: repeat-y, no-repeat, no-repeat;
+  background-origin: border-box, padding-box, padding-box;
+  background-clip: border-box, padding-box, padding-box;
 }
 
-/* Snap paragraph spacing to the ruled grid so every line of text
-   lands on a ruled line, even across multiple paragraphs. */
-.editor-writing-area .prose-entry p {
-  margin-bottom: var(--ruled-line);
+.editor-writing-area .ProseMirror > blockquote p {
+  margin: 0;
+  padding: 0;
 }
 
-.editor-writing-area .prose-entry p:empty,
-.editor-writing-area .prose-entry p:has(> br:only-child) {
-  min-height: 1em;
+/* Islands: pictures, code, tables, dividers and embeds keep their own look.
+   The block after one rules itself from its own top, so nothing drifts. */
+.editor-writing-area .ProseMirror > :is(pre, table, hr, img, div, figure) {
+  margin-top: calc(var(--line) / 2);
+  margin-bottom: calc(var(--line) / 2);
+}
+
+.editor-writing-area .ProseMirror > .tableWrapper {
+  margin-top: calc(var(--line) / 2);
+  margin-bottom: calc(var(--line) / 2);
+}
+
+/* Superscript and subscript would otherwise make their line taller */
+.editor-writing-area .ProseMirror :is(sup, sub) {
+  line-height: 0;
+}
+
+/* ── "/" menu and link box ─────────────────────────────────────────── */
+
+.slash-menu {
+  position: fixed;
+  z-index: 9999;
+  width: min(300px, calc(100vw - 16px));
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overscroll-behavior: contain;
+}
+
+.slash-menu-group {
+  padding: 8px 8px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.slash-menu-item[aria-selected="true"] {
+  background: var(--accent-light);
+}
+
+.slash-menu-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.slash-menu-item[aria-selected="true"] .slash-menu-icon {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.slash-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.slash-menu-label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.slash-menu-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slash-menu-empty {
+  padding: 10px 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+@media (pointer: coarse) {
+  .slash-menu-item { min-height: 44px; }
+}
+
+.link-popover {
+  position: fixed;
+  z-index: 9999;
+  width: min(360px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.link-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.link-popover-icon {
+  flex: none;
+  margin: 0 4px 0 6px;
+  color: var(--muted);
+}
+
+.link-popover-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.link-popover-input[aria-invalid="true"] {
+  color: var(--danger);
+}
+
+.link-popover-apply {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--background);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-popover-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.link-popover-btn:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.link-popover-error {
+  margin: 4px 8px 2px;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* Placeholder on the empty line you're on ("Type / for…"), kept to one line */
+.editor-writing-area .ProseMirror p.is-empty:not(.is-editor-empty)::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  color: var(--muted);
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.editor-inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+}
+
+/* Just the rule under the title block while the strip is folded away */
+.editor-meta-strip-collapsed {
+  padding: 4px 0 0;
+}
+
+.editor-meta-collapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .editor-dateline {
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+}
+
+.editor-toolbar-textbtn {
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.editor-toolbar-textbtn:hover {
+  background: var(--accent-light);
+}
+
+.editor-tool-btn:hover:not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]) {
+  background: var(--surface-hover) !important;
+  color: var(--foreground) !important;
+}
+
+.editor-tool-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.editor-save-status {
+  display: inline-flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* "Ready to publish?" */
+.publish-review {
+  max-width: calc(100vw - 16px);
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.publish-review-title {
+  margin: 0 0 10px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.publish-review-lines {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.publish-review-lines li {
+  display: flex;
+  gap: 8px;
+}
+
+.publish-review-lines li[data-tone="muted"] {
+  color: var(--muted);
+}
+
+.publish-review-lines li[data-tone="warn"] {
+  color: var(--danger);
+}
+
+.publish-review-icon {
+  flex: none;
+  width: 18px;
+  text-align: center;
+}
+
+.publish-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.publish-review-settings {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.publish-review-settings:hover {
+  color: var(--foreground);
 }
 
 .editor-word-count {
@@ -3012,23 +3629,6 @@ button.editor-inline-margins-link:hover svg {
   padding: 8px 0 4px;
   font-variant: small-caps;
   letter-spacing: 0.04em;
-}
-
-/* ── Spacing overrides in editor ── */
-
-/* Tight spacing breaks ruled-line grid intentionally */
-.editor-writing-area .prose-entry [data-spacing="tight"] {
-  margin-bottom: 0;
-}
-
-.editor-writing-area .prose-entry ul[data-spacing="tight"] li,
-.editor-writing-area .prose-entry ol[data-spacing="tight"] li,
-.editor-writing-area .prose-entry ul[data-type="taskList"][data-spacing="tight"] li {
-  margin-bottom: 0;
-}
-
-.editor-writing-area .prose-entry [data-spacing="loose"] {
-  margin-bottom: calc(var(--ruled-line) * 2);
 }
 
 /* ── Bubble menu (appears below selection on text select) ── */
@@ -3089,12 +3689,6 @@ body.eye-comfort .editor-paper::before {
   }
 }
 
-
-/* ── Table editor styles ── */
-
-.editor-writing-area .prose-entry table {
-  margin-bottom: var(--ruled-line);
-}
 
 /* ── Settings sidebar — "The Margins" ─────────────────── */
 
@@ -3276,6 +3870,87 @@ body.eye-comfort .editor-paper::before {
   margin-top: 4px;
 }
 
+/* "Sharing" divider inside the settings panel */
+.editor-settings-group {
+  margin: 22px 0 0;
+  padding: 0 0 2px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Tags as chips */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  cursor: text;
+  transition: border-color 0.15s;
+}
+
+.tag-input:focus-within {
+  border-color: var(--accent);
+}
+
+.tag-input-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.tag-input-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.tag-input-chip button:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.tag-input-field {
+  flex: 1 1 80px;
+  min-width: 80px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.tag-input-field::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 /* Content Warning overlay */
 .content-warning-overlay {
   position: relative;
@@ -3418,6 +4093,13 @@ body.eye-comfort .editor-paper::before {
     overflow-y: auto;
   }
 
+  /* Stick flush to the top of the scrolling page: sticky offsets count from
+     inside .editor-main's 24px top padding, which left a strip where the
+     writing showed through above the toolbar. */
+  .editor-toolbar-container {
+    top: -24px;
+  }
+
   .editor-settings-panel {
     width: 300px;
     flex-shrink: 0;
@@ -3426,7 +4108,8 @@ body.eye-comfort .editor-paper::before {
   .editor-settings-header {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
+    border-bottom: 1px solid transparent;
   }
 }
 
