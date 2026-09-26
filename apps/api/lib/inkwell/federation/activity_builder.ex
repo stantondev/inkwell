@@ -1220,33 +1220,56 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   # Extracts image URLs from <img> tags in HTML content for the `attachment` array.
+  # Each image's `name` (what Mastodon shows as its description, and reads to
+  # screen readers) is the writer's alt text, or failing that its caption.
   defp extract_inline_images(nil), do: []
   defp extract_inline_images(html) do
-    # Extract images with optional figcaption text (for gallery photos and standalone figures)
-    # First try to match images inside <figure> elements with captions
+    # Images inside <figure> elements, with the caption that follows them
+    # (standalone pictures and gallery photos)
     figure_images =
-      Regex.scan(~r/<figure[^>]*>.*?<img[^>]+src="([^"]+)"[^>]*>.*?(?:<figcaption[^>]*>(.*?)<\/figcaption>)?.*?<\/figure>/s, html)
-      |> Enum.map(fn
-        [_, src, caption] ->
-          img = %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
-          caption = String.trim(caption || "")
-          if caption != "", do: Map.put(img, "name", caption), else: img
-        [_, src] ->
-          %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+      Regex.scan(~r/<figure[^>]*>.*?(<img[^>]+>).*?(?:<figcaption[^>]*>(.*?)<\/figcaption>)?.*?<\/figure>/s, html)
+      |> Enum.flat_map(fn [_ | captures] ->
+        [img_tag | rest] = captures
+        case img_attribute(img_tag, "src") do
+          nil -> []
+          src -> [image_attachment(src, img_attribute(img_tag, "alt"), List.first(rest))]
+        end
       end)
 
     figure_srcs = MapSet.new(Enum.map(figure_images, & &1["url"]))
 
-    # Then get standalone images not inside figures
+    # Then images not inside figures
     standalone_images =
-      Regex.scan(~r/<img[^>]+src="([^"]+)"/, html)
-      |> Enum.map(fn [_, src] ->
-        %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+      Regex.scan(~r/<img[^>]+>/, html)
+      |> Enum.flat_map(fn [img_tag] ->
+        case img_attribute(img_tag, "src") do
+          nil -> []
+          src -> [image_attachment(src, img_attribute(img_tag, "alt"), nil)]
+        end
       end)
       |> Enum.reject(fn img -> MapSet.member?(figure_srcs, img["url"]) end)
 
     (figure_images ++ standalone_images)
     |> Enum.uniq_by(& &1["url"])
+  end
+
+  defp img_attribute(img_tag, name) do
+    case Regex.run(~r/\s#{name}="([^"]*)"/, img_tag) do
+      [_, value] -> value
+      _ -> nil
+    end
+  end
+
+  defp image_attachment(src, alt, caption) do
+    img = %{"type" => "Image", "url" => src, "mediaType" => guess_image_media_type(src)}
+    alt = alt && String.trim(decode_entities(alt))
+    caption = caption && String.trim(Inkwell.Journals.Entry.plain_text(caption))
+
+    cond do
+      alt not in [nil, ""] -> Map.put(img, "name", alt)
+      caption not in [nil, ""] -> Map.put(img, "name", caption)
+      true -> img
+    end
   end
 
   defp guess_image_media_type(url) when is_binary(url) do

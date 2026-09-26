@@ -954,7 +954,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 <EntryContent
                   html={entry.body_html}
                   entryId={entry.id}
-                  className={`prose-entry${entry.title ? " drop-cap" : ""}`}
+                  className={`prose-entry entry-body${entry.title ? " drop-cap" : ""}`}
                 />
                 <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
               </TranslatableEntry>

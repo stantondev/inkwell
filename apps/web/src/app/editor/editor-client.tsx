@@ -7,7 +7,6 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
 import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
@@ -21,6 +20,7 @@ import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import type { Editor } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { draftsCreatedHere } from "./created-here";
@@ -41,6 +41,9 @@ import { EditorMenus, type SlashState } from "@/lib/tiptap-editor-menus";
 import { SlashMenu, filterSlashItems, runSlashItem, type SlashItem } from "@/app/editor/slash-menu";
 import { LinkPopover, normalizeLink } from "@/app/editor/link-popover";
 import { TagInput } from "@/app/editor/tag-input";
+import { Picture } from "@/app/editor/figure-node";
+import { BlockHandle, moveBlock } from "@/app/editor/block-handle";
+import { cleanPastedHtml } from "@/lib/paste-cleanup";
 import { PublishReview, type PublishReviewLine } from "@/app/editor/publish-review";
 import { UserpicPicker } from "@/components/userpic-picker";
 import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
@@ -192,9 +195,9 @@ function Sep() {
 
 // Dropdown wrapper for toolbar menus. The menu is a portal (FloatingPopup):
 // the toolbar scrolls sideways on phones, which clipped menus drawn inside it.
-function ToolbarDropdown({ label, active, renderContent, title }: {
+function ToolbarDropdown({ label, active, renderContent, title, disabled = false }: {
   label: React.ReactNode; active?: boolean; renderContent: (close: () => void) => React.ReactNode; title: string;
-  align?: "left" | "right";
+  align?: "left" | "right"; disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -202,11 +205,11 @@ function ToolbarDropdown({ label, active, renderContent, title }: {
 
   return (
     <div className="relative flex-none" ref={ref}>
-      <Btn onClick={() => setOpen((v) => !v)} active={active || open} title={title} expanded={open}>
+      <Btn onClick={() => setOpen((v) => !v)} active={active || open} title={title} expanded={open} disabled={disabled}>
         {label}
       </Btn>
       <FloatingPopup anchorRef={ref} open={open} onClose={close} placement="bottom"
-        className="rounded-lg border shadow-lg py-1 min-w-[160px]"
+        className="editor-toolbar-menu rounded-lg border shadow-lg py-1 min-w-[160px]"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         {renderContent(close)}
       </FloatingPopup>
@@ -329,6 +332,8 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
     : "Aa";
 
   const align = editor.isActive({ textAlign: "center" }) ? "center" : editor.isActive({ textAlign: "right" }) ? "right" : "left";
+  // In a picture's caption: block changes would replace the picture.
+  const inPicture = editor.isActive("image");
   const rawSpacing = editor.isActive("bulletList") ? editor.getAttributes("bulletList").spacing
     : editor.isActive("orderedList") ? editor.getAttributes("orderedList").spacing
     : editor.isActive("taskList") ? editor.getAttributes("taskList").spacing
@@ -342,6 +347,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
       <ToolbarDropdown
         label={<span style={{ fontWeight: 700, fontSize: 11, minWidth: 16, textAlign: "center", fontFamily: "var(--font-lora, Georgia, serif)" }}>{blockLabel}</span>}
         active={editor.isActive("heading")}
+        disabled={inPicture}
         title="Text or heading"
         renderContent={(close) => (
           <>
@@ -464,7 +470,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
 
       {/* ── Lists & quote ── */}
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()}
-        active={editor.isActive("bulletList")} title="Bulleted list (start a line with -)">
+        active={editor.isActive("bulletList")} disabled={inPicture} title="Bulleted list (start a line with -)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
           <circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/>
@@ -473,14 +479,14 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
         </svg>
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        active={editor.isActive("orderedList")} title="Numbered list (start a line with 1.)">
+        active={editor.isActive("orderedList")} disabled={inPicture} title="Numbered list (start a line with 1.)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/>
           <path d="M4 6h1v4M4 10h2" fill="none"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" fill="none"/>
         </svg>
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleTaskList().run()}
-        active={editor.isActive("taskList")} title="Checklist (start a line with [ ])">
+        active={editor.isActive("taskList")} disabled={inPicture} title="Checklist (start a line with [ ])">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="5" width="6" height="6" rx="1"/><path d="M5 8l1.5 1.5L9 7"/>
           <line x1="13" y1="8" x2="21" y2="8"/>
@@ -489,7 +495,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
         </svg>
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        active={editor.isActive("blockquote")} title="Quote (start a line with >)">
+        active={editor.isActive("blockquote")} disabled={inPicture} title="Quote (start a line with >)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M7 7h4v4c0 3-2 5-4 6"/><path d="M14 7h4v4c0 3-2 5-4 6"/>
         </svg>
@@ -511,7 +517,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
           ) : Icon.image}
         </Btn>
         <FloatingPopup anchorRef={imageAnchorRef} open={showImageMenu} onClose={() => setShowImageMenu(false)} placement="bottom"
-          className="rounded-lg border shadow-lg py-1 min-w-[220px]"
+          className="editor-toolbar-menu rounded-lg border shadow-lg py-1 min-w-[220px]"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <button type="button"
                 onClick={() => { fileInputRef.current?.click(); }}
@@ -528,7 +534,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
                   onSubmit={(e) => {
                     e.preventDefault();
                     const src = normalizeLink(imageUrl);
-                    if (src && /^https?:/i.test(src)) editor.chain().focus().setImage({ src }).run();
+                    if (src && /^https?:/i.test(src)) editor.chain().focus().insertPicture({ src }).run();
                     setImageUrl(""); setImageUrlOpen(false); setShowImageMenu(false);
                   }}>
                   <input autoFocus value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
@@ -670,6 +676,9 @@ function EditorBubbleMenu({ editor, isTouchDevice, onShow, onHide, onShouldShowL
 
   const shouldShow = useCallback(({ state }: { state: { selection: { from: number; to: number } } }) => {
     const { from, to } = state.selection;
+    // A whole block selected (a picture, or a block picked up by its handle)
+    // isn't text to format; pictures have their own controls.
+    if (state.selection instanceof NodeSelection) return false;
     const hasSelection = from !== to;
     if (hasSelection) {
       wasShownWithSelection.current = true;
@@ -1666,6 +1675,9 @@ export function EditorClient() {
   // readable line length. Remembered per browser.
   const [widePage, setWidePage] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
+  // True while writing in the entry itself; on a phone the formatting
+  // toolbar then sits just above the keyboard instead of at the top.
+  const [typing, setTyping] = useState(false);
   useEffect(() => {
     try { setWidePage(localStorage.getItem("inkwell-editor-wide") === "1"); } catch { /* private mode */ }
   }, []);
@@ -1729,7 +1741,7 @@ export function EditorClient() {
       const { data } = await res.json();
       // Insert using the API URL (served from Phoenix backend)
       const imageUrl = `${window.location.origin}${data.url}`;
-      ed.chain().focus().setImage({ src: imageUrl }).run();
+      ed.chain().focus().insertPicture({ src: imageUrl }).run();
     } catch (err) {
       alert(`Image upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
@@ -1830,7 +1842,7 @@ export function EditorClient() {
         },
       }),
       Link.extend({ inclusive() { return false; } }).configure({ openOnClick: false, defaultProtocol: "https", HTMLAttributes: { rel: "noopener noreferrer" } }),
-      Image.configure({ inline: false, allowBase64: true }),
+      Picture,
       CharacterCount.configure({ limit: 100_000 }),
       // New extensions
       Underline,
@@ -1852,6 +1864,7 @@ export function EditorClient() {
         onSlash: (next) => slashChangeRef.current(next),
         onKeyDown: (event) => menuKeyRef.current(event),
         onLinkShortcut: () => openLinkRef.current(),
+        onMoveBlock: (direction) => (editorRef.current ? moveBlock(editorRef.current, direction) : false),
       }),
       CircleEmbed,
       LinkEmbed,
@@ -1864,6 +1877,12 @@ export function EditorClient() {
     ],
     editorProps: {
       attributes: { class: "prose-entry focus:outline-none", "aria-label": "Entry", spellcheck: "true" },
+      // Google Docs, Word and web pages: keep the writing and its formatting,
+      // drop their colours, fonts, stray bullets and spacing.
+      transformPastedHTML: (html) => cleanPastedHtml(html),
+      // Keep the line being typed clear of the phone toolbar and the top bar.
+      scrollMargin: { top: 72, bottom: 72, left: 0, right: 0 },
+      scrollThreshold: { top: 72, bottom: 72, left: 0, right: 0 },
       handleDrop: (view, event, _slice, moved) => {
         if (moved || !event.dataTransfer?.files?.length) return false;
         const file = event.dataTransfer.files[0];
@@ -1924,6 +1943,52 @@ export function EditorClient() {
 
   // Keep editorRef in sync
   editorRef.current = editor;
+
+  // Writing in the entry (not the title, tags or a menu). A blur waits a
+  // moment: tapping a toolbar menu briefly takes focus, and the toolbar
+  // shouldn't jump back to the top in the middle of that tap.
+  useEffect(() => {
+    if (!editor) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onFocus = () => { if (timer) clearTimeout(timer); setTyping(true); };
+    const onBlur = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const active = document.activeElement;
+        if (editor.isFocused || active?.closest(".editor-toolbar-container, .editor-toolbar-menu, .link-popover, .slash-menu")) return;
+        setTyping(false);
+      }, 250);
+    };
+    editor.on("focus", onFocus);
+    editor.on("blur", onBlur);
+    return () => {
+      if (timer) clearTimeout(timer);
+      editor.off("focus", onFocus);
+      editor.off("blur", onBlur);
+    };
+  }, [editor]);
+
+  // iOS lays the keyboard over the page and only scrolls the cursor into
+  // what's left of the screen; keep it above the toolbar sitting on the
+  // keyboard too.
+  useEffect(() => {
+    if (!editor || !isMobileLayout) return;
+    const keepCaretVisible = () => {
+      const vv = window.visualViewport;
+      if (!vv || !document.documentElement.hasAttribute("data-keyboard")) return;
+      try {
+        const caret = editor.view.coordsAtPos(editor.state.selection.head);
+        const limit = vv.offsetTop + vv.height - 64;
+        if (caret.bottom > limit) window.scrollBy(0, caret.bottom - limit + 12);
+      } catch { /* position unavailable */ }
+    };
+    editor.on("selectionUpdate", keepCaretVisible);
+    editor.on("update", keepCaretVisible);
+    return () => {
+      editor.off("selectionUpdate", keepCaretVisible);
+      editor.off("update", keepCaretVisible);
+    };
+  }, [editor, isMobileLayout]);
 
   // Upload a cover image: resize, upload to API, store ID
   const uploadCoverImage = useCallback(async (file: File) => {
@@ -3198,7 +3263,7 @@ export function EditorClient() {
   });
 
   return (
-    <div className="editor-shell">
+    <div className={`editor-shell${typing ? " is-typing" : ""}`}>
 
       {/* ── Top bar — minimal, elegant ────────────────────────── */}
       <header className="editor-topbar">
@@ -3555,7 +3620,13 @@ export function EditorClient() {
             )}
 
             {/* ── Formatting toolbar ─────────────────── */}
-            <div className="editor-toolbar-container">
+            {/* The slot keeps the toolbar's place when, on a phone, it moves
+                down to sit on the keyboard. Tapping a button mustn't take the
+                cursor out of the entry. */}
+            <div className="editor-toolbar-slot">
+            <div className="editor-toolbar-container" onMouseDown={(e) => {
+              if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+            }}>
               <EditorToolbar editor={editor} htmlMode={htmlMode} onToggleHtml={toggleHtmlMode}
                 onUploadImage={(file) => uploadImage(file, editor)} isUploading={isUploadingImage}
                 focusMode={focusMode} onToggleFocus={() => setFocusMode((v) => !v)}
@@ -3566,9 +3637,10 @@ export function EditorClient() {
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)}
                 onInsertGallery={openGalleryEditor} />
             </div>
+            </div>
 
             {/* ── Bubble menu (below selection, 80px offset to clear native popup) ── */}
-            {editor && !htmlMode && (
+            {editor && !htmlMode && !(isTouchDevice && isMobileLayout) && (
               <EditorBubbleMenu
                 editor={editor}
                 isTouchDevice={isTouchDevice}
@@ -3653,6 +3725,7 @@ export function EditorClient() {
                 </>
               ) : (
                 <div ref={editorWrapRef} style={{ position: "relative" }}>
+                  {editor && <BlockHandle editor={editor} containerRef={editorWrapRef} />}
                   <EditorContent editor={editor} />
                   {mentionQuery !== null && mentionUsers.length > 0 && mentionPos && (
                     <div style={{ position: "absolute", top: mentionPos.top, left: mentionPos.left, zIndex: 50, width: 280 }}>

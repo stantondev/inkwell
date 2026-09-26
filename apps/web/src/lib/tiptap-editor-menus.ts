@@ -10,7 +10,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
  *   open menu can take Enter and the arrow keys before they split the line or
  *   move the cursor. (A handler on a wrapper element runs too late: the editor
  *   has already acted on the key by then.)
- * - Mod-k opens the link box.
+ * - Mod-k opens the link box; Mod-Shift-↑/↓ move the block the cursor is in.
  */
 
 export interface SlashState {
@@ -27,6 +27,8 @@ export interface EditorMenusOptions {
   /** Return true to stop the editor handling the key. */
   onKeyDown: (event: KeyboardEvent) => boolean;
   onLinkShortcut: () => void;
+  /** Move the block with the cursor up (-1) or down (1). */
+  onMoveBlock: (direction: -1 | 1) => boolean;
 }
 
 const slashKey = new PluginKey("inkwellSlash");
@@ -43,6 +45,7 @@ export const EditorMenus = Extension.create<EditorMenusOptions>({
       onSlash: () => {},
       onKeyDown: () => false,
       onLinkShortcut: () => {},
+      onMoveBlock: () => false,
     };
   },
 
@@ -52,6 +55,8 @@ export const EditorMenus = Extension.create<EditorMenusOptions>({
         this.options.onLinkShortcut();
         return true;
       },
+      "Mod-Shift-ArrowUp": () => this.options.onMoveBlock(-1),
+      "Mod-Shift-ArrowDown": () => this.options.onMoveBlock(1),
     };
   },
 
@@ -79,7 +84,9 @@ export const EditorMenus = Extension.create<EditorMenusOptions>({
             if (!selection.empty || !view.hasFocus()) return report(null);
             const $from = selection.$from;
             const parent = $from.parent;
-            if (!parent.isTextblock || parent.type.spec.code) return report(null);
+            // Not in code, and not in a picture's caption (turning that into
+            // a heading or list would drop the picture).
+            if (!parent.isTextblock || parent.type.spec.code || parent.type.name === "image") return report(null);
             const start = Math.max(0, $from.parentOffset - 40);
             const before = parent.textBetween(start, $from.parentOffset, undefined, "￼");
             const match = SLASH.exec(before);

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-26-editor-pictures",
+    date: "2026-09-26",
+    title: "Captions and alt text for pictures, moving paragraphs, cleaner pasting",
+    body: "Pictures in an entry can now have a caption (type it right under the picture) and alt text, a short description read aloud to people who can't see it, which also goes with the picture to Mastodon and the rest of the fediverse. Each picture can be small, as wide as your writing, or wide (reaching the edges of the page). On a computer, hover in the margin beside any paragraph, list or picture and drag the ⋮⋮ handle to move it, or press ⌘⇧↑ / ⌘⇧↓. Pasting from Google Docs or Word keeps your bold, italics, links and lists but not their fonts and colours (Docs text used to arrive coloured black, unreadable in dark mode, and Word's bullets came in as plain dots). And on a phone, the formatting toolbar now sits just above the keyboard while you write.",
+    howTo: "Click a picture in the editor to see its Small / Column / Wide and Alt text buttons.",
+    href: "/editor",
+    cta: "Write an entry",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-26-editor",
     date: "2026-09-26",
     title: "A better editor: lines that line up, a / menu, and a look before you publish",

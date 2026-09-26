@@ -132,6 +132,15 @@ export default function GuidePage() {
             <strong>⌘S</strong> to save.
           </p>
           <p>
+            Click a picture to make it small, column-width or wide, and to add{" "}
+            <strong>alt text</strong> (a short description for people who
+            can&rsquo;t see it); type a caption right under it. To move a
+            paragraph, list or picture, drag the ⋮⋮ handle that appears in the
+            margin beside it, or press <strong>⌘⇧↑</strong> /{" "}
+            <strong>⌘⇧↓</strong>. Pasting from Google Docs or Word keeps bold,
+            italics, links and lists and leaves their fonts and colours behind.
+          </p>
+          <p>
             In the editor&rsquo;s <strong>Settings</strong>, <em>Who can read it</em>{" "}
             controls the entry&rsquo;s visibility:
           </p>

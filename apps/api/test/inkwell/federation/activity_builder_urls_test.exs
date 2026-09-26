@@ -65,5 +65,28 @@ defmodule Inkwell.Federation.ActivityBuilderUrlsTest do
       urls = Enum.map(article["attachment"] || [], & &1["url"])
       assert urls == ["https://inkwell.social/api/images/img-1", "https://inkwell.social/api/images/img-2"]
     end
+
+    test "a picture's description is its alt text, else its caption" do
+      author = %User{id: Ecto.UUID.generate(), username: "alice", display_name: "Alice"}
+
+      entry = %Entry{
+        id: Ecto.UUID.generate(),
+        slug: "pics",
+        title: "Pics",
+        body_html:
+          ~s(<figure class="entry-figure"><img src="/api/images/a" alt="A dog &amp; a ball"><figcaption>Rex <em>at</em> the park</figcaption></figure>) <>
+            ~s(<figure class="entry-figure"><img src="/api/images/b" alt=""><figcaption>Just a <strong>caption</strong></figcaption></figure>) <>
+            ~s(<p><img src="/api/images/c" alt="Standalone alt"></p><p><img src="/api/images/d"></p>),
+        published_at: ~U[2026-09-01 12:00:00.000000Z],
+        updated_at: ~U[2026-09-01 12:00:00.000000Z],
+        tags: []
+      }
+
+      names =
+        ActivityBuilder.build_article(entry, author)["attachment"]
+        |> Enum.map(&{&1["url"] |> String.split("/") |> List.last(), &1["name"]})
+
+      assert names == [{"a", "A dog & a ball"}, {"b", "Just a caption"}, {"c", "Standalone alt"}, {"d", nil}]
+    end
   end
 end
