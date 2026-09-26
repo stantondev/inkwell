@@ -122,7 +122,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     id: "growth",
     label: "Growth",
-    blurb: "Where signups come from — referrers, landing pages and campaign tags.",
+    blurb: "Who's signing up, where they found Inkwell (ChatGPT, Google, Bluesky…), and whether they stay and write.",
     icon: I.growth,
     group: "money",
   },
