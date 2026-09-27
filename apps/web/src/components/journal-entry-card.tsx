@@ -116,6 +116,8 @@ export interface JournalEntry {
   source_sticky_id?: string | null;
   /** The circle this entry was posted in */
   circle?: { id: string; name: string; slug: string } | null;
+  /** The writer's first entry (published in the last 30 days) */
+  first_entry?: boolean;
   author: {
     id?: string;
     username: string;
@@ -166,11 +168,13 @@ interface JournalEntryCardProps {
   isOwn?: boolean;
   /** Arrived since the reader last opened their Feed */
   isNew?: boolean;
+  /** Count a read when this card has been on screen a while (FeedReadCounter) */
+  readId?: string;
 }
 
-export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false, isOwn = false, isNew = false }: JournalEntryCardProps) {
+export function JournalEntryCard({ entry, actions, translatedBody, translatedTitle, bookMode = false, isOwn = false, isNew = false, readId }: JournalEntryCardProps) {
   if (entry.kind === "sticky") {
-    return <StickyNoteCard entry={entry} actions={actions} translatedBody={translatedBody} isOwn={isOwn} isNew={isNew} />;
+    return <StickyNoteCard entry={entry} actions={actions} translatedBody={translatedBody} isOwn={isOwn} isNew={isNew} readId={readId} />;
   }
 
   const isRemote = entry.source === "remote";
@@ -196,6 +200,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
       corner={!bookMode}
       edge={!bookMode}
       bookPage={bookMode}
+      readId={readId}
       className={`flex flex-col${isRemote && !bookMode ? " journal-page-fediverse" : ""}${isCompact ? " fediverse-compact" : ""}`}
     >
       {/* Reprint attribution header */}
@@ -229,6 +234,11 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         {!isCompact && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-14 sm:pr-24">
             {isNew && <span className="feed-new-tag">New</span>}
+            {entry.first_entry && (
+              <span className="feed-first-tag" title="The first entry this writer has published on Inkwell. Say hello?">
+                First entry
+              </span>
+            )}
             <time
               className="block text-xs tracking-wide uppercase"
               style={{

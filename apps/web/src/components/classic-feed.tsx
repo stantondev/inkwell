@@ -67,11 +67,13 @@ function ClassicEntry({
   actions,
   translatedBody,
   isNew = false,
+  readId,
 }: {
   entry: JournalEntry;
   actions: ReactNode;
   translatedBody?: string;
   isNew?: boolean;
+  readId?: string;
 }) {
   const remote = entry.source === "remote";
   const href = entryHref(entry);
@@ -81,7 +83,8 @@ function ClassicEntry({
   const title = entry.title ? decodeEntities(entry.title) : null;
 
   return (
-    <article className="classic-entry">
+    // A cut entry shows only its excerpt here, so it isn't counted as read.
+    <article className="classic-entry" data-read-entry={cut ? undefined : readId}>
       <header className="classic-entry-bar">
         <span className="classic-entry-who">
           <UserHead remote={remote} />
@@ -98,6 +101,7 @@ function ClassicEntry({
           )}
         </span>
         {isNew && <span className="feed-new-tag">New</span>}
+        {entry.first_entry && <span className="feed-first-tag">First entry</span>}
         <Link href={href} className="classic-entry-date">
           <LocalDate iso={entry.published_at} options={DATE} /> | <LocalDate iso={entry.published_at} options={TIME} />
         </Link>
@@ -166,6 +170,7 @@ function ClassicEntry({
 export function ClassicFeed({
   entries,
   renderActions,
+  readIdFor,
   translations,
   hasMore,
   loading,
@@ -176,6 +181,7 @@ export function ClassicFeed({
 }: {
   entries: JournalEntry[];
   renderActions: (entry: JournalEntry) => ReactNode;
+  readIdFor?: (entry: JournalEntry) => string | undefined;
   translations: Record<string, { translated_body: string }>;
   hasMore: boolean;
   loading: boolean;
@@ -203,6 +209,7 @@ export function ClassicFeed({
             actions={renderActions(entry)}
             translatedBody={translations[entry.id]?.translated_body}
             isNew={isNew?.(entry) ?? false}
+            readId={readIdFor?.(entry)}
           />
         </Fragment>
       ))}

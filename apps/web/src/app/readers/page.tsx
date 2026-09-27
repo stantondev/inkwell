@@ -75,8 +75,10 @@ export default async function ReadersPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
       <h1 className="text-2xl font-bold mb-1" style={serif}>Readers</h1>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-        How many people read your entries, and where they came from. Counted without
-        cookies or tracking; each reader counts once a day, and your own visits don&apos;t count.
+        How many people read your entries, and where they came from. A read is ten seconds
+        with your entry on screen, on its own page or in someone&apos;s Feed or Explore (reads in
+        the Feed count from September 27, 2026). Counted without cookies or tracking; each reader
+        counts once a day, and your own visits don&apos;t count.
       </p>
 
       <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label="Time range">

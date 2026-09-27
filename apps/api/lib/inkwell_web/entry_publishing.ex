@@ -27,6 +27,7 @@ defmodule InkwellWeb.EntryPublishing do
     end
 
     Inkwell.Circles.after_entry_published(entry)
+    maybe_announce_first_entry(entry, user)
     maybe_make_circle_prompt(entry, user, options)
     maybe_queue_spam_check(user, entry)
     maybe_send_newsletter(entry, user, options)
@@ -115,6 +116,20 @@ defmodule InkwellWeb.EntryPublishing do
   end
 
   defp maybe_queue_spam_check(_, _), do: :ok
+
+  # A Slack note when someone publishes their first public entry, so they can
+  # get a hello instead of silence (newcomers who hear back tend to stay).
+  # Accounts the spam checker has limited or blocked are left out.
+  defp maybe_announce_first_entry(%{privacy: :public} = entry, user) do
+    if user.blocked_at == nil and user.moderation_state != "limited" and
+         Inkwell.Journals.first_entry?(entry) do
+      Task.start(fn -> Inkwell.Slack.notify_first_entry(user, entry) end)
+    end
+
+    :ok
+  end
+
+  defp maybe_announce_first_entry(_entry, _user), do: :ok
 
   defp maybe_send_newsletter(entry, user, params) do
     send_newsletter = params["send_newsletter"]

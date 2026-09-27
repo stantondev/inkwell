@@ -72,9 +72,9 @@ export function GettingStartedChecklist({ username }: { username: string }) {
     {
       done: data.responded,
       title: "Respond to someone's writing",
-      hint: "Leave a footnote, a stamp, or an ink on an entry you liked. Writers here notice.",
-      href: "/explore",
-      cta: "Find something to read",
+      hint: "Leave a footnote, a stamp, or an ink on an entry you liked. Writers here notice, and a first reply matters most.",
+      href: "/explore?sort=waiting",
+      cta: "See who's waiting for a reply",
     },
     {
       done: data.signed_guestbook,

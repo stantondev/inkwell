@@ -6,6 +6,8 @@ interface JournalPageProps {
   style?: React.CSSProperties;
   /** Book mode: full-height page without card borders, used in horizontal book layout */
   bookPage?: boolean;
+  /** Entry id for FeedReadCounter (reads in the Feed and Explore) */
+  readId?: string;
 }
 
 export function JournalPage({
@@ -15,6 +17,7 @@ export function JournalPage({
   edge = false,
   style,
   bookPage = false,
+  readId,
 }: JournalPageProps) {
   if (bookPage) {
     // Book mode: keep card aesthetic but fit within book layout
@@ -22,6 +25,7 @@ export function JournalPage({
       <div
         className={`journal-page journal-book-entry rounded-xl border overflow-hidden journal-corner journal-page-edge ${className}`}
         style={{ borderColor: "var(--border)", ...style }}
+        data-read-entry={readId}
       >
         {children}
       </div>
@@ -44,6 +48,7 @@ export function JournalPage({
     <div
       className={classes}
       style={{ borderColor: "var(--border)", ...style }}
+      data-read-entry={readId}
     >
       {children}
     </div>

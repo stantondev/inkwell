@@ -159,6 +159,10 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
         </div>
       )}
 
+      {threads.length === 0 && (
+        <p className="comment-empty">No footnotes yet. Be the first to write back.</p>
+      )}
+
       {/* Root comment editor */}
       {session ? (
         <div className="comment-root-editor">

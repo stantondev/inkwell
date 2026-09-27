@@ -234,7 +234,9 @@ function CommentPopupContent({
           >
             {fetchingReplies
               ? "Loading fediverse replies…"
-              : "No marginalia yet. Be the first to annotate."}
+              : isRemote
+                ? "No replies yet."
+                : "No footnotes yet. Be the first to write back."}
           </p>
         ) : (
           <div className="comment-thread-list">
@@ -494,6 +496,124 @@ export function FeedCardActions({
     onStampsChange?.(newStamps);
   }
 
+  // Local entries get a labelled "Write back" button on the left of the bar
+  // (it used to be an unlabelled speech bubble showing "0"). Fediverse posts
+  // keep the "View on …" link there and the bubble on the right.
+  const labelled = !externalUrl;
+  const replyLabel =
+    commentCount === 0
+      ? isOwnEntry ? "No footnotes yet" : "Write back"
+      : `${commentCount} ${commentCount === 1 ? "footnote" : "footnotes"}`;
+  // Phones: the bar has to fit on one row beside seven icons.
+  const replyLabelShort = commentCount === 0 ? (isOwnEntry ? "0" : "Reply") : String(commentCount);
+
+  const commentControl = (
+    <div>
+      <button
+        ref={commentBtnRef}
+        onClick={handleCommentToggle}
+        className={`flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80${labelled ? " feed-reply-button" : ""}`}
+        style={{ color: labelled && commentCount === 0 && !isOwnEntry ? "var(--accent)" : "var(--muted)" }}
+        title={isOwnEntry ? "Footnotes" : "Write back"}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        {labelled ? (
+        <>
+          <span className="feed-reply-long">{replyLabel}</span>
+          <span className="feed-reply-short" aria-hidden="true">{replyLabelShort}</span>
+        </>
+      ) : (
+        <span>{commentCount}</span>
+      )}
+      </button>
+
+      {/* Comment popup/sheet — Footnotes design */}
+      {commentPopupOpen && isMobile
+        ? /* Mobile: bottom sheet via portal */
+          createPortal(
+            <>
+              {/* Backdrop */}
+              <div
+                className="comment-sheet-backdrop"
+                onClick={() => setCommentPopupOpen(false)}
+              />
+              {/* Sheet */}
+              <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
+                {/* Drag handle: pull down to close */}
+                <div
+                  className="comment-sheet-handle"
+                  onPointerDown={onHandleDown}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={onHandleUp}
+                  onPointerCancel={onHandleUp}
+                >
+                  <div className="comment-sheet-handle-bar" />
+                </div>
+                <CommentPopupContent
+                  commentsLoaded={commentsLoaded}
+                  comments={comments}
+                  isRemote={isRemote}
+                  fetchingReplies={fetchingReplies}
+                  isLoggedIn={isLoggedIn}
+                  entryHref={entryHref}
+                  entryId={entryId}
+                  commentsPath={commentsPath}
+                  submitting={submitting}
+                  sessionUser={sessionUser}
+                  onSubmit={handleSubmitComment}
+                  onReloadComments={loadComments}
+                  onClose={() => setCommentPopupOpen(false)}
+                />
+              </div>
+            </>,
+            document.body
+          )
+        : /* Desktop: FloatingPopup */
+          <FloatingPopup
+            anchorRef={commentBtnRef}
+            open={commentPopupOpen}
+            onClose={() => setCommentPopupOpen(false)}
+            placement="top"
+            className="comment-popup rounded-xl border shadow-lg overflow-hidden"
+            style={{
+              background: "var(--surface)",
+              borderColor: "var(--border)",
+              width: "min(360px, calc(100vw - 24px))",
+              maxHeight: 480,
+            }}
+          >
+            <CommentPopupContent
+              commentsLoaded={commentsLoaded}
+              comments={comments}
+              isRemote={isRemote}
+              fetchingReplies={fetchingReplies}
+              isLoggedIn={isLoggedIn}
+              entryHref={entryHref}
+              entryId={entryId}
+              commentsPath={commentsPath}
+              submitting={submitting}
+              sessionUser={sessionUser}
+              onSubmit={handleSubmitComment}
+              onReloadComments={loadComments}
+              onClose={() => setCommentPopupOpen(false)}
+            />
+          </FloatingPopup>
+      }
+    </div>
+  );
+
   return (
     <div
       className="feed-card-actions-bar flex items-center justify-between px-4 sm:px-5 lg:px-6 py-2.5 border-t relative"
@@ -511,109 +631,12 @@ export function FeedCardActions({
           {externalDomain ? `View on ${externalDomain}` : "View original"} &rarr;
         </a>
       ) : (
-        <span />
+        commentControl
       )}
 
       {/* Right: Comment + Stamp actions */}
       <div className="flex items-center gap-4">
-        {/* Comment button + popup */}
-        <div>
-          <button
-            ref={commentBtnRef}
-            onClick={handleCommentToggle}
-            className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80"
-            style={{ color: "var(--muted)" }}
-            title="Comments"
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <span>{commentCount}</span>
-          </button>
-
-          {/* Comment popup/sheet — Footnotes design */}
-          {commentPopupOpen && isMobile
-            ? /* Mobile: bottom sheet via portal */
-              createPortal(
-                <>
-                  {/* Backdrop */}
-                  <div
-                    className="comment-sheet-backdrop"
-                    onClick={() => setCommentPopupOpen(false)}
-                  />
-                  {/* Sheet */}
-                  <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
-                    {/* Drag handle: pull down to close */}
-                    <div
-                      className="comment-sheet-handle"
-                      onPointerDown={onHandleDown}
-                      onPointerMove={onHandleMove}
-                      onPointerUp={onHandleUp}
-                      onPointerCancel={onHandleUp}
-                    >
-                      <div className="comment-sheet-handle-bar" />
-                    </div>
-                    <CommentPopupContent
-                      commentsLoaded={commentsLoaded}
-                      comments={comments}
-                      isRemote={isRemote}
-                      fetchingReplies={fetchingReplies}
-                      isLoggedIn={isLoggedIn}
-                      entryHref={entryHref}
-                      entryId={entryId}
-                      commentsPath={commentsPath}
-                      submitting={submitting}
-                      sessionUser={sessionUser}
-                      onSubmit={handleSubmitComment}
-                      onReloadComments={loadComments}
-                      onClose={() => setCommentPopupOpen(false)}
-                    />
-                  </div>
-                </>,
-                document.body
-              )
-            : /* Desktop: FloatingPopup */
-              <FloatingPopup
-                anchorRef={commentBtnRef}
-                open={commentPopupOpen}
-                onClose={() => setCommentPopupOpen(false)}
-                placement="top"
-                className="comment-popup rounded-xl border shadow-lg overflow-hidden"
-                style={{
-                  background: "var(--surface)",
-                  borderColor: "var(--border)",
-                  width: "min(360px, calc(100vw - 24px))",
-                  maxHeight: 480,
-                }}
-              >
-                <CommentPopupContent
-                  commentsLoaded={commentsLoaded}
-                  comments={comments}
-                  isRemote={isRemote}
-                  fetchingReplies={fetchingReplies}
-                  isLoggedIn={isLoggedIn}
-                  entryHref={entryHref}
-                  entryId={entryId}
-                  commentsPath={commentsPath}
-                  submitting={submitting}
-                  sessionUser={sessionUser}
-                  onSubmit={handleSubmitComment}
-                  onReloadComments={loadComments}
-                  onClose={() => setCommentPopupOpen(false)}
-                />
-              </FloatingPopup>
-          }
-        </div>
+        {externalUrl && commentControl}
 
         {/* Ink button */}
         <InkButton

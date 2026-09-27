@@ -322,6 +322,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
           endNote={
             <>
               <p className="feed-end-title">That&apos;s everything from the people you follow.</p>
+              <Link href="/explore?sort=waiting" className="feed-end-link">Write back to someone who&apos;s waiting for a reply →</Link>
               <Link href="/explore" className="feed-end-link">Find more writers on Explore →</Link>
             </>
           }

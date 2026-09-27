@@ -12,12 +12,14 @@ export async function GET(request: NextRequest) {
   const tag = searchParams.get("tag");
   const sort = searchParams.get("sort");
   const source = searchParams.get("source");
+  const perPage = searchParams.get("per_page");
 
   const params = new URLSearchParams({ page });
   if (category) params.set("category", category);
   if (tag) params.set("tag", tag);
   if (sort) params.set("sort", sort);
   if (source) params.set("source", source);
+  if (perPage) params.set("per_page", perPage);
 
   try {
     const headers: Record<string, string> = {};

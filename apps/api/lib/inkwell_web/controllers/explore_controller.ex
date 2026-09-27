@@ -42,6 +42,11 @@ defmodule InkwellWeb.ExploreController do
     not_redacted = fn entry -> not Redactions.matches_redaction?(entry, redacted_words) end
     needed = page * per_page
 
+    # "Waiting for a reply" lists Inkwell entries only, never your own.
+    waiting? = sort == "waiting"
+    source_filter = if waiting?, do: "inkwell", else: source_filter
+    exclude_ids = if waiting? and viewer, do: [viewer.id | blocked_ids], else: blocked_ids
+
     local_source =
       if source_filter == "fediverse" do
         {[], true}
@@ -52,7 +57,7 @@ defmodule InkwellWeb.ExploreController do
         Timeline.take(fn offset, limit ->
           Journals.list_public_explore_entries(
             offset: offset, per_page: limit, tag: tag, category: category,
-            include_sensitive: include_sensitive, exclude_user_ids: blocked_ids,
+            include_sensitive: include_sensitive, exclude_user_ids: exclude_ids,
             sort: sort, exclude_stickies: hide_stickies, showcase: showcase
           )
           |> Enum.map(&%{type: :local, entry: &1, published_at: &1.published_at, ink_count: &1.ink_count || 0})
@@ -151,6 +156,7 @@ defmodule InkwellWeb.ExploreController do
 
     local_comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
+    first_entry_ids = Journals.recent_first_entry_ids(local_entry_ids)
 
     bookmarks_set =
       if viewer do
@@ -197,6 +203,7 @@ defmodule InkwellWeb.ExploreController do
             my_ink: MapSet.member?(inks_set, entry.id),
             my_reprint: MapSet.member?(reprints_set, entry.id),
             series: Map.get(series_map, entry.id),
+            first_entry: MapSet.member?(first_entry_ids, entry.id),
             is_paid: is_paid,
             is_paywalled: is_paywalled
           })
@@ -370,6 +377,9 @@ defmodule InkwellWeb.ExploreController do
         end
       end)
   end
+  # Already in order from the query (first entries, then longest waiting).
+  defp sort_items(items, "waiting"), do: items
+
   defp sort_items(items, _sort) do
     Enum.sort_by(items, & &1.published_at, {:desc, DateTime})
   end

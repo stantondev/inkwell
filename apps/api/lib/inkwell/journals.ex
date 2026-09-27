@@ -1072,7 +1072,7 @@ defmodule Inkwell.Journals do
     sort = Keyword.get(opts, :sort, "newest")
 
     query =
-      Entry
+      from(e in Entry, as: :entry)
       |> where([e], e.privacy in [:public, :paid])
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
@@ -1081,6 +1081,7 @@ defmodule Inkwell.Journals do
     query =
       case sort do
         "most_inked" -> order_by(query, [e], [desc: e.ink_count, desc: e.published_at])
+        "waiting" -> waiting_for_reply(query)
         _ -> order_by(query, desc: :published_at)
       end
 
@@ -1114,6 +1115,97 @@ defmodule Inkwell.Journals do
     |> preload([:user, :user_icon])
     |> Repo.all()
   end
+
+  @waiting_days 14
+
+  @doc "How far back Explore's \"Waiting for a reply\" looks, in days."
+  def waiting_days, do: @waiting_days
+
+  # Explore's "Waiting for a reply": entries from the last two weeks that
+  # nobody but the writer has written back to (stamps and inks don't count;
+  # they aren't a reply). A writer's first entry comes first, then the ones
+  # that have waited longest. Imported posts, quote reprints, stickies and
+  # very short posts are left out, and so are new accounts that link out and
+  # have never talked to anyone (the homepage showcase rule), so this doesn't
+  # become a way for link spam to ask for attention.
+  defp waiting_for_reply(query) do
+    now = DateTime.utc_now()
+    since = DateTime.add(now, -@waiting_days, :day)
+
+    query
+    |> where([e], e.published_at >= ^since and e.published_at <= ^now)
+    |> where([e], e.kind == "entry" and is_nil(e.imported_from))
+    |> where([e], is_nil(e.quoted_entry_id) and is_nil(e.quoted_remote_entry_id))
+    |> where([e], coalesce(e.word_count, 0) >= 30)
+    |> where([e], e.user_id not in subquery(showcase_excluded_user_ids()))
+    |> where(
+      [e],
+      not exists(
+        from(c in Comment,
+          where:
+            c.entry_id == parent_as(:entry).id and
+              (not is_nil(c.remote_author) or c.user_id != parent_as(:entry).user_id)
+        )
+      )
+    )
+    |> order_by([e], [
+      desc:
+        fragment(
+          "NOT EXISTS (SELECT 1 FROM entries p WHERE p.user_id = ? AND p.status = 'published' AND p.kind = 'entry' AND p.imported_from IS NULL AND p.published_at < ?)",
+          e.user_id,
+          e.published_at
+        ),
+      asc: e.published_at
+    ])
+  end
+
+  @doc """
+  Of `entry_ids`, the ones that are their writer's first entry (not counting
+  stickies or imported posts) and were published in the last 30 days, as a
+  MapSet. Feed and Explore mark these "First entry" so the writer gets a
+  hello.
+  """
+  def recent_first_entry_ids([]), do: MapSet.new()
+
+  def recent_first_entry_ids(entry_ids) when is_list(entry_ids) do
+    since = DateTime.add(DateTime.utc_now(), -30, :day)
+
+    from(e in Entry,
+      as: :entry,
+      where:
+        e.id in ^entry_ids and e.kind == "entry" and e.status == :published and
+          is_nil(e.imported_from) and e.published_at >= ^since,
+      where:
+        not exists(
+          from(p in Entry,
+            where:
+              p.user_id == parent_as(:entry).user_id and p.status == :published and
+                p.kind == "entry" and is_nil(p.imported_from) and
+                p.published_at < parent_as(:entry).published_at
+          )
+        ),
+      select: e.id
+    )
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
+  True when `entry` is its writer's first published entry (stickies and
+  imported posts don't count).
+  """
+  def first_entry?(%Entry{kind: "entry", status: :published, imported_from: nil} = entry) do
+    not Repo.exists?(
+      from(p in Entry,
+        where:
+          p.user_id == ^entry.user_id and p.id != ^entry.id and p.status == :published and
+            p.kind == "entry" and is_nil(p.imported_from) and
+            p.published_at <= ^entry.published_at
+      )
+    )
+  end
+
+  def first_entry?(_), do: false
 
   def list_all_entries(opts \\ []) do
     page = Keyword.get(opts, :page, 1)

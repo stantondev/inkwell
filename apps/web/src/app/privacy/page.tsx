@@ -102,8 +102,9 @@ export default function PrivacyPage() {
               preferences. See Section 8 for more details.
             </li>
             <li>
-              <strong>Reader counts:</strong> When you have an entry open for about ten seconds, your browser tells
-              Inkwell it was read, along with the address of the site that linked you there (if any). To count each
+              <strong>Reader counts:</strong> When you have an entry on screen for about ten seconds, on its own page
+              or in the Feed or Explore, your browser tells Inkwell it was read, along with the address of the site
+              that linked you there (if any). To count each
               reader once a day, we briefly keep a one-way hash of your IP address and browser type combined with a
               random value that is replaced every day and never stored. We save only daily totals per entry and the
               linking site&apos;s name, never your IP address or anything that identifies you, and no cookie is set.

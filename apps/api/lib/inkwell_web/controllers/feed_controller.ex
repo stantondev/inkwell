@@ -120,6 +120,7 @@ defmodule InkwellWeb.FeedController do
     inks_set = Inks.get_user_inks_for_entries(user.id, local_entry_ids)
     reprints_set = Reprints.get_user_reprints_for_entries(user.id, local_entry_ids)
     series_map = Journals.get_series_for_entries(local_entry_ids)
+    first_entry_ids = Journals.recent_first_entry_ids(local_entry_ids)
 
     # Build stamp/comment maps for remote entries
     remote_entry_ids =
@@ -162,6 +163,7 @@ defmodule InkwellWeb.FeedController do
           my_ink: MapSet.member?(inks_set, entry.id),
           my_reprint: MapSet.member?(reprints_set, entry.id),
           series: Map.get(series_map, entry.id),
+          first_entry: MapSet.member?(first_entry_ids, entry.id),
           is_paid: entry.privacy == :paid
         })
 

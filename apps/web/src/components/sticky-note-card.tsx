@@ -45,6 +45,8 @@ interface StickyNoteCardProps {
   isOwn?: boolean;
   /** Arrived since the reader last opened their Feed. */
   isNew?: boolean;
+  /** Count a read when this note has been on screen a while (FeedReadCounter) */
+  readId?: string;
   /** "feed" (default), "board" (profile corkboard: smaller, no actions), "page" (the sticky's own page). */
   variant?: "feed" | "board" | "page";
 }
@@ -53,7 +55,7 @@ interface StickyNoteCardProps {
  * A Sticky: a short post drawn as a sticky note stuck into the journal.
  * No title, no cover. The paper color is the writer's choice.
  */
-export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, isNew = false, variant = "feed" }: StickyNoteCardProps) {
+export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, isNew = false, readId, variant = "feed" }: StickyNoteCardProps) {
   const href = `/${entry.author.username}/${entry.slug ?? entry.id}`;
   const color = entry.sticky_color || "yellow";
   const expanded = entry.expanded_into;
@@ -61,6 +63,7 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
   return (
     <article
       className={`sticky-note sticky-note--${color} sticky-note--${variant}`}
+      data-read-entry={readId}
       style={{ "--sticky-tilt": `${stickyTilt(entry.id)}deg` } as React.CSSProperties}
       aria-label={`Sticky by ${entry.author.display_name}`}
     >

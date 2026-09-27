@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { useFeedReadCounter } from "@/hooks/use-feed-read-counter";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { JournalEntryCard, type JournalEntry } from "./journal-entry-card";
 import { FeedCardActions } from "./feed-card-actions";
@@ -481,6 +482,9 @@ export function JournalFeed({
     } catch { /* storage unavailable: skip the hint */ }
   }, [isMobile]);
 
+  // Reads in the Feed/Explore count like reads on an entry's own page.
+  useFeedReadCounter(`${entries.length}:${look}:${isMobile}:${entries[0]?.id ?? ""}`);
+
   // Must come after every hook above: returning earlier changed the number of
   // hooks between renders, which crashes React when the list goes from empty
   // to non-empty (or back).
@@ -543,11 +547,16 @@ export function JournalFeed({
       />
     );
   }
+  // Entries whose reads are counted here: Inkwell entries by someone else.
+  const readIdFor = (entry: JournalEntry) =>
+    entry.source !== "remote" && entry.author.id !== session?.userId ? entry.id : undefined;
+
   if (look === "classic") {
     return (
       <ClassicFeed
         entries={entries}
         renderActions={renderActions}
+        readIdFor={readIdFor}
         translations={translations}
         hasMore={hasMore}
         loading={loading}
@@ -571,6 +580,7 @@ export function JournalFeed({
         bookMode={bookMode}
         isOwn={isOwnEntry}
         isNew={isNewEntry(entry)}
+        readId={readIdFor(entry)}
       />
     );
     // Mobile: double-tap the page to ink it

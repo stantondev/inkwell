@@ -41,7 +41,7 @@ interface PageProps {
 }
 
 type Source = "inkwell" | "fediverse";
-type Sort = "newest" | "most_inked";
+type Sort = "newest" | "most_inked" | "waiting";
 
 // Explore = the bookstore: everyone's public writing, with search, topics and
 // "Most inked". Two tabs: Inkwell writers (default) and the fediverse. The
@@ -52,7 +52,7 @@ function exploreHref({ source, category, sort }: { source: Source; category?: st
   const p = new URLSearchParams();
   if (source === "fediverse") p.set("source", "fediverse");
   if (category) p.set("category", category);
-  if (sort === "most_inked" && source === "inkwell") p.set("sort", "most_inked");
+  if (sort && sort !== "newest" && source === "inkwell") p.set("sort", sort);
   const qs = p.toString();
   return `/explore${qs ? `?${qs}` : ""}`;
 }
@@ -62,7 +62,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   const { page: pageParam, category, sort, source } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const activeSource: Source = source === "fediverse" ? "fediverse" : "inkwell";
-  const activeSort: Sort = sort === "most_inked" && activeSource === "inkwell" ? "most_inked" : "newest";
+  const activeSort: Sort =
+    activeSource === "inkwell" && (sort === "most_inked" || sort === "waiting") ? sort : "newest";
 
   const params = new URLSearchParams({ source: activeSource });
   if (category) params.set("category", category);
@@ -95,6 +96,27 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   const emptyState = fetchFailed ? (
     <FetchError message="We couldn't load entries right now." />
+  ) : activeSort === "waiting" ? (
+    <div
+      className="rounded-2xl border p-12 text-center mx-auto"
+      style={{ borderColor: "var(--border)", background: "var(--surface)", maxWidth: "480px" }}
+    >
+      <p className="text-lg font-semibold mb-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
+        Nobody&rsquo;s waiting right now
+      </p>
+      <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+        {category
+          ? `Everyone who wrote about ${categoryLabel} lately has heard back from someone.`
+          : "Everyone who wrote in the last two weeks has heard back from someone."}
+      </p>
+      <Link
+        href={exploreHref({ source: "inkwell", category })}
+        className="rounded-full px-4 py-2 text-sm font-medium"
+        style={{ background: "var(--accent)", color: "#fff" }}
+      >
+        Read the newest entries
+      </Link>
+    </div>
   ) : (
     <div
       className="rounded-2xl border p-12 text-center mx-auto"
@@ -168,6 +190,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           {([
             { label: "Newest", value: "newest" },
             { label: "Most inked", value: "most_inked" },
+            { label: "Waiting for a reply", value: "waiting" },
           ] as const).map((s) => (
             <FilterLink
               key={s.value}
@@ -180,9 +203,14 @@ export default async function ExplorePage({ searchParams }: PageProps) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                 </svg>
-              ) : (
+              ) : s.value === "most_inked" ? (
                 <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
                   <path d="M8 1C8 1 1 8.5 1 12.5a7 7 0 0 0 14 0C15 8.5 8 1 8 1Z" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  <path d="M8 10h.01M12 10h.01M16 10h.01" />
                 </svg>
               )}
               <span className="explore-sort-label">{s.label}</span>
@@ -195,7 +223,14 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   // At most one notice line, as on the Feed.
   const needsResubscribe = !!session?.user.needs_resubscribe && !session.user.settings?.resubscribe_banner_dismissed;
-  const notice = !session ? (
+  const notice = activeSort === "waiting" ? (
+    <div className="notice-strip" role="note">
+      <span className="notice-strip-label">Waiting for a reply</span>
+      <span className="notice-strip-text">
+        Recent entries nobody has written back to yet, first entries first. A few honest words are enough.
+      </span>
+    </div>
+  ) : !session ? (
     <div className="notice-strip" role="note">
       <span className="notice-strip-label">New here?</span>
       <span className="notice-strip-text">

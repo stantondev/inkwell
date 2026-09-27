@@ -12198,6 +12198,15 @@ a.comment-author-name:hover {
   border-top: 1px solid var(--border);
 }
 
+/* "No footnotes yet" */
+.comment-empty {
+  margin-top: 1.25rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
 /* Login prompt */
 .comment-login-prompt {
   text-align: center;
@@ -14059,6 +14068,25 @@ a, button, [role="tab"], [role="button"] {
   font-style: normal;
 }
 .sticky-note-byline .feed-new-tag { margin-left: auto; margin-right: 6px; }
+
+/* "First entry": a writer's first entry on Inkwell, so they get a hello. */
+.feed-first-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.classic-entry-bar .feed-first-tag { margin-left: auto; margin-right: 8px; border-radius: 3px; }
+.classic-entry-bar .feed-new-tag + .feed-first-tag { margin-left: 0; }
 .classic-entry-bar .feed-new-tag { margin-left: auto; margin-right: 8px; border-radius: 3px; }
 
 /* Classic view: the line between new and already-seen entries */
@@ -17067,12 +17095,20 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .explore-top-controls .explore-controls-source { width: auto; }
   .explore-top-controls .explore-controls-source-segment { flex: none; min-height: 36px; padding: 0 12px; }
   .explore-top-controls .explore-controls-source-segment svg { display: none; }
-  .explore-top-controls .explore-controls-sort { margin-left: auto; gap: 14px; }
+  .explore-top-controls { gap: 10px; }
+  /* Three orders (Newest, Most inked, Waiting for a reply) have to fit beside
+     the tabs and Topics on a 360px phone without clipping "Fediverse". */
+  .explore-top-controls .explore-controls-sort { margin-left: auto; gap: 4px; }
   /* Icons only; each keeps its name as a title and for screen readers. */
   .explore-sort-label {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
   .explore-controls-sort-toggle { min-height: 36px; min-width: 28px; justify-content: center; }
+}
+@media (max-width: 380px) {
+  .explore-top-controls { gap: 8px; }
+  .explore-top-controls .explore-controls-sort { gap: 0; }
+  .explore-top-controls .explore-controls-source-segment { padding: 0 10px; }
 }
 
 /* Topics menu (components/topic-menu.tsx) */
@@ -18561,4 +18597,87 @@ body[data-look="classic"] .entry-current-label {
 @media (max-width: 640px) {
   .gr-words { grid-template-columns: 1fr; gap: 4px; }
   .gr-words dd { margin-bottom: 8px; }
+}
+
+
+/* ── After publishing: "who else is waiting for a reader" (just-published.tsx) ── */
+.just-published {
+  position: relative;
+  max-width: 44rem;
+  margin: 24px auto 0;
+  padding: 18px 44px 18px 20px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+@media (max-width: 767px) {
+  .just-published { margin: 16px 16px 0; }
+}
+.just-published-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.just-published-close:hover { background: var(--surface-hover); }
+.just-published-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.just-published-text { font-size: 14px; color: var(--muted); margin: 0; }
+.just-published-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; }
+.just-published-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.just-published-item:hover { background: var(--surface-hover); }
+.just-published-item-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.just-published-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.just-published-item-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.just-published-item-by {
+  font-size: 13px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.just-published-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* The labelled "Write back" button on the left of a card's action bar
+   (feed-card-actions.tsx). Phones get the short label so the bar stays on
+   one row beside the seven icons. */
+.feed-reply-button { font-weight: 500; }
+.feed-reply-short { display: none; }
+@media (max-width: 479px) {
+  .feed-reply-long {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .feed-reply-short { display: inline; }
 }

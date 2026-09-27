@@ -119,7 +119,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "readers",
     question: "Can I see how many people read my writing?",
     answer:
-      'Yes, on the <a href="/readers">Readers</a> page. A read is counted when someone stays on your entry for ten seconds; it uses no cookies and doesn&rsquo;t track who they are. Everyone sees totals; Plus adds a daily chart, your top entries and where readers came from. Reads inside Mastodon apps can&rsquo;t be counted.',
+      'Yes, on the <a href="/readers">Readers</a> page. A read is counted when someone has your entry on screen for ten seconds, on its own page or in their Feed or Explore; it uses no cookies and doesn&rsquo;t track who they are. Everyone sees totals; Plus adds a daily chart, your top entries and where readers came from. Reads inside Mastodon apps can&rsquo;t be counted.',
     category: "writing",
   },
   {

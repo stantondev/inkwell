@@ -41,6 +41,24 @@ defmodule Inkwell.Slack do
 
   # ── Convenience helpers ──────────────────────────────────────────────
 
+  def notify_first_entry(user, entry) do
+    frontend = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+    days = DateTime.diff(DateTime.utc_now(), user.inserted_at, :day)
+
+    title =
+      case entry.title do
+        t when is_binary(t) and t != "" -> "“#{t}”"
+        _ -> "an untitled entry"
+      end
+
+    joined = if days < 1, do: "joined today", else: "joined #{days}d ago"
+
+    notify(
+      ":wave: *First entry!* @#{user.username} (#{joined}) published #{title}, " <>
+        "#{entry.word_count || 0} words. #{frontend}/#{user.username}/#{entry.slug}"
+    )
+  end
+
   def notify_plus_subscription(username) do
     notify(":sparkles: *New Plus subscriber!* @#{username} just upgraded to Plus ($5/mo)")
   end

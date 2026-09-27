@@ -96,7 +96,9 @@ export default function GuidePage() {
             month&rsquo;s <strong>most inked</strong> entries and{" "}
             <strong>popular tags</strong>, with the newest writing starting on
             the facing page. Use <strong>Topics</strong> to browse one subject,{" "}
-            <strong>Most inked</strong> to see community favourites, and the{" "}
+            <strong>Most inked</strong> to see community favourites,{" "}
+            <strong>Waiting for a reply</strong> for recent entries nobody has
+            written back to yet (first entries come first), and the{" "}
             <strong>Fediverse</strong> tab for public posts from Mastodon and
             other servers. The search box finds writers, entries, and
             fediverse accounts by their @handle.

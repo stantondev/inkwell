@@ -18,6 +18,25 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-27-waiting-for-a-reply",
+    date: "2026-09-27",
+    title: "Waiting for a reply",
+    body: "Explore has a new order, Waiting for a reply: entries from the last two weeks that nobody has written back to yet, with first entries at the top. After you publish, you'll see a few of them too. Most of what was posted in September got no reply at all, and a first reply is what makes a new writer stay. Cards also say \"Write back\" now instead of showing a lonely 0, and a writer's first entry is marked so you can say hello.",
+    howTo: "Explore → Waiting for a reply (the speech bubble next to Newest and Most inked).",
+    href: "/explore?sort=waiting",
+    cta: "See who's waiting",
+    tag: "Reading",
+  },
+  {
+    id: "2026-09-27-feed-reads",
+    date: "2026-09-27",
+    title: "Reads in the Feed now count",
+    body: "Reader counts only went up when someone opened an entry on its own page, but most people read in the Feed and Explore, where the whole entry is shown. Those reads never counted, so the numbers on your Readers page were far too low. Now an entry on screen for ten seconds counts wherever it's read, with the same privacy rules (no cookies, nothing that identifies the reader). Counts before today stay as they were.",
+    href: "/readers",
+    cta: "Your readers",
+    tag: "Writing",
+  },
+  {
     id: "2026-09-26-tag-case",
     date: "2026-09-26",
     title: "#Inkwell and #inkwell are the same tag",
