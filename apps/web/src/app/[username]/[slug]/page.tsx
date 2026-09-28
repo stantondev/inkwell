@@ -27,7 +27,6 @@ import { ShareButton } from "@/components/share-button";
 import { TipButton } from "@/components/tip-button";
 import { POSTAGE_ENABLED } from "@/lib/paused-features";
 import { ReadBeacon } from "@/components/read-beacon";
-import { JustPublished } from "./just-published";
 import { PinButton } from "@/components/pin-button";
 import { PollWidget } from "@/components/poll-widget";
 import type { PollData } from "@/components/poll-widget";
@@ -675,8 +674,6 @@ export default async function EntryPage({ params }: EntryParams) {
       />
 
       <ReadingProgress color={progressColor} />
-
-      {isOwnEntry && <JustPublished />}
 
       {/* ── Ambient hero header ─────────────────────────────────────── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>

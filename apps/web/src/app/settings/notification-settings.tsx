@@ -9,6 +9,7 @@ export function NotificationSettings() {
   const [autoMarkRead, setAutoMarkRead] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
   const [popupsDisabled, setPopupsDisabled] = useState(false);
+  const [newEntryNoticesDisabled, setNewEntryNoticesDisabled] = useState(false);
   const [pushDisabled, setPushDisabled] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
   const [letterEmailsDisabled, setLetterEmailsDisabled] = useState(false);
@@ -34,6 +35,7 @@ export function NotificationSettings() {
         setAutoMarkRead(!!data.settings?.auto_mark_notifications_read);
         setHideBadges(!!data.settings?.hide_notification_badges);
         setPopupsDisabled(!!data.settings?.notification_popups_disabled);
+        setNewEntryNoticesDisabled(!!data.settings?.new_entry_notices_disabled);
         setPushDisabled(!!data.settings?.push_notifications_disabled);
         setEmailDisabled(!!data.settings?.email_notifications_disabled);
         setLetterEmailsDisabled(!!data.settings?.letter_emails_disabled);
@@ -256,6 +258,25 @@ export function NotificationSettings() {
         >
           In-App Notifications
         </h3>
+
+        <label
+          className="flex items-start gap-3 cursor-pointer mb-4"
+          style={{ opacity: saving ? 0.6 : 1 }}
+        >
+          <input
+            type="checkbox"
+            checked={!newEntryNoticesDisabled}
+            onChange={(e) => toggleSetting("new_entry_notices_disabled", !e.target.checked, setNewEntryNoticesDisabled)}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Tell me when someone I follow publishes</span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              A notice here on Inkwell when a writer you follow publishes a new entry (never by email or push). If they publish more than one in a day, it&apos;s still one notice.
+            </p>
+          </div>
+        </label>
 
         <label
           className="flex items-start gap-3 cursor-pointer"

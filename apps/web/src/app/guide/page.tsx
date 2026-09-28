@@ -217,6 +217,11 @@ export default function GuidePage() {
             Feed.
           </p>
           <p>
+            Once they&rsquo;ve accepted, you get a notice when they publish a
+            new entry: one a day at most, on Inkwell only, never by email.
+            Turn it off in Settings → Notifications.
+          </p>
+          <p>
             <strong>Letters</strong> are private messages between pen pals (and
             fediverse accounts you follow). Open{" "}
             <Link href="/letters" className="underline" style={{ color: "var(--accent)" }}>

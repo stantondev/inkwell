@@ -160,7 +160,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
       )}
 
       {threads.length === 0 && (
-        <p className="comment-empty">No footnotes yet. Be the first to write back.</p>
+        <p className="comment-empty">No footnotes yet.</p>
       )}
 
       {/* Root comment editor */}

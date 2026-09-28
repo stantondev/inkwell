@@ -227,7 +227,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
     <div className="notice-strip" role="note">
       <span className="notice-strip-label">Waiting for a reply</span>
       <span className="notice-strip-text">
-        Recent entries nobody has written back to yet, first entries first. A few honest words are enough.
+        Entries from the last two weeks that nobody has replied to yet, with writers&rsquo; first entries first.
       </span>
     </div>
   ) : !session ? (

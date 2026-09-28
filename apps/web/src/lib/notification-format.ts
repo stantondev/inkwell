@@ -93,6 +93,12 @@ export function notificationText(n: Notification): string {
     }
     case "ink":
       return "inked your entry";
+    case "new_entry": {
+      // Someone you follow published; a second entry the same day updates
+      // the same notice (count, newest entry).
+      const count = Number(n.data?.count ?? 1);
+      return count > 1 ? `published ${count} new entries` : "published a new entry";
+    }
     case "reprint":
       return "reprinted your entry";
     case "margin_note": {

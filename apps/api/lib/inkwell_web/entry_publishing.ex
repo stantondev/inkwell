@@ -28,6 +28,7 @@ defmodule InkwellWeb.EntryPublishing do
 
     Inkwell.Circles.after_entry_published(entry)
     maybe_announce_first_entry(entry, user)
+    maybe_notify_followers(entry)
     maybe_make_circle_prompt(entry, user, options)
     maybe_queue_spam_check(user, entry)
     maybe_send_newsletter(entry, user, options)
@@ -130,6 +131,17 @@ defmodule InkwellWeb.EntryPublishing do
   end
 
   defp maybe_announce_first_entry(_entry, _user), do: :ok
+
+  # "X published …" for the people who follow the writer (Inkwell.NewEntryNotices).
+  defp maybe_notify_followers(entry) do
+    if Inkwell.NewEntryNotices.announce?(entry) do
+      %{entry_id: entry.id}
+      |> Inkwell.Workers.NewEntryNoticeWorker.new()
+      |> Oban.insert()
+    end
+
+    :ok
+  end
 
   defp maybe_send_newsletter(entry, user, params) do
     send_newsletter = params["send_newsletter"]

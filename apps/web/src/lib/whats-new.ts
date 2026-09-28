@@ -18,13 +18,22 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-28-new-entry-notices",
+    date: "2026-09-28",
+    title: "Know when someone you follow writes",
+    body: "When a writer you follow publishes a new entry, you'll get a notice on Inkwell. Just one a day per writer, however much they post, and never by email or push. You can turn it off in Settings → Notifications.",
+    href: "/settings/notifications",
+    cta: "Notification settings",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-27-waiting-for-a-reply",
     date: "2026-09-27",
     title: "Waiting for a reply",
-    body: "Explore has a new order, Waiting for a reply: entries from the last two weeks that nobody has written back to yet, with first entries at the top. After you publish, you'll see a few of them too. Most of what was posted in September got no reply at all, and a first reply is what makes a new writer stay. Cards also say \"Write back\" now instead of showing a lonely 0, and a writer's first entry is marked so you can say hello.",
+    body: "Explore has a new order, Waiting for a reply: entries from the last two weeks that nobody has replied to yet, with writers' first entries at the top, for when you feel like finding something new. A writer's first entry is also marked \"First entry\" on cards, and the reply button now says \"Reply\" instead of showing a 0.",
     howTo: "Explore → Waiting for a reply (the speech bubble next to Newest and Most inked).",
     href: "/explore?sort=waiting",
-    cta: "See who's waiting",
+    cta: "Take a look",
     tag: "Reading",
   },
   {

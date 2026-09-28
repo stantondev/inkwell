@@ -236,7 +236,7 @@ function CommentPopupContent({
               ? "Loading fediverse replies…"
               : isRemote
                 ? "No replies yet."
-                : "No footnotes yet. Be the first to write back."}
+                : "No footnotes yet."}
           </p>
         ) : (
           <div className="comment-thread-list">
@@ -496,13 +496,14 @@ export function FeedCardActions({
     onStampsChange?.(newStamps);
   }
 
-  // Local entries get a labelled "Write back" button on the left of the bar
-  // (it used to be an unlabelled speech bubble showing "0"). Fediverse posts
-  // keep the "View on …" link there and the bubble on the right.
+  // Local entries get a labelled "Reply" button on the left of the bar (it
+  // used to be an unlabelled speech bubble showing "0"), in the same quiet
+  // colour as the other actions. Fediverse posts keep the "View on …" link
+  // there and the bubble on the right.
   const labelled = !externalUrl;
   const replyLabel =
     commentCount === 0
-      ? isOwnEntry ? "No footnotes yet" : "Write back"
+      ? isOwnEntry ? "No footnotes yet" : "Reply"
       : `${commentCount} ${commentCount === 1 ? "footnote" : "footnotes"}`;
   // Phones: the bar has to fit on one row beside seven icons.
   const replyLabelShort = commentCount === 0 ? (isOwnEntry ? "0" : "Reply") : String(commentCount);
@@ -513,8 +514,8 @@ export function FeedCardActions({
         ref={commentBtnRef}
         onClick={handleCommentToggle}
         className={`flex items-center gap-1.5 text-sm transition-colors cursor-pointer hover:opacity-80${labelled ? " feed-reply-button" : ""}`}
-        style={{ color: labelled && commentCount === 0 && !isOwnEntry ? "var(--accent)" : "var(--muted)" }}
-        title={isOwnEntry ? "Footnotes" : "Write back"}
+        style={{ color: "var(--muted)" }}
+        title={isOwnEntry ? "Footnotes" : "Reply"}
       >
         <svg
           width="15"

@@ -3033,10 +3033,7 @@ export function EditorClient() {
           ? "/drafts?scheduled=1"
           : state.circlePromptId && threadSlug && entry.status === "published"
             ? `/circles/${threadSlug}/t/${state.circlePromptId}?answered=${entry.id}`
-            : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}${
-                // Just went live: the entry page shows who else is waiting for a reader.
-                isDraft && entry.status === "published" ? "?published=1" : ""
-              }`
+            : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`
       );
     } catch (err) {
       const verb = isDraft && isFutureDate(state.publishedAt) ? "schedule" : isDraft ? "publish" : "save";
