@@ -1,14 +1,12 @@
-// The cover of Explore's book (default view only): writers to meet, the
-// month's most-inked entries and popular tags. On a computer it's the left
-// page of the first spread and the entries start on the facing page; on a
-// phone it's the first page, with "Start reading" to turn to the first entry;
-// in Classic view it's a box above the list.
+// "This month on Inkwell" on Explore (default view only): writers to meet,
+// the month's most-inked entries and popular tags. Normally it's the insert
+// behind the ribbon bookmark (components/explore-ribbon.tsx); in Classic view
+// it's a box above the list.
 
 import Link from "next/link";
 import { SuggestedWriters, type SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { LocalDate } from "@/components/local-date";
-import { CoverStartButton } from "@/components/cover-start-button";
 import { decodeEntities } from "@/lib/decode-entities";
 
 export interface PopularTag {
@@ -94,8 +92,6 @@ export function ExploreCover({
           </ul>
         </div>
       )}
-
-      <CoverStartButton />
     </section>
   );
 }

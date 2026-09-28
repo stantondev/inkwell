@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-28-explore-ribbon",
+    date: "2026-09-28",
+    title: "Explore opens on writing",
+    body: "Writers to meet, the month's most-inked entries and popular tags used to take up the whole first page of Explore. Now they're tucked behind a ribbon bookmark, so the book opens straight onto people's writing. Pull the ribbon whenever you want them, and close them again just as easily.",
+    howTo: "On a computer the ribbon hangs from the top right edge of the book; on a phone it's beside the search box.",
+    href: "/explore",
+    cta: "Open Explore",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-28-manage-circles",
     date: "2026-09-28",
     title: "Look after your circle",

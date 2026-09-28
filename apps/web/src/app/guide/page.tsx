@@ -92,10 +92,11 @@ export default function GuidePage() {
           <p>
             <strong>Explore</strong> is public: writing from everyone on
             Inkwell, whether you follow them or not. Think of it as a bookshop.
-            It opens on a cover: <strong>writers to meet</strong>, the
+            It opens on the newest writing. The <strong>ribbon bookmark</strong>{" "}
+            (on the book&rsquo;s top edge, or beside the search box on a
+            phone) opens <strong>writers to meet</strong>, the
             month&rsquo;s <strong>most inked</strong> entries and{" "}
-            <strong>popular tags</strong>, with the newest writing starting on
-            the facing page. Use <strong>Topics</strong> to browse one subject,{" "}
+            <strong>popular tags</strong>. Use <strong>Topics</strong> to browse one subject,{" "}
             <strong>Most inked</strong> to see community favourites,{" "}
             <strong>Waiting for a reply</strong> for recent entries nobody has
             written back to yet (first entries come first), and the{" "}

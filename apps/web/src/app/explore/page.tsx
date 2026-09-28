@@ -11,6 +11,7 @@ import { FetchError } from "@/components/fetch-error";
 import { ExploreSearchWrapper } from "@/components/explore-search-wrapper";
 import { TopicMenu } from "@/components/topic-menu";
 import { ExploreCover, type PopularTag } from "@/components/explore-cover";
+import { ExploreRibbonProvider, ExploreRibbonTab, ExploreRibbonChip } from "@/components/explore-ribbon";
 import type { SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
@@ -70,10 +71,10 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   if (activeSort !== "newest") params.set("sort", activeSort);
   const listQuery = params.toString();
 
-  // The default view opens on a cover: writers to meet, the month's most
-  // inked entries and popular tags (the left page of the first spread; the
-  // entries start on the facing page). Any topic, sort, the fediverse tab or
-  // a later page goes straight to the entries.
+  // The default view has "This month on Inkwell": writers to meet, the
+  // month's most inked entries and popular tags, behind a ribbon bookmark
+  // (a box above the list in Classic view). Any topic, sort, the fediverse
+  // tab or a later page leaves it out.
   const showCover = page === 1 && !category && activeSort === "newest" && activeSource === "inkwell";
 
   const [entriesRes, writersRes, inkedRes, tagsRes] = await Promise.allSettled([
@@ -91,6 +92,8 @@ export default async function ExplorePage({ searchParams }: PageProps) {
   const cover = writers.length > 0 || mostInked.length > 0 || popularTags.length > 0
     ? <ExploreCover writers={writers} mostInked={mostInked} tags={popularTags} signedIn={!!session} />
     : undefined;
+  const look = siteLookOf(session?.user.settings);
+  const ribbon = !!cover && look !== "classic";
 
   const categoryLabel = category ? getCategoryLabel(category) : null;
 
@@ -253,18 +256,15 @@ export default async function ExplorePage({ searchParams }: PageProps) {
     </EducationCard>
   );
 
-  return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--background)", color: "var(--foreground)" }}
-    >
-      <ExploreSearchWrapper controls={controls} notice={notice}>
+  const body = (
+      <ExploreSearchWrapper controls={controls} notice={notice} searchAside={ribbon ? <ExploreRibbonChip /> : undefined}>
         <JournalFeed
           entries={entries}
           page={page}
           basePath="/explore"
-          look={siteLookOf(session?.user.settings)}
-          cover={cover}
+          look={look}
+          cover={look === "classic" ? cover : undefined}
+          bookmark={ribbon ? <ExploreRibbonTab key="ribbon" /> : undefined}
           loadMorePath={`/api/explore?${listQuery}`}
           extraParams={`&${listQuery}`}
           emptyState={emptyState}
@@ -309,6 +309,22 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           </div>
         )}
       </ExploreSearchWrapper>
+  );
+
+  return (
+    <div
+      className="min-h-screen"
+      style={{ background: "var(--background)", color: "var(--foreground)" }}
+    >
+      {ribbon ? (
+        <ExploreRibbonProvider
+          panel={cover}
+          signedIn={!!session}
+          serverSeen={!!session?.user.settings?.explore_ribbon_seen}
+        >
+          {body}
+        </ExploreRibbonProvider>
+      ) : body}
     </div>
   );
 }

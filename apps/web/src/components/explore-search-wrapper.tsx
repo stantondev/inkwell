@@ -11,12 +11,14 @@ interface ExploreSearchWrapperProps {
   controls?: React.ReactNode;
   /** One slim line under the row (signup, tips). */
   notice?: React.ReactNode;
+  /** Right beside the search box (phones: the "This month" ribbon). */
+  searchAside?: React.ReactNode;
 }
 
 // Explore's header: the search box and the controls share one row, with at
 // most one notice line under it, so the book starts near the top of the page.
 // While searching, results appear under the header and the book dims.
-export function ExploreSearchWrapper({ children, controls, notice }: ExploreSearchWrapperProps) {
+export function ExploreSearchWrapper({ children, controls, notice, searchAside }: ExploreSearchWrapperProps) {
   const searchParams = useSearchParams();
   const [activeQuery, setActiveQuery] = useState(searchParams.get("q") || "");
 
@@ -30,6 +32,7 @@ export function ExploreSearchWrapper({ children, controls, notice }: ExploreSear
             initialQuery={searchParams.get("q") || ""}
             onQueryChange={setActiveQuery}
           />
+          {searchAside}
           {controls && <div className="explore-top-controls">{controls}</div>}
         </div>
         {notice}

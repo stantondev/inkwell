@@ -17227,11 +17227,10 @@ body[data-focus-mode] .editor-link-notice { display: none; }
   .topic-menu-button { height: 36px; }
 }
 
-/* ── The cover of Explore (components/explore-cover.tsx) ──
-   Writers to meet, most inked, popular tags. Desktop: the left page of the
-   first spread (entries start on the facing page). Phones: the first page.
-   Classic: a box above the list. */
-.journal-book-cover { flex: 1 0 auto; display: flex; }
+/* ── "This month on Inkwell" on Explore (components/explore-cover.tsx) ──
+   Writers to meet, most inked, popular tags. Normally the insert behind the
+   ribbon bookmark (see "The ribbon bookmark" below); Classic: a box above the
+   list. */
 .explore-cover {
   flex: 1;
   display: flex;
@@ -17372,33 +17371,275 @@ body[data-focus-mode] .editor-link-notice { display: none; }
 }
 .cover-tag:hover { border-color: var(--accent); color: var(--accent); }
 
-/* "Start reading": phones only (on a computer the entries are on the facing page) */
-.explore-cover-start { display: none; }
 @media (max-width: 1023px) {
-  .explore-cover-start {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    margin-top: auto;
-    border-radius: 9999px;
-    background: var(--accent);
-    color: var(--background);
-    font-family: var(--font-lora, Georgia, serif);
-    font-size: 16px;
-    font-style: italic;
-  }
   .cover-tag { min-height: 34px; }
 }
 
-/* Phones: the cover is the first page, on paper like the entries */
-.mobile-book-page-cover .explore-cover {
-  padding: 1.25rem 1.1rem 1.1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+/* ── The ribbon bookmark (components/explore-ribbon.tsx) ──
+   A silk ribbon hanging from the top edge of the book, in the right page's
+   outer margin (the 56px kept clear for the arrows), opens "This month" as a
+   paper insert beside it. Phones: a short ribbon beside the search box and
+   the insert as a bottom sheet. */
+.explore-ribbon,
+.explore-ribbon-chip {
+  --ribbon: var(--accent);
+  --ribbon-ink: var(--background);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--ribbon-ink);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.2));
+  transition: height 0.28s cubic-bezier(0.2, 0.8, 0.3, 1.2), filter 0.2s;
 }
-.mobile-book-page-cover .explore-cover-title { font-size: 26px; }
+.explore-ribbon > span,
+.explore-ribbon-chip > span { position: relative; }
+/* Silk: a darker body with a soft sheen down the middle, and a notched tail
+   (the shadow sits on the button, since clip-path would cut it off here) */
+.explore-ribbon > .ribbon-silk,
+.explore-ribbon-chip > .ribbon-silk {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--ribbon) 78%, #000) 0%,
+      var(--ribbon) 22%,
+      color-mix(in srgb, var(--ribbon) 82%, #fff) 48%,
+      var(--ribbon) 70%,
+      color-mix(in srgb, var(--ribbon) 74%, #000) 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 13px), 0 100%);
+}
+/* Stitching just inside each edge */
+.ribbon-silk::before {
+  content: "";
+  position: absolute;
+  inset: 0 4px 10px;
+  border-left: 1px dashed color-mix(in srgb, var(--ribbon-ink) 45%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--ribbon-ink) 45%, transparent);
+}
+/* A light catching the silk now and then */
+.ribbon-silk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(170deg, transparent 30%, rgba(255, 255, 255, 0.35) 45%, transparent 60%);
+  background-size: 100% 300%;
+  background-position: 0 100%;
+  animation: ribbon-sheen 7s ease-in-out 1.2s infinite;
+}
+@keyframes ribbon-sheen {
+  0%, 70% { background-position: 0 100%; }
+  90%, 100% { background-position: 0 -100%; }
+}
+
+.explore-ribbon {
+  position: absolute;
+  top: 0;
+  right: 15px;
+  z-index: 21;
+  width: 34px;
+  height: 128px;
+  padding-top: 12px;
+  gap: 8px;
+  transform-origin: top center;
+}
+.explore-ribbon:hover,
+.explore-ribbon:focus-visible { height: 142px; animation: ribbon-sway 0.9s ease-in-out; }
+.explore-ribbon.is-open { height: 150px; filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.26)); }
+.explore-ribbon:focus-visible,
+.explore-ribbon-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@keyframes ribbon-sway {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(2.2deg); }
+  65% { transform: rotate(-1.4deg); }
+}
+.explore-ribbon-fleuron { font-size: 15px; line-height: 1; opacity: 0.9; }
+.explore-ribbon-text {
+  writing-mode: vertical-rl;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* Phones: a short ribbon hanging from the top bar, beside the search box */
+.explore-ribbon-chip { display: none; }
+@media (max-width: 1023px) {
+  .explore-top-row:has(.explore-ribbon-chip) .explore-search-bar { flex: 1 1 0; min-width: 0; }
+  .explore-ribbon-chip {
+    display: flex;
+    justify-content: flex-start;
+    flex: none;
+    align-self: flex-start;
+    width: 34px;
+    height: 58px;
+    margin-top: -10px; /* up to the top bar (.explore-top's padding) */
+    padding-top: 16px;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .explore-ribbon-chip:active,
+  .explore-ribbon-chip.is-open { height: 66px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .explore-ribbon, .explore-ribbon-chip { transition: none; }
+  .ribbon-silk::after { animation: none; }
+  .explore-ribbon:hover, .explore-ribbon:focus-visible { animation: none; }
+}
+
+/* The insert: a sheet of paper that unfolds downward beside the ribbon */
+.explore-insert {
+  position: fixed;
+  z-index: 60;
+  width: min(380px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 2px 2px 6px 6px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 18px 44px rgba(0, 0, 0, 0.18);
+  transform-origin: top right;
+  animation: insert-unfold 0.34s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+@keyframes insert-unfold {
+  from { clip-path: inset(0 0 100% 0); transform: rotate(-1.2deg) translateY(-6px); opacity: 0.4; }
+  to { clip-path: inset(0 0 0 0); transform: none; opacity: 1; }
+}
+/* A soft fold across the paper, as if it had been tucked into the book */
+.explore-insert::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 42%;
+  height: 18px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.035) 45%, rgba(255, 255, 255, 0.05) 55%, transparent);
+  pointer-events: none;
+}
+.explore-insert-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.explore-insert .explore-cover { padding: 1.3rem 1.4rem 1.3rem; gap: 1rem; }
+.explore-insert .explore-cover-title { font-size: 24px; padding-right: 28px; }
+.explore-insert-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.explore-insert-close:hover { color: var(--foreground); border-color: var(--border); background: var(--background); }
+
+/* The first-visit note: a slip clipped on at a slight angle */
+.explore-insert-note {
+  position: relative;
+  margin: 1.1rem 3rem 0 1.4rem; /* clear of the × */
+  padding: 12px 14px 10px;
+  background: var(--sticky-yellow);
+  color: var(--sticky-ink);
+  border-radius: 2px;
+  transform: rotate(-0.8deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 13.5px;
+  line-height: 1.5;
+  animation: note-drop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.3) 0.25s both;
+}
+/* The paper clip */
+.explore-insert-note::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 18px;
+  width: 10px;
+  height: 24px;
+  border: 2px solid #8a8f98;
+  border-radius: 6px;
+  background: transparent;
+}
+.explore-insert-note p { margin: 0; }
+.explore-insert-note strong { font-style: italic; }
+.explore-insert-note button {
+  display: block;
+  margin: 8px 0 0 auto;
+  padding: 4px 12px;
+  border: 1px solid var(--sticky-ink-muted);
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.explore-insert-note button:hover { background: color-mix(in srgb, var(--sticky-ink) 8%, transparent); }
+@keyframes note-drop {
+  from { opacity: 0; transform: rotate(-4deg) translateY(-8px); }
+  to { opacity: 1; transform: rotate(-0.8deg); }
+}
+
+/* Phones: the insert is a bottom sheet */
+.explore-insert-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: rgba(20, 16, 10, 0.35);
+  animation: insert-scrim-in 0.2s ease both;
+}
+@keyframes insert-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.explore-insert.is-sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: 82dvh;
+  border-radius: 16px 16px 0 0;
+  border-bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: insert-sheet-up 0.3s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+.explore-insert.is-sheet::before { display: none; }
+@keyframes insert-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+.explore-insert-handle {
+  flex: none;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 2px;
+  background: var(--border);
+}
+.explore-insert.is-sheet .explore-insert-close { top: 12px; right: 12px; width: 40px; height: 40px; }
+.explore-insert.is-sheet .explore-cover { padding: 0.9rem 1.1rem 1.4rem; }
+@media (prefers-reduced-motion: reduce) {
+  .explore-insert, .explore-insert.is-sheet, .explore-insert-note, .explore-insert-scrim { animation: none; }
+}
 
 /* Classic view: one box above the list */
 .classic-cover { margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }

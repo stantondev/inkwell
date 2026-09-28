@@ -12,7 +12,6 @@ import { FeedCardActions } from "./feed-card-actions";
 import { DoubleTapInk } from "./double-tap-ink";
 import { emitEntryState, useEntryState } from "@/lib/entry-state";
 import { groupPhonePages, packEntriesIntoHalves } from "@/lib/page-packing";
-import { BOOK_NEXT_EVENT } from "@/lib/book-events";
 import { STICKY_SAVED_EVENT } from "./jot-composer";
 import { ClassicFeed } from "./classic-feed";
 
@@ -47,15 +46,15 @@ interface JournalFeedProps {
   newSince?: string | null;
   /** Shown after the last entry once there's nothing more to load. */
   endNote?: React.ReactNode;
-  /** The book's cover (Explore: writers to meet, most inked, popular tags):
-   *  the left page of the first spread on a computer, so the entries start on
-   *  the facing page; the first page on a phone; a box above the list in
-   *  Classic view. */
+  /** Classic view only: a box above the list (Explore's "This month"). The
+   *  book itself always opens on writing. */
   cover?: React.ReactNode;
+  /** Hung on the book's top edge on a computer (Explore's ribbon bookmark). */
+  bookmark?: React.ReactNode;
 }
 
-/** A half of a book spread: the cover, or entries packed together. */
-type BookHalf = { key: string; cover?: React.ReactNode; entries: JournalEntry[] };
+/** A half of a book spread: entries packed together. */
+type BookHalf = { key: string; entries: JournalEntry[] };
 
 /**
  * A post short enough to leave most of a phone page blank (a few lines, at
@@ -83,6 +82,7 @@ export function JournalFeed({
   newSince = null,
   endNote,
   cover,
+  bookmark,
 }: JournalFeedProps) {
   const [entries, setEntries] = useState(initialEntries);
   const [currentPage, setCurrentPage] = useState(page);
@@ -141,14 +141,11 @@ export function JournalFeed({
 
   // The entries' half-pages, two to a spread.
   const spreads = useMemo(() => {
-    const halves: BookHalf[] = [
-      ...(cover ? [{ key: "cover", cover, entries: [] }] : []),
-      ...packEntriesIntoHalves(entries).map((es, i) => ({ key: `half-${i}`, entries: es })),
-    ];
+    const halves: BookHalf[] = packEntriesIntoHalves(entries).map((es, i) => ({ key: `half-${i}`, entries: es }));
     const out: { left: BookHalf; right: BookHalf | null }[] = [];
     for (let i = 0; i < halves.length; i += 2) out.push({ left: halves[i], right: halves[i + 1] ?? null });
     return out;
-  }, [entries, cover]);
+  }, [entries]);
 
   // Phone pages: one entry each, with the stickies before it on the same page.
   const phonePages = useMemo(() => groupPhonePages(entries), [entries]);
@@ -375,13 +372,6 @@ export function JournalFeed({
     track.addEventListener("touchend", onEnd);
     track.addEventListener("touchcancel", onEnd);
     track.addEventListener("wheel", onWheel, { passive: false });
-    // The cover's "Start reading" button.
-    const onNext = () => {
-      if (busy) return;
-      beginTurn();
-      animateTo(from + 1);
-    };
-    window.addEventListener(BOOK_NEXT_EVENT, onNext);
     window.addEventListener("resize", onResize);
     return () => {
       cancelAnimationFrame(frame);
@@ -391,7 +381,6 @@ export function JournalFeed({
       track.removeEventListener("touchend", onEnd);
       track.removeEventListener("touchcancel", onEnd);
       track.removeEventListener("wheel", onWheel);
-      window.removeEventListener(BOOK_NEXT_EVENT, onNext);
       window.removeEventListener("resize", onResize);
     };
   }, [isDesktop, entries.length]);
@@ -600,7 +589,6 @@ export function JournalFeed({
 
   const renderHalf = (half: BookHalf) => (
     <>
-      {half.cover && <div className="journal-book-cell journal-book-cover">{half.cover}</div>}
       {half.entries.map((entry) => (
         <div key={entry.id} className={`journal-book-cell${entry.kind === "sticky" ? " journal-book-cell-sticky" : ""}`}>
           {renderCard(entry, true)}
@@ -615,6 +603,7 @@ export function JournalFeed({
 
     return (
       <div className="journal-book-wrapper">
+        {bookmark}
         <div ref={scrollRef} className="journal-book-container">
           {spreads.map((spread, idx) => (
             <div key={idx} className="journal-book-spread">
@@ -716,7 +705,6 @@ export function JournalFeed({
       )}
 
       <div ref={mobileScrollRef} className="mobile-book-scroll">
-        {cover && <div className="mobile-book-page mobile-book-page-cover">{cover}</div>}
         {phonePages.map((pageEntries) => {
           const onlyStickies = pageEntries.every((e) => e.kind === "sticky");
           const withStickies = !onlyStickies && pageEntries.length > 1;
@@ -757,11 +745,11 @@ export function JournalFeed({
       </div>
 
       {/* Page counter */}
-      {phonePages.length + (cover ? 1 : 0) > 1 && (
+      {phonePages.length > 1 && (
         <div className="mobile-book-counter">
           <span>{mobileActiveIndex + 1}</span>
           <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
-          <span>{phonePages.length + (cover ? 1 : 0)}</span>
+          <span>{phonePages.length}</span>
         </div>
       )}
     </div>
