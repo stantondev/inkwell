@@ -123,7 +123,7 @@ defmodule Inkwell.Moderation.AutoModeration do
     lines = alerts |> Enum.reverse() |> Enum.take(40)
     more = if length(alerts) > 40, do: "\n…and #{length(alerts) - 40} more", else: ""
 
-    notify(header <> "\n" <> Enum.join(lines, "\n") <> more <> "\nhttps://inkwell.social/admin/moderation")
+    notify(header <> "\n" <> Enum.join(lines, "\n") <> more <> "\n#{Inkwell.Instance.frontend_url()}/admin/moderation")
     Map.delete(acc, :alerts)
   end
 
@@ -580,7 +580,7 @@ defmodule Inkwell.Moderation.AutoModeration do
       |> Repo.one()
 
     author = Repo.get(User, entry.user_id)
-    url = "https://inkwell.social/#{author && author.username}/#{entry.slug}"
+    url = "#{Inkwell.Instance.frontend_url()}/#{author && author.username}/#{entry.slug}"
 
     if trusted_reporter?(reporter) or reporters >= 2 do
       hide_entry!(entry, "reported as illegal content (#{reporters} reporter(s))")
@@ -615,7 +615,7 @@ defmodule Inkwell.Moderation.AutoModeration do
         end)
 
       notify(":shield: *Auto-moderation, last 24h*\n" <> Enum.join(lines, "\n") <>
-        "\nReview or undo: https://inkwell.social/admin/moderation")
+        "\nReview or undo: #{Inkwell.Instance.frontend_url()}/admin/moderation")
     end
 
     length(actions)

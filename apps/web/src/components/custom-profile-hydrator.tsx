@@ -21,6 +21,7 @@ import { ProfileSupportWidget } from "@/app/[username]/profile-support-widget";
 import { ProfileEntries } from "@/app/[username]/profile-entries";
 import { ProfileSearchFilter } from "@/app/[username]/profile-search-filter";
 import Link from "next/link";
+import { siteUrl } from "@/lib/site";
 
 interface HydratorProps {
   containerId: string;
@@ -192,7 +193,7 @@ export function CustomProfileHydrator({
                       Edit profile
                     </Link>
                     <ShareButton
-                      url={`https://inkwell.social/${username}`}
+                      url={siteUrl(`/${username}`)}
                       title={profile.display_name || username}
                       description={`@${username} on Inkwell`}
                     />
@@ -218,7 +219,7 @@ export function CustomProfileHydrator({
                       <BlockButton targetUsername={username} initialBlocked={false} />
                     )}
                     <ShareButton
-                      url={`https://inkwell.social/${username}`}
+                      url={siteUrl(`/${username}`)}
                       title={profile.display_name || username}
                       description={`@${username} on Inkwell`}
                     />

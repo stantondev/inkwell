@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSite } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Inkwell API",
@@ -7,9 +8,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Inkwell API — Developer Documentation",
     description: "Build integrations with Inkwell using the public API.",
-    url: "https://inkwell.social/developers",
+    url: "/developers",
   },
-  alternates: { canonical: "https://inkwell.social/developers" },
+  alternates: { canonical: "/developers" },
 };
 
 function CodeBlock({ children }: { children: string }) {
@@ -69,6 +70,13 @@ function Endpoint({ method, path, description, auth, scope }: {
 }
 
 export default function DevelopersPage() {
+  // inkwell.social's API lives on its own subdomain. A self-hosted server
+  // keeps its API inside Docker unless the operator publishes it and sets
+  // PUBLIC_API_URL (see SELF_HOSTING.md).
+  const site = getSite();
+  const publishedApi = (process.env.PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const apiBase = site.selfHosted ? publishedApi || "https://YOUR-API-ADDRESS" : "https://api.inkwell.social";
+
   return (
     <main
       className="mx-auto max-w-3xl px-4 py-12"
@@ -81,8 +89,13 @@ export default function DevelopersPage() {
         Inkwell API
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Build integrations with your journal &middot; Base URL: <code style={{ fontFamily: "monospace" }}>https://api.inkwell.social</code>
+        Build integrations with your journal &middot; Base URL: <code style={{ fontFamily: "monospace" }}>{apiBase}</code>
       </p>
+      {site.selfHosted && !publishedApi && (
+        <p className="text-sm -mt-6 mb-10 rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          {site.name} hasn&apos;t published its API. Ask {site.contactEmail} if you&apos;d like to use it.
+        </p>
+      )}
 
       <div className="flex flex-col gap-10 text-base leading-relaxed">
 
@@ -97,7 +110,7 @@ export default function DevelopersPage() {
           <p className="mb-3">
             Authenticate requests using an API key in the <code style={{ fontFamily: "monospace" }}>Authorization</code> header:
           </p>
-          <CodeBlock>{`curl https://api.inkwell.social/api/me \\
+          <CodeBlock>{`curl ${apiBase}/api/me \\
   -H "Authorization: Bearer ink_your_key_here"`}</CodeBlock>
           <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
             Create API keys in{" "}
@@ -214,7 +227,7 @@ export default function DevelopersPage() {
           >
             Example: Create an Entry
           </h2>
-          <CodeBlock>{`curl -X POST https://api.inkwell.social/api/entries \\
+          <CodeBlock>{`curl -X POST ${apiBase}/api/entries \\
   -H "Authorization: Bearer ink_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -438,7 +451,7 @@ export default function DevelopersPage() {
             </li>
             <li>Copy the key (it&apos;s shown only once)</li>
             <li>
-              Test with: <code style={{ fontFamily: "monospace" }}>curl -H &quot;Authorization: Bearer ink_...&quot; https://api.inkwell.social/api/me</code>
+              Test with: <code style={{ fontFamily: "monospace" }}>curl -H &quot;Authorization: Bearer ink_...&quot; {apiBase}/api/me</code>
             </li>
             <li>Start building your integration</li>
           </ol>

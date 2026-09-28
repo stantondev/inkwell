@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
+import { getSite } from "@/lib/site";
 import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
@@ -15,6 +16,9 @@ const AvatarBuilder = dynamic(
   { ssr: false, loading: () => <div style={{ padding: "1rem", color: "var(--muted)", textAlign: "center" }}>Loading builder...</div> }
 );
 const TOTAL_STEPS = 9;
+// "Choose your path" (Free / Plus / Founding / Ink Donor). A self-hosted
+// server has no payments and everyone has every feature, so it's skipped.
+const TIER_STEP = 5;
 
 const STEP_SUBTITLES = [
   "Choose your identity",
@@ -685,11 +689,16 @@ export default function WelcomePage() {
 
   // Clear any error when moving between steps so e.g. a checkout failure on
   // the tier screen doesn't keep showing on every later step.
+  const skipTierStep = getSite().selfHosted;
   function nextStep() {
-    if (step < TOTAL_STEPS - 1) { setError(""); setStep(step + 1); }
+    let next = step + 1;
+    if (skipTierStep && next === TIER_STEP) next++;
+    if (next <= TOTAL_STEPS - 1) { setError(""); setStep(next); }
   }
   function prevStep() {
-    if (step > 0) { setError(""); setStep(step - 1); }
+    let prev = step - 1;
+    if (skipTierStep && prev === TIER_STEP) prev--;
+    if (prev >= 0) { setError(""); setStep(prev); }
   }
 
   const canProceedStep0 = !username.trim() || (username.length >= 3 && usernameAvailable !== false);
@@ -719,7 +728,7 @@ export default function WelcomePage() {
           </div>
           <h1 className="text-2xl font-semibold mb-2"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            Welcome to Inkwell
+            {`Welcome to ${getSite().name}`}
           </h1>
           {/* One text node, keyed by step. Nine sibling `{step === n && "..."}`
               text nodes crashed the page under browser translation. */}
@@ -728,7 +737,11 @@ export default function WelcomePage() {
           </p>
         </div>
 
-        {step < TOTAL_STEPS - 1 && <StepDots current={step} total={TOTAL_STEPS - 1} />}
+        {step < TOTAL_STEPS - 1 && (
+          skipTierStep
+            ? <StepDots current={step > TIER_STEP ? step - 1 : step} total={TOTAL_STEPS - 2} />
+            : <StepDots current={step} total={TOTAL_STEPS - 1} />
+        )}
 
         <div className="rounded-2xl border p-6"
           style={{ borderColor: "var(--border)", background: "var(--surface)" }}>

@@ -85,7 +85,7 @@ defmodule InkwellWeb.CommentController do
             "body_html" => params["body_html"],
             "parent_comment_id" => params["parent_comment_id"],
             "user_icon_id" => Inkwell.Userpics.owned_id(user.id, params["user_icon_id"]),
-            "ap_id" => "https://inkwell.social/comments/#{:erlang.unique_integer([:positive])}"
+            "ap_id" => "https://#{Inkwell.Instance.instance_host()}/comments/#{:erlang.unique_integer([:positive])}"
           }
 
           # Convert @mentions to profile links in body_html
@@ -322,7 +322,7 @@ defmodule InkwellWeb.CommentController do
 
             activity = ActivityBuilder.build_reply_note(
               comment.body_html,
-              entry.ap_id,
+              ActivityBuilder.entry_ap_url(entry),
               user,
               comment.id,
               entry_author_ap_id

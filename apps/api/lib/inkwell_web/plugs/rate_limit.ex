@@ -117,8 +117,11 @@ defmodule InkwellWeb.Plugs.RateLimit do
   # Only honoured when THIS request's immediate peer is itself internal, i.e. it
   # actually arrived from our web tier. api.inkwell.social is publicly reachable,
   # so without that check anyone could forge the header directly.
+  # Off Fly.io (a self-hosted server) nothing sets Fly-Client-IP, so anyone
+  # could send both headers; there the forwarded chain is all we have.
   defp trusted_client_ip(conn) do
-    with [claimed | _] <- get_req_header(conn, "x-inkwell-client-ip"),
+    with true <- Application.get_env(:inkwell, :on_fly, true),
+         [claimed | _] <- get_req_header(conn, "x-inkwell-client-ip"),
          claimed = String.trim(claimed),
          true <- claimed != "",
          [peer | _] <- get_req_header(conn, "fly-client-ip"),

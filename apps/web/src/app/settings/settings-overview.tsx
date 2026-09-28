@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import {
-  SETTINGS_CATALOG,
+  settingsCatalog,
   SETTINGS_GROUPS,
   matchesQuery,
   type SettingsEntry,
@@ -94,14 +94,14 @@ export function SettingsOverview({
   );
 
   const results = useMemo(
-    () => SETTINGS_CATALOG.filter((e) => matchesQuery(e, query)),
+    () => settingsCatalog().filter((e) => matchesQuery(e, query)),
     [query]
   );
 
   const pinnedEntries = useMemo(
     () =>
       pinned
-        .map((id) => SETTINGS_CATALOG.find((e) => e.id === id))
+        .map((id) => settingsCatalog().find((e) => e.id === id))
         .filter((e): e is SettingsEntry => Boolean(e)),
     [pinned]
   );

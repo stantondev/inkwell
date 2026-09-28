@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { FAQ_CATEGORIES, FAQ_ITEMS } from "@/lib/faq-data";
+import { FAQ_CATEGORIES as ALL_FAQ_CATEGORIES, FAQ_ITEMS as ALL_FAQ_ITEMS } from "@/lib/faq-data";
+import { getSite, forThisSite, BILLING_HELP_CATEGORY } from "@/lib/site";
+
+// A self-hosted server takes no payments, so its FAQ leaves out billing.
+function faqCategories() {
+  return getSite().selfHosted ? ALL_FAQ_CATEGORIES.filter((c) => c.id !== BILLING_HELP_CATEGORY) : ALL_FAQ_CATEGORIES;
+}
+function faqItems() {
+  return getSite().selfHosted
+    ? ALL_FAQ_ITEMS.filter((f) => f.category !== BILLING_HELP_CATEGORY && f.id !== "what-is-plus")
+    : ALL_FAQ_ITEMS;
+}
 
 export function FaqAccordion({
   searchParamsPromise,
@@ -18,7 +29,7 @@ export function FaqAccordion({
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (hash) {
-      const item = FAQ_ITEMS.find((f) => f.id === hash);
+      const item = faqItems().find((f) => f.id === hash);
       if (item) {
         setActiveCategory(item.category);
         setOpenId(item.id);
@@ -30,8 +41,8 @@ export function FaqAccordion({
   }, []);
 
   const filtered = activeCategory
-    ? FAQ_ITEMS.filter((f) => f.category === activeCategory)
-    : FAQ_ITEMS;
+    ? faqItems().filter((f) => f.category === activeCategory)
+    : faqItems();
 
   return (
     <>
@@ -48,7 +59,7 @@ export function FaqAccordion({
         >
           All
         </button>
-        {FAQ_CATEGORIES.map((cat) => (
+        {faqCategories().map((cat) => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id === activeCategory ? null : cat.id)}
@@ -110,7 +121,7 @@ export function FaqAccordion({
                 <div
                   className="px-5 pb-5 text-sm leading-relaxed faq-answer"
                   style={{ color: "var(--foreground)" }}
-                  dangerouslySetInnerHTML={{ __html: item.answer }}
+                  dangerouslySetInnerHTML={{ __html: forThisSite(item.answer) }}
                 />
               )}
             </div>

@@ -4,6 +4,7 @@ import { SERVER_API } from "@/lib/api";
 import { decodeEntities } from "@/lib/decode-entities";
 import { fediverseHandle } from "@/lib/fediverse";
 import { PenNibIcon, truncate, ogFonts, fetchImageDataUri } from "../../og-shared";
+import { getSite } from "@/lib/site";
 
 /**
  * The link-preview picture for a writer's journal (og:image on their profile).
@@ -166,7 +167,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
   ]
     .filter(Boolean)
     .join("  ·  ");
-  const site = payload?.meta?.custom_domain || `inkwell.social/${user.username}`;
+  const site = payload?.meta?.custom_domain || `${getSite().host}/${user.username}`;
   const bannerH = banner ? 190 : 0;
   const portrait = banner ? 150 : 200;
   const titles = recent.slice(0, banner ? 2 : 3);

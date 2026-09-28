@@ -10,6 +10,8 @@ import {
   SOURCE_KEYS,
   WHY_INKWELL,
 } from "./switch-shared";
+import { getSite } from "@/lib/site";
+import { notFound } from "next/navigation";
 
 const TITLE = "Bring your writing to Inkwell";
 const DESCRIPTION =
@@ -21,13 +23,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: "https://inkwell.social/switch",
+    url: "/switch",
     type: "website",
   },
-  alternates: { canonical: "https://inkwell.social/switch" },
+  alternates: { canonical: "/switch" },
 };
 
 export default function SwitchIndexPage() {
+  // A page about inkwell.social itself; a self-hosted server has no such thing.
+  if (getSite().selfHosted) notFound();
   return (
     <div className="mx-auto max-w-3xl px-4 py-12" style={{ color: "var(--foreground)" }}>
       {/* Hero */}

@@ -115,7 +115,7 @@ export async function generateMetadata({ params, searchParams }: TagPageProps): 
 
   // Tags match without regard to case, so /tag/Inkwell and /tag/inkwell are
   // one page; the sitemap lists the lowercase form too.
-  const canonical = `https://inkwell.social/tag/${encodeURIComponent(tagName.toLowerCase())}`;
+  const canonical = `/tag/${encodeURIComponent(tagName.toLowerCase())}`;
 
   return {
     ...(view.indexable ? {} : { robots: { index: false, follow: true } }),

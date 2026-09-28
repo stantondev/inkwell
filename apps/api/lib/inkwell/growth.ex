@@ -89,7 +89,7 @@ defmodule Inkwell.Growth do
       h == "" -> nil
       String.length(h) > 253 -> nil
       not Regex.match?(~r/^[a-z0-9.-]+$/, h) -> nil
-      h in @own_hosts or String.ends_with?(h, ".inkwell.social") -> nil
+      h in @own_hosts or h == Inkwell.Instance.frontend_host() or String.ends_with?(h, ".inkwell.social") -> nil
       true -> h
     end
   end

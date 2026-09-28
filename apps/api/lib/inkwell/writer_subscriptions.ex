@@ -36,7 +36,7 @@ defmodule Inkwell.WriterSubscriptions do
   @doc "Create a subscription plan for a writer. Requires Plus + Connect enabled + no existing active plan."
   def create_plan(%User{} = writer, attrs) do
     cond do
-      writer.subscription_tier != "plus" ->
+      Inkwell.SelfHosted.effective_tier(writer) != "plus" ->
         {:error, :requires_plus}
 
       !writer.stripe_connect_enabled ->

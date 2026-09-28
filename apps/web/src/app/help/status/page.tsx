@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "The Press Room — Inkwell System Status",
     description: "Check the current operational status of Inkwell's systems.",
-    url: "https://inkwell.social/help/status",
+    url: "/help/status",
   },
-  alternates: { canonical: "https://inkwell.social/help/status" },
+  alternates: { canonical: "/help/status" },
 };
 
 interface HealthResponse {

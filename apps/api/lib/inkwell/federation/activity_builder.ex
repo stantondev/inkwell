@@ -1356,13 +1356,13 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   # Resolves the AP ID of the quoted entry (local or remote)
-  defp resolve_quoted_ap_id(entry, frontend_host) do
+  defp resolve_quoted_ap_id(entry, _frontend_host) do
     cond do
-      # Local quoted entry — AP ID is the entry's ap_id field
+      # Local quoted entry — the id we publish it under
       Map.get(entry, :quoted_entry_id) != nil ->
         case Inkwell.Repo.get(Inkwell.Journals.Entry, entry.quoted_entry_id) do
           nil -> nil
-          quoted -> quoted.ap_id || "#{frontend_host}/entries/#{quoted.id}"
+          quoted -> entry_ap_url(quoted)
         end
 
       # Remote quoted entry — AP ID is the remote entry's ap_id field

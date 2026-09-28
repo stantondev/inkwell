@@ -14,12 +14,26 @@ defmodule Inkwell.Email do
 
   # ── Public API ──
 
+  # With no email service, local development hands the link back so the page
+  # can show it. A self-hosted server is public: handing back a sign-in link
+  # would let anyone sign in as anyone by typing their address. There the link
+  # is only in the server log (logged by the caller) and the page says to
+  # check email, as it would if one had been sent.
+  defp link_result(url) do
+    if Inkwell.SelfHosted.enabled?() do
+      Logger.warning("Email isn't set up on this server, so the link above was not sent. See SELF_HOSTING.md → Email.")
+      {:ok, :sent}
+    else
+      {:ok, :no_email_configured, url}
+    end
+  end
+
   @doc "Send a magic link email to the given address."
   def send_magic_link(to_email, magic_link_url) do
-    case do_send_email(to_email, "Sign in to Inkwell", magic_link_html(magic_link_url)) do
+    case do_send_email(to_email, "Sign in to #{Inkwell.Instance.name()}", magic_link_html(magic_link_url)) do
       {:ok, :no_email_configured} ->
         Logger.warning("No email configured — magic link: #{magic_link_url}")
-        {:ok, :no_email_configured, magic_link_url}
+        link_result(magic_link_url)
 
       result ->
         result
@@ -28,7 +42,7 @@ defmodule Inkwell.Email do
 
   @doc "Send a feedback email from a user to the Inkwell team."
   def send_feedback(user, category, message) do
-    feedback_to = Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social")
+    feedback_to = Inkwell.Instance.contact_email()
     subject = "[Inkwell Feedback] #{String.capitalize(category)} from @#{user.username}"
 
     case do_send_email(feedback_to, subject, feedback_html(user, category, message)) do
@@ -58,7 +72,7 @@ defmodule Inkwell.Email do
     case do_send_email(to_email, "Verify your new email on Inkwell", email_change_verification_html(verify_url)) do
       {:ok, :no_email_configured} ->
         Logger.warning("No email configured — email change verify link: #{verify_url}")
-        {:ok, :no_email_configured, verify_url}
+        link_result(verify_url)
 
       result ->
         result
@@ -73,7 +87,7 @@ defmodule Inkwell.Email do
     case do_send_email(to_email, subject, newsletter_confirmation_html(writer_name, confirm_url)) do
       {:ok, :no_email_configured} ->
         Logger.warning("No email configured — newsletter confirm link: #{confirm_url}")
-        {:ok, :no_email_configured, confirm_url}
+        link_result(confirm_url)
 
       result ->
         result
@@ -125,7 +139,7 @@ defmodule Inkwell.Email do
 
   @doc "Send a support request email from the contact form."
   def send_support_request(from_email, category, subject, message, username \\ nil) do
-    support_to = Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social")
+    support_to = Inkwell.Instance.contact_email()
     email_subject = "[Inkwell Support] #{String.capitalize(category)}: #{subject}"
 
     user_info = if username, do: " (@#{username})", else: ""
@@ -145,7 +159,7 @@ defmodule Inkwell.Email do
     </div>
     """
 
-    case do_send_email(support_to, email_subject, html, from: "Inkwell Support <hello@inkwell.social>", headers: %{"Reply-To" => from_email}) do
+    case do_send_email(support_to, email_subject, html, from: support_from(), headers: %{"Reply-To" => from_email}) do
       {:ok, :no_email_configured} ->
         Logger.warning("No email configured — support request from #{from_email}: [#{category}] #{subject}")
         {:ok, :no_email_configured}
@@ -259,14 +273,18 @@ defmodule Inkwell.Email do
     body = """
     Hi,
 
-    Your Inkwell account @#{user.username} has been suspended because our automated spam checks flagged it. Your posts are hidden, not deleted.
+    Your #{Inkwell.Instance.name()} account @#{user.username} has been suspended because our automated spam checks flagged it. Your posts are hidden, not deleted.
 
-    If this is a mistake, we're sorry. Email hello@inkwell.social from this address and a person will review it and restore your account.
+    If this is a mistake, we're sorry. Email #{Inkwell.Instance.contact_email()} from this address and a person will review it and restore your account.
 
-    — Inkwell
+    — #{Inkwell.Instance.name()}
     """
 
-    do_send_email(user.email, "Your Inkwell account has been suspended", announcement_html(body, "https://inkwell.social/help/contact"))
+    do_send_email(
+      user.email,
+      "Your #{Inkwell.Instance.name()} account has been suspended",
+      announcement_html(body, "#{Inkwell.Instance.frontend_url()}/help/contact")
+    )
   end
 
   @doc """
@@ -287,7 +305,7 @@ defmodule Inkwell.Email do
     # real for the reply to go; the default sender is noreply@.
     headers =
       if opts[:replyable] do
-        Map.put(headers, "Reply-To", Application.get_env(:inkwell, :feedback_email, "hello@inkwell.social"))
+        Map.put(headers, "Reply-To", Inkwell.Instance.contact_email())
       else
         headers
       end
@@ -428,10 +446,10 @@ defmodule Inkwell.Email do
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
           <p style="margin: 0 0 8px;">
             You received this because you subscribed to #{escape_html(writer_name)}'s newsletter on
-            <a href="https://inkwell.social" style="color: #2d4a8a; text-decoration: none;">Inkwell</a>.
+            <a href="#{Inkwell.Instance.frontend_url()}" style="color: #2d4a8a; text-decoration: none;">#{escape_html(Inkwell.Instance.name())}</a>.
           </p>
           <p style="margin: 0 0 8px;">
-            <a href="https://inkwell.social/get-started?ref=newsletter" style="color: #2d4a8a; text-decoration: none;">Start your own journal on Inkwell</a> &mdash; free, no ads, no algorithms.
+            <a href="#{Inkwell.Instance.frontend_url()}/get-started?ref=newsletter" style="color: #2d4a8a; text-decoration: none;">Start your own journal on #{escape_html(Inkwell.Instance.name())}</a> &mdash; free, no ads, no algorithms.
           </p>
           <p style="margin: 0;">
             <a href="{{UNSUBSCRIBE_URL}}" style="color: #999; text-decoration: underline;">Unsubscribe</a> &middot;
@@ -442,6 +460,16 @@ defmodule Inkwell.Email do
     </body>
     </html>
     """
+  end
+
+  # inkwell.social sends support mail from hello@; anywhere else, from the
+  # instance's own sender address (mail from someone else's domain fails SPF).
+  defp support_from do
+    if Inkwell.Instance.inkwell_social?() do
+      "Inkwell Support <hello@inkwell.social>"
+    else
+      "#{Inkwell.Instance.name()} Support <#{Inkwell.Instance.from_address()}>"
+    end
   end
 
   # ── Email Provider Dispatch ──
@@ -1014,7 +1042,7 @@ defmodule Inkwell.Email do
         """
         <p style="font-size: 13px; color: #666; line-height: 1.6; margin: 24px 0 0 0;">
           You may appeal this decision by replying to this email or writing to
-          <a href="mailto:hello@inkwell.social" style="color: #2d4a8a;">hello@inkwell.social</a>.
+          <a href="mailto:#{Inkwell.Instance.contact_email()}" style="color: #2d4a8a;">#{Inkwell.Instance.contact_email()}</a>.
           We're human too and we'd rather have a conversation than make a mistake.
         </p>
         """
@@ -1025,7 +1053,7 @@ defmodule Inkwell.Email do
           suspension. If you accumulate <strong>#{threshold}</strong> warnings your
           account will be automatically suspended. If you believe this warning was issued
           in error, reply to this email or write to
-          <a href="mailto:hello@inkwell.social" style="color: #2d4a8a;">hello@inkwell.social</a>.
+          <a href="mailto:#{Inkwell.Instance.contact_email()}" style="color: #2d4a8a;">#{Inkwell.Instance.contact_email()}</a>.
         </p>
         """
       end

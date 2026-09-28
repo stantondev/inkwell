@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GUIDELINES_PAGES } from "@/lib/community-guidelines";
+import { forThisSite, getSite } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Community Guidelines",
@@ -8,9 +9,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Community Guidelines — Inkwell",
     description: "The standards that keep the Inkwell community safe and welcoming.",
-    url: "https://inkwell.social/guidelines",
+    url: "/guidelines",
   },
-  alternates: { canonical: "https://inkwell.social/guidelines" },
+  alternates: { canonical: "/guidelines" },
 };
 
 export default function GuidelinesPage() {
@@ -47,7 +48,7 @@ export default function GuidelinesPage() {
             </h2>
             {page.body.map((paragraph, i) => (
               <p key={i} className={i > 0 ? "mt-3" : ""}>
-                {paragraph}
+                {forThisSite(paragraph)}
               </p>
             ))}
           </section>
@@ -63,8 +64,8 @@ export default function GuidelinesPage() {
           <p>
             If you have questions about these guidelines or need to report a concern,
             reach out to us at{" "}
-            <a href="mailto:hello@inkwell.social" className="underline" style={{ color: "var(--accent)" }}>
-              hello@inkwell.social
+            <a href={`mailto:${getSite().contactEmail}`} className="underline" style={{ color: "var(--accent)" }}>
+              {getSite().contactEmail}
             </a>{" "}
             or through the{" "}
             <Link href="/roadmap" className="underline" style={{ color: "var(--accent)" }}>

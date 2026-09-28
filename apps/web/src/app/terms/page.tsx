@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSite } from "@/lib/site";
+import { OperatorPolicy } from "@/components/operator-policy";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -7,12 +9,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Terms of Service — Inkwell",
     description: "The rules that govern your use of Inkwell.",
-    url: "https://inkwell.social/terms",
+    url: "/terms",
   },
-  alternates: { canonical: "https://inkwell.social/terms" },
+  alternates: { canonical: "/terms" },
 };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  // inkwell.social's own policy; a self-hosted server publishes its own.
+  if (getSite().selfHosted) return <OperatorPolicy kind="terms" />;
+
   return (
     <main
       className="mx-auto max-w-3xl px-4 py-12"

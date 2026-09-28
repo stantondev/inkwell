@@ -7,6 +7,7 @@
  * created account (Inkwell.Growth). Host only, never the full referring URL.
  */
 import type { NextRequest } from "next/server";
+import { getSite } from "@/lib/site";
 
 export const ATTRIBUTION_COOKIE = "inkwell_attr";
 export const ATTRIBUTION_MAX_AGE = 60 * 60 * 24 * 60; // 60 days
@@ -39,7 +40,7 @@ export function firstVisitAttribution(request: NextRequest): Attribution | null 
   if (referer) {
     try {
       const host = new URL(referer).hostname.toLowerCase();
-      if (host && !OWN_HOSTS.has(host) && !host.endsWith(".inkwell.social")) attr.host = host;
+      if (host && !OWN_HOSTS.has(host) && host !== getSite().host && !host.endsWith(".inkwell.social")) attr.host = host;
     } catch {
       // unparseable referer: ignore
     }

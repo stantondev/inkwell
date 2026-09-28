@@ -78,7 +78,17 @@ defmodule Inkwell.HtmlSanitizer do
 
   defp own_link?(url) do
     host = URI.parse(url).host
-    is_binary(host) and String.downcase(host) in @own_hosts
+    is_binary(host) and String.downcase(host) in own_hosts()
+  end
+
+  # A self-hosted server's own links are its own; inkwell.social's aren't.
+  defp own_hosts do
+    if Inkwell.Instance.inkwell_social?() do
+      @own_hosts
+    else
+      host = Inkwell.Instance.frontend_host()
+      [host, "www." <> host]
+    end
   end
 
   defp put_external_rel(tag) do

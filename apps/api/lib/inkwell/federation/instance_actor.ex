@@ -37,7 +37,7 @@ defmodule Inkwell.Federation.InstanceActor do
       email: "relay@localhost",
       display_name: "Inkwell Relay",
       bio: "Instance relay actor for fediverse relay subscriptions.",
-      ap_id: "https://inkwell.social/users/#{@relay_username}",
+      ap_id: "https://#{Inkwell.Instance.instance_host()}/users/#{@relay_username}",
       public_key: public_pem,
       private_key: private_pem,
       role: "user",

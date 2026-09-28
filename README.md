@@ -144,15 +144,11 @@ mix compile
 
 ## Self-Hosting
 
-Inkwell can run on any server with Docker Compose. The self-hosted mode unlocks all Plus features for every user without Stripe.
+Inkwell runs on any x86-64 server with Docker Compose, on one domain of your own, with every feature on for everyone and no billing. Three settings to start (`DOMAIN`, `ADMIN_EMAIL`, `SECRET_KEY_BASE`); Caddy handles HTTPS; members are followable as `@name@yourdomain`.
 
-See **[SELF_HOSTING.md](SELF_HOSTING.md)** for the full guide, including:
-- Quick start (5 steps)
-- SMTP email configuration (Gmail, Fastmail, Mailgun examples)
-- Caddy reverse proxy with automatic HTTPS
-- Backup, restore, and upgrade instructions
+See **[SELF_HOSTING.md](SELF_HOSTING.md)** for the guide: install, email, your own Terms and Privacy Policy, backups, upgrades and troubleshooting.
 
-Pre-built Docker images are published to GitHub Container Registry on every push to `main`:
+Images are published to GitHub Container Registry on every push to `main`, tagged with the commit. `:latest` moves only after that commit's images have booted the self-hosted setup and passed [`scripts/selfhost-smoke.sh`](scripts/selfhost-smoke.sh):
 - `ghcr.io/stantondev/inkwell-api:latest`
 - `ghcr.io/stantondev/inkwell-web:latest`
 
@@ -171,7 +167,7 @@ fly deploy --config fly.web.toml --wait-timeout 600
 fly deploy --config fly.search.toml --wait-timeout 600
 ```
 
-CI/CD via GitHub Actions (`.github/workflows/docker-publish.yml`) builds and pushes Docker images on every push to `main`.
+CI/CD via GitHub Actions (`.github/workflows/docker-publish.yml`) builds Docker images on every push to `main`, runs the self-hosting smoke test against them, then tags them `latest`.
 
 ## License
 

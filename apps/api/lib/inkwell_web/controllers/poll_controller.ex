@@ -474,7 +474,7 @@ defmodule InkwellWeb.PollController do
 
       comment ->
         is_owner = comment.user_id == user.id
-        is_admin = user.role == "admin"
+        is_admin = Accounts.is_admin?(user)
 
         if is_owner || is_admin do
           case Polls.delete_comment(comment) do

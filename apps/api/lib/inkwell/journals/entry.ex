@@ -435,7 +435,7 @@ defmodule Inkwell.Journals.Entry do
         end
 
       entry_id = get_field(changeset, :id)
-      put_change(changeset, :ap_id, "https://inkwell.social/entries/#{entry_id}")
+      put_change(changeset, :ap_id, "https://#{Inkwell.Instance.instance_host()}/entries/#{entry_id}")
     else
       changeset
     end

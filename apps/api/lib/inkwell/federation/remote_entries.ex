@@ -45,15 +45,14 @@ defmodule Inkwell.Federation.RemoteEntries do
   2. The body content is primarily a link back to an Inkwell entry (crosspost from Mastodon)
   """
   def points_to_self?(attrs) do
-    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
-    self_host = URI.parse(frontend_url).host
+    self_host = Inkwell.Instance.frontend_host()
 
     url_points_to_self =
       Enum.any?([:url, :ap_id], fn key ->
         case Map.get(attrs, key) do
           url when is_binary(url) ->
             case URI.parse(url) do
-              %URI{host: host} when is_binary(host) -> String.downcase(host) == self_host
+              %URI{host: host} when is_binary(host) -> Inkwell.Instance.local_host?(host)
               _ -> false
             end
           _ -> false

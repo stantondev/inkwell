@@ -86,9 +86,9 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
     openGraph: {
       title: `${label ?? slug} — Inkwell`,
       description: `Browse ${label ?? slug} journal entries on Inkwell.`,
-      url: `https://inkwell.social/category/${slug}`,
+      url: `/category/${slug}`,
     },
-    alternates: { canonical: `https://inkwell.social/category/${slug}` },
+    alternates: { canonical: `/category/${slug}` },
   };
 }
 

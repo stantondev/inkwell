@@ -6,6 +6,8 @@
  * shows up everywhere at once.
  */
 
+import { getSite } from "@/lib/site";
+
 const iconProps = {
   width: 18,
   height: 18,
@@ -329,6 +331,14 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     keywords: ["close", "remove", "danger", "cancel"],
   },
 ];
+
+/**
+ * The entries this server offers. Custom domains need inkwell.social's
+ * certificate service, so a self-hosted server leaves them out.
+ */
+export function settingsCatalog(): SettingsEntry[] {
+  return getSite().selfHosted ? SETTINGS_CATALOG.filter((e) => e.id !== "domain") : SETTINGS_CATALOG;
+}
 
 /** Look an entry up by pathname — longest matching href wins. */
 export function entryForPath(pathname: string): SettingsEntry | undefined {

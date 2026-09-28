@@ -1,14 +1,23 @@
 # ──────────────────────────────────────────────────────────────
 # Inkwell — Self-Hosted Docker Compose
 #
-# Quick start:
 #   1. cp .env.example .env
-#   2. Fill in SECRET_KEY_BASE, DOMAIN, and email config
+#   2. Fill in DOMAIN, ADMIN_EMAIL and SECRET_KEY_BASE (see .env.example)
 #   3. docker compose -f docker-compose.selfhosted.yml up -d
 #
-# Caddy handles HTTPS automatically via Let's Encrypt.
-# See SELF_HOSTING.md for full documentation.
+# Everything runs on ONE domain. Caddy gets its HTTPS certificate
+# automatically. See SELF_HOSTING.md for the full guide.
+#
+# Choose DOMAIN before anyone signs up: it becomes part of every member's
+# fediverse address (@name@DOMAIN) and can't be changed later.
 # ──────────────────────────────────────────────────────────────
+
+x-site: &site
+  # The one address everything is built from
+  SITE_URL: https://${DOMAIN:?Set DOMAIN in .env}
+  INSTANCE_NAME: ${INSTANCE_NAME:-}
+  CONTACT_EMAIL: ${CONTACT_EMAIL:-${ADMIN_EMAIL:?Set ADMIN_EMAIL in .env}}
+  INKWELL_SELF_HOSTED: "true"
 
 services:
   # ── PostgreSQL 16 ───────────────────────────────────────────
@@ -28,13 +37,12 @@ services:
       retries: 5
 
   # ── Caddy (automatic HTTPS) ────────────────────────────────
-  # Handles TLS certificates via Let's Encrypt automatically.
-  # Set DOMAIN and API_HOST in .env for production.
+  # Serves https://DOMAIN and passes everything to the web app.
   #
-  # If you already have a reverse proxy (Nginx, Traefik, etc.):
-  #   1. Remove or comment out this caddy service
-  #   2. Uncomment the "ports:" lines on the api and web services
-  #   3. Point your proxy at localhost:4000 (API) and localhost:3000 (web)
+  # If you already run a reverse proxy (Nginx, Traefik, ...):
+  #   1. Remove this caddy service
+  #   2. Uncomment the "ports:" lines on the web service
+  #   3. Proxy https://DOMAIN to localhost:3000, keeping the Host header
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -47,27 +55,28 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      DOMAIN: ${DOMAIN:-localhost}
-      API_HOST: ${API_HOST:-api.localhost}
+      DOMAIN: ${DOMAIN}
     depends_on:
       - web
-      - api
 
   # ── Meilisearch (optional — search works without it) ────────
+  # Start with: docker compose -f docker-compose.selfhosted.yml --profile search up -d
+  # and set MEILI_MASTER_KEY in .env.
   meilisearch:
     image: getmeili/meilisearch:latest
     restart: unless-stopped
     environment:
       MEILI_ENV: production
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
     volumes:
       - meili_data:/meili_data
     profiles:
       - search
 
   # ── Phoenix API ─────────────────────────────────────────────
+  # Not published to the internet: the web app talks to it inside Docker.
   api:
-    image: ghcr.io/stantondev/inkwell-api:latest
+    image: ghcr.io/stantondev/inkwell-api:${INKWELL_VERSION:-latest}
     # To build from source instead, comment out "image:" and uncomment:
     # build:
     #   context: .
@@ -76,24 +85,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Uncomment to expose the API directly (when not using Caddy):
-    # ports:
-    #   - "${API_PORT:-4000}:4000"
     environment:
-      # Core
+      <<: *site
       DATABASE_URL: ecto://inkwell:${POSTGRES_PASSWORD:-inkwell}@db/inkwell
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
-      PHX_HOST: ${API_HOST:-localhost}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Set SECRET_KEY_BASE in .env (openssl rand -base64 64)}
       PORT: "4000"
+      # Signs you in as admin; add more addresses separated by commas
+      ADMIN_EMAILS: ${ADMIN_EMAIL}
+      # For the SMTP relay's greeting
+      HOSTNAME: ${DOMAIN}
 
-      # Self-hosted mode — unlocks all Plus features
-      INKWELL_SELF_HOSTED: "true"
-
-      # Frontend URL (for magic link redirects, CORS, etc.)
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      API_URL: ${API_URL:-http://localhost:4000}
-
-      # Email — SMTP (recommended) or Resend
+      # Email: SMTP (recommended) or Resend. Leave blank to start without
+      # email; sign-in links are then written to `docker compose logs api`.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
@@ -101,42 +104,42 @@ services:
       SMTP_SSL: ${SMTP_SSL:-false}
       SMTP_AUTH: ${SMTP_AUTH:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      FROM_EMAIL: ${FROM_EMAIL:-Inkwell <noreply@localhost>}
+      FROM_EMAIL: ${FROM_EMAIL:-}
 
-      # Admin
-      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
-
-      # Federation
-      INSTANCE_HOST: ${API_HOST:-localhost}
-      HOSTNAME: ${DOMAIN:-localhost}
-
-      # Search (optional)
+      # Search (only with the "search" profile)
       MEILI_URL: ${MEILI_URL:-}
       MEILI_API_KEY: ${MEILI_MASTER_KEY:-}
 
-      # Optional integrations
+      # Optional
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       DEEPL_API_KEY: ${DEEPL_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      MUSE_ENABLED: ${MUSE_ENABLED:-false}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      POSTMARK_INBOUND_TOKEN: ${POSTMARK_INBOUND_TOKEN:-}
+      POST_EMAIL_DOMAIN: ${POST_EMAIL_DOMAIN:-}
 
   # ── Next.js Frontend ────────────────────────────────────────
   web:
-    image: ghcr.io/stantondev/inkwell-web:latest
+    image: ghcr.io/stantondev/inkwell-web:${INKWELL_VERSION:-latest}
     # To build from source instead, comment out "image:" and uncomment:
     # build:
     #   context: .
     #   dockerfile: apps/web/Dockerfile
-    #   args:
-    #     NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:4000}
     restart: unless-stopped
     depends_on:
       - api
-    # Uncomment to expose the frontend directly (when not using Caddy):
+    # Uncomment to expose the web app directly (when not using Caddy):
     # ports:
     #   - "${WEB_PORT:-3000}:3000"
+    volumes:
+      # Your own Terms of Service and Privacy Policy (see SELF_HOSTING.md)
+      - ./legal:/app/legal:ro
     environment:
+      <<: *site
       API_URL: http://api:4000
+      LEGAL_DIR: /app/legal
+      TERMS_URL: ${TERMS_URL:-}
+      PRIVACY_URL: ${PRIVACY_URL:-}
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
 

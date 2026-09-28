@@ -174,21 +174,7 @@ defmodule Inkwell.Guestbook.Federation do
 
   def target_owner(_), do: nil
 
-  defp local_host?(host) do
-    config = Application.get_env(:inkwell, :federation, [])
-
-    ours =
-      [
-        "https://#{Keyword.get(config, :instance_host)}",
-        Keyword.get(config, :frontend_host),
-        InkwellWeb.Endpoint.url()
-      ]
-      |> Enum.filter(&is_binary/1)
-      |> Enum.map(&URI.parse(&1).host)
-      |> Kernel.++(~w(inkwell.social www.inkwell.social api.inkwell.social inkwell-api.fly.dev))
-
-    String.downcase(host) in ours
-  end
+  defp local_host?(host), do: Inkwell.Instance.local_host?(host)
 
   @doc "Tell the signer's server we kept their signature (FEP-400e `Add`)."
   def send_add(%User{} = owner, note_id, signer_ap_id) do

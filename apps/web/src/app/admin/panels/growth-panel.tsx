@@ -13,6 +13,7 @@ import {
   story,
   type Recent,
 } from "../growth/growth-words";
+import { getSite, siteUrl } from "@/lib/site";
 
 interface Row {
   key: string | null;
@@ -149,7 +150,7 @@ function LinkBuilder() {
   const [copied, setCopied] = useState(false);
   const clean = tag.toLowerCase().replace(/[^a-z0-9_.-]/g, "").slice(0, 64);
   const path = page.trim().replace(/^https?:\/\/(www\.)?inkwell\.social/i, "").replace(/^\/?/, "/");
-  const url = `https://inkwell.social${path === "/" ? "/" : path}${clean ? `?ref=${clean}` : ""}`;
+  const url = `${siteUrl(path === "/" ? "/" : path)}${clean ? `?ref=${clean}` : ""}`;
 
   async function copy() {
     try {
@@ -423,7 +424,7 @@ export default function GrowthPanel() {
             <dl className="gr-words">
               <dt><span>Link tag (<code>ref=</code>)</span></dt>
               <dd>
-                The label on the end of the link someone clicked, like <code>inkwell.social/?ref=reddit</code>.
+                The label on the end of the link someone clicked, like <code>{getSite().host}/?ref=reddit</code>.
                 You add these to links you share (use the box below). Some sites add their own:
                 <strong> ChatGPT puts <code>utm_source=chatgpt.com</code> on every link it shows</strong>, so
                 “ref=chatgpt.com” means that person clicked a link to Inkwell inside a ChatGPT answer.

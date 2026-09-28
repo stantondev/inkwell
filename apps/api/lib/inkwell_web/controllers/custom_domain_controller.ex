@@ -25,6 +25,21 @@ defmodule InkwellWeb.CustomDomainController do
     end
   end
 
+  # Connecting a domain needs Fly.io's certificate service, which only
+  # inkwell.social has.
+  plug :refuse_when_self_hosted when action in [:create, :check]
+
+  defp refuse_when_self_hosted(conn, _opts) do
+    if Inkwell.SelfHosted.enabled?() do
+      conn
+      |> put_status(:not_found)
+      |> json(%{error: "Custom domains aren't available on this server."})
+      |> halt()
+    else
+      conn
+    end
+  end
+
   @doc "POST /api/custom-domain — authenticated, Plus-only, creates a custom domain."
   def create(conn, %{"domain" => domain}) do
     user = conn.assigns.current_user

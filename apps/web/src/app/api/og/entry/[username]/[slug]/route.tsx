@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { decodeEntities } from "@/lib/decode-entities";
 import { PenNibIcon, truncate, ogFonts, fetchImageDataUri } from "../../../og-shared";
+import { getSite } from "@/lib/site";
 
 /**
  * The link-preview picture for an entry or sticky (og:image / twitter:image).
@@ -496,7 +497,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
   const authorUsername = entry.author?.username ?? username;
   const name = clean(entry.author?.display_name || authorUsername) || authorUsername;
   const avatar = await fetchAvatar(authorUsername);
-  const site = entry.custom_domain || "inkwell.social";
+  const site = entry.custom_domain || getSite().host;
   const handle = `@${authorUsername}`;
   const warning = entry.is_sensitive ? clean(entry.content_warning ?? "") : null;
   const title = entry.title ? clean(entry.title) : null;

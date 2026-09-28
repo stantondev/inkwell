@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { PenNibIcon, ogFonts } from "./og-shared";
+import { getSite } from "@/lib/site";
 
 function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
@@ -51,7 +52,7 @@ function EntryCard({
         fontFamily: "Lora",
       }}
     >
-      {/* Top: pen nib + inkwell.social */}
+      {/* Top: pen nib + the site's address */}
       <div
         style={{
           display: "flex",
@@ -68,7 +69,7 @@ function EntryCard({
             letterSpacing: "0.02em",
           }}
         >
-          inkwell.social
+          {getSite().host}
         </span>
       </div>
 
@@ -160,7 +161,7 @@ function ProfileCard({
         fontFamily: "Lora",
       }}
     >
-      {/* Top: pen nib + inkwell.social */}
+      {/* Top: pen nib + the site's address */}
       <div
         style={{
           display: "flex",
@@ -177,7 +178,7 @@ function ProfileCard({
             letterSpacing: "0.02em",
           }}
         >
-          inkwell.social
+          {getSite().host}
         </span>
       </div>
 

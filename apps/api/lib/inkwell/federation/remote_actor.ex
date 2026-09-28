@@ -189,9 +189,10 @@ defmodule Inkwell.Federation.RemoteActor do
   there is no instance actor yet.
   """
   def instance_signing_headers(url) do
-    # Use the instance actor (relay user) to sign outbound GETs.
-    # Lazy lookup — don't create the actor just for signing GETs.
-    case Repo.get_by(Inkwell.Accounts.User, username: "relay") do
+    # Use the instance actor (relay user) to sign outbound GETs. inkwell.social
+    # has one; a fresh self-hosted instance creates it here, or every server
+    # running authorized fetch would refuse its reads.
+    case instance_actor() do
       nil ->
         :error
 
@@ -208,6 +209,21 @@ defmodule Inkwell.Federation.RemoteActor do
           end)
 
         {:ok, charlist_headers}
+    end
+  end
+
+  defp instance_actor do
+    case Repo.get_by(Inkwell.Accounts.User, username: "relay") do
+      nil ->
+        if Inkwell.SelfHosted.enabled?() do
+          case Inkwell.Federation.InstanceActor.get_or_create() do
+            {:ok, actor} -> actor
+            _ -> nil
+          end
+        end
+
+      actor ->
+        actor
     end
   end
 

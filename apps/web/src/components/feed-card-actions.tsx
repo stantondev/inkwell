@@ -22,6 +22,7 @@ const CommentEditor = dynamic(
 import { CommentNode } from "@/app/[username]/[slug]/comment-node";
 import { buildThreadTree, countThreadComments, timeAgo } from "@/lib/comment-utils";
 import type { Comment, CommentThread } from "@/lib/comment-utils";
+import { siteUrl } from "@/lib/site";
 
 interface FeedComment {
   id: string;
@@ -696,7 +697,7 @@ export function FeedCardActions({
 
         {/* Share button */}
         <ShareButton
-          url={externalUrl || `https://inkwell.social${entryHref}`}
+          url={externalUrl || siteUrl(entryHref)}
           title={entryTitle || "Entry"}
           description={entryTitle ? `"${entryTitle}" on Inkwell` : "A journal entry on Inkwell"}
         />

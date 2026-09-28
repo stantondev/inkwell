@@ -87,9 +87,9 @@ defmodule InkwellWeb.FederationController do
   def webfinger(conn, %{"resource" => resource}) do
     instance_host = federation_config(:instance_host)
 
-    # Accept requests for both the canonical domain and the API domain
-    # so WebFinger works whether queried directly or via the frontend proxy.
-    accepted_hosts = [instance_host, "inkwell.social", "api.inkwell.social", "inkwell-api.fly.dev"]
+    # Accept requests for every host that means this instance (the site and
+    # the API domain, plus inkwell.social's old hosts on inkwell.social).
+    accepted_hosts = [instance_host | Inkwell.Instance.local_hosts()]
 
     with "acct:" <> rest <- resource,
          [username, host] <- String.split(rest, "@"),
@@ -220,7 +220,7 @@ defmodule InkwellWeb.FederationController do
   # server), so remote admins know whom to contact.
   defp nodeinfo_metadata do
     %{
-      nodeName: Application.get_env(:inkwell, :instance_name, "Inkwell"),
+      nodeName: Inkwell.Instance.name(),
       nodeDescription:
         Application.get_env(
           :inkwell,
@@ -410,7 +410,7 @@ defmodule InkwellWeb.FederationController do
       author = Accounts.get_user!(entry.user_id)
       frontend_host = federation_config(:frontend_host)
 
-      {:ok, entry.ap_id || ActivityBuilder.entry_ap_url(entry),
+      {:ok, ActivityBuilder.entry_ap_url(entry),
        "#{frontend_host}/#{author.username}/#{entry.slug}#comments"}
     else
       :error

@@ -140,41 +140,47 @@ Inkwell migrated from Stripe to **Square** as a bridge payment processor (April 
 
 ## Self-Hosting
 
-Inkwell can run on any server with Docker Compose. See `SELF_HOSTING.md` for full documentation.
+Inkwell runs on any x86-64 server with Docker Compose, on **one domain**. See `SELF_HOSTING.md` (operator guide) and `legal/README.md`. Rebuilt 2026-09-28: before that, a self-hosted server on any real domain showed "Domain Not Connected" on every page (the web app took every unknown host for a writer's custom domain), people got `@name@api.<domain>` handles, sign-in failed with blank email settings, and support mail went to hello@inkwell.social. Nobody had ever self-hosted it.
 
-### Self-Hosted Mode (`INKWELL_SELF_HOSTED=true`)
-- All Plus features unlocked for every user — no Square/Stripe subscription required
-- `Inkwell.SelfHosted.enabled?/0` reads `Application.get_env(:inkwell, :self_hosted, false)`
-- `Inkwell.SelfHosted.effective_tier/1` returns `"plus"` when self-hosted, else user's actual tier
-- `InkwellWeb.Plugs.EffectiveTier` plug (was `SelfHostedTier`) runs after auth in both `:authenticated` and `:optional_auth` pipelines — overrides `conn.assigns.current_user.subscription_tier` to `"plus"` when self-hosted, and to `"free"` when the account's Plus time has run out (see "Plus ends when its time runs out" under Important patterns)
-- `render_user/1` in auth and user controllers uses `effective_tier/1` for `subscription_tier` field
-- `self_hosted` boolean exposed in session response — frontend detects it for billing UI changes
-- Billing page shows "Self-Hosted Instance — All Plus features included" when `self_hosted` is true
-- Footer shows "Self-Hosted Instance" instead of "Inkwell" when self-hosted
+### The rule: never write "inkwell.social" where the instance's own address or name belongs
+- **API**: `Inkwell.Instance` (`lib/inkwell/instance.ex`): `frontend_url/0`, `frontend_host/0`, `instance_host/0`, `name/0` (`INSTANCE_NAME`), `contact_email/0` (`CONTACT_EMAIL`, was `FEEDBACK_EMAIL`), `from_address/0`, `local_hosts/0`, `local_host?/1`, `local_url?/1`, `inkwell_social?/0` (= not self-hosted). inkwell.social's old hosts (`www.`, `api.`, the Fly names) count as "ours" only on inkwell.social (and dev/test, which run on its data); a self-hosted server that did would drop letters/replies from real inkwell.social members. Stored `ap_id`s (entries, users, relay actor, comments) are built from `instance_host`; anything *sent* uses `ActivityBuilder.entry_ap_url/1`.
+- **Web**: `lib/site.ts` → `getSite()` (`{url, host, name, selfHosted, contactEmail}` from `SITE_URL`, `INSTANCE_NAME`, `INKWELL_SELF_HOSTED`, `CONTACT_EMAIL` **at runtime**; inkwell.social sets none of these and gets its own values). Works in client code too: the root layout writes the values into the page (`siteScript()`). Call it inside functions, not at module level. `siteUrl(path)`, `forThisSite(text)` (help/guideline text: handle domain + contact address), `BILLING_HELP_CATEGORY`. Page metadata uses **relative** URLs (`canonical: "/about"`) resolved against `metadataBase` (from `getSite()` in the root layout's `generateMetadata`); JSON-LD and share links use `siteUrl()`. `lib/hosts.ts` `knownHosts()` includes the site host; `isCustomDomainHost` is always false when self-hosted (custom domains need Fly certs). `app/manifest.ts` is `force-dynamic` so it carries the server's name.
+- One published image serves every domain: nothing domain-specific may be baked in at `next build` (no `NEXT_PUBLIC_*` for it, no statically prerendered page reading it).
 
-### Self-Hosted Docker Compose Stack
-`docker-compose.selfhosted.yml` — 4 services:
-- **db**: PostgreSQL 16 Alpine with healthcheck
-- **caddy**: Caddy 2 reverse proxy — automatic HTTPS via Let's Encrypt (ports 80, 443)
-- **api**: Phoenix backend (pre-built image from GHCR), `INKWELL_SELF_HOSTED=true` hardcoded
-- **web**: Next.js frontend (pre-built image from GHCR)
-- **meilisearch**: Optional, behind `--profile search` flag
+### Self-hosted mode (`INKWELL_SELF_HOSTED=true`)
+- Everyone is Plus (`SelfHosted.effective_tier/1`, the `EffectiveTier` plug). Use `effective_tier` wherever another user's tier is checked from the DB (newsletter subscriber limit, Post by Email inbound, writer subscriptions were fixed).
+- **No inkwell.social business**: `BillingController` refuses checkout/donor/donate/onboarding/founding/trial/sync/webhook (404); `Trials.eligible?` false; `/api/transparency` 404; custom domains refused (`CustomDomainController` plug); onboarding skips the tier step (`TIER_STEP`); landing page hides pricing; `/transparency`, `/for-writers`, `/switch*` 404; `/about` → `SelfHostedAbout`; `/terms`, `/privacy` → `OperatorPolicy` (the operator's `legal/*.md` via `LEGAL_DIR=/app/legal`, or `TERMS_URL`/`PRIVACY_URL`, or a "not published yet" note); footer drops inkwell.social pages and says "Powered by Inkwell"; settings hub drops Custom Domain (`settingsCatalog()`); admin drops Billing (`adminSections()`); the admin email draft starts blank; help/FAQ drop the billing section.
+- **Sign-in links are never returned in responses** when no email is set up (`Email.link_result/1`): on a public server that would let anyone sign in as anyone. They're logged (`docker compose logs api | grep "magic link"`). Local dev still shows them.
+- **Admins by email**: `ADMIN_EMAILS` (compose passes `ADMIN_EMAIL`) makes that sign-in address an admin from the first sign-in (`Accounts.is_env_admin?/1`). `circles.ex` and poll comment deletion now use `is_admin?` too (they checked the DB role only, so `ADMIN_USERNAMES` admins didn't count there).
+- **Post by Email** (`PostByEmail.domain/0`, `available?/0`): on by default only on inkwell.social; a self-hosted server needs `POSTMARK_INBOUND_TOKEN` + `POST_EMAIL_DOMAIN`. `post_email_available` in `/api/me`.
+- Signed fetches: the relay/instance actor is created on first use when self-hosted (`RemoteActor.instance_signing_headers/1`).
+- Rate limiting trusts `Fly-Client-IP`/`X-Inkwell-Client-IP` only when `:on_fly` (`FLY_APP_NAME` set).
 
-`Caddyfile` — uses `{$DOMAIN:localhost}` and `{$API_HOST:api.localhost}` env var substitution. Caddy automatically serves HTTP for localhost and HTTPS with Let's Encrypt for real domains.
+### runtime.exs
+- `env.("X")` treats blank as unset (Compose passes "" for empty `.env` values; an empty `SMTP_HOST` used to switch SMTP on with no server).
+- Self-hosted: `SITE_URL` (or `FRONTEND_URL`) is required; `PHX_HOST`, `INSTANCE_HOST`, `API_URL` default to it; `INSTANCE_NAME` defaults to the domain; `FROM_EMAIL` to `NAME <noreply@DOMAIN>`; `CONTACT_EMAIL` defaults to the first `ADMIN_EMAILS` address, else boot fails. `MEILI_URL` unset = search off (it used to default to localhost:7700).
+- inkwell.social: every value is what it was (checked against the prod secret names 2026-09-28).
 
-`.env.example` — grouped config sections: Required, Email (SMTP/Resend), Sender, Admin, Search, Optional Integrations, Ports, Stripe, Postmark.
+### Stack (`docker-compose.selfhosted.yml`)
+- **db** (Postgres 16), **caddy** (`{$DOMAIN}` → web:3000; `DOMAIN=localhost` gets Caddy's local certificate), **api** (not published), **web** (`./legal` mounted read-only), optional **meilisearch** (`--profile search`). One `x-site` block gives api and web the same `SITE_URL`, `INSTANCE_NAME`, `CONTACT_EMAIL`, `INKWELL_SELF_HOSTED`. `.env` needs only `DOMAIN`, `ADMIN_EMAIL`, `SECRET_KEY_BASE`. `INKWELL_VERSION` pins a commit tag.
+- The API subdomain is gone: the browser never talks to the API directly. The public developer API isn't published by default (`PUBLIC_API_URL` on web if an operator publishes it).
+- Images are **linux/amd64 only** (no ARM build yet; build from source on ARM).
 
-### Key Self-Hosting Files
+### Testing
+- `scripts/selfhost-smoke.sh` boots the stack at `journal.test` (Host header to the web container, no Caddy) and checks ~25 things: no "Domain Not Connected", canonical URLs, no pricing, /about, /terms, robots/sitemap, manifest, sign-in via the logged link, ADMIN_EMAIL is admin, WebFinger/actor/profile handle on the domain, NodeInfo name, checkout refused. `API_IMAGE=… WEB_IMAGE=…` to test local builds.
+- CI (`.github/workflows/docker-publish.yml`): build → push `:<sha>` → smoke test → `docker buildx imagetools create` retags `:latest`. A build that breaks self-hosting never becomes `latest`.
+- API tests: `test/inkwell_web/self_hosted_instance_test.exs` (15).
+
+### Key files
 | File | Purpose |
 |------|---------|
-| `apps/api/lib/inkwell/self_hosted.ex` | `enabled?/0` and `effective_tier/1` helpers |
-| `apps/api/lib/inkwell_web/plugs/effective_tier.ex` | Plug overriding subscription tier in pipelines (self-hosted → plus, run-out Plus → free) |
-| `apps/api/lib/inkwell/email/smtp_adapter.ex` | SMTP email sending via gen_smtp |
-| `docker-compose.selfhosted.yml` | Full self-hosted Docker stack |
-| `Caddyfile` | Caddy reverse proxy config |
-| `.env.example` | Environment variable documentation |
-| `SELF_HOSTING.md` | Self-hosting guide |
-| `.github/workflows/docker-publish.yml` | CI to build/push Docker images to GHCR |
+| `apps/api/lib/inkwell/instance.ex` | This instance's address, name, contact, "is this ours?" |
+| `apps/api/lib/inkwell/self_hosted.ex` | `enabled?/0`, `effective_tier/1` |
+| `apps/web/src/lib/site.ts` | Web equivalent (`getSite`, `siteUrl`, `forThisSite`) |
+| `apps/web/src/lib/hosts.ts` | Known hosts vs custom domains |
+| `apps/web/src/components/operator-policy.tsx`, `self-hosted-about.tsx` | Operator's Terms/Privacy, self-hosted About |
+| `docker-compose.selfhosted.yml`, `Caddyfile`, `.env.example`, `legal/README.md` | The stack |
+| `scripts/selfhost-smoke.sh` | End-to-end self-hosting test (local + CI) |
 
 ## Authentication System
 
@@ -1901,6 +1907,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 60 | **Fediverse Entry Detail Page** | Medium | 5 | 3–4 days | Done |
 
 ### Recently Completed
+- **2026-09-28** — Self-hosting that works. An audit found a self-hosted server had never worked on a real domain (every page "Domain Not Connected" since custom domains shipped on 2026-03-10, the day before the self-hosting guide), plus wrong fediverse handles (`@name@api.<domain>`, and the profile page showing `@name@inkwell.social`), sign-in broken by blank email settings, support mail and appeals going to hello@inkwell.social, newsletters sent from noreply@inkwell.social, entry ids stored on inkwell.social (broken reply threading), inkwell.social's members treated as local, sign-in links handed to anyone when email wasn't set up, and inkwell.social's pricing, Founding Members, transparency, Terms and Privacy shown as the operator's. Now: one domain, three required settings, `Inkwell.Instance` + `lib/site.ts` everywhere, no payments or inkwell.social business on a self-hosted server, operator-supplied policies, admin by email, and a smoke test that gates `:latest`. See "Self-Hosting". Verified: 920 API tests; smoke test 25/25 against local builds at `journal.test`; browser walk-through at `https://localhost` (onboarding skips payments, no upsells, admin without Billing, no console errors); inkwell.social output unchanged (same web image with no settings: title, canonical, pricing, Founding card, About, Terms, transparency, custom-domain detection, www redirect), and `runtime.exs` evaluated against production's setting names.
 - **2026-09-28** — Explore's "This month" behind a ribbon bookmark. The cover page (writers to meet, most inked, popular tags) took the whole first page of Explore's book; now the book opens on writing and a silk ribbon (top edge of the book on desktop, beside the search box on phones) opens it as a paper insert / bottom sheet. Opens once by itself on a first visit with a note on how to close and reopen it. See "Ribbon bookmark" under Journal Page-Turning UI. Verified locally at 1440px and 375px, light and dark, first visit and later visits.
 - **2026-09-28** — Managing circles (roadmap "More Circle features", @zaexpcake). Owners can rename a circle, change its topic and description, hand it to another member (they become owner, the old owner stays as moderator, new owner notified), or delete it (typed-name confirmation); admins can edit or delete any circle as a moderation tool. The API already had edit/delete with no UI; handover is new. Also: header "Run by" instead of "Started by", "&amp;" in circle cards/embeds decoded, blank names refused on edit. See "Managing a circle" under Circles. 905 API tests pass (13 new). Verified locally: edit (with "&" and a paragraph break), handover + notification + role change, delete on a throwaway circle, phone width + dark mode.
 - **2026-09-28** — Reciprocity, second pass. Pulled back the nudges from the first pass (after-publish card, Feed end link, checklist wording, "Write back" accent) and added in-app notices when someone you follow publishes (one per writer per day, off switch in Settings). See "Waiting for a reply / first entries". 892 API tests pass (9 new). Verified locally: two posts → one notice "published 2 new entries" pointing at the newest; off switch stops them; Reply button muted; phone bar on one row.

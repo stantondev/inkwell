@@ -35,6 +35,7 @@ Inkwell runs a web app and an API on separate hosts; both answer on `inkwell.soc
 - Actor, object and collection ids use `https://inkwell.social/...`. The web app proxies these paths to the API (`X-Original-Host` carries the original host so signatures verify).
 - A member's profile and entry pages may also be served on their own domain (a Plus feature). Their ActivityPub identity never changes: it stays `@username@inkwell.social`. Server-level endpoints (NodeInfo) return 404 on those domains.
 - WebFinger accepts `acct:` resources on `inkwell.social`, `api.inkwell.social` and `inkwell-api.fly.dev`, and always answers with the `inkwell.social` subject.
+- **Self-hosted servers** ([SELF_HOSTING.md](SELF_HOSTING.md)) run on a single domain of their own. Everything above applies with that domain in place of `inkwell.social` (ids, handles, WebFinger, NodeInfo `nodeName` = the server's name), and they never treat inkwell.social's hosts as their own. Outgoing GETs are signed with the server's instance actor from the start.
 
 ---
 

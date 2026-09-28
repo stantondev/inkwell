@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { getSite } from "@/lib/site";
 
 // "Inkwell" alone shares its search results with a Rust library, a planner
 // brand and several magazines (Search Console, Jun–Sep 2026: 3,766
 // impressions for "inkwell" at 0.4% CTR), so the title leads with the full
 // name. Describe Inkwell in its own words, never by comparison to other
 // sites (see CLAUDE.md).
-export const metadata: Metadata = {
+const INKWELL_SOCIAL_METADATA: Metadata = {
   title: { absolute: "Inkwell Social — Your Journal, Your Pen Pals, Your Space" },
   description:
     "Keep a journal or blog, write letters to pen pals and make your page your own. Followable from Mastodon. No algorithms, no ads. Free forever.",
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
     title: "Inkwell Social — Your Journal, Your Pen Pals, Your Space",
     description:
       "A social journaling platform with the warmth of the early web, rebuilt for the open social web. No algorithm, no ads.",
-    url: "https://inkwell.social",
+    url: "/",
     type: "website",
     images: [{ url: "/api/og", width: 1200, height: 630, alt: "Inkwell Social — social journaling" }],
   },
@@ -28,9 +29,23 @@ export const metadata: Metadata = {
     images: ["/api/og"],
   },
   alternates: {
-    canonical: "https://inkwell.social",
+    canonical: "/",
   },
 };
+
+export function generateMetadata(): Metadata {
+  const site = getSite();
+  if (!site.selfHosted) return INKWELL_SOCIAL_METADATA;
+
+  const description = "A social journal: keep a journal, write to pen pals, make your page your own. Followable from Mastodon. No algorithms, no ads.";
+  return {
+    title: { absolute: site.name },
+    description,
+    openGraph: { title: site.name, description, url: "/", type: "website", images: [{ url: "/api/og", width: 1200, height: 630, alt: site.name }] },
+    twitter: { card: "summary_large_image", title: site.name, description, images: ["/api/og"] },
+    alternates: { canonical: "/" },
+  };
+}
 import { HeroSection } from "@/components/landing/hero-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { CommunityEntries } from "@/components/landing/community-entries";
@@ -83,6 +98,8 @@ interface TransparencySummary {
 }
 
 async function getTransparency(): Promise<TransparencySummary | null> {
+  // inkwell.social's own finances; a self-hosted server has none to show.
+  if (getSite().selfHosted) return null;
   try {
     const data = await apiFetch<{ data: TransparencySummary }>("/api/transparency");
     return data.data;
@@ -95,6 +112,7 @@ export default async function LandingPage() {
   const [recentEntries, transparency] = await Promise.all([getRecentEntries(), getTransparency()]);
   const founding = transparency?.founding && transparency.founding.remaining > 0 ? transparency.founding : null;
   const foundingSoldOut = transparency?.founding?.remaining === 0;
+  const { selfHosted } = getSite();
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
@@ -117,13 +135,17 @@ export default async function LandingPage() {
             place people genuinely lived. Long-form writing. Personal pages. The
             sense that you were getting to know someone.&rdquo;
           </p>
-          <Link href="/about" className="landing-cta-secondary">
-            Read our mission &rarr;
-          </Link>
+          {!selfHosted && (
+            <Link href="/about" className="landing-cta-secondary">
+              Read our mission &rarr;
+            </Link>
+          )}
         </div>
       </section>
 
-      {/* ── Pricing — "Choose Your Ink" ─────────────────────────────── */}
+      {/* ── Pricing — "Choose Your Ink" (inkwell.social only: a self-hosted
+          server has no payments and everyone has every feature) ────── */}
+      {!selfHosted && (
       <section className="landing-pricing" aria-label="Pricing">
         <div className="landing-pricing-inner">
           <p className="landing-section-eyebrow">Pricing</p>
@@ -232,6 +254,7 @@ export default async function LandingPage() {
           </p>
         </div>
       </section>
+      )}
 
       {/* ── Colophon — "Built in the Open" ──────────────────────────── */}
       <section className="landing-colophon" aria-label="Built in the open">

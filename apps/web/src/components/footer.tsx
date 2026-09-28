@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { getSite } from "@/lib/site";
+
+// Pages about inkwell.social itself (its costs, marketing, trademark), which a
+// self-hosted server doesn't have.
+const INKWELL_SOCIAL_ONLY = new Set(["/transparency", "/for-writers", "/switch", "/brand"]);
 
 const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -38,7 +43,15 @@ const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = 
   },
 ];
 
-export function Footer({ selfHosted }: { selfHosted?: boolean }) {
+export function Footer() {
+  const site = getSite();
+  const sections = site.selfHosted
+    ? SECTIONS.map((s, i) => ({
+        title: i === 0 ? "About" : s.title,
+        links: s.links.filter((l) => !INKWELL_SOCIAL_ONLY.has(l.href)),
+      }))
+    : SECTIONS;
+
   return (
     <footer className="site-footer border-t mt-auto" style={{ borderColor: "var(--border)" }}>
       <div className="mx-auto max-w-5xl px-4 pt-10 pb-6 text-sm" style={{ color: "var(--muted)" }}>
@@ -48,14 +61,22 @@ export function Footer({ selfHosted }: { selfHosted?: boolean }) {
               className="text-base"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontWeight: 600, color: "var(--foreground)" }}
             >
-              Inkwell
+              {site.name}
             </p>
             <p className="mt-1 max-w-[20rem] leading-relaxed">
               A social journal. No algorithms, no ads.
             </p>
+            {site.selfHosted && (
+              <p className="mt-2 max-w-[20rem] leading-relaxed">
+                Run independently at {site.host}. Questions?{" "}
+                <a href={`mailto:${site.contactEmail}`} className="hover:underline">
+                  {site.contactEmail}
+                </a>
+              </p>
+            )}
           </div>
 
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <nav key={section.title} aria-label={section.title}>
               <p
                 className="text-xs font-medium uppercase tracking-widest mb-3"
@@ -77,7 +98,17 @@ export function Footer({ selfHosted }: { selfHosted?: boolean }) {
         </div>
 
         <div className="mt-8 pt-5 border-t text-xs" style={{ borderColor: "var(--border)" }}>
-          {selfHosted ? "Self-Hosted Instance" : "© 2026 Inkwell"}
+          {site.selfHosted ? (
+            <>
+              Powered by{" "}
+              <a href="https://inkwell.social/open-source" className="hover:underline">
+                Inkwell
+              </a>
+              , open-source social journaling. {site.name} is run independently of inkwell.social.
+            </>
+          ) : (
+            "© 2026 Inkwell"
+          )}
         </div>
       </div>
     </footer>

@@ -12,6 +12,7 @@ import {
   WHY_INKWELL,
   type SourceKey,
 } from "../switch-shared";
+import { getSite } from "@/lib/site";
 
 export const dynamicParams = false;
 
@@ -34,7 +35,7 @@ export async function generateMetadata({
 
   const title = `Moving from ${s.name} to Inkwell`;
   const description = `Bring every ${s.name} post with you. Export your archive, import it into Inkwell with original dates and images, and keep writing with no algorithm and no ads.`;
-  const url = `https://inkwell.social/switch/${s.key}`;
+  const url = `/switch/${s.key}`;
 
   return {
     title,
@@ -70,6 +71,8 @@ export default async function SwitchSourcePage({
 }: {
   params: Promise<{ source: string }>;
 }) {
+  // A page about inkwell.social itself; a self-hosted server has no such thing.
+  if (getSite().selfHosted) notFound();
   const { source } = await params;
   const s = getSource(source);
   if (!s) notFound();

@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Community Polls — Inkwell",
     description: "Community polls on Inkwell.",
-    url: "https://inkwell.social/polls",
+    url: "/polls",
   },
-  alternates: { canonical: "https://inkwell.social/polls" },
+  alternates: { canonical: "/polls" },
 };
 
 interface PollsResponse {

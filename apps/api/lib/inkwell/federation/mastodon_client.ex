@@ -135,7 +135,7 @@ defmodule Inkwell.Federation.MastodonClient do
   Total must fit in 500 chars (Mastodon default limit).
   """
   def build_crosspost_text(entry, username) do
-    url = "https://inkwell.social/#{username}/#{entry.slug}"
+    url = "#{Inkwell.Instance.frontend_url()}/#{username}/#{entry.slug}"
     # URL always counts as 23 chars in Mastodon (link shortening)
     url_chars = 23
 

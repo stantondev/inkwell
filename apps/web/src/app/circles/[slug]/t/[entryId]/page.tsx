@@ -9,7 +9,6 @@ import { LocalDate, SHORT_DATE } from "@/components/local-date";
 import type { Circle, CircleThread } from "../../../circle-types";
 import ThreadAnswers from "./thread-answers";
 
-const SITE = "https://inkwell.social";
 
 const loadThread = cache(async (slug: string, entryId: string, token: string | undefined) => {
   const circle = (await apiFetch<{ data: Circle }>(`/api/circles/${encodeURIComponent(slug)}`, {}, token)).data;

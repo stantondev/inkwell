@@ -9,9 +9,9 @@ export const metadata: Metadata = {
     title: "AI Policy — Inkwell",
     description:
       "How Inkwell uses AI responsibly, protects your content from AI training, and champions authentic human writing.",
-    url: "https://inkwell.social/ai",
+    url: "/ai",
   },
-  alternates: { canonical: "https://inkwell.social/ai" },
+  alternates: { canonical: "/ai" },
 };
 
 export default function AIPage() {

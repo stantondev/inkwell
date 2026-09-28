@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { CATEGORIES } from "@/lib/categories";
 import { isCustomDomainHost, normalizeHost } from "@/lib/hosts";
+import { getSite } from "@/lib/site";
 
 // Generated per request, never at build time.
 //
@@ -14,7 +15,6 @@ import { isCustomDomainHost, normalizeHost } from "@/lib/hosts";
 // still uses the data cache, so crawlers can't stampede the API.
 export const dynamic = "force-dynamic";
 
-const BASE = "https://inkwell.social";
 const API = process.env.API_URL ?? "http://localhost:4000";
 
 type SitemapUser = { username: string; updated_at: string; custom_domain?: string | null };
@@ -80,10 +80,16 @@ function customDomainSitemap(host: string, data: SitemapData): MetadataRoute.Sit
   ];
 }
 
+// Pages about inkwell.social itself (its costs, trademark, marketing), which a
+// self-hosted server doesn't serve.
+const INKWELL_SOCIAL_ONLY = ["/for-writers", "/switch", "/transparency", "/brand"];
+
 function mainSitemap(data: SitemapData): MetadataRoute.Sitemap {
   const now = new Date().toISOString();
+  const site = getSite();
+  const BASE = site.url;
 
-  const staticPages: MetadataRoute.Sitemap = [
+  const allStaticPages: MetadataRoute.Sitemap = [
     { url: BASE, changeFrequency: "daily", priority: 1.0, lastModified: now },
     { url: `${BASE}/explore`, changeFrequency: "hourly", priority: 0.9, lastModified: now },
     { url: `${BASE}/gazette`, changeFrequency: "daily", priority: 0.7, lastModified: now },
@@ -114,6 +120,9 @@ function mainSitemap(data: SitemapData): MetadataRoute.Sitemap {
     { url: `${BASE}/privacy`, changeFrequency: "monthly", priority: 0.3, lastModified: "2026-02-27" },
     { url: `${BASE}/brand`, changeFrequency: "monthly", priority: 0.2, lastModified: "2026-02-27" },
   ];
+  const staticPages = site.selfHosted
+    ? allStaticPages.filter((p) => !INKWELL_SOCIAL_ONLY.some((path) => p.url === BASE + path || p.url.startsWith(`${BASE}${path}/`)))
+    : allStaticPages;
 
   // A topic page with no Inkwell entries opens on its fediverse view, which
   // is noindex, so only topics Inkwell writers have used are listed.

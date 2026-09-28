@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
 import { SubscribeForm } from "./subscribe-form";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { getSite } from "@/lib/site";
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -77,7 +78,7 @@ export default async function SubscribePage({ params }: PageProps) {
         {/* Powered by Inkwell */}
         <p className="text-center text-xs mt-4" style={{ color: "var(--muted)" }}>
           Powered by{" "}
-          <a href="https://inkwell.social" className="hover:underline" style={{ color: "var(--accent)" }}>
+          <a href={getSite().url} className="hover:underline" style={{ color: "var(--accent)" }}>
             Inkwell
           </a>
         </p>

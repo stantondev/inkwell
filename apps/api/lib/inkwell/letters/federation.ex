@@ -210,30 +210,8 @@ defmodule Inkwell.Letters.Federation do
 
   def local_user(_), do: nil
 
-  # Hosts our content has ever had ids on. Entry ids are always stored on
-  # inkwell.social, and older ones on the Fly hostnames.
-  @known_hosts ~w(inkwell.social www.inkwell.social api.inkwell.social inkwell-api.fly.dev inkwell-web.fly.dev)
-
   @doc "Whether a URL is on one of our own hosts (so it names something here)."
-  def local_url?(url) do
-    hosts =
-      [
-        "https://#{instance_host()}",
-        Application.get_env(:inkwell, :frontend_url),
-        Application.get_env(:inkwell, :api_url),
-        InkwellWeb.Endpoint.url(),
-        Application.get_env(:inkwell, :federation, []) |> Keyword.get(:frontend_host)
-      ]
-      |> Enum.filter(&is_binary/1)
-      |> Enum.map(&URI.parse(&1).host)
-      |> Enum.reject(&is_nil/1)
-      |> Kernel.++(@known_hosts)
-
-    case URI.parse(url) do
-      %URI{host: host} when is_binary(host) -> String.downcase(host) in hosts
-      _ -> true
-    end
-  end
+  def local_url?(url), do: Inkwell.Instance.local_url?(url)
 
   defp already_have?(ap_id), do: Repo.exists?(from(m in DirectMessage, where: m.ap_id == ^ap_id))
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getSite } from "@/lib/site";
 
 // Draft written for the founder to edit before sending. Plain text: blank
 // lines separate paragraphs; https:// links become clickable.
@@ -27,8 +28,10 @@ Thank you for writing here. If there's something that would make Inkwell better 
 — Stanton`;
 
 export default function EmailPanel() {
-  const [subject, setSubject] = useState(DRAFT_SUBJECT);
-  const [body, setBody] = useState(DRAFT_BODY);
+  // The draft is inkwell.social's founder letter; another server starts blank.
+  const selfHosted = getSite().selfHosted;
+  const [subject, setSubject] = useState(selfHosted ? "" : DRAFT_SUBJECT);
+  const [body, setBody] = useState(selfHosted ? "" : DRAFT_BODY);
   const [count, setCount] = useState<number | null>(null);
   const [previewHtml, setPreviewHtml] = useState("");
   const [busy, setBusy] = useState<"" | "test" | "send">("");

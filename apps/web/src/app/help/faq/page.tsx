@@ -10,9 +10,9 @@ export const metadata: Metadata = {
     title: "Common Queries — Inkwell Help Center",
     description:
       "Frequently asked questions about Inkwell — accounts, writing, the fediverse, and more.",
-    url: "https://inkwell.social/help/faq",
+    url: "/help/faq",
   },
-  alternates: { canonical: "https://inkwell.social/help/faq" },
+  alternates: { canonical: "/help/faq" },
 };
 
 export default function FaqPage({

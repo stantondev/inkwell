@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSite } from "@/lib/site";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   // Build public-facing base URL (request.url on Fly.io is http://0.0.0.0:3000)
   const proto = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("host") || "inkwell.social";
+  const host = request.headers.get("host") || getSite().host;
   const baseUrl = `${proto}://${host}`;
 
   if (!token) {

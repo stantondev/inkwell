@@ -1,5 +1,15 @@
 import Config
 
+# A variable that's set but blank counts as unset. Docker Compose passes ""
+# for anything left empty in .env, and an empty SMTP_HOST used to switch SMTP
+# on with no server, so no sign-in email could ever be sent.
+env = fn name ->
+  case System.get_env(name) do
+    nil -> nil
+    value -> if String.trim(value) == "", do: nil, else: value
+  end
+end
+
 if mode = System.get_env("AUTO_MODERATION_MODE") do
   config :inkwell, :auto_moderation_mode, String.to_atom(mode)
 end
@@ -34,7 +44,22 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "inkwell-api.fly.dev"
+  # Self-hosted mode (unlocks all Plus features, turns billing off). Such a
+  # server runs on one address, SITE_URL (FRONTEND_URL also works), and every
+  # other host setting defaults to it. inkwell.social keeps its own defaults.
+  self_hosted = env.("INKWELL_SELF_HOSTED") == "true"
+
+  site_url =
+    (env.("SITE_URL") || env.("FRONTEND_URL") ||
+       if(self_hosted,
+         do: raise("SITE_URL is missing. Set it to this server's address, e.g. https://journal.example.org"),
+         else: "https://inkwell.social"
+       ))
+    |> String.trim_trailing("/")
+
+  site_host = URI.parse(site_url).host
+
+  host = env.("PHX_HOST") || if(self_hosted, do: site_host, else: "inkwell-api.fly.dev")
   port = String.to_integer(System.get_env("PORT") || "4000")
 
   config :inkwell, InkwellWeb.Endpoint,
@@ -47,44 +72,80 @@ if config_env() == :prod do
     server: true
 
   # CORS — allow the frontend domain
-  frontend_url = System.get_env("FRONTEND_URL") || "https://inkwell.social"
+  frontend_url = site_url
   config :inkwell, :frontend_url, frontend_url
   config :inkwell, :cors_origins, [frontend_url]
 
-  # API URL (used for absolute image URLs in newsletter emails)
-  config :inkwell, :api_url, System.get_env("API_URL") || "https://api.inkwell.social"
+  # API URL (used for absolute image URLs in newsletter emails). A self-hosted
+  # server serves images through the site itself.
+  config :inkwell, :api_url, env.("API_URL") || if(self_hosted, do: site_url, else: "https://api.inkwell.social")
 
-  # Self-hosted mode (unlocks all Plus features, disables billing)
-  config :inkwell, :self_hosted, System.get_env("INKWELL_SELF_HOSTED") == "true"
+  config :inkwell, :self_hosted, self_hosted
+
+  # Is this machine on Fly.io? Only there can Fly's client-IP header be trusted.
+  config :inkwell, :on_fly, System.get_env("FLY_APP_NAME") != nil
+
+  # This instance's name (defaults to its domain when self-hosted, else "Inkwell")
+  config :inkwell, :instance_name, env.("INSTANCE_NAME") || if(self_hosted, do: site_host, else: nil)
+
+  split_list = fn value ->
+    (value || "")
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  # Admins: by username (ADMIN_USERNAMES) and/or by sign-in address
+  # (ADMIN_EMAILS; the magic link proves the address).
+  config :inkwell, :admin_usernames, split_list.(env.("ADMIN_USERNAMES"))
+  admin_emails = split_list.(env.("ADMIN_EMAILS"))
+  config :inkwell, :admin_emails, admin_emails
+
+  # Where member feedback, support requests and appeals go. A self-hosted
+  # server must name its own; it used to default to inkwell.social's inbox.
+  # (The self-hosted compose file defaults it to ADMIN_EMAIL, which may list
+  # several addresses; the first is the contact.)
+  contact_email =
+    case split_list.(env.("CONTACT_EMAIL") || env.("FEEDBACK_EMAIL")) do
+      [first | _] -> first
+      [] ->
+        cond do
+          not self_hosted -> "hello@inkwell.social"
+          admin_emails != [] -> hd(admin_emails)
+          true -> raise("CONTACT_EMAIL is missing. Set it (or ADMIN_EMAILS) to an address you read.")
+        end
+    end
+
+  config :inkwell, :feedback_email, contact_email
 
   # Email via Resend
-  config :inkwell, :resend_api_key, System.get_env("RESEND_API_KEY")
-  config :inkwell, :from_email, System.get_env("FROM_EMAIL") || "Inkwell <onboarding@resend.dev>"
+  config :inkwell, :resend_api_key, env.("RESEND_API_KEY")
+
+  config :inkwell,
+         :from_email,
+         env.("FROM_EMAIL") ||
+           if(self_hosted,
+             do: "#{env.("INSTANCE_NAME") || site_host} <noreply@#{site_host}>",
+             else: "Inkwell <onboarding@resend.dev>"
+           )
 
   # Email via SMTP (takes priority over Resend when SMTP_HOST is set)
-  smtp_host = System.get_env("SMTP_HOST")
+  smtp_host = env.("SMTP_HOST")
 
   if smtp_host do
     config :inkwell, :smtp,
       host: smtp_host,
-      port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
-      username: System.get_env("SMTP_USERNAME"),
-      password: System.get_env("SMTP_PASSWORD"),
-      ssl: System.get_env("SMTP_SSL") == "true",
-      auth: System.get_env("SMTP_AUTH") != "false"
+      port: String.to_integer(env.("SMTP_PORT") || "587"),
+      username: env.("SMTP_USERNAME"),
+      password: env.("SMTP_PASSWORD"),
+      ssl: env.("SMTP_SSL") == "true",
+      auth: env.("SMTP_AUTH") != "false"
   end
 
   # Search (optional — disabled if MEILI_URL not set)
   config :inkwell, Inkwell.Search,
-    url: System.get_env("MEILI_URL") || "http://localhost:7700",
-    api_key: System.get_env("MEILI_API_KEY")
-
-  # Admin usernames (comma-separated list)
-  config :inkwell, :admin_usernames,
-    System.get_env("ADMIN_USERNAMES", "")
-    |> String.split(",")
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+    url: env.("MEILI_URL"),
+    api_key: env.("MEILI_API_KEY")
 
   # Stripe billing (disabled — account closed, kept for reference)
   config :inkwell, :stripe,
@@ -110,11 +171,8 @@ if config_env() == :prod do
     donor_plan_variation_2: System.get_env("SQUARE_DONOR_PLAN_VARIATION_2"),
     donor_plan_variation_3: System.get_env("SQUARE_DONOR_PLAN_VARIATION_3")
 
-  # Feedback email recipient
-  config :inkwell, :feedback_email, System.get_env("FEEDBACK_EMAIL") || "hello@inkwell.social"
-
   # Slack notifications (optional — disabled if not set)
-  config :inkwell, :slack_webhook_url, System.get_env("SLACK_WEBHOOK_URL")
+  config :inkwell, :slack_webhook_url, env.("SLACK_WEBHOOK_URL")
 
   # Monitoring (API key for /health/deep endpoint)
   config :inkwell, :monitor_api_key, System.get_env("MONITOR_API_KEY")
@@ -154,15 +212,15 @@ if config_env() == :prod do
 
   # Federation / ActivityPub
   config :inkwell, :federation,
-    instance_host: System.get_env("INSTANCE_HOST") || "inkwell-api.fly.dev",
-    frontend_host: System.get_env("FRONTEND_URL") || "https://inkwell.social"
+    instance_host: env.("INSTANCE_HOST") || if(self_hosted, do: site_host, else: "inkwell-api.fly.dev"),
+    frontend_host: site_url
 
   # Web Push (VAPID keys for browser push notifications)
-  vapid_public = System.get_env("VAPID_PUBLIC_KEY")
-  vapid_private = System.get_env("VAPID_PRIVATE_KEY")
+  vapid_public = env.("VAPID_PUBLIC_KEY")
+  vapid_private = env.("VAPID_PRIVATE_KEY")
 
-  if is_binary(vapid_public) and vapid_public != "" do
-    from_email = System.get_env("FROM_EMAIL") || "noreply@inkwell.social"
+  if is_binary(vapid_public) and is_binary(vapid_private) do
+    from_email = env.("FROM_EMAIL") || "noreply@#{if self_hosted, do: site_host, else: "inkwell.social"}"
     # Extract just the email address if it's in "Name <email>" format
     vapid_subject =
       case Regex.run(~r/<(.+?)>/, from_email) do
@@ -221,9 +279,10 @@ if config_env() == :prod do
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 
   # Post by Email (Postmark inbound webhook)
-  config :inkwell, :postmark_inbound_token, System.get_env("POSTMARK_INBOUND_TOKEN")
-  config :inkwell, :post_email_domain, System.get_env("POST_EMAIL_DOMAIN") || "post.inkwell.social"
+  # (Inkwell.PostByEmail.domain/0 supplies post.inkwell.social on inkwell.social.)
+  config :inkwell, :postmark_inbound_token, env.("POSTMARK_INBOUND_TOKEN")
+  config :inkwell, :post_email_domain, env.("POST_EMAIL_DOMAIN")
 
   # DeepL API (for content translation — free tier: 500K chars/mo)
-  config :inkwell, :deepl_api_key, System.get_env("DEEPL_API_KEY")
+  config :inkwell, :deepl_api_key, env.("DEEPL_API_KEY")
 end

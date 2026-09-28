@@ -12,6 +12,26 @@ defmodule Inkwell.PostByEmail do
   @max_emails_per_day 20
 
   @doc """
+  The domain Post by Email addresses use, or nil when inbound mail isn't set
+  up here (it needs a Postmark inbound token). inkwell.social defaults to
+  post.inkwell.social; a self-hosted instance must set `POST_EMAIL_DOMAIN`,
+  so nobody is handed an address that delivers to someone else's server.
+  """
+  def domain do
+    token = Application.get_env(:inkwell, :postmark_inbound_token)
+    domain = Application.get_env(:inkwell, :post_email_domain)
+
+    cond do
+      Inkwell.Instance.inkwell_social?() -> domain || "post.inkwell.social"
+      is_binary(token) and token != "" and is_binary(domain) and domain != "" -> domain
+      true -> nil
+    end
+  end
+
+  @doc "Whether members can post by email on this instance."
+  def available?, do: domain() != nil
+
+  @doc """
   Process an inbound email from Postmark's webhook JSON payload.
   Returns {:ok, entry} or {:error, reason}.
   """
@@ -51,7 +71,7 @@ defmodule Inkwell.PostByEmail do
   end
 
   defp verify_plus(user) do
-    if (user.subscription_tier || "free") == "plus" do
+    if Inkwell.SelfHosted.effective_tier(user) == "plus" do
       :ok
     else
       {:error, :not_plus}

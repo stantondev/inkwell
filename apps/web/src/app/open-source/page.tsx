@@ -9,9 +9,9 @@ export const metadata: Metadata = {
     title: "Open Source — Inkwell",
     description:
       "Inkwell is open-source software. View the code, self-host it, contribute.",
-    url: "https://inkwell.social/open-source",
+    url: "/open-source",
   },
-  alternates: { canonical: "https://inkwell.social/open-source" },
+  alternates: { canonical: "/open-source" },
 };
 
 const REPO_URL = "https://github.com/stantondev/inkwell";

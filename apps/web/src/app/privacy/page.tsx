@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSite } from "@/lib/site";
+import { OperatorPolicy } from "@/components/operator-policy";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -7,12 +9,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Privacy Policy — Inkwell",
     description: "How Inkwell collects, uses, and protects your data.",
-    url: "https://inkwell.social/privacy",
+    url: "/privacy",
   },
-  alternates: { canonical: "https://inkwell.social/privacy" },
+  alternates: { canonical: "/privacy" },
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  // inkwell.social's own policy; a self-hosted server publishes its own.
+  if (getSite().selfHosted) return <OperatorPolicy kind="privacy" />;
+
   return (
     <main
       className="mx-auto max-w-3xl px-4 py-12"

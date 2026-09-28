@@ -56,7 +56,7 @@ defmodule Inkwell.Workers.ExportDataWorker do
     %{
       export_version: "1.0",
       exported_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-      platform: "Inkwell (inkwell.social)",
+      platform: "Inkwell (#{Inkwell.Instance.frontend_host()})",
       profile: build_profile(user),
       entries: build_entries(user.id),
       drafts: build_drafts(user.id),

@@ -391,7 +391,7 @@ defmodule Inkwell.Accounts.User do
   defp generate_ap_id(changeset) do
     case get_change(changeset, :username) do
       nil -> changeset
-      username -> put_change(changeset, :ap_id, "https://inkwell.social/users/#{username}")
+      username -> put_change(changeset, :ap_id, "https://#{Inkwell.Instance.instance_host()}/users/#{username}")
     end
   end
 

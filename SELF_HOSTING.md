@@ -1,274 +1,192 @@
 # Self-Hosting Inkwell
 
-> **Alpha** — Self-hosting support is new. Please report issues at [github.com/stantondev/inkwell/issues](https://github.com/stantondev/inkwell/issues).
+Run your own Inkwell: a social journal for you, your family, a class, a club or a community, on your own server and your own domain. It federates like inkwell.social does, so your members can be followed from Mastodon and the rest of the fediverse as `@name@yourdomain`.
 
-## Overview
+On a self-hosted server every feature is on for everyone. There's nothing to pay for and no billing to set up.
 
-Inkwell can run on your own server with Docker Compose. Self-hosted instances get all Plus features unlocked automatically — no Stripe subscription required.
+> **Beta.** Self-hosting was rebuilt in September 2026 (before that, a server on any real domain didn't work). Tell us how it goes: [github.com/stantondev/inkwell/issues](https://github.com/stantondev/inkwell/issues).
 
-Self-hosted instances participate in the fediverse via ActivityPub. Your users get `@username@yourdomain.com` identities and can interact with Mastodon, Misskey, and other fediverse platforms.
+## What you need
 
-## Prerequisites
+- A Linux server with Docker and Docker Compose v2. **1 GB of RAM** is enough for a small server (the whole stack uses about 500 MB at rest); 2 GB is comfortable.
+- **An x86-64 (amd64) server.** The published images aren't built for ARM yet (Raspberry Pi, Oracle's free ARM tier, Hetzner's ARM plans). On ARM, build from source (see below).
+- A domain name pointing at the server, with ports 80 and 443 open.
+- An email account that can send mail by SMTP (Fastmail, Gmail, Mailgun, Postmark, your own server…). Inkwell signs people in with emailed links. You can start without it and add it later.
 
-- Docker and Docker Compose v2
-- A domain name with DNS pointing to your server (for HTTPS and federation)
-- SMTP access (Gmail, Fastmail, Mailgun, Postfix, etc.)
-- 1 GB RAM minimum, 2 GB recommended
-- Ports 80 and 443 open
+## Choose your domain first
 
-## Quick Start
+Your domain becomes part of every member's fediverse address (`@name@journal.example.org`). Other servers remember it, so **it can't be changed once people have signed up and been followed.** Pick the one you'll keep. A subdomain (`journal.example.org`) is fine.
+
+## Install
 
 ```bash
-# 1. Clone the repository
+# 1. Get the files
 git clone https://github.com/stantondev/inkwell.git
 cd inkwell
 
-# 2. Copy and edit environment variables
+# 2. Settings
 cp .env.example .env
+openssl rand -base64 64        # copy the output into SECRET_KEY_BASE
+```
 
-# 3. Generate a secret key and paste it as SECRET_KEY_BASE in .env
-openssl rand -base64 64
+Open `.env` and fill in the three required settings:
 
-# 4. Edit .env — set your domain and email config:
-#    DOMAIN=inkwell.example.com
-#    API_HOST=api.inkwell.example.com
-#    FRONTEND_URL=https://inkwell.example.com
-#    API_URL=https://api.inkwell.example.com
-#    SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, FROM_EMAIL
+```env
+DOMAIN=journal.example.org
+ADMIN_EMAIL=you@example.org
+SECRET_KEY_BASE=<the output of openssl>
+```
 
-# 5. Point DNS to your server
-#    A record: inkwell.example.com → your server IP
-#    A record: api.inkwell.example.com → your server IP
+Optionally name your server (`INSTANCE_NAME=Our Journal`; it defaults to the domain) and fill in the email settings (next section).
 
-# 6. Start everything
+```bash
+# 3. Point DNS at the server: an A (and AAAA) record for DOMAIN
+
+# 4. Start it
 docker compose -f docker-compose.selfhosted.yml up -d
 ```
 
-That's it. Caddy automatically provisions HTTPS certificates via Let's Encrypt. Give it a minute for certs, then visit `https://yourdomain.com`.
+Caddy fetches an HTTPS certificate on its own. Give it a minute, then visit `https://journal.example.org` and sign up **with your ADMIN_EMAIL address**. That account is the admin from its first sign-in (the Admin link is in the sidebar's account menu).
 
-Create your first account, then add your username to `ADMIN_USERNAMES` in `.env` and restart:
+### Trying it on your own computer
+
+Set `DOMAIN=localhost` and start as above, then open `https://localhost`. Caddy uses its own certificate for localhost, so your browser will warn once; that's expected. Fediverse features need a real public domain.
+
+## Email
+
+Inkwell sends sign-in links, notifications and newsletters by email.
+
+**Until email is set up, nothing is sent.** Sign-in links are written to the API's log instead, so you can still get in:
 
 ```bash
-docker compose -f docker-compose.selfhosted.yml restart api
+docker compose -f docker-compose.selfhosted.yml logs api | grep "magic link"
 ```
 
-## How It Works
+(They're never shown on the page: on a public server that would let anyone sign in as anyone.) That's fine for trying Inkwell out; set up email before inviting people.
 
-The Docker Compose stack includes 4 services:
+### SMTP
 
-| Service | What it does |
-|---------|-------------|
-| **db** | PostgreSQL 16 — stores everything |
-| **api** | Elixir/Phoenix backend — handles auth, federation, email |
-| **web** | Next.js frontend — serves the UI |
-| **caddy** | Reverse proxy — automatic HTTPS via Let's Encrypt |
-
-Pre-built Docker images are pulled from GitHub Container Registry (`ghcr.io/stantondev/inkwell-api` and `ghcr.io/stantondev/inkwell-web`). No compilation needed.
-
-To build from source instead, edit `docker-compose.selfhosted.yml` — comment out the `image:` lines and uncomment the `build:` blocks.
-
-## Email Configuration
-
-Inkwell needs email for magic link authentication. Without email configured, it falls back to "dev mode" where magic links are shown on screen (fine for testing, not for production).
-
-### SMTP (Recommended)
-
-Set these in your `.env`:
-
-```env
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USERNAME=your-username
-SMTP_PASSWORD=your-password
-FROM_EMAIL=Inkwell <noreply@yourdomain.com>
-```
-
-#### Common Provider Examples
-
-**Gmail / Google Workspace**
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=you@gmail.com
-SMTP_PASSWORD=your-app-password
-```
-Use an [App Password](https://myaccount.google.com/apppasswords), not your regular password.
-
-**Fastmail**
 ```env
 SMTP_HOST=smtp.fastmail.com
 SMTP_PORT=587
-SMTP_USERNAME=you@fastmail.com
-SMTP_PASSWORD=your-app-password
+SMTP_USERNAME=you@example.org
+SMTP_PASSWORD=an-app-password
+FROM_EMAIL=Our Journal <you@example.org>
 ```
 
-**Mailgun**
-```env
-SMTP_HOST=smtp.mailgun.org
-SMTP_PORT=587
-SMTP_USERNAME=postmaster@mg.yourdomain.com
-SMTP_PASSWORD=your-mailgun-password
+`FROM_EMAIL` must be an address your provider lets you send as; it defaults to `noreply@DOMAIN`, which only works if your provider sends for that domain. Use port 587 with `SMTP_SSL=false` (STARTTLS), or port 465 with `SMTP_SSL=true`. For a relay that needs no login (a local Postfix), set `SMTP_AUTH=false`.
+
+Common providers:
+
+| Provider | SMTP_HOST | Notes |
+|---|---|---|
+| Fastmail | `smtp.fastmail.com` | Use an app password |
+| Gmail / Google Workspace | `smtp.gmail.com` | Use an [app password](https://myaccount.google.com/apppasswords); Gmail limits daily sending |
+| Mailgun | `smtp.mailgun.org` | Username `postmaster@mg.yourdomain` |
+| Postmark | `smtp.postmarkapp.com` | Username and password are your server token |
+
+### Resend
+
+Instead of SMTP you can set `RESEND_API_KEY`. If both are set, SMTP is used.
+
+After changing `.env`, apply it with:
+
+```bash
+docker compose -f docker-compose.selfhosted.yml up -d
 ```
 
-**Local Postfix (no auth)**
-```env
-SMTP_HOST=localhost
-SMTP_PORT=25
-SMTP_AUTH=false
-```
+## Your Terms and Privacy Policy
 
-### Resend API (Alternative)
+Your server needs its own. You run it, so they're between you and your members; inkwell.social's name inkwell.social as the operator and don't apply to you. Until you add them, `/terms` and `/privacy` say they haven't been published and give your contact address.
 
-If you prefer Resend over SMTP:
+Put them in the `legal/` folder as Markdown (`legal/terms.md`, `legal/privacy.md`), or set `TERMS_URL` / `PRIVACY_URL` in `.env` to link to where they live. See `legal/README.md`.
 
-```env
-RESEND_API_KEY=re_your_api_key
-FROM_EMAIL=Inkwell <noreply@yourdomain.com>
-```
+Members' questions, reports and appeals go to `ADMIN_EMAIL` (or `CONTACT_EMAIL` if you set it). Nothing from your server is sent to inkwell.social.
 
-If both SMTP and Resend are configured, SMTP takes priority.
+## What's different from inkwell.social
 
-## Federation
+- **No payments.** Plus, Founding Members, Ink Donor, trials, pricing and the transparency page are all gone; everyone has every feature.
+- **Pages about inkwell.social itself** (its transparency figures, "For Writers", "Switch to Inkwell") aren't served. `/about` describes your server.
+- **Not available:**
+  - **Custom domains for members.** They need inkwell.social's certificate service.
+  - **Post by Email**, unless you set up a [Postmark inbound server](https://postmarkapp.com/inbound-email) yourself. Set `POSTMARK_INBOUND_TOKEN` and `POST_EMAIL_DOMAIN`, point the inbound webhook at `https://DOMAIN/api/email/inbound?token=<token>`, and add an MX record for `POST_EMAIL_DOMAIN`.
+  - **The public developer API.** It isn't published by default (the API runs inside Docker). To publish it, give the API its own address in your proxy and set `PUBLIC_API_URL` on the web container so `/developers` shows it.
+- **Images are stored in PostgreSQL.** That's fine for small servers; back it up (below).
 
-Self-hosted instances federate automatically via ActivityPub. Users get `@username@yourdomain.com` identities.
+## Optional features
 
-Requirements for federation:
-- HTTPS (required by ActivityPub spec — Caddy handles this automatically)
-- A public domain name
-- Port 443 accessible from the internet
+| Feature | Settings in `.env` |
+|---|---|
+| Full-text search | Start with `--profile search`, set `MEILI_MASTER_KEY` (long random string) and `MEILI_URL=http://meilisearch:7700`. Without it, search still works (slower). |
+| Browser push notifications | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Generate a pair: `docker compose -f docker-compose.selfhosted.yml exec api bin/inkwell eval 'IO.inspect(WebPushEncryption.generate_vapid_key())'` |
+| Translation | `DEEPL_API_KEY` (DeepL's free tier allows 500K characters a month) |
+| Admin notices in Slack | `SLACK_WEBHOOK_URL` |
 
-Set your domain in `.env`:
+## Using your own reverse proxy
 
-```env
-DOMAIN=inkwell.example.com
-FRONTEND_URL=https://inkwell.example.com
-API_URL=https://api.inkwell.example.com
-API_HOST=api.inkwell.example.com
-```
-
-## Using Your Own Reverse Proxy
-
-Caddy is included by default for automatic HTTPS. If you already run Nginx, Traefik, or another reverse proxy:
-
-1. Edit `docker-compose.selfhosted.yml`:
-   - Remove or comment out the `caddy` service
-   - Uncomment the `ports:` lines on `api` and `web` services
-2. Point your proxy at `localhost:4000` (API) and `localhost:3000` (web)
-
-### Nginx Example
+If you already run Nginx, Traefik or similar, remove the `caddy` service, uncomment the `ports:` lines on the `web` service, and proxy `https://DOMAIN` to `localhost:3000`. **Keep the Host header** and send `X-Forwarded-Proto`: fediverse signatures and sign-in depend on them.
 
 ```nginx
 server {
     listen 443 ssl;
-    server_name inkwell.example.com;
+    server_name journal.example.org;
 
-    ssl_certificate /etc/letsencrypt/live/inkwell.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/inkwell.example.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/journal.example.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/journal.example.org/privkey.pem;
 
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name api.inkwell.example.com;
-
-    ssl_certificate /etc/letsencrypt/live/api.inkwell.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.inkwell.example.com/privkey.pem;
-
-    client_max_body_size 10M;
+    client_max_body_size 25M;
 
     location / {
-        proxy_pass http://localhost:4000;
+        proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
-
-## Billing & Plus Features
-
-With `INKWELL_SELF_HOSTED=true` (the default in `docker-compose.selfhosted.yml`), all Plus features are unlocked for every user. No Stripe keys are needed.
-
-If you want to run your own paid instance with Stripe billing, set `INKWELL_SELF_HOSTED` to `false` in the compose file and configure your Stripe keys in `.env`.
-
-## Admin Setup
-
-1. Create an account through the web interface
-2. Add your username to `ADMIN_USERNAMES` in `.env`
-3. Restart the API: `docker compose -f docker-compose.selfhosted.yml restart api`
-4. You'll see the Admin link in the sidebar
-
-## Search (Optional)
-
-Full-text search requires Meilisearch. To enable it:
-
-```bash
-# Start with the search profile
-docker compose -f docker-compose.selfhosted.yml --profile search up -d
-```
-
-Set in `.env`:
-```env
-MEILI_MASTER_KEY=a-secure-key
-MEILI_URL=http://meilisearch:7700
-```
-
-Without Meilisearch, search falls back to PostgreSQL ILIKE (functional but slower).
 
 ## Backups
 
-### Database
+Everything, including images, is in the database:
 
 ```bash
-# Dump the database
-docker compose -f docker-compose.selfhosted.yml exec db \
-  pg_dump -U inkwell inkwell > backup_$(date +%Y%m%d).sql
-
-# Restore from backup
+# Back up
 docker compose -f docker-compose.selfhosted.yml exec -T db \
-  psql -U inkwell inkwell < backup_20260315.sql
+  pg_dump -U inkwell inkwell | gzip > inkwell-$(date +%Y%m%d).sql.gz
+
+# Restore into a fresh install (before anyone signs up)
+gunzip -c inkwell-20260928.sql.gz | docker compose -f docker-compose.selfhosted.yml exec -T db psql -U inkwell inkwell
 ```
 
-### Volumes
-
-```bash
-# Back up all Docker volumes
-docker run --rm \
-  -v inkwell_pgdata:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/pgdata_backup.tar.gz -C /data .
-```
+Keep your `.env` too: `SECRET_KEY_BASE` must stay the same, or everyone is signed out.
 
 ## Upgrading
 
 ```bash
+git pull
 docker compose -f docker-compose.selfhosted.yml pull
 docker compose -f docker-compose.selfhosted.yml up -d
 ```
 
-Database migrations run automatically on API container startup.
+Database changes run automatically when the API starts. Every image published as `latest` has first been started with this exact setup and checked by an automated test ([`scripts/selfhost-smoke.sh`](scripts/selfhost-smoke.sh)). To stay on a particular build, set `INKWELL_VERSION` in `.env` to the full commit id of a push to `main`; every one is published under that tag.
 
-To build from source instead of pulling images:
+## Building from source
+
+For ARM servers, or to run your own changes: in `docker-compose.selfhosted.yml`, comment out the `image:` lines of `api` and `web` and uncomment their `build:` blocks, then:
+
 ```bash
-git pull
 docker compose -f docker-compose.selfhosted.yml up -d --build
 ```
 
-## Known Limitations
+Building needs about 4 GB of RAM (the web app's build is the heavy part).
 
-- **Custom domains** feature requires Fly.io Certificates API and won't work on self-hosted instances
-- **Postage/tipping** requires Stripe Connect and needs additional configuration
-- **Post by Email** requires Postmark for inbound email processing
-- **Images stored in PostgreSQL** — works well for small instances; S3-compatible storage planned for a future release
+## Troubleshooting
+
+- **Nothing loads / certificate errors:** check that DNS for `DOMAIN` points at this server and ports 80 and 443 are open, then look at `docker compose -f docker-compose.selfhosted.yml logs caddy`.
+- **"We couldn't send your sign-in email":** your SMTP settings are wrong. `docker compose -f docker-compose.selfhosted.yml logs api | grep SMTP` shows the error.
+- **Not admin after signing in:** you must sign in with exactly the `ADMIN_EMAIL` address. More admins: `ADMIN_EMAIL=you@example.org,friend@example.org`, then `up -d`.
+- **The API won't start:** `docker compose -f docker-compose.selfhosted.yml logs api`. A missing setting is named in the error.
 
 ## Branding
 
-Inkwell is open source, but the name and logo are trademarked. If you substantially modify the software (not just configuration), please rename your fork to avoid confusion. See the [Brand Policy](/brand) for details.
+Inkwell is open source (AGPL-3.0); the name and logo are trademarks. Running it unchanged under your own server name is fine. If you substantially modify the software, please give your version a different name. See the [Brand Policy](https://inkwell.social/brand).

@@ -16,6 +16,23 @@ defmodule InkwellWeb.BillingController do
   # a card decline. At least one prospective subscriber gave up because of it.
   @billing_checkout_throttle 60
 
+  # A self-hosted server has no payments: everyone has Plus already, and these
+  # would open inkwell.social's checkout or start trials that email people in
+  # inkwell.social's voice.
+  plug :refuse_when_self_hosted
+       when action in [:checkout, :donor_checkout, :donate, :onboarding_checkout, :founding_checkout, :start_trial, :sync, :webhook]
+
+  defp refuse_when_self_hosted(conn, _opts) do
+    if Inkwell.SelfHosted.enabled?() do
+      conn
+      |> put_status(:not_found)
+      |> json(%{error: "Payments aren't available on this server. Everyone here has every feature."})
+      |> halt()
+    else
+      conn
+    end
+  end
+
   # POST /api/billing/checkout — create a checkout session (Square Payment Link)
   # Body: {"interval": "year"} for yearly Plus; anything else is monthly.
   def checkout(conn, params) do

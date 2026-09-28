@@ -6,6 +6,9 @@ import Link from "next/link";
 export default function PostByEmailPage() {
   const [loading, setLoading] = useState(true);
   const [isPlus, setIsPlus] = useState(false);
+  // False when this server has no inbound mail set up (a self-hosted server
+  // without Postmark); the API refuses to hand out addresses then.
+  const [available, setAvailable] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [emailAddress, setEmailAddress] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -24,6 +27,7 @@ export default function PostByEmailPage() {
         const data = await res.json();
         const user = data.data;
         setIsPlus((user.subscription_tier || "free") === "plus");
+        setAvailable(user.post_email_available !== false);
         setEnabled(!!user.post_email_enabled);
         setEmailAddress(user.post_email_address || null);
       }
@@ -101,6 +105,15 @@ export default function PostByEmailPage() {
     return (
       <div>
         <p style={{ color: "var(--muted)", fontSize: 14 }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!available) {
+    return (
+      <div className="rounded-xl border p-5 text-sm leading-relaxed" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        Post by Email isn&apos;t set up on this server. It needs an inbound mail service; the server&apos;s admin can
+        turn it on (see SELF_HOSTING.md).
       </div>
     );
   }

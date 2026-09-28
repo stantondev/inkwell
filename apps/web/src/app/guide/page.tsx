@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSite } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "How Inkwell Works — The Reader's Guide",
@@ -9,9 +10,9 @@ export const metadata: Metadata = {
     title: "How Inkwell Works — The Reader's Guide",
     description:
       "A walkthrough of Inkwell's journal, pen pals, stamps, inks, and the fediverse.",
-    url: "https://inkwell.social/guide",
+    url: "/guide",
   },
-  alternates: { canonical: "https://inkwell.social/guide" },
+  alternates: { canonical: "/guide" },
 };
 
 /* ── section wrapper ──────────────────────────────────────────────── */
@@ -328,7 +329,7 @@ export default function GuidePage() {
               platforms. They can follow your Inkwell account from Mastodon
               using{" "}
               <span style={{ fontFamily: "monospace", fontSize: "13px" }}>
-                @yourusername@inkwell.social
+                @yourusername@{getSite().host}
               </span>
               .
             </li>

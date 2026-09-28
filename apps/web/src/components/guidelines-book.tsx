@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { GUIDELINES_PAGES } from "@/lib/community-guidelines";
+import { forThisSite } from "@/lib/site";
 
 const TOTAL_PAGES = GUIDELINES_PAGES.length; // 8
 
@@ -191,7 +192,7 @@ export function GuidelinesBook({ onAgree }: GuidelinesBookProps) {
 
           <div className="guidelines-book-page-body">
             {page.body.map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
+              <p key={i}>{forThisSite(paragraph)}</p>
             ))}
           </div>
         </div>

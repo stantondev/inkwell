@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { HELP_ENTRIES, type HelpEntry } from "@/lib/help-content";
+import { getSite, forThisSite, BILLING_HELP_CATEGORY } from "@/lib/site";
 
 export function HelpSearch() {
   const [query, setQuery] = useState("");
@@ -12,6 +13,7 @@ export function HelpSearch() {
     if (q.length < 2) return [];
 
     return HELP_ENTRIES.filter((entry) => {
+      if (getSite().selfHosted && entry.category === BILLING_HELP_CATEGORY) return false;
       const haystack = [
         entry.title,
         entry.snippet,
@@ -106,7 +108,7 @@ function SearchResult({ entry, query }: { entry: HelpEntry; query: string }) {
         {entry.title}
       </span>
       <span className="block text-xs" style={{ color: "var(--muted)" }}>
-        {entry.snippet}
+        {forThisSite(entry.snippet)}
       </span>
     </Link>
   );

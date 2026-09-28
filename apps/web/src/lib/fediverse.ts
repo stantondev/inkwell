@@ -1,12 +1,12 @@
-/**
- * The domain in every Inkwell member's fediverse handle (@user@inkwell.social).
- * WebFinger answers on inkwell.social even when a writer's pages live on their
- * own domain.
- */
-export const FEDIVERSE_HANDLE_DOMAIN = "inkwell.social";
+import { getSite } from "@/lib/site";
 
+/**
+ * A member's fediverse handle: @user@inkwell.social here, @user@<its domain>
+ * on a self-hosted server. WebFinger answers on the site's own domain even
+ * when a writer's pages live on their own custom domain.
+ */
 export function fediverseHandle(username: string): string {
-  return `@${username}@${FEDIVERSE_HANDLE_DOMAIN}`;
+  return `@${username}@${getSite().host}`;
 }
 
 /**

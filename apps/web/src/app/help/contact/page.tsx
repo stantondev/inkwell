@@ -11,9 +11,9 @@ export const metadata: Metadata = {
     title: "The Correspondence Office — Inkwell Help Center",
     description:
       "Send us a private message. We read every letter and respond as quickly as we can.",
-    url: "https://inkwell.social/help/contact",
+    url: "/help/contact",
   },
-  alternates: { canonical: "https://inkwell.social/help/contact" },
+  alternates: { canonical: "/help/contact" },
 };
 
 export default async function ContactPage() {

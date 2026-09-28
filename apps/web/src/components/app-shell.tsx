@@ -82,7 +82,7 @@ export async function AppShell({
         <div className="flex-1">
           {children}
         </div>
-        <Footer selfHosted={user?.self_hosted} />
+        <Footer />
       </main>
 
       {/* Bottom tab bar — mobile/tablet only, logged-in only */}

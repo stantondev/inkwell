@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FadeInSection, StaggerChild } from "./about-animations";
+import { getSite } from "@/lib/site";
+import { SelfHostedAbout } from "@/components/self-hosted-about";
 
-export const metadata: Metadata = {
+const INKWELL_SOCIAL_METADATA: Metadata = {
   title: "About Inkwell — Our Mission & Values",
   description:
     "Inkwell exists to give people a place to write, think, and connect — without algorithms, without ads, and without a corporation owning their words.",
@@ -10,10 +12,16 @@ export const metadata: Metadata = {
     title: "About Inkwell — Our Mission & Values",
     description:
       "A place to write, think, and connect — without algorithms or ads.",
-    url: "https://inkwell.social/about",
+    url: "/about",
   },
-  alternates: { canonical: "https://inkwell.social/about" },
+  alternates: { canonical: "/about" },
 };
+
+export function generateMetadata(): Metadata {
+  const site = getSite();
+  if (!site.selfHosted) return INKWELL_SOCIAL_METADATA;
+  return { title: `About ${site.name}`, alternates: { canonical: "/about" } };
+}
 
 // ---------------------------------------------------------------------------
 // Data
@@ -67,6 +75,7 @@ const REVENUE_COMMITMENTS = [
 // ---------------------------------------------------------------------------
 
 export default function AboutPage() {
+  if (getSite().selfHosted) return <SelfHostedAbout />;
   return (
     <div
       className="min-h-screen"

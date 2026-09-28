@@ -1,9 +1,13 @@
 import type { MetadataRoute } from "next";
+import { getSite } from "@/lib/site";
+
+// Per request, so a self-hosted server installs under its own name.
+export const dynamic = "force-dynamic";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Inkwell",
-    short_name: "Inkwell",
+    name: getSite().name,
+    short_name: getSite().name,
     description:
       "A federated social journaling platform. Your journal, your friends, your space.",
     id: "/?source=pwa",

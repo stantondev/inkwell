@@ -92,7 +92,7 @@ defmodule InkwellWeb.NewsletterController do
           if !writer.newsletter_enabled do
             conn |> put_status(:not_found) |> json(%{error: "Newsletter not enabled"})
           else
-            if Newsletter.at_subscriber_limit?(writer.id, writer.subscription_tier) do
+            if Newsletter.at_subscriber_limit?(writer.id, Inkwell.SelfHosted.effective_tier(writer)) do
               conn |> put_status(422) |> json(%{error: "This newsletter has reached its subscriber limit"})
             else
               # Check if the subscriber is a logged-in Inkwell user

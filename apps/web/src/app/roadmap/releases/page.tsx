@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Release Notes — Inkwell",
     description: "A changelog of shipped features, fixes, and improvements.",
-    url: "https://inkwell.social/roadmap/releases",
+    url: "/roadmap/releases",
   },
-  alternates: { canonical: "https://inkwell.social/roadmap/releases" },
+  alternates: { canonical: "/roadmap/releases" },
 };
 
 interface ReleaseItem {

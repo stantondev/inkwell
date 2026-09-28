@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  SETTINGS_CATALOG,
+  settingsCatalog,
   SETTINGS_GROUPS,
   entryForPath,
   groupTitle,
@@ -113,7 +113,7 @@ function JumpPalette({
   const listRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo(
-    () => SETTINGS_CATALOG.filter((e) => matchesQuery(e, query)),
+    () => settingsCatalog().filter((e) => matchesQuery(e, query)),
     [query]
   );
 

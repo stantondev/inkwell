@@ -1,5 +1,10 @@
 name: Publish Docker Images
 
+# Self-hosters pull these images. Each push builds images tagged with the
+# commit, boots them with docker-compose.selfhosted.yml at a made-up domain
+# (scripts/selfhost-smoke.sh), and only then moves :latest. A build that
+# breaks self-hosting never becomes :latest.
+
 on:
   push:
     branches: [main]
@@ -25,21 +30,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ env.REGISTRY }}/stantondev/inkwell-api
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=
-
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/stantondev/inkwell-api:${{ github.sha }}
 
   build-web:
     name: Build Web Image
@@ -57,20 +53,59 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ env.REGISTRY }}/stantondev/inkwell-web
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=
-
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/web/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/stantondev/inkwell-web:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_API_URL=
+
+  smoke-test:
+    name: Self-hosting smoke test
+    needs: [build-api, build-web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Boot the self-hosted stack and check it
+        env:
+          API_IMAGE: ${{ env.REGISTRY }}/stantondev/inkwell-api:${{ github.sha }}
+          WEB_IMAGE: ${{ env.REGISTRY }}/stantondev/inkwell-web:${{ github.sha }}
+        run: scripts/selfhost-smoke.sh
+
+  promote:
+    name: Tag as latest
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Point :latest at the tested images
+        run: |
+          for image in inkwell-api inkwell-web; do
+            docker buildx imagetools create \
+              --tag ${{ env.REGISTRY }}/stantondev/$image:latest \
+              ${{ env.REGISTRY }}/stantondev/$image:${{ github.sha }}
+          done

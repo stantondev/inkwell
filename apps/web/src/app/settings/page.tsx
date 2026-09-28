@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { SettingsOverview } from "./settings-overview";
+import { getSite } from "@/lib/site";
 
 /**
  * Settings home — an overview of every area, what's inside it, and where it
@@ -82,7 +83,7 @@ export default async function SettingsHomePage() {
       ? `${me.subscriber_count ?? 0} subscriber${me.subscriber_count === 1 ? "" : "s"} · ${me.sends_this_month ?? 0}/${me.send_limit ?? 0} sends this month`
       : "Off",
     invite: null,
-    fediverse: me?.username ? `@${me.username}@inkwell.social` : null,
+    fediverse: me?.username ? `@${me.username}@${getSite().host}` : null,
     support: me?.support_url ? "Link set" : "No link",
     filters: null,
     redactions: redactedWords ? `${redactedWords} word${redactedWords === 1 ? "" : "s"}` : "None",

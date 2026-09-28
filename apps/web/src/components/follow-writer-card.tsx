@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fediverseHandle } from "@/lib/fediverse";
+import { getSite } from "@/lib/site";
 
 /**
  * "Keep reading <writer>" for signed-out readers at the end of a post.
@@ -12,12 +13,11 @@ import { fediverseHandle } from "@/lib/fediverse";
  * an Inkwell account, their Mastodon/fediverse account, email (when the writer
  * has a newsletter) or RSS.
  *
- * On a writer's own domain the reader isn't on inkwell.social, so Inkwell
+ * On a writer's own domain the reader isn't on the main site, so Inkwell
  * links are absolute.
  */
 
 const SERVER_KEY = "inkwell-fediverse-server";
-const INKWELL = "https://inkwell.social";
 
 /** "https://Mastodon.Social/@me", "@me@mastodon.social" or "mastodon.social" → "mastodon.social". */
 export function normalizeServer(input: string): string | null {
@@ -44,8 +44,9 @@ export function FollowWriterCard({
   onCustomDomain: boolean;
 }) {
   const handle = fediverseHandle(username);
-  const actorUrl = `${INKWELL}/users/${username}`;
-  const base = onCustomDomain ? INKWELL : "";
+  const siteBase = getSite().url;
+  const actorUrl = `${siteBase}/users/${username}`;
+  const base = onCustomDomain ? siteBase : "";
   const [server, setServer] = useState("");
   const [serverError, setServerError] = useState(false);
   const [copied, setCopied] = useState(false);

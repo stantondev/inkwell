@@ -34,6 +34,7 @@ import { FediverseHandle } from "./fediverse-handle";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 import { fediverseHandle } from "@/lib/fediverse";
 import { archiveQuery, profileFiltersFromParams } from "@/lib/profile-archive-params";
+import { getSite } from "@/lib/site";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -397,10 +398,10 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const effectiveDomain = customDomain || data.meta?.custom_domain || null;
     const profileUrl = effectiveDomain
       ? `https://${effectiveDomain}`
-      : `https://inkwell.social/${username}`;
+      : `${getSite().url}/${username}`;
     const rssUrl = effectiveDomain
       ? `https://${effectiveDomain}/api/users/${username}/feed.xml`
-      : `https://inkwell.social/api/users/${username}/feed.xml`;
+      : `${getSite().url}/api/users/${username}/feed.xml`;
     // A drawn 1200×630 cover for the journal (banner, portrait, bio, handle):
     // Facebook and X showed the avatar alone as a small square beside the
     // link. The avatar URL's ?v= stamp changes with the profile, so reuse it
@@ -457,7 +458,7 @@ function PoweredByInkwell() {
   return (
     <div className="text-center py-6 text-xs" style={{ color: "var(--muted)" }}>
       <a
-        href="https://inkwell.social"
+        href={getSite().url}
         className="hover:underline opacity-40 hover:opacity-70 transition-opacity"
         style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
       >
@@ -697,9 +698,9 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
       "@type": "Person",
       name: profile.display_name,
       alternateName: `@${username}`,
-      url: `https://inkwell.social/${username}`,
+      url: `${getSite().url}/${username}`,
       ...(profile.avatar_url
-        ? { image: `https://inkwell.social/api/avatars/${username}` }
+        ? { image: `${getSite().url}/api/avatars/${username}` }
         : {}),
       ...(profile.bio
         ? { description: profile.bio.replace(/<[^>]+>/g, "").slice(0, 300) }
@@ -1163,7 +1164,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
                     Edit profile
                   </Link>
                   <ShareButton
-                    url={`https://inkwell.social/${username}`}
+                    url={`${getSite().url}/${username}`}
                     title={profile.display_name || username}
                     description={`@${username} on Inkwell`}
                   />
@@ -1188,7 +1189,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
                     <BlockButton targetUsername={username} initialBlocked={false} />
                   )}
                   <ShareButton
-                    url={`https://inkwell.social/${username}`}
+                    url={`${getSite().url}/${username}`}
                     title={profile.display_name || username}
                     description={`@${username} on Inkwell`}
                   />

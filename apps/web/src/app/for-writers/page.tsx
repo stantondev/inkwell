@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HELP_EMAIL } from "@/app/switch/switch-shared";
+import { getSite } from "@/lib/site";
+import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "For Writers — Bring Your Writing to Inkwell",
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
     title: "For Writers — Bring Your Writing to Inkwell",
     description:
       "Move your archive in, put it on your own domain, and reach readers on Mastodon, Bluesky, email and RSS.",
-    url: "https://inkwell.social/for-writers",
+    url: "/for-writers",
     type: "website",
   },
   twitter: {
@@ -19,7 +21,7 @@ export const metadata: Metadata = {
     title: "For Writers — Bring Your Writing to Inkwell",
     description: "Your archive, your domain, your readers — on the open web.",
   },
-  alternates: { canonical: "https://inkwell.social/for-writers" },
+  alternates: { canonical: "/for-writers" },
 };
 
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
@@ -52,6 +54,8 @@ const COMPARISON: [string, string, string][] = [
 ];
 
 export default function ForWritersPage() {
+  // A page about inkwell.social itself; a self-hosted server has no such thing.
+  if (getSite().selfHosted) notFound();
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
       {/* Hero */}

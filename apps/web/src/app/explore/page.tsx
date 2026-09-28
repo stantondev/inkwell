@@ -31,9 +31,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       title: "Explore — Inkwell",
       description:
         "Discover journal entries from writers across the open web.",
-      url: "https://inkwell.social/explore",
+      url: "/explore",
     },
-    alternates: { canonical: "https://inkwell.social/explore" },
+    alternates: { canonical: "/explore" },
   };
 }
 

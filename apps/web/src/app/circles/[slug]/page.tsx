@@ -5,8 +5,8 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { notFound } from "next/navigation";
 import CircleDetailClient from "./circle-detail-client";
 import type { Circle } from "../circle-types";
+import { siteUrl } from "@/lib/site";
 
-const SITE = "https://inkwell.social";
 
 // Shared by generateMetadata and the page so the circle is fetched once.
 const loadCircle = cache(async (slug: string, token: string | undefined) => {
@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return {
       title: circle.name,
       description,
-      alternates: { canonical: `${SITE}/circles/${circle.slug}` },
-      openGraph: { title: `${circle.name} · Inkwell`, description, url: `${SITE}/circles/${circle.slug}` },
+      alternates: { canonical: `/circles/${circle.slug}` },
+      openGraph: { title: `${circle.name} · Inkwell`, description, url: `/circles/${circle.slug}` },
       // An empty circle isn't worth a search result.
       robots: (circle.entry_count ?? 0) > 0 ? undefined : { index: false, follow: true },
     };
@@ -57,7 +57,7 @@ export default async function CircleDetailPage({ params }: { params: Promise<{ s
           circle={circle}
           isLoggedIn={!!session}
           currentUserId={session?.user?.id || null}
-          shareUrl={`${SITE}/circles/${circle.slug}`}
+          shareUrl={siteUrl(`/circles/${circle.slug}`)}
         />
       </div>
     </div>

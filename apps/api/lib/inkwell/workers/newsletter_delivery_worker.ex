@@ -85,7 +85,12 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
   defp send_batch(subscribers, send, writer, template) do
     frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
     from_name = writer.newsletter_name || writer.display_name || writer.username
-    from = "#{from_name} via Inkwell <noreply@inkwell.social>"
+    # inkwell.social sends newsletters from noreply@inkwell.social; a
+    # self-hosted server from its own sender (another domain fails SPF/DMARC).
+    from =
+      if Inkwell.Instance.inkwell_social?(),
+        do: "#{from_name} via Inkwell <noreply@inkwell.social>",
+        else: "#{from_name} via #{Inkwell.Instance.name()} <#{Inkwell.Instance.from_address()}>"
     reply_to = if writer.newsletter_reply_to, do: writer.newsletter_reply_to, else: nil
 
     emails = Enum.map(subscribers, fn %{email: email, unsubscribe_token: token} ->

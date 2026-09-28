@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { siteUrl } from "@/lib/site";
 
 interface NewsletterSettings {
   newsletter_enabled: boolean;
@@ -224,14 +225,14 @@ export default function NewsletterSettingsPage() {
                     <input
                       type="text"
                       readOnly
-                      value={`https://inkwell.social/${username}/subscribe`}
+                      value={siteUrl(`/${username}/subscribe`)}
                       className="flex-1 rounded-lg border px-3 py-2 text-sm"
                       style={{ borderColor: "var(--border)", background: "var(--background)", color: "var(--muted)" }}
                       onFocus={(e) => e.target.select()}
                     />
                     <button
                       type="button"
-                      onClick={() => navigator.clipboard.writeText(`https://inkwell.social/${username}/subscribe`)}
+                      onClick={() => navigator.clipboard.writeText(siteUrl(`/${username}/subscribe`))}
                       className="rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
                       style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--foreground)" }}
                     >

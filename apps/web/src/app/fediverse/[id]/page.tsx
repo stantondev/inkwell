@@ -16,6 +16,7 @@ import { CommentSection } from "@/app/[username]/[slug]/comment-section";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
 import type { Comment } from "@/lib/comment-utils";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { siteUrl } from "@/lib/site";
 
 interface FediverseEntryParams {
   params: Promise<{ id: string }>;
@@ -198,7 +199,7 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
               apiPath={`/api/remote-entries/${entry.id}/reprint/toggle`}
             />
             <ShareButton
-              url={`https://inkwell.social/fediverse/${entry.id}`}
+              url={siteUrl(`/fediverse/${entry.id}`)}
               title={entry.title || `Post by ${author.display_name}`}
               size={15}
             />

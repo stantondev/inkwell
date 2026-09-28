@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "The Inkwell Gazette",
     description: "What the fediverse is reading, and what Inkwell writers make of it.",
-    url: "https://inkwell.social/gazette",
+    url: "/gazette",
   },
-  alternates: { canonical: "https://inkwell.social/gazette" },
+  alternates: { canonical: "/gazette" },
 };
 
 export default async function GazettePage({

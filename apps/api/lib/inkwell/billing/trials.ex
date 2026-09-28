@@ -33,7 +33,7 @@ defmodule Inkwell.Billing.Trials do
     end
   end
 
-  def eligible?(%User{} = user), do: eligibility(user) == :ok
+  def eligible?(%User{} = user), do: not Inkwell.SelfHosted.enabled?() and eligibility(user) == :ok
 
   def start(%User{} = user) do
     with :ok <- eligibility(user) do

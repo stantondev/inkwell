@@ -14,9 +14,9 @@ export const metadata: Metadata = {
     title: "Roadmap — Inkwell",
     description:
       "Community feedback and feature roadmap for Inkwell.",
-    url: "https://inkwell.social/roadmap",
+    url: "/roadmap",
   },
-  alternates: { canonical: "https://inkwell.social/roadmap" },
+  alternates: { canonical: "/roadmap" },
 };
 
 interface FeedbackPost {

@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "What's new on Inkwell",
     description: "Everything that's new on Inkwell, in plain words, with where to find it.",
-    url: "https://inkwell.social/whats-new",
+    url: "/whats-new",
   },
-  alternates: { canonical: "https://inkwell.social/whats-new" },
+  alternates: { canonical: "/whats-new" },
 };
 
 const serif = "var(--font-lora, Georgia, serif)";

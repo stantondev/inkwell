@@ -7,9 +7,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Trademark & Brand Policy — Inkwell",
     description: "Guidelines for using the Inkwell name, logo, and brand assets.",
-    url: "https://inkwell.social/brand",
+    url: "/brand",
   },
-  alternates: { canonical: "https://inkwell.social/brand" },
+  alternates: { canonical: "/brand" },
 };
 
 export default function BrandPage() {

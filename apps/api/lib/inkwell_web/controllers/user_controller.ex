@@ -536,17 +536,21 @@ defmodule InkwellWeb.UserController do
   def enable_post_email(conn, _params) do
     user = conn.assigns.current_user
 
-    if (user.subscription_tier || "free") != "plus" do
-      conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
-    else
-      case Accounts.enable_post_by_email(user) do
-        {:ok, updated} ->
-          domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
-          json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{domain}"})
+    cond do
+      not Inkwell.PostByEmail.available?() ->
+        conn |> put_status(:service_unavailable) |> json(%{error: "Post by Email isn't set up on this server."})
 
-        {:error, _changeset} ->
-          conn |> put_status(:internal_server_error) |> json(%{error: "Could not enable post by email"})
-      end
+      (user.subscription_tier || "free") != "plus" ->
+        conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
+
+      true ->
+        case Accounts.enable_post_by_email(user) do
+          {:ok, updated} ->
+            json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{Inkwell.PostByEmail.domain()}"})
+
+          {:error, _changeset} ->
+            conn |> put_status(:internal_server_error) |> json(%{error: "Could not enable post by email"})
+        end
     end
   end
 
@@ -567,17 +571,21 @@ defmodule InkwellWeb.UserController do
   def regenerate_post_email(conn, _params) do
     user = conn.assigns.current_user
 
-    if (user.subscription_tier || "free") != "plus" do
-      conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
-    else
-      case Accounts.regenerate_post_email_token(user) do
-        {:ok, updated} ->
-          domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
-          json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{domain}"})
+    cond do
+      not Inkwell.PostByEmail.available?() ->
+        conn |> put_status(:service_unavailable) |> json(%{error: "Post by Email isn't set up on this server."})
 
-        {:error, _changeset} ->
-          conn |> put_status(:internal_server_error) |> json(%{error: "Could not regenerate address"})
-      end
+      (user.subscription_tier || "free") != "plus" ->
+        conn |> put_status(:forbidden) |> json(%{error: "Post by Email requires an Inkwell Plus subscription"})
+
+      true ->
+        case Accounts.regenerate_post_email_token(user) do
+          {:ok, updated} ->
+            json(conn, %{ok: true, post_email_address: "post+#{updated.post_email_token}@#{Inkwell.PostByEmail.domain()}"})
+
+          {:error, _changeset} ->
+            conn |> put_status(:internal_server_error) |> json(%{error: "Could not regenerate address"})
+        end
     end
   end
 
@@ -646,8 +654,8 @@ defmodule InkwellWeb.UserController do
   end
 
   defp render_user_full(user) do
-    domain = Application.get_env(:inkwell, :post_email_domain, "post.inkwell.social")
-    post_email_enabled = not is_nil(user.post_email_token)
+    domain = Inkwell.PostByEmail.domain()
+    post_email_enabled = not is_nil(user.post_email_token) and not is_nil(domain)
 
     user
     |> render_user()
@@ -662,6 +670,7 @@ defmodule InkwellWeb.UserController do
       stripe_connect_onboarded: user.stripe_connect_onboarded || false,
       sends_this_month: Inkwell.Newsletter.count_sends_this_month(user.id),
       send_limit: Inkwell.Newsletter.send_limit(Inkwell.SelfHosted.effective_tier(user)),
+      post_email_available: not is_nil(domain),
       post_email_enabled: post_email_enabled,
       post_email_address: if(post_email_enabled, do: "post+#{user.post_email_token}@#{domain}", else: nil)
     })

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSite } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "First Pages — Help Center",
@@ -9,9 +10,9 @@ export const metadata: Metadata = {
     title: "First Pages — Inkwell Help Center",
     description:
       "Step-by-step guides to help you get started with Inkwell — your first entry, finding people, and making it yours.",
-    url: "https://inkwell.social/help/getting-started",
+    url: "/help/getting-started",
   },
-  alternates: { canonical: "https://inkwell.social/help/getting-started" },
+  alternates: { canonical: "/help/getting-started" },
 };
 
 /* ── section wrapper ──────────────────────────────────────────────── */
@@ -206,7 +207,7 @@ export default function GettingStartedPage() {
           <p>
             <strong>Your handle.</strong> Your fediverse handle is{" "}
             <code style={{ background: "var(--background)", padding: "2px 6px", borderRadius: 4, fontSize: "0.85em" }}>
-              @username@inkwell.social
+              @username@{getSite().host}
             </code>
             . Share it with anyone on the fediverse so they can follow you.
           </p>

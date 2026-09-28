@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
-import { ADMIN_SECTIONS } from "./admin-sections";
+import { adminSections } from "./admin-sections";
 import { ReindexButton } from "./reindex-button";
 
 export interface UserBrief {
@@ -132,7 +132,7 @@ export function AdminOverview({
       {/* ── Section cards ───────────────────────────────────────── */}
       <h3 className="adm-overview-heading">Everything you can do here</h3>
       <div className="adm-section-grid">
-        {ADMIN_SECTIONS.filter((x) => x.id !== "overview").map((item) => (
+        {adminSections().filter((x) => x.id !== "overview").map((item) => (
           <button
             key={item.id}
             type="button"

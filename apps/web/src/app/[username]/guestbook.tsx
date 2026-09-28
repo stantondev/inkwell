@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ProfileStyles } from "@/lib/profile-styles";
 import { Avatar } from "@/components/avatar-with-frame";
+import { getSite, siteUrl } from "@/lib/site";
 
 interface RemoteAuthor {
   ap_id: string;
@@ -153,7 +154,7 @@ export function Guestbook({
   }
 
   function handleCopyUrl() {
-    const url = `https://inkwell.social/users/${username}/guestbook-post`;
+    const url = siteUrl(`/users/${username}/guestbook-post`);
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -335,7 +336,7 @@ export function Guestbook({
             className="text-xs px-2 py-0.5 rounded flex-1 min-w-0 truncate"
             style={{ background: "var(--background)", border: `1px solid ${styles.border}` }}
           >
-            inkwell.social/users/{username}/guestbook-post
+            {getSite().host}/users/{username}/guestbook-post
           </code>
           <button
             type="button"

@@ -758,28 +758,36 @@ defmodule Inkwell.Accounts do
 
   # Admin
 
-  def is_admin?(%User{username: username, role: role}) do
-    admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
-    role == "admin" || username in admin_usernames
-  end
+  def is_admin?(%User{role: "admin"}), do: true
+  def is_admin?(%User{} = user), do: is_env_admin?(user)
   def is_admin?(_), do: false
 
   @doc "List all admin users (both DB-role and env-var admins)."
   def list_admins do
     admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
+    admin_emails = admin_emails()
 
     User
-    |> where([u], u.role == "admin" or u.username in ^admin_usernames)
+    |> where([u], u.role == "admin" or u.username in ^admin_usernames or fragment("lower(?)", u.email) in ^admin_emails)
     |> where([u], is_nil(u.blocked_at))
     |> Repo.all()
   end
 
-  @doc "Check if user is an env-var admin (cannot be demoted via UI)."
-  def is_env_admin?(%User{username: username}) do
-    admin_usernames = Application.get_env(:inkwell, :admin_usernames, [])
-    username in admin_usernames
+  @doc """
+  Check if user is an env-var admin (cannot be demoted via UI): named in
+  `ADMIN_USERNAMES`, or signed in with an address in `ADMIN_EMAILS`. The
+  email form lets a self-hosted operator be admin from their first sign-in;
+  the address is proven by the magic link.
+  """
+  def is_env_admin?(%User{username: username, email: email}) do
+    username in Application.get_env(:inkwell, :admin_usernames, []) or
+      (is_binary(email) and String.downcase(email) in admin_emails())
   end
   def is_env_admin?(_), do: false
+
+  defp admin_emails do
+    Application.get_env(:inkwell, :admin_emails, []) |> Enum.map(&String.downcase/1)
+  end
 
   @doc "List all users with pagination, search, and filters."
   def list_users(opts \\ []) do
@@ -818,9 +826,8 @@ defmodule Inkwell.Accounts do
       |> Repo.all()
 
     # Tag env-var admins so the controller can mark them
-    env_admins = Application.get_env(:inkwell, :admin_usernames, [])
     users = Enum.map(users, fn u ->
-      Map.put(u, :is_env_admin, u.username in env_admins)
+      Map.put(u, :is_env_admin, is_env_admin?(u))
     end)
 
     {users, total}

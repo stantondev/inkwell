@@ -14,8 +14,6 @@ defmodule Inkwell.OAuth do
   require Logger
 
   @state_ttl_seconds 900
-  @app_name "Inkwell"
-  @app_website "https://inkwell.social"
   @desired_scopes "read write:statuses write:media"
 
   # ── Instance Discovery ────────────────────────────────────────────
@@ -103,10 +101,10 @@ defmodule Inkwell.OAuth do
 
     body =
       Jason.encode!(%{
-        client_name: @app_name,
+        client_name: Inkwell.Instance.name(),
         redirect_uris: redirect_uri,
         scopes: @desired_scopes,
-        website: @app_website
+        website: Inkwell.Instance.frontend_url()
       })
 
     case http_post_json(url, body) do

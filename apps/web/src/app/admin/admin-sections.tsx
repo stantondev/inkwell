@@ -3,6 +3,8 @@
  * the overview cards, the panel loader and the document title.
  */
 
+import { getSite } from "@/lib/site";
+
 const ic = {
   width: 18,
   height: 18,
@@ -159,6 +161,11 @@ export const ADMIN_SECTIONS: AdminSection[] = [
 ];
 
 export const DEFAULT_SECTION = "overview";
+
+/** Sections this server has: a self-hosted one takes no payments, so no Billing. */
+export function adminSections(): AdminSection[] {
+  return getSite().selfHosted ? ADMIN_SECTIONS.filter((s) => s.id !== "billing") : ADMIN_SECTIONS;
+}
 
 export function sectionById(id: string | null | undefined): AdminSection {
   return (

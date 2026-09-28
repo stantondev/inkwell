@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { HELP_CATEGORIES } from "@/lib/help-content";
 import { HelpSearch } from "./help-search";
+import { getSite, BILLING_HELP_CATEGORY } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "The Reference Desk — Help Center",
@@ -11,9 +12,9 @@ export const metadata: Metadata = {
     title: "The Reference Desk — Inkwell Help Center",
     description:
       "Find answers, guides, and support for everything on Inkwell.",
-    url: "https://inkwell.social/help",
+    url: "/help",
   },
-  alternates: { canonical: "https://inkwell.social/help" },
+  alternates: { canonical: "/help" },
 };
 
 /* ── quick link cards ──────────────────────────────────────────────── */
@@ -125,7 +126,7 @@ export default function HelpPage() {
         Browse by Topic
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-        {HELP_CATEGORIES.map((cat) => {
+        {HELP_CATEGORIES.filter((cat) => !(getSite().selfHosted && cat.id === BILLING_HELP_CATEGORY)).map((cat) => {
           const href =
             cat.id === "technical"
               ? "/developers"

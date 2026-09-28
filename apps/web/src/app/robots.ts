@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { isCustomDomainHost, normalizeHost } from "@/lib/hosts";
+import { getSite } from "@/lib/site";
 
 // Must render per request: a writer's custom domain needs a robots.txt that
 // points at its own sitemap, not inkwell.social's.
@@ -101,6 +102,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       },
       ...aiRules,
     ],
-    sitemap: "https://inkwell.social/sitemap.xml",
+    sitemap: `${getSite().url}/sitemap.xml`,
   };
 }

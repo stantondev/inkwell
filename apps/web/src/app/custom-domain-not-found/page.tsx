@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSite } from "@/lib/site";
 
 export const metadata = {
   title: "Domain Not Connected",
@@ -41,7 +42,7 @@ export default function CustomDomainNotFoundPage() {
           This domain isn&apos;t connected to an Inkwell profile. If you own this
           domain, you can set it up in your{" "}
           <Link
-            href="https://inkwell.social/settings/domain"
+            href={`${getSite().url}/settings/domain`}
             className="underline hover:opacity-80"
             style={{ color: "var(--accent)" }}
           >
@@ -50,7 +51,7 @@ export default function CustomDomainNotFoundPage() {
           .
         </p>
         <Link
-          href="https://inkwell.social"
+          href={getSite().url}
           className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
           style={{ background: "var(--accent)", color: "white" }}
         >

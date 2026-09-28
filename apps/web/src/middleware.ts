@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TOKEN_COOKIE } from "@/lib/session";
-import { KNOWN_HOSTS } from "@/lib/hosts";
+import { isCustomDomainHost } from "@/lib/hosts";
+import { getSite } from "@/lib/site";
 import {
   ATTRIBUTION_COOKIE,
   ATTRIBUTION_MAX_AGE,
@@ -18,7 +19,7 @@ const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 // ── Custom domain detection ─────────────────────────────────────────────────
 
-// App routes that should redirect to inkwell.social (not served on custom domains)
+// App routes that should redirect to the main site (not served on custom domains)
 const APP_ROUTES = [
   "/feed", "/editor", "/drafts", "/admin", "/letters", "/saved",
   "/settings", "/login", "/get-started", "/welcome", "/explore",
@@ -78,7 +79,7 @@ export async function middleware(request: NextRequest) {
   // on www would render signed out for everyone who is in fact signed in.
   // Redirect instead. This runs whatever DNS says, so pointing www at Fly
   // can never quietly turn into a cookie-less copy of the app; www stays in
-  // KNOWN_HOSTS so it is never mistaken for someone's custom domain either.
+  // the known hosts (lib/hosts.ts) so it is never mistaken for someone's custom domain either.
   if (host === "www.inkwell.social") {
     return NextResponse.redirect(
       new URL(pathname + request.nextUrl.search, "https://inkwell.social"),
@@ -86,7 +87,7 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (host && !KNOWN_HOSTS.has(host)) {
+  if (host && isCustomDomainHost(host)) {
     const username = await resolveCustomDomain(host);
 
     if (!username) {
@@ -131,7 +132,7 @@ export async function middleware(request: NextRequest) {
 
     // App routes → redirect to inkwell.social
     if (APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
-      return NextResponse.redirect(new URL(pathname, "https://inkwell.social"));
+      return NextResponse.redirect(new URL(pathname, getSite().url));
     }
 
     // Wildcard slug redirect: multi-segment paths on custom domains

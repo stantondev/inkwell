@@ -243,6 +243,7 @@ const SERVICE_ICONS: Record<MusicService, React.ReactNode> = {
 import type { MusicEmbed } from "@/lib/music";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 import { fediverseHandle } from "@/lib/fediverse";
+import { getSite } from "@/lib/site";
 
 function EntryMusicEmbed({ embed, music }: { embed: MusicEmbed; music: string }) {
   // Direct audio file — native <audio> player
@@ -406,7 +407,7 @@ export async function generateMetadata({ params }: EntryParams): Promise<Metadat
     const effectiveDomain = customDomain || entry.custom_domain || null;
     const entryUrl = effectiveDomain
       ? `https://${effectiveDomain}/${slug}`
-      : `https://inkwell.social/${username}/${slug}`;
+      : `${getSite().url}/${username}/${slug}`;
     const hasCover = !!entry.cover_image_id && !entry.is_sensitive;
     const authorName = entry.author?.display_name || username;
     // Facebook, iMessage, Slack and LinkedIn lead with the picture and often
@@ -573,7 +574,7 @@ export default async function EntryPage({ params }: EntryParams) {
 
   // Use header (custom domain request) or API response (inkwell.social request) for canonical URLs
   const effectiveDomain = customDomain || entry.custom_domain || null;
-  const baseUrl = effectiveDomain ? `https://${effectiveDomain}` : `https://inkwell.social`;
+  const baseUrl = effectiveDomain ? `https://${effectiveDomain}` : `${getSite().url}`;
 
   let comments: Comment[] = [];
   try {
@@ -607,7 +608,7 @@ export default async function EntryPage({ params }: EntryParams) {
         session={session}
         isOwnEntry={isOwnEntry ?? false}
         isAdmin={isAdmin}
-        shareUrl={effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
+        shareUrl={effectiveDomain ? `${baseUrl}/${slug}` : `${getSite().url}/${username}/${slug}`}
         showSignup={!session}
         onCustomDomain={!!customDomain}
       />
@@ -645,7 +646,7 @@ export default async function EntryPage({ params }: EntryParams) {
             author: {
               "@type": "Person",
               name: author.display_name,
-              url: effectiveDomain ? baseUrl : `https://inkwell.social/${username}`,
+              url: effectiveDomain ? baseUrl : `${getSite().url}/${username}`,
             },
             datePublished: entry.published_at,
             ...(entry.published_at !== entry.created_at
@@ -663,11 +664,11 @@ export default async function EntryPage({ params }: EntryParams) {
             publisher: {
               "@type": "Organization",
               name: "Inkwell",
-              url: "https://inkwell.social",
+              url: getSite().url,
             },
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`,
+              "@id": effectiveDomain ? `${baseUrl}/${slug}` : `${getSite().url}/${username}/${slug}`,
             },
           }).replace(/</g, "\\u003c"),
         }}
@@ -732,7 +733,7 @@ export default async function EntryPage({ params }: EntryParams) {
                 />
               )}
               <ShareButton
-                url={effectiveDomain ? `${baseUrl}/${slug}` : `https://inkwell.social/${username}/${slug}`}
+                url={effectiveDomain ? `${baseUrl}/${slug}` : `${getSite().url}/${username}/${slug}`}
                 title={entry.title || "Entry"}
                 description={entry.excerpt || entry.title || ""}
                 size={18}
@@ -1119,7 +1120,7 @@ export default async function EntryPage({ params }: EntryParams) {
       {customDomain && (
         <div className="text-center py-6 text-xs" style={{ color: "var(--muted)" }}>
           <a
-            href="https://inkwell.social"
+            href={getSite().url}
             className="hover:underline opacity-40 hover:opacity-70 transition-opacity"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
           >

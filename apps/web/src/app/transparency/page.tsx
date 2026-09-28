@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { getSite } from "@/lib/site";
+import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Transparency — What Inkwell Costs to Run",
@@ -9,9 +11,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Transparency — What Inkwell Costs to Run",
     description: "Real monthly costs, member revenue, and how much of the bill is covered.",
-    url: "https://inkwell.social/transparency",
+    url: "/transparency",
   },
-  alternates: { canonical: "https://inkwell.social/transparency" },
+  alternates: { canonical: "/transparency" },
 };
 
 export const revalidate = 300;
@@ -36,6 +38,8 @@ function dollars(cents: number) {
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
 
 export default async function TransparencyPage() {
+  // A page about inkwell.social itself; a self-hosted server has no such thing.
+  if (getSite().selfHosted) notFound();
   let data: TransparencyData | null = null;
   try {
     const res = await apiFetch<{ data: TransparencyData }>("/api/transparency");

@@ -1,18 +1,16 @@
 # ──────────────────────────────────────────────────────────────
-# Inkwell — Caddy Reverse Proxy
+# Inkwell — Caddy reverse proxy
 #
-# Automatic HTTPS via Let's Encrypt for production domains.
-# When DOMAIN is "localhost", Caddy serves HTTP only (no certs).
+# Serves https://DOMAIN (set in .env) with a certificate from Let's Encrypt,
+# fetched automatically. DOMAIN must already point at this server and ports
+# 80 and 443 must be open. With DOMAIN=localhost, Caddy uses its own local
+# certificate instead: your browser will warn once, which is fine for trying
+# Inkwell out.
 #
-# Set DOMAIN and API_HOST in your .env file:
-#   DOMAIN=inkwell.example.com
-#   API_HOST=api.inkwell.example.com
+# Everything goes to the web app, which talks to the API inside Docker.
 # ──────────────────────────────────────────────────────────────
 
-{$DOMAIN:localhost} {
+{$DOMAIN} {
+	encode zstd gzip
 	reverse_proxy web:3000
-}
-
-{$API_HOST:api.localhost} {
-	reverse_proxy api:4000
 }

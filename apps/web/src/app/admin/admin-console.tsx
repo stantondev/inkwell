@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ADMIN_GROUPS,
-  ADMIN_SECTIONS,
+  adminSections,
   DEFAULT_SECTION,
   sectionById,
 } from "./admin-sections";
@@ -132,7 +132,7 @@ export function AdminConsole({
         >
           <nav className="adm-rail-inner">
             {ADMIN_GROUPS.map((group) => {
-              const items = ADMIN_SECTIONS.filter((s) => s.group === group.id);
+              const items = adminSections().filter((s) => s.group === group.id);
               if (items.length === 0) return null;
               return (
                 <div key={group.id} className="adm-rail-group">
