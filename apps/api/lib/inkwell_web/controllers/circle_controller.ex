@@ -93,6 +93,7 @@ defmodule InkwellWeb.CircleController do
                 member_preview: Enum.map(member_preview, &render_member/1),
                 entry_count: Map.get(Circles.entry_counts([circle.id]), circle.id, 0),
                 prompt: prompt,
+                can_admin: viewer != nil and Accounts.is_admin?(viewer),
                 # The first version's discussions, kept read-only for members.
                 has_archive: is_member and circle.discussion_count > 0
               })
@@ -125,6 +126,8 @@ defmodule InkwellWeb.CircleController do
     end
   end
 
+  # The owner can edit or delete a circle; so can an admin, as a moderation
+  # tool (e.g. a circle taken over by trolls).
   def update(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
 
@@ -133,12 +136,18 @@ defmodule InkwellWeb.CircleController do
         conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
 
       circle ->
-        if circle.owner_id != user.id do
-          conn |> put_status(:forbidden) |> json(%{error: "Only the circle owner can edit"})
+        if circle.owner_id != user.id and not Accounts.is_admin?(user) do
+          conn |> put_status(:forbidden) |> json(%{error: "Only the circle's owner can edit it"})
         else
-          case Circles.update_circle(circle, params) do
+          case Circles.update_circle(circle, Map.take(params, ["name", "description", "category"])) do
             {:ok, updated} ->
-              json(conn, %{data: render_circle(Inkwell.Repo.preload(updated, :owner), %{is_member: true, viewer_role: :owner})})
+              json(conn, %{
+                data:
+                  render_circle(Repo.preload(updated, :owner), %{
+                    is_member: true,
+                    viewer_role: Circles.get_user_role(updated.id, user.id)
+                  })
+              })
 
             {:error, changeset} ->
               conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(changeset)})
@@ -155,8 +164,8 @@ defmodule InkwellWeb.CircleController do
         conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
 
       circle ->
-        if circle.owner_id != user.id do
-          conn |> put_status(:forbidden) |> json(%{error: "Only the circle owner can delete"})
+        if circle.owner_id != user.id and not Accounts.is_admin?(user) do
+          conn |> put_status(:forbidden) |> json(%{error: "Only the circle's owner can delete it"})
         else
           case Circles.delete_circle(circle) do
             {:ok, _} -> json(conn, %{ok: true})
@@ -165,6 +174,50 @@ defmodule InkwellWeb.CircleController do
         end
     end
   end
+
+  # POST /api/circles/:id/transfer {user_id} — owner only. The new owner must
+  # already be a member; the old owner stays on as a moderator.
+  def transfer_ownership(conn, %{"id" => id, "user_id" => new_owner_id}) when is_binary(new_owner_id) do
+    user = conn.assigns.current_user
+
+    with {:circle, %{} = circle} <- {:circle, Circles.get_circle(id)},
+         true <- circle.owner_id == user.id || :forbidden,
+         {:ok, updated} <- Circles.transfer_ownership(circle, new_owner_id) do
+      Accounts.create_notification(%{
+        type: :circle_owner,
+        user_id: new_owner_id,
+        actor_id: user.id,
+        target_type: "circle",
+        target_id: updated.id,
+        data: %{circle_slug: updated.slug, circle_name: updated.name}
+      })
+
+      json(conn, %{
+        data: render_circle(Repo.preload(updated, :owner, force: true), %{is_member: true, viewer_role: :moderator})
+      })
+    else
+      {:circle, nil} ->
+        conn |> put_status(:not_found) |> json(%{error: "Circle not found"})
+
+      :forbidden ->
+        conn |> put_status(:forbidden) |> json(%{error: "Only the circle's owner can hand it over"})
+
+      {:error, :not_member} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "The new owner has to be a member of the circle"})
+
+      {:error, :already_owner} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "They already own this circle"})
+
+      {:error, :unavailable} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "That account can't own a circle"})
+
+      {:error, _} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Couldn't hand the circle over. Try again."})
+    end
+  end
+
+  def transfer_ownership(conn, _params),
+    do: conn |> put_status(:unprocessable_entity) |> json(%{error: "Choose a member to hand the circle to"})
 
   def my_circles(conn, _params) do
     user = conn.assigns.current_user
@@ -847,6 +900,7 @@ defmodule InkwellWeb.CircleController do
     |> maybe_put(:entry_count, meta[:entry_count])
     |> maybe_put(:unread_count, meta[:unread_count])
     |> maybe_put(:has_archive, meta[:has_archive])
+    |> maybe_put(:can_admin, meta[:can_admin])
     |> Map.put(:prompt, meta[:prompt])
   end
 

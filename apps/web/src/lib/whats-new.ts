@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-09-28-manage-circles",
+    date: "2026-09-28",
+    title: "Look after your circle",
+    body: "If you started a circle, you can now rename it, change its topic and description, hand it over to another member, or delete it. Handing it over makes them the owner, and you stay on as a moderator. Thanks to @zaexpcake for asking.",
+    howTo: "Open your circle → Manage circle (next to New thread).",
+    href: "/circles",
+    cta: "Your circles",
+  },
+  {
     id: "2026-09-28-new-entry-notices",
     date: "2026-09-28",
     title: "Know when someone you follow writes",

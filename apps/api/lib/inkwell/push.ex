@@ -10,7 +10,7 @@ defmodule Inkwell.Push do
   @pushable_types ~w(
     comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
-    circle_prompt circle_prompt_response
+    circle_prompt circle_prompt_response circle_owner
     feedback_mention poll_mention writer_plan_subscribe guestbook margin_note
   )a
 
@@ -131,6 +131,7 @@ defmodule Inkwell.Push do
   defp build_text("circle_mention", actor, n), do: {"Circle mention", "#{actor} mentioned you in #{get_circle_name(n)}"}
   defp build_text("circle_prompt", actor, n), do: {"New prompt in #{get_circle_name(n)}", "#{actor}: #{get_in_data(n, "prompt_title") || "a new prompt"}"}
   defp build_text("circle_prompt_response", actor, n), do: {"New answer in #{get_circle_name(n)}", "#{actor} answered “#{get_in_data(n, "prompt_title") || "your post"}”"}
+  defp build_text("circle_owner", actor, n), do: {"You own a circle now", "#{actor} made you the owner of #{get_circle_name(n)}"}
   defp build_text("feedback_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you on the roadmap"}
   defp build_text("poll_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a poll comment"}
   defp build_text("writer_plan_subscribe", actor, _), do: {"New subscriber", "#{actor} subscribed to your writer plan"}
@@ -163,6 +164,11 @@ defmodule Inkwell.Push do
   end
 
   defp build_url(type, n) when type in ["circle_prompt", "circle_prompt_response"] do
+    slug = get_in_data(n, "circle_slug")
+    if slug, do: "/circles/#{slug}", else: "/notifications"
+  end
+
+  defp build_url("circle_owner", n) do
     slug = get_in_data(n, "circle_slug")
     if slug, do: "/circles/#{slug}", else: "/notifications"
   end

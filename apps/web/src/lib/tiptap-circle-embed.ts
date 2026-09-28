@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { decodeEntities } from "./decode-entities";
 
 export interface CircleEmbedAttrs {
   slug: string;
@@ -62,11 +63,9 @@ export const CircleEmbed = Node.create({
   renderHTML({ node }) {
     const { slug, name, description, category, memberCount } = node.attrs;
     const categoryLabel = CATEGORY_LABELS[category] || category || "";
-    const desc = description
-      ? description.length > 120
-        ? description.slice(0, 120) + "..."
-        : description
-      : "";
+    // Descriptions arrive sanitized ("&" as "&amp;"); this is rendered as text.
+    const plain = description ? decodeEntities(String(description).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim() : "";
+    const desc = plain.length > 120 ? plain.slice(0, 120) + "..." : plain;
     const memberText = `${memberCount} ${memberCount === 1 ? "member" : "members"}`;
 
     // Build inner HTML as a static card structure

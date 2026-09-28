@@ -417,7 +417,7 @@ export function NotificationIcon({
       </svg>
     );
   }
-  if (type === "circle_response" || type === "circle_mention" || type === "circle_new_member" || type === "circle_prompt" || type === "circle_prompt_response") {
+  if (type === "circle_response" || type === "circle_mention" || type === "circle_new_member" || type === "circle_prompt" || type === "circle_prompt_response" || type === "circle_owner") {
     return (
       <svg
         width="14"
@@ -1104,7 +1104,8 @@ export function NotificationList({
                             n.type === "circle_mention" ||
                             n.type === "circle_new_member" ||
                             n.type === "circle_prompt" ||
-                            n.type === "circle_prompt_response") && (
+                            n.type === "circle_prompt_response" ||
+                            n.type === "circle_owner") && (
                             <a
                               href={
                                 n.data?.discussion_id

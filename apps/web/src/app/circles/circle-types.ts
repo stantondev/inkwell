@@ -75,6 +75,8 @@ export interface Circle {
   is_member?: boolean;
   viewer_role?: "owner" | "moderator" | "member" | null;
   has_archive?: boolean;
+  /** The viewer is a site admin (may edit or delete any circle). */
+  can_admin?: boolean;
   prompt?: CircleEntry | null;
   member_preview?: {
     id: string;

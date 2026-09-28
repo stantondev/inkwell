@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CATEGORY_LABELS, timeAgo, type Circle } from "./circle-types";
+import { decodeEntities } from "@/lib/decode-entities";
 
 function isRecentlyActive(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -45,7 +46,7 @@ export default function CircleCard({ circle }: { circle: Circle }) {
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}>
-            {circle.description.replace(/<[^>]*>/g, "").slice(0, 150)}
+            {decodeEntities(circle.description.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 150)}
           </p>
         )}
 
@@ -72,7 +73,7 @@ export default function CircleCard({ circle }: { circle: Circle }) {
                 style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }}
               />
             )}
-            <span>started by {circle.owner.display_name || circle.owner.username}</span>
+            <span>run by {circle.owner.display_name || circle.owner.username}</span>
           </div>
         )}
       </div>

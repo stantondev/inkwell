@@ -134,6 +134,10 @@ export function notificationText(n: Notification): string {
       const title = n.data?.prompt_title as string | undefined;
       return title ? `answered “${title}”${where}` : `answered your post${where}`;
     }
+    case "circle_owner": {
+      const owned = n.data?.circle_name as string | undefined;
+      return owned ? `made you the owner of ${owned}` : "made you the owner of a circle";
+    }
     case "circle_new_member": {
       const circleName3 = n.data?.circle_name as string | undefined;
       return circleName3 ? `joined ${circleName3}` : "joined your circle";
@@ -251,7 +255,7 @@ export function getNotificationHref(n: Notification): string | null {
   if (n.type === "circle_prompt_response" && n.data?.circle_slug && n.data?.prompt_id) {
     return `/circles/${n.data.circle_slug}/t/${n.data.prompt_id}#answer-${n.target_id}`;
   }
-  if (n.type === "circle_new_member" && n.data?.circle_slug) {
+  if ((n.type === "circle_new_member" || n.type === "circle_owner") && n.data?.circle_slug) {
     return `/circles/${n.data.circle_slug}`;
   }
   // Reply notifications link to entry comments

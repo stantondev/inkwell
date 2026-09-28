@@ -451,6 +451,7 @@ defmodule InkwellWeb.Router do
     post "/circles", CircleController, :create
     patch "/circles/:id", CircleController, :update
     delete "/circles/:id", CircleController, :delete
+    post "/circles/:id/transfer", CircleController, :transfer_ownership
     post "/circles/:id/join", CircleController, :join
     delete "/circles/:id/leave", CircleController, :leave
     get "/circles/:id/members", CircleController, :members

@@ -37,7 +37,7 @@ function secondaryLine(n: Notification): string | null {
   if (n.entry?.title) return n.entry.title;
   if (n.entry?.excerpt) return n.entry.excerpt;
   if (typeof n.data?.post_title === "string") return n.data.post_title;
-  if (typeof n.data?.circle_name === "string" && n.type !== "circle_new_member") {
+  if (typeof n.data?.circle_name === "string" && n.type !== "circle_new_member" && n.type !== "circle_owner") {
     return n.data.circle_name;
   }
   return null;

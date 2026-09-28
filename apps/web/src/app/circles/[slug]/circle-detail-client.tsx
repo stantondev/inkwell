@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MemberStrip from "./member-strip";
 import MembersSection from "./members-section";
+import ManageCircle from "./manage-circle";
 import DiscussionCard from "./discussion-card";
 import ThreadRow from "./thread-row";
 import { ShareButton } from "@/components/share-button";
@@ -48,12 +49,15 @@ export default function CircleDetailClient({
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  const [manageOpen, setManageOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archive, setArchive] = useState<Discussion[] | null>(null);
 
   const prompt = circle.prompt ?? null;
   const isOwner = circle.viewer_role === "owner";
   const canModerate = circle.viewer_role === "owner" || circle.viewer_role === "moderator";
+  // Owners manage their circle; admins can edit or delete any circle.
+  const canManage = isOwner || !!circle.can_admin;
 
   // Entries posted to the circle. Members also get the members-only ones, so
   // this reloads when membership changes.
@@ -162,7 +166,7 @@ export default function CircleDetailClient({
           </span>
           {circle.owner && (
             <span>
-              Started by{" "}
+              Run by{" "}
               <Link href={`/${circle.owner.username}`} style={{ color: "var(--accent)", textDecoration: "none" }}>
                 @{circle.owner.username}
               </Link>
@@ -173,7 +177,7 @@ export default function CircleDetailClient({
         {circle.description && (
           <div
             className="prose-discussion"
-            style={{ marginTop: "0.875rem" }}
+            style={{ marginTop: "0.875rem", whiteSpace: "pre-line" }}
             dangerouslySetInnerHTML={{ __html: circle.description }}
           />
         )}
@@ -189,6 +193,15 @@ export default function CircleDetailClient({
             </button>
           )}
           <ShareButton url={shareUrl} title={circle.name} description={`A circle on Inkwell`} />
+          {canManage && (
+            <button
+              onClick={() => setManageOpen((o) => !o)}
+              className="circle-link-btn"
+              aria-expanded={manageOpen}
+            >
+              Manage circle
+            </button>
+          )}
           {isMember && !isOwner && (
             <button onClick={handleLeave} disabled={joining} className="circle-link-btn">
               Leave
@@ -196,6 +209,10 @@ export default function CircleDetailClient({
           )}
         </div>
         {joinError && <p className="circle-entry-error">{joinError}</p>}
+
+        {canManage && manageOpen && (
+          <ManageCircle circle={circle} isOwner={isOwner} onClose={() => setManageOpen(false)} />
+        )}
 
         {!isMember && (
           <p className="circle-howto">

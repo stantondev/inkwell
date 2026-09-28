@@ -132,6 +132,56 @@ defmodule Inkwell.Circles do
     end)
   end
 
+  @doc """
+  Hands the circle to another member. The new owner takes the owner's role;
+  the old owner stays on as a moderator (they can leave afterwards). The slug
+  and everything posted stay as they are.
+  """
+  def transfer_ownership(%Circle{} = circle, new_owner_id) when is_binary(new_owner_id) do
+    case Ecto.UUID.cast(new_owner_id) do
+      {:ok, id} -> do_transfer_ownership(circle, id)
+      :error -> {:error, :not_member}
+    end
+  end
+
+  def transfer_ownership(_, _), do: {:error, :not_member}
+
+  defp do_transfer_ownership(circle, new_owner_id) do
+    Repo.transaction(fn ->
+      target =
+        CircleMember
+        |> where(circle_id: ^circle.id, user_id: ^new_owner_id)
+        |> preload(:user)
+        |> lock("FOR UPDATE")
+        |> Repo.one()
+
+      cond do
+        is_nil(target) or is_nil(target.user) ->
+          Repo.rollback(:not_member)
+
+        target.role == :owner or circle.owner_id == new_owner_id ->
+          Repo.rollback(:already_owner)
+
+        target.user.blocked_at != nil ->
+          Repo.rollback(:unavailable)
+
+        true ->
+          if circle.owner_id do
+            from(m in CircleMember,
+              where: m.circle_id == ^circle.id and m.user_id == ^circle.owner_id
+            )
+            |> Repo.update_all(set: [role: :moderator])
+          end
+
+          target |> Ecto.Changeset.change(role: :owner) |> Repo.update!()
+
+          circle
+          |> Ecto.Changeset.change(owner_id: new_owner_id)
+          |> Repo.update!()
+      end
+    end)
+  end
+
   def count_circles_by_owner(user_id) do
     Circle
     |> where(owner_id: ^user_id)
