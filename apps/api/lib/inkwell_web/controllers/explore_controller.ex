@@ -58,7 +58,8 @@ defmodule InkwellWeb.ExploreController do
           Journals.list_public_explore_entries(
             offset: offset, per_page: limit, tag: tag, category: category,
             include_sensitive: include_sensitive, exclude_user_ids: exclude_ids,
-            sort: sort, exclude_stickies: hide_stickies, showcase: showcase
+            sort: sort, exclude_stickies: hide_stickies, showcase: showcase,
+            viewer_id: viewer && viewer.id
           )
           |> Enum.map(&%{type: :local, entry: &1, published_at: &1.published_at, ink_count: &1.ink_count || 0})
         end, &not_redacted.(&1.entry), needed)

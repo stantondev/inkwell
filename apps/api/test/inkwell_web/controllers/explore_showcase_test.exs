@@ -35,9 +35,56 @@ defmodule InkwellWeb.ExploreShowcaseTest do
   test "a new account linking to a business site with no interactions is left out" do
     spam = publish(create_user(), ~s(<p>We offer seals. <a href="https://seals.example.com">Buy</a></p>))
     assert spam.id not in showcase_ids()
-    # Still on the regular Explore feed; this only curates the homepage.
-    ids = build_conn() |> get("/api/explore?source=inkwell&per_page=50") |> json_response(200) |> Map.fetch!("data") |> Enum.map(& &1["id"])
-    assert spam.id in ids
+  end
+
+  defp explore_ids(conn \\ build_conn()) do
+    conn
+    |> get("/api/explore?source=inkwell&per_page=50")
+    |> json_response(200)
+    |> Map.fetch!("data")
+    |> Enum.map(& &1["id"])
+  end
+
+  defp age(user, days) do
+    user
+    |> Ecto.Changeset.change(inserted_at: DateTime.utc_now() |> DateTime.add(-days, :day))
+    |> Inkwell.Repo.update!()
+  end
+
+  # Since 2026-09-29 Explore holds these posts for a week instead of the spam
+  # checker growing another phrase list. Nothing is hidden anywhere else.
+  describe "Explore's first week" do
+    test "a new account's post with an outside link waits a week" do
+      spam = publish(create_user(), ~s(<p>Sliding gates. <a href="https://maps.app.goo.gl/x">Find us</a></p>))
+      assert spam.id not in explore_ids()
+    end
+
+    test "the writer still sees their own post in Explore" do
+      writer = create_user()
+      e = publish(writer, ~s(<p>My <a href="https://myblog.example">blog</a></p>))
+      assert e.id in explore_ids(log_in_user(build_conn(), writer))
+      assert e.id not in explore_ids(log_in_user(build_conn(), create_user()))
+    end
+
+    test "after a week it appears in Explore (the homepage and search keep 30 days)" do
+      writer = create_user() |> age(8)
+      e = publish(writer, ~s(<p>My <a href="https://myblog.example">blog</a></p>))
+      assert e.id in explore_ids()
+      assert e.id not in showcase_ids()
+    end
+
+    test "following, commenting or inking anyone ends the wait" do
+      writer = create_user()
+      e = publish(writer, ~s(<p>My <a href="https://myblog.example">blog</a></p>))
+      assert e.id not in explore_ids()
+      create_relationship(%{follower_id: writer.id, following_id: create_user().id, status: :accepted})
+      assert e.id in explore_ids()
+    end
+
+    test "new writers without outside links show straight away" do
+      e = publish(create_user(), "<p>A poem about the sea.</p>")
+      assert e.id in explore_ids()
+    end
   end
 
   test "a new writer without outside links shows up straight away" do

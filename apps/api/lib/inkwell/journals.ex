@@ -1027,23 +1027,50 @@ defmodule Inkwell.Journals do
       scores clean and engages with people (`AutoModeration.evaluate/2`).
   """
   def showcase_excluded_user_ids do
-    cutoff = DateTime.utc_now() |> DateTime.add(-30, :day)
+    new_link_posters = new_link_poster_user_ids(30)
+
+    from(u in Inkwell.Accounts.User,
+      where: u.moderation_state == "limited" or u.id in subquery(new_link_posters),
+      select: u.id
+    )
+  end
+
+  @doc """
+  Writers whose posts wait before appearing in Explore: accounts under 7 days
+  old that link to outside sites and have never commented, inked, stamped or
+  followed anyone (the new-account half of `showcase_excluded_user_ids/0`,
+  with a shorter wait). Nothing is hidden from their journal or their
+  followers, and nobody has to review it: the wait ends by itself after a
+  week, or as soon as they interact with anyone.
+
+  Added 2026-09-29 instead of another phrase list. Every round of new spam
+  wording ("management software", "gratis offerte", "sliding gates") only
+  taught the next accounts what not to say, while the accounts themselves
+  kept the same shape: sign up, post an ad with a link within minutes, never
+  read anyone. Spam-limited and suspended accounts are handled separately by
+  `hidden_from_discovery_user_ids/0`.
+  """
+  def explore_held_back_user_ids, do: new_link_poster_user_ids(7)
+
+  # Accounts younger than `days` that have a published post linking outside
+  # Inkwell and have never commented, inked, stamped or followed anyone.
+  defp new_link_poster_user_ids(days) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-days, :day)
 
     from(u in Inkwell.Accounts.User,
       as: :u,
       where:
-        u.moderation_state == "limited" or
-          (u.inserted_at > ^cutoff and
-             exists(
-               from(e in Entry,
-                 where: e.user_id == parent_as(:u).id and e.status == :published,
-                 where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
-               )
-             ) and
-             not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)) and
-             not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)) and
-             not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)) and
-             not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id))),
+        u.inserted_at > ^cutoff and
+          exists(
+            from(e in Entry,
+              where: e.user_id == parent_as(:u).id and e.status == :published,
+              where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
+            )
+          ) and
+          not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)) and
+          not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)) and
+          not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)) and
+          not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id)),
       select: u.id
     )
   end
@@ -1077,6 +1104,7 @@ defmodule Inkwell.Journals do
       |> where([e], e.status == :published)
       |> where([e], not is_nil(e.published_at))
       |> where([e], e.user_id not in subquery(hidden_from_discovery_user_ids()))
+      |> hold_back_new_link_posters(Keyword.get(opts, :viewer_id))
 
     query =
       case sort do
@@ -1115,6 +1143,23 @@ defmodule Inkwell.Journals do
     |> preload([:user, :user_icon])
     |> Repo.all()
   end
+
+  # New accounts that post outside links wait a week before Explore shows
+  # them (`explore_held_back_user_ids/0`). A writer always sees their own
+  # posts, so a real newcomer never wonders where theirs went.
+  @doc false
+  def hold_back_new_link_posters(query, viewer_id \\ nil)
+
+  def hold_back_new_link_posters(query, nil),
+    do: where(query, [e], e.user_id not in subquery(explore_held_back_user_ids()))
+
+  def hold_back_new_link_posters(query, viewer_id),
+    do:
+      where(
+        query,
+        [e],
+        e.user_id == ^viewer_id or e.user_id not in subquery(explore_held_back_user_ids())
+      )
 
   @waiting_days 14
 

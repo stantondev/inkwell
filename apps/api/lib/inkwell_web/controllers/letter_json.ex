@@ -74,16 +74,21 @@ defmodule InkwellWeb.LetterJSON do
     sender = message.sender || message.sender_remote_actor
     who = user(sender) || %{username: nil, display_name: "Someone", avatar_url: nil}
 
+    mine? = not is_nil(message.sender_id) and message.sender_id == viewer_id
+
     %{
       id: message.id,
       body: message.body,
       body_html: message.body_html,
-      edited_at: message.edited_at,
+      # Only the writer sees that a letter was edited. Fixing a letter is
+      # normal, and a mark on the other person's copy only adds pressure
+      # (Marko, 2026-09-28).
+      edited_at: if(mine?, do: message.edited_at),
       sender_username: who.username,
       sender_display_name: who.display_name,
       sender_avatar_url: who.avatar_url,
       sender_profile_url: Map.get(who, :profile_url),
-      is_mine: not is_nil(message.sender_id) and message.sender_id == viewer_id,
+      is_mine: mine?,
       inserted_at: message.inserted_at
     }
   end

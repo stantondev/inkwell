@@ -42,6 +42,27 @@ defmodule InkwellWeb.LettersTest do
     %{alice: alice, bob: bob, conv: conversation(alice, bob)}
   end
 
+  describe "edited letters" do
+    test "only the writer sees that a letter was edited", %{conn: conn, alice: alice, bob: bob, conv: conv} do
+      msg = letter(conv, alice, "Dear Bob")
+      at = DateTime.utc_now()
+      Repo.update_all(from(m in DirectMessage, where: m.id == ^msg.id), set: [edited_at: at])
+
+      thread = fn user ->
+        conn
+        |> log_in_user(user)
+        |> get("/api/conversations/#{conv.id}")
+        |> json_response(200)
+        |> get_in(["data", "messages"])
+        |> Enum.find(&(&1["id"] == msg.id))
+      end
+
+      assert thread.(alice)["edited_at"]
+      assert Map.has_key?(thread.(bob), "edited_at")
+      assert is_nil(thread.(bob)["edited_at"])
+    end
+  end
+
   describe "picking up new letters in an open thread" do
     test "?since returns only the letters after it, as a list", %{conn: conn, alice: alice, bob: bob, conv: conv} do
       first = letter(conv, alice, "first")

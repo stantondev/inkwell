@@ -221,6 +221,7 @@ defmodule Inkwell.Inks do
       # Trending is where long-form writing gets found; stickies stay in the feeds.
       |> where([e], e.kind == "entry")
       |> where([e], e.user_id not in subquery(Inkwell.Journals.hidden_from_discovery_user_ids()))
+      |> Inkwell.Journals.hold_back_new_link_posters()
       |> where([e], e.ink_count >= ^min_inks)
       |> where([e], e.published_at >= ^since)
       |> where([e], e.sensitive == false and e.admin_sensitive == false)
