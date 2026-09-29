@@ -228,6 +228,40 @@ defmodule InkwellWeb.LettersTest do
     end
   end
 
+  describe "letters from an admin" do
+    defp admin, do: create_user() |> Ecto.Changeset.change(role: "admin") |> Repo.update!()
+
+    test "an admin can write to a member neither follows, and they can answer", %{conn: conn} do
+      staff = admin()
+      writer = create_user()
+
+      assert {:ok, conv} = Letters.get_or_create_conversation(staff.id, writer.username)
+      assert {:ok, _} = Letters.send_letter(conv.id, staff.id, "Thank you for writing here")
+      assert {:ok, _} = Letters.send_letter(conv.id, writer.id, "Thanks for the note!")
+
+      assert conn
+             |> log_in_user(staff)
+             |> get("/api/users/#{writer.username}")
+             |> json_response(200)
+             |> get_in(["meta", "letter_access"]) == "letter"
+    end
+
+    test "members still need a follow", %{alice: alice} do
+      stranger = create_user()
+      assert {:error, :not_pen_pals} = Letters.get_or_create_conversation(alice.id, stranger.username)
+      assert Letters.letter_access(alice, stranger) == nil
+    end
+
+    test "a block stops an admin too" do
+      staff = admin()
+      writer = create_user()
+      {:ok, _} = Social.block(writer.id, staff.id)
+
+      assert {:error, :blocked} = Letters.get_or_create_conversation(staff.id, writer.username)
+      assert Letters.letter_access(staff, writer) == nil
+    end
+  end
+
   describe "editing and removing" do
     test "only your own letters", %{alice: alice, bob: bob, conv: conv} do
       msg = letter(conv, bob)

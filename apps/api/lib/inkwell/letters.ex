@@ -6,8 +6,10 @@ defmodule Inkwell.Letters do
 
   Pen pals (an accepted follow in either direction) can always write to each
   other. Starting a conversation needs the starter to follow the other
-  person. Letters from an admin can always be answered, so account notices
-  never become dead ends. Blocks stop everything, both ways.
+  person, except for admins, who can start a letter with any member (so the
+  people running Inkwell can reach a writer they don't follow). Letters from
+  an admin can always be answered, so account notices never become dead
+  ends. Blocks stop everything, both ways, admins included.
 
   Anyone can also choose to take **letter requests** (`users.settings
   ["letters_from"] == "anyone"`; the default, "pen_pals", doesn't). Then a
@@ -190,6 +192,7 @@ defmodule Inkwell.Letters do
       not is_nil(viewer.blocked_at) or not is_nil(target.blocked_at) -> nil
       blocked?(viewer.id, target.id) -> nil
       follows?(viewer.id, target.id) -> :letter
+      Accounts.is_admin?(viewer) -> :letter
       accepted_request_between?(viewer.id, target.id) -> :letter
       takes_requests?(target) and request_eligible?(viewer) -> :request
       true -> nil
@@ -245,7 +248,7 @@ defmodule Inkwell.Letters do
           existing && existing.request_status in ["pending", "accepted", "declined"] ->
             {:ok, existing}
 
-          follows?(user_id, target.id) ->
+          follows?(user_id, target.id) or Accounts.is_admin?(viewer) ->
             find_or_create(user_id, target.id)
 
           letter_access(viewer, target) == :request ->
