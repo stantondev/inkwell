@@ -897,7 +897,8 @@ defmodule Inkwell.Accounts do
       query,
       [u],
       u.subscription_tier == "plus" and
-        not (u.subscription_status == "canceled" and not is_nil(u.subscription_expires_at) and
+        not (u.subscription_status in ["canceled", "past_due"] and
+               not is_nil(u.subscription_expires_at) and
                u.subscription_expires_at < ^now and is_nil(u.founding_member_number))
     )
   end

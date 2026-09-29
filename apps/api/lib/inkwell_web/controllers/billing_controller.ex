@@ -443,10 +443,31 @@ defmodule InkwellWeb.BillingController do
         # "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled"
         plus_checkout: Atom.to_string(Billing.plus_checkout_state(user)),
         plus_resumable: Billing.plus_resumable?(user),
+        # Only for a past_due member: Square's invoice page for the missed
+        # renewal and when Plus stops (asks Square, so not for everyone).
+        plus_unpaid: plus_unpaid(user),
         storage: Inkwell.Storage.summary(user)
       }
     })
   end
+
+  defp plus_unpaid(%{subscription_status: "past_due", founding_member_number: nil} = user) do
+    invoice = Inkwell.Billing.UnpaidRenewals.unpaid_invoice(user) || %{}
+
+    %{
+      pay_url: invoice[:url],
+      due_date: invoice[:due_date],
+      amount_cents: invoice[:amount_cents],
+      plus_until: user.subscription_expires_at,
+      # Not plus_time_ran_out?/1: the EffectiveTier plug has already set this
+      # user's tier to "free" once the grace period is over.
+      ended:
+        match?(%DateTime{}, user.subscription_expires_at) and
+          DateTime.compare(user.subscription_expires_at, DateTime.utc_now()) == :lt
+    }
+  end
+
+  defp plus_unpaid(_), do: nil
 
   # POST /api/billing/sync — reconcile local state from Square
   # Fallback when Square webhooks fail to reach us. Safe to call repeatedly.

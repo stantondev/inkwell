@@ -22,6 +22,7 @@ config :inkwell, :federation_background, false
 
 # Don't read fediverse posts' counts from real servers (Inkwell.Federation.Engagement).
 config :inkwell, :refresh_fediverse_counts, false
+config :inkwell, :unpaid_renewals_pause, false
 
 # Federation host config so activity building (Mention tags, absolute URLs)
 # behaves like production in tests.

@@ -106,6 +106,26 @@ defmodule Inkwell.Billing.AdminOverview do
 
   defp plus_state(%User{} = u, square, now) do
     cond do
+      u.subscription_status == "past_due" and User.plus_time_ran_out?(u, now) ->
+        %{
+          kind: "unpaid_ended",
+          label: "Renewal never paid",
+          detail: "Plus ended #{date(u.subscription_expires_at)}. Square still bills monthly until the subscription is canceled there",
+          attention: true
+        }
+
+      u.subscription_status == "past_due" ->
+        %{
+          kind: "payment_failed",
+          label: "Renewal unpaid",
+          detail:
+            if(u.subscription_expires_at,
+              do: "Plus until #{date(u.subscription_expires_at)} unless they pay",
+              else: "Square couldn't collect the renewal"
+            ),
+          attention: true
+        }
+
       User.plus_time_ran_out?(u, now) ->
         %{
           kind: "expired",
@@ -184,14 +204,14 @@ defmodule Inkwell.Billing.AdminOverview do
   defp donor_label(%User{ink_donor_status: "active"}), do: "Ink Donor"
   defp donor_label(_), do: nil
 
-  @kind_order ~w(expired no_payment square_mismatch square canceling founding granted trial donor)
+  @kind_order ~w(expired unpaid_ended payment_failed no_payment square_mismatch square canceling founding granted trial donor)
   defp sort_key(m), do: {Enum.find_index(@kind_order, &(&1 == m.kind)) || 99, m.username}
 
   defp counts(members) do
     by = Enum.frequencies_by(members, & &1.kind)
 
     %{
-      plus: Enum.count(members, &(&1.kind not in ["donor", "expired"])),
+      plus: Enum.count(members, &(&1.kind not in ["donor", "expired", "unpaid_ended"])),
       paying: Map.get(by, "square", 0) + Map.get(by, "canceling", 0),
       founding: Map.get(by, "founding", 0),
       trial: Map.get(by, "trial", 0),
@@ -267,6 +287,14 @@ defmodule Inkwell.Billing.AdminOverview do
       case names.("expired") do
         [] -> nil
         ns -> %{kind: "expired", usernames: ns, message: "#{plural(ns, "account")} still marked Plus after the time ran out. They already get the free plan; Mark as free tidies the record."}
+      end,
+      case names.("payment_failed") do
+        [] -> nil
+        ns -> %{kind: "payment_failed", usernames: ns, message: "#{plural(ns, "member")} didn't pay their last renewal. Plus keeps working for #{Inkwell.Billing.UnpaidRenewals.grace_days()} days after the renewal date, then ends unless they pay."}
+      end,
+      case names.("unpaid_ended") do
+        [] -> nil
+        ns -> %{kind: "unpaid_ended", usernames: ns, message: "#{plural(ns, "member")} never paid a renewal, so Plus has ended. Square keeps emailing them an invoice every month until you cancel the subscription in Square."}
       end,
       case names.("no_payment") do
         [] -> nil

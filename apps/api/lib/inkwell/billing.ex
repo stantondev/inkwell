@@ -1476,6 +1476,20 @@ defmodule Inkwell.Billing do
     end
   end
 
+  # A member counting down an unpaid renewal is only "active" again once the
+  # invoice is paid, which Square's subscription status doesn't show.
+  defp reconcile_plus(
+         %User{subscription_status: "past_due", square_subscription_id: sub_id} = user,
+         %{"id" => sub_id, "status" => "ACTIVE"},
+         _customer_id,
+         _seen
+       ) do
+    case Inkwell.Billing.UnpaidRenewals.check_plus(user) do
+      :paid -> {Repo.get!(User, user.id), [:plus_activated]}
+      _ -> {Repo.get!(User, user.id), []}
+    end
+  end
+
   defp reconcile_plus(user, plus_sub, customer_id, _seen) do
     sub_id = plus_sub["id"]
     square_status = plus_sub["status"]
@@ -1837,6 +1851,17 @@ defmodule Inkwell.Billing do
     end
   end
 
+  # Square keeps a subscription ACTIVE while its latest invoice is unpaid, so
+  # an ACTIVE update must not end a member's unpaid-renewal countdown; only a
+  # paid invoice does (`Billing.UnpaidRenewals`).
+  defp apply_plus_update(
+         %User{subscription_status: "past_due", square_subscription_id: sub_id},
+         _sub,
+         sub_id,
+         "active"
+       ),
+       do: :ok
+
   defp apply_plus_update(user, sub, sub_id, inkwell_status) do
     expires_at = square_period_end(sub)
 
@@ -1866,46 +1891,26 @@ defmodule Inkwell.Billing do
     end
   end
 
+  # Square sends invoice events as `data.object.invoice`. Until 2026-09-29
+  # these handlers only matched the bare invoice, so every invoice event fell
+  # through to the no-op clause.
+  defp handle_invoice_payment_made(%{"invoice" => invoice}), do: handle_invoice_payment_made(invoice)
+
   defp handle_invoice_payment_made(%{"subscription_id" => sub_id}) when is_binary(sub_id) do
-    user = find_user_by_square_subscription(sub_id)
-
-    case user do
-      nil ->
-        :ok
-
-      user ->
-        # Confirm subscription is active
-        if sub_id == user.square_donor_subscription_id do
-          user |> User.ink_donor_changeset(%{ink_donor_status: "active"}) |> Repo.update()
-        else
-          user |> User.subscription_changeset(%{subscription_status: "active"}) |> Repo.update()
-        end
-
-        :ok
+    case find_user_by_square_subscription(sub_id) do
+      nil -> :ok
+      user -> Inkwell.Billing.UnpaidRenewals.payment_made(user, sub_id)
     end
   end
 
   defp handle_invoice_payment_made(_), do: :ok
 
-  defp handle_invoice_payment_failed(%{"subscription_id" => sub_id}) when is_binary(sub_id) do
-    user = find_user_by_square_subscription(sub_id)
+  defp handle_invoice_payment_failed(%{"invoice" => invoice}), do: handle_invoice_payment_failed(invoice)
 
-    case user do
-      nil ->
-        :ok
-
-      user ->
-        if sub_id == user.square_donor_subscription_id do
-          user |> User.ink_donor_changeset(%{ink_donor_status: "past_due"}) |> Repo.update()
-          Logger.warning("Ink Donor payment failed for #{user.username} (Square)")
-          Inkwell.Slack.notify_payment_failed(user.username, :donor)
-        else
-          user |> User.subscription_changeset(%{subscription_status: "past_due"}) |> Repo.update()
-          Logger.warning("Payment failed for #{user.username} — marked past_due (Square)")
-          Inkwell.Slack.notify_payment_failed(user.username, :plus)
-        end
-
-        :ok
+  defp handle_invoice_payment_failed(%{"subscription_id" => sub_id} = invoice) when is_binary(sub_id) do
+    case find_user_by_square_subscription(sub_id) do
+      nil -> :ok
+      user -> Inkwell.Billing.UnpaidRenewals.payment_failed(user, sub_id, invoice)
     end
   end
 

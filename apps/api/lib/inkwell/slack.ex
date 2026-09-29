@@ -89,9 +89,27 @@ defmodule Inkwell.Slack do
     )
   end
 
-  def notify_payment_failed(username, type) do
+  def notify_payment_failed(username, type, plus_until \\ nil) do
     label = if type == :donor, do: "Ink Donor", else: "Plus"
-    notify(":warning: *Payment failed.* @#{username}'s #{label} payment didn't go through")
+
+    until =
+      if plus_until,
+        do: " Plus keeps working until #{Calendar.strftime(plus_until, "%b %-d")}, then ends unless they pay.",
+        else: ""
+
+    notify(":warning: *Payment failed.* @#{username}'s #{label} renewal wasn't paid.#{until}")
+  end
+
+  def notify_payment_recovered(username, type) do
+    label = if type == :donor, do: "Ink Donor", else: "Plus"
+    notify(":white_check_mark: *Payment came through.* @#{username} paid their #{label} renewal")
+  end
+
+  def notify_unpaid_plus_ended(username) do
+    notify(
+      ":hourglass: *Plus ended.* @#{username}'s renewal went unpaid for 14 days, so they're on the free plan now. " <>
+        "Square will keep emailing them a monthly invoice until the subscription is canceled in Square."
+    )
   end
 
   def notify_new_feedback(username, category, title) do

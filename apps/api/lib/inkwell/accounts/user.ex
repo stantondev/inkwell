@@ -243,7 +243,8 @@ defmodule Inkwell.Accounts.User do
 
   @doc """
   True when the account is marked Plus but its paid or granted time is over:
-  canceled (or a manual grant, which is stored as canceled) with
+  canceled (or a manual grant, which is stored as canceled), or past_due with
+  its grace period over (`Inkwell.Billing.UnpaidRenewals`), with
   `subscription_expires_at` in the past. Such an account is not Plus —
   `Inkwell.SelfHosted.effective_tier/1` and the `EffectiveTier` plug treat it
   as free even before the row itself is updated. Founding Members never
@@ -253,7 +254,8 @@ defmodule Inkwell.Accounts.User do
 
   def plus_time_ran_out?(%__MODULE__{} = user, now) do
     user.subscription_tier == "plus" and is_nil(user.founding_member_number) and
-      user.subscription_status == "canceled" and not is_nil(user.subscription_expires_at) and
+      user.subscription_status in ["canceled", "past_due"] and
+      not is_nil(user.subscription_expires_at) and
       DateTime.compare(user.subscription_expires_at, now) == :lt
   end
 

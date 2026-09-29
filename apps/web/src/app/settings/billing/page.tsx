@@ -24,6 +24,14 @@ interface BillingStatus {
   plus_checkout?: "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled";
   /** A canceled Plus subscription with paid days left that can be kept. */
   plus_resumable?: boolean;
+  /** A past_due member's missed renewal (Billing.UnpaidRenewals). */
+  plus_unpaid?: {
+    pay_url: string | null;
+    due_date: string | null;
+    amount_cents: number | null;
+    plus_until: string | null;
+    ended: boolean;
+  } | null;
 }
 
 interface StorageSummary {
@@ -88,6 +96,12 @@ function StorageCard({ storage, isPlus }: { storage: StorageSummary; isPlus: boo
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+// Square's billing dates are calendar days (the grace period ends 23:59 UTC),
+// so show them as that day wherever the reader is.
+function formatBillingDay(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
 }
 
 export default function BillingPage() {
@@ -551,7 +565,12 @@ export default function BillingPage() {
           className="rounded-lg p-4 mb-4 text-sm"
           style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent)" }}
         >
-          <strong>Your last Plus payment didn&apos;t go through.</strong> See <em>Your Plan</em> below to switch to a card that works.
+          <strong>Your last Plus renewal wasn&apos;t paid.</strong>{" "}
+          {status?.plus_unpaid?.ended
+            ? "Plus has ended for now. Paying it brings Plus straight back."
+            : status?.plus_unpaid?.plus_until
+              ? <>Plus keeps working until {formatBillingDay(status.plus_unpaid.plus_until)}. See <em>Your Plan</em> below.</>
+              : <>See <em>Your Plan</em> below.</>}
         </div>
       )}
       {resumeMessage && (
@@ -629,17 +648,35 @@ export default function BillingPage() {
               </button>
             </div>
           </div>
-        ) : isPaidPlus && isPastDue ? (
+        ) : isPastDue && !isFounding && !needsResubscribe ? (
           <div>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              Square couldn&apos;t charge your card for Plus. Square doesn&apos;t let us change the card on an
-              existing subscription, so the fix is to close this one and start a new one with a card that works.
-              We cancel the failed subscription <em>first</em>, so you&apos;re never billed twice.
+              Square couldn&apos;t collect your
+              {status?.plus_unpaid?.due_date ? <> {formatBillingDay(status.plus_unpaid.due_date)}</> : null} Plus renewal
+              {status?.plus_unpaid?.amount_cents ? <> (${(status.plus_unpaid.amount_cents / 100).toFixed(2)})</> : null}.{" "}
+              {status?.plus_unpaid?.ended
+                ? "Your account is on the free plan until it's paid; everything you set up is saved and comes back when it is."
+                : status?.plus_unpaid?.plus_until
+                  ? <>Plus keeps working until <strong style={{ color: "var(--foreground)" }}>{formatBillingDay(status.plus_unpaid.plus_until)}</strong>, then pauses until it&apos;s paid.</>
+                  : null}
             </p>
-            <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-              If Square emails you about the unpaid charge, you don&apos;t need to pay it once you&apos;ve started over.
+            {status?.plus_unpaid?.pay_url && (
+              <a
+                href={status.plus_unpaid.pay_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full mt-4 px-4 py-2.5 rounded-full text-sm font-medium text-center"
+                style={{ background: "var(--accent)", color: "white" }}
+              >
+                Pay the invoice on Square
+              </a>
+            )}
+            <p className="text-xs mt-4" style={{ color: "var(--muted)" }}>
+              Card changed? Square can&apos;t switch the card on an existing subscription, so start a new one instead.
+              We cancel the unpaid subscription <em>first</em>, so you&apos;re never billed twice, and you don&apos;t
+              need to pay the old invoice.
             </p>
-            <div className="mt-4">
+            <div className="mt-3">
               <PlusIntervalPicker
                 interval={billingInterval}
                 onChange={setBillingInterval}
