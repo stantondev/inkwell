@@ -278,6 +278,15 @@ if config_env() == :prod do
   # Fly.io API token (for custom domain certificate management)
   config :inkwell, :fly_api_token, System.get_env("FLY_API_TOKEN")
 
+  # Hourly low-memory warning for the database machine (DatabaseMemoryWorker).
+  # Read-only org token from `fly tokens create readonly`; unset = no check.
+  config :inkwell, :db_memory_alert, %{
+    token: System.get_env("FLY_METRICS_TOKEN"),
+    app: System.get_env("DB_MEMORY_ALERT_APP") || "inkwell-db",
+    threshold_mb: String.to_integer(System.get_env("DB_MEMORY_ALERT_MB") || "100"),
+    prometheus_url: "https://api.fly.io/prometheus/personal"
+  }
+
   # Post by Email (Postmark inbound webhook)
   # (Inkwell.PostByEmail.domain/0 supplies post.inkwell.social on inkwell.social.)
   config :inkwell, :postmark_inbound_token, env.("POSTMARK_INBOUND_TOKEN")

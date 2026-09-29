@@ -78,6 +78,8 @@ config :inkwell, Oban,
        {"0 16 * * *", Inkwell.Workers.FirstEntryNudgeWorker},
        # Checkouts started vs. subscriptions completed — Mondays 15:00 UTC.
        {"0 15 * * 1", Inkwell.Workers.BillingFunnelWorker},
+       # Hourly: warn on Slack when the database machine's free memory is low
+       {"50 * * * *", Inkwell.Workers.DatabaseMemoryWorker},
        # Unpaid Plus / Ink Donor renewals (Square renews ~17:00 UTC)
        {"10 18 * * *", Inkwell.Workers.UnpaidRenewalsWorker},
        {"* * * * *", Inkwell.Workers.PublishScheduledEntriesWorker},
