@@ -1676,6 +1676,7 @@ defmodule Inkwell.Billing do
     user =
       find_user_by_square_customer(customer_id) ||
         find_user_by_customer_reference_id(customer_id) ||
+        find_user_by_order_template_reference_id(sub) ||
         find_user_by_subscription_reference_id(sub) ||
         find_user_by_email_from_square(customer_id)
 
@@ -1683,7 +1684,8 @@ defmodule Inkwell.Billing do
       nil ->
         Logger.error(
           "subscription.created — no user found for sub #{sub_id} / customer #{customer_id} " <>
-            "(tried square_customer_id, customer.reference_id, invoice→order.reference_id, email)"
+            "(tried square_customer_id, customer.reference_id, order_template.reference_id, " <>
+            "invoice→order.reference_id, email)"
         )
 
         notify_unmatched_subscription_once(sub_id, customer_id)
@@ -1754,7 +1756,28 @@ defmodule Inkwell.Billing do
     end
   end
 
-  # Fallback 3: follow the subscription's first invoice to its order, and
+  # Fallback 3: the subscription's order_template_id is the order our Payment
+  # Link was built on, so it still carries the reference_id (user UUID) we set
+  # in Square.build_order. Square rewrites its customer_id when the buyer types
+  # an email that isn't on our pre-created customer (2026-10-01: @eve has a
+  # fediverse placeholder address, paid with a masked email, Square made a new
+  # customer, and every other fallback missed — the invoice's order is a fresh
+  # one with no reference_id).
+  defp find_user_by_order_template_reference_id(%{"order_template_id" => order_id})
+       when is_binary(order_id) and order_id != "" do
+    fetch = Application.get_env(:inkwell, :subscription_order_fetcher, &Square.get_order/1)
+
+    with {:ok, %{"reference_id" => ref_id}} when is_binary(ref_id) <- fetch.(order_id),
+         {:ok, uuid} <- Ecto.UUID.cast(ref_id) do
+      Repo.get(User, uuid)
+    else
+      _ -> nil
+    end
+  end
+
+  defp find_user_by_order_template_reference_id(_), do: nil
+
+  # Fallback 4: follow the subscription's first invoice to its order, and
   # read the order's reference_id (bare user UUID — Square's Order.reference_id
   # has a 40-char limit, so we can't prefix it). Works even if Square created
   # a fresh customer at checkout that has no reference_id of its own.
