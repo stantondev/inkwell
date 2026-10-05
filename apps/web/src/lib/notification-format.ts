@@ -20,6 +20,7 @@ export interface Notification {
   target_type: string | null;
   target_id: string | null;
   follow_accepted?: boolean;
+  follow_pending?: boolean;
   actor: {
     username: string;
     display_name: string;

@@ -1057,7 +1057,7 @@ defmodule Inkwell.Journals do
   def explore_held_back_user_ids, do: new_link_poster_user_ids(7)
 
   # Accounts younger than `days` that have a published post linking outside
-  # Inkwell and have never commented, inked, stamped or followed anyone.
+  # Inkwell and have never commented, inked, stamped or had a follow accepted.
   defp new_link_poster_user_ids(days) do
     cutoff = DateTime.utc_now() |> DateTime.add(-days, :day)
 
@@ -1074,7 +1074,13 @@ defmodule Inkwell.Journals do
           not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)) and
           not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)) and
           not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)) and
-          not exists(from(r in Inkwell.Social.Relationship, where: r.follower_id == parent_as(:u).id)),
+          # Accepted follows only: an unanswered request is one click, and a
+          # spam account sprayed them at a dozen members to get out of this.
+          not exists(
+            from(r in Inkwell.Social.Relationship,
+              where: r.follower_id == parent_as(:u).id and r.status == :accepted
+            )
+          ),
       select: u.id
     )
   end

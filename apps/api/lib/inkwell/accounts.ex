@@ -879,9 +879,23 @@ defmodule Inkwell.Accounts do
         Inkwell.ApiKeys.revoke_all_user_keys(user.id)
         # Remove from search
         enqueue_search_delete_user(user.id)
+        withdraw_pending_follow_requests(user.id)
         {:ok, user}
       error -> error
     end
+  end
+
+  # A suspended account's unanswered pen pal requests would otherwise sit in
+  # every recipient's notifications with Accept/Decline buttons (2026-10-05:
+  # a spam account sent eleven in six seconds).
+  defp withdraw_pending_follow_requests(user_id) do
+    Inkwell.Social.Relationship
+    |> where([r], r.follower_id == ^user_id and r.status == :pending)
+    |> Repo.delete_all()
+
+    Notification
+    |> where([n], n.actor_id == ^user_id and n.type == :follow_request)
+    |> Repo.delete_all()
   end
 
   @doc "Unblock a user."

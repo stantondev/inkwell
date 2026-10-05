@@ -990,10 +990,11 @@ export function NotificationList({
                   const actor = getActorInfo(n);
                   const entryHref = getEntryHref(n);
                   const isClickable = !!getNotificationHref(n);
-                  // Show accept/reject for follow requests that haven't been accepted yet
-                  // (even if read — auto-mark-read setting shouldn't hide action buttons)
+                  // Show accept/reject only while the request is still waiting
+                  // (even if read — auto-mark-read setting shouldn't hide action buttons).
+                  // A declined or withdrawn request has no follow_pending.
                   const isPendingFollowRequest =
-                    n.type === "follow_request" && !!n.actor && !n.follow_accepted;
+                    n.type === "follow_request" && !!n.actor && !!n.follow_pending;
 
                   return (
                     <div

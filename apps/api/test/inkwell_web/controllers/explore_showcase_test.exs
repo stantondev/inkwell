@@ -199,5 +199,17 @@ defmodule InkwellWeb.ExploreShowcaseTest do
       create_relationship(%{follower_id: spammer.id, following_id: create_user().id, status: :accepted})
       refute Journals.held_back_from_search?(spammer.id)
     end
+
+    # 2026-10-05: an account sent requests to 11 members in six seconds.
+    test "unanswered follow requests don't lift it" do
+      spammer = create_user()
+      post = publish(spammer, ~s(<p><a href="https://paypal-accounts.example">buy</a></p>))
+
+      for _ <- 1..5,
+          do: create_relationship(%{follower_id: spammer.id, following_id: create_user().id, status: :pending})
+
+      assert Journals.held_back_from_search?(spammer.id)
+      assert post.id not in explore_ids()
+    end
   end
 end

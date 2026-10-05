@@ -222,9 +222,17 @@ defmodule Inkwell.Moderation.AutoModeration do
         Repo.one(from(i in Inkwell.Inks.Ink, where: i.user_id == ^user.id, select: count(i.id))) +
         Repo.one(from(s in Inkwell.Stamps.Stamp, where: s.user_id == ^user.id, select: count(s.id)))
 
+    # Only follows someone said yes to. A request is one click, and a spam
+    # account sending requests to a dozen members in seconds (2026-10-05)
+    # shouldn't count as having interacted with anyone.
     interactions =
       engagement +
-        Repo.one(from(r in Inkwell.Social.Relationship, where: r.follower_id == ^user.id, select: count(r.id)))
+        Repo.one(
+          from(r in Inkwell.Social.Relationship,
+            where: r.follower_id == ^user.id and r.status == :accepted,
+            select: count(r.id)
+          )
+        )
 
     reports =
       from(r in Report,

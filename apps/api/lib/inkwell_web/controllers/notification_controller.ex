@@ -26,9 +26,9 @@ defmodule InkwellWeb.NotificationController do
     follow_back_set = build_follow_back_set(user.id, notifications)
 
     # Batch check which follow_request notifications have already been accepted
-    accepted_follow_set = build_accepted_follow_set(user.id, notifications)
+    follow_states = build_follow_request_states(user.id, notifications)
 
-    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set, accepted_follow_set) end)})
+    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set, follow_states) end)})
   end
 
   # POST /api/notifications/read
@@ -89,11 +89,12 @@ defmodule InkwellWeb.NotificationController do
     end
   end
 
-  # Build a MapSet of actor_ids whose follow_request has already been accepted
-  defp build_accepted_follow_set(user_id, notifications) do
+  # Map of actor_id => status (:pending | :accepted) for the follow requests
+  # behind follow_request notifications. A request that was declined or
+  # withdrawn has no row, so it is absent: no Accept/Decline buttons.
+  defp build_follow_request_states(user_id, notifications) do
     import Ecto.Query
 
-    # Get actor IDs from follow_request notifications
     follow_request_actor_ids =
       notifications
       |> Enum.filter(fn n -> n.type == :follow_request && n.actor_id != nil end)
@@ -101,21 +102,18 @@ defmodule InkwellWeb.NotificationController do
       |> Enum.uniq()
 
     if follow_request_actor_ids == [] do
-      MapSet.new()
+      %{}
     else
-      # Check which of these actors have an accepted relationship where they follow the current user
-      accepted_ids =
-        Inkwell.Social.Relationship
-        |> where([r], r.follower_id in ^follow_request_actor_ids and r.following_id == ^user_id)
-        |> where([r], r.status == :accepted)
-        |> select([r], r.follower_id)
-        |> Repo.all()
-
-      MapSet.new(accepted_ids)
+      Inkwell.Social.Relationship
+      |> where([r], r.follower_id in ^follow_request_actor_ids and r.following_id == ^user_id)
+      |> where([r], r.status in [:pending, :accepted])
+      |> select([r], {r.follower_id, r.status})
+      |> Repo.all()
+      |> Map.new()
     end
   end
 
-  defp render_notification(n, entries_map, follow_back_set, accepted_follow_set) do
+  defp render_notification(n, entries_map, follow_back_set, follow_states) do
     # For federated notifications, remote actor info lives in the `data` field
     remote_actor =
       case n.data do
@@ -151,10 +149,12 @@ defmodule InkwellWeb.NotificationController do
         nil
       end
 
-    # For follow_request notifications, check if already accepted
-    follow_accepted =
-      n.type == :follow_request && n.actor_id != nil &&
-        MapSet.member?(accepted_follow_set, n.actor_id)
+    # For follow_request notifications: still waiting for an answer, or accepted?
+    follow_state =
+      if n.type == :follow_request && n.actor_id != nil, do: Map.get(follow_states, n.actor_id)
+
+    follow_accepted = follow_state == :accepted
+    follow_pending = follow_state == :pending
 
     %{
       id: n.id,
@@ -168,6 +168,7 @@ defmodule InkwellWeb.NotificationController do
       data: render_data(n.data),
       entry: entry,
       follow_accepted: follow_accepted,
+      follow_pending: follow_pending,
       inserted_at: n.inserted_at
     }
   end

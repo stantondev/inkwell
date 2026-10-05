@@ -167,8 +167,9 @@ defmodule InkwellWeb.RelationshipController do
     with target when not is_nil(target) <- Accounts.get_user_by_username(username) do
       case Social.reject_follow(target.id, user.id) do
         {:ok, _} ->
-          # Mark the follow_request notification as read so it doesn't reappear
-          Accounts.mark_follow_request_notifications_read(user.id, target.id)
+          # Remove the follow_request notification: the request no longer
+          # exists, so leaving it would bring back Accept/Decline on refresh.
+          Accounts.delete_follow_request_notifications(user.id, target.id)
 
           json(conn, %{ok: true})
 
