@@ -28,7 +28,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     id: "2026-10-05-sticky-click",
     date: "2026-10-05",
     title: "Click anywhere on a sticky",
-    body: "The whole sticky now opens it, not just the time in the corner. Links inside it, and selecting its text, work as before. Thanks to @michael for asking.",
+    body: "The whole sticky now opens it, not just the time in the corner. Links inside it, and selecting its text, work as before. Thanks to @jonhenshaw for the idea.",
     tag: "Reading",
   },
   {
