@@ -748,6 +748,9 @@ defmodule Inkwell.Accounts do
       end
     end
 
+    # Tell the fediverse the account is gone (removes its posts there too).
+    Inkwell.Federation.AccountDeletion.announce(user)
+
     # Remove from Meilisearch before DB cascade deletes the entries
     enqueue_search_delete_user(user.id)
     enqueue_search_delete_user_entries(user.id)

@@ -319,6 +319,24 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   @doc """
+  Delete{Person}: the account itself is gone. Mastodon then removes the account
+  and everything it posted from that server.
+  """
+  def build_delete_actor(user) do
+    actor = actor_url(user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Delete",
+      "id" => "#{actor}#delete",
+      "actor" => actor,
+      "to" => [@public],
+      "cc" => ["#{actor}/followers"],
+      "object" => actor
+    }
+  end
+
+  @doc """
   Builds a Delete activity for a removed entry.
   """
   def build_delete(entry_ap_id, author) do

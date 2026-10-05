@@ -15,7 +15,22 @@ defmodule Inkwell.Federation.Workers.DeliverActivityWorker do
 
   require Logger
 
+  @signer_salt "federation signer"
+  # Longer than every retry (the backoff tops out around 4h) and the Oban pruner.
+  @signer_max_age 14 * 24 * 60 * 60
+
   @impl Oban.Worker
+  def perform(%Oban.Job{args: %{"activity" => activity, "inbox_url" => inbox_url, "signer" => sealed}}) do
+    case Phoenix.Token.decrypt(InkwellWeb.Endpoint, @signer_salt, sealed, max_age: @signer_max_age) do
+      {:ok, %{"key_id" => key_id, "private_key" => pem}} ->
+        deliver(activity, inbox_url, pem, key_id)
+
+      _ ->
+        Logger.warning("DeliverActivityWorker: unreadable or expired signer for #{inbox_url}, discarding")
+        :ok
+    end
+  end
+
   def perform(%Oban.Job{args: %{"activity" => activity, "inbox_url" => inbox_url, "user_id" => user_id}}) do
     case Repo.get(User, user_id) do
       nil ->
@@ -23,22 +38,36 @@ defmodule Inkwell.Federation.Workers.DeliverActivityWorker do
         :ok
 
       user ->
-        instance_host = federation_config(:instance_host)
-        key_id = "https://#{instance_host}/users/#{user.username}#main-key"
+        deliver(activity, inbox_url, user.private_key, key_id(user))
+    end
+  end
 
-        case ActivityDelivery.deliver(activity, inbox_url, user.private_key, key_id) do
-          :ok ->
-            Inkwell.Federation.FederationStats.track_outbound(inbox_url, :ok)
-            :ok
-          {:error, {:http_error, status}} when status in [401, 403, 404, 410] ->
-            # Don't retry on permanent errors
-            Logger.info("Permanent delivery failure to #{inbox_url}: #{status}, not retrying")
-            Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, {:http_error, status}})
-            :ok
-          {:error, reason} ->
-            Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, reason})
-            {:error, reason}
-        end
+  @doc """
+  The signing key, encrypted with the app secret, for a job that has to sign
+  as an account that won't exist when it runs (the Delete{Person} sent when an
+  account is deleted). Pass it as the job's `signer` instead of `user_id`.
+  """
+  def seal_signer(%User{} = user) do
+    Phoenix.Token.encrypt(InkwellWeb.Endpoint, @signer_salt, %{"key_id" => key_id(user), "private_key" => user.private_key})
+  end
+
+  defp key_id(user), do: "https://#{federation_config(:instance_host)}/users/#{user.username}#main-key"
+
+  defp deliver(activity, inbox_url, private_key, key_id) do
+    case ActivityDelivery.deliver(activity, inbox_url, private_key, key_id) do
+      :ok ->
+        Inkwell.Federation.FederationStats.track_outbound(inbox_url, :ok)
+        :ok
+
+      {:error, {:http_error, status}} when status in [401, 403, 404, 410] ->
+        # Don't retry on permanent errors
+        Logger.info("Permanent delivery failure to #{inbox_url}: #{status}, not retrying")
+        Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, {:http_error, status}})
+        :ok
+
+      {:error, reason} ->
+        Inkwell.Federation.FederationStats.track_outbound(inbox_url, {:error, reason})
+        {:error, reason}
     end
   end
 

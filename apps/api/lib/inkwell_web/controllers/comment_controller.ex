@@ -5,7 +5,7 @@ defmodule InkwellWeb.CommentController do
   alias Inkwell.Avatars
   alias Inkwell.Repo
   alias Inkwell.Journals.Comment
-  alias Inkwell.Federation.{ActivityBuilder, Workers.DeliverActivityWorker}
+  alias Inkwell.Federation.CommentFederation
   alias InkwellWeb.Helpers.MentionHelper
 
   require Logger
@@ -146,7 +146,7 @@ defmodule InkwellWeb.CommentController do
               end
 
               # Fan out comment to fediverse followers of the entry author
-              maybe_federate_comment(entry, comment, user, replied_to)
+              maybe_federate_comment(comment, replied_to)
 
               conn |> put_status(:created) |> json(%{data: render_comment(comment)})
 
@@ -178,6 +178,7 @@ defmodule InkwellWeb.CommentController do
           {processed_html, _mentioned_users} = MentionHelper.process_mentions(params["body_html"] || "")
           case Journals.update_comment(comment, %{"body_html" => processed_html}) do
             {:ok, comment} ->
+              CommentFederation.deliver(comment, :update)
               json(conn, %{data: render_comment(comment)})
 
             {:error, :edit_window_expired} ->
@@ -202,6 +203,8 @@ defmodule InkwellWeb.CommentController do
       can_delete = comment.user_id == user.id || Accounts.is_admin?(user)
 
       if can_delete do
+        # Queued first: the Delete needs the footnote's entry and parent.
+        CommentFederation.retract(comment)
         {:ok, _} = Journals.delete_comment(comment)
         send_resp(conn, :no_content, "")
       else
@@ -295,74 +298,10 @@ defmodule InkwellWeb.CommentController do
 
   defp reply_parent(_, _), do: nil
 
-  # When a user comments on a public local entry, deliver the comment as a
-  # Create{Note} with inReplyTo to all fediverse followers of the entry author.
-  # This makes Inkwell comments appear in Mastodon threads.
-  defp maybe_federate_comment(entry, comment, user, replied_to) do
-    # Only federate comments on public entries (fediverse can't see private content)
-    if entry.privacy == :public do
-      Inkwell.Federation.Background.run(fn ->
-        try do
-          entry_author = Accounts.get_user!(entry.user_id)
-
-          # The entry author's fediverse followers, plus the server of the
-          # fediverse commenter being answered (they may not follow the author).
-          inboxes =
-            (Inkwell.Federation.Workers.FanOutWorker.collect_remote_inboxes(entry_author.id) ++
-               [Inkwell.Federation.RemoteActor.inbox_for(ActivityBuilder.remote_comment_author(replied_to))])
-            |> Enum.reject(&is_nil/1)
-            |> Enum.uniq()
-
-          if inboxes != [] do
-            # Build the reply Note addressed to the entry author.
-            # build_reply_note creates a proper Mention tag and addresses
-            # the Note to the entry author — this is essential for Mastodon
-            # to thread the comment under the original entry.
-            entry_author_ap_id = ActivityBuilder.actor_url(entry_author)
-
-            activity = ActivityBuilder.build_reply_note(
-              comment.body_html,
-              ActivityBuilder.entry_ap_url(entry),
-              user,
-              comment.id,
-              entry_author_ap_id
-            )
-
-            # Adjust addressing: the comment should be public (so fediverse
-            # followers can see the thread) with the entry author mentioned.
-            # build_reply_note sets to=[author], cc=[Public, commenter_followers]
-            # We add the entry author's followers to cc so the thread propagates.
-            commenter_url = activity["actor"]
-            commenter_followers = "#{commenter_url}/followers"
-            author_followers = "#{entry_author_ap_id}/followers"
-            public = "https://www.w3.org/ns/activitystreams#Public"
-
-            activity =
-              activity
-              |> Map.put("to", [public, entry_author_ap_id])
-              |> Map.put("cc", [commenter_followers, author_followers])
-              |> Map.update("object", %{}, fn obj ->
-                obj
-                |> Map.put("to", [public, entry_author_ap_id])
-                |> Map.put("cc", [commenter_followers, author_followers])
-                # Keep the Mention tag from build_reply_note — Mastodon needs it
-              end)
-              |> ActivityBuilder.thread_reply(replied_to)
-
-            Logger.info("Federating comment #{comment.id} on entry #{entry.id} by #{user.username} to #{length(inboxes)} inboxes (entry author: #{entry_author.username})")
-
-            Enum.each(inboxes, fn inbox_url ->
-              %{activity: activity, inbox_url: inbox_url, user_id: user.id}
-              |> DeliverActivityWorker.new()
-              |> Oban.insert()
-            end)
-          end
-        rescue
-          e ->
-            Logger.warning("Failed to federate comment #{comment.id}: #{inspect(e)}")
-        end
-      end)
-    end
+  # Footnotes on public entries reach the fediverse as replies (see
+  # CommentFederation); `replied_to` threads them under the comment answered.
+  defp maybe_federate_comment(comment, replied_to) do
+    CommentFederation.deliver(comment, :create, replied_to: replied_to)
   end
 
 end

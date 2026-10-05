@@ -346,7 +346,7 @@ export default function DevelopersPage() {
                   ["privacy", "string", "public, friends_only, private, or custom"],
                   ["status", "string", "Set to \"draft\" to create a draft"],
                   ["tags", "string[]", "Array of tag strings"],
-                  ["category", "string", "e.g. personal, tech, poetry, travel, books"],
+                  ["category", "string", "e.g. personal, tech, poetry, travel, books. On PATCH, null or \"\" clears it; leaving the field out keeps it; an unknown value is refused (422)"],
                   ["mood", "string", "Max 100 chars"],
                   ["music", "string", "Embed URL (Spotify, YouTube, etc.)"],
                   ["excerpt", "string", "Max 300 chars (auto-generated if blank)"],

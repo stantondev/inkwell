@@ -606,7 +606,14 @@ defmodule InkwellWeb.AdminController do
   def delete_entry(conn, %{"id" => id}) do
     try do
       entry = Journals.get_entry!(id)
+
+      # This used to delete the row only, so the entry stayed on the fediverse.
+      if entry.privacy == :public && entry.status == :published do
+        Inkwell.Federation.EntryRetraction.retract(entry)
+      end
+
       {:ok, _} = Journals.delete_entry(entry)
+      Inkwell.Workers.SearchIndexWorker.new(%{action: "delete_entry", entry_id: entry.id}) |> Oban.insert()
       send_resp(conn, :no_content, "")
     rescue
       Ecto.NoResultsError ->

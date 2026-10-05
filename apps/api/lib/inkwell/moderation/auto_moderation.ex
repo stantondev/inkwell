@@ -378,6 +378,9 @@ defmodule Inkwell.Moderation.AutoModeration do
 
   defp hide_content(user, result, automated?, report_note) do
     hidden_ids = hide_published_entries(user)
+    # Their footnotes on other people's posts leave the fediverse too (the ones
+    # on their own posts went with those posts).
+    Inkwell.Federation.CommentFederation.retract_by_author(user.id)
     resolve_pending_reports(user, report_note)
 
     Inkwell.Workers.SearchIndexWorker.new(%{"action" => "delete_user_entries", "user_id" => user.id})
@@ -466,9 +469,8 @@ defmodule Inkwell.Moderation.AutoModeration do
     ids
   end
 
-  defp federate_delete(%Entry{ap_id: ap_id, privacy: :public, user_id: uid}) when is_binary(ap_id) do
-    Inkwell.Federation.Workers.FanOutWorker.new(%{entry_ap_id: ap_id, action: "delete", user_id: uid}) |> Oban.insert()
-  end
+  # Hidden entries leave the fediverse along with the footnotes on them.
+  defp federate_delete(%Entry{privacy: :public} = entry), do: Inkwell.Federation.EntryRetraction.retract(entry)
 
   defp federate_delete(_), do: :ok
 

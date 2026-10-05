@@ -3,6 +3,7 @@ import { AvatarWithFrame } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
 import { StampDisplay } from "@/components/stamp-display";
+import { StickyClickArea } from "@/components/sticky-click-area";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { stickyTilt } from "@/lib/stickies";
 
@@ -60,13 +61,12 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
   const color = entry.sticky_color || "yellow";
   const expanded = entry.expanded_into;
 
-  return (
-    <article
-      className={`sticky-note sticky-note--${color} sticky-note--${variant}`}
-      data-read-entry={readId}
-      style={{ "--sticky-tilt": `${stickyTilt(entry.id)}deg` } as React.CSSProperties}
-      aria-label={`Sticky by ${entry.author.display_name}`}
-    >
+  const className = `sticky-note sticky-note--${color} sticky-note--${variant}`;
+  const style = { "--sticky-tilt": `${stickyTilt(entry.id)}deg` } as React.CSSProperties;
+  const label = `Sticky by ${entry.author.display_name}`;
+
+  const content = (
+    <>
       <span className="sticky-note-tape" aria-hidden="true" />
 
       <div className="sticky-note-inner">
@@ -128,6 +128,21 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
       </div>
 
       {variant === "feed" && actions && <div className="sticky-note-actions">{actions}</div>}
-    </article>
+    </>
+  );
+
+  // On its own page there's nowhere to go; elsewhere the whole note opens it.
+  if (variant === "page") {
+    return (
+      <article className={className} data-read-entry={readId} style={style} aria-label={label}>
+        {content}
+      </article>
+    );
+  }
+
+  return (
+    <StickyClickArea href={href} className={className} style={style} readId={readId} label={label}>
+      {content}
+    </StickyClickArea>
   );
 }

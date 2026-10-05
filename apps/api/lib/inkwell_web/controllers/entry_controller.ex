@@ -3,6 +3,7 @@ defmodule InkwellWeb.EntryController do
 
   alias Inkwell.{Accounts, Bookmarks, CustomDomains, Inks, Journals, MarginNotes, Polls, Redactions, Repo, Reprints, Social, Stamps, Tipping, WriterSubscriptions}
   alias Inkwell.Avatars
+  alias Inkwell.Federation.EntryRetraction
   alias Inkwell.Federation.Workers.FanOutWorker
   alias Inkwell.Workers.SearchIndexWorker
   alias InkwellWeb.{EntryPublishing, MarginNoteController, UserController}
@@ -711,19 +712,12 @@ defmodule InkwellWeb.EntryController do
       end
 
     with {:ok, entry} <- result do
-      # Capture AP ID before deletion for federated delete notification
-      entry_ap_id = entry.ap_id
-      entry_user_id = entry.user_id
-      was_public = entry.privacy == :public && entry.status == :published
+      # Before deleting: the footnotes' Deletes need the footnotes.
+      if entry.privacy == :public && entry.status == :published do
+        EntryRetraction.retract(entry)
+      end
 
       {:ok, _} = Journals.delete_entry(entry)
-
-      # Fan out delete to federated followers
-      if was_public && entry_ap_id do
-        %{entry_ap_id: entry_ap_id, action: "delete", user_id: entry_user_id}
-        |> FanOutWorker.new()
-        |> Oban.insert()
-      end
 
       # Remove from Meilisearch
       enqueue_search_delete(entry.id)
@@ -852,18 +846,17 @@ defmodule InkwellWeb.EntryController do
   end
 
   defp handle_bulk_delete(conn, user, entry_ids) do
-    case Journals.bulk_delete_entries(user.id, entry_ids) do
-      {:ok, count, entries_meta} ->
-        # Fan out deletes for public published entries
-        Enum.each(entries_meta, fn meta ->
-          if meta.privacy == :public && meta.status == :published && meta.ap_id do
-            %{entry_ap_id: meta.ap_id, action: "delete", user_id: meta.user_id}
-            |> FanOutWorker.new()
-            |> Oban.insert()
-          end
+    # Runs after the ownership check and before the delete (footnotes go with
+    # their entries).
+    retract = fn entries_meta ->
+      for meta <- entries_meta, meta.privacy == :public and meta.status == :published do
+        EntryRetraction.retract(meta)
+      end
+    end
 
-          enqueue_search_delete(meta.id)
-        end)
+    case Journals.bulk_delete_entries(user.id, entry_ids, retract) do
+      {:ok, count, entries_meta} ->
+        Enum.each(entries_meta, &enqueue_search_delete(&1.id))
 
         json(conn, %{ok: true, count: count})
 
@@ -1460,13 +1453,8 @@ defmodule InkwellWeb.EntryController do
     |> Oban.insert()
   end
 
-  defp enqueue_federated_delete(%{ap_id: ap_id, user_id: user_id}) when is_binary(ap_id) do
-    %{entry_ap_id: ap_id, action: "delete", user_id: user_id}
-    |> FanOutWorker.new()
-    |> Oban.insert()
-  end
-
-  defp enqueue_federated_delete(_entry), do: :ok
+  # The entry stopped being public: its Delete, and its footnotes' Deletes.
+  defp enqueue_federated_delete(entry), do: EntryRetraction.retract(entry)
 
   # Decode HTML entities to their Unicode characters for plain-text excerpts
   defp decode_html_entities(text) do

@@ -18,6 +18,20 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-05-footnotes-leave-fediverse",
+    date: "2026-10-05",
+    title: "Deleted footnotes leave Mastodon too",
+    body: "Deleting or editing a footnote now reaches the fediverse: Mastodon removes a deleted footnote and shows your edits. The same goes for every footnote on an entry you delete or make private, and deleting your account now removes your posts from other servers as well. Thanks to @michael for spotting it.",
+    tag: "Fediverse",
+  },
+  {
+    id: "2026-10-05-sticky-click",
+    date: "2026-10-05",
+    title: "Click anywhere on a sticky",
+    body: "The whole sticky now opens it, not just the time in the corner. Links inside it, and selecting its text, work as before. Thanks to @michael for asking.",
+    tag: "Reading",
+  },
+  {
     id: "2026-09-28-explore-ribbon",
     date: "2026-09-28",
     title: "Explore opens on writing",

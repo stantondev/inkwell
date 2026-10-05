@@ -490,7 +490,9 @@ defmodule Inkwell.Journals do
     do: order_by(query, [e], desc: fragment("coalesce(?, ?)", e.published_at, e.inserted_at), desc: e.id)
 
   @doc "Bulk delete entries with ownership verification. Returns {:ok, count, entries_meta} or {:error, reason}."
-  def bulk_delete_entries(user_id, entry_ids) when is_list(entry_ids) do
+  # `before_delete` gets the owned entries' metadata after the ownership check
+  # and before they're deleted (to queue fediverse Deletes for their footnotes).
+  def bulk_delete_entries(user_id, entry_ids, before_delete \\ fn _ -> :ok end) when is_list(entry_ids) do
     # Fetch entries that belong to this user
     entries =
       Entry
@@ -501,6 +503,8 @@ defmodule Inkwell.Journals do
     if length(entries) != length(entry_ids) do
       {:error, :unauthorized}
     else
+      before_delete.(entries)
+
       # Delete translations for each entry
       Enum.each(entries, fn e -> Inkwell.Translations.delete_translations_for("entry", e.id) end)
 

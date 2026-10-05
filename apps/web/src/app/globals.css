@@ -16179,6 +16179,10 @@ a, button, [role="tab"], [role="button"] {
 .sticky-note-time::before { content: "·"; margin-right: 0.45rem; }
 .sticky-note-time:hover { text-decoration: underline; }
 
+/* The whole note opens the sticky (StickyClickArea); text stays selectable. */
+.sticky-note--clickable { cursor: pointer; }
+.sticky-note--clickable:hover { box-shadow: var(--sticky-shadow), 0 0 0 2px var(--sticky-rule); }
+
 .sticky-note-body {
   font-family: var(--font-lora, Georgia, serif);
   font-size: 1.0625rem;

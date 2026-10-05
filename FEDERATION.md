@@ -174,7 +174,7 @@ Comments written on Inkwell go out as `Note`s with `inReplyTo`:
 - A reply to another comment points `inReplyTo` at that comment (our `/comments/{id}` or the fediverse comment's own id) and mentions its author.
 - Comment ids are `https://inkwell.social/comments/{id}` and dereference to the `Note` (browsers are redirected to the conversation).
 
-Editing or deleting a comment is not federated yet.
+Editing a comment sends `Update{Note}` (same id, with `updated`). A comment that stops being visible gets `Delete{Tombstone}`, signed by its writer, to every server the comment reached plus the writer's followers: when it's deleted (by its writer or an admin), when the entry under it is deleted, made non-public or hidden by moderation, and when its writer is suspended as spam.
 
 ### Note (letters)
 
@@ -219,9 +219,12 @@ Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded
 |---|---|---|
 | `Create {Article}` / `Create {Note}` | A public entry or sticky is published, or a published post is made public | Followers |
 | `Update {Article}` / `Update {Note}` | A public post is edited | Followers |
-| `Delete {Tombstone}` | A public post is deleted, or made non-public | Followers |
+| `Delete {Tombstone}` | A public post is deleted (also by an admin), made non-public or hidden by moderation | Followers |
 | `Update {Person}` | A profile edit changes what the actor shows | Followers |
 | `Create {Note}` (comment) | A member comments on a fediverse post or an Inkwell entry | The post's author and the relevant followers |
+| `Update {Note}` (comment) | A comment is edited | Everyone who got it, plus the writer's followers |
+| `Delete {Tombstone}` (comment) | A comment is deleted, or its entry is deleted, made non-public or hidden | Everyone who got it, plus the writer's followers |
+| `Delete {Person}` | A member deletes their account | Followers, accounts they follow, authors they replied to, people they wrote letters to |
 | `Create {Note}` / `Update {Note}` (letter) | A letter to a fediverse account is sent or edited | That account only |
 | `Like` / `Undo {Like}` | A member stamps (or unstamps) a fediverse post | The post's author |
 | `Announce` / `Undo {Announce}` | A member reprints (or un-reprints) a public post | The member's followers, and for a fediverse post its author (cc'd, as Mastodon does with boosts) |
@@ -337,7 +340,6 @@ Members can opt in to sharing on Bluesky through [Bridgy Fed](https://fed.brid.g
 - No client-to-server ActivityPub.
 - No locked accounts: every follow is accepted.
 - Friends-only and custom-list posts don't federate at all, not even to followers on other servers.
-- Comment edits and deletions aren't federated.
 - Inbound `Reject`, `Move`, `Flag` and `Block` are ignored.
 - Forwarded activities are refused (no LD Signatures).
 - Inbound Likes and Announces from blocked accounts still count.
