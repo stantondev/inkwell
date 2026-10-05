@@ -78,6 +78,7 @@ export default async function SettingsHomePage() {
     series: null,
     polls: null,
     "post-by-email": me?.post_email_enabled ? "On" : "Off",
+    listening: typeof settings.listenbrainz_username === "string" ? `ListenBrainz · ${settings.listenbrainz_username}` : "Not connected",
     import: null,
     newsletter: me?.newsletter_enabled
       ? `${me.subscriber_count ?? 0} subscriber${me.subscriber_count === 1 ? "" : "s"} · ${me.sends_this_month ?? 0}/${me.send_limit ?? 0} sends this month`

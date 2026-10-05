@@ -266,6 +266,7 @@ defmodule InkwellWeb.Router do
     get "/me/entries", EntryController, :list_own
     get "/me/entries/ids", EntryController, :list_own_ids
     get "/media/resolve", MediaEmbedController, :resolve
+    get "/me/listenbrainz", ListenBrainzController, :now_playing
     post "/me/entries/bulk", EntryController, :bulk_action
 
     # Entries (CRUD)

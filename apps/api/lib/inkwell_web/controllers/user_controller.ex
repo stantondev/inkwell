@@ -165,7 +165,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at()
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at() |> sanitize_listenbrainz_username()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -704,6 +704,16 @@ defmodule InkwellWeb.UserController do
   # the default by being dropped.
   defp sanitize_mood_theme(%{"mood_theme" => theme} = settings) when theme in ["classic", "ink"], do: settings
   defp sanitize_mood_theme(settings), do: Map.delete(settings, "mood_theme")
+
+  # The writer's ListenBrainz account, for "Listening to" (Inkwell.ListenBrainz).
+  defp sanitize_listenbrainz_username(%{"listenbrainz_username" => name} = settings) do
+    case Inkwell.ListenBrainz.clean_username(name) do
+      nil -> Map.delete(settings, "listenbrainz_username")
+      clean -> Map.put(settings, "listenbrainz_username", clean)
+    end
+  end
+
+  defp sanitize_listenbrainz_username(settings), do: settings
 
   # Reader's look & feel: "modern" (default) or "classic" (the 2004 view).
   defp sanitize_site_look(%{"site_look" => look} = settings) when look in ["modern", "classic"], do: settings

@@ -36,7 +36,7 @@ export interface MusicEmbed {
  * or Owncast link (`music_metadata`). Those can't be recognised from the URL
  * alone, so the server looks them up once, when the writer pastes the link.
  */
-export interface MusicMetadata {
+export interface FediverseMediaMetadata {
   service: "peertube" | "funkwhale" | "castopod" | "owncast";
   embed_url: string;
   label: string;
@@ -44,6 +44,53 @@ export interface MusicMetadata {
   height?: number;
   aspect?: "video";
   source_url: string;
+}
+
+/**
+ * A track filled in from the writer's ListenBrainz account (Inkwell.ListenBrainz).
+ * No player: the song, and MusicBrainz ids for its cover art and page.
+ */
+export interface ListenBrainzMetadata {
+  service: "listenbrainz";
+  artist: string;
+  track: string;
+  release?: string;
+  recording_mbid?: string;
+  release_mbid?: string;
+  caa_release_mbid?: string;
+  caa_id?: number;
+  username?: string;
+  source_url: string;
+}
+
+export type MusicMetadata = FediverseMediaMetadata | ListenBrainzMetadata;
+
+/** ListenBrainz details saved for exactly this Listening to text, if any. */
+export function listenBrainzTrack(
+  music: string | null | undefined,
+  metadata?: MusicMetadata | null
+): ListenBrainzMetadata | null {
+  if (!music || metadata?.service !== "listenbrainz") return null;
+  return metadata.source_url === music.trim() ? metadata : null;
+}
+
+/** Cover art from the Cover Art Archive, built from MusicBrainz ids only. */
+export function listenBrainzCover(t: ListenBrainzMetadata, size: 250 | 500 = 250): string | null {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  if (t.caa_release_mbid && uuid.test(t.caa_release_mbid) && Number.isInteger(t.caa_id)) {
+    return `https://coverartarchive.org/release/${t.caa_release_mbid}/${t.caa_id}-${size}.jpg`;
+  }
+  if (t.release_mbid && uuid.test(t.release_mbid)) {
+    return `https://coverartarchive.org/release/${t.release_mbid}/front-${size}`;
+  }
+  return null;
+}
+
+/** Where the song links: its MusicBrainz page, or the writer's ListenBrainz. */
+export function listenBrainzLink(t: ListenBrainzMetadata): string | null {
+  if (t.recording_mbid) return `https://musicbrainz.org/recording/${t.recording_mbid}`;
+  if (t.username) return `https://listenbrainz.org/user/${encodeURIComponent(t.username)}/`;
+  return null;
 }
 
 /**
@@ -57,7 +104,7 @@ export function resolveMusicEmbed(
   if (!music) return null;
   const known = parseMusicUrl(music);
   if (known) return known;
-  if (metadata?.embed_url && metadata.source_url === music.trim()) {
+  if (metadata && metadata.service !== "listenbrainz" && metadata.embed_url && metadata.source_url === music.trim()) {
     return {
       service: metadata.service,
       embedUrl: metadata.embed_url,

@@ -1059,6 +1059,71 @@ a.mention:hover,
 
 /* ─── Music embed containers ─────────────────────────────────────────── */
 
+/* Editor: fill Listening to from ListenBrainz. */
+.editor-now-playing {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.editor-now-playing:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.editor-now-playing:disabled { opacity: 0.6; cursor: wait; }
+
+/* A song filled in from ListenBrainz (components/listening-card.tsx). */
+.listening-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  max-width: 26rem;
+  margin: 0.25rem 0 1.25rem;
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--foreground);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+a.listening-card:hover { border-color: var(--accent); }
+.listening-card-compact { margin: 0.75rem 0 0; gap: 0.7rem; padding: 0.45rem 0.75rem 0.45rem 0.45rem; }
+.listening-card-cover {
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-hover, var(--background));
+}
+.listening-card-cover-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1.25rem;
+  border: 1px solid var(--border);
+}
+.listening-card-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.listening-card-track {
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listening-card-artist,
+.listening-card-source {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.listening-card-source { font-size: 0.6875rem; letter-spacing: 0.02em; margin-top: 0.1rem; }
+.listening-card-compact .listening-card-track { font-size: 0.9rem; }
+
 .music-embed-container {
   border-radius: 14px;
   overflow: hidden;

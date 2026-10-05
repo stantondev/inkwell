@@ -33,6 +33,7 @@ const I = {
   book: <svg {...iconProps}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>,
   chart: <svg {...iconProps}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
   sendMail: <svg {...iconProps}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /><line x1="10" y1="14" x2="21" y2="3" /></svg>,
+  music: <svg {...iconProps}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>,
   importIcon: <svg {...iconProps}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
   mail: <svg {...iconProps}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>,
   invite: <svg {...iconProps}><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>,
@@ -190,6 +191,15 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     icon: I.chart,
     group: "writing",
     keywords: ["vote", "survey", "results"],
+  },
+  {
+    id: "listening",
+    href: "/settings/listening",
+    title: "Listening",
+    blurb: "Connect ListenBrainz and fill in “Listening to” with the song you're playing, cover art included.",
+    icon: I.music,
+    group: "writing",
+    keywords: ["listenbrainz", "music", "now playing", "navidrome", "funkwhale", "scrobble", "song", "listening to"],
   },
   {
     id: "post-by-email",

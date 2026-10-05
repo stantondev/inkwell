@@ -303,6 +303,7 @@ defmodule InkwellWeb.EntryController do
                       "gazette_story_id"])
         |> put_source_sticky(user.id)
         |> put_gazette_story()
+        |> put_music_from(params, user)
         |> put_music_metadata()
         |> put_userpic(conn.assigns.current_user.id)
         |> sanitize_scheduled_options()
@@ -338,6 +339,7 @@ defmodule InkwellWeb.EntryController do
                       "gazette_story_id"])
         |> put_source_sticky(user.id)
         |> put_gazette_story()
+        |> put_music_from(params, user)
         |> put_music_metadata()
         |> put_userpic(conn.assigns.current_user.id)
         |> Map.put("user_id", user.id)
@@ -398,6 +400,7 @@ defmodule InkwellWeb.EntryController do
                        "sensitive", "content_warning",
                        # Drafts only; published entries ignore these.
                        "scheduled_at", "scheduled_options"])
+        |> put_music_from(params, user)
         |> put_music_metadata()
         |> put_userpic(conn.assigns.current_user.id)
         |> sanitize_scheduled_options()
@@ -636,6 +639,7 @@ defmodule InkwellWeb.EntryController do
                         # draft's own published_at (e.g. an imported post's
                         # original date) is preserved by publish_changeset.
                         "published_at"])
+        |> put_music_from(params, user)
         |> put_music_metadata()
         |> put_userpic(conn.assigns.current_user.id)
           |> maybe_generate_slug(params)
@@ -1341,6 +1345,30 @@ defmodule InkwellWeb.EntryController do
   # A fediverse player for the media link comes from MediaEmbeds.resolve/1 in
   # the editor. What the client sends back is re-checked against the link and
   # dropped if it doesn't match; changing the link without new metadata clears it.
+  # `music_from: "listenbrainz"` (API posting tools): fill Listening to from the
+  # writer's ListenBrainz account, if they're playing something now or listened
+  # in the last half hour. Otherwise the field is left as sent.
+  @listenbrainz_recent_seconds 30 * 60
+
+  defp put_music_from(attrs, %{"music_from" => "listenbrainz"}, user) do
+    with name when is_binary(name) <- get_in(user.settings || %{}, ["listenbrainz_username"]),
+         {:ok, track} <- Inkwell.ListenBrainz.now_playing(name),
+         true <- track.playing_now or recent_listen?(track.listened_at) do
+      attrs
+      |> Map.put("music", track.music)
+      |> Map.put("music_metadata", track.music_metadata)
+    else
+      _ -> attrs
+    end
+  end
+
+  defp put_music_from(attrs, _params, _user), do: attrs
+
+  defp recent_listen?(%DateTime{} = at),
+    do: DateTime.diff(DateTime.utc_now(), at) <= @listenbrainz_recent_seconds
+
+  defp recent_listen?(_), do: false
+
   defp put_music_metadata(%{"music_metadata" => meta} = attrs),
     do: Map.put(attrs, "music_metadata", Inkwell.MediaEmbeds.sanitize(meta, attrs["music"]))
 

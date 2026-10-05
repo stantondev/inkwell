@@ -198,6 +198,7 @@ export default function DevelopersPage() {
           <div className="flex flex-col">
             <Endpoint method="GET" path="/api/me" description="Get your profile and settings" auth="required" />
             <Endpoint method="PATCH" path="/api/me" description="Update your profile" auth="required" scope="write" />
+            <Endpoint method="GET" path="/api/me/listenbrainz" description="What you're playing on ListenBrainz (or your last listen): music + music_metadata to send with an entry. ?username= checks another account" auth="required" />
           </div>
         </section>
 
@@ -348,7 +349,9 @@ export default function DevelopersPage() {
                   ["tags", "string[]", "Array of tag strings"],
                   ["category", "string", "e.g. personal, tech, poetry, travel, books. On PATCH, null or \"\" clears it; leaving the field out keeps it; an unknown value is refused (422)"],
                   ["mood", "string", "Max 100 chars"],
-                  ["music", "string", "Embed URL (Spotify, YouTube, etc.)"],
+                  ["music", "string", "Listening to: a link (Spotify, YouTube, PeerTube…) or plain text like \"Artist — Track\""],
+                  ["music_from", "string", "\"listenbrainz\": fill music from your ListenBrainz account (Settings → Listening) if you're playing something or listened in the last 30 minutes; otherwise music is left as sent"],
+                  ["music_metadata", "object", "From GET /api/me/listenbrainz, sent with the music it came with (dropped if music differs)"],
                   ["excerpt", "string", "Max 300 chars (auto-generated if blank)"],
                   ["cover_image_id", "UUID", "ID from POST /api/images"],
                   ["sensitive", "boolean", "Mark as sensitive content"],

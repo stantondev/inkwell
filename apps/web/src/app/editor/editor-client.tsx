@@ -25,7 +25,8 @@ import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { draftsCreatedHere } from "./created-here";
 import { ScheduleButton } from "./schedule-button";
-import { mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
+import { listenBrainzTrack, mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
+import { ListeningCard } from "@/components/listening-card";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
 import { Spacing } from "@/lib/tiptap-spacing";
@@ -952,12 +953,15 @@ function MusicNoteIcon() {
   );
 }
 
-function MusicInput({ value, onChange, fediverse, checking }: {
+function MusicInput({ value, onChange, fediverse, checking, onNowPlaying, nowPlayingBusy }: {
   value: string;
   onChange: (v: string) => void;
   /** A PeerTube / Funkwhale / Castopod / Owncast player was found for the link. */
   fediverse?: boolean;
   checking?: boolean;
+  /** The writer added a ListenBrainz username: fill the field from it. */
+  onNowPlaying?: () => void;
+  nowPlayingBusy?: boolean;
 }) {
   const embed = parseMusicUrl(value);
 
@@ -994,6 +998,18 @@ function MusicInput({ value, onChange, fediverse, checking }: {
             className="text-xs opacity-40 hover:opacity-80 transition flex-shrink-0"
             aria-label="Clear music"
           >×</button>
+        )}
+        {onNowPlaying && (
+          <button
+            type="button"
+            onClick={onNowPlaying}
+            disabled={nowPlayingBusy}
+            className="editor-now-playing"
+            title="Fill this in from what you're playing on ListenBrainz"
+            aria-label="Now playing: fill this in from ListenBrainz"
+          >
+            {nowPlayingBusy ? "Checking…" : "♪ Now playing"}
+          </button>
         )}
       </div>
     </div>
@@ -1515,6 +1531,10 @@ export function EditorClient() {
   // looked up once by the server and saved with the entry.
   const [musicMetadata, setMusicMetadata] = useState<MusicMetadata | null>(null);
   const [musicLookup, setMusicLookup] = useState(false);
+  // "Now playing" from the writer's ListenBrainz account (Settings → Listening).
+  const [listenBrainzUser, setListenBrainzUser] = useState<string | null>(null);
+  const [nowPlayingBusy, setNowPlayingBusy] = useState(false);
+  const [nowPlayingNote, setNowPlayingNote] = useState<string | null>(null);
   // Links already looked up, so a link with no player isn't asked about again.
   const lookedUpLinksRef = useRef<Set<string>>(new Set());
   // Only a player found for exactly the current link is saved with the entry.
@@ -2117,6 +2137,7 @@ export function EditorClient() {
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
           setMoodTheme(normalizeMoodTheme(data?.settings?.mood_theme));
+          setListenBrainzUser(data?.settings?.listenbrainz_username ?? null);
           setMyAvatarUrl(data?.avatar_url ?? null);
           // Sync eye comfort from server (cross-device sync)
           const serverComfort = !!data?.settings?.eye_comfort_mode;
@@ -2422,6 +2443,38 @@ export function EditorClient() {
     setState((s) => ({ ...s, ...patch }));
     markUnsaved();
     scheduleAutosave();
+  };
+
+  // Fills Listening to with what the writer is playing on ListenBrainz (or,
+  // when nothing is, their last song, and says so).
+  const fillNowPlaying = async () => {
+    setNowPlayingBusy(true);
+    setNowPlayingNote(null);
+    try {
+      const res = await fetch("/api/me/listenbrainz");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.data) {
+        setNowPlayingNote(json.error || "Couldn't reach ListenBrainz. Try again in a moment.");
+        return;
+      }
+      const d = json.data as { music: string; music_metadata: MusicMetadata; playing_now: boolean; listened_at: string | null };
+      setMusicMetadata(d.music_metadata);
+      update({ music: d.music });
+      if (!d.playing_now) {
+        const mins = d.listened_at ? Math.round((Date.now() - new Date(d.listened_at).getTime()) / 60000) : null;
+        const when =
+          mins === null ? "" :
+          mins < 2 ? " (just now)" :
+          mins < 60 ? ` (${mins} minutes ago)` :
+          mins < 60 * 24 ? ` (${Math.round(mins / 60)} hours ago)` :
+          ` (${Math.round(mins / 1440)} days ago)`;
+        setNowPlayingNote(`Nothing's playing right now, so this is the last song you listened to${when}.`);
+      }
+    } catch {
+      setNowPlayingNote("Couldn't reach ListenBrainz. Try again in a moment.");
+    } finally {
+      setNowPlayingBusy(false);
+    }
   };
 
   // ── Autosave: localStorage backup ──────────────────────────────────────────
@@ -2736,6 +2789,7 @@ export function EditorClient() {
   }, [showSettings, isMobileLayout]);
 
   const musicEmbed = resolveMusicEmbed(state.music, musicMetadata);
+  const listenedTrack = listenBrainzTrack(state.music, musicMetadata);
 
   // Toggle between visual (Tiptap) and HTML source editing
   const toggleHtmlMode = useCallback(() => {
@@ -3585,11 +3639,22 @@ export function EditorClient() {
                 onThemeChange={changeMoodTheme}
               />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
-              <MusicInput value={state.music} onChange={(v) => update({ music: v })}
-                fediverse={!!currentMusicMetadata} checking={musicLookup} />
+              <MusicInput value={state.music} onChange={(v) => { setNowPlayingNote(null); update({ music: v }); }}
+                fediverse={!!currentMusicMetadata && currentMusicMetadata.service !== "listenbrainz"} checking={musicLookup}
+                onNowPlaying={listenBrainzUser ? fillNowPlaying : undefined} nowPlayingBusy={nowPlayingBusy} />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
               <LocationInput value={state.location} onChange={(v) => update({ location: v })} />
             </div>
+            )}
+
+            {/* ── The song, filled in from ListenBrainz ─ */}
+            {!focusMode && (listenedTrack || nowPlayingNote) && (
+              <div className="mb-4">
+                {listenedTrack && <ListeningCard track={listenedTrack} compact />}
+                {nowPlayingNote && (
+                  <p className="text-xs mt-2" style={{ color: "var(--muted)" }} role="status">{nowPlayingNote}</p>
+                )}
+              </div>
             )}
 
             {/* ── Music embed preview ─────────────────── */}

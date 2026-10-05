@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-05-listenbrainz",
+    date: "2026-10-05",
+    title: "Now playing, from ListenBrainz",
+    body: "If you scrobble to ListenBrainz (from Navidrome, Funkwhale, a desktop player or anything else), add your username and the editor gets a Now playing button beside “Listening to”. It fills in the song you're playing, with its cover art, and readers see a small card linking to the song on MusicBrainz. Inkwell only reads your public listens, so it never asks for a password. Thanks to @michael for the idea.",
+    howTo: "Settings → Listening, then press Now playing in the editor.",
+    href: "/settings/listening",
+    cta: "Connect ListenBrainz",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-05-footnotes-leave-fediverse",
     date: "2026-10-05",
     title: "Deleted footnotes leave Mastodon too",

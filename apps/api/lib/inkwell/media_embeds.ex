@@ -47,6 +47,9 @@ defmodule Inkwell.MediaEmbeds do
   Metadata from a client is kept only if it describes a player for `music` on
   that link's own server; anything else becomes nil.
   """
+  # A track filled in from ListenBrainz (no player, just the song).
+  def sanitize(%{"service" => "listenbrainz"} = meta, music), do: Inkwell.ListenBrainz.sanitize(meta, music)
+
   def sanitize(meta, music) when is_map(meta) and is_binary(music) do
     with service when service in @services <- meta["service"],
          embed when is_binary(embed) <- meta["embed_url"],

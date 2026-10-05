@@ -6,7 +6,8 @@ import { decodeEntities } from "@/lib/decode-entities";
 import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
-import { resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
+import { listenBrainzTrack, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
+import { ListeningCard } from "@/components/listening-card";
 import { Avatar } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
@@ -625,6 +626,7 @@ export default async function EntryPage({ params }: EntryParams) {
     : "var(--accent)";
 
   const musicEmbed = resolveMusicEmbed(entry.music, entry.music_metadata);
+  const listened = listenBrainzTrack(entry.music, entry.music_metadata);
 
   return (
     <div
@@ -868,6 +870,9 @@ export default async function EntryPage({ params }: EntryParams) {
             music={entry.music ? (musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
             location={entry.location}
           />
+
+          {/* ── The song, from ListenBrainz ─────────────────────────── */}
+          {listened && <ListeningCard track={listened} />}
 
           {/* ── Embedded music player ──────────────────────────────── */}
           {musicEmbed && (
