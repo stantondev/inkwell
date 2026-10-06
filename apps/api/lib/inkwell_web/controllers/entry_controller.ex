@@ -1369,11 +1369,30 @@ defmodule InkwellWeb.EntryController do
 
   defp recent_listen?(_), do: false
 
-  defp put_music_metadata(%{"music_metadata" => meta} = attrs),
-    do: Map.put(attrs, "music_metadata", Inkwell.MediaEmbeds.sanitize(meta, attrs["music"]))
+  defp put_music_metadata(%{"music_metadata" => meta} = attrs) do
+    case Inkwell.MediaEmbeds.sanitize(meta, attrs["music"]) do
+      nil -> Map.put(attrs, "music_metadata", song_link_metadata(attrs["music"]))
+      clean -> Map.put(attrs, "music_metadata", clean)
+    end
+  end
 
-  defp put_music_metadata(%{"music" => _} = attrs), do: Map.put(attrs, "music_metadata", nil)
+  defp put_music_metadata(%{"music" => music} = attrs),
+    do: Map.put(attrs, "music_metadata", song_link_metadata(music))
+
   defp put_music_metadata(attrs), do: attrs
+
+  # A MusicBrainz/ListenBrainz link sent without its details (API posting
+  # tools) is looked up here, so it gets its card. Cached, so a re-save is free.
+  defp song_link_metadata(music) when is_binary(music) do
+    with true <- Inkwell.MusicBrainz.link?(music),
+         {:ok, meta} <- Inkwell.MusicBrainz.resolve(music) do
+      meta
+    else
+      _ -> nil
+    end
+  end
+
+  defp song_link_metadata(_), do: nil
 
   # The publish-time choices a scheduled post keeps until it goes live (see
   # EntryPublishing). Anything else in the map is dropped.

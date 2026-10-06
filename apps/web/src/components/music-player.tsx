@@ -1,4 +1,4 @@
-import { listenBrainzTrack, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
+import { songFrom, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
 import { ListeningCard } from "@/components/listening-card";
 
 function ServiceIcon({ service }: { service: MusicService }) {
@@ -65,7 +65,7 @@ function ServiceIcon({ service }: { service: MusicService }) {
 export function MusicPlayer({ music, metadata }: { music: string | null; metadata?: MusicMetadata | null }) {
   if (!music) return null;
   // A song from ListenBrainz: no player, a card with its cover.
-  const listened = listenBrainzTrack(music, metadata);
+  const listened = songFrom(music, metadata);
   if (listened) return <ListeningCard track={listened} compact />;
   const embed = resolveMusicEmbed(music, metadata);
   if (!embed) return null;

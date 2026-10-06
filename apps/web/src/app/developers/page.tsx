@@ -349,7 +349,7 @@ export default function DevelopersPage() {
                   ["tags", "string[]", "Array of tag strings"],
                   ["category", "string", "e.g. personal, tech, poetry, travel, books. On PATCH, null or \"\" clears it; leaving the field out keeps it; an unknown value is refused (422)"],
                   ["mood", "string", "Max 100 chars"],
-                  ["music", "string", "Listening to: a link (Spotify, YouTube, PeerTube…) or plain text like \"Artist — Track\""],
+                  ["music", "string", "Listening to: a link (Spotify, YouTube, PeerTube…, or a MusicBrainz/ListenBrainz song or album link, which is looked up and shown as a card) or plain text like \"Artist — Track\""],
                   ["music_from", "string", "\"listenbrainz\": fill music from your ListenBrainz account (Settings → Listening) if you're playing something or listened in the last 30 minutes; otherwise music is left as sent"],
                   ["music_metadata", "object", "From GET /api/me/listenbrainz, sent with the music it came with (dropped if music differs)"],
                   ["excerpt", "string", "Max 300 chars (auto-generated if blank)"],

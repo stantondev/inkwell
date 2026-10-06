@@ -57,40 +57,87 @@ export interface ListenBrainzMetadata {
   release?: string;
   recording_mbid?: string;
   release_mbid?: string;
+  release_group_mbid?: string;
   caa_release_mbid?: string;
   caa_id?: number;
   username?: string;
   source_url: string;
 }
 
-export type MusicMetadata = FediverseMediaMetadata | ListenBrainzMetadata;
+/**
+ * A pasted MusicBrainz or ListenBrainz link to a song, release or album
+ * (Inkwell.MusicBrainz), looked up when it was pasted. `source_url` is the link.
+ */
+export interface MusicBrainzMetadata {
+  service: "musicbrainz";
+  kind: "recording" | "release" | "release_group";
+  track?: string;
+  release?: string;
+  artist?: string;
+  recording_mbid?: string;
+  release_mbid?: string;
+  release_group_mbid?: string;
+  source_url: string;
+}
 
-/** ListenBrainz details saved for exactly this Listening to text, if any. */
-export function listenBrainzTrack(
+/** A song (or album) shown as a card rather than a player. */
+export type SongMetadata = ListenBrainzMetadata | MusicBrainzMetadata;
+
+export type MusicMetadata = FediverseMediaMetadata | SongMetadata;
+
+function isSong(m: MusicMetadata | null | undefined): m is SongMetadata {
+  return m?.service === "listenbrainz" || m?.service === "musicbrainz";
+}
+
+/** Song details saved for exactly this Listening to text or link, if any. */
+export function songFrom(
   music: string | null | undefined,
   metadata?: MusicMetadata | null
-): ListenBrainzMetadata | null {
-  if (!music || metadata?.service !== "listenbrainz") return null;
+): SongMetadata | null {
+  if (!music || !isSong(metadata)) return null;
   return metadata.source_url === music.trim() ? metadata : null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** Cover art from the Cover Art Archive, built from MusicBrainz ids only. */
-export function listenBrainzCover(t: ListenBrainzMetadata, size: 250 | 500 = 250): string | null {
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-  if (t.caa_release_mbid && uuid.test(t.caa_release_mbid) && Number.isInteger(t.caa_id)) {
+export function songCover(t: SongMetadata, size: 250 | 500 = 250): string | null {
+  if (t.service === "listenbrainz" && t.caa_release_mbid && UUID.test(t.caa_release_mbid) && Number.isInteger(t.caa_id)) {
     return `https://coverartarchive.org/release/${t.caa_release_mbid}/${t.caa_id}-${size}.jpg`;
   }
-  if (t.release_mbid && uuid.test(t.release_mbid)) {
+  // The album's chosen cover, then the particular release's.
+  if (t.release_group_mbid && UUID.test(t.release_group_mbid)) {
+    return `https://coverartarchive.org/release-group/${t.release_group_mbid}/front-${size}`;
+  }
+  if (t.release_mbid && UUID.test(t.release_mbid)) {
     return `https://coverartarchive.org/release/${t.release_mbid}/front-${size}`;
   }
   return null;
 }
 
-/** Where the song links: its MusicBrainz page, or the writer's ListenBrainz. */
-export function listenBrainzLink(t: ListenBrainzMetadata): string | null {
+/** Where the card links: the pasted link, the song on MusicBrainz, or the writer's ListenBrainz. */
+export function songLink(t: SongMetadata): string | null {
+  if (t.service === "musicbrainz") return /^https:\/\/((www|beta)\.)?(musicbrainz|listenbrainz)\.org\//.test(t.source_url) ? t.source_url : null;
   if (t.recording_mbid) return `https://musicbrainz.org/recording/${t.recording_mbid}`;
   if (t.username) return `https://listenbrainz.org/user/${encodeURIComponent(t.username)}/`;
   return null;
+}
+
+/** The card's heading: the song, or the album for an album link. */
+export function songTitle(t: SongMetadata): string {
+  return t.track || t.release || "";
+}
+
+/** "Artist — Title", for "Current music" and card captions. */
+export function songLabel(t: SongMetadata): string {
+  const title = songTitle(t);
+  return t.artist ? `${t.artist} — ${title}` : title;
+}
+
+/** Small print under the card. */
+export function songSource(t: SongMetadata): string {
+  if (t.service === "listenbrainz") return "via ListenBrainz";
+  return t.source_url.includes("listenbrainz.org") ? "on ListenBrainz" : "on MusicBrainz";
 }
 
 /**
@@ -104,7 +151,7 @@ export function resolveMusicEmbed(
   if (!music) return null;
   const known = parseMusicUrl(music);
   if (known) return known;
-  if (metadata && metadata.service !== "listenbrainz" && metadata.embed_url && metadata.source_url === music.trim()) {
+  if (metadata && !isSong(metadata) && metadata.embed_url && metadata.source_url === music.trim()) {
     return {
       service: metadata.service,
       embedUrl: metadata.embed_url,
@@ -224,8 +271,10 @@ export function parseMusicUrl(input: string): MusicEmbed | null {
  * If it's a recognized service URL, returns the service name.
  * If it's plain text, returns the text as-is.
  */
-export function getMusicLabel(input: string): string {
+export function getMusicLabel(input: string, metadata?: MusicMetadata | null): string {
   if (!input) return "";
+  const song = songFrom(input, metadata);
+  if (song) return songLabel(song);
   const embed = parseMusicUrl(input);
   if (embed) return embed.label;
   return input;

@@ -25,7 +25,7 @@ import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { draftsCreatedHere } from "./created-here";
 import { ScheduleButton } from "./schedule-button";
-import { listenBrainzTrack, mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
+import { songFrom, mightBeFediverseMedia, parseMusicUrl, resolveMusicEmbed, type MusicMetadata } from "@/lib/music";
 import { ListeningCard } from "@/components/listening-card";
 import { resizeEntryImage } from "@/lib/image-utils";
 import { CATEGORIES } from "@/lib/categories";
@@ -2789,7 +2789,7 @@ export function EditorClient() {
   }, [showSettings, isMobileLayout]);
 
   const musicEmbed = resolveMusicEmbed(state.music, musicMetadata);
-  const listenedTrack = listenBrainzTrack(state.music, musicMetadata);
+  const listenedTrack = songFrom(state.music, musicMetadata);
 
   // Toggle between visual (Tiptap) and HTML source editing
   const toggleHtmlMode = useCallback(() => {
@@ -3640,7 +3640,7 @@ export function EditorClient() {
               />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
               <MusicInput value={state.music} onChange={(v) => { setNowPlayingNote(null); update({ music: v }); }}
-                fediverse={!!currentMusicMetadata && currentMusicMetadata.service !== "listenbrainz"} checking={musicLookup}
+                fediverse={!!currentMusicMetadata && currentMusicMetadata.service !== "listenbrainz" && currentMusicMetadata.service !== "musicbrainz"} checking={musicLookup}
                 onNowPlaying={listenBrainzUser ? fillNowPlaying : undefined} nowPlayingBusy={nowPlayingBusy} />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
               <LocationInput value={state.location} onChange={(v) => update({ location: v })} />

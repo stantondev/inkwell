@@ -6,7 +6,7 @@ import { LocalDate, FULL_DATE } from "@/components/local-date";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
-import { getMusicLabel } from "@/lib/music";
+import { getMusicLabel, type MusicMetadata } from "@/lib/music";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { decodeEntities } from "@/lib/decode-entities";
 import type { ProfileStyles } from "@/lib/profile-styles";
@@ -24,6 +24,7 @@ interface ProfileEntry {
   mood_key?: string | null;
   mood_theme?: string | null;
   music: string | null;
+  music_metadata?: MusicMetadata | null;
   tags: string[];
   stamps?: string[];
   comment_count?: number;
@@ -259,7 +260,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
             </span>
           )}
           {entry.music && (
-            <span className="truncate max-w-[200px]">♪ {getMusicLabel(entry.music)}</span>
+            <span className="truncate max-w-[200px]">♪ {getMusicLabel(entry.music, entry.music_metadata)}</span>
           )}
           {entry.stamps && entry.stamps.length > 0 && (
             <div className="ml-auto">

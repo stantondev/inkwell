@@ -757,7 +757,7 @@ function MetaStrip({
   if (entry.music) {
     items.push(
       <span key="music" className="entry-meta-item entry-meta-music">
-        ♪ {getMusicLabel(entry.music)}
+        ♪ {getMusicLabel(entry.music, entry.music_metadata)}
       </span>
     );
   }

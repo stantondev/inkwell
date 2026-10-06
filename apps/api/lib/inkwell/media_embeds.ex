@@ -36,8 +36,13 @@ defmodule Inkwell.MediaEmbeds do
   def resolve(url) when is_binary(url) do
     url = String.trim(url)
 
-    with {:ok, uri} <- parse(url) do
-      cached(url, fn -> do_resolve(uri, url) end)
+    # A MusicBrainz or ListenBrainz song/album link: a card, not a player.
+    if Inkwell.MusicBrainz.link?(url) do
+      Inkwell.MusicBrainz.resolve(url)
+    else
+      with {:ok, uri} <- parse(url) do
+        cached(url, fn -> do_resolve(uri, url) end)
+      end
     end
   end
 
@@ -49,6 +54,8 @@ defmodule Inkwell.MediaEmbeds do
   """
   # A track filled in from ListenBrainz (no player, just the song).
   def sanitize(%{"service" => "listenbrainz"} = meta, music), do: Inkwell.ListenBrainz.sanitize(meta, music)
+  # A song or album link from MusicBrainz / ListenBrainz.
+  def sanitize(%{"service" => "musicbrainz"} = meta, music), do: Inkwell.MusicBrainz.sanitize(meta, music)
 
   def sanitize(meta, music) when is_map(meta) and is_binary(music) do
     with service when service in @services <- meta["service"],

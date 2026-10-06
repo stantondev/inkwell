@@ -6,7 +6,7 @@ import { decodeEntities } from "@/lib/decode-entities";
 import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
-import { listenBrainzTrack, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
+import { songFrom, songLabel, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
 import { ListeningCard } from "@/components/listening-card";
 import { Avatar } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
@@ -626,7 +626,7 @@ export default async function EntryPage({ params }: EntryParams) {
     : "var(--accent)";
 
   const musicEmbed = resolveMusicEmbed(entry.music, entry.music_metadata);
-  const listened = listenBrainzTrack(entry.music, entry.music_metadata);
+  const listened = songFrom(entry.music, entry.music_metadata);
 
   return (
     <div
@@ -867,11 +867,11 @@ export default async function EntryPage({ params }: EntryParams) {
             mood={entry.mood}
             moodKey={entry.mood_key}
             moodTheme={entry.mood_theme}
-            music={entry.music ? (musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
+            music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
             location={entry.location}
           />
 
-          {/* ── The song, from ListenBrainz ─────────────────────────── */}
+          {/* ── The song, from ListenBrainz or a MusicBrainz link ─────── */}
           {listened && <ListeningCard track={listened} />}
 
           {/* ── Embedded music player ──────────────────────────────── */}

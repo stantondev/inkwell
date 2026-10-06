@@ -100,6 +100,9 @@ defmodule Inkwell.ListenBrainz do
         }
         |> drop_nils()
 
+      # Some scrobblers send no MusicBrainz ids; an exact search can still
+      # find the song, so it gets a cover.
+      metadata = with_searched_ids(metadata, artist, title)
       music = label(artist, title)
 
       {:ok,
@@ -115,6 +118,16 @@ defmodule Inkwell.ListenBrainz do
   end
 
   defp track(_, _, _), do: {:error, :no_listens}
+
+  defp with_searched_ids(%{"recording_mbid" => _} = metadata, _artist, _title), do: metadata
+  defp with_searched_ids(%{"caa_release_mbid" => _} = metadata, _artist, _title), do: metadata
+
+  defp with_searched_ids(metadata, artist, title) do
+    case Inkwell.MusicBrainz.search(artist, title) do
+      {:ok, ids} -> Map.merge(ids, metadata)
+      _ -> metadata
+    end
+  end
 
   @doc "How a track reads in the Listening to field."
   def label(artist, track), do: "#{artist} — #{track}"
@@ -139,6 +152,7 @@ defmodule Inkwell.ListenBrainz do
         "release" => text(meta["release"]),
         "recording_mbid" => uuid(meta["recording_mbid"]),
         "release_mbid" => uuid(meta["release_mbid"]),
+        "release_group_mbid" => uuid(meta["release_group_mbid"]),
         "caa_release_mbid" => uuid(meta["caa_release_mbid"]),
         "caa_id" => caa_id(meta["caa_id"]),
         "username" => clean_username(meta["username"]),
@@ -187,6 +201,12 @@ defmodule Inkwell.ListenBrainz do
         result
     end
   end
+
+  @doc false
+  # Shared with Inkwell.MusicBrainz.
+  def clean_text(s), do: text(s)
+  @doc false
+  def clean_uuid(s), do: uuid(s)
 
   defp text(s) when is_binary(s) do
     case s |> String.replace(~r/[\x00-\x1f\x7f]/u, " ") |> String.trim() do

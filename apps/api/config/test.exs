@@ -31,3 +31,6 @@ config :inkwell, :federation,
   frontend_host: "https://inkwell.test"
 
 config :inkwell, :frontend_url, "https://inkwell.test"
+
+# MusicBrainz lookups never reach the network in tests (Inkwell.MusicBrainz).
+config :inkwell, :musicbrainz_network, false

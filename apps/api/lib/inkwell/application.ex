@@ -42,6 +42,8 @@ defmodule Inkwell.Application do
           :media_embed_cache,
           # "Listening to" from ListenBrainz (Inkwell.ListenBrainz)
           :listenbrainz_cache,
+          # Song and album links + listen matching (Inkwell.MusicBrainz)
+          :musicbrainz_cache,
           # Gazette "what people are saying" (Inkwell.Gazette.Conversation)
           :gazette_conversation_cache,
           # Reader stats: one-day "already counted" marks (Inkwell.Reads)

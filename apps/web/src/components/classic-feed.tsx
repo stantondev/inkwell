@@ -122,7 +122,7 @@ function ClassicEntry({
             mood={entry.mood}
             moodKey={entry.mood_key}
             moodTheme={entry.mood_theme}
-            music={entry.music ? getMusicLabel(entry.music) : null}
+            music={entry.music ? getMusicLabel(entry.music, entry.music_metadata) : null}
             location={entry.location}
           />
 

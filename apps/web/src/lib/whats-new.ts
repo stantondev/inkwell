@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-06-song-links",
+    date: "2026-10-06",
+    title: "Song links from MusicBrainz and ListenBrainz",
+    body: "Paste a MusicBrainz or ListenBrainz link to a song or album into “Listening to” and it shows as a card with the cover, title and artist, linking back to it. And when Now playing fills in a song that came without MusicBrainz details, Inkwell now finds them, so it gets its cover too. Thanks to @michael for the idea.",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-05-listenbrainz",
     date: "2026-10-05",
     title: "Now playing, from ListenBrainz",

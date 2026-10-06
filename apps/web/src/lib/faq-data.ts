@@ -112,7 +112,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "listening-to",
     question: "What can I put in “Listening to”?",
     answer:
-      'A Spotify, YouTube, Apple Music, SoundCloud, Bandcamp or audio-file link plays inline, and so do PeerTube, Funkwhale, Castopod and Owncast links. Plain words like “Artist — Track” work too. If you use <a href="https://listenbrainz.org" target="_blank" rel="noopener noreferrer">ListenBrainz</a>, add your username in <a href="/settings/listening">Settings → Listening</a> and a <strong>Now playing</strong> button fills in the song you\'re playing, with its cover art, from Navidrome, Funkwhale or anything else that scrobbles. Inkwell only reads your public listens, so it never needs your ListenBrainz password.',
+      'A Spotify, YouTube, Apple Music, SoundCloud, Bandcamp or audio-file link plays inline, and so do PeerTube, Funkwhale, Castopod and Owncast links. A MusicBrainz or ListenBrainz link to a song or album shows as a card with its cover. Plain words like “Artist — Track” work too. If you use <a href="https://listenbrainz.org" target="_blank" rel="noopener noreferrer">ListenBrainz</a>, add your username in <a href="/settings/listening">Settings → Listening</a> and a <strong>Now playing</strong> button fills in the song you\'re playing, with its cover art, from Navidrome, Funkwhale or anything else that scrobbles. Inkwell only reads your public listens, so it never needs your ListenBrainz password.',
     category: "writing",
   },
   {
