@@ -18,6 +18,8 @@ export default function ListeningPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState<Check | null>(null);
+  // Saved, but ListenBrainz was too slow to show the last song.
+  const [slowNote, setSlowNote] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,16 +41,21 @@ export default function ListeningPage() {
     setBusy(true);
     setError(null);
     setCheck(null);
+    setSlowNote(false);
     try {
-      // Look the account up first, so a typo doesn't get saved.
+      // Look the account up first, so a typo doesn't get saved. Only a "no
+      // such user" stops the save: ListenBrainz is sometimes very slow, and
+      // that shouldn't keep anyone from connecting.
       if (next) {
-        const res = await fetch(`/api/me/listenbrainz?username=${encodeURIComponent(next)}`);
-        const json = await res.json().catch(() => ({}));
-        if (res.ok && json.data) {
+        const res = await fetch(`/api/me/listenbrainz?username=${encodeURIComponent(next)}`).catch(() => null);
+        const json = res ? await res.json().catch(() => ({})) : {};
+        if (res?.ok && json.data) {
           setCheck(json.data);
-        } else if (json.code !== "no_listens") {
-          setError(json.error || "Couldn't reach ListenBrainz. Try again in a moment.");
+        } else if (json.code === "not_found") {
+          setError(json.error || "ListenBrainz has no user by that name.");
           return;
+        } else if (json.code !== "no_listens") {
+          setSlowNote(true);
         }
       }
 
@@ -133,7 +140,9 @@ export default function ListeningPage() {
             Connected as <strong style={{ color: "var(--foreground)" }}>{saved}</strong>.
             {check
               ? check.playing_now ? " Playing right now:" : " Your last song:"
-              : " Press Now playing in the editor to use it."}
+              : slowNote
+                ? " ListenBrainz is slow to answer right now, so we couldn't show your last song. Now playing will try again when you press it."
+                : " Press Now playing in the editor to use it."}
           </p>
         )}
         {check && <ListeningCard track={check.music_metadata} />}

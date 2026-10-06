@@ -185,7 +185,9 @@ defmodule Inkwell.ListenBrainz do
     end
   end
 
-  defp http_get(url), do: Http.get(url, [{~c"accept", ~c"application/json"}], follow_redirects: false)
+  # ListenBrainz can take 15s+ to answer when it's busy (2026-10-06), so this
+  # waits longer than federation fetches (5s).
+  defp http_get(url), do: Http.get(url, [{~c"accept", ~c"application/json"}], follow_redirects: false, timeout: 12_000)
 
   defp cached(key, fun) do
     now = System.monotonic_time(:millisecond)

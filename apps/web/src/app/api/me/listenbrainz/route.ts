@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
   const res = await upstreamFetch(`${SERVER_API}/api/me/listenbrainz${query}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
+    // Up to two ListenBrainz requests (12s each) plus a MusicBrainz match.
+    signal: AbortSignal.timeout(30_000),
   });
   return proxyJson(res);
 }
