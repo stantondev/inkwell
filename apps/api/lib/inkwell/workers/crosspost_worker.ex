@@ -134,7 +134,7 @@ defmodule Inkwell.Workers.CrosspostWorker do
           {:error, :no_image}
 
         image ->
-          case Inkwell.Images.fetch(image) do
+          case Inkwell.Images.fetch(image) |> as_jpeg_if_avif(image) do
             {:ok, content_type, binary} ->
               MastodonClient.upload_media(account.domain, account.access_token, binary, content_type)
 
@@ -146,4 +146,22 @@ defmodule Inkwell.Workers.CrosspostWorker do
       {:error, :no_cover_image}
     end
   end
+
+  # Not every Mastodon version takes AVIF uploads. The web app's image route
+  # converts AVIF to JPEG for anyone who doesn't ask for AVIF, so ask it.
+  defp as_jpeg_if_avif({:ok, "image/avif", _}, image) do
+    url = Inkwell.Instance.frontend_url() <> "/api/images/" <> image.id
+
+    case Inkwell.Federation.Http.get(url, [{~c"accept", ~c"image/jpeg"}]) do
+      {:ok, {200, body}} ->
+        if Inkwell.Images.detect_type(body) == "jpeg",
+          do: {:ok, "image/jpeg", body},
+          else: {:error, :no_jpeg}
+
+      _ ->
+        {:error, :no_jpeg}
+    end
+  end
+
+  defp as_jpeg_if_avif(result, _image), do: result
 end

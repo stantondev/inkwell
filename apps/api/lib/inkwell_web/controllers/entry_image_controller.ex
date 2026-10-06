@@ -3,7 +3,7 @@ defmodule InkwellWeb.EntryImageController do
 
   alias Inkwell.{Images, Journals, Storage}
 
-  # Accepted formats (PNG, JPEG, GIF, WebP) and the checks live in
+  # Accepted formats (PNG, JPEG, GIF, WebP, AVIF) and the checks live in
   # Inkwell.Images. Files are stored byte-for-byte (no re-encoding).
 
   # POST /api/images — upload an image (authenticated)
@@ -183,7 +183,7 @@ defmodule InkwellWeb.EntryImageController do
         {:error, "Image " <> Images.describe(reason)}
 
       {:error, _} ->
-        {:error, "Invalid image format — must be a data:image/... URI (PNG, JPEG, GIF, or WebP)"}
+        {:error, "Invalid image format — must be a data:image/... URI (PNG, JPEG, GIF, WebP or AVIF)"}
     end
   end
 

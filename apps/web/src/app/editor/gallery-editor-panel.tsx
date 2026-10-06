@@ -163,7 +163,7 @@ export function GalleryEditorPanel({ initialAttrs, isPlus, onDone, onCancel, onD
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
             multiple
             onChange={e => e.target.files && handleFiles(e.target.files)}
             style={{ display: "none" }}

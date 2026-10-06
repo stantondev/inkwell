@@ -1,20 +1,31 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { toJpeg } from "@/lib/image-convert";
 
 /**
  * An image as a data URI for next/og, or null. Satori decodes PNG and JPEG
- * reliably; anything else (WebP, GIF, SVG) is skipped rather than risked, and
- * the caller draws its card without the picture.
+ * reliably, so AVIF, WebP and GIF are converted to JPEG first (sharp); SVG and
+ * anything that won't convert is skipped, and the caller draws its card
+ * without the picture.
  */
 export async function fetchImageDataUri(url: string, maxBytes: number): Promise<string | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-    if (type !== "image/jpeg" && type !== "image/png") return null;
-    const buf = Buffer.from(await res.arrayBuffer());
+    const convertible = type === "image/avif" || type === "image/webp" || type === "image/gif";
+    if (type !== "image/jpeg" && type !== "image/png" && !convertible) return null;
+    let buf: Buffer = Buffer.from(await res.arrayBuffer());
+    let outType = type;
+    if (convertible) {
+      // Cards are 1200×630; no need to carry a full-size photo.
+      const jpeg = await toJpeg(buf, undefined, 1600);
+      if (!jpeg) return null;
+      buf = jpeg;
+      outType = "image/jpeg";
+    }
     if (buf.length > maxBytes) return null;
-    return `data:${type};base64,${buf.toString("base64")}`;
+    return `data:${outType};base64,${buf.toString("base64")}`;
   } catch {
     return null;
   }

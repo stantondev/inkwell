@@ -143,13 +143,13 @@ defmodule Inkwell.StorageTest do
       assert body["storage"]["limit_bytes"] == Storage.free_limit()
     end
 
-    test "rejects AVIF (not supported yet)", %{conn: conn} do
+    test "rejects a file labelled AVIF that isn't a whole AVIF file", %{conn: conn} do
       resp =
         post(log_in_user(conn, create_user()), "/api/images", %{
           image: "data:image/avif;base64,AAAAHGZ0eXBhdmlm"
         })
 
-      assert json_response(resp, 422)["error"] =~ "PNG, JPEG, GIF, or WebP"
+      assert json_response(resp, 422)["error"] =~ "does not match"
     end
   end
 

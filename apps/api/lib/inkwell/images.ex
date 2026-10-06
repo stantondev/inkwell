@@ -12,7 +12,8 @@ defmodule Inkwell.Images do
   found in production (two harmless SVG icons from a LiveJournal import), but
   the door was open.
 
-  Now everything goes through here: PNG, JPEG, GIF and WebP only, decided by
+  Now everything goes through here: PNG, JPEG, GIF, WebP and (entry images
+  only) AVIF, decided by
   the file's own bytes rather than what the sender says, and stored with the
   type we detected. Serving adds a sandboxing Content-Security-Policy as a
   second line of defence (see `secure_headers/1`).
@@ -44,15 +45,24 @@ defmodule Inkwell.Images do
   alias Inkwell.{ObjectStore, Repo}
   alias Inkwell.Journals.EntryImage
 
-  @types ~w(png jpeg gif webp)
+  # Entry images (posts, galleries, covers) also take AVIF (since
+  # 2026-10-06): the web app's image route turns it into JPEG for anything
+  # that doesn't ask for AVIF (older browsers, email, fediverse servers).
+  # Avatars, banners and backgrounds stay on the classic four: they're served
+  # without that conversion and sent to the fediverse as they are.
+  @types ~w(png jpeg gif webp avif)
+  @classic_types ~w(png jpeg gif webp)
 
   # Entry images: about 4 MB of actual file.
   @default_max_bytes 4_200_000
 
-  @data_uri ~r/\Adata:image\/(png|jpeg|jpg|gif|webp);base64,(.+)\z/s
+  @data_uri ~r/\Adata:image\/(png|jpeg|jpg|gif|webp|avif);base64,(.+)\z/s
 
-  @doc "Formats we accept, by the short name used in MIME types."
+  @doc "Formats entry images accept, by the short name used in MIME types."
   def types, do: @types
+
+  @doc "Formats avatars, banners and backgrounds accept."
+  def classic_types, do: @classic_types
 
   def default_max_bytes, do: @default_max_bytes
 
@@ -61,7 +71,23 @@ defmodule Inkwell.Images do
   def detect_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
   def detect_type(<<"GIF8", _::binary>>), do: "gif"
   def detect_type(<<"RIFF", _::binary-size(4), "WEBP", _::binary>>), do: "webp"
+
+  # AVIF is an ISO-BMFF file whose `ftyp` box names "avif" (still image) or
+  # "avis" (image sequence) as its major or a compatible brand. HEIC shares
+  # the container but not those brands.
+  def detect_type(<<size::32, "ftyp", _::binary>> = bin) when size >= 16 and size <= 4096 do
+    if byte_size(bin) >= size and avif_brand?(binary_part(bin, 8, size - 8)), do: "avif"
+  end
+
   def detect_type(_), do: nil
+
+  # Major brand, minor version, then compatible brands, 4 bytes each.
+  defp avif_brand?(<<major::binary-size(4), _minor::binary-size(4), compatible::binary>>) do
+    brands = [major | for(<<b::binary-size(4) <- compatible>>, do: b)]
+    Enum.any?(brands, &(&1 in ["avif", "avis"]))
+  end
+
+  defp avif_brand?(_), do: false
 
   @doc "A data URI for bytes of a known type."
   def data_uri(type, binary) when type in @types,
@@ -74,29 +100,27 @@ defmodule Inkwell.Images do
   rebuilt from the detected type, or `{:error, reason}` where reason is
   `:invalid`, `:bad_base64`, `:too_large` or `{:mismatch, claimed, detected}`.
   """
-  def parse_data_uri(value, max_bytes \\ @default_max_bytes)
+  def parse_data_uri(value, max_bytes \\ @default_max_bytes, types \\ @types)
 
-  def parse_data_uri(value, max_bytes) when is_binary(value) do
-    case Regex.run(@data_uri, value) do
-      [_, claimed, base64] ->
-        claimed = normalize(claimed)
-
-        # Refuse oversized payloads before decoding them.
-        if byte_size(base64) > div(max_bytes * 4, 3) + 8 do
-          {:error, :too_large}
-        else
-          case Base.decode64(base64, ignore: :whitespace) do
-            {:ok, binary} -> check(binary, claimed, max_bytes)
-            :error -> {:error, :bad_base64}
-          end
+  def parse_data_uri(value, max_bytes, types) when is_binary(value) do
+    with [_, claimed, base64] <- Regex.run(@data_uri, value),
+         claimed = normalize(claimed),
+         true <- claimed in types do
+      # Refuse oversized payloads before decoding them.
+      if byte_size(base64) > div(max_bytes * 4, 3) + 8 do
+        {:error, :too_large}
+      else
+        case Base.decode64(base64, ignore: :whitespace) do
+          {:ok, binary} -> check(binary, claimed, max_bytes)
+          :error -> {:error, :bad_base64}
         end
-
-      _ ->
-        {:error, :invalid}
+      end
+    else
+      _ -> {:error, :invalid}
     end
   end
 
-  def parse_data_uri(_, _), do: {:error, :invalid}
+  def parse_data_uri(_, _, _), do: {:error, :invalid}
 
   defp check(binary, claimed, max_bytes) do
     detected = detect_type(binary)
@@ -357,8 +381,8 @@ defmodule Inkwell.Images do
   def csp, do: "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
   @doc "A short, readable reason for logs and error messages."
-  def describe(:invalid), do: "not a PNG, JPEG, GIF or WebP data URI"
-  def describe(:unsupported), do: "not a PNG, JPEG, GIF or WebP image"
+  def describe(:invalid), do: "not a PNG, JPEG, GIF, WebP or AVIF data URI"
+  def describe(:unsupported), do: "not a PNG, JPEG, GIF, WebP or AVIF image"
   def describe(:bad_base64), do: "invalid base64 encoding"
   def describe(:too_large), do: "too large"
 

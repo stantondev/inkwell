@@ -48,12 +48,52 @@ export function resizeImage(
 /**
  * Resize an image for entry content — keeps aspect ratio, max 1200px, 0.8 quality.
  */
-export function resizeEntryImage(
+export async function resizeEntryImage(
   file: File,
   maxDimension = 1200,
   quality = 0.8
 ): Promise<string> {
+  if (file.type === "image/avif") {
+    const kept = await keepSmallAvif(file, maxDimension);
+    if (kept) return kept;
+  }
   return resizeBackgroundImage(file, maxDimension, quality);
+}
+
+// AVIF is usually much smaller than the JPEG we'd re-encode it to, so one
+// that's already within the size we'd resize to is uploaded untouched
+// (readers that can't show AVIF get a JPEG copy from /api/images). If this
+// browser can't even decode it, it's still uploaded as is when small enough.
+const MAX_AVIF_BYTES = 4_000_000;
+
+function keepSmallAvif(file: File, maxDimension: number): Promise<string | null> {
+  if (file.size > MAX_AVIF_BYTES) return Promise.resolve(null);
+
+  const asDataUri = () =>
+    new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const uri = typeof reader.result === "string" ? reader.result : null;
+        resolve(uri && uri.startsWith("data:image/avif;base64,") ? uri : null);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const fits = img.naturalWidth <= maxDimension && img.naturalHeight <= maxDimension;
+      resolve(fits ? asDataUri() : null);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(asDataUri());
+    };
+    img.src = url;
+  });
 }
 
 /**

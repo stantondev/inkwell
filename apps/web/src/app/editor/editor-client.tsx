@@ -563,7 +563,7 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
                 Photo gallery
               </button>
         </FloatingPopup>
-        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
           className="hidden" onChange={handleFileSelect} />
       </div>
       <ToolbarDropdown label={Icon.plus} title="Add a divider, table, link preview… (or type / on a new line)"
@@ -3538,7 +3538,7 @@ export function EditorClient() {
               <input
                 ref={coverFileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
+                accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -3767,7 +3767,7 @@ export function EditorClient() {
             )}
 
             {/* FloatingMenu removed — toolbar has all the same options */}
-            <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+            <input ref={floatingImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
               className="hidden" onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file && editor) uploadImage(file, editor);

@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-06-avif",
+    date: "2026-10-06",
+    title: "AVIF pictures",
+    body: "You can now add AVIF pictures to entries, galleries and letters, from the editor or through the API. AVIF files are often much smaller than JPEGs at the same quality, so they go further against your storage allowance; the editor keeps one as it is when it's already a sensible size. Anyone whose browser or email app can't show AVIF, and other fediverse servers, get the same picture as a JPEG. Thanks to @michael for asking.",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-06-listening-on-profile",
     date: "2026-10-06",
     title: "Your profile shows what you're listening to",

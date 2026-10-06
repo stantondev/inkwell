@@ -306,7 +306,7 @@ defmodule InkwellWeb.UserController do
     user = conn.assigns.current_user
 
     # Validate it's a data URI with a supported image type
-    case Inkwell.Images.parse_data_uri(image_data, 2_100_000) do
+    case Inkwell.Images.parse_data_uri(image_data, 2_100_000, Inkwell.Images.classic_types()) do
       {:ok, %{data_uri: data_uri}} ->
         case Accounts.update_user_profile(user, %{"avatar_url" => data_uri}) do
           {:ok, updated} ->
@@ -393,7 +393,7 @@ defmodule InkwellWeb.UserController do
   end
 
   defp upload_background_impl(conn, user, image_data) do
-    case Inkwell.Images.parse_data_uri(image_data, 5_250_000) do
+    case Inkwell.Images.parse_data_uri(image_data, 5_250_000, Inkwell.Images.classic_types()) do
       {:ok, %{data_uri: data_uri}} ->
         case Accounts.update_user_profile(user, %{"profile_background_url" => data_uri}) do
           {:ok, updated} ->
@@ -421,7 +421,7 @@ defmodule InkwellWeb.UserController do
   def upload_banner(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
 
-    case Inkwell.Images.parse_data_uri(image_data, 5_250_000) do
+    case Inkwell.Images.parse_data_uri(image_data, 5_250_000, Inkwell.Images.classic_types()) do
       {:ok, %{data_uri: data_uri}} ->
         case Accounts.update_user_profile(user, %{"profile_banner_url" => data_uri}) do
           {:ok, updated} ->
@@ -712,7 +712,7 @@ defmodule InkwellWeb.UserController do
               {:cont, {:ok, Map.delete(acc, key)}}
 
             true ->
-              case Inkwell.Images.parse_data_uri(value, max) do
+              case Inkwell.Images.parse_data_uri(value, max, Inkwell.Images.classic_types()) do
                 {:ok, %{data_uri: uri}} ->
                   {:cont, {:ok, Map.put(acc, key, uri)}}
 

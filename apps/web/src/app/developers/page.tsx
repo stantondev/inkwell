@@ -266,13 +266,16 @@ export default function DevelopersPage() {
           </p>
           <ul className="text-sm mt-3 space-y-1.5 list-disc pl-5" style={{ color: "var(--muted)" }}>
             <li>
-              <strong style={{ color: "var(--foreground)" }}>Formats:</strong> PNG, JPEG, GIF, and WebP. The file&apos;s
-              contents must match its declared type. AVIF is not supported yet.
+              <strong style={{ color: "var(--foreground)" }}>Formats:</strong> PNG, JPEG, GIF, WebP and AVIF. The file&apos;s
+              contents must match its declared type. AVIF images are served as AVIF to browsers that ask for it and as
+              JPEG to everything else (older browsers, email, other fediverse servers). Avatars and banners take PNG,
+              JPEG, GIF or WebP.
             </li>
             <li>
               <strong style={{ color: "var(--foreground)" }}>No re-encoding:</strong> images uploaded through the API are
-              stored and served exactly as you send them. WebP is usually the smallest option. (The web editor resizes
-              photos to 1200px JPEGs before uploading.)
+              stored and served exactly as you send them. AVIF is usually the smallest option, then WebP. (The web editor
+              resizes photos to 1200px JPEGs before uploading, except AVIF files already that size or smaller, which it
+              keeps as they are.)
             </li>
             <li>
               <strong style={{ color: "var(--foreground)" }}>Size:</strong> up to 4 MB per image. Batches hold up to 6 images

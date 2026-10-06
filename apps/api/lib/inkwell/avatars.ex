@@ -52,10 +52,11 @@ defmodule Inkwell.Avatars do
         # target against Http's internal-address block.
         case Inkwell.Federation.Http.get(url, [{~c"accept", ~c"image/*"}], follow_redirects: false) do
           {:ok, {200, body}} when byte_size(body) <= @max_import_bytes ->
-            case Inkwell.Images.detect_type(body) do
-              nil -> {:error, :not_an_image}
-              type -> {:ok, "data:image/#{type};base64," <> Base.encode64(body)}
-            end
+            type = Inkwell.Images.detect_type(body)
+
+            if type in Inkwell.Images.classic_types(),
+              do: {:ok, "data:image/#{type};base64," <> Base.encode64(body)},
+              else: {:error, :not_an_image}
 
           {:ok, {200, _}} -> {:error, :too_large}
           {:ok, {status, _}} -> {:error, {:http, status}}

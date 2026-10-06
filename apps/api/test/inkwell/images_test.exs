@@ -16,6 +16,14 @@ defmodule Inkwell.ImagesTest do
        )
   @svg ~s|<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"><script>alert(1)</script></svg>|
 
+  # 4x3 AVIF made with sharp
+  @avif Base.decode64!(
+          "AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAAA5waXRtAAAAAAABAAAAImlsb2MAAAAAREAAAQABAAAAAAD6AAEAAAAAAAAAHAAAACNpaW5mAAAAAAABAAAAFWluZmUCAAAAAAEAAGF2MDEAAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAQAAAADAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAkbWRhdBIACgg4BHmEBDQaQDIOGAAAAEAAsBNX1kFjIPA="
+        )
+
+  # Same container as AVIF, different format: an HEIC ftyp box.
+  @heic <<0, 0, 0, 24, "ftypheic", 0, 0, 0, 0, "mif1heic", 0, 0, 0, 8, "meta">>
+
   defp uri(type, bytes), do: "data:image/#{type};base64," <> Base.encode64(bytes)
 
   describe "detect_type/1" do
@@ -24,6 +32,14 @@ defmodule Inkwell.ImagesTest do
       assert Images.detect_type(<<0xFF, 0xD8, 0xFF, 0xE0, 0, 0>>) == "jpeg"
       assert Images.detect_type("GIF89a" <> <<0, 0>>) == "gif"
       assert Images.detect_type("RIFF" <> <<0, 0, 0, 0>> <> "WEBPVP8 ") == "webp"
+    end
+
+    test "recognises AVIF by its ftyp brands, but not HEIC" do
+      assert Images.detect_type(@avif) == "avif"
+      assert Images.detect_type(<<0, 0, 0, 20, "ftypmif1", 0, 0, 0, 0, "avis">>) == "avif"
+      assert Images.detect_type(@heic) == nil
+      # A box claiming to be longer than the file
+      assert Images.detect_type(<<0, 0, 0, 28, "ftypavif">>) == nil
     end
 
     test "anything else is nil" do
@@ -75,6 +91,43 @@ defmodule Inkwell.ImagesTest do
       user = create_user()
       assert {:error, :unsupported} = Images.store(user.id, @svg)
       assert Repo.aggregate(EntryImage, :count) == 0
+    end
+  end
+
+  describe "AVIF" do
+    test "entry images accept it", %{conn: conn} do
+      user = create_user()
+      conn = post(log_in_user(conn, user), "/api/images", %{"image" => uri("avif", @avif)})
+      %{"id" => id} = json_response(conn, 201)["data"]
+
+      image = Repo.get!(EntryImage, id)
+      assert image.content_type == "image/avif"
+      assert image.byte_size == byte_size(@avif)
+
+      served = get(build_conn(), "/api/images/#{id}")
+      assert response(served, 200) == @avif
+      assert [ct] = get_resp_header(served, "content-type")
+      assert ct =~ "image/avif"
+    end
+
+    test "Post by Email and the importer accept it (raw bytes)" do
+      assert {:ok, %{type: "avif"}} = Images.parse_binary(@avif)
+    end
+
+    test "avatars, banners and backgrounds don't", %{conn: conn} do
+      user = create_user()
+
+      res = post(log_in_user(conn, user), "/api/me/avatar", %{"image" => uri("avif", @avif)})
+      assert json_response(res, 422)
+
+      res = patch(log_in_user(conn, user), "/api/me", %{"profile_banner_url" => uri("avif", @avif)})
+      assert json_response(res, 422)
+
+      assert {:error, :invalid} = Images.parse_data_uri(uri("avif", @avif), 1_000_000, Images.classic_types())
+    end
+
+    test "an HEIC file labelled AVIF is refused" do
+      assert {:error, {:mismatch, "avif", nil}} = Images.parse_data_uri(uri("avif", @heic))
     end
   end
 
