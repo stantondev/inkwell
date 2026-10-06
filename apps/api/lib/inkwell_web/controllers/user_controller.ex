@@ -145,6 +145,14 @@ defmodule InkwellWeb.UserController do
     allowed_keys = if is_plus, do: free_fields ++ plus_fields, else: free_fields
     allowed = params |> Map.take(allowed_keys) |> drop_echoed_image_urls()
 
+    case check_image_fields(allowed, user) do
+      {:ok, allowed} -> update_profile_fields(conn, user, allowed)
+      {:error, message} -> conn |> put_status(:unprocessable_entity) |> json(%{error: message})
+    end
+  end
+
+  defp update_profile_fields(conn, user, allowed) do
+
     # When bio_html is sent, sanitize it and auto-derive plain text bio
     allowed =
       case Map.get(allowed, "bio_html") do
@@ -298,29 +306,27 @@ defmodule InkwellWeb.UserController do
     user = conn.assigns.current_user
 
     # Validate it's a data URI with a supported image type
-    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
-      [_, _type, base64] ->
-        # Validate size (max ~2MB of base64 = ~1.5MB image)
-        if byte_size(base64) > 2_800_000 do
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "Image too large — max 2MB"})
-        else
-          case Accounts.update_user_profile(user, %{"avatar_url" => image_data}) do
-            {:ok, updated} ->
-              json(conn, %{data: render_user_full(updated)})
+    case Inkwell.Images.parse_data_uri(image_data, 2_100_000) do
+      {:ok, %{data_uri: data_uri}} ->
+        case Accounts.update_user_profile(user, %{"avatar_url" => data_uri}) do
+          {:ok, updated} ->
+            json(conn, %{data: render_user_full(updated)})
 
-            {:error, _changeset} ->
-              conn
-              |> put_status(:unprocessable_entity)
-              |> json(%{error: "Could not save avatar"})
-          end
+          {:error, _changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "Could not save avatar"})
         end
 
-      _ ->
+      {:error, :too_large} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+        |> json(%{error: "Image too large — max 2MB"})
+
+      {:error, _} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Invalid image — must be a PNG, JPEG, GIF or WebP data:image/... URI"})
     end
   end
 
@@ -387,29 +393,27 @@ defmodule InkwellWeb.UserController do
   end
 
   defp upload_background_impl(conn, user, image_data) do
-    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
-      [_, _type, base64] ->
-        # Max ~5MB of base64 = ~3.75MB image
-        if byte_size(base64) > 7_000_000 do
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "Image too large — max 5MB"})
-        else
-          case Accounts.update_user_profile(user, %{"profile_background_url" => image_data}) do
-            {:ok, updated} ->
-              json(conn, %{data: render_user_full(updated)})
+    case Inkwell.Images.parse_data_uri(image_data, 5_250_000) do
+      {:ok, %{data_uri: data_uri}} ->
+        case Accounts.update_user_profile(user, %{"profile_background_url" => data_uri}) do
+          {:ok, updated} ->
+            json(conn, %{data: render_user_full(updated)})
 
-            {:error, _changeset} ->
-              conn
-              |> put_status(:unprocessable_entity)
-              |> json(%{error: "Could not save background image"})
-          end
+          {:error, _changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "Could not save background image"})
         end
 
-      _ ->
+      {:error, :too_large} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+        |> json(%{error: "Image too large — max 5MB"})
+
+      {:error, _} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Invalid image — must be a PNG, JPEG, GIF or WebP data:image/... URI"})
     end
   end
 
@@ -417,29 +421,27 @@ defmodule InkwellWeb.UserController do
   def upload_banner(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
 
-    case Regex.run(~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s, image_data) do
-      [_, _type, base64] ->
-        # Max ~5MB of base64
-        if byte_size(base64) > 7_000_000 do
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{error: "Image too large — max 5MB"})
-        else
-          case Accounts.update_user_profile(user, %{"profile_banner_url" => image_data}) do
-            {:ok, updated} ->
-              json(conn, %{data: render_user_full(updated)})
+    case Inkwell.Images.parse_data_uri(image_data, 5_250_000) do
+      {:ok, %{data_uri: data_uri}} ->
+        case Accounts.update_user_profile(user, %{"profile_banner_url" => data_uri}) do
+          {:ok, updated} ->
+            json(conn, %{data: render_user_full(updated)})
 
-            {:error, _changeset} ->
-              conn
-              |> put_status(:unprocessable_entity)
-              |> json(%{error: "Could not save banner"})
-          end
+          {:error, _changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "Could not save banner"})
         end
 
-      _ ->
+      {:error, :too_large} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Invalid image format — must be a data:image/... URI"})
+        |> json(%{error: "Image too large — max 5MB"})
+
+      {:error, _} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Invalid image — must be a PNG, JPEG, GIF or WebP data:image/... URI"})
     end
   end
 
@@ -475,34 +477,28 @@ defmodule InkwellWeb.UserController do
     end
   end
 
+  # Only PNG, JPEG, GIF and WebP are ever served (Inkwell.Images); anything
+  # else stored here would 404 rather than go out under its own claimed type.
   defp serve_data_uri_image(conn, data_uri, updated_at) do
-    case Regex.run(~r/^data:image\/([^;]+);base64,(.+)$/s, data_uri) do
-      [_, type, base64] ->
-        case Base.decode64(base64) do
-          {:ok, binary} ->
-            content_type = "image/#{if type == "jpg", do: "jpeg", else: type}"
-            etag = :crypto.hash(:md5, "#{updated_at}") |> Base.encode16(case: :lower)
+    case Inkwell.Images.decode_stored(data_uri) do
+      {:ok, content_type, binary} ->
+        etag = :crypto.hash(:md5, "#{updated_at}") |> Base.encode16(case: :lower)
+        ext = String.replace(content_type, "image/", "")
 
-            ext = if type == "jpg", do: "jpeg", else: type
+        conn
+        |> put_resp_content_type(content_type)
+        # 7 days fresh + 1 day stale-while-revalidate. Avatars/banners
+        # rarely change; the etag still allows revalidation when they do.
+        |> put_resp_header(
+          "cache-control",
+          "public, max-age=604800, stale-while-revalidate=86400"
+        )
+        |> put_resp_header("etag", ~s("#{etag}"))
+        |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
+        |> Inkwell.Images.secure_headers()
+        |> send_resp(200, binary)
 
-            conn
-            |> put_resp_content_type(content_type)
-            # 7 days fresh + 1 day stale-while-revalidate. Avatars/banners
-            # rarely change; the etag still allows revalidation when they do.
-            |> put_resp_header(
-              "cache-control",
-              "public, max-age=604800, stale-while-revalidate=86400"
-            )
-            |> put_resp_header("etag", ~s("#{etag}"))
-            |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
-            |> put_resp_header("x-content-type-options", "nosniff")
-            |> send_resp(200, binary)
-
-          :error ->
-            conn |> put_status(:internal_server_error) |> json(%{error: "Corrupt image"})
-        end
-
-      _ ->
+      :error ->
         conn |> put_status(:not_found) |> json(%{error: "No image"})
     end
   end
@@ -688,6 +684,49 @@ defmodule InkwellWeb.UserController do
   # with a URL pointing at itself — the avatar then 404'd for everyone. Such a
   # value means "unchanged", so drop it. Uploads use their own endpoints;
   # clearing is still `nil` / "".
+  # Avatars, banners and backgrounds set through PATCH /api/me must be real
+  # PNG/JPEG/GIF/WebP images (Inkwell.Images), like the upload endpoints.
+  # Until 2026-10-06 any string was stored, and /api/avatars/:username served
+  # it under whatever type it claimed, so an SVG "avatar" with a script in it
+  # would have run on inkwell.social. Clearing (nil / "") is still allowed,
+  # and a value equal to what's stored is left alone, so forms that echo the
+  # current image back never fail on an older upload.
+  @image_fields [
+    {"avatar_url", :avatar_url, 2_100_000},
+    {"profile_banner_url", :profile_banner_url, 5_250_000},
+    {"profile_background_url", :profile_background_url, 5_250_000}
+  ]
+
+  defp check_image_fields(params, user) do
+    Enum.reduce_while(@image_fields, {:ok, params}, fn {key, field, max}, {:ok, acc} ->
+      case Map.fetch(acc, key) do
+        :error ->
+          {:cont, {:ok, acc}}
+
+        {:ok, value} when value in [nil, ""] ->
+          {:cont, {:ok, acc}}
+
+        {:ok, value} ->
+          cond do
+            value == Map.get(user, field) ->
+              {:cont, {:ok, Map.delete(acc, key)}}
+
+            true ->
+              case Inkwell.Images.parse_data_uri(value, max) do
+                {:ok, %{data_uri: uri}} ->
+                  {:cont, {:ok, Map.put(acc, key, uri)}}
+
+                {:error, :too_large} ->
+                  {:halt, {:error, "That image is too large."}}
+
+                {:error, _} ->
+                  {:halt, {:error, "Images must be PNG, JPEG, GIF or WebP files."}}
+              end
+          end
+      end
+    end)
+  end
+
   defp drop_echoed_image_urls(params) do
     Enum.reduce(["avatar_url", "profile_banner_url"], params, fn key, acc ->
       case Map.get(acc, key) do

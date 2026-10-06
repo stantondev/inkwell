@@ -10,15 +10,12 @@ defmodule Inkwell.Import.ImageImporter do
   - 5MB per-image size limit
   - 10-second timeout per download
   - 500ms delay between requests (rate limiting)
-  - Content-type validation (only image/* MIME types)
+  - Format check on the file's own bytes (PNG, JPEG, GIF, WebP; see Inkwell.Images)
   - Max 50 images per entry
   - Graceful degradation: failed downloads leave original URLs intact
   """
 
   require Logger
-
-  alias Inkwell.Journals.EntryImage
-  alias Inkwell.Repo
 
   @max_image_size 5 * 1024 * 1024  # 5MB
   @download_timeout 10_000          # 10 seconds
@@ -158,21 +155,14 @@ defmodule Inkwell.Import.ImageImporter do
     String.starts_with?(ct, "image/")
   end
 
-  defp store_image(data, content_type, url, user_id) do
-    filename = url |> URI.parse() |> Map.get(:path, "image") |> Path.basename()
+  # The bytes decide the format (Inkwell.Images); the server's Content-Type
+  # doesn't. An SVG or anything else is refused and the original URL stays.
+  defp store_image(data, _content_type, url, user_id) do
+    filename = url |> URI.parse() |> Map.get(:path) |> Kernel.||("image") |> Path.basename()
 
-    # Build a data URI for storage (matching existing EntryImage pattern)
-    base64 = Base.encode64(data)
-    data_uri = "data:#{content_type};base64,#{base64}"
-
-    %EntryImage{}
-    |> Ecto.Changeset.change(%{
-      user_id: user_id,
-      data: data_uri,
-      content_type: content_type,
-      filename: filename,
-      byte_size: byte_size(data)
-    })
-    |> Repo.insert()
+    case Inkwell.Images.store(user_id, data, filename: filename, max_bytes: @max_image_size) do
+      {:ok, image} -> {:ok, image}
+      {:error, reason} -> {:error, Inkwell.Images.describe(reason)}
+    end
   end
 end

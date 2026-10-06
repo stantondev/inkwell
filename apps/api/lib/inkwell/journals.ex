@@ -1463,11 +1463,8 @@ defmodule Inkwell.Journals do
     |> Kernel.||(0)
   end
 
-  def create_entry_image(attrs) do
-    %EntryImage{}
-    |> EntryImage.changeset(attrs)
-    |> Repo.insert()
-  end
+  # Saving images goes through Inkwell.Images.store/3 or Images.insert/1,
+  # which check the file's real format.
 
   def get_entry_image(id) do
     Repo.get(EntryImage, id)

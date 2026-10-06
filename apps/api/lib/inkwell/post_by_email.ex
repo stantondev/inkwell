@@ -235,7 +235,9 @@ defmodule Inkwell.PostByEmail do
         Enum.reduce(rest, body_html, fn att, html ->
           case upload_attachment_image(user, att) do
             nil -> html
-            image_id -> html <> "\n<p><img src=\"/api/images/#{image_id}\" alt=\"#{att["Name"] || "image"}\" /></p>"
+            image_id ->
+              alt = (att["Name"] || "image") |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+              html <> "\n<p><img src=\"/api/images/#{image_id}\" alt=\"#{alt}\" /></p>"
           end
         end)
 
@@ -243,27 +245,23 @@ defmodule Inkwell.PostByEmail do
     end
   end
 
+  # Postmark sends attachments base64-encoded. The bytes decide the format
+  # (Inkwell.Images): an SVG or anything else labelled image/* is skipped.
   defp upload_attachment_image(user, attachment) do
     content = attachment["Content"] || ""
-    content_type = attachment["ContentType"] || "image/jpeg"
     filename = attachment["Name"] || "email-image.jpg"
 
-    if content == "" do
-      nil
+    with true <- content != "",
+         {:ok, binary} <- Base.decode64(content, ignore: :whitespace),
+         {:ok, image} <- Inkwell.Images.store(user.id, binary, filename: filename) do
+      image.id
     else
-      data_uri = "data:#{content_type};base64,#{content}"
-      byte_size = byte_size(content)
+      {:error, reason} ->
+        Logger.info("[PostByEmail] Skipped attachment #{inspect(filename)}: #{Inkwell.Images.describe(reason)}")
+        nil
 
-      case Inkwell.Repo.insert(%Inkwell.Journals.EntryImage{
-        user_id: user.id,
-        data: data_uri,
-        content_type: content_type,
-        filename: filename,
-        byte_size: byte_size
-      }) do
-        {:ok, image} -> image.id
-        {:error, _} -> nil
-      end
+      _ ->
+        nil
     end
   end
 end

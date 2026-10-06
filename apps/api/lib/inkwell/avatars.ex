@@ -52,7 +52,7 @@ defmodule Inkwell.Avatars do
         # target against Http's internal-address block.
         case Inkwell.Federation.Http.get(url, [{~c"accept", ~c"image/*"}], follow_redirects: false) do
           {:ok, {200, body}} when byte_size(body) <= @max_import_bytes ->
-            case image_type(body) do
+            case Inkwell.Images.detect_type(body) do
               nil -> {:error, :not_an_image}
               type -> {:ok, "data:image/#{type};base64," <> Base.encode64(body)}
             end
@@ -66,11 +66,6 @@ defmodule Inkwell.Avatars do
 
   def import_remote(_), do: {:error, :no_url}
 
-  defp image_type(<<0x89, "PNG", _::binary>>), do: "png"
-  defp image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
-  defp image_type(<<"GIF8", _::binary>>), do: "gif"
-  defp image_type(<<"RIFF", _::binary-size(4), "WEBP", _::binary>>), do: "webp"
-  defp image_type(_), do: nil
 
   @doc "Public URL for a user's avatar, or nil when they have none."
   def avatar_url(%{avatar_url: url} = user), do: public_url(url, user, "avatars")

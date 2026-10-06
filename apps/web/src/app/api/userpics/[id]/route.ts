@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
+import { IMAGE_SECURITY_HEADERS } from "@/lib/image-headers";
 
 // A userpic picture. The API serves it immutably (a picture never changes
 // under its id), so it is cached here and in the browser for a year.
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     headers: {
       "Content-Type": res.headers.get("content-type") || "image/jpeg",
       "Cache-Control": "public, max-age=31536000, immutable",
-      "X-Content-Type-Options": "nosniff",
+      ...IMAGE_SECURITY_HEADERS,
     },
   });
 }

@@ -123,17 +123,11 @@ defmodule Inkwell.Userpics do
          {:ok, binary} <- Base.decode64(base64),
          true <- byte_size(binary) <= @max_bytes || :too_big,
          claimed = if(type == "jpg", do: "jpeg", else: type),
-         ^claimed <- detect(binary) do
+         ^claimed <- Inkwell.Images.detect_type(binary) do
       {:ok, "image/#{claimed}"}
     else
       :too_big -> {:error, "That picture is too big. Userpics can be up to 400 KB."}
       _ -> {:error, "That file isn't a picture we can use (PNG, JPEG, GIF or WebP)."}
     end
   end
-
-  defp detect(<<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>), do: "png"
-  defp detect(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
-  defp detect(<<0x47, 0x49, 0x46, 0x38, _::binary>>), do: "gif"
-  defp detect(<<0x52, 0x49, 0x46, 0x46, _::32, 0x57, 0x45, 0x42, 0x50, _::binary>>), do: "webp"
-  defp detect(_), do: nil
 end

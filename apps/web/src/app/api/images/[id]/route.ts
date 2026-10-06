@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SERVER_API } from "@/lib/api";
+import { IMAGE_SECURITY_HEADERS } from "@/lib/image-headers";
 
 export async function GET(
   _request: NextRequest,
@@ -25,6 +26,7 @@ export async function GET(
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
+      ...IMAGE_SECURITY_HEADERS,
     },
   });
 }

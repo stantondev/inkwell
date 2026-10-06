@@ -57,7 +57,7 @@ defmodule InkwellWeb.UserIconController do
       conn
       |> put_resp_content_type(type)
       |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
-      |> put_resp_header("x-content-type-options", "nosniff")
+      |> Inkwell.Images.secure_headers()
       |> send_resp(200, binary)
     else
       _ -> conn |> put_status(:not_found) |> json(%{error: "Not found"})

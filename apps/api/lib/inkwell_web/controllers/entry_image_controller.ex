@@ -1,27 +1,19 @@
 defmodule InkwellWeb.EntryImageController do
   use InkwellWeb, :controller
 
-  alias Inkwell.{Journals, Storage}
+  alias Inkwell.{Images, Journals, Storage}
 
-  # Accepted upload formats. Files are stored exactly as sent (no re-encoding).
-  @format_regex ~r/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/s
-
-  # Max ~5.6M chars of base64 per image, i.e. about 4 MB of actual file.
-  @max_base64_bytes 5_600_000
+  # Accepted formats (PNG, JPEG, GIF, WebP) and the checks live in
+  # Inkwell.Images. Files are stored byte-for-byte (no re-encoding).
 
   # POST /api/images — upload an image (authenticated)
   def create(conn, %{"image" => image_data}) when is_binary(image_data) do
     user = conn.assigns.current_user
 
-    with {:ok, content_type, file_bytes} <- parse_image(image_data),
+    with {:ok, parsed} <- parse_image(image_data),
+         file_bytes = byte_size(parsed.binary),
          {:ok, used, limit} <- Storage.check(user, file_bytes),
-         {:ok, image} <-
-           Journals.create_entry_image(%{
-             "data" => image_data,
-             "content_type" => content_type,
-             "byte_size" => file_bytes,
-             "user_id" => user.id
-           }) do
+         {:ok, image} <- Images.insert(Images.entry_image_attrs(user.id, parsed)) do
       Storage.after_upload(user, used, file_bytes, limit)
 
       conn
@@ -63,8 +55,8 @@ defmodule InkwellWeb.EntryImageController do
           Enum.with_index(images)
           |> Enum.reduce_while([], fn {image_data, idx}, acc ->
             case parse_image(image_data) do
-              {:ok, content_type, file_bytes} ->
-                {:cont, [{image_data, content_type, file_bytes} | acc]}
+              {:ok, parsed} ->
+                {:cont, [parsed | acc]}
 
               {:error, reason} ->
                 {:halt, {:error, "Image #{idx + 1}: #{reason}"}}
@@ -77,7 +69,7 @@ defmodule InkwellWeb.EntryImageController do
 
           valid_images when is_list(valid_images) ->
             valid_images = Enum.reverse(valid_images)
-            total_bytes = Enum.reduce(valid_images, 0, fn {_, _, size}, acc -> acc + size end)
+            total_bytes = Enum.reduce(valid_images, 0, fn p, acc -> acc + byte_size(p.binary) end)
 
             case Storage.check(user, total_bytes) do
               {:error, :storage_limit_exceeded} ->
@@ -88,19 +80,11 @@ defmodule InkwellWeb.EntryImageController do
                 multi =
                   valid_images
                   |> Enum.with_index()
-                  |> Enum.reduce(Ecto.Multi.new(), fn {{data, content_type, byte_size}, idx},
-                                                      multi ->
-                    attrs = %{
-                      "data" => data,
-                      "content_type" => content_type,
-                      "byte_size" => byte_size,
-                      "user_id" => user.id
-                    }
-
+                  |> Enum.reduce(Ecto.Multi.new(), fn {parsed, idx}, multi ->
                     Ecto.Multi.insert(
                       multi,
                       {:image, idx},
-                      Inkwell.Journals.EntryImage.changeset(%Inkwell.Journals.EntryImage{}, attrs)
+                      Images.changeset(Images.entry_image_attrs(user.id, parsed))
                     )
                   end)
 
@@ -138,28 +122,41 @@ defmodule InkwellWeb.EntryImageController do
         conn |> put_status(:not_found) |> json(%{error: "Image not found"})
 
       image ->
-        # Extract raw base64 from data URI
-        case Regex.run(~r/^data:image\/[^;]+;base64,(.+)$/s, image.data) do
-          [_, base64] ->
-            case Base.decode64(base64) do
-              {:ok, binary} ->
-                ext = image.content_type |> String.replace("image/", "")
+        case Images.decode_stored(image.data) do
+          {:ok, content_type, binary} ->
+            serve(conn, content_type, binary)
 
-                conn
-                |> put_resp_content_type(image.content_type)
-                |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
-                |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
-                |> put_resp_header("x-content-type-options", "nosniff")
-                |> send_resp(200, binary)
+          # A format we no longer accept (two SVG icons from an early
+          # LiveJournal import). Served only inside a sandbox: as an <img> it
+          # still shows, opened directly no script in it can run.
+          :error ->
+            case Regex.run(~r/^data:(image\/svg\+xml);base64,(.+)$/s, image.data || "") do
+              [_, content_type, base64] ->
+                case Base.decode64(base64, ignore: :whitespace) do
+                  {:ok, binary} -> serve(conn, content_type, binary)
+                  :error -> corrupt(conn)
+                end
 
-              :error ->
-                conn |> put_status(:internal_server_error) |> json(%{error: "Corrupt image data"})
+              _ ->
+                corrupt(conn)
             end
-
-          _ ->
-            conn |> put_status(:internal_server_error) |> json(%{error: "Corrupt image data"})
         end
     end
+  end
+
+  defp serve(conn, content_type, binary) do
+    ext = content_type |> String.replace("image/", "") |> String.replace("+xml", "")
+
+    conn
+    |> put_resp_content_type(content_type)
+    |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
+    |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
+    |> Images.secure_headers()
+    |> send_resp(200, binary)
+  end
+
+  defp corrupt(conn) do
+    conn |> put_status(:internal_server_error) |> json(%{error: "Corrupt image data"})
   end
 
   # GET /api/me/storage — how much image storage the user has and uses
@@ -167,36 +164,23 @@ defmodule InkwellWeb.EntryImageController do
     json(conn, %{data: Storage.summary(conn.assigns.current_user)})
   end
 
-  # Parses a data URI, checks the size cap, and confirms the file really is the
-  # format it claims (magic bytes) so non-image content can't be disguised.
-  # Returns the real file size in bytes, which is what storage quotas count.
+  # Checks the data URI and that the file really is the format it claims
+  # (magic bytes), so non-image content can't be disguised.
   defp parse_image(image_data) do
-    case Regex.run(@format_regex, image_data) do
-      [_, type, base64] ->
-        normalized = if type == "jpg", do: "jpeg", else: type
+    case Images.parse_data_uri(image_data) do
+      {:ok, parsed} ->
+        {:ok, parsed}
 
-        cond do
-          byte_size(base64) > @max_base64_bytes ->
-            {:error, "Image too large — max 4MB"}
+      {:error, :too_large} ->
+        {:error, "Image too large — max 4MB"}
 
-          true ->
-            case Base.decode64(base64) do
-              {:ok, binary} ->
-                detected = detect_image_type(binary)
+      {:error, :bad_base64} ->
+        {:error, "Invalid base64 encoding"}
 
-                if detected == normalized do
-                  {:ok, "image/#{normalized}", byte_size(binary)}
-                else
-                  {:error,
-                   "Image content does not match claimed format (expected #{type}, detected #{detected || "unknown"})"}
-                end
+      {:error, {:mismatch, _, _} = reason} ->
+        {:error, "Image " <> Images.describe(reason)}
 
-              :error ->
-                {:error, "Invalid base64 encoding"}
-            end
-        end
-
-      _ ->
+      {:error, _} ->
         {:error, "Invalid image format — must be a data:image/... URI (PNG, JPEG, GIF, or WebP)"}
     end
   end
@@ -210,13 +194,4 @@ defmodule InkwellWeb.EntryImageController do
   defp unprocessable(conn, message) do
     conn |> put_status(:unprocessable_entity) |> json(%{error: message})
   end
-
-  defp detect_image_type(<<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>), do: "png"
-  defp detect_image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: "jpeg"
-  defp detect_image_type(<<0x47, 0x49, 0x46, 0x38, _::binary>>), do: "gif"
-
-  defp detect_image_type(<<0x52, 0x49, 0x46, 0x46, _::32, 0x57, 0x45, 0x42, 0x50, _::binary>>),
-    do: "webp"
-
-  defp detect_image_type(_), do: nil
 end
