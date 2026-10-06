@@ -41,4 +41,34 @@ defmodule InkwellWeb.ListenBrainzController do
         end
     end
   end
+
+  # GET /api/users/:username/listening — what a member is listening to, for
+  # their profile. Only when they show it there (Settings → Listening).
+  def profile(conn, %{"username" => username}) do
+    viewer = conn.assigns[:current_user]
+
+    with %{blocked_at: nil} = user <- Inkwell.Accounts.get_user_by_username(username),
+         false <- blocked?(viewer, user),
+         name when is_binary(name) <- ListenBrainz.profile_username(user),
+         {:ok, result} <- ListenBrainz.now_playing(name) do
+      json(conn, %{
+        data: %{
+          playing_now: result.playing_now,
+          listened_at: result.listened_at,
+          music: result.music,
+          music_metadata: result.music_metadata
+        }
+      })
+    else
+      {:error, :unavailable} ->
+        conn |> put_status(:service_unavailable) |> json(%{error: "ListenBrainz didn't answer.", code: "unavailable"})
+
+      _ ->
+        conn |> put_status(:not_found) |> json(%{error: "Nothing to show.", code: "not_shown"})
+    end
+  end
+
+  defp blocked?(nil, _user), do: false
+  defp blocked?(%{id: id}, %{id: id}), do: false
+  defp blocked?(viewer, user), do: Inkwell.Social.is_blocked_between?(viewer.id, user.id)
 end

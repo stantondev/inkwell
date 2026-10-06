@@ -9,6 +9,21 @@ interface Check {
   music: string;
   music_metadata: ListenBrainzMetadata;
   playing_now: boolean;
+  listened_at?: string | null;
+}
+
+// Mirrors the profile widget: a last song older than this doesn't show there.
+const PROFILE_STALE_DAYS = 30;
+
+function daysSince(iso?: string | null): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function longAgo(days: number): string {
+  if (days < 60) return `${days} days ago`;
+  const months = Math.round(days / 30);
+  return months < 24 ? `${months} months ago` : `${Math.round(days / 365)} years ago`;
 }
 
 export default function ListeningPage() {
@@ -20,6 +35,9 @@ export default function ListeningPage() {
   const [check, setCheck] = useState<Check | null>(null);
   // Saved, but ListenBrainz was too slow to show the last song.
   const [slowNote, setSlowNote] = useState(false);
+  const [onProfile, setOnProfile] = useState(true);
+  const [username, setUsername] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -30,7 +48,16 @@ export default function ListeningPage() {
         const current = data?.settings?.listenbrainz_username ?? null;
         setSaved(current);
         setName(current ?? "");
+        setOnProfile(data?.settings?.listenbrainz_on_profile !== false);
+        setUsername(data?.username ?? null);
         setLoaded(true);
+        // Show what's connected: the current or last song (quietly; slow is fine).
+        if (current) {
+          fetch("/api/me/listenbrainz")
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j) => j?.data && setCheck((c) => c ?? j.data))
+            .catch(() => {});
+        }
       } catch {
         setError("Couldn't load your settings. Refresh to try again.");
       }
@@ -76,18 +103,45 @@ export default function ListeningPage() {
     }
   }
 
+  async function toggleProfile(next: boolean) {
+    setProfileSaving(true);
+    setOnProfile(next);
+    try {
+      const res = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { listenbrainz_on_profile: next } }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setOnProfile(!next);
+      setError("That didn't save. Try again in a moment.");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-5 max-w-2xl">
       <p className="text-sm" style={{ color: "var(--muted)" }}>
         Add your{" "}
         <a href="https://listenbrainz.org" target="_blank" rel="noopener noreferrer" className="underline">ListenBrainz</a>{" "}
-        username and the editor gets a <strong>Now playing</strong> button beside &ldquo;Listening to&rdquo;. It fills in
-        the song you&rsquo;re playing, with its cover art, from whatever you scrobble from: Navidrome, Funkwhale, a desktop
+        username and Inkwell shows the music you play, from whatever you scrobble from: Navidrome, Funkwhale, a desktop
         player, anything that sends listens to ListenBrainz.
       </p>
+      <ul className="text-sm list-disc pl-5 space-y-1" style={{ color: "var(--muted)" }}>
+        <li>
+          <strong style={{ color: "var(--foreground)" }}>On your profile:</strong> what you&rsquo;re listening to now, or the
+          last song you played. It takes the place of your profile song, which comes back if you haven&rsquo;t played
+          anything for a month.
+        </li>
+        <li>
+          <strong style={{ color: "var(--foreground)" }}>In the editor:</strong> a <strong>Now playing</strong> button
+          beside &ldquo;Listening to&rdquo; fills in the song you&rsquo;re playing, with its cover art.
+        </li>
+      </ul>
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Inkwell only reads your public listens, so it never needs your ListenBrainz password or token, and it only looks
-        when you press the button.
+        Inkwell only reads your public listens, so it never needs your ListenBrainz password or token.
       </p>
 
       <form
@@ -146,6 +200,32 @@ export default function ListeningPage() {
           </p>
         )}
         {check && <ListeningCard track={check.music_metadata} />}
+        {check && !check.playing_now && (daysSince(check.listened_at) ?? 0) >= PROFILE_STALE_DAYS && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            That was {longAgo(daysSince(check.listened_at)!)}, so your profile shows your profile song until you play
+            something new.
+          </p>
+        )}
+        {saved && (
+          <label className="flex items-start gap-2 text-sm pt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={onProfile}
+              disabled={profileSaving}
+              onChange={(e) => toggleProfile(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Show what I&rsquo;m listening to on my profile
+              {onProfile && username && (
+                <>
+                  {" "}·{" "}
+                  <Link href={`/${username}`} className="underline" style={{ color: "var(--muted)" }}>see it</Link>
+                </>
+              )}
+            </span>
+          </label>
+        )}
         {error && <p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p>}
       </form>
 

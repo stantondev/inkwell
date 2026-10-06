@@ -3,6 +3,8 @@
 // No hooks, so it renders on the server too.
 
 import { MoodIcon } from "@/components/mood-icon";
+import { SongInline } from "@/components/listening-card";
+import type { SongMetadata } from "@/lib/music";
 
 export function CurrentBlock({
   mood,
@@ -10,6 +12,7 @@ export function CurrentBlock({
   moodTheme,
   music,
   location,
+  song,
   className = "",
 }: {
   mood?: string | null;
@@ -18,6 +21,8 @@ export function CurrentBlock({
   /** Already resolved for display (a player's track name, or the words typed). */
   music?: string | null;
   location?: string | null;
+  /** A song from ListenBrainz or a MusicBrainz link: shown with its cover and link instead of `music`. */
+  song?: SongMetadata | null;
   className?: string;
 }) {
   if (!mood && !music && !location) return null;
@@ -36,8 +41,14 @@ export function CurrentBlock({
         <>
           <dt className="entry-current-label">Current music:</dt>
           <dd className="entry-current-value">
-            <span aria-hidden="true">♪</span>
-            <span>{music}</span>
+            {song ? (
+              <SongInline track={song} />
+            ) : (
+              <>
+                <span aria-hidden="true">♪</span>
+                <span>{music}</span>
+              </>
+            )}
           </dd>
         </>
       )}

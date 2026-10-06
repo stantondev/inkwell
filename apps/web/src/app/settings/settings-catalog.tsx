@@ -196,10 +196,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     id: "listening",
     href: "/settings/listening",
     title: "Listening",
-    blurb: "Connect ListenBrainz and fill in “Listening to” with the song you're playing, cover art included.",
+    blurb: "Connect ListenBrainz to show what you're playing on your profile and fill in “Listening to” in the editor.",
     icon: I.music,
     group: "writing",
-    keywords: ["listenbrainz", "music", "now playing", "navidrome", "funkwhale", "scrobble", "song", "listening to"],
+    keywords: ["listenbrainz", "music", "now playing", "navidrome", "funkwhale", "scrobble", "song", "listening to", "profile music", "spotify"],
   },
   {
     id: "post-by-email",

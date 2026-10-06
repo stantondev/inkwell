@@ -193,4 +193,63 @@ defmodule InkwellWeb.ListenBrainzTest do
       assert entry.music_metadata == nil
     end
   end
+
+  describe "on the profile" do
+    test "anyone can see what a member is playing, and the profile says to look" do
+      stub([listen()])
+      user = with_listenbrainz(create_user())
+
+      meta = build_conn() |> get("/api/users/#{user.username}") |> json_response(200) |> Map.get("meta")
+      assert meta["shows_listening"] == true
+
+      data = build_conn() |> get("/api/users/#{user.username}/listening") |> json_response(200) |> Map.get("data")
+      assert data["playing_now"]
+      assert data["music"] == "Röyksopp — Some Resolve"
+      assert data["music_metadata"]["service"] == "listenbrainz"
+    end
+
+    test "not without ListenBrainz, or when the member switched it off" do
+      stub([listen()])
+      plain = create_user()
+      assert build_conn() |> get("/api/users/#{plain.username}/listening") |> json_response(404)
+      assert build_conn() |> get("/api/users/#{plain.username}") |> json_response(200) |> get_in(["meta", "shows_listening"]) == false
+
+      user = with_listenbrainz(create_user())
+
+      build_conn()
+      |> log_in_user(user)
+      |> patch("/api/me", %{settings: %{listenbrainz_on_profile: false}})
+      |> json_response(200)
+
+      assert Repo.reload!(user).settings["listenbrainz_on_profile"] == false
+      assert build_conn() |> get("/api/users/#{user.username}/listening") |> json_response(404)
+      refute_received {:fetched, _}
+    end
+
+    test "only true or false is saved for the switch" do
+      user = with_listenbrainz(create_user())
+      build_conn() |> log_in_user(user) |> patch("/api/me", %{settings: %{listenbrainz_on_profile: "<b>"}}) |> json_response(200)
+      refute Map.has_key?(Repo.reload!(user).settings, "listenbrainz_on_profile")
+    end
+
+    test "hidden from people blocked either way, and for suspended accounts" do
+      stub([listen()])
+      user = with_listenbrainz(create_user())
+      other = create_user()
+      {:ok, _} = Inkwell.Social.block(user.id, other.id)
+
+      assert build_conn() |> log_in_user(other) |> get("/api/users/#{user.username}/listening") |> json_response(404)
+
+      suspended = with_listenbrainz(create_user())
+      suspended |> Ecto.Changeset.change(blocked_at: DateTime.utc_now()) |> Repo.update!()
+      assert build_conn() |> get("/api/users/#{suspended.username}/listening") |> json_response(404)
+    end
+
+    test "a slow ListenBrainz is a 503, so the page keeps what it shows" do
+      Application.put_env(:inkwell, :listenbrainz_fetcher, fn _ -> {:error, :timeout} end)
+      user = with_listenbrainz(create_user())
+      body = build_conn() |> get("/api/users/#{user.username}/listening") |> json_response(503)
+      assert body["code"] == "unavailable"
+    end
+  end
 end

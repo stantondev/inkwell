@@ -193,6 +193,9 @@ defmodule InkwellWeb.Router do
     # User profile (optional auth for relationship status)
     get "/users/:username", UserController, :show
 
+    # What a member is listening to, for their profile (ListenBrainz)
+    get "/users/:username/listening", ListenBrainzController, :profile
+
     # Series (public)
     get "/users/:username/series", SeriesController, :index
     get "/users/:username/series/:slug", SeriesController, :show

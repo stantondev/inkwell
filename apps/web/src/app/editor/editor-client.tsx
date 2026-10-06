@@ -984,7 +984,7 @@ function MusicInput({ value, onChange, fediverse, checking, onNowPlaying, nowPla
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="listening to… paste a Spotify, YouTube or PeerTube link"
+          placeholder="listening to… a song, or paste a link"
           className="bg-transparent focus:outline-none text-sm min-w-0 flex-1"
           style={{ color: "var(--foreground)" }}
         />
@@ -1535,6 +1535,8 @@ export function EditorClient() {
   const [listenBrainzUser, setListenBrainzUser] = useState<string | null>(null);
   const [nowPlayingBusy, setNowPlayingBusy] = useState(false);
   const [nowPlayingNote, setNowPlayingNote] = useState<string | null>(null);
+  // A last song too old to call "listening to": offered, not filled in.
+  const [staleListen, setStaleListen] = useState<{ music: string; music_metadata: MusicMetadata } | null>(null);
   // Links already looked up, so a link with no player isn't asked about again.
   const lookedUpLinksRef = useRef<Set<string>>(new Set());
   // Only a player found for exactly the current link is saved with the entry.
@@ -2450,6 +2452,7 @@ export function EditorClient() {
   const fillNowPlaying = async () => {
     setNowPlayingBusy(true);
     setNowPlayingNote(null);
+    setStaleListen(null);
     try {
       const res = await fetch("/api/me/listenbrainz");
       const json = await res.json().catch(() => ({}));
@@ -2458,17 +2461,23 @@ export function EditorClient() {
         return;
       }
       const d = json.data as { music: string; music_metadata: MusicMetadata; playing_now: boolean; listened_at: string | null };
+      const mins = d.listened_at ? Math.round((Date.now() - new Date(d.listened_at).getTime()) / 60000) : null;
+      const when =
+        mins === null ? "" :
+        mins < 2 ? " just now" :
+        mins < 60 ? ` ${mins} minutes ago` :
+        mins < 60 * 24 ? ` ${Math.round(mins / 60) === 1 ? "an hour" : `${Math.round(mins / 60)} hours`} ago` :
+        ` ${Math.round(mins / 1440) === 1 ? "yesterday" : `${Math.round(mins / 1440)} days ago`}`;
+      // Over two hours ago isn't what they're listening to: ask first.
+      if (!d.playing_now && (mins === null || mins > 120)) {
+        setStaleListen({ music: d.music, music_metadata: d.music_metadata });
+        setNowPlayingNote(`Nothing's playing on ListenBrainz right now. The last song you played was ${d.music}${when ? `,${when}` : ""}.`);
+        return;
+      }
       setMusicMetadata(d.music_metadata);
       update({ music: d.music });
       if (!d.playing_now) {
-        const mins = d.listened_at ? Math.round((Date.now() - new Date(d.listened_at).getTime()) / 60000) : null;
-        const when =
-          mins === null ? "" :
-          mins < 2 ? " (just now)" :
-          mins < 60 ? ` (${mins} minutes ago)` :
-          mins < 60 * 24 ? ` (${Math.round(mins / 60)} hours ago)` :
-          ` (${Math.round(mins / 1440)} days ago)`;
-        setNowPlayingNote(`Nothing's playing right now, so this is the last song you listened to${when}.`);
+        setNowPlayingNote(`Nothing's playing right now, so this is the last song you listened to (${when.trim()}).`);
       }
     } catch {
       setNowPlayingNote("Couldn't reach ListenBrainz. Try again in a moment.");
@@ -3639,7 +3648,7 @@ export function EditorClient() {
                 onThemeChange={changeMoodTheme}
               />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
-              <MusicInput value={state.music} onChange={(v) => { setNowPlayingNote(null); update({ music: v }); }}
+              <MusicInput value={state.music} onChange={(v) => { setNowPlayingNote(null); setStaleListen(null); update({ music: v }); }}
                 fediverse={!!currentMusicMetadata && currentMusicMetadata.service !== "listenbrainz" && currentMusicMetadata.service !== "musicbrainz"} checking={musicLookup}
                 onNowPlaying={listenBrainzUser ? fillNowPlaying : undefined} nowPlayingBusy={nowPlayingBusy} />
               <span style={{ color: "var(--border)" }} aria-hidden="true">·</span>
@@ -3652,7 +3661,27 @@ export function EditorClient() {
               <div className="mb-4">
                 {listenedTrack && <ListeningCard track={listenedTrack} compact />}
                 {nowPlayingNote && (
-                  <p className="text-xs mt-2" style={{ color: "var(--muted)" }} role="status">{nowPlayingNote}</p>
+                  <p className="text-xs mt-2" style={{ color: "var(--muted)" }} role="status">
+                    {nowPlayingNote}
+                    {staleListen && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          className="underline"
+                          style={{ color: "var(--accent)" }}
+                          onClick={() => {
+                            setMusicMetadata(staleListen.music_metadata);
+                            update({ music: staleListen.music });
+                            setStaleListen(null);
+                            setNowPlayingNote(null);
+                          }}
+                        >
+                          Use it anyway
+                        </button>
+                      </>
+                    )}
+                  </p>
                 )}
               </div>
             )}

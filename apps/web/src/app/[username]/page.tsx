@@ -12,6 +12,7 @@ import { FollowButton } from "./follow-button";
 import { WriteLetterButton } from "./write-letter-button";
 import { BlockButton } from "./block-button";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
+import { ProfileListening } from "@/components/profile-listening";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { Guestbook } from "./guestbook";
 import { InlineStatusEditor } from "./inline-status-editor";
@@ -59,6 +60,8 @@ interface ProfileUser {
   profile_html?: string | null;
   profile_css?: string | null;
   profile_music?: string | null;
+  /** Shows a ListenBrainz "Listening now" card (Settings → Listening). */
+  shows_listening?: boolean;
   profile_background_url?: string | null;
   profile_banner_url?: string | null;
   profile_background_color?: string | null;
@@ -534,10 +537,11 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
         entry_categories?: { category: string; count: number }[];
         incoming_request?: boolean;
         letter_access?: string | null;
+        shows_listening?: boolean;
       };
     }>(username, session?.token);
 
-    profile = data.data;
+    profile = { ...data.data, shows_listening: data.meta.shows_listening ?? false };
     entryCount = data.meta.entry_count;
     penPalCount = data.meta.pen_pal_count ?? 0;
     readerCount = data.meta.reader_count ?? 0;
@@ -754,6 +758,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
         subscription_tier: profile.subscription_tier,
         created_at: profile.created_at,
         profile_music: profile.profile_music,
+        shows_listening: profile.shows_listening,
         profile_status: profile.profile_status,
         profile_banner_url: profile.profile_banner_url,
         newsletter_enabled: profile.newsletter_enabled,
@@ -888,9 +893,9 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
             </div>
           </div>
         );
-      case "music":
-        if (!isPlus || !profile.profile_music) return null;
-        return (
+      case "music": {
+        // The song picked in Customize (Plus).
+        const song = isPlus && profile.profile_music ? (
           <ProfileMusicWidget
             key="music"
             music={profile.profile_music}
@@ -899,7 +904,23 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
             borderColor={styles.border}
             borderRadius={styles.borderRadius}
           />
-        );
+        ) : null;
+        // With ListenBrainz connected, what they're listening to comes first;
+        // the picked song shows when there's nothing recent.
+        if (profile.shows_listening) {
+          return (
+            <ProfileListening
+              key="music"
+              username={profile.username}
+              fallback={song}
+              surfaceStyle={styles.surface}
+              mutedColor={styles.muted}
+              borderRadius={styles.borderRadius}
+            />
+          );
+        }
+        return song;
+      }
       case "guestbook":
         return (
           <Guestbook

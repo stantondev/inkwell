@@ -97,6 +97,8 @@ defmodule InkwellWeb.UserController do
                 access -> to_string(access)
               end,
             custom_domain: custom_domain,
+            # The profile shows a ListenBrainz "listening now" card.
+            shows_listening: Inkwell.ListenBrainz.profile_username(user) != nil,
             noindex: Inkwell.Journals.held_back_from_search?(user.id),
             top_friends: Enum.map(top_friends, fn {pos, u} ->
               %{position: pos, user: render_user_brief(u)}
@@ -165,7 +167,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at() |> sanitize_listenbrainz_username()
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at() |> sanitize_listenbrainz_username() |> sanitize_listenbrainz_on_profile()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -714,6 +716,9 @@ defmodule InkwellWeb.UserController do
   end
 
   defp sanitize_listenbrainz_username(settings), do: settings
+
+  defp sanitize_listenbrainz_on_profile(%{"listenbrainz_on_profile" => v} = settings) when is_boolean(v), do: settings
+  defp sanitize_listenbrainz_on_profile(settings), do: Map.delete(settings, "listenbrainz_on_profile")
 
   # Reader's look & feel: "modern" (default) or "classic" (the 2004 view).
   defp sanitize_site_look(%{"site_look" => look} = settings) when look in ["modern", "classic"], do: settings

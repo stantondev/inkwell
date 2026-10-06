@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PROFILE_THEMES, PROFILE_FONTS, PROFILE_LAYOUTS } from "@/lib/profile-themes";
@@ -173,6 +175,11 @@ function Section({ title, children, defaultOpen = true, overriddenByFullPage }: 
 }
 
 export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
+  // Connected ListenBrainz and showing it on the profile (Settings → Listening).
+  const listeningShown =
+    typeof user.settings?.listenbrainz_username === "string" && user.settings?.listenbrainz_on_profile !== false
+      ? (user.settings.listenbrainz_username as string)
+      : null;
   const router = useRouter();
   const bgInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -1022,6 +1029,13 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
       {/* Profile Music */}
       <Section title="Profile Music" defaultOpen={false}>
+        {listeningShown && (
+          <p className="text-xs mb-3 rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            Your profile shows what you&rsquo;re listening to on ListenBrainz ({listeningShown}).
+            {isPlus ? " The song below shows when there's nothing recent there." : ""}{" "}
+            <Link href="/settings/listening" className="underline">Change in Settings → Listening</Link>
+          </p>
+        )}
         {isPlus ? (
           <div className="flex flex-col gap-3">
             <input

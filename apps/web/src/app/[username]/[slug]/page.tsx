@@ -7,7 +7,6 @@ import { apiFetch } from "@/lib/api";
 import { getEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
 import { songFrom, songLabel, resolveMusicEmbed, type MusicMetadata, type MusicService } from "@/lib/music";
-import { ListeningCard } from "@/components/listening-card";
 import { Avatar } from "@/components/avatar";
 import { ContentWarning } from "@/components/content-warning";
 import { EntryContent } from "@/components/entry-content";
@@ -869,10 +868,8 @@ export default async function EntryPage({ params }: EntryParams) {
             moodTheme={entry.mood_theme}
             music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
             location={entry.location}
+            song={listened}
           />
-
-          {/* ── The song, from ListenBrainz or a MusicBrainz link ─────── */}
-          {listened && <ListeningCard track={listened} />}
 
           {/* ── Embedded music player ──────────────────────────────── */}
           {musicEmbed && (

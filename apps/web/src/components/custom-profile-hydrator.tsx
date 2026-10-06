@@ -9,6 +9,7 @@ import type { ProfileStyles } from "@/lib/profile-styles";
 import { Guestbook } from "@/app/[username]/guestbook";
 import { ProfileSubscribeWidget } from "@/app/[username]/profile-subscribe-widget";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
+import { ProfileListening } from "@/components/profile-listening";
 import { FollowButton } from "@/app/[username]/follow-button";
 import { WriteLetterButton } from "@/app/[username]/write-letter-button";
 import { BlockButton } from "@/app/[username]/block-button";
@@ -40,6 +41,7 @@ interface HydratorProps {
     subscription_tier?: string;
     created_at: string;
     profile_music?: string | null;
+    shows_listening?: boolean;
     profile_status?: string | null;
     profile_banner_url?: string | null;
     newsletter_enabled?: boolean;
@@ -378,9 +380,8 @@ export function CustomProfileHydrator({
           />
         );
 
-      case "music":
-        if (!profile.profile_music) return null;
-        return (
+      case "music": {
+        const song = profile.profile_music ? (
           <ProfileMusicWidget
             music={profile.profile_music}
             surfaceStyle={styles.surface}
@@ -388,7 +389,18 @@ export function CustomProfileHydrator({
             borderColor={styles.border}
             borderRadius={styles.borderRadius}
           />
+        ) : null;
+        if (!profile.shows_listening) return song;
+        return (
+          <ProfileListening
+            username={profile.username}
+            fallback={song}
+            surfaceStyle={styles.surface}
+            mutedColor={styles.muted}
+            borderRadius={styles.borderRadius}
+          />
         );
+      }
 
       case "support": {
         const hasTips = POSTAGE_ENABLED && profile.stripe_connect_enabled && !isOwnProfile && isLoggedIn;

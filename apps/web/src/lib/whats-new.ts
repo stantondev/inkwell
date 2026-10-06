@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-06-listening-on-profile",
+    date: "2026-10-06",
+    title: "Your profile shows what you're listening to",
+    body: "Connected ListenBrainz? Your profile now shows the song you're playing, or the last one you played, with its cover. It takes the place of your profile song, which comes back if you haven't played anything for a month. You can switch it off in Settings → Listening. On entries, the song now sits in the Current music line, and Now playing no longer fills in a song from days ago without asking.",
+    howTo: "Settings → Listening.",
+    href: "/settings/listening",
+    cta: "Listening settings",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-06-song-links",
     date: "2026-10-06",
     title: "Song links from MusicBrainz and ListenBrainz",

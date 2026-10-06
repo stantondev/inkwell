@@ -12,7 +12,7 @@ import { Fragment, type ReactNode } from "react";
 import type { JournalEntry } from "./journal-entry-card";
 import { CurrentBlock } from "./current-block";
 import { LocalDate } from "./local-date";
-import { getMusicLabel } from "@/lib/music";
+import { getMusicLabel, songFrom } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
 
 // LJ's cut: long posts show their opening and a "( Read more... )" link.
@@ -124,6 +124,7 @@ function ClassicEntry({
             moodTheme={entry.mood_theme}
             music={entry.music ? getMusicLabel(entry.music, entry.music_metadata) : null}
             location={entry.location}
+            song={entry.music ? songFrom(entry.music, entry.music_metadata) : null}
           />
 
           {entry.is_sensitive ? (

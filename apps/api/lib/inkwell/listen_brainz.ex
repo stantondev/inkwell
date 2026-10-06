@@ -33,6 +33,22 @@ defmodule Inkwell.ListenBrainz do
 
   def valid_username?(_), do: false
 
+  @doc """
+  The ListenBrainz account whose listening shows on this member's profile, or
+  nil. On by default once connected (it's the reason most people connect);
+  `settings["listenbrainz_on_profile"] = false` turns it off.
+  """
+  def profile_username(%{settings: settings}) when is_map(settings) do
+    with name when is_binary(name) <- settings["listenbrainz_username"],
+         true <- settings["listenbrainz_on_profile"] != false do
+      name
+    else
+      _ -> nil
+    end
+  end
+
+  def profile_username(_), do: nil
+
   @doc "Trims a username and returns it, or nil when it can't be one."
   def clean_username(name) when is_binary(name) do
     name = String.trim(name)

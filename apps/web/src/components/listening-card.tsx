@@ -12,10 +12,13 @@ import { songCover, songLink, songSource, songTitle, type SongMetadata } from "@
 export function ListeningCard({
   track,
   compact = false,
+  plain = false,
 }: {
   track: SongMetadata;
   /** Feed cards: smaller, no album line. */
   compact?: boolean;
+  /** Inside a widget that already draws the box (profile): no border of its own. */
+  plain?: boolean;
 }) {
   const cover = songCover(track);
   const [coverFailed, setCoverFailed] = useState(false);
@@ -57,7 +60,7 @@ export function ListeningCard({
     </>
   );
 
-  const className = `listening-card${compact ? " listening-card-compact" : ""}`;
+  const className = `listening-card${compact ? " listening-card-compact" : ""}${plain ? " listening-card-plain" : ""}`;
 
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={className}
@@ -66,5 +69,38 @@ export function ListeningCard({
     </a>
   ) : (
     <div className={className}>{body}</div>
+  );
+}
+
+/**
+ * The same song as one line, for the "Current music:" row: a small cover,
+ * the title and artist, linking to its page.
+ */
+export function SongInline({ track }: { track: SongMetadata }) {
+  const cover = songCover(track);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const href = songLink(track);
+  const title = songTitle(track);
+
+  const body = (
+    <>
+      {cover && !coverFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cover} alt="" width={22} height={22} loading="lazy" referrerPolicy="no-referrer"
+          className="song-inline-cover" onError={() => setCoverFailed(true)} />
+      ) : (
+        <span aria-hidden="true">♪</span>
+      )}
+      <span>
+        {title}
+        {track.artist ? <span className="song-inline-artist"> — {track.artist}</span> : null}
+      </span>
+    </>
+  );
+
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="song-inline" title={songSource(track)}>{body}</a>
+  ) : (
+    <span className="song-inline">{body}</span>
   );
 }

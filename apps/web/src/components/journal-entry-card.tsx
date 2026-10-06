@@ -8,7 +8,7 @@ import type { MusicMetadata } from "@/lib/music";
 import { StampDisplay } from "@/components/stamp-display";
 import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
-import { getMusicLabel } from "@/lib/music";
+import { getMusicLabel, songFrom } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
 import { StickyNoteCard } from "@/components/sticky-note-card";
 import { ArchiveSeal } from "./archive-postmark";
@@ -754,7 +754,8 @@ function MetaStrip({
     );
   }
 
-  if (entry.music) {
+  // A song from ListenBrainz/MusicBrainz already shows as a card on the entry.
+  if (entry.music && !songFrom(entry.music, entry.music_metadata)) {
     items.push(
       <span key="music" className="entry-meta-item entry-meta-music">
         ♪ {getMusicLabel(entry.music, entry.music_metadata)}
