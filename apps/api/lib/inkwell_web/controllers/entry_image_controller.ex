@@ -13,7 +13,7 @@ defmodule InkwellWeb.EntryImageController do
     with {:ok, parsed} <- parse_image(image_data),
          file_bytes = byte_size(parsed.binary),
          {:ok, used, limit} <- Storage.check(user, file_bytes),
-         {:ok, image} <- Images.insert(Images.entry_image_attrs(user.id, parsed)) do
+         {:ok, image} <- save(user.id, parsed) do
       Storage.after_upload(user, used, file_bytes, limit)
 
       conn
@@ -76,16 +76,15 @@ defmodule InkwellWeb.EntryImageController do
                 storage_exceeded(conn, user)
 
               {:ok, used, limit} ->
-                # Insert all images atomically via Ecto.Multi
+                # Files go to object storage first (when configured), then all
+                # rows are inserted atomically; a failed insert removes them.
+                prepared = Enum.map(valid_images, &Images.prepare(user.id, &1))
+
                 multi =
-                  valid_images
+                  prepared
                   |> Enum.with_index()
-                  |> Enum.reduce(Ecto.Multi.new(), fn {parsed, idx}, multi ->
-                    Ecto.Multi.insert(
-                      multi,
-                      {:image, idx},
-                      Images.changeset(Images.entry_image_attrs(user.id, parsed))
-                    )
+                  |> Enum.reduce(Ecto.Multi.new(), fn {attrs, idx}, multi ->
+                    Ecto.Multi.insert(multi, {:image, idx}, Images.changeset(attrs))
                   end)
 
                 case Inkwell.Repo.transaction(multi) do
@@ -102,6 +101,8 @@ defmodule InkwellWeb.EntryImageController do
                     conn |> put_status(:created) |> json(%{data: data})
 
                   {:error, _name, _changeset, _changes} ->
+                    Images.discard(prepared)
+
                     conn
                     |> put_status(:unprocessable_entity)
                     |> json(%{error: "Could not save images"})
@@ -122,24 +123,12 @@ defmodule InkwellWeb.EntryImageController do
         conn |> put_status(:not_found) |> json(%{error: "Image not found"})
 
       image ->
-        case Images.decode_stored(image.data) do
-          {:ok, content_type, binary} ->
-            serve(conn, content_type, binary)
-
-          # A format we no longer accept (two SVG icons from an early
-          # LiveJournal import). Served only inside a sandbox: as an <img> it
-          # still shows, opened directly no script in it can run.
-          :error ->
-            case Regex.run(~r/^data:(image\/svg\+xml);base64,(.+)$/s, image.data || "") do
-              [_, content_type, base64] ->
-                case Base.decode64(base64, ignore: :whitespace) do
-                  {:ok, binary} -> serve(conn, content_type, binary)
-                  :error -> corrupt(conn)
-                end
-
-              _ ->
-                corrupt(conn)
-            end
+        # Old SVG icons (from an early import) come back too; serve/3's
+        # sandboxing CSP keeps any script in them from running.
+        case Images.fetch(image) do
+          {:ok, content_type, binary} -> serve(conn, content_type, binary)
+          {:error, :corrupt} -> corrupt(conn)
+          {:error, _} -> conn |> put_status(:service_unavailable) |> json(%{error: "Image temporarily unavailable"})
         end
     end
   end
@@ -153,6 +142,19 @@ defmodule InkwellWeb.EntryImageController do
     |> put_resp_header("content-disposition", "inline; filename=\"image.#{ext}\"")
     |> Images.secure_headers()
     |> send_resp(200, binary)
+  end
+
+  defp save(user_id, parsed) do
+    attrs = Images.prepare(user_id, parsed)
+
+    case Images.insert(attrs) do
+      {:ok, image} ->
+        {:ok, image}
+
+      {:error, _} = error ->
+        Images.discard(attrs)
+        error
+    end
   end
 
   defp corrupt(conn) do

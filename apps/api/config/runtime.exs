@@ -172,6 +172,16 @@ if config_env() == :prod do
     donor_plan_variation_3: System.get_env("SQUARE_DONOR_PLAN_VARIATION_3")
 
   # Slack notifications (optional — disabled if not set)
+  # Object storage for uploaded images (Inkwell.ObjectStore). Optional: with
+  # no bucket, images stay in Postgres as before (self-hosted default).
+  # `fly storage create` sets these five on inkwell-api.
+  config :inkwell, :object_store,
+    bucket: env.("BUCKET_NAME"),
+    endpoint: env.("AWS_ENDPOINT_URL_S3"),
+    region: env.("AWS_REGION") || "auto",
+    access_key_id: env.("AWS_ACCESS_KEY_ID"),
+    secret_access_key: env.("AWS_SECRET_ACCESS_KEY")
+
   config :inkwell, :slack_webhook_url, env.("SLACK_WEBHOOK_URL")
 
   # Monitoring (API key for /health/deep endpoint)

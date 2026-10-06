@@ -17,12 +17,31 @@ defmodule Inkwell.Images do
   type we detected. Serving adds a sandboxing Content-Security-Policy as a
   second line of defence (see `secure_headers/1`).
 
-  Object storage will plug in behind `store/3`.
+  ## Where the files live
+
+  With a bucket configured (Inkwell.ObjectStore; inkwell.social since
+  2026-10-06) a new upload goes to the bucket under `images/<id>` and its row
+  keeps only `storage_key`. If the bucket can't be reached the upload is kept
+  in Postgres instead (`data`), so uploads never fail because of it, and
+  `move_to_object_store/1` picks it up later. Without a bucket (local dev,
+  self-hosted servers) everything stays in Postgres as before.
+
+  Rows copied over from before keep their `data` until
+  `drop_database_copies/1` clears it, so the copy can be checked first.
+  Serving prefers the bucket and falls back to `data`. Deleting a row queues
+  its object for deletion through a database trigger (see
+  ObjectStoreDeletionWorker), whatever deleted the row.
+
+  Image links never change: `/api/images/:id` either way, which matters
+  because they're in post HTML and copied onto other fediverse servers.
   """
 
+  import Ecto.Query
   import Plug.Conn, only: [put_resp_header: 3]
 
-  alias Inkwell.Repo
+  require Logger
+
+  alias Inkwell.{ObjectStore, Repo}
   alias Inkwell.Journals.EntryImage
 
   @types ~w(png jpeg gif webp)
@@ -106,9 +125,9 @@ defmodule Inkwell.Images do
   end
 
   @doc """
-  Attributes for an `entry_images` row from parsed image info (see
-  `parse_data_uri/2`, `parse_binary/2`). `byte_size` is the real file size,
-  which is what storage allowances count.
+  Attributes for an `entry_images` row kept in Postgres, from parsed image
+  info (see `parse_data_uri/2`, `parse_binary/2`). `byte_size` is the real
+  file size, which is what storage allowances count.
   """
   def entry_image_attrs(user_id, %{content_type: ct, binary: binary, data_uri: uri}, opts \\ []) do
     %{
@@ -121,19 +140,193 @@ defmodule Inkwell.Images do
   end
 
   @doc """
+  Like `entry_image_attrs/3`, but puts the file in object storage first when
+  a bucket is configured: the attributes then carry the row's `"id"` and
+  `"storage_key"` and no `"data"`. If the upload fails the file stays in
+  Postgres (logged), so the caller can always insert what comes back. If the
+  insert then fails, call `discard/1` with these attributes.
+  """
+  def prepare(user_id, %{binary: binary, content_type: ct} = parsed, opts \\ []) do
+    attrs = entry_image_attrs(user_id, parsed, opts)
+
+    if ObjectStore.configured?() do
+      id = Ecto.UUID.generate()
+      key = key_for(id)
+
+      case ObjectStore.put(key, binary, ct) do
+        :ok ->
+          attrs |> Map.delete("data") |> Map.merge(%{"id" => id, "storage_key" => key})
+
+        {:error, reason} ->
+          Logger.warning("[Images] Object storage upload failed, keeping #{key} in Postgres: #{inspect(reason)}")
+          attrs
+      end
+    else
+      attrs
+    end
+  end
+
+  @doc "Removes uploaded objects for attributes from `prepare/3` that never got a row."
+  def discard(attrs_list) when is_list(attrs_list), do: Enum.each(attrs_list, &discard/1)
+  def discard(%{"storage_key" => key}) when is_binary(key) do
+    ObjectStore.delete(key)
+    :ok
+  end
+
+  def discard(_), do: :ok
+
+  @doc "The object storage key for an image id."
+  def key_for(id), do: "images/" <> id
+
+  @doc """
   Saves raw image bytes as an entry image. Refuses anything that isn't really
   a PNG, JPEG, GIF or WebP, or is over `:max_bytes`.
   """
   def store(user_id, binary, opts \\ []) when is_binary(binary) do
     with {:ok, parsed} <- parse_binary(binary, opts[:max_bytes] || @default_max_bytes) do
-      insert(entry_image_attrs(user_id, parsed, opts))
+      attrs = prepare(user_id, parsed, opts)
+
+      case insert(attrs) do
+        {:ok, image} -> {:ok, image}
+        {:error, _} = error ->
+          discard(attrs)
+          error
+      end
     end
   end
 
-  @doc "Inserts an `entry_images` row from `entry_image_attrs/3`."
+  @doc "Inserts an `entry_images` row from `prepare/3` or `entry_image_attrs/3`."
   def insert(attrs), do: attrs |> changeset() |> Repo.insert()
 
-  def changeset(attrs), do: EntryImage.changeset(%EntryImage{}, attrs)
+  def changeset(attrs) do
+    EntryImage.changeset(%EntryImage{id: attrs["id"]}, Map.delete(attrs, "id"))
+  end
+
+  @doc """
+  An image's content type and bytes, from object storage or Postgres. Bucket
+  first; if that fails and the row still has its Postgres copy, that's used.
+  """
+  def fetch(%EntryImage{storage_key: key} = image) when is_binary(key) do
+    case ObjectStore.get(key) do
+      {:ok, binary} ->
+        {:ok, image.content_type, binary}
+
+      {:error, reason} ->
+        if image.data do
+          Logger.warning("[Images] Object storage read failed for #{key}, using Postgres copy: #{inspect(reason)}")
+          fetch_data(image)
+        else
+          Logger.error("[Images] Object storage read failed for #{key}: #{inspect(reason)}")
+          {:error, reason}
+        end
+    end
+  end
+
+  def fetch(%EntryImage{} = image), do: fetch_data(image)
+
+  # Accepted formats only, plus the two SVG icons from an early import, which
+  # are served sandboxed (see EntryImageController).
+  defp fetch_data(%EntryImage{data: data}) do
+    case decode_stored(data) do
+      {:ok, ct, binary} ->
+        {:ok, ct, binary}
+
+      :error ->
+        case Regex.run(~r/\Adata:(image\/svg\+xml);base64,(.+)\z/s, data || "") do
+          [_, ct, base64] ->
+            case Base.decode64(base64, ignore: :whitespace) do
+              {:ok, binary} -> {:ok, ct, binary}
+              :error -> {:error, :corrupt}
+            end
+
+          _ ->
+            {:error, :corrupt}
+        end
+    end
+  end
+
+  @doc """
+  Copies images still kept only in Postgres to object storage, checking each
+  copy reads back byte-for-byte before recording its key. The Postgres copy
+  is kept (see `drop_database_copies/1`). Returns `%{moved, failed, remaining}`.
+  """
+  def move_to_object_store(limit \\ 25) do
+    if ObjectStore.configured?() do
+      ids =
+        EntryImage
+        |> where([i], is_nil(i.storage_key) and not is_nil(i.data))
+        |> order_by([i], asc: i.inserted_at)
+        |> limit(^limit)
+        |> select([i], i.id)
+        |> Repo.all()
+
+      results = Enum.map(ids, &move_one/1)
+
+      remaining =
+        EntryImage
+        |> where([i], is_nil(i.storage_key) and not is_nil(i.data))
+        |> Repo.aggregate(:count)
+
+      %{
+        moved: Enum.count(results, &(&1 == :ok)),
+        failed: Enum.count(results, &(&1 != :ok)),
+        remaining: remaining
+      }
+    else
+      {:error, :not_configured}
+    end
+  end
+
+  defp move_one(id) do
+    with %EntryImage{storage_key: nil} = image <- Repo.get(EntryImage, id),
+         {:ok, ct, binary} <- fetch_data(image),
+         key = key_for(image.id),
+         :ok <- ObjectStore.put(key, binary, ct),
+         {:ok, ^binary} <- ObjectStore.get(key),
+         {1, _} <-
+           EntryImage
+           |> where([i], i.id == ^image.id and is_nil(i.storage_key))
+           |> Repo.update_all(set: [storage_key: key, updated_at: DateTime.utc_now()]) do
+      :ok
+    else
+      nil ->
+        :ok
+
+      %EntryImage{} ->
+        :ok
+
+      other ->
+        Logger.error("[Images] Could not move image #{id} to object storage: #{inspect(other, limit: 5)}")
+        :error
+    end
+  end
+
+  @doc """
+  Clears the Postgres copy of images that have been in object storage for at
+  least `min_days`, after checking each object is still there. Run once the
+  moved copies have been in use for a while. Returns `%{cleared, kept}`.
+  Postgres only gives the space back after `VACUUM FULL entry_images`.
+  """
+  def drop_database_copies(min_days \\ 14) do
+    cutoff = DateTime.add(DateTime.utc_now(), -min_days * 86_400, :second)
+
+    rows =
+      EntryImage
+      |> where([i], not is_nil(i.storage_key) and not is_nil(i.data) and i.updated_at < ^cutoff)
+      |> select([i], {i.id, i.storage_key, i.byte_size})
+      |> Repo.all()
+
+    Enum.reduce(rows, %{cleared: 0, kept: 0}, fn {id, key, size}, acc ->
+      case ObjectStore.get(key) do
+        {:ok, binary} when byte_size(binary) == size ->
+          EntryImage |> where([i], i.id == ^id) |> Repo.update_all(set: [data: nil])
+          %{acc | cleared: acc.cleared + 1}
+
+        _ ->
+          %{acc | kept: acc.kept + 1}
+      end
+    end)
+  end
 
   @doc """
   Bytes and content type of a stored data URI, for serving. Only the formats

@@ -45,7 +45,9 @@ defmodule Inkwell.MixProject do
       # Parser-based allowlist HTML sanitizing (Inkwell.HtmlSanitizer)
       {:html_sanitize_ex, "~> 1.5"},
       {:gen_smtp, "~> 1.2"},
-      {:web_push_encryption, "~> 0.3"}
+      {:web_push_encryption, "~> 0.3"},
+      # Object storage (Tigris, S3-compatible): built-in AWS SigV4 signing
+      {:req, "~> 0.5"}
     ]
   end
 

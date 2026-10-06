@@ -134,9 +134,8 @@ defmodule Inkwell.Workers.CrosspostWorker do
           {:error, :no_image}
 
         image ->
-          # Decode from data URI
-          case parse_data_uri(image.data) do
-            {:ok, binary, content_type} ->
+          case Inkwell.Images.fetch(image) do
+            {:ok, content_type, binary} ->
               MastodonClient.upload_media(account.domain, account.access_token, binary, content_type)
 
             _ ->
@@ -147,24 +146,4 @@ defmodule Inkwell.Workers.CrosspostWorker do
       {:error, :no_cover_image}
     end
   end
-
-  defp parse_data_uri("data:" <> rest) do
-    case String.split(rest, ",", parts: 2) do
-      [meta, encoded] ->
-        content_type =
-          meta
-          |> String.split(";")
-          |> List.first()
-          |> String.trim()
-
-        case Base.decode64(encoded) do
-          {:ok, binary} -> {:ok, binary, content_type}
-          :error -> {:error, :decode_failed}
-        end
-
-      _ ->
-        {:error, :invalid_format}
-    end
-  end
-  defp parse_data_uri(_), do: {:error, :not_data_uri}
 end

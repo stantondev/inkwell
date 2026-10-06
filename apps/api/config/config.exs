@@ -59,6 +59,9 @@ config :inkwell, Oban,
        # already spread across the morning).
        {"0 3 * * *", Inkwell.Workers.CleanupExpiredTokensWorker},
        {"0 4 * * *", Inkwell.Workers.CleanupOrphanedImagesWorker},
+       # Object storage for images (no-ops without a bucket)
+       {"*/15 * * * *", Inkwell.Workers.ObjectStoreDeletionWorker},
+       {"20 4 * * *", Inkwell.Workers.MoveImagesToObjectStoreWorker},
        {"30 4 * * *", Inkwell.Workers.CleanupReadNotificationsWorker},
        {"0 5 * * *", Inkwell.Workers.CleanupAbandonedDraftsWorker},
        {"15 5 * * *", Inkwell.Workers.CleanupRelayContentWorker},

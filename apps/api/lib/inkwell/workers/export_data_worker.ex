@@ -156,10 +156,18 @@ defmodule Inkwell.Workers.ExportDataWorker do
         filename: img.filename,
         content_type: img.content_type,
         byte_size: img.byte_size,
-        data: img.data,
+        # A data URI as before, wherever the file lives now.
+        data: export_data(img),
         created_at: img.inserted_at
       }
     end)
+  end
+
+  defp export_data(img) do
+    case Inkwell.Images.fetch(img) do
+      {:ok, content_type, binary} -> "data:#{content_type};base64," <> Base.encode64(binary)
+      {:error, _} -> img.data
+    end
   end
 
   defp build_comments(user_id) do

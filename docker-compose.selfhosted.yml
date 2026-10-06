@@ -116,6 +116,13 @@ services:
       DEEPL_API_KEY: ${DEEPL_API_KEY:-}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
       POSTMARK_INBOUND_TOKEN: ${POSTMARK_INBOUND_TOKEN:-}
+
+      # Image storage in an S3-compatible bucket (optional; default is Postgres)
+      BUCKET_NAME: ${BUCKET_NAME:-}
+      AWS_ENDPOINT_URL_S3: ${AWS_ENDPOINT_URL_S3:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       POST_EMAIL_DOMAIN: ${POST_EMAIL_DOMAIN:-}
 
   # ── Next.js Frontend ────────────────────────────────────────

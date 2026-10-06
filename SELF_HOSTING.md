@@ -111,7 +111,7 @@ Members' questions, reports and appeals go to `ADMIN_EMAIL` (or `CONTACT_EMAIL` 
   - **Custom domains for members.** They need inkwell.social's certificate service.
   - **Post by Email**, unless you set up a [Postmark inbound server](https://postmarkapp.com/inbound-email) yourself. Set `POSTMARK_INBOUND_TOKEN` and `POST_EMAIL_DOMAIN`, point the inbound webhook at `https://DOMAIN/api/email/inbound?token=<token>`, and add an MX record for `POST_EMAIL_DOMAIN`.
   - **The public developer API.** It isn't published by default (the API runs inside Docker). To publish it, give the API its own address in your proxy and set `PUBLIC_API_URL` on the web container so `/developers` shows it.
-- **Images are stored in PostgreSQL.** That's fine for small servers; back it up (below).
+- **Images are stored in PostgreSQL** unless you add a bucket (below). That's fine for small servers; back it up (below).
 
 ## Optional features
 
@@ -121,6 +121,7 @@ Members' questions, reports and appeals go to `ADMIN_EMAIL` (or `CONTACT_EMAIL` 
 | Browser push notifications | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Generate a pair: `docker compose -f docker-compose.selfhosted.yml exec api bin/inkwell eval 'IO.inspect(WebPushEncryption.generate_vapid_key())'` |
 | Translation | `DEEPL_API_KEY` (DeepL's free tier allows 500K characters a month) |
 | Admin notices in Slack | `SLACK_WEBHOOK_URL` |
+| Images in object storage | Any S3-compatible bucket (Tigris, Cloudflare R2, Backblaze B2, MinIO, AWS S3): `BUCKET_NAME`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION` (`auto` if unsure), `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. Keep the bucket private: images are still served through your server. New uploads go to the bucket; to copy existing ones, run `docker compose -f docker-compose.selfhosted.yml exec api bin/inkwell rpc 'Oban.insert(Inkwell.Workers.MoveImagesToObjectStoreWorker.new(%{}))'`. |
 
 ## Using your own reverse proxy
 
