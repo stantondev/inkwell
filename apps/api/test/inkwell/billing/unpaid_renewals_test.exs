@@ -245,7 +245,7 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
       assert %{state: :written_off, url: nil, due_date: ^due} = UnpaidRenewals.renewal_invoice(u)
     end
 
-    test "Admin shows it as canceled, and flags that Square will bill again", %{user: u} do
+    test "Admin shows it as a plain row, not a warning", %{user: u} do
       Application.put_env(:inkwell, :admin_overview_subscription_fetcher, fn _ ->
         {:ok,
          %{
@@ -260,27 +260,9 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
       row = Enum.find(overview.members, &(&1.id == u.id))
       assert row.kind == "written_off"
       assert row.label == "Invoice canceled"
-      assert row.detail =~ "nothing owed"
-      assert row.detail =~ "bill the card again"
-      assert row.attention
-      assert Enum.any?(overview.problems, &(&1.kind == "written_off" and u.username in &1.usernames))
-      refute Enum.any?(overview.problems, &(&1.kind == "unpaid_ended"))
-    end
-
-    test "once the Square subscription is canceled too, Admin has nothing to flag", %{user: u} do
-      Application.put_env(:inkwell, :admin_overview_subscription_fetcher, fn _ ->
-        {:ok,
-         %{
-           "id" => @sub,
-           "status" => "ACTIVE",
-           "canceled_date" => iso(Date.add(today(), 13)),
-           "invoice_ids" => ["INV-#{iso(Date.add(today(), -17))}"]
-         }}
-      end)
-
-      row = Enum.find(Inkwell.Billing.AdminOverview.build().members, &(&1.id == u.id))
-      assert row.kind == "written_off"
+      assert row.detail =~ "next charge"
       refute row.attention
+      refute Enum.any?(overview.problems, &(u.username in &1.usernames))
     end
 
     test "starting Plus again: cancel the old subscription, then checkout opens", %{user: u} do

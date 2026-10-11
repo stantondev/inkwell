@@ -185,32 +185,31 @@ defmodule Inkwell.Billing.AdminOverview do
     end
   end
 
-  # The admin canceled the unpaid invoice in Square. Nothing is owed, but the
-  # subscription itself stays ACTIVE there and bills again on its next date
-  # unless it's canceled too, which is the one thing left to look at.
+  # The admin canceled the unpaid invoice in Square: a decision already
+  # made, so this is a plain row, never a warning. Square keeps the
+  # subscription and tries the card again on its next date; that's stated as
+  # a fact, since the admin may well want it to.
   defp written_off_state(u, sub, invoice, now) do
     plus =
       if User.plus_time_ran_out?(u, now),
         do: "Plus ended #{date(u.subscription_expires_at)}",
         else: "Plus until #{date(u.subscription_expires_at)}"
 
-    owed = "#{plus}; nothing owed (you canceled the #{iso_date(invoice[:due_date])} invoice)"
+    detail = "You canceled the #{iso_date(invoice[:due_date])} invoice. #{plus}"
 
-    case sub do
-      %{"status" => "ACTIVE"} = sub when is_binary(:erlang.map_get("canceled_date", sub)) ->
-        %{kind: "written_off", label: "Invoice canceled", detail: "#{owed}. Subscription ends #{square_date(sub["canceled_date"])}"}
+    detail =
+      case sub do
+        %{"status" => "ACTIVE"} = sub when is_binary(:erlang.map_get("canceled_date", sub)) ->
+          "#{detail} · subscription ends #{square_date(sub["canceled_date"])}"
 
-      %{"status" => "ACTIVE"} = sub ->
-        %{
-          kind: "written_off",
-          label: "Invoice canceled",
-          detail: "#{owed}. Square will bill the card again #{square_date(sub["charged_through_date"])} unless you cancel the subscription in Square",
-          attention: true
-        }
+        %{"status" => "ACTIVE"} = sub ->
+          "#{detail} · next charge #{square_date(sub["charged_through_date"])}"
 
-      _ ->
-        %{kind: "written_off", label: "Invoice canceled", detail: owed}
-    end
+        _ ->
+          detail
+      end
+
+    %{kind: "written_off", label: "Invoice canceled", detail: detail}
   end
 
   defp iso_date(%Date{} = d), do: Calendar.strftime(d, "%b %-d")
@@ -267,7 +266,7 @@ defmodule Inkwell.Billing.AdminOverview do
   defp donor_label(%User{ink_donor_status: "active"}), do: "Ink Donor"
   defp donor_label(_), do: nil
 
-  @kind_order ~w(expired unpaid_ended written_off payment_failed no_payment square_mismatch square canceling founding granted trial donor)
+  @kind_order ~w(expired unpaid_ended payment_failed no_payment square_mismatch square canceling written_off founding granted trial donor)
   defp sort_key(m), do: {Enum.find_index(@kind_order, &(&1 == m.kind)) || 99, m.username}
 
   defp counts(members) do
@@ -358,10 +357,6 @@ defmodule Inkwell.Billing.AdminOverview do
       case names.("unpaid_ended") do
         [] -> nil
         ns -> %{kind: "unpaid_ended", usernames: ns, message: "#{plural(ns, "member")} never paid a renewal, so Plus has ended. Square keeps emailing them an invoice every month until you cancel the subscription in Square."}
-      end,
-      case for(m <- members, m.kind == "written_off" and m.attention, do: m.username) do
-        [] -> nil
-        ns -> %{kind: "written_off", usernames: ns, message: "You canceled the unpaid invoice for #{plural(ns, "member")}, so nothing is owed. Their Square subscription is still active and will bill the card again on its next renewal date. Cancel the subscription in Square if they've stopped; they can start Plus again from their billing page whenever they like."}
       end,
       case names.("no_payment") do
         [] -> nil
