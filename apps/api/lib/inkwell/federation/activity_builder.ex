@@ -245,14 +245,25 @@ defmodule Inkwell.Federation.ActivityBuilder do
         }
       end)
 
+    # Fediverse accounts mentioned as @user@server (RemoteMentions linked them).
+    remote_actors = Inkwell.Federation.RemoteMentions.mentioned_actors(entry.body_html)
+
+    remote_tags =
+      Enum.map(remote_actors, fn actor ->
+        %{"type" => "Mention", "href" => actor.ap_id, "name" => "@#{actor.username}@#{actor.domain}"}
+      end)
+
     object =
-      case hashtag_tags ++ mention_tags do
+      case hashtag_tags ++ mention_tags ++ remote_tags do
         [] -> object
         tags -> Map.put(object, "tag", tags)
       end
 
-    if mentioned_users != [] do
-      mention_uris = Enum.map(mentioned_users, &"#{frontend_host}/users/#{&1.username}")
+    mention_uris =
+      Enum.map(mentioned_users, &"#{frontend_host}/users/#{&1.username}") ++
+        Enum.map(remote_actors, & &1.ap_id)
+
+    if mention_uris != [] do
       Map.put(object, "cc", Enum.uniq((object["cc"] || []) ++ mention_uris))
     else
       object
@@ -304,7 +315,15 @@ defmodule Inkwell.Federation.ActivityBuilder do
   def build_update_note(entry, author) do
     actor_url = actor_url(author)
     entry_url = entry_ap_url(entry)
-    article = build_article(entry, author)
+
+    # Mastodon applies an edit only when the object carries `updated`
+    # (ProcessStatusUpdateService: no `updated` = "implicit update", which
+    # only refreshes polls and counts). build_article leaves it out for the
+    # first minute after publishing, so a quick fix to a new post never
+    # reached anyone's timeline.
+    article =
+      build_article(entry, author)
+      |> Map.put_new("updated", format_datetime(entry.updated_at || DateTime.utc_now()))
 
     %{
       "@context" => context_for(article),

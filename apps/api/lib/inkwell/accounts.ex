@@ -94,6 +94,12 @@ defmodule Inkwell.Accounts do
 
       if federated? and is_binary(updated.username),
         do: Inkwell.Federation.Workers.FanOutWorker.enqueue_profile_update(updated.id)
+
+      # Spam accounts often never post; the pitch is in the bio. A new
+      # account's bio and links get the same check as its first posts.
+      if Enum.any?([:bio, :bio_html, :social_links], &Map.has_key?(changeset.changes, &1)) and
+           Inkwell.Moderation.RequestGate.new_account?(updated),
+         do: Inkwell.Workers.AutoModerationWorker.enqueue_user(updated.id)
     end)
   end
 

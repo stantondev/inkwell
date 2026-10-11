@@ -6,7 +6,10 @@ defmodule InkwellWeb.Helpers.MentionHelper do
 
   import Ecto.Query, only: [from: 2]
 
-  @mention_regex ~r/@([a-zA-Z0-9_-]{1,30})\b/
+  # Not glued to a word or another @ before it (so "jo@inkwell.social" isn't
+  # a mention of @inkwell), and not followed by @ (so "@recollect@coywolf.social"
+  # is a fediverse handle, not our member @recollect; RemoteMentions links those).
+  @mention_regex ~r/(?<![\w@.\/])@([a-zA-Z0-9_-]{1,30})\b(?!@)/
 
   @doc """
   Parse @username mentions from HTML body, convert to profile links.

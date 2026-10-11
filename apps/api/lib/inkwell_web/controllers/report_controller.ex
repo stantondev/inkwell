@@ -10,13 +10,14 @@ defmodule InkwellWeb.ReportController do
     attrs = %{
       reporter_id: user.id,
       entry_id: entry_id,
+      reported_user_id: entry_author_id(entry_id),
       reason: params["reason"],
       details: params["details"]
     }
 
     case Moderation.create_report(attrs) do
       {:ok, report} ->
-        notify_admins_of_report(user, entry_id)
+        notify_admins(user, "entry", entry_id, "content_report")
         Inkwell.Moderation.AutoModeration.handle_new_report(report, user)
         json(conn, %{ok: true})
 
@@ -25,6 +26,44 @@ defmodule InkwellWeb.ReportController do
           conn |> put_status(:conflict) |> json(%{error: "You have already reported this entry"})
         else
           conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(errors)})
+        end
+    end
+  end
+
+  # POST /api/users/:username/report (authenticated): a report about an
+  # account as a whole — a spammy bio, unwanted requests or letters,
+  # impersonation. Goes to the same admin queue and counts toward the spam
+  # checker like entry reports do.
+  def create_account(conn, %{"username" => username} = params) do
+    user = conn.assigns.current_user
+
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "User not found"})
+
+      %{id: id} when id == user.id ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "You can't report yourself"})
+
+      target ->
+        attrs = %{
+          reporter_id: user.id,
+          reported_user_id: target.id,
+          reason: params["reason"],
+          details: params["details"]
+        }
+
+        case Moderation.create_account_report(attrs) do
+          {:ok, report} ->
+            notify_admins(user, "user", target.id, "account_report")
+            Inkwell.Moderation.AutoModeration.handle_new_report(report, user)
+            json(conn, %{ok: true})
+
+          {:error, %Ecto.Changeset{errors: errors}} ->
+            if Keyword.has_key?(errors, :reporter_id) do
+              conn |> put_status(:conflict) |> json(%{error: "You have already reported this account"})
+            else
+              conn |> put_status(:unprocessable_entity) |> json(%{errors: format_errors(errors)})
+            end
         end
     end
   end
@@ -55,7 +94,7 @@ defmodule InkwellWeb.ReportController do
 
     case Moderation.resolve_report(report, attrs) do
       {:ok, report} ->
-        report = Inkwell.Repo.preload(report, [:reporter, entry: :user])
+        report = Inkwell.Repo.preload(report, [:reporter, :reported_user, entry: :user])
         json(conn, %{data: render_report(report)})
 
       {:error, _changeset} ->
@@ -69,9 +108,19 @@ defmodule InkwellWeb.ReportController do
   defp render_report(report) do
     entry = report.entry
     reporter = report.reporter
+    reported = report.reported_user
 
     %{
       id: report.id,
+      kind: if(is_nil(report.entry_id), do: "account", else: "entry"),
+      reported_user: if(reported, do: %{
+        id: reported.id,
+        username: reported.username,
+        display_name: reported.display_name,
+        bio: reported.bio,
+        blocked: reported.blocked_at != nil,
+        moderation_state: reported.moderation_state
+      }, else: nil),
       reason: report.reason,
       details: report.details,
       status: report.status,
@@ -100,7 +149,7 @@ defmodule InkwellWeb.ReportController do
     }
   end
 
-  defp notify_admins_of_report(reporter, entry_id) do
+  defp notify_admins(reporter, target_type, target_id, reason) do
     admins = Accounts.list_admins()
 
     Enum.each(admins, fn admin ->
@@ -109,12 +158,21 @@ defmodule InkwellWeb.ReportController do
           type: :report,
           user_id: admin.id,
           actor_id: reporter.id,
-          target_type: "entry",
-          target_id: entry_id,
-          data: %{reason: "content_report"}
+          target_type: target_type,
+          target_id: target_id,
+          data: %{reason: reason}
         })
       end
     end)
+  end
+
+  defp entry_author_id(entry_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(entry_id),
+         %{user_id: user_id} <- Inkwell.Repo.get(Inkwell.Journals.Entry, uuid) do
+      user_id
+    else
+      _ -> nil
+    end
   end
 
   defp format_errors(errors) do

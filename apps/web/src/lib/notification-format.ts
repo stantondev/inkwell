@@ -149,7 +149,7 @@ export function notificationText(n: Notification): string {
       return `subscribed to your plan${subAmt ? ` (${subAmt})` : ""}`;
     }
     case "report":
-      return "reported an entry";
+      return n.target_type === "user" ? "reported an account" : "reported an entry";
     case "warning": {
       const strikeNumber = n.data?.strike_number as number | undefined;
       const escalated = n.data?.escalated_to_block as boolean | undefined;

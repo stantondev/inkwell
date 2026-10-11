@@ -33,6 +33,21 @@ interface Report {
   created_at: string;
   reporter: ReportAuthor | null;
   entry: ReportEntry | null;
+  // "account" reports are about the account as a whole (no entry).
+  kind?: "entry" | "account";
+  reported_user?: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    bio: string | null;
+    blocked: boolean;
+    moderation_state: string | null;
+  } | null;
+}
+
+// Who a warning goes to: the entry's author, or the reported account.
+function reportTarget(report: Report): { id: string; username: string } | null {
+  return report.entry?.author ?? report.reported_user ?? null;
 }
 
 interface WarnResult {
@@ -47,6 +62,7 @@ const REASON_LABELS: Record<string, string> = {
   hate_speech: "Hate speech",
   unlabeled_sensitive: "Unlabeled sensitive",
   csam_illegal: "CSAM / Illegal",
+  impersonation: "Impersonation",
   other: "Other",
 };
 
@@ -136,16 +152,17 @@ export default function ReportsPanel() {
     report: Report,
     opts: { details: string; deleteEntry: boolean }
   ) => {
-    if (!report.entry?.author) return;
+    const target = reportTarget(report);
+    if (!target) return;
 
-    const res = await fetch(`/api/admin/users/${report.entry.author.id}/warn`, {
+    const res = await fetch(`/api/admin/users/${target.id}/warn`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reason: report.reason,
         details: opts.details,
         report_id: report.id,
-        entry_id: report.entry.id,
+        ...(report.entry ? { entry_id: report.entry.id } : {}),
       }),
     });
 
@@ -159,7 +176,7 @@ export default function ReportsPanel() {
     const { blocked, warning, user } = json.data;
 
     let entryText = "";
-    if (opts.deleteEntry) {
+    if (opts.deleteEntry && report.entry) {
       const del = await fetch(`/api/admin/entries/${report.entry.id}`, { method: "DELETE" });
       entryText = del.ok ? " · entry deleted" : " · entry NOT deleted (delete it from Admin → Entries)";
     }
@@ -246,6 +263,31 @@ export default function ReportsPanel() {
                 </div>
               )}
 
+              {/* Reported account (account reports have no entry) */}
+              {!report.entry && report.reported_user && (
+                <div className="rounded-lg border p-3 mb-3" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs uppercase tracking-wider" style={{ color: "var(--muted)" }}>Account</span>
+                    <Link href={`/${report.reported_user.username}`} className="text-sm font-medium hover:underline">
+                      @{report.reported_user.username}
+                    </Link>
+                    {report.reported_user.display_name && (
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>{report.reported_user.display_name}</span>
+                    )}
+                    {report.reported_user.blocked && <span className="admin-badge admin-badge--danger">Suspended</span>}
+                    {report.reported_user.moderation_state === "limited" && (
+                      <span className="admin-badge admin-badge--warning">Limited</span>
+                    )}
+                  </div>
+                  <p className="text-xs mt-1 line-clamp-3" style={{ color: "var(--muted)" }}>
+                    {report.reported_user.bio ? report.reported_user.bio : "No bio."}
+                  </p>
+                  <Link href="/admin?s=moderation" className="text-xs underline mt-1 inline-block" style={{ color: "var(--accent)" }}>
+                    Check this account in Moderation
+                  </Link>
+                </div>
+              )}
+
               {/* Details */}
               {report.details && (
                 <p className="text-sm mb-3" style={{ color: "var(--foreground)", opacity: 0.8 }}>
@@ -270,7 +312,7 @@ export default function ReportsPanel() {
                       Mark sensitive
                     </button>
                   )}
-                  {report.entry?.author && (
+                  {reportTarget(report) && (
                     <button
                       onClick={() => setWarnModal(report)}
                       className="admin-btn admin-btn--danger admin-btn--sm"
@@ -349,7 +391,9 @@ function WarnModal({
   onConfirm: (details: string, deleteEntry: boolean) => void;
 }) {
   const [details, setDetails] = useState<string>(
-    defaultWarningText(report.reason, report.entry?.title || null)
+    report.entry
+      ? defaultWarningText(report.reason, report.entry.title || null)
+      : defaultWarningText(report.reason, null).replace(/^Your recent entry/, "Your account")
   );
   const [deleteEntry, setDeleteEntry] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -383,7 +427,7 @@ function WarnModal({
           className="text-xl font-semibold mb-2"
           style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
         >
-          Warn @{report.entry?.author?.username}
+          Warn @{reportTarget(report)?.username}
         </h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
           The user receives an in-app notification and an email with the
@@ -409,6 +453,7 @@ function WarnModal({
           placeholder="Explain what the user did wrong and what they should change."
         />
 
+        {report.entry && (
         <label className="flex items-center gap-2 mb-6 text-sm cursor-pointer">
           <input
             type="checkbox"
@@ -425,6 +470,7 @@ function WarnModal({
             )}
           </span>
         </label>
+        )}
 
         <div className="flex gap-2 justify-end">
           <button

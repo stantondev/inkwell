@@ -22,6 +22,12 @@ defmodule Inkwell.Moderation do
     |> Repo.insert()
   end
 
+  def create_account_report(attrs) do
+    %Report{}
+    |> Report.account_changeset(attrs)
+    |> Repo.insert()
+  end
+
   def list_reports(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
@@ -29,7 +35,7 @@ defmodule Inkwell.Moderation do
 
     query =
       Report
-      |> preload([:reporter, entry: :user])
+      |> preload([:reporter, :reported_user, entry: :user])
       |> order_by(desc: :inserted_at)
 
     query = if status, do: where(query, status: ^status), else: query
@@ -59,10 +65,21 @@ defmodule Inkwell.Moderation do
     # Clearing the queue should clear the notification that announced it.
     # Every resolve path funnels through here, so this is the one hook needed.
     with {:ok, %Report{status: status} = resolved} when status != "pending" <- result do
-      Inkwell.Accounts.mark_report_notifications_read(resolved.reporter_id, resolved.entry_id)
+      # Account reports point their notification at the account.
+      Inkwell.Accounts.mark_report_notifications_read(
+        resolved.reporter_id,
+        resolved.entry_id || resolved.reported_user_id
+      )
     end
 
     result
+  end
+
+  def has_reported_account?(reporter_id, reported_user_id) do
+    Report
+    |> where(reporter_id: ^reporter_id, reported_user_id: ^reported_user_id)
+    |> where([r], is_nil(r.entry_id))
+    |> Repo.exists?()
   end
 
   def has_reported?(user_id, entry_id) do

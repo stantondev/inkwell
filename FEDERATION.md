@@ -209,7 +209,9 @@ Entries marked sensitive by their writer or an admin are sent with `sensitive: t
 
 ### Hashtags and mentions
 
-Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded, so non-Latin tags work). Mentions of members and fediverse accounts are `Mention` tags with an h-card link in the content. Inbound hashtags are stored lowercase without the `#`.
+Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded, so non-Latin tags work). Inbound hashtags are stored lowercase without the `#`.
+
+Mentions are `Mention` tags (`href` the actor id, `name` `@user@server`), and the mentioned actor is added to `cc`. A member writes `@name` for another member, or `@user@server` for a fediverse account. When an entry or sticky is published (not while it's a draft), each `@user@server` is looked up (our cached actor, else WebFinger and the actor document) and becomes an h-card link reading `@user`, Mastodon's form: `<span class="h-card"><a href="{profile url}" class="u-url mention">@<span>user</span></a></span>`. Handles that can't be found stay as typed. A mentioned fediverse account receives the `Create` and later `Update`s at its inbox even if it doesn't follow the writer.
 
 ---
 
@@ -217,8 +219,8 @@ Tags are `Hashtag` objects (`name` with `#`, `href` to `/tag/{tag}`, URL-encoded
 
 | Activity | When | Sent to |
 |---|---|---|
-| `Create {Article}` / `Create {Note}` | A public entry or sticky is published, or a published post is made public | Followers |
-| `Update {Article}` / `Update {Note}` | A public post is edited | Followers |
+| `Create {Article}` / `Create {Note}` | A public entry or sticky is published, or a published post is made public | Followers, plus fediverse accounts it mentions |
+| `Update {Article}` / `Update {Note}` | A public post is edited. The object always carries `updated` (Mastodon ignores an edit without it) | Followers, plus fediverse accounts it mentions |
 | `Delete {Tombstone}` | A public post is deleted (also by an admin), made non-public or hidden by moderation | Followers |
 | `Update {Person}` | A profile edit changes what the actor shows | Followers |
 | `Create {Note}` (comment) | A member comments on a fediverse post or an Inkwell entry | The post's author and the relevant followers |

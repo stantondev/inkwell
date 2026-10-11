@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-11-fediverse-mentions",
+    date: "2026-10-11",
+    title: "Mention people on Mastodon, and your edits reach them",
+    body: "You can now mention anyone on the fediverse in an entry or sticky by writing their full handle, like @someone@mastodon.social. When you publish, it becomes a link that reads @someone, and they're notified on their own server. Edits now reach the fediverse too: a fix made in the first minute after publishing used to stay on Inkwell only. Also new: you can report an account, not just an entry, from the ⋯ menu on its profile. Thanks to @jonhenshaw for all three.",
+    howTo: "Write @user@server in an entry and publish.",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-10-11-drafts",
     date: "2026-10-11",
     title: "A better Drafts page, and drafts that stay put",

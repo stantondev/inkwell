@@ -496,6 +496,7 @@ defmodule InkwellWeb.Router do
 
     # Content reports (authenticated)
     post "/entries/:entry_id/report", ReportController, :create
+    post "/users/:username/report", ReportController, :create_account
 
     # Invitations (authenticated)
     get "/invite-code", InvitationController, :get_code

@@ -53,9 +53,8 @@ defmodule Inkwell.Moderation.AutoModeration do
 
     reported_ids =
       from(r in Report,
-        join: e in Entry, on: e.id == r.entry_id,
-        where: r.status == "pending",
-        select: e.user_id
+        where: r.status == "pending" and not is_nil(r.reported_user_id),
+        select: r.reported_user_id
       )
 
     recent_posters =
@@ -236,9 +235,8 @@ defmodule Inkwell.Moderation.AutoModeration do
 
     reports =
       from(r in Report,
-        join: e in Entry, on: e.id == r.entry_id,
         join: reporter in User, on: reporter.id == r.reporter_id,
-        where: e.user_id == ^user.id and r.status == "pending",
+        where: r.reported_user_id == ^user.id and r.status == "pending",
         distinct: r.reporter_id,
         select: %{reporter: reporter, at: r.inserted_at}
       )
@@ -490,13 +488,16 @@ defmodule Inkwell.Moderation.AutoModeration do
 
   defp resolve_pending_reports(user, note) do
     scope =
-      from(r in Report,
-        join: e in Entry,
-        on: e.id == r.entry_id,
-        where: e.user_id == ^user.id and r.status == "pending"
-      )
+      from(r in Report, where: r.reported_user_id == ^user.id and r.status == "pending")
 
-    entry_ids = scope |> select([r], r.entry_id) |> Repo.all() |> Enum.uniq()
+    # Entry reports' notifications point at the entry, account reports' at
+    # the account.
+    entry_ids =
+      scope
+      |> select([r], r.entry_id)
+      |> Repo.all()
+      |> Enum.map(&(&1 || user.id))
+      |> Enum.uniq()
 
     result =
       Repo.update_all(scope,
@@ -563,6 +564,12 @@ defmodule Inkwell.Moderation.AutoModeration do
   there is no automated detection of illegal images, so reports are the only
   signal.
   """
+  def handle_new_report(%Report{entry_id: nil, reported_user_id: id}, %User{} = reporter)
+      when is_binary(id) do
+    if id != reporter.id, do: Inkwell.Workers.AutoModerationWorker.enqueue_user(id)
+    :ok
+  end
+
   def handle_new_report(%Report{} = report, %User{} = reporter) do
     case Repo.get(Entry, report.entry_id) do
       nil ->

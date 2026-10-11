@@ -90,4 +90,25 @@ defmodule InkwellWeb.AuthControllerTest do
       assert String.match?(user.username, ~r/^[a-zA-Z0-9_]{3,30}$/)
     end
   end
+  describe "POST /api/auth/magic-link — temporary email addresses" do
+    test "a new signup from a listed provider is refused, with a reason", %{conn: conn} do
+      body = conn |> signup("someone@yopmail.com") |> json_response(422)
+      assert body["code"] == "temporary_email"
+      assert body["error"] =~ "temporary email"
+      refute Accounts.get_user_by_email("someone@yopmail.com")
+    end
+
+    test "providers from the community list and their subdomains are caught" do
+      assert Inkwell.FraudDetection.disposable_email?("a@hidingmail.net")
+      assert Inkwell.FraudDetection.disposable_email?("a@mail.mailinator.com")
+      refute Inkwell.FraudDetection.disposable_email?("a@gmail.com")
+      refute Inkwell.FraudDetection.disposable_email?("a@proton.me")
+      refute Inkwell.FraudDetection.disposable_email?("not an email")
+    end
+
+    test "an existing account on such a provider can still sign in", %{conn: conn} do
+      create_user(email: "old@yopmail.com")
+      assert %{"ok" => true} = conn |> signup("old@yopmail.com") |> json_response(200)
+    end
+  end
 end

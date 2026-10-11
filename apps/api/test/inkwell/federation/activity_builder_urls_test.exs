@@ -89,4 +89,59 @@ defmodule Inkwell.Federation.ActivityBuilderUrlsTest do
       assert names == [{"a", "A dog & a ball"}, {"b", "Just a caption"}, {"c", "Standalone alt"}, {"d", nil}]
     end
   end
+  describe "build_update_note/2" do
+    setup do
+      prev = Application.get_env(:inkwell, :federation)
+
+      Application.put_env(:inkwell, :federation,
+        instance_host: "inkwell.social",
+        frontend_host: "https://inkwell.social"
+      )
+
+      on_exit(fn ->
+        if prev, do: Application.put_env(:inkwell, :federation, prev),
+          else: Application.delete_env(:inkwell, :federation)
+      end)
+    end
+
+    # Mastodon ignores an Update whose object has no `updated` (it treats it
+    # as a poll refresh), so a fix made in the first minute never showed.
+    test "an edit made seconds after publishing still carries `updated`" do
+      author = %User{id: Ecto.UUID.generate(), username: "alice", display_name: "Alice"}
+
+      entry = %Entry{
+        id: Ecto.UUID.generate(),
+        slug: "hello",
+        title: "Hello",
+        body_html: "<p>Fixed a typo</p>",
+        published_at: ~U[2026-10-11 16:45:28.000000Z],
+        updated_at: ~U[2026-10-11 16:46:19.000000Z],
+        tags: []
+      }
+
+      assert ActivityBuilder.build_article(entry, author)["updated"] == nil
+
+      update = ActivityBuilder.build_update_note(entry, author)
+      assert update["type"] == "Update"
+      assert update["object"]["updated"] == "2026-10-11T16:46:19.000000Z"
+    end
+
+    test "stickies (Notes) get `updated` too" do
+      author = %User{id: Ecto.UUID.generate(), username: "alice", display_name: "Alice"}
+
+      entry = %Entry{
+        id: Ecto.UUID.generate(),
+        slug: "s",
+        kind: "sticky",
+        body_html: "<p>short thought</p>",
+        published_at: ~U[2026-10-11 16:45:28.000000Z],
+        updated_at: ~U[2026-10-11 16:45:40.000000Z],
+        tags: []
+      }
+
+      update = ActivityBuilder.build_update_note(entry, author)
+      assert update["object"]["type"] == "Note"
+      assert update["object"]["updated"] == "2026-10-11T16:45:40.000000Z"
+    end
+  end
 end

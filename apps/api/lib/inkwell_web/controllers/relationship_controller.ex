@@ -85,17 +85,21 @@ defmodule InkwellWeb.RelationshipController do
 
             _ ->
               # Normal flow: create new pending request
-              case Social.follow(user.id, target.id) do
-                {:ok, _rel} ->
-                  Accounts.create_notification(%{
-                    user_id: target.id,
-                    type: :follow_request,
-                    actor_id: user.id,
-                    target_type: "user",
-                    target_id: target.id
-                  })
+              with :ok <- gate_request(user),
+                   {:ok, _rel} <- Social.follow(user.id, target.id) do
+                Accounts.create_notification(%{
+                  user_id: target.id,
+                  type: :follow_request,
+                  actor_id: user.id,
+                  target_type: "user",
+                  target_id: target.id
+                })
 
-                  json(conn, %{ok: true, status: "pending"})
+                maybe_scan_new_account(user)
+                json(conn, %{ok: true, status: "pending"})
+              else
+                {:error, code, message} ->
+                  conn |> put_status(:forbidden) |> json(%{error: message, code: code})
 
                 {:error, _changeset} ->
                   conn |> put_status(:unprocessable_entity) |> json(%{error: "Already following"})
@@ -325,5 +329,15 @@ defmodule InkwellWeb.RelationshipController do
     user = conn.assigns.current_user
     users = Social.list_blocked_users(user.id)
     json(conn, %{data: Enum.map(users, &UserController.render_user_brief/1)})
+  end
+  defp gate_request(user), do: Inkwell.Moderation.RequestGate.check(user)
+
+  # A new account asking strangers to be pen pals gets a spam check within a
+  # minute (unique per user for 10 minutes, so a burst queues one scan).
+  defp maybe_scan_new_account(user) do
+    if Inkwell.Moderation.RequestGate.new_account?(user),
+      do: Inkwell.Workers.AutoModerationWorker.enqueue_user(user.id)
+
+    :ok
   end
 end

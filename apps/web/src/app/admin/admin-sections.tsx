@@ -77,7 +77,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     id: "reports",
     label: "Reports",
-    blurb: "Content people have flagged. Dismiss, mark sensitive, or warn the author.",
+    blurb: "Entries and accounts people have flagged. Dismiss, mark sensitive, or warn the writer.",
     icon: I.reports,
     group: "people",
     badge: "pending_reports",

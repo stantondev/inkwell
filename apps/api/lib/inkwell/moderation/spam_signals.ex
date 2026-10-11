@@ -151,6 +151,9 @@ defmodule Inkwell.Moderation.SpamSignals do
   end
 
   def disposable_domain?(domain), do: domain in @disposable_domains
+
+  @doc false
+  def disposable_domains, do: @disposable_domains
   def common_provider?(domain), do: domain in @common_providers
 
   # ── Signals ──────────────────────────────────────────────────────────────

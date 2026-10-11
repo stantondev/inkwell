@@ -66,7 +66,14 @@ defmodule InkwellWeb.EntryPublishing do
     case entry.body_html do
       nil -> entry
       body_html ->
-        {processed_html, mentioned_users} = MentionHelper.process_mentions(body_html)
+        # @user@server: fediverse accounts. Looked up only once the post is
+        # published, so draft autosaves never wait on another server.
+        {linked_html, _actors} =
+          if entry.status == :published,
+            do: Inkwell.Federation.RemoteMentions.link(body_html),
+            else: {body_html, []}
+
+        {processed_html, mentioned_users} = MentionHelper.process_mentions(linked_html)
 
         # Update the entry HTML with processed mentions (converts @username to links)
         entry =

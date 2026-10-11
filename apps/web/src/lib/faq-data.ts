@@ -246,6 +246,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "fediverse",
   },
   {
+    id: "fediverse-mentions",
+    question: "Can I mention someone on Mastodon in an entry?",
+    answer:
+      "Yes. Write their full handle, like <strong>@someone@mastodon.social</strong>. When you publish, Inkwell looks the account up and links it, showing just <strong>@someone</strong>. Their server is told they were mentioned, so they get a notification, and they receive the post and any edits even if they don't follow you. To mention another Inkwell writer, <strong>@username</strong> is enough.",
+    category: "fediverse",
+  },
+  {
     id: "fediverse-posts",
     question: "Why do I see posts from other platforms on Explore?",
     answer:
@@ -346,7 +353,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "report-content",
     question: "How do I report content?",
     answer:
-      "On any entry's detail page, click the three-dot menu and select Report. Choose a reason (spam, harassment, hate speech, etc.) and optionally add details. Reports are reviewed by the Inkwell team.",
+      "To report an entry, open its page, click the three-dot menu and select Report. To report an account as a whole (a spammy profile, unwanted pen pal requests or letters, someone pretending to be someone else), open their profile, click the three-dot menu (\u22EF) and select Report. Choose a reason and optionally add details. Reports are reviewed by the Inkwell team, and the person isn't told who reported them.",
+    category: "safety",
+  },
+  {
+    id: "pen-pal-request-limits",
+    question: "Why can't I send a pen pal request?",
+    answer:
+      'Spam accounts use pen pal requests to get in front of people, so new accounts have a couple of rules for their first week: write a few words about yourself in <a href="/settings/profile">Settings &rarr; Profile</a> first, so people can see who\'s asking, and send up to 20 requests a day. If our spam checks are looking over your account, requests are paused until that lifts, usually once you\'ve joined in a little (footnotes, inks and stamps all count). You can always accept requests people send you.',
     category: "safety",
   },
   {

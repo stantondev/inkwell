@@ -59,8 +59,11 @@ function FollowButton({ username }: { username: string }) {
       const res = await fetch(`/api/follow/${username}`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        setState(data.data?.status === "accepted" ? "following" : "pending");
+        setState((data.status ?? data.data?.status) === "accepted" ? "following" : "pending");
       } else {
+        // Refusals (e.g. a new account without a bio) used to reset silently.
+        const data = await res.json().catch(() => ({}));
+        if (typeof data.error === "string") window.alert(data.error);
         setState("idle");
       }
     } catch {

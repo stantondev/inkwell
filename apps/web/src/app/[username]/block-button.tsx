@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { ReportModal } from "@/components/report-modal";
 
 interface BlockButtonProps {
   targetUsername: string;
@@ -11,6 +12,7 @@ interface BlockButtonProps {
 export function BlockButton({ targetUsername, initialBlocked, onBlockChange }: BlockButtonProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [blocked, setBlocked] = useState(initialBlocked);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -82,9 +84,16 @@ export function BlockButton({ targetUsername, initialBlocked, onBlockChange }: B
 
       {menuOpen && !confirmOpen && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-lg border shadow-md py-1 z-50 min-w-[160px]"
+          className="absolute right-0 top-full mt-1 rounded-lg border shadow-md py-1 z-50 min-w-[160px] whitespace-nowrap"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
+          <button
+            onClick={() => { setReportOpen(true); setMenuOpen(false); }}
+            className="w-full text-left px-4 py-2 text-sm transition-colors hover:opacity-80"
+            style={{ color: "var(--foreground)" }}
+          >
+            Report @{targetUsername}
+          </button>
           <button
             onClick={() => setConfirmOpen(true)}
             className="w-full text-left px-4 py-2 text-sm transition-colors hover:opacity-80"
@@ -94,6 +103,8 @@ export function BlockButton({ targetUsername, initialBlocked, onBlockChange }: B
           </button>
         </div>
       )}
+
+      {reportOpen && <ReportModal username={targetUsername} onClose={() => setReportOpen(false)} />}
 
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setConfirmOpen(false); setMenuOpen(false); }}>

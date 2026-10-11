@@ -23,8 +23,16 @@ defmodule InkwellWeb.AuthController do
       cond do
         # Block disposable email signups (but allow existing users to log in)
         is_nil(existing_user) && FraudDetection.disposable_email?(email) ->
-          # Silently succeed — same pattern as honeypot, don't reveal the block
-          json(conn, %{ok: true})
+          # Said plainly: the list has ~9,000 domains and now and then a real
+          # person uses one (a writer on mailna.co, 2026-10). Failing silently
+          # left them waiting for an email that never came.
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{
+            error:
+              "That looks like a temporary email address. Please sign up with an address you'll keep, so you can always sign back in.",
+            code: "temporary_email"
+          })
 
         # New user must accept terms
         is_nil(existing_user) && !terms_accepted ->

@@ -38,6 +38,8 @@ defmodule Inkwell.Application do
           :remote_actor_negative_cache,
           :federation_domain_rate,
           :inkwell_nodeinfo_cache,
+          # Fediverse @mentions that couldn't be found (Inkwell.Federation.RemoteMentions)
+          :remote_mention_cache,
           # Fediverse media players (Inkwell.MediaEmbeds)
           :media_embed_cache,
           # "Listening to" from ListenBrainz (Inkwell.ListenBrainz)

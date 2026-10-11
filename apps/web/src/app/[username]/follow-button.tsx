@@ -17,12 +17,15 @@ export function FollowButton({
   const [hovered, setHovered] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  // RequestGate's reason, e.g. "bio_required" (new accounts need a bio).
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   // Runs a request; on failure, puts the button back and says so. These used
   // to reset silently (or claim success when the server refused).
   async function run(url: string, method: string, onOk: (res: Response) => Promise<void> | void, fallback: FollowState) {
     setState("loading");
     setError(null);
+    setErrorCode(null);
     try {
       const res = await fetch(url, { method });
       if (res.ok) {
@@ -30,6 +33,7 @@ export function FollowButton({
       } else {
         const data = await res.json().catch(() => ({}));
         setError((typeof data.error === "string" && data.error) || "That didn't go through. Please try again.");
+        setErrorCode(typeof data.code === "string" ? data.code : null);
         setState(fallback);
       }
     } catch {
@@ -68,7 +72,15 @@ export function FollowButton({
   }
 
   const errorNote = error ? (
-    <p className="text-xs mt-1" role="alert" style={{ color: "var(--danger)" }}>{error}</p>
+    <p className="text-xs mt-1 max-w-xs" role="alert" style={{ color: "var(--danger)" }}>
+      {error}
+      {errorCode === "bio_required" && (
+        <>
+          {" "}
+          <a href="/settings/profile" className="underline" style={{ color: "var(--accent)" }}>Edit your profile</a>
+        </>
+      )}
+    </p>
   ) : null;
 
   return (

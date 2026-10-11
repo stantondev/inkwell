@@ -113,6 +113,10 @@ export default function WelcomePage() {
 
   // Step 3: Bio & Status
   const [bioHtml, setBioHtml] = useState("");
+  // Why a pen pal request on the writers page didn't go through (e.g. new
+  // accounts need a bio first). `code` is the API's RequestGate code.
+  const [followNote, setFollowNote] = useState<{ code: string; message: string } | null>(null);
+  const profileSavedForFollowRef = useRef(false);
   const [status, setStatus] = useState("");
 
   // Step 4: Theme
@@ -378,8 +382,23 @@ export default function WelcomePage() {
     if (followedIds.has(user.id)) return; // already followed
 
     setFollowingIds((prev) => new Set(prev).add(user.id));
+    setFollowNote(null);
     try {
-      await fetch(`/api/follow/${user.username}`, { method: "POST" });
+      // New accounts need a bio to send pen pal requests, and the bio typed on
+      // an earlier page isn't saved until the end. Save it before the first
+      // request so someone who wrote one isn't told to write one.
+      if (!profileSavedForFollowRef.current && bioHtml.replace(/<[^>]*>/g, "").trim()) {
+        profileSavedForFollowRef.current = await saveProfile({ markOnboarded: false });
+      }
+      const res = await fetch(`/api/follow/${user.username}`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setFollowNote({
+          code: typeof data.code === "string" ? data.code : "",
+          message: typeof data.error === "string" ? data.error : "That didn't go through. You can follow writers later from Explore.",
+        });
+        return;
+      }
       setFollowedIds((prev) => new Set(prev).add(user.id));
       if (user.brought_you) document.cookie = `${FOLLOW_COOKIE}=; path=/; max-age=0`;
     } catch {
@@ -1336,6 +1355,25 @@ export default function WelcomePage() {
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
                     Follow writers and their public entries arrive in your Feed right away. When they accept, you&apos;re pen pals. You can always find more on Explore.
                   </p>
+                  {followNote && (
+                    <div
+                      role="alert"
+                      className="rounded-xl border p-3 text-sm flex flex-col gap-2"
+                      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                    >
+                      <p>{followNote.message}</p>
+                      {followNote.code === "bio_required" && (
+                        <button
+                          type="button"
+                          onClick={() => { setFollowNote(null); setError(""); setStep(2); }}
+                          className="self-start text-sm font-medium underline"
+                          style={{ color: "var(--accent)" }}
+                        >
+                          Write a few words about yourself
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {suggestedUsers.map((u) => {
                       const followed = followedIds.has(u.id);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const REASONS = [
+const ENTRY_REASONS = [
   { value: "spam", label: "Spam" },
   { value: "harassment", label: "Harassment" },
   { value: "hate_speech", label: "Hate speech" },
@@ -11,12 +11,26 @@ const REASONS = [
   { value: "other", label: "Other" },
 ];
 
-interface ReportModalProps {
-  entryId: string;
-  onClose: () => void;
-}
+const ACCOUNT_REASONS = [
+  { value: "spam", label: "Spam or advertising" },
+  { value: "harassment", label: "Harassment" },
+  { value: "hate_speech", label: "Hate speech" },
+  { value: "impersonation", label: "Pretending to be someone else" },
+  { value: "csam_illegal", label: "CSAM / Illegal content" },
+  { value: "other", label: "Other" },
+];
 
-export function ReportModal({ entryId, onClose }: ReportModalProps) {
+// Report an entry (`entryId`) or a whole account (`username`).
+type ReportModalProps =
+  | { entryId: string; username?: undefined; onClose: () => void }
+  | { username: string; entryId?: undefined; onClose: () => void };
+
+export function ReportModal({ entryId, username, onClose }: ReportModalProps) {
+  const isAccount = !entryId;
+  const REASONS = isAccount ? ACCOUNT_REASONS : ENTRY_REASONS;
+  const endpoint = isAccount
+    ? `/api/users/${encodeURIComponent(username ?? "")}/report`
+    : `/api/entries/${entryId}/report`;
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +44,7 @@ export function ReportModal({ entryId, onClose }: ReportModalProps) {
     setError(null);
 
     try {
-      const res = await fetch(`/api/entries/${entryId}/report`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason, details: details || null }),
@@ -74,8 +88,14 @@ export function ReportModal({ entryId, onClose }: ReportModalProps) {
               className="text-lg font-semibold mb-4"
               style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
             >
-              Report Entry
+              {isAccount ? `Report @${username}` : "Report Entry"}
             </h3>
+            {isAccount && (
+              <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+                For the account as a whole: its profile, pen pal requests or letters. Inkwell&apos;s moderators read
+                every report; @{username} isn&apos;t told who sent it.
+              </p>
+            )}
 
             <label className="block text-sm font-medium mb-1.5">Reason</label>
             <select
@@ -101,7 +121,7 @@ export function ReportModal({ entryId, onClose }: ReportModalProps) {
               rows={3}
               className="w-full rounded-lg border px-3 py-2 text-sm mb-4 resize-none"
               style={{ borderColor: "var(--border)", background: "var(--background)" }}
-              placeholder="Additional context..."
+              placeholder={isAccount ? "What did they do? Links help." : "Additional context..."}
             />
 
             {error && (

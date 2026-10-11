@@ -5,7 +5,12 @@ defmodule InkwellWeb.RelationshipControllerTest do
 
   describe "POST /api/relationships/:username/follow" do
     test "creates a pending follow request", %{conn: conn} do
-      user = create_user()
+      # New accounts need a bio to send requests (RequestGate).
+      user =
+        create_user()
+        |> Ecto.Changeset.change(bio: "I write about trains.")
+        |> Inkwell.Repo.update!()
+
       target = create_user()
       conn = log_in_user(conn, user)
 

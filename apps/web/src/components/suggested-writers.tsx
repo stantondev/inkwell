@@ -42,6 +42,8 @@ export function SuggestedWriters({
 }) {
   const [writers, setWriters] = useState<SuggestedWriter[] | null>(initial ? initial.slice(0, limit) : null);
   const [requests, setRequests] = useState<Record<string, RequestState>>({});
+  // Why a request was refused (RequestGate), e.g. a new account without a bio.
+  const [notice, setNotice] = useState<{ message: string; code: string } | null>(null);
 
   useEffect(() => {
     if (initial) return;
@@ -57,6 +59,7 @@ export function SuggestedWriters({
     try {
       const res = await fetch(`/api/follow/${w.username}`, { method: "POST" });
       const body = await res.json().catch(() => ({}));
+      if (!res.ok && typeof body.error === "string") setNotice({ message: body.error, code: body.code ?? "" });
       setRequests((p) => ({
         ...p,
         [w.id]: !res.ok ? "failed" : body.status === "accepted" ? "accepted" : "requested",
@@ -97,8 +100,22 @@ export function SuggestedWriters({
     );
   }
 
+  const noticeEl = notice ? (
+    <p role="alert" className="text-xs mb-2" style={{ color: "var(--danger)" }}>
+      {notice.message}
+      {notice.code === "bio_required" && (
+        <>
+          {" "}
+          <a href="/settings/profile" className="underline" style={{ color: "var(--accent)" }}>Edit your profile</a>
+        </>
+      )}
+    </p>
+  ) : null;
+
   if (layout === "rows") {
     return (
+      <>
+      {noticeEl}
       <ul className="writer-rows">
         {writers.map((w) => {
           const name = w.display_name || w.username;
@@ -126,10 +143,13 @@ export function SuggestedWriters({
           );
         })}
       </ul>
+      </>
     );
   }
 
   return (
+    <>
+    {noticeEl}
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {writers.map((w) => {
         const name = w.display_name || w.username;
@@ -166,5 +186,6 @@ export function SuggestedWriters({
         );
       })}
     </div>
+    </>
   );
 }

@@ -27,8 +27,9 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
     activity = build_activity(action, entry, user)
 
     Logger.info("Fan-out #{action} for entry #{entry_id}")
-    deliver_to_followers(activity, user)
+    deliver_to_followers(activity, user, mentioned_inboxes(action, entry))
   end
+
 
   # Profile changed (avatar, banner, name, bio, links). Built at run time so a
   # burst of saves sends the latest profile once.
@@ -130,6 +131,17 @@ defmodule Inkwell.Federation.Workers.FanOutWorker do
     Logger.info("Fan-out enqueued #{count} delivery jobs for user #{user.id}")
     :ok
   end
+
+  # Fediverse accounts mentioned as @user@server get the post (and its edits)
+  # even if they don't follow the writer, as Mastodon does for mentions.
+  defp mentioned_inboxes(action, entry) when action in ["create", "update"] do
+    entry.body_html
+    |> Inkwell.Federation.RemoteMentions.mentioned_actors()
+    |> Enum.map(&(&1.shared_inbox || &1.inbox))
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp mentioned_inboxes(_action, _entry), do: []
 
   defp build_activity("create", entry, user), do: ActivityBuilder.build_create_note(entry, user)
   defp build_activity("update", entry, user), do: ActivityBuilder.build_update_note(entry, user)
