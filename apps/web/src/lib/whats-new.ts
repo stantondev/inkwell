@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-11-avatar-frames",
+    date: "2026-10-11",
+    title: "Avatar frames are next to your avatar",
+    body: "Frames used to be tucked away in Customise, while Settings said they were on the Avatar page. Now they are: Settings → Avatar shows your picture with every frame to choose from, and a frame saves the moment you click it. Plus members pick their avatar animation there too, and you can upload a new photo from the same page. Thanks to @rainbowdarling for catching it.",
+    howTo: "Settings → Avatar.",
+    href: "/settings/avatar",
+    cta: "Choose a frame",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-06-avif",
     date: "2026-10-06",
     title: "AVIF pictures",

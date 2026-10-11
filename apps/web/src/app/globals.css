@@ -9465,6 +9465,122 @@ body[data-focus-mode] .sidebar-reveal-tab {
   color: var(--accent);
 }
 
+/* Avatar settings: current avatar + frame and animation pickers */
+.avatar-style {
+  margin-bottom: 2rem;
+}
+.avatar-style-current {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+}
+.avatar-style-current-text {
+  min-width: 0;
+}
+.avatar-style-current-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.avatar-style-hint {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin-top: 0.125rem;
+}
+.avatar-style-current-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.625rem;
+}
+.avatar-style-status {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.avatar-style-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem;
+}
+.avatar-style-builder-heading {
+  margin-top: 0.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.avatar-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.25rem, 1fr));
+  gap: 0.5rem;
+}
+.avatar-style-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  min-height: 44px;
+  padding: 0.625rem 0.375rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.avatar-style-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.avatar-style-option.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.avatar-style-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.avatar-style-option.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.avatar-style-option-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+}
+.avatar-style-option.is-selected .avatar-style-option-label {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.avatar-style-plus {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: inherit;
+}
+.avatar-style-upsell {
+  padding: 0.875rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+}
+@media (max-width: 480px) {
+  .avatar-style-current {
+    flex-direction: column;
+    text-align: center;
+  }
+  .avatar-style-current-actions {
+    justify-content: center;
+  }
+}
+
 .avatar-builder-attribution {
   margin-top: 1.25rem;
   font-size: 0.75rem;

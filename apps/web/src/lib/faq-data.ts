@@ -272,7 +272,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "customize-profile",
     question: "How do I customize my profile?",
     answer:
-      'Go to <a href="/settings/customize">Settings &rarr; Customize</a>. All users get 8 themes, a status message, bio formatting, social links, a banner image, and avatar frames. Plus users also get custom colors, fonts, layouts, backgrounds, music, widget ordering, and custom HTML/CSS.',
+      'Go to <a href="/settings/customize">Settings &rarr; Customize</a>. All users get 8 themes, a status message, bio formatting, social links, and a banner image. Avatar frames are on <a href="/settings/avatar">Settings &rarr; Avatar</a>, next to your picture. Plus users also get custom colors, fonts, layouts, backgrounds, music, widget ordering, and custom HTML/CSS.',
     category: "customization",
   },
   {

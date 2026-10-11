@@ -128,7 +128,6 @@ defmodule InkwellWeb.UserController do
       "display_name", "bio", "bio_html", "pronouns", "avatar_url", "avatar_config", "settings",
       "profile_status", "profile_theme", "profile_entry_display",
       "profile_background_url", "profile_banner_url", "avatar_frame",
-      "avatar_animation",
       "support_url", "support_label",
       "pinned_entry_ids", "social_links",
       "preferred_language", "heard_from", "heard_from_detail"

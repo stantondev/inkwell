@@ -9,7 +9,6 @@ import { resizeBackgroundImage } from "@/lib/image-utils";
 import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
-import { AVATAR_FRAMES, AVATAR_ANIMATIONS } from "@/lib/avatar-frames";
 import { PROFILE_EFFECTS, EFFECT_INTENSITIES } from "@/lib/profile-effects-config";
 import { ProfileEffects } from "@/components/profile-effects";
 import { usePlusTrial } from "@/hooks/use-plus-trial";
@@ -186,8 +185,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
   const isPlus = (user.subscription_tier || "free") === "plus";
 
   const [form, setForm] = useState({
-    avatar_frame: user.avatar_frame ?? "none",
-    avatar_animation: user.avatar_animation ?? "none",
     profile_effect: user.profile_effect ?? "none",
     profile_effect_intensity: user.profile_effect_intensity ?? "subtle",
     profile_status: user.profile_status ?? "",
@@ -370,7 +367,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       const mainBody: Record<string, unknown> = {
         profile_status: form.profile_status || null,
         profile_theme: form.profile_theme || null,
-        avatar_frame: form.avatar_frame || null,
         profile_banner_url: form.profile_banner_url || null,
         profile_entry_display: form.profile_entry_display || "cards",
         settings: { entries_per_page: Object.keys(eppToSave).length > 0 ? eppToSave : null },
@@ -388,7 +384,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
       if (isPlus) {
         Object.assign(mainBody, {
-          avatar_animation: form.avatar_animation === "none" ? null : form.avatar_animation,
           profile_effect: form.profile_effect === "none" ? null : form.profile_effect,
           profile_effect_intensity: form.profile_effect === "none" ? null : form.profile_effect_intensity,
           profile_background_color: form.profile_background_color || null,
@@ -459,113 +454,29 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Avatar Frame */}
-      <Section title="Avatar Frame" defaultOpen={true}>
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-center py-2">
-            <AvatarWithFrame
-              url={user.avatar_url}
-              name={user.display_name}
-              size={72}
-              frame={form.avatar_frame === "none" ? null : form.avatar_frame}
-              animation={form.avatar_animation === "none" ? null : form.avatar_animation}
-              subscriptionTier={user.subscription_tier}
-            />
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {AVATAR_FRAMES.map((f) => {
-              const locked = f.plusOnly && !isPlus;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => !locked && updateForm("avatar_frame", f.id)}
-                  disabled={locked}
-                  className="rounded-lg border p-2 flex flex-col items-center gap-1 transition-all hover:scale-[1.03]"
-                  style={{
-                    borderColor: form.avatar_frame === f.id ? "var(--accent)" : "var(--border)",
-                    borderWidth: form.avatar_frame === f.id ? 2 : 1,
-                    opacity: locked ? 0.45 : 1,
-                    cursor: locked ? "not-allowed" : "pointer",
-                  }}
-                  title={locked ? "Plus subscribers only" : f.description}
-                >
-                  <AvatarWithFrame
-                    url={user.avatar_url}
-                    name={user.display_name}
-                    size={36}
-                    frame={f.id === "none" ? null : f.id}
-                    subscriptionTier="plus"
-                  />
-                  <span className="text-[10px] truncate w-full text-center" style={{ color: "var(--muted)" }}>
-                    {f.label}
-                  </span>
-                  {locked && (
-                    <span className="text-[9px] font-medium" style={{ color: "var(--accent)" }}>
-                      ✦ Plus
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </Section>
-
-      {/* Avatar Animation (Plus only) */}
-      <Section title="Avatar Animation" defaultOpen={false}>
-        {!isPlus ? (
-          <div className="text-center py-3">
-            <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-              Animated avatars are a Plus feature.
-            </p>
-            <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
-              ✦ Upgrade to Plus
+      <Link
+        href="/settings/avatar"
+        className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[var(--accent)]"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <span className="flex items-center gap-3">
+          <AvatarWithFrame
+            url={user.avatar_url}
+            name={user.display_name}
+            size={40}
+            frame={user.avatar_frame}
+            animation={user.avatar_animation}
+            subscriptionTier={user.subscription_tier}
+          />
+          <span className="text-sm">
+            <span className="font-medium">Avatar frames and animations</span>
+            <span className="block text-xs" style={{ color: "var(--muted)" }}>
+              Now on the Avatar page, next to your picture.
             </span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex justify-center py-2">
-              <AvatarWithFrame
-                url={user.avatar_url}
-                name={user.display_name}
-                size={72}
-                frame={form.avatar_frame === "none" ? null : form.avatar_frame}
-                animation={form.avatar_animation === "none" ? null : form.avatar_animation}
-                subscriptionTier="plus"
-              />
-            </div>
-            <div className="grid grid-cols-5 gap-2">
-              {AVATAR_ANIMATIONS.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => updateForm("avatar_animation", a.id)}
-                  className="rounded-lg border p-2 flex flex-col items-center gap-1 transition-all hover:scale-[1.03]"
-                  style={{
-                    borderColor: form.avatar_animation === a.id ? "var(--accent)" : "var(--border)",
-                    borderWidth: form.avatar_animation === a.id ? 2 : 1,
-                    cursor: "pointer",
-                  }}
-                  title={a.description}
-                >
-                  <AvatarWithFrame
-                    url={user.avatar_url}
-                    name={user.display_name}
-                    size={28}
-                    frame={form.avatar_frame === "none" ? null : form.avatar_frame}
-                    animation={a.id === "none" ? null : a.id}
-                    subscriptionTier="plus"
-                  />
-                  <span className="text-[10px] truncate w-full text-center" style={{ color: "var(--muted)" }}>
-                    {a.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </Section>
+          </span>
+        </span>
+        <span className="text-sm whitespace-nowrap" style={{ color: "var(--accent)" }}>Avatar →</span>
+      </Link>
 
       {/* Profile Effects (Plus only) */}
       <Section title="Profile Effects" defaultOpen={false}>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { AvatarConfig } from "@/lib/avatar-builder-config";
+import { AvatarStylePicker } from "./avatar-style-picker";
 
 const AvatarBuilder = dynamic(
   () => import("@/components/avatar-builder").then((m) => m.AvatarBuilder),
@@ -15,6 +16,7 @@ interface AvatarBuilderPageProps {
     avatar_url: string | null;
     avatar_config: AvatarConfig | null;
     avatar_frame: string | null;
+    avatar_animation: string | null;
     subscription_tier: string;
     display_name: string;
   };
@@ -23,6 +25,10 @@ interface AvatarBuilderPageProps {
 export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState(user.avatar_url);
+  const [frame, setFrame] = useState(user.avatar_frame || "none");
+  const [animation, setAnimation] = useState(user.avatar_animation || "none");
+  const isPlus = user.subscription_tier === "plus";
 
   // Determine if user has a "real photo" avatar (non-constructed)
   const hasPhotoAvatar = user.avatar_url && !user.avatar_config;
@@ -52,6 +58,7 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
       throw new Error("Config save failed");
     }
 
+    setAvatarUrl(renderedDataUri);
     router.refresh();
   }
 
@@ -73,13 +80,6 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
 
   return (
     <div>
-      <p
-        className="text-sm mb-6"
-        style={{ color: "var(--muted)" }}
-      >
-        Your avatar appears on your profile, in feeds, and across the fediverse.
-      </p>
-
       {error && (
         <div
           className="text-sm mb-4 p-3 rounded-lg"
@@ -89,10 +89,29 @@ export function AvatarBuilderPage({ user }: AvatarBuilderPageProps) {
         </div>
       )}
 
+      <AvatarStylePicker
+        avatarUrl={avatarUrl}
+        displayName={user.display_name}
+        frame={frame}
+        animation={animation}
+        isPlus={isPlus}
+        onFrameChange={setFrame}
+        onAnimationChange={setAnimation}
+        onPhotoUploaded={(url) => {
+          setAvatarUrl(url);
+          router.refresh();
+        }}
+      />
+
+      <h2 className="avatar-style-heading avatar-style-builder-heading">Or draw an Inkwell alien</h2>
+      <p className="avatar-style-hint mb-4">
+        Build one below and press Save avatar. It replaces your current avatar everywhere, including across the fediverse.
+      </p>
+
       <AvatarBuilder
         initialConfig={user.avatar_config}
         photoUrl={hasPhotoAvatar ? user.avatar_url : null}
-        avatarFrame={user.avatar_frame}
+        avatarFrame={frame}
         subscriptionTier={user.subscription_tier}
         displayName={user.display_name}
         onSave={handleSave}

@@ -98,10 +98,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     href: "/settings/avatar",
     title: "Avatar",
     blurb:
-      "Upload a photo or draw an Inkwell alien in the builder. Frames and animations live here as well.",
+      "Upload a photo or draw an Inkwell alien, then pick a frame for it (and an animation, with Plus).",
     icon: I.avatar,
     group: "account",
-    keywords: ["picture", "photo", "alien", "frame", "portrait"],
+    keywords: ["picture", "photo", "upload", "alien", "frame", "frames", "animation", "portrait"],
   },
   {
     id: "userpics",
