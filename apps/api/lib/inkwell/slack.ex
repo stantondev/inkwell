@@ -105,10 +105,26 @@ defmodule Inkwell.Slack do
     notify(":white_check_mark: *Payment came through.* @#{username} paid their #{label} renewal")
   end
 
-  def notify_unpaid_plus_ended(username) do
+  def notify_unpaid_closed(username, type, invoice_left_open?) do
+    label = if type == :donor, do: "Ink Donor", else: "Plus"
+
+    open_note =
+      if invoice_left_open?,
+        do: " Square wouldn't cancel the open invoice, so they may keep getting reminders for it: cancel it in Square.",
+        else: ""
+
     notify(
-      ":hourglass: *Plus ended.* @#{username}'s renewal went unpaid for 14 days, so they're on the free plan now. " <>
-        "Square will keep emailing them a monthly invoice until the subscription is canceled in Square."
+      ":hourglass: *#{label} closed.* @#{username}'s renewal went unpaid for 14 days, so Inkwell canceled the " <>
+        "Square subscription and invoice. Nothing more will be charged; they can subscribe again any time.#{open_note}"
+    )
+  end
+
+  def notify_unpaid_close_failed(username, type, reason) do
+    label = if type == :donor, do: "Ink Donor", else: "Plus"
+
+    notify(
+      ":warning: *Couldn't close an unpaid #{label} subscription.* @#{username}'s renewal went unpaid for 14 days, " <>
+        "but Square refused the cancel (#{inspect(reason)}). Inkwell tries again tomorrow; if this repeats, cancel it in Square."
     )
   end
 

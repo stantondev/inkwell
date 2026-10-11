@@ -715,6 +715,29 @@ defmodule Inkwell.Square do
     end
   end
 
+  @doc """
+  Cancel an open invoice (UNPAID, SCHEDULED or PARTIALLY_PAID) so Square stops
+  asking for it. POST /v2/invoices/{id}/cancel with the invoice's current
+  `version`. Canceling a subscription leaves its unpaid invoices open, so the
+  unpaid-renewal cleanup cancels both.
+  """
+  def cancel_invoice(%{"id" => invoice_id, "version" => version}) when is_binary(invoice_id) do
+    case square_post("/invoices/#{invoice_id}/cancel", %{"version" => version}) do
+      {:ok, %{"invoice" => invoice}} ->
+        Logger.info("Canceled Square invoice #{invoice_id}")
+        {:ok, invoice}
+
+      {:ok, _} ->
+        {:ok, nil}
+
+      {:error, reason} ->
+        Logger.error("Failed to cancel Square invoice #{invoice_id}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def cancel_invoice(_), do: {:error, :no_invoice}
+
   @doc "Fetch a Square invoice by ID. Used by the webhook fallback chain."
   def get_invoice(nil), do: {:error, :no_invoice}
   def get_invoice(invoice_id) when is_binary(invoice_id) do

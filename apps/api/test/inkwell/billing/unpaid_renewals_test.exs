@@ -15,7 +15,22 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
   @sub "SUB-1"
 
   setup do
+    # Closing a subscription goes to Square; record the calls instead.
+    test_pid = self()
+
+    Application.put_env(:inkwell, :unpaid_renewals_subscription_canceler, fn id ->
+      send(test_pid, {:canceled_subscription, id})
+      {:ok, %{"id" => id, "status" => "ACTIVE", "canceled_date" => iso(Date.add(today(), 10))}}
+    end)
+
+    Application.put_env(:inkwell, :unpaid_renewals_invoice_canceler, fn inv ->
+      send(test_pid, {:canceled_invoice, inv["id"]})
+      {:ok, Map.put(inv, "status", "CANCELED")}
+    end)
+
     on_exit(fn ->
+      Application.delete_env(:inkwell, :unpaid_renewals_subscription_canceler)
+      Application.delete_env(:inkwell, :unpaid_renewals_invoice_canceler)
       Application.delete_env(:inkwell, :unpaid_renewals_subscription_fetcher)
       Application.delete_env(:inkwell, :unpaid_renewals_invoice_fetcher)
       Application.delete_env(:inkwell, :admin_overview_subscription_fetcher)
@@ -41,6 +56,7 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
         "id" => "INV-#{due}",
         "status" => status,
         "subscription_id" => @sub,
+        "version" => 3,
         "public_url" => "https://squareup.com/pay-invoice/INV-#{due}",
         "next_payment_amount_money" => %{"amount" => 500, "currency" => "USD"},
         "payment_requests" => [%{"due_date" => due}]
@@ -216,13 +232,159 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
     assert UnpaidRenewals.renewal_invoice(plus_member()) == nil
   end
 
+  describe "closing an unpaid subscription when the grace ends" do
+    # 2026-10-11, Stanton: "If they don't pay, the invoice and subscription
+    # should be canceled. I don't want to be going in and doing this." Until
+    # then a member who never paid stayed on a live Square subscription that
+    # kept invoicing (and, with a card on file, charging) every month.
+
+    test "inside the grace nothing is closed" do
+      due = Date.add(today(), -5)
+      u = plus_member()
+      stub_square([invoice("UNPAID", iso(due))])
+
+      assert UnpaidRenewals.check_plus(u) == :unpaid
+      refute_received {:canceled_subscription, _}
+      assert Repo.get!(User, u.id).subscription_tier == "plus"
+    end
+
+    test "after the grace: Square subscription and invoice canceled, account free" do
+      due = Date.add(today(), -16)
+      u = plus_member(%{subscription_status: "past_due", subscription_expires_at: UnpaidRenewals.grace_ends_at(due)})
+      stub_square([invoice("UNPAID", iso(due))])
+
+      assert UnpaidRenewals.check_plus(u) == :closed
+      assert_received {:canceled_subscription, @sub}
+      inv_id = "INV-#{iso(due)}"
+      assert_received {:canceled_invoice, ^inv_id}
+
+      u = Repo.get!(User, u.id)
+      assert u.subscription_tier == "free"
+      assert u.subscription_status == "canceled"
+      # Coming back is an ordinary checkout, straight away.
+      assert Billing.plus_checkout_state(u) == :allowed
+    end
+
+    test "a long-overdue renewal found for the first time is marked and closed in one run" do
+      due = Date.add(today(), -40)
+      u = plus_member()
+      stub_square([invoice("UNPAID", iso(due))])
+
+      UnpaidRenewals.check_all()
+
+      assert_received {:canceled_subscription, @sub}
+      assert Repo.get!(User, u.id).subscription_tier == "free"
+    end
+
+    test "if Square refuses the cancel, nothing changes and tomorrow tries again" do
+      due = Date.add(today(), -16)
+      u = plus_member(%{subscription_status: "past_due", subscription_expires_at: UnpaidRenewals.grace_ends_at(due)})
+      stub_square([invoice("UNPAID", iso(due))])
+      Application.put_env(:inkwell, :unpaid_renewals_subscription_canceler, fn _ -> {:error, :timeout} end)
+
+      assert UnpaidRenewals.check_plus(u) == :error
+      refute_received {:canceled_invoice, _}
+      u = Repo.get!(User, u.id)
+      assert u.subscription_tier == "plus"
+      assert u.subscription_status == "past_due"
+    end
+
+    test "Square's update for the closed subscription doesn't put Plus back" do
+      due = Date.add(today(), -16)
+      u = plus_member(%{subscription_status: "past_due", subscription_expires_at: UnpaidRenewals.grace_ends_at(due)})
+      stub_square([invoice("UNPAID", iso(due))])
+      assert UnpaidRenewals.check_plus(u) == :closed
+
+      for status <- ["ACTIVE", "CANCELED"] do
+        Billing.handle_webhook_event(%{
+          "type" => "subscription.updated",
+          "data" => %{
+            "object" => %{
+              "subscription" => %{
+                "id" => @sub,
+                "customer_id" => "CUST-none",
+                "status" => status,
+                "canceled_date" => iso(Date.add(today(), 10))
+              }
+            }
+          }
+        })
+
+        u = Repo.get!(User, u.id)
+        assert u.subscription_tier == "free"
+        assert u.subscription_status == "canceled"
+      end
+    end
+
+    test "a paid-up member's scheduled cancel still keeps Plus until its date" do
+      u = plus_member()
+
+      Billing.handle_webhook_event(%{
+        "type" => "subscription.updated",
+        "data" => %{
+          "object" => %{
+            "subscription" => %{
+              "id" => @sub,
+              "customer_id" => "CUST-none",
+              "status" => "ACTIVE",
+              "canceled_date" => iso(Date.add(today(), 10))
+            }
+          }
+        }
+      })
+
+      u = Repo.get!(User, u.id)
+      assert u.subscription_tier == "plus"
+      assert u.subscription_status == "canceled"
+      assert Billing.plus_checkout_state(u) == :cancel_scheduled
+    end
+
+    test "a subscription already canceled in Square is just ended here" do
+      due = Date.add(today(), -16)
+      u = plus_member(%{subscription_status: "past_due", subscription_expires_at: UnpaidRenewals.grace_ends_at(due)})
+      stub_square([invoice("UNPAID", iso(due))], "CANCELED")
+
+      assert UnpaidRenewals.check_plus(u) == :closed
+      refute_received {:canceled_subscription, _}
+      assert Repo.get!(User, u.id).subscription_tier == "free"
+    end
+
+    test "paying members are never touched" do
+      u = plus_member()
+      stub_square([invoice("PAID", iso(Date.add(today(), -40)))])
+
+      UnpaidRenewals.check_all()
+
+      refute_received {:canceled_subscription, _}
+      u = Repo.get!(User, u.id)
+      assert {u.subscription_tier, u.subscription_status} == {"plus", "active"}
+    end
+
+    test "an Ink Donor's unpaid renewal is closed 14 days after it was due" do
+      u =
+        create_user()
+        |> User.ink_donor_changeset(%{square_donor_subscription_id: @sub, ink_donor_status: "active", ink_donor_amount_cents: 100})
+        |> Repo.update!()
+
+      stub_square([invoice("UNPAID", iso(Date.add(today(), -5)))])
+      UnpaidRenewals.check_all()
+      refute_received {:canceled_subscription, _}
+      assert Repo.get!(User, u.id).ink_donor_status == "past_due"
+
+      stub_square([invoice("UNPAID", iso(Date.add(today(), -16)))])
+      UnpaidRenewals.check_all()
+      assert_received {:canceled_subscription, @sub}
+      assert Repo.get!(User, u.id).ink_donor_status == "canceled"
+    end
+  end
+
   describe "an unpaid invoice canceled in Square (written off)" do
     # 2026-10-11: Stanton canceled @tim's September invoice in Square. The
     # daily check only knew PAID and UNPAID, so Tim stayed "Renewal never
     # paid" on Admin and his billing page asked him to pay an invoice that no
     # longer existed.
     setup do
-      due = Date.add(today(), -17)
+      due = Date.add(today(), -10)
 
       u =
         plus_member(%{
@@ -234,11 +396,19 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
       %{user: u, due: due}
     end
 
-    test "the daily check reports it and leaves the account past due", %{user: u} do
+    test "during the grace it's nothing owed, and the account stays as it is", %{user: u} do
       assert UnpaidRenewals.check_plus(u) == :written_off
       reloaded = Repo.get!(User, u.id)
       assert reloaded.subscription_status == "past_due"
       assert reloaded.subscription_expires_at == u.subscription_expires_at
+    end
+
+    test "when the grace ends the subscription is closed (the invoice is already canceled)", %{user: u} do
+      u = u |> User.subscription_changeset(%{subscription_expires_at: DateTime.add(DateTime.utc_now(), -1, :hour)}) |> Repo.update!()
+      assert UnpaidRenewals.check_plus(u) == :closed
+      assert_received {:canceled_subscription, @sub}
+      refute_received {:canceled_invoice, _}
+      assert Repo.get!(User, u.id).subscription_tier == "free"
     end
 
     test "the billing page says nothing is owed", %{user: u, due: due} do
@@ -251,8 +421,8 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
          %{
            "id" => @sub,
            "status" => "ACTIVE",
-           "charged_through_date" => iso(Date.add(today(), 13)),
-           "invoice_ids" => ["INV-#{iso(Date.add(today(), -17))}", "INV-#{iso(Date.add(today(), -47))}"]
+           "charged_through_date" => iso(Date.add(today(), 20)),
+           "invoice_ids" => ["INV-#{iso(Date.add(today(), -10))}", "INV-#{iso(Date.add(today(), -40))}"]
          }}
       end)
 
@@ -260,7 +430,6 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
       row = Enum.find(overview.members, &(&1.id == u.id))
       assert row.kind == "written_off"
       assert row.label == "Invoice canceled"
-      assert row.detail =~ "next charge"
       refute row.attention
       refute Enum.any?(overview.problems, &(u.username in &1.usernames))
     end
@@ -270,8 +439,8 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
       assert Billing.plus_checkout_state(u) == :payment_failed
 
       # What "Start Plus again" does first: Square schedules the cancel for the
-      # end of the (unpaid) period, 13 days out.
-      sub = %{"id" => @sub, "status" => "ACTIVE", "canceled_date" => iso(Date.add(today(), 13))}
+      # end of the (unpaid) period, after the grace end.
+      sub = %{"id" => @sub, "status" => "ACTIVE", "canceled_date" => iso(Date.add(today(), 20))}
       {:ok, canceled} = Billing.mark_plus_canceled(u, sub)
 
       # The unpaid period isn't handed out as free Plus…
@@ -287,5 +456,15 @@ defmodule Inkwell.Billing.UnpaidRenewalsTest do
 
       assert Repo.get!(User, u.id).subscription_expires_at == grace_end
     end
+  end
+
+  test "Admin: an unpaid renewal is information, not a warning" do
+    due = Date.add(today(), -3)
+    u = plus_member(%{subscription_status: "past_due", subscription_expires_at: UnpaidRenewals.grace_ends_at(due)})
+    overview = Inkwell.Billing.AdminOverview.build()
+    row = Enum.find(overview.members, &(&1.id == u.id))
+    assert row.kind == "payment_failed"
+    refute row.attention
+    assert overview.problems == []
   end
 end

@@ -891,6 +891,9 @@ defmodule Inkwell.Billing do
   # a paid-up member who canceled, and block the new checkout they need.
   @unpaid_cancel_key "plus_unpaid_canceled_subscription_id"
 
+  @doc false
+  def unpaid_cancel_key, do: @unpaid_cancel_key
+
   @doc """
   Whether this user can start a new Plus checkout without being billed twice.
   Returns `:allowed`, `:already_subscribed`, `:payment_failed` or
@@ -961,6 +964,9 @@ defmodule Inkwell.Billing do
       true -> ends
     end
   end
+
+  defp future?(%DateTime{} = at), do: DateTime.compare(at, DateTime.utc_now()) == :gt
+  defp future?(_), do: false
 
   # The date a Square subscription is paid (or scheduled to end) through, as
   # the end of that day in UTC.
@@ -1907,10 +1913,16 @@ defmodule Inkwell.Billing do
         do: unpaid_period_cap(user, square_period_end(sub)),
         else: square_period_end(sub)
 
+    # A scheduled cancel keeps Plus until its date. Once that date is past
+    # (or capped to an unpaid renewal's grace end), leave the tier alone:
+    # Square's updates for a subscription that Inkwell closed over an unpaid
+    # renewal must not put Plus back on a free account.
     tier =
-      if inkwell_status in ["active"] or is_binary(sub["canceled_date"]),
-        do: "plus",
-        else: user.subscription_tier
+      cond do
+        inkwell_status == "active" -> "plus"
+        is_binary(sub["canceled_date"]) and future?(expires_at) -> "plus"
+        true -> user.subscription_tier
+      end
 
     user
     |> User.subscription_changeset(%{
@@ -2261,6 +2273,10 @@ defmodule Inkwell.Billing do
   # Public so trial expiry can reuse it. Founding members keep Plus, so their
   # domain stays up even if some old subscription for them is canceled.
   def deactivate_custom_domain_unless_plus(user_id), do: maybe_deactivate_custom_domain(user_id)
+
+  @doc false
+  # Plus ended for this account (Billing.UnpaidRenewals closes unpaid ones).
+  def drop_custom_domain(user_id), do: maybe_deactivate_custom_domain(user_id)
 
   defp maybe_deactivate_custom_domain(user_id) do
     case Repo.get(User, user_id) do

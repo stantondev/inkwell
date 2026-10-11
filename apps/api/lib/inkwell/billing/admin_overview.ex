@@ -136,26 +136,27 @@ defmodule Inkwell.Billing.AdminOverview do
   defp plus_state(%User{} = u, square, invoice, now) do
     cond do
       u.subscription_status == "past_due" and match?(%{state: :written_off}, invoice) ->
-        written_off_state(u, Map.get(square, u.square_subscription_id), invoice, now)
+        written_off_state(u, invoice, now)
 
       u.subscription_status == "past_due" and User.plus_time_ran_out?(u, now) ->
+        # Only until the next daily check, which closes it in Square.
         %{
           kind: "unpaid_ended",
           label: "Renewal never paid",
-          detail: "Plus ended #{date(u.subscription_expires_at)}. Square still bills monthly until the subscription is canceled there",
-          attention: true
+          detail: "Plus ended #{date(u.subscription_expires_at)}. Inkwell closes the Square subscription automatically"
         }
 
       u.subscription_status == "past_due" ->
+        # Nothing for the admin to do: Square emails the invoice, and if it
+        # isn't paid Inkwell closes the subscription when the grace ends.
         %{
           kind: "payment_failed",
           label: "Renewal unpaid",
           detail:
             if(u.subscription_expires_at,
-              do: "Plus until #{date(u.subscription_expires_at)} unless they pay",
+              do: "Plus until #{date(u.subscription_expires_at)} unless they pay; closed automatically after that",
               else: "Square couldn't collect the renewal"
-            ),
-          attention: true
+            )
         }
 
       User.plus_time_ran_out?(u, now) ->
@@ -185,30 +186,15 @@ defmodule Inkwell.Billing.AdminOverview do
     end
   end
 
-  # The admin canceled the unpaid invoice in Square: a decision already
-  # made, so this is a plain row, never a warning. Square keeps the
-  # subscription and tries the card again on its next date; that's stated as
-  # a fact, since the admin may well want it to.
-  defp written_off_state(u, sub, invoice, now) do
+  # The admin canceled the unpaid invoice in Square: nothing owed, and the
+  # daily check closes the subscription when the grace ends. A plain row.
+  defp written_off_state(u, invoice, now) do
     plus =
       if User.plus_time_ran_out?(u, now),
         do: "Plus ended #{date(u.subscription_expires_at)}",
         else: "Plus until #{date(u.subscription_expires_at)}"
 
-    detail = "You canceled the #{iso_date(invoice[:due_date])} invoice. #{plus}"
-
-    detail =
-      case sub do
-        %{"status" => "ACTIVE"} = sub when is_binary(:erlang.map_get("canceled_date", sub)) ->
-          "#{detail} · subscription ends #{square_date(sub["canceled_date"])}"
-
-        %{"status" => "ACTIVE"} = sub ->
-          "#{detail} · next charge #{square_date(sub["charged_through_date"])}"
-
-        _ ->
-          detail
-      end
-
+    detail = "You canceled the #{iso_date(invoice[:due_date])} invoice. #{plus}; the subscription closes automatically"
     %{kind: "written_off", label: "Invoice canceled", detail: detail}
   end
 
@@ -349,14 +335,6 @@ defmodule Inkwell.Billing.AdminOverview do
       case names.("expired") do
         [] -> nil
         ns -> %{kind: "expired", usernames: ns, message: "#{plural(ns, "account")} still marked Plus after the time ran out. They already get the free plan; Mark as free tidies the record."}
-      end,
-      case names.("payment_failed") do
-        [] -> nil
-        ns -> %{kind: "payment_failed", usernames: ns, message: "#{plural(ns, "member")} didn't pay their last renewal. Plus keeps working for #{Inkwell.Billing.UnpaidRenewals.grace_days()} days after the renewal date, then ends unless they pay."}
-      end,
-      case names.("unpaid_ended") do
-        [] -> nil
-        ns -> %{kind: "unpaid_ended", usernames: ns, message: "#{plural(ns, "member")} never paid a renewal, so Plus has ended. Square keeps emailing them an invoice every month until you cancel the subscription in Square."}
       end,
       case names.("no_payment") do
         [] -> nil

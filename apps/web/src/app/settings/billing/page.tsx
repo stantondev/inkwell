@@ -583,7 +583,7 @@ export default function BillingPage() {
         >
           <strong>Your last Plus renewal wasn&apos;t paid.</strong>{" "}
           {status?.plus_unpaid?.ended
-            ? "Plus has ended for now. Paying it brings Plus straight back."
+            ? "Plus has ended, and your subscription is being closed so nothing more is charged."
             : status?.plus_unpaid?.plus_until
               ? <>Plus keeps working until {formatBillingDay(status.plus_unpaid.plus_until)}. See <em>Your Plan</em> below.</>
               : <>See <em>Your Plan</em> below.</>}
@@ -683,9 +683,9 @@ export default function BillingPage() {
               {status?.plus_unpaid?.due_date ? <> {formatBillingDay(status.plus_unpaid.due_date)}</> : null} Plus renewal
               {status?.plus_unpaid?.amount_cents ? <> (${(status.plus_unpaid.amount_cents / 100).toFixed(2)})</> : null}.{" "}
               {status?.plus_unpaid?.ended
-                ? "Your account is on the free plan until it's paid; everything you set up is saved and comes back when it is."
+                ? "Your account is on the free plan and your subscription is being closed, so nothing more is charged. Everything you set up is saved and comes back when you start Plus again."
                 : status?.plus_unpaid?.plus_until
-                  ? <>Plus keeps working until <strong style={{ color: "var(--foreground)" }}>{formatBillingDay(status.plus_unpaid.plus_until)}</strong>, then pauses until it&apos;s paid.</>
+                  ? <>Plus keeps working until <strong style={{ color: "var(--foreground)" }}>{formatBillingDay(status.plus_unpaid.plus_until)}</strong>. If it isn&apos;t paid by then, we close your subscription (nothing more is charged) and you can start Plus again any time.</>
                   : null}
             </p>
             )}
