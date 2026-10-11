@@ -928,7 +928,7 @@ defmodule Inkwell.Billing do
   # subscription from the cancel response (nil if it didn't include one).
   def mark_plus_canceled(%User{} = user, sub) do
     attrs =
-      case square_period_end(sub) do
+      case unpaid_period_cap(user, square_period_end(sub)) do
         %DateTime{} = ends -> %{subscription_status: "canceled", subscription_expires_at: ends}
         nil -> %{subscription_status: "canceled"}
       end
@@ -944,6 +944,22 @@ defmodule Inkwell.Billing do
       end
 
     Repo.update(changeset)
+  end
+
+  # Square ends a canceled subscription at the end of its current period,
+  # paid or not. For a member whose renewal was never paid (past_due, or
+  # already canceled that way) Plus ends with the 14-day grace instead:
+  # canceling an unpaid subscription mustn't hand out the rest of the month.
+  defp unpaid_period_cap(%User{} = user, ends) do
+    grace_end = user.subscription_expires_at
+    unpaid? = user.subscription_status == "past_due" or canceled_unpaid?(user)
+
+    cond do
+      not unpaid? or not match?(%DateTime{}, grace_end) -> ends
+      is_nil(ends) -> grace_end
+      DateTime.compare(grace_end, ends) == :lt -> grace_end
+      true -> ends
+    end
   end
 
   # The date a Square subscription is paid (or scheduled to end) through, as
@@ -1886,7 +1902,10 @@ defmodule Inkwell.Billing do
        do: :ok
 
   defp apply_plus_update(user, sub, sub_id, inkwell_status) do
-    expires_at = square_period_end(sub)
+    expires_at =
+      if inkwell_status == "canceled",
+        do: unpaid_period_cap(user, square_period_end(sub)),
+        else: square_period_end(sub)
 
     tier =
       if inkwell_status in ["active"] or is_binary(sub["canceled_date"]),

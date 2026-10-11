@@ -12,7 +12,7 @@ defmodule Inkwell.Billing.AdminOverview do
 
   alias Inkwell.{Avatars, Repo, Square}
   alias Inkwell.Accounts.User
-  alias Inkwell.Billing.{Funnel, WebhookDelivery}
+  alias Inkwell.Billing.{Funnel, UnpaidRenewals, WebhookDelivery}
 
   # Monthly renewals are the only regular webhook traffic, so a quiet day
   # (or week) is normal. Only flag silence longer than a billing cycle.
@@ -30,7 +30,10 @@ defmodule Inkwell.Billing.AdminOverview do
       |> Repo.all()
 
     square = fetch_square_subscriptions(users)
-    members = users |> Enum.map(&member(&1, square, now)) |> Enum.sort_by(&sort_key/1)
+    invoices = fetch_unpaid_invoices(users, square)
+
+    members =
+      users |> Enum.map(&member(&1, square, invoices, now)) |> Enum.sort_by(&sort_key/1)
 
     last_webhook_at =
       Repo.one(from(d in WebhookDelivery, select: max(d.inserted_at)))
@@ -70,7 +73,7 @@ defmodule Inkwell.Billing.AdminOverview do
     users
     |> Enum.map(& &1.square_subscription_id)
     |> Enum.reject(&is_nil/1)
-    |> Task.async_stream(fn id -> {id, Square.get_subscription(id)} end,
+    |> Task.async_stream(fn id -> {id, fetch_subscription(id)} end,
       max_concurrency: 4,
       timeout: 8_000,
       on_timeout: :kill_task
@@ -81,7 +84,33 @@ defmodule Inkwell.Billing.AdminOverview do
     end)
   end
 
-  defp member(%User{} = u, square, now) do
+  # The missed renewal of each past-due member (a handful at most), so a row
+  # can say whether the invoice is still open or was canceled in Square.
+  defp fetch_unpaid_invoices(users, square) do
+    users
+    |> Enum.filter(&(&1.subscription_status == "past_due" and Map.has_key?(square, &1.square_subscription_id)))
+    |> Task.async_stream(
+      fn u ->
+        case UnpaidRenewals.latest_invoice(Map.fetch!(square, u.square_subscription_id)) do
+          {:ok, invoice} -> {u.id, UnpaidRenewals.describe_invoice(invoice)}
+          _ -> {u.id, nil}
+        end
+      end,
+      max_concurrency: 4,
+      timeout: 8_000,
+      on_timeout: :kill_task
+    )
+    |> Enum.reduce(%{}, fn
+      {:ok, {id, %{} = described}}, acc -> Map.put(acc, id, described)
+      _, acc -> acc
+    end)
+  end
+
+  # Swappable in tests, like Billing.UnpaidRenewals' fetchers.
+  defp fetch_subscription(id),
+    do: Application.get_env(:inkwell, :admin_overview_subscription_fetcher, &Square.get_subscription/1).(id)
+
+  defp member(%User{} = u, square, invoices, now) do
     base = %{
       id: u.id,
       username: u.username,
@@ -92,20 +121,23 @@ defmodule Inkwell.Billing.AdminOverview do
       attention: false
     }
 
-    Map.merge(base, plus_state(u, square, now))
+    Map.merge(base, plus_state(u, square, Map.get(invoices, u.id), now))
   end
 
-  defp plus_state(%User{subscription_tier: tier} = u, _square, _now) when tier != "plus" do
+  defp plus_state(%User{subscription_tier: tier} = u, _square, _invoice, _now) when tier != "plus" do
     %{kind: "donor", label: "Ink Donor", detail: donor_label(u) || "Donating"}
     |> Map.put(:donor, nil)
   end
 
-  defp plus_state(%User{founding_member_number: n}, _square, _now) when not is_nil(n) do
+  defp plus_state(%User{founding_member_number: n}, _square, _invoice, _now) when not is_nil(n) do
     %{kind: "founding", label: "Founding Member ##{n}", detail: "Paid once, Plus for good"}
   end
 
-  defp plus_state(%User{} = u, square, now) do
+  defp plus_state(%User{} = u, square, invoice, now) do
     cond do
+      u.subscription_status == "past_due" and match?(%{state: :written_off}, invoice) ->
+        written_off_state(u, Map.get(square, u.square_subscription_id), invoice, now)
+
       u.subscription_status == "past_due" and User.plus_time_ran_out?(u, now) ->
         %{
           kind: "unpaid_ended",
@@ -152,6 +184,37 @@ defmodule Inkwell.Billing.AdminOverview do
         }
     end
   end
+
+  # The admin canceled the unpaid invoice in Square. Nothing is owed, but the
+  # subscription itself stays ACTIVE there and bills again on its next date
+  # unless it's canceled too, which is the one thing left to look at.
+  defp written_off_state(u, sub, invoice, now) do
+    plus =
+      if User.plus_time_ran_out?(u, now),
+        do: "Plus ended #{date(u.subscription_expires_at)}",
+        else: "Plus until #{date(u.subscription_expires_at)}"
+
+    owed = "#{plus}; nothing owed (you canceled the #{iso_date(invoice[:due_date])} invoice)"
+
+    case sub do
+      %{"status" => "ACTIVE"} = sub when is_binary(:erlang.map_get("canceled_date", sub)) ->
+        %{kind: "written_off", label: "Invoice canceled", detail: "#{owed}. Subscription ends #{square_date(sub["canceled_date"])}"}
+
+      %{"status" => "ACTIVE"} = sub ->
+        %{
+          kind: "written_off",
+          label: "Invoice canceled",
+          detail: "#{owed}. Square will bill the card again #{square_date(sub["charged_through_date"])} unless you cancel the subscription in Square",
+          attention: true
+        }
+
+      _ ->
+        %{kind: "written_off", label: "Invoice canceled", detail: owed}
+    end
+  end
+
+  defp iso_date(%Date{} = d), do: Calendar.strftime(d, "%b %-d")
+  defp iso_date(_), do: "last"
 
   defp square_state(_u, nil) do
     %{kind: "square", label: "Paying (Square)", detail: "Couldn't reach Square to check"}
@@ -204,14 +267,14 @@ defmodule Inkwell.Billing.AdminOverview do
   defp donor_label(%User{ink_donor_status: "active"}), do: "Ink Donor"
   defp donor_label(_), do: nil
 
-  @kind_order ~w(expired unpaid_ended payment_failed no_payment square_mismatch square canceling founding granted trial donor)
+  @kind_order ~w(expired unpaid_ended written_off payment_failed no_payment square_mismatch square canceling founding granted trial donor)
   defp sort_key(m), do: {Enum.find_index(@kind_order, &(&1 == m.kind)) || 99, m.username}
 
   defp counts(members) do
     by = Enum.frequencies_by(members, & &1.kind)
 
     %{
-      plus: Enum.count(members, &(&1.kind not in ["donor", "expired", "unpaid_ended"])),
+      plus: Enum.count(members, &(&1.kind not in ["donor", "expired", "unpaid_ended", "written_off"])),
       paying: Map.get(by, "square", 0) + Map.get(by, "canceling", 0),
       founding: Map.get(by, "founding", 0),
       trial: Map.get(by, "trial", 0),
@@ -295,6 +358,10 @@ defmodule Inkwell.Billing.AdminOverview do
       case names.("unpaid_ended") do
         [] -> nil
         ns -> %{kind: "unpaid_ended", usernames: ns, message: "#{plural(ns, "member")} never paid a renewal, so Plus has ended. Square keeps emailing them an invoice every month until you cancel the subscription in Square."}
+      end,
+      case for(m <- members, m.kind == "written_off" and m.attention, do: m.username) do
+        [] -> nil
+        ns -> %{kind: "written_off", usernames: ns, message: "You canceled the unpaid invoice for #{plural(ns, "member")}, so nothing is owed. Their Square subscription is still active and will bill the card again on its next renewal date. Cancel the subscription in Square if they've stopped; they can start Plus again from their billing page whenever they like."}
       end,
       case names.("no_payment") do
         [] -> nil

@@ -31,6 +31,8 @@ interface BillingStatus {
     amount_cents: number | null;
     plus_until: string | null;
     ended: boolean;
+    /** The unpaid invoice was canceled in Square: nothing is owed. */
+    written_off?: boolean;
   } | null;
 }
 
@@ -403,6 +405,7 @@ export default function BillingPage() {
   const isPlus = status?.subscription_tier === "plus" && !needsResubscribe;
   const isPastDue = status?.subscription_status === "past_due";
   const isCanceled = status?.subscription_status === "canceled";
+  const isWrittenOff = isPastDue && !!status?.plus_unpaid?.written_off;
   // Same treatment for legacy donor subscribers.
   const isDonor = status?.ink_donor_status === "active" && !needsResubscribe;
   const isDonorPastDue = status?.ink_donor_status === "past_due";
@@ -560,7 +563,20 @@ export default function BillingPage() {
           Checkout was canceled. No charges were made.
         </div>
       )}
-      {isPastDue && !isFounding && (
+      {isWrittenOff && !isFounding && (
+        <div
+          className="rounded-lg p-4 mb-4 text-sm"
+          style={{ background: "color-mix(in srgb, var(--muted) 12%, transparent)", border: "1px solid var(--border)" }}
+        >
+          <strong>You don&apos;t owe anything.</strong>{" "}
+          {status?.plus_unpaid?.ended
+            ? "Your last renewal was canceled, so Plus has ended for now. You can start it again whenever you like."
+            : status?.plus_unpaid?.plus_until
+              ? <>Your last renewal was canceled. Plus keeps working until {formatBillingDay(status.plus_unpaid.plus_until)}.</>
+              : "Your last renewal was canceled."}
+        </div>
+      )}
+      {isPastDue && !isWrittenOff && !isFounding && (
         <div
           className="rounded-lg p-4 mb-4 text-sm"
           style={{ background: "color-mix(in srgb, var(--danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent)" }}
@@ -650,6 +666,18 @@ export default function BillingPage() {
           </div>
         ) : isPastDue && !isFounding && !needsResubscribe ? (
           <div>
+            {isWrittenOff ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Your
+              {status?.plus_unpaid?.due_date ? <> {formatBillingDay(status.plus_unpaid.due_date)}</> : null} Plus renewal
+              was canceled, so there&apos;s nothing to pay.{" "}
+              {status?.plus_unpaid?.ended
+                ? "Your account is on the free plan; everything you set up is saved and comes back when you start Plus again."
+                : status?.plus_unpaid?.plus_until
+                  ? <>Plus keeps working until <strong style={{ color: "var(--foreground)" }}>{formatBillingDay(status.plus_unpaid.plus_until)}</strong>.</>
+                  : null}
+            </p>
+            ) : (
             <p className="text-sm" style={{ color: "var(--muted)" }}>
               Square couldn&apos;t collect your
               {status?.plus_unpaid?.due_date ? <> {formatBillingDay(status.plus_unpaid.due_date)}</> : null} Plus renewal
@@ -660,7 +688,8 @@ export default function BillingPage() {
                   ? <>Plus keeps working until <strong style={{ color: "var(--foreground)" }}>{formatBillingDay(status.plus_unpaid.plus_until)}</strong>, then pauses until it&apos;s paid.</>
                   : null}
             </p>
-            {status?.plus_unpaid?.pay_url && (
+            )}
+            {!isWrittenOff && status?.plus_unpaid?.pay_url && (
               <a
                 href={status.plus_unpaid.pay_url}
                 target="_blank"
@@ -672,9 +701,15 @@ export default function BillingPage() {
               </a>
             )}
             <p className="text-xs mt-4" style={{ color: "var(--muted)" }}>
-              Card changed? Square can&apos;t switch the card on an existing subscription, so start a new one instead.
-              We cancel the unpaid subscription <em>first</em>, so you&apos;re never billed twice, and you don&apos;t
-              need to pay the old invoice.
+              {isWrittenOff ? (
+                <>Starting again closes your old subscription <em>first</em>, so you&apos;re only ever billed once.</>
+              ) : (
+                <>
+                  Card changed? Square can&apos;t switch the card on an existing subscription, so start a new one instead.
+                  We cancel the unpaid subscription <em>first</em>, so you&apos;re never billed twice, and you don&apos;t
+                  need to pay the old invoice.
+                </>
+              )}
             </p>
             <div className="mt-3">
               <PlusIntervalPicker
@@ -690,10 +725,12 @@ export default function BillingPage() {
                 style={{ background: "var(--accent)", color: "white", opacity: restartLoading ? 0.6 : 1 }}
               >
                 {restartLoading
-                  ? "Canceling the failed subscription…"
-                  : billingInterval === "year"
-                    ? `Cancel and start over — $${annualPrice}/year`
-                    : "Cancel and start over — $5/month"}
+                  ? (isWrittenOff ? "Closing your old subscription…" : "Canceling the failed subscription…")
+                  : isWrittenOff
+                    ? (billingInterval === "year" ? `Start Plus again — $${annualPrice}/year` : "Start Plus again — $5/month")
+                    : billingInterval === "year"
+                      ? `Cancel and start over — $${annualPrice}/year`
+                      : "Cancel and start over — $5/month"}
               </button>
               {!showCancelConfirm ? (
                 <button
@@ -701,7 +738,7 @@ export default function BillingPage() {
                   className="w-full mt-2 text-xs underline opacity-80 hover:opacity-100"
                   style={{ color: "var(--muted)" }}
                 >
-                  Or just cancel Plus
+                  {isWrittenOff ? "Or just close my old subscription" : "Or just cancel Plus"}
                 </button>
               ) : (
                 <div className="mt-3 flex gap-2 justify-center">

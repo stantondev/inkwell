@@ -444,7 +444,8 @@ defmodule InkwellWeb.BillingController do
         plus_checkout: Atom.to_string(Billing.plus_checkout_state(user)),
         plus_resumable: Billing.plus_resumable?(user),
         # Only for a past_due member: Square's invoice page for the missed
-        # renewal and when Plus stops (asks Square, so not for everyone).
+        # renewal (or that it was written off) and when Plus stops (asks
+        # Square, so not for everyone).
         plus_unpaid: plus_unpaid(user),
         storage: Inkwell.Storage.summary(user)
       }
@@ -452,10 +453,13 @@ defmodule InkwellWeb.BillingController do
   end
 
   defp plus_unpaid(%{subscription_status: "past_due", founding_member_number: nil} = user) do
-    invoice = Inkwell.Billing.UnpaidRenewals.unpaid_invoice(user) || %{}
+    invoice = Inkwell.Billing.UnpaidRenewals.renewal_invoice(user) || %{}
 
     %{
       pay_url: invoice[:url],
+      # The admin canceled the invoice in Square: nothing to pay, and "Start
+      # Plus again" (cancel the old subscription, then checkout) is the way back.
+      written_off: invoice[:state] == :written_off,
       due_date: invoice[:due_date],
       amount_cents: invoice[:amount_cents],
       plus_until: user.subscription_expires_at,

@@ -21,6 +21,13 @@ defmodule Inkwell.Billing.UnpaidRenewals do
 
   An Ink Donor whose renewal isn't paid is marked `past_due` (the badge only
   shows while `active`) and becomes `active` again when paid.
+
+  An admin can cancel the unpaid invoice in Square to let the member off
+  (`written_off?/1`). The member stays `past_due` here, so Plus still ends
+  with the grace period and a new checkout still closes the old Square
+  subscription first ("Start Plus again"), but nothing is shown as owed.
+  Square keeps the subscription ACTIVE and bills it again next renewal date
+  unless the subscription itself is canceled in Square.
   """
 
   import Ecto.Query
@@ -60,6 +67,10 @@ defmodule Inkwell.Billing.UnpaidRenewals do
   end
 
   def unpaid?(_, _), do: false
+
+  @doc "An invoice the merchant canceled in Square: nothing is owed on it."
+  def written_off?(%{"status" => "CANCELED"}), do: true
+  def written_off?(_), do: false
 
   # ── Webhooks ───────────────────────────────────────────────────────────
 
@@ -143,6 +154,9 @@ defmodule Inkwell.Billing.UnpaidRenewals do
           mark_plus_paid(user)
           :paid
 
+        written_off?(invoice) ->
+          :written_off
+
         true ->
           :unchanged
       end
@@ -206,25 +220,41 @@ defmodule Inkwell.Billing.UnpaidRenewals do
   end
 
   @doc """
-  Where a member can pay their unpaid renewal (Square's invoice page), or nil.
+  The missed renewal of a `past_due` member, from Square: `%{state: :unpaid,
+  url:, due_date:, amount_cents:}` (where to pay it), `%{state: :written_off,
+  due_date:}` (the invoice was canceled in Square, nothing owed), or nil.
   Asks Square, so only call it for someone who is `past_due`.
   """
-  def unpaid_invoice(%User{subscription_status: "past_due", square_subscription_id: sub_id})
+  def renewal_invoice(%User{subscription_status: "past_due", square_subscription_id: sub_id})
       when is_binary(sub_id) do
     with {:ok, sub} <- fetch_subscription(sub_id),
-         {:ok, invoice} <- latest_invoice(sub),
-         true <- unpaid?(invoice) do
-      %{
-        url: invoice["public_url"],
-        due_date: due_date(invoice),
-        amount_cents: get_in(invoice, ["next_payment_amount_money", "amount"])
-      }
+         {:ok, invoice} <- latest_invoice(sub) do
+      describe_invoice(invoice)
     else
       _ -> nil
     end
   end
 
-  def unpaid_invoice(_), do: nil
+  def renewal_invoice(_), do: nil
+
+  @doc "What `renewal_invoice/1` says about one invoice (nil if it's neither unpaid nor canceled)."
+  def describe_invoice(invoice) do
+    cond do
+      unpaid?(invoice) ->
+        %{
+          state: :unpaid,
+          url: invoice["public_url"],
+          due_date: due_date(invoice),
+          amount_cents: get_in(invoice, ["next_payment_amount_money", "amount"])
+        }
+
+      written_off?(invoice) ->
+        %{state: :written_off, url: nil, due_date: due_date(invoice), amount_cents: nil}
+
+      true ->
+        nil
+    end
+  end
 
   # ── State changes ──────────────────────────────────────────────────────
 
