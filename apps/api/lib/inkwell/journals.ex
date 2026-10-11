@@ -388,17 +388,62 @@ defmodule Inkwell.Journals do
     page = Keyword.get(opts, :page, 1)
     per_page = Keyword.get(opts, :per_page, 20)
 
-    Entry
-    |> where(user_id: ^user_id, status: :draft)
-    |> order_by(desc: :updated_at)
+    user_id
+    |> drafts_query(opts)
+    |> order_drafts(Keyword.get(opts, :sort, "updated"))
     |> limit(^per_page)
     |> offset(^((page - 1) * per_page))
     |> Repo.all()
   end
 
+  @doc "How many drafts match `list_drafts/2`'s search (for paging)."
+  def count_drafts_matching(user_id, opts \\ []) do
+    user_id |> drafts_query(opts) |> Repo.aggregate(:count)
+  end
+
+  defp drafts_query(user_id, opts) do
+    query = where(Entry, user_id: ^user_id, status: :draft)
+
+    case opts |> Keyword.get(:q) |> to_string() |> String.trim() do
+      q when byte_size(q) >= 2 ->
+        pattern = "%" <> escape_like(q) <> "%"
+        where(query, [e], ilike(e.title, ^pattern) or ilike(e.body_html, ^pattern))
+
+      _ ->
+        query
+    end
+  end
+
+  defp order_drafts(query, "created"), do: order_by(query, [e], desc: e.inserted_at, desc: e.id)
+  defp order_drafts(query, "title"),
+    do: order_by(query, [e], asc: fragment("lower(coalesce(nullif(trim(?), ''), '~'))", e.title), desc: e.updated_at)
+  defp order_drafts(query, _), do: order_by(query, [e], desc: e.updated_at, desc: e.id)
+
+  defp escape_like(text), do: String.replace(text, ~r/([\\%_])/, "\\\\\\1")
+
   def count_drafts(user_id) do
     Entry
     |> where(user_id: ^user_id, status: :draft)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Drafts that count toward the free plan's limit. Scheduled posts don't (they
+  are on their way out), and neither do imported posts, so bringing an archive
+  over never stops someone starting a new page.
+  """
+  def count_drafts_toward_limit(user_id) do
+    Entry
+    |> where(user_id: ^user_id, status: :draft)
+    |> where([e], is_nil(e.scheduled_at))
+    |> where([e], is_nil(e.source) or e.source != "import")
+    |> Repo.aggregate(:count)
+  end
+
+  def count_scheduled_drafts(user_id) do
+    Entry
+    |> where(user_id: ^user_id, status: :draft)
+    |> where([e], not is_nil(e.scheduled_at))
     |> Repo.aggregate(:count)
   end
 
@@ -494,15 +539,19 @@ defmodule Inkwell.Journals do
   # and before they're deleted (to queue fediverse Deletes for their footnotes).
   def bulk_delete_entries(user_id, entry_ids, before_delete \\ fn _ -> :ok end) when is_list(entry_ids) do
     # Fetch entries that belong to this user
+    # Ids that no longer exist (deleted in another tab) are skipped; any id
+    # that belongs to someone else refuses the whole request.
     entries =
       Entry
-      |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
+      |> where([e], e.id in ^entry_ids)
       |> select([e], %{id: e.id, ap_id: e.ap_id, privacy: e.privacy, status: e.status, user_id: e.user_id})
       |> Repo.all()
 
-    if length(entries) != length(entry_ids) do
+    if Enum.any?(entries, &(&1.user_id != user_id)) do
       {:error, :unauthorized}
     else
+      entry_ids = Enum.map(entries, & &1.id)
+
       before_delete.(entries)
 
       # Delete translations for each entry
@@ -1582,12 +1631,33 @@ defmodule Inkwell.Journals do
   end
 
   @doc "Delete draft entries not updated in `days` days."
-  def cleanup_abandoned_drafts(days \\ 365) do
+  @doc """
+  Clears drafts with nothing in them (no title, no words, no pictures or
+  embeds) that haven't been touched for `days` days. Drafts with anything in
+  them are kept for as long as the writer wants them; until 2026-10-11 every
+  draft untouched for a year was deleted without warning.
+  """
+  def cleanup_abandoned_drafts(days \\ 30) do
     cutoff = DateTime.add(DateTime.utc_now(), -days, :day)
 
     {count, _} =
       Entry
       |> where([e], e.status == :draft and e.updated_at < ^cutoff and is_nil(e.scheduled_at))
+      |> where([e], is_nil(e.cover_image_id) and fragment("coalesce(trim(?), '') = ''", e.title))
+      |> where(
+        [e],
+        fragment(
+          "coalesce(?, '') !~* '<(img|iframe|video|audio|hr)|data-(photo-gallery|circle-embed|link-embed)'",
+          e.body_html
+        )
+      )
+      |> where(
+        [e],
+        fragment(
+          "regexp_replace(coalesce(?, ''), '<[^>]*>|&nbsp;|&#160;|\\s', '', 'g') = ''",
+          e.body_html
+        )
+      )
       |> Repo.delete_all()
 
     {:ok, count}

@@ -70,7 +70,6 @@ defmodule InkwellWeb.Router do
     post "/auth/fediverse/callback", FediverseAuthController, :callback
 
     # Public profiles and entries (index/show moved to optional_auth for privacy)
-    get "/users/:username/entries/:slug/comments", CommentController, :index
 
     # Guestbook (public read)
     get "/users/:username/guestbook", GuestbookController, :index
@@ -129,6 +128,11 @@ defmodule InkwellWeb.Router do
   # Public endpoints with optional auth (for personalized data)
   scope "/api", InkwellWeb do
     pipe_through [:api, :optional_auth]
+
+    # Footnotes on an entry. Needs the viewer: it was in the public scope,
+    # so footnotes on friends-only, private, circle and custom-list entries
+    # never loaded for anyone, the writer included.
+    get "/users/:username/entries/:slug/comments", CommentController, :index
 
     # Fediverse search (optional auth for relationship status)
     get "/search/fediverse", SearchController, :fediverse

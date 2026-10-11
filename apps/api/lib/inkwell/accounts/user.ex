@@ -133,7 +133,7 @@ defmodule Inkwell.Accounts.User do
     feed explore search admin inbox outbox users
     newsletter billing noreply postmaster webmaster abuse
     switch transparency founding readers
-    comments entries fediverse
+    comments entries fediverse preview drafts
   )
 
   # Brand-related prefixes — any username starting with these is blocked

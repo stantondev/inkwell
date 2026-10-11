@@ -1,6 +1,7 @@
 defmodule Inkwell.Workers.CleanupAbandonedDraftsWorker do
   @moduledoc """
-  Deletes draft entries that haven't been updated in 365 days.
+  Clears completely empty drafts that haven't been touched in 30 days.
+  Drafts with anything in them are kept.
   Scheduled via Oban cron to run daily.
   """
 
@@ -12,7 +13,7 @@ defmodule Inkwell.Workers.CleanupAbandonedDraftsWorker do
 
     if count > 0 do
       require Logger
-      Logger.info("Cleaned up #{count} abandoned draft(s)")
+      Logger.info("Cleared #{count} empty draft(s)")
     end
 
     Inkwell.Workers.Heartbeat.ping(:cleanup_abandoned_drafts)

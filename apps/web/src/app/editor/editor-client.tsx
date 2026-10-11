@@ -48,6 +48,8 @@ import { cleanPastedHtml } from "@/lib/paste-cleanup";
 import { PublishReview, type PublishReviewLine } from "@/app/editor/publish-review";
 import { UserpicPicker } from "@/components/userpic-picker";
 import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
+import { readingMinutes } from "@/lib/reading-time";
+import { DeleteDialog } from "@/app/editor/delete-dialog";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
 
@@ -125,8 +127,15 @@ function datePayload(
   return wasScheduled ? { ...date, scheduled_at: null } : date;
 }
 
+const DEFAULT_DRAFT_LIMIT = 25;
+
+function draftLimitMessage(limit: number): string {
+  return `You've filled all ${limit} draft pages on the free plan. Finish or delete a draft to make room, or get unlimited drafts with Plus.`;
+}
+
 function apiErrorMessage(err: unknown, fallback: string): string {
-  const e = err as { error?: string; errors?: Record<string, string[]> };
+  const e = err as { error?: string; errors?: Record<string, string[]>; limit?: number };
+  if (e?.error === "draft_limit_reached") return draftLimitMessage(typeof e.limit === "number" ? e.limit : DEFAULT_DRAFT_LIMIT);
   if (e?.error) return e.error;
   const first = e?.errors ? Object.entries(e.errors)[0] : undefined;
   if (first) return `${first[0] === "published_at" ? "Date" : first[0].replace(/_/g, " ")} ${first[1]?.[0] ?? "is invalid"}`;
@@ -218,15 +227,15 @@ function ToolbarDropdown({ label, active, renderContent, title, disabled = false
   );
 }
 
-function DropdownItem({ onClick, active, children }: {
-  onClick: () => void; active?: boolean; children: React.ReactNode;
+function DropdownItem({ onClick, active, danger = false, children }: {
+  onClick: () => void; active?: boolean; danger?: boolean; children: React.ReactNode;
 }) {
   return (
     <button type="button" onClick={onClick}
       className="w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors"
       style={{
         background: active ? "var(--accent-light)" : "transparent",
-        color: active ? "var(--accent)" : "var(--foreground)",
+        color: danger ? "var(--danger)" : active ? "var(--accent)" : "var(--foreground)",
       }}>
       {children}
     </button>
@@ -254,7 +263,7 @@ function MenuCheck({ on }: { on: boolean }) {
   return <span className="w-3 inline-flex justify-center" style={{ color: "var(--accent)" }}>{on ? Icon.check : null}</span>;
 }
 
-function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, wide, onToggleWide, onLink, onInsertCircle, onInsertLinkEmbed, onInsertGallery }: {
+function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUploading, focusMode, onToggleFocus, comfortMode, onToggleComfort, wide, onToggleWide, onLink, onInsertCircle, onInsertLinkEmbed, onInsertGallery, previewLabel, onPreview, deleteLabel, onDelete }: {
   editor: Editor | null; htmlMode: boolean; onToggleHtml: () => void;
   onUploadImage: (file: File) => void; isUploading: boolean;
   focusMode: boolean; onToggleFocus: () => void;
@@ -264,6 +273,12 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
   onInsertCircle: () => void;
   onInsertLinkEmbed: () => void;
   onInsertGallery: () => void;
+  /** "Preview as readers see it" (drafts) / "View the published entry"; null hides it. */
+  previewLabel: string | null;
+  onPreview: () => void;
+  /** "Delete draft" / "Delete entry" / "Discard"; null hides it. */
+  deleteLabel: string | null;
+  onDelete: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageAnchorRef = useRef<HTMLDivElement>(null);
@@ -292,6 +307,19 @@ function EditorToolbar({ editor, htmlMode, onToggleHtml, onUploadImage, isUpload
           <DropdownItem onClick={() => { onToggleHtml(); close(); }} active={false}>
             <MenuCheck on={htmlMode} /> Edit as HTML
           </DropdownItem>
+          {previewLabel && (
+            <DropdownItem onClick={() => { close(); onPreview(); }} active={false}>
+              <MenuCheck on={false} /> {previewLabel} ↗
+            </DropdownItem>
+          )}
+          {deleteLabel && (
+            <>
+              <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
+              <DropdownItem onClick={() => { close(); onDelete(); }} active={false} danger>
+                <MenuCheck on={false} /> {deleteLabel}…
+              </DropdownItem>
+            </>
+          )}
         </>
       )}
     />
@@ -1020,11 +1048,22 @@ function MusicInput({ value, onChange, fediverse, checking, onNowPlaying, nowPla
 
 type SaveStatusType = "idle" | "saving" | "saved" | "error" | "draft_limit";
 
-function SaveStatus({ status, lastSavedAt, unsavedEdits = false }: { status: SaveStatusType; lastSavedAt: Date | null; unsavedEdits?: boolean }) {
+function SaveStatus({ status, lastSavedAt, unsavedEdits = false, draftsLink = false }: {
+  status: SaveStatusType; lastSavedAt: Date | null; unsavedEdits?: boolean;
+  /** A saved draft: offer a way to the other drafts beside "Saved". */
+  draftsLink?: boolean;
+}) {
   return (
-    <span role="status" aria-live="polite" className="editor-save-status">
-      <SaveStatusText status={status} lastSavedAt={lastSavedAt} unsavedEdits={unsavedEdits} />
-    </span>
+    <>
+      <span role="status" aria-live="polite" className="editor-save-status">
+        <SaveStatusText status={status} lastSavedAt={lastSavedAt} unsavedEdits={unsavedEdits} />
+      </span>
+      {draftsLink && status === "saved" && lastSavedAt && !unsavedEdits && (
+        <NextLink href="/drafts" className="text-xs hidden sm:inline whitespace-nowrap" style={{ color: "var(--muted)", textDecoration: "underline" }}>
+          All drafts
+        </NextLink>
+      )}
+    </>
   );
 }
 
@@ -1035,7 +1074,7 @@ function SaveStatusText({ status, lastSavedAt, unsavedEdits }: { status: SaveSta
   if (status === "idle") return null;
   if (status === "saved" && lastSavedAt) {
     const time = lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    return <span className="text-xs" style={{ color: "var(--success)" }}>Saved at {time}</span>;
+    return <span className="text-xs" style={{ color: "var(--success)" }}>Saved · {time}</span>;
   }
   if (status === "draft_limit") {
     return <span className="text-xs" style={{ color: "var(--warning, #b45309)" }}>Autosave paused — drafts full</span>;
@@ -1049,7 +1088,7 @@ function SaveStatusText({ status, lastSavedAt, unsavedEdits }: { status: SaveSta
   return <span className="text-xs" style={{ color: s.color }}>{s.text}</span>;
 }
 
-function DraftLimitCard() {
+function DraftLimitCard({ limit }: { limit: number }) {
   return (
     <div
       className="rounded-xl border p-4 mx-4 mb-4"
@@ -1065,23 +1104,25 @@ function DraftLimitCard() {
         Your journal is brimming.
       </p>
       <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-        You&apos;ve filled all 10 draft pages. Publish or remove a draft to make room, or unlock unlimited drafts with Plus.
+        You&apos;ve filled all {limit} draft pages. Scheduled posts and imported drafts don&apos;t count.
+        Finish or delete a draft to make room, or get unlimited drafts with Plus. What you&apos;ve written
+        here is kept in this browser until then.
       </p>
       <div className="flex items-center gap-3">
-        <a
+        <NextLink
           href="/drafts"
           className="text-xs font-medium"
           style={{ color: "var(--accent)" }}
         >
-          View drafts
-        </a>
-        <a
+          Finish or delete one
+        </NextLink>
+        <NextLink
           href="/settings/billing"
           className="inline-block rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
           Unlock unlimited drafts
-        </a>
+        </NextLink>
       </div>
     </div>
   );
@@ -1120,8 +1161,65 @@ function StorageLimitCard({ isPlus }: { isPlus: boolean }) {
 
 // ─── Recovery banner ─────────────────────────────────────────────────────────
 
-const RECOVERY_KEY = "inkwell-editor-recovery";
+// One backup per entry ("…:new" for a page that hasn't been saved yet). It was
+// a single key for everything, so opening one entry could offer another
+// entry's text, and an old backup could bring back words already replaced.
+const LEGACY_RECOVERY_KEY = "inkwell-editor-recovery";
+const RECOVERY_KEY_PREFIX = "inkwell-editor-recovery:";
 const RECOVERY_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function recoveryKey(entryId: string | null): string {
+  return `${RECOVERY_KEY_PREFIX}${entryId ?? "new"}`;
+}
+
+function removeRecovery(entryId: string | null) {
+  try { localStorage.removeItem(recoveryKey(entryId)); } catch { /* unavailable */ }
+}
+
+function htmlHasWords(html: string | null | undefined): boolean {
+  if (!html) return false;
+  if (/<(img|iframe|video|audio)\b/i.test(html) || /data-(photo-gallery|circle-embed|link-embed)/i.test(html)) return true;
+  return !!html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").trim();
+}
+
+// Phoenix sometimes sends timestamps without a zone; they're UTC.
+function parseServerTime(value: unknown): number | null {
+  if (typeof value !== "string" || !value) return null;
+  const t = Date.parse(/(?:[zZ]|[+-]\d\d:?\d\d)$/.test(value) ? value : `${value}Z`);
+  return isNaN(t) ? null : t;
+}
+
+/** The backup for this entry (or for "a new page"), if there's one worth offering. */
+function readRecovery(entryId: string | null): RecoveryData | null {
+  try {
+    // The old single key: move it to its own entry's key, once.
+    const legacy = localStorage.getItem(LEGACY_RECOVERY_KEY);
+    if (legacy) {
+      localStorage.removeItem(LEGACY_RECOVERY_KEY);
+      try {
+        const old = JSON.parse(legacy) as RecoveryData;
+        const key = recoveryKey(old?.entryId ?? null);
+        if (old && typeof old.timestamp === "number" && !localStorage.getItem(key)) {
+          localStorage.setItem(key, legacy);
+        }
+      } catch { /* corrupt: dropped */ }
+    }
+    const raw = localStorage.getItem(recoveryKey(entryId));
+    if (!raw) return null;
+    const data = JSON.parse(raw) as RecoveryData;
+    const stale = !data || typeof data.timestamp !== "number" || Date.now() - data.timestamp > RECOVERY_MAX_AGE;
+    const otherEntry = (data?.entryId ?? null) !== entryId;
+    const empty = !data?.title?.trim() && !htmlHasWords(data?.htmlMode ? data.htmlSource : data?.bodyHtml);
+    if (stale || otherEntry || empty) {
+      removeRecovery(entryId);
+      return null;
+    }
+    return data;
+  } catch {
+    removeRecovery(entryId);
+    return null;
+  }
+}
 
 interface RecoveryData {
   entryId: string | null;
@@ -1611,6 +1709,43 @@ export function EditorClient() {
   const gazetteStoryRef = useRef<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [storageExceeded, setStorageExceeded] = useState(false);
+  // Free-plan draft limit, as the API reports it when it's reached.
+  const [draftLimit, setDraftLimit] = useState(DEFAULT_DRAFT_LIMIT);
+  // The signed-in writer, for links back to their journal.
+  const [myUsername, setMyUsername] = useState<string | null>(null);
+  // Delete / discard from the ⋯ menu.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Set once the page has been published, deleted or discarded: nothing is
+  // saved or backed up after that (not even as the editor closes).
+  const closedRef = useRef(false);
+  // The last autosave failed (so a preview would show an older version).
+  const autosaveFailedRef = useRef(false);
+  // False after unmount, so a save finishing late doesn't rewrite the URL of
+  // whatever page the writer went to.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+  // The back arrow on a new page goes back where the writer came from.
+  const [canGoBack, setCanGoBack] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.history.length <= 1) return;
+      // Arrived by an in-app link: the page loaded first wasn't this editor.
+      // (document.referrer only describes that first load.)
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      const firstPath = nav?.name ? new URL(nav.name).pathname : null;
+      if (firstPath && firstPath !== window.location.pathname) {
+        setCanGoBack(true);
+        return;
+      }
+      const ref = document.referrer ? new URL(document.referrer) : null;
+      setCanGoBack(!!ref && ref.origin === window.location.origin);
+    } catch { /* no history to go back to */ }
+  }, []);
 
   // Poll state (Plus-only)
   const [pollEnabled, setPollEnabled] = useState(false);
@@ -2141,6 +2276,7 @@ export function EditorClient() {
           setMoodTheme(normalizeMoodTheme(data?.settings?.mood_theme));
           setListenBrainzUser(data?.settings?.listenbrainz_username ?? null);
           setMyAvatarUrl(data?.avatar_url ?? null);
+          setMyUsername(data?.username ?? null);
           // Sync eye comfort from server (cross-device sync)
           const serverComfort = !!data?.settings?.eye_comfort_mode;
           if (serverComfort !== comfortMode) setComfortMode(serverComfort);
@@ -2324,14 +2460,15 @@ export function EditorClient() {
 
         // Populate editor: prefer body_raw (Tiptap JSON) over body_html
         // If body_raw is null, this was saved in HTML mode — start in HTML mode
+        // Loading isn't an edit: no update event, so nothing is marked unsaved.
         if (entry.body_raw && typeof entry.body_raw === "object" && entry.body_raw.type) {
-          editor.commands.setContent(entry.body_raw);
+          editor.commands.setContent(entry.body_raw, { emitUpdate: false });
           setHasContent(!!editor.getText().trim());
           setWordCount(editor.storage.characterCount.words());
         } else if (entry.body_html && entry.entry_source === "import") {
           // Imported posts have HTML but were never edited here; open them
           // in the normal editor rather than as raw HTML source.
-          editor.commands.setContent(entry.body_html);
+          editor.commands.setContent(entry.body_html, { emitUpdate: false });
           setHasContent(!!editor.getText().trim());
           setWordCount(editor.storage.characterCount.words());
         } else if (entry.body_html) {
@@ -2339,6 +2476,18 @@ export function EditorClient() {
           setHtmlMode(true);
           setHtmlSource(entry.body_html);
           setHasContent(!!entry.body_html.trim());
+        }
+        // A backup of this entry from this browser, if it's newer than the
+        // saved entry and different from it. (An older one would bring back
+        // words since replaced; an identical one is nothing to recover.)
+        const backup = readRecovery(entry.id);
+        if (backup) {
+          const savedAt = parseServerTime(entry.updated_at);
+          const loadedBody = entry.body_raw || entry.entry_source === "import" ? editor.getHTML() : (entry.body_html ?? "");
+          const backupBody = backup.htmlMode ? backup.htmlSource : backup.bodyHtml;
+          const same = (backup.title ?? "") === (entry.title ?? "") && backupBody === loadedBody;
+          if (same || (savedAt !== null && backup.timestamp <= savedAt)) removeRecovery(entry.id);
+          else setRecoveryData(backup);
         }
         // Mark load complete — subsequent editor changes trigger autosave
         editorLoadedRef.current = true;
@@ -2366,7 +2515,8 @@ export function EditorClient() {
         const { data: sticky } = await res.json();
         if (cancelled || sticky?.kind !== "sticky") return;
         sourceStickyRef.current = sticky.id;
-        editor.commands.setContent(sticky.body_html || "");
+        // Prefilled, not written: no update event, so no draft until the writer adds something.
+        editor.commands.setContent(sticky.body_html || "", { emitUpdate: false });
         setHasContent(!!editor.getText().trim());
         setWordCount(editor.storage.characterCount.words());
         if (Array.isArray(sticky.tags) && sticky.tags.length > 0) {
@@ -2396,7 +2546,8 @@ export function EditorClient() {
         const deck = story.description ? `<p>${esc(story.description)}</p>` : "";
         editor.commands.setContent(
           `<blockquote><p><strong>${esc(story.title)}</strong></p>${deck}` +
-            `<p><a href="${esc(story.url)}">Read it at ${esc(publisher)}</a></p></blockquote><p data-spacing="tight"></p>`
+            `<p><a href="${esc(story.url)}">Read it at ${esc(publisher)}</a></p></blockquote><p data-spacing="tight"></p>`,
+          { emitUpdate: false },
         );
         editor.commands.focus("end");
         setHasContent(true);
@@ -2425,7 +2576,7 @@ export function EditorClient() {
       try { host = new URL(safeUrl).hostname.replace(/^www\./, ""); } catch { /* keep the url */ }
       parts.push(`<p><a href="${esc(safeUrl)}">${esc(host)}</a></p>`);
     }
-    editor.commands.setContent(`<blockquote>${parts.join("")}</blockquote><p data-spacing="tight"></p>`);
+    editor.commands.setContent(`<blockquote>${parts.join("")}</blockquote><p data-spacing="tight"></p>`, { emitUpdate: false });
     editor.commands.focus("end");
     setHasContent(true);
     setWordCount(editor.storage.characterCount.words());
@@ -2438,7 +2589,9 @@ export function EditorClient() {
     promptApplied.current = true;
     const prompt = WELCOME_PROMPTS[Math.floor(Math.random() * WELCOME_PROMPTS.length)];
     setState((s) => ({ ...s, title: prompt.title }));
-    editor.commands.setContent(prompt.body);
+    editor.commands.setContent(prompt.body, { emitUpdate: false });
+    setHasContent(!!editor.getText().trim());
+    setWordCount(editor.storage.characterCount.words());
   }, [promptParam, editId, editor]);
 
   const update = (patch: Partial<EditorState>) => {
@@ -2488,10 +2641,42 @@ export function EditorClient() {
 
   // ── Autosave: localStorage backup ──────────────────────────────────────────
 
+  // Whether there's anything on the page worth keeping as a new draft: a
+  // title, some words, a picture or an embed. A page with none of these
+  // isn't autosaved (typing a letter and deleting it, or choosing a mood on
+  // a blank page, used to leave an "Untitled draft" behind).
+  const pageHasSubstance = useCallback((): boolean => {
+    if (state.title.trim() || coverImageId) return true;
+    if (htmlMode) return htmlHasWords(htmlSource);
+    if (!editor) return false;
+    if (editor.getText().trim()) return true;
+    let found = false;
+    editor.state.doc.descendants((node) => {
+      if (found) return false;
+      if (["image", "photoGallery", "circleEmbed", "linkEmbed", "table"].includes(node.type.name)) found = true;
+      return !found;
+    });
+    return found;
+  }, [state.title, coverImageId, htmlMode, htmlSource, editor]);
+
+  // The latest of a few values, for timers and the unmount cleanup, which
+  // otherwise see the render that scheduled them.
+  const draftInfoRef = useRef({ isDraft, savedEntryId, pageHasSubstance });
+  draftInfoRef.current = { isDraft, savedEntryId, pageHasSubstance };
+  // The id this page saves to (a draft autosave just created counts).
+  const currentEntryId = () => draftInfoRef.current.savedEntryId ?? createdHereRef.current;
+
   const writeLocalRecovery = useCallback(() => {
+    if (closedRef.current) return;
+    const entryId = savedEntryId ?? createdHereRef.current;
     try {
+      if (!entryId && !pageHasSubstance()) {
+        // Nothing worth keeping on a new page.
+        removeRecovery(null);
+        return;
+      }
       const data: RecoveryData = {
-        entryId: savedEntryId,
+        entryId,
         title: state.title,
         bodyHtml: htmlMode ? htmlSource : (editor?.getHTML() ?? ""),
         bodyRaw: htmlMode ? null : (editor?.getJSON() ?? null),
@@ -2513,20 +2698,34 @@ export function EditorClient() {
         htmlSource,
         timestamp: Date.now(),
       };
-      localStorage.setItem(RECOVERY_KEY, JSON.stringify(data));
+      localStorage.setItem(recoveryKey(entryId), JSON.stringify(data));
+      // A new page that has become a draft keeps its backup under the draft.
+      if (entryId && !editId) removeRecovery(null);
     } catch {
       // localStorage full or unavailable — ignore
     }
-  }, [state, htmlMode, htmlSource, editor, savedEntryId, coverImageId]);
+  }, [state, htmlMode, htmlSource, editor, savedEntryId, coverImageId, pageHasSubstance, editId]);
 
+  // Called after a successful save, publish or delete: the backup of this
+  // entry (and, for a page that started new, of the new page) goes.
   const clearLocalRecovery = useCallback(() => {
-    try { localStorage.removeItem(RECOVERY_KEY); } catch { /* ignore */ }
-  }, []);
+    if (localSaveRef.current) { clearTimeout(localSaveRef.current); localSaveRef.current = null; }
+    const entryId = draftInfoRef.current.savedEntryId ?? createdHereRef.current;
+    if (entryId) removeRecovery(entryId);
+    if (!editId) removeRecovery(null);
+  }, [editId]);
+
+  // The 2s timer writes the latest form, not the one from when it was set
+  // (a title's last letter used to be missing from the backup).
+  const writeLocalRecoveryRef = useRef(writeLocalRecovery);
+  useEffect(() => {
+    writeLocalRecoveryRef.current = writeLocalRecovery;
+  }, [writeLocalRecovery]);
 
   const scheduleLocalSave = useCallback(() => {
     if (localSaveRef.current) clearTimeout(localSaveRef.current);
-    localSaveRef.current = setTimeout(() => { writeLocalRecovery(); }, 2000);
-  }, [writeLocalRecovery]);
+    localSaveRef.current = setTimeout(() => { writeLocalRecoveryRef.current(); }, 2000);
+  }, []);
 
   // ── Autosave: mark unsaved + schedule ──────────────────────────────────────
 
@@ -2545,6 +2744,7 @@ export function EditorClient() {
   // performAutosave — saves to server using existing draft API
   const performAutosave = useCallback(async () => {
     if (!hasUnsavedChanges.current || autosaveDisabled.current || autosavingRef.current || !editor) return;
+    if (closedRef.current) return;
     // Don't race with manual save/publish
     if (isPublishing) return;
     // Published entries are only saved when the writer presses Save. Autosaving
@@ -2552,6 +2752,14 @@ export function EditorClient() {
     // follower on each pause, and filled version history with fragments. The
     // local recovery copy still runs, and the leave-page warning stays on.
     if (savedEntryId && !isDraft) return;
+    // A new page becomes a draft only once there's something on it. (An
+    // existing draft is still saved when emptied: the writer may be clearing it.)
+    if (!savedEntryId && !createdHereRef.current && !pageHasSubstance()) {
+      hasUnsavedChanges.current = false;
+      if (mountedRef.current) setDirty(false);
+      clearAutosaveTimers();
+      return;
+    }
 
     const revisionAtStart = editRevisionRef.current;
     autosavingRef.current = true;
@@ -2583,9 +2791,10 @@ export function EditorClient() {
         circle_prompt_id: state.circleId ? state.circlePromptId : null,
       };
 
-      if (savedEntryId) {
+      const existingId = savedEntryId ?? createdHereRef.current;
+      if (existingId) {
         // Update existing entry
-        const res = await fetch(`/api/entries/${savedEntryId}`, {
+        const res = await fetch(`/api/entries/${existingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -2602,7 +2811,11 @@ export function EditorClient() {
           const err = await res.json().catch(() => ({}));
           if ((err as { error?: string }).error === "draft_limit_reached") {
             autosaveDisabled.current = true;
+            const limit = (err as { limit?: unknown }).limit;
+            setDraftLimit(typeof limit === "number" ? limit : DEFAULT_DRAFT_LIMIT);
             setSaveStatus("draft_limit");
+            // Keep what's written in this browser until there's room.
+            writeLocalRecoveryRef.current();
             return;
           }
           throw new Error("autosave_failed");
@@ -2614,7 +2827,9 @@ export function EditorClient() {
           setIsDraft(true);
           createdHereRef.current = data.data.id;
           draftsCreatedHere.add(data.data.id);
-          window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
+          // Not after the writer has left: that would rewrite the URL of the
+          // page they went to.
+          if (mountedRef.current) window.history.replaceState(null, "", `/editor?edit=${data.data.id}`);
         }
       }
 
@@ -2630,20 +2845,21 @@ export function EditorClient() {
         clearAutosaveTimers();
         autosaveDebounceRef.current = setTimeout(() => { performAutosaveRef.current(); }, 1000);
       }
+      autosaveFailedRef.current = false;
       const now = new Date();
       setLastSavedAt(now);
       setSaveStatus("saved");
       if (editRevisionRef.current === revisionAtStart) clearLocalRecovery();
       setTimeout(() => setSaveStatus((prev) => prev === "saved" ? "idle" : prev), 10000);
     } catch {
+      autosaveFailedRef.current = true;
       setSaveStatus("error");
       // Retry in 15 seconds
       autosaveDebounceRef.current = setTimeout(() => { performAutosaveRef.current(); }, 15000);
     } finally {
       autosavingRef.current = false;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery]);
+  }, [editor, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, savedEntryId, coverImageId, isPublishing, clearAutosaveTimers, clearLocalRecovery, pageHasSubstance]);
 
   // Timers call the latest performAutosave through this ref. They used to call
   // the one from the render that scheduled them, which saw the form as it was
@@ -2694,60 +2910,85 @@ export function EditorClient() {
   // ── beforeunload guard ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges.current) e.preventDefault();
+      if (!hasUnsavedChanges.current || closedRef.current) return;
+      // A new page with nothing on it has nothing to lose.
+      const { pageHasSubstance: hasSubstance } = draftInfoRef.current;
+      if (!currentEntryId() && !hasSubstance()) return;
+      // Keep a copy in this browser in case they leave anyway.
+      writeLocalRecoveryRef.current();
+      e.preventDefault();
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
-  // ── localStorage recovery check on mount ───────────────────────────────────
+  // ── Leaving a published entry with unsaved edits, by an in-app link ───────
+  // beforeunload only covers reloads and closing the tab. Links inside the app
+  // navigate without it, so ask here. (Drafts don't need asking: they're
+  // saved as the editor closes, below.) Capture phase, so it runs before
+  // Next's own link handling.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(RECOVERY_KEY);
-      if (!raw) return;
-      const data: RecoveryData = JSON.parse(raw);
-      // Discard if too old
-      if (Date.now() - data.timestamp > RECOVERY_MAX_AGE) {
-        localStorage.removeItem(RECOVERY_KEY);
-        return;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (!hasUnsavedChanges.current || closedRef.current) return;
+      const { isDraft: draft, savedEntryId: id } = draftInfoRef.current;
+      if (!id || draft) return;
+      const target = e.target as Element | null;
+      if (!target || target.closest(".ProseMirror")) return;
+      const link = target.closest("a[href]") as HTMLAnchorElement | null;
+      if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+      let url: URL;
+      try { url = new URL(link.href, window.location.href); } catch { return; }
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (!window.confirm("Leave without saving your changes?")) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        // Leaving on purpose: keep a copy in this browser, then don't ask again.
+        writeLocalRecoveryRef.current();
+        hasUnsavedChanges.current = false;
       }
-      // Only offer recovery if it matches the current context
-      // (same entry ID, or both are new entries)
-      if (editId && data.entryId !== editId) {
-        return;
-      }
-      if (!editId && data.entryId) {
-        // Recovery data is for an existing entry but we're on /editor (new)
-        // Still offer it — they may have navigated away
-      }
-      // Only offer if there's actual content
-      if (!data.title && !data.bodyHtml) return;
-      setRecoveryData(data);
-    } catch {
-      // ignore corrupt data
-    }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+
+  // ── localStorage recovery check on mount ───────────────────────────────────
+  // A new page offers only the backup of an earlier unsaved new page, and not
+  // when it opens already filled in (from a sticky, the Gazette, a share, a
+  // circle or the welcome prompt), where restoring would replace that. An
+  // existing entry checks its own backup once it has loaded (see the load
+  // effect), against what the server has.
+  useEffect(() => {
+    if (editId) return;
+    const prefilled = !!(fromStickyId || fromGazetteId || sharedUrl || sharedTitle || sharedText || fromCircleId || promptParam);
+    if (prefilled) return;
+    const data = readRecovery(null);
+    if (data) setRecoveryData(data);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Autosave cleanup on unmount ────────────────────────────────────────────
+  // Leaving the editor inside the app (a link, the back arrow) doesn't fire
+  // beforeunload, and the pending timers die here, so the last few seconds of
+  // writing used to be lost. Now: back the page up in this browser right
+  // away, and save a draft (or a new page with something on it) now; the
+  // request finishes after the editor has gone. Published entries are only
+  // saved by Save, so for those the browser copy is all that's kept.
   useEffect(() => {
     return () => {
       if (autosaveDebounceRef.current) clearTimeout(autosaveDebounceRef.current);
       if (autosaveMaxRef.current) clearTimeout(autosaveMaxRef.current);
+      autosaveDebounceRef.current = null;
+      autosaveMaxRef.current = null;
       if (localSaveRef.current) clearTimeout(localSaveRef.current);
-      // Final localStorage backup if there are unsaved changes
-      if (hasUnsavedChanges.current) {
-        try {
-          // Synchronous write on unmount as last resort
-          const key = RECOVERY_KEY;
-          // We can't access latest state in cleanup, so the last scheduled write will suffice
-          // This is just a guard — the 2s debounced write should have already captured latest
-          const existing = localStorage.getItem(key);
-          if (!existing) {
-            // nothing we can do without state access, but the scheduled write covers this
-          }
-        } catch { /* ignore */ }
-      }
+      localSaveRef.current = null;
+      if (!hasUnsavedChanges.current || closedRef.current || !editorLoadedRef.current) return;
+      writeLocalRecoveryRef.current();
+      const { isDraft: draft, savedEntryId: id } = draftInfoRef.current;
+      const published = !!(id ?? createdHereRef.current) && !draft;
+      if (!published && !autosaveDisabled.current) void performAutosaveRef.current();
     };
   }, []);
 
@@ -2940,7 +3181,11 @@ export function EditorClient() {
           const err = await res.json().catch(() => ({}));
           const code = (err as { error?: string }).error;
           if (code === "draft_limit_reached") {
-            throw new Error("You've reached the 10 draft limit on the free plan. Upgrade to Inkwell Plus for unlimited drafts.");
+            const limit = (err as { limit?: unknown }).limit;
+            setDraftLimit(typeof limit === "number" ? limit : DEFAULT_DRAFT_LIMIT);
+            setSaveStatus("draft_limit");
+            writeLocalRecoveryRef.current();
+            return;
           }
           throw new Error("Save failed");
         }
@@ -2969,7 +3214,7 @@ export function EditorClient() {
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
-  }, [waitForAutosave, editor, buildPayload, savedEntryId, clearAutosaveTimers, clearLocalRecovery]);
+  }, [waitForAutosave, editor, buildPayload, clearAutosaveTimers, clearLocalRecovery]);
 
   // Publish (or save changes to published entry)
   const handlePublish = useCallback(async () => {
@@ -3084,19 +3329,29 @@ export function EditorClient() {
         }
       }
 
-      // Clear autosave state before navigation
+      // Clear autosave state before navigation. Nothing more is saved from
+      // this page: an autosave as the editor closes would PATCH the entry
+      // that was just published.
       hasUnsavedChanges.current = false;
+      closedRef.current = true;
       clearAutosaveTimers();
       clearLocalRecovery();
 
-      // An answer goes back to its thread, where it now appears.
+      // An answer goes back to its thread, where it now appears. A newly
+      // published entry opens with ?published=1 (the page says so).
       const threadSlug = myCircles?.find((c) => c.id === state.circleId)?.slug;
+      const author = entry.author?.username ?? entryAuthor ?? myUsername;
+      const slug = entry.slug ?? entrySlug;
+      const justPublished = isDraft && entry.status === "published";
       router.push(
         scheduling
           ? "/drafts?scheduled=1"
           : state.circlePromptId && threadSlug && entry.status === "published"
             ? `/circles/${threadSlug}/t/${state.circlePromptId}?answered=${entry.id}`
-            : `/${entry.author?.username ?? entryAuthor ?? "me"}/${entry.slug ?? entrySlug ?? entry.id}`
+            : author && slug
+              ? `/${author}/${slug}${justPublished ? "?published=1" : ""}`
+              // Without both there's no entry page to go to (the old "/me/…" fallback 404'd).
+              : entry.status === "draft" ? "/drafts" : author ? `/${author}` : "/feed"
       );
     } catch (err) {
       const verb = isDraft && isFutureDate(state.publishedAt) ? "schedule" : isDraft ? "publish" : "save";
@@ -3104,7 +3359,7 @@ export function EditorClient() {
     } finally {
       setIsPublishing(false);
     }
-  }, [myCircles, state.circleId, state.circlePromptId, editor, isPublishing, isDraft, state.publishedAt, savedEntryId, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
+  }, [myCircles, state.circleId, state.circlePromptId, editor, isPublishing, isDraft, state.publishedAt, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, myUsername, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
   // Save a published entry's edits without leaving the editor (⌘S). The
   // publish-time choices (newsletter, cross-posts) only happen on the button.
@@ -3164,6 +3419,140 @@ export function EditorClient() {
     if (isDraft) void performAutosaveRef.current();
     else void saveInPlace();
   };
+
+  // ── Back, preview, delete ──────────────────────────────────────────────
+  const backAuthor = entryAuthor ?? myUsername;
+  const back =
+    savedEntryId && !isDraft && backAuthor && entrySlug
+      ? { href: `/${backAuthor}/${entrySlug}`, label: "Back to the entry", useHistory: false }
+      : savedEntryId && isDraft
+        ? { href: "/drafts", label: "Back to your drafts", useHistory: false }
+        : { href: "/feed", label: canGoBack ? "Go back" : "Back to Feed", useHistory: canGoBack };
+
+  const leaveNewPage = useCallback(() => {
+    if (canGoBack) router.back();
+    else router.push("/feed");
+  }, [canGoBack, router]);
+
+  // "Delete draft" / "Delete entry" / "Discard" (a page not saved yet).
+  const deleteKind: "draft" | "entry" | "discard" = !savedEntryId ? "discard" : isDraft ? "draft" : "entry";
+  const deleteLabel = deleteKind === "discard" ? "Discard" : deleteKind === "draft" ? "Delete draft" : "Delete entry";
+  const deleteCopy =
+    deleteKind === "discard"
+      ? { title: "Discard this page?", body: "What you've written here won't be saved. This can't be undone.", confirm: "Discard", busy: "Discarding…" }
+      : deleteKind === "draft"
+        ? {
+            title: wasScheduled ? "Delete this scheduled draft?" : "Delete this draft?",
+            body: wasScheduled ? "It won't be published. This can't be undone." : "This can't be undone.",
+            confirm: "Delete draft",
+            busy: "Deleting…",
+          }
+        : {
+            title: "Delete this entry?",
+            body: "It's removed from your journal and from the fediverse. This can't be undone.",
+            confirm: "Delete entry",
+            busy: "Deleting…",
+          };
+
+  const requestDelete = useCallback(() => {
+    setDeleteError(null);
+    // A new page with nothing on it: nothing to ask about, just leave.
+    if (!savedEntryId && !createdHereRef.current && !autosavingRef.current && !pageHasSubstance()) {
+      closedRef.current = true;
+      hasUnsavedChanges.current = false;
+      clearAutosaveTimers();
+      removeRecovery(null);
+      leaveNewPage();
+      return;
+    }
+    setDeleteOpen(true);
+  }, [savedEntryId, pageHasSubstance, clearAutosaveTimers, leaveNewPage]);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteBusy) return;
+    const kind = deleteKind;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    // Nothing saves while it's being deleted; a save already on its way is
+    // waited for (it may be the one creating the draft).
+    clearAutosaveTimers();
+    if (localSaveRef.current) { clearTimeout(localSaveRef.current); localSaveRef.current = null; }
+    const autosaveWasDisabled = autosaveDisabled.current;
+    autosaveDisabled.current = true;
+    const id = await waitForAutosave();
+    try {
+      if (id) {
+        const res = await fetch(`/api/entries/${id}`, { method: "DELETE" });
+        // 404: already gone, which is what was asked for.
+        if (!res.ok && res.status !== 404) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(apiErrorMessage(err, "Inkwell couldn't delete it just now."));
+        }
+      }
+      closedRef.current = true;
+      hasUnsavedChanges.current = false;
+      setDirty(false);
+      if (id) removeRecovery(id);
+      if (!editId) removeRecovery(null);
+      window.dispatchEvent(new Event("inkwell-nav-refresh"));
+      setDeleteOpen(false);
+      if (kind === "discard") {
+        leaveNewPage();
+      } else if (kind === "entry") {
+        const username = entryAuthor ?? myUsername;
+        router.push(username ? `/${username}` : "/feed");
+      } else {
+        router.push("/drafts");
+      }
+    } catch (err) {
+      autosaveDisabled.current = autosaveWasDisabled;
+      if (hasUnsavedChanges.current) scheduleAutosave();
+      const msg = err instanceof Error && err.message ? err.message : "Inkwell couldn't delete it just now.";
+      setDeleteError(`${msg} Nothing was deleted; try again in a moment.`);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [deleteBusy, deleteKind, clearAutosaveTimers, waitForAutosave, editId, leaveNewPage, entryAuthor, myUsername, router, scheduleAutosave]);
+
+  const closeDeleteDialog = useCallback(() => {
+    if (!deleteBusy) setDeleteOpen(false);
+  }, [deleteBusy]);
+
+  // "Preview as readers see it" (a saved draft) / "View the published entry".
+  const previewLabel =
+    savedEntryId && isDraft ? "Preview as readers see it"
+    : savedEntryId && !isDraft && backAuthor && entrySlug ? "View the published entry"
+    : null;
+  const openPreview = useCallback(async () => {
+    if (!savedEntryId) return;
+    if (!isDraft) {
+      if (backAuthor && entrySlug) window.open(`/${backAuthor}/${entrySlug}`, "_blank", "noopener");
+      return;
+    }
+    const url = `/preview/${savedEntryId}`;
+    if (!hasUnsavedChanges.current && !autosavingRef.current) {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    // Save first so the preview shows what's on the page. The tab is opened
+    // now, while this is still a click (pop-up blockers), and filled in after.
+    const win = window.open("", "_blank");
+    clearAutosaveTimers();
+    await waitForAutosave();
+    if (hasUnsavedChanges.current) await performAutosaveRef.current();
+    await waitForAutosave();
+    if (autosaveFailedRef.current) {
+      win?.close();
+      alert("Your latest changes couldn't be saved just now, so a preview would show an older version. Try again in a moment.");
+      return;
+    }
+    if (win) {
+      win.opener = null;
+      win.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener");
+    }
+  }, [savedEntryId, isDraft, backAuthor, entrySlug, clearAutosaveTimers, waitForAutosave]);
 
   // Gallery: edit the one the cursor is on, or the entry's only gallery, or start one.
   const openGalleryEditor = useCallback(() => {
@@ -3332,7 +3721,17 @@ export function EditorClient() {
       <header className="editor-topbar">
         <div className="editor-topbar-inner">
           <div className="flex items-center gap-3 min-w-0">
-            <NextLink href="/feed" className="editor-back-link" aria-label="Back to Feed">
+            <NextLink
+              href={back.href}
+              className="editor-back-link"
+              aria-label={back.label}
+              title={back.label}
+              onClick={(e) => {
+                if (!back.useHistory || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                router.back();
+              }}
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 5l-7 7 7 7"/>
@@ -3343,7 +3742,7 @@ export function EditorClient() {
                 {wasScheduled ? "scheduled" : "draft"}
               </span>
             )}
-            <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} unsavedEdits={!isDraft && !!savedEntryId && dirty} />
+            <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} unsavedEdits={!isDraft && !!savedEntryId && dirty} draftsLink={isDraft && !!savedEntryId} />
           </div>
           <div className="flex items-center gap-2">
             {/* Settings panel toggle */}
@@ -3446,10 +3845,11 @@ export function EditorClient() {
                   setHasContent(!!editor.getText().trim());
                   setWordCount(editor.storage.characterCount.words());
                 }
-                hasUnsavedChanges.current = true; editRevisionRef.current += 1;
+                // Restored text is unsaved text: it's kept backed up (under
+                // this entry) until a save goes through.
+                markUnsaved();
                 scheduleAutosave();
                 setRecoveryData(null);
-                clearLocalRecovery();
               }}
               onDiscard={() => {
                 setRecoveryData(null);
@@ -3459,7 +3859,7 @@ export function EditorClient() {
           )}
 
           {/* Upgrade cards */}
-          {saveStatus === "draft_limit" && !isPlus && <DraftLimitCard />}
+          {saveStatus === "draft_limit" && !isPlus && <DraftLimitCard limit={draftLimit} />}
           {storageExceeded && <StorageLimitCard isPlus={isPlus} />}
 
           {/* ── Paper container ───────────────────────── */}
@@ -3731,7 +4131,9 @@ export function EditorClient() {
                 onLink={() => openLinkRef.current()}
                 onInsertCircle={() => setCirclePickerOpen(true)}
                 onInsertLinkEmbed={() => setLinkEmbedOpen(true)}
-                onInsertGallery={openGalleryEditor} />
+                onInsertGallery={openGalleryEditor}
+                previewLabel={previewLabel} onPreview={() => { void openPreview(); }}
+                deleteLabel={deleteLabel} onDelete={requestDelete} />
             </div>
             </div>
 
@@ -3844,7 +4246,7 @@ export function EditorClient() {
             <div className="editor-word-count">
               {htmlMode
                 ? `${htmlSource.length.toLocaleString()} characters`
-                : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}${wordCount >= 50 ? ` · ${Math.max(1, Math.round(wordCount / 230))} min read` : ""}`}
+                : `${wordCount.toLocaleString()} ${wordCount === 1 ? "word" : "words"}${wordCount >= 50 ? ` · ${readingMinutes(wordCount)} min read` : ""}`}
             </div>
 
           </div>{/* end .editor-paper */}
@@ -4414,6 +4816,24 @@ export function EditorClient() {
                 </div>
               )}
 
+              {/* Also in the toolbar's ⋯ menu; here too, at the end of the
+                  settings, because that's where writers look for it. */}
+              {savedEntryId && (
+                <div className="editor-settings-section">
+                  <button
+                    type="button"
+                    onClick={requestDelete}
+                    className="text-sm min-h-[44px] sm:min-h-0 hover:underline"
+                    style={{ color: "var(--danger, #dc2626)" }}
+                  >
+                    {deleteLabel}…
+                  </button>
+                  {isDraft && (
+                    <span className="editor-settings-hint">Drafts are kept until you delete them.</span>
+                  )}
+                </div>
+              )}
+
             </div>
           </aside>
           );
@@ -4453,6 +4873,18 @@ export function EditorClient() {
         onCancel={() => setReviewOpen(false)}
         onOpenSettings={() => { setReviewOpen(false); setShowSettings(true); }}
         onConfirm={() => { setReviewOpen(false); void handlePublish(); }}
+      />
+
+      <DeleteDialog
+        open={deleteOpen}
+        title={deleteCopy.title}
+        body={deleteCopy.body}
+        confirmLabel={deleteCopy.confirm}
+        busyLabel={deleteCopy.busy}
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={() => { void confirmDelete(); }}
+        onCancel={closeDeleteDialog}
       />
 
       {/* Circle embed picker modal */}

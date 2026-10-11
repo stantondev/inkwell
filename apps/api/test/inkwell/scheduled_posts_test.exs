@@ -133,16 +133,18 @@ defmodule Inkwell.ScheduledPostsTest do
     assert entry.scheduled_at == nil
   end
 
-  test "the abandoned-drafts cleanup never deletes a scheduled post" do
+  test "the draft cleanup never deletes a scheduled post, and keeps old drafts with words" do
     user = create_user()
     scheduled = draft(user, %{scheduled_at: DateTime.to_iso8601(in_minutes(60 * 24 * 400))})
     plain = draft(user, %{title: "Forgotten", body_html: "<p>Never finished</p>"})
+    empty = draft(user, %{title: "", body_html: "<p></p>"})
     old = DateTime.add(DateTime.utc_now(), -400, :day)
-    Repo.update_all(from(e in Entry, where: e.id in ^[scheduled, plain]), set: [updated_at: old])
+    Repo.update_all(from(e in Entry, where: e.id in ^[scheduled, plain, empty]), set: [updated_at: old])
 
     Journals.cleanup_abandoned_drafts()
 
     assert Repo.get(Entry, scheduled)
-    refute Repo.get(Entry, plain)
+    assert Repo.get(Entry, plain)
+    refute Repo.get(Entry, empty)
   end
 end

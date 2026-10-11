@@ -2025,7 +2025,7 @@ defmodule InkwellWeb.FederationController do
       # Any remaining numeric entities (&#8217; / &#x2019;)
       Regex.replace(~r/&#(x[0-9a-fA-F]+|\d+);/, t, fn _, code ->
         case Integer.parse(String.trim_leading(code, "x"), if(String.starts_with?(code, "x"), do: 16, else: 10)) do
-          {n, _} when n > 0 and n <= 0x10FFFF -> <<n::utf8>>
+          {n, _} when n > 0 and n <= 0x10FFFF and n not in 0xD800..0xDFFF -> <<n::utf8>>
           _ -> ""
         end
       end)

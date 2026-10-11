@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-11-drafts",
+    date: "2026-10-11",
+    title: "A better Drafts page, and drafts that stay put",
+    body: "The Drafts page now shows all your drafts, not just the newest 20, with each one's opening lines, word count and who it's for. You can search and sort them, preview a draft as readers will see it, and select several to delete at once. You can also delete or discard a draft from inside the editor. Drafts are kept until you delete them (they used to be cleared after a year without edits), free accounts can have 25 on the go instead of 10, and scheduled and imported posts no longer count toward that.",
+    howTo: "Your journal → Drafts.",
+    href: "/drafts",
+    cta: "Open Drafts",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-11-avatar-frames",
     date: "2026-10-11",
     title: "Avatar frames are next to your avatar",

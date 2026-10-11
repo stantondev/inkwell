@@ -137,6 +137,31 @@ defmodule Inkwell.Journals.Entry do
     end
   end
 
+  # The word count follows the body on every save, whatever wrote it (editor,
+  # API, importer, stickies, Post by Email). It used to be computed only by the
+  # editor's endpoints, so imports and stickies were stored with 0 words.
+  defp put_word_count(changeset) do
+    html = get_field(changeset, :body_html)
+
+    if get_change(changeset, :body_html) != nil or
+         (get_field(changeset, :word_count) in [nil, 0] and is_binary(html)) do
+      put_change(changeset, :word_count, count_words(html))
+    else
+      changeset
+    end
+  end
+
+  @doc "Words in an HTML body: tags and entities count as spaces."
+  def count_words(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<[^>]+>/, " ")
+    |> String.replace(~r/&(nbsp|#160|#xa0);/i, " ")
+    |> String.split(~r/\s+/u, trim: true)
+    |> Enum.count(&String.match?(&1, ~r/[\p{L}\p{N}]/u))
+  end
+
+  def count_words(_), do: 0
+
   defp validate_sticky(changeset) do
     case get_field(changeset, :kind) do
       "sticky" ->
@@ -175,6 +200,7 @@ defmodule Inkwell.Journals.Entry do
       :circle_id, :circle_prompt_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
+    |> put_word_count()
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_sticky()
     |> validate_length(:title, max: 500)
@@ -250,6 +276,7 @@ defmodule Inkwell.Journals.Entry do
       :source
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
+    |> put_word_count()
     |> validate_required([:user_id])
     |> validate_not_future(:published_at)
     |> validate_schedule()
@@ -273,6 +300,7 @@ defmodule Inkwell.Journals.Entry do
       :published_at, :circle_id, :circle_prompt_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
+    |> put_word_count()
     |> validate_required([:body_html, :privacy])
     |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)

@@ -77,7 +77,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "drafts",
     question: "How do drafts work?",
     answer:
-      'Click <strong>Save draft</strong> instead of Publish to save your work without making it public. Find your drafts in the sidebar under <strong>Drafts</strong>. You can edit and publish them anytime. Free users can save up to 10 drafts; Plus users get unlimited.',
+      'Click <strong>Save draft</strong> instead of Publish to save your work without making it public. Find your drafts in the sidebar under <strong>Drafts</strong>. You can edit and publish them anytime. Your drafts save automatically while you write, and they\'re kept until you delete them. Free accounts can have 25 drafts on the go at once (scheduled and imported posts don\'t count); Plus has no limit. On the <a href="/drafts">Drafts</a> page you can search, sort, preview and delete them, one at a time or several at once.',
     category: "writing",
   },
   {

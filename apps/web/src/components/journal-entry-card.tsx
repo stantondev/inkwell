@@ -10,6 +10,7 @@ import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { getMusicLabel, songFrom } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
+import { readingMinutes } from "@/lib/reading-time";
 import { StickyNoteCard } from "@/components/sticky-note-card";
 import { ArchiveSeal } from "./archive-postmark";
 import { MoodIcon } from "./mood-icon";
@@ -189,7 +190,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
   const ago = timeAgo(entry.published_at);
 
   const readingMins = entry.word_count && entry.word_count > 0
-    ? Math.max(1, Math.round(entry.word_count / 200))
+    ? readingMinutes(entry.word_count)
     : null;
 
   // Compact mode for short fediverse posts (no title, short body)
@@ -617,7 +618,7 @@ function QuotedEntryCard({ quoted }: { quoted: NonNullable<JournalEntry["quoted_
     ? `/api/avatars/${quoted.author.username}`
     : quoted.author.avatar_url;
 
-  const readingTime = quoted.word_count ? Math.max(1, Math.round(quoted.word_count / 265)) : null;
+  const readingTime = quoted.word_count ? readingMinutes(quoted.word_count) : null;
 
   return (
     <div className="reprint-quoted-post" style={{ marginTop: "0.75rem" }}>

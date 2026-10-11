@@ -250,8 +250,8 @@ export default async function PrivacyPage() {
               notifications are retained until you read or dismiss them.
             </li>
             <li>
-              <strong>Drafts.</strong> Unpublished draft entries that have not been edited in over 12 months are
-              automatically deleted.
+              <strong>Drafts.</strong> Drafts are kept until you delete them. Drafts with nothing in them (no title,
+              text or pictures) are automatically cleared after 30 days.
             </li>
             <li>
               <strong>Uploaded Images.</strong> Images uploaded to journal entries that are not included in any entry are
@@ -270,7 +270,7 @@ export default async function PrivacyPage() {
             </li>
             <li>
               <strong>Automated Cleanup.</strong> We run automated processes daily to remove expired sessions, orphaned
-              files, old notifications, abandoned drafts, and revoked API keys in accordance with the retention periods
+              files, old notifications, empty drafts, and revoked API keys in accordance with the retention periods
               described above.
             </li>
           </ul>

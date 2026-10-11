@@ -8,7 +8,7 @@ defmodule InkwellWeb.EntryController do
   alias Inkwell.Workers.SearchIndexWorker
   alias InkwellWeb.{EntryPublishing, MarginNoteController, UserController}
 
-  @free_draft_limit 10
+  @free_draft_limit 25
 
   # GET /api/users/:username/entries — public listing
   def index(conn, %{"username" => username} = params) do
@@ -159,6 +159,7 @@ defmodule InkwellWeb.EntryController do
           result
           |> Map.put(:tip_total_cents, tip_stats.total_cents)
           |> Map.put(:tip_count, tip_stats.count)
+          |> put_owner_facts(entry)
         else
           result
         end
@@ -252,7 +253,11 @@ defmodule InkwellWeb.EntryController do
               InkwellWeb.PollController.render_poll(poll, my_vote)
           end
 
-        result = render_entry_full(entry, user) |> Map.put(:poll, poll_data) |> put_is_circle_prompt(entry)
+        result =
+          render_entry_full(entry, user)
+          |> Map.put(:poll, poll_data)
+          |> put_is_circle_prompt(entry)
+          |> put_owner_facts(entry)
         json(conn, %{data: result})
 
       {:error, :not_found} ->
@@ -275,8 +280,9 @@ defmodule InkwellWeb.EntryController do
 
     # Anti-spam: per-user creation rate limit (Free: 10/hr, Plus: 30/hr)
     with :ok <- check_entry_rate_limit(user.id, tier),
-         # Anti-spam: reject duplicate body_html within 60 seconds
-         :ok <- check_duplicate(user.id, params["body_html"]) do
+         # Anti-spam: reject duplicate body_html within 60 seconds. Drafts are
+         # private, and two new pages can start out identical (both blank).
+         :ok <- if(is_draft, do: :ok, else: check_duplicate(user.id, params["body_html"])) do
       create_entry(conn, params, user, is_draft, tier)
     else
       {:error, :rate_limited} ->
@@ -290,8 +296,10 @@ defmodule InkwellWeb.EntryController do
 
   defp create_entry(conn, params, user, is_draft, _tier) do
     if is_draft do
-      if (user.subscription_tier || "free") != "plus" && Journals.count_drafts(user.id) >= @free_draft_limit do
-        conn |> put_status(:unprocessable_entity) |> json(%{error: "draft_limit_reached"})
+      if draft_limit(user) && Journals.count_drafts_toward_limit(user.id) >= @free_draft_limit do
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "draft_limit_reached", limit: @free_draft_limit})
       else
       attrs =
         params
@@ -309,7 +317,6 @@ defmodule InkwellWeb.EntryController do
         |> sanitize_scheduled_options()
         |> Map.put("user_id", user.id)
         |> maybe_clear_custom_filter_id()
-        |> put_word_count()
         |> put_excerpt(nil)
 
       with {:ok, attrs} <- put_circle(attrs, params, user.id) do
@@ -346,7 +353,6 @@ defmodule InkwellWeb.EntryController do
         |> maybe_generate_slug(params)
         |> maybe_clear_custom_filter_id()
         |> maybe_auto_series_order()
-        |> put_word_count()
         |> put_excerpt(nil)
 
       with :ok <- validate_custom_filter_ownership(attrs, user.id),
@@ -405,7 +411,6 @@ defmodule InkwellWeb.EntryController do
         |> put_userpic(conn.assigns.current_user.id)
         |> sanitize_scheduled_options()
         |> maybe_clear_custom_filter_id()
-        |> put_word_count()
         |> put_excerpt(entry)
 
       # Only auto-assign series_order for published entries, not drafts
@@ -644,7 +649,6 @@ defmodule InkwellWeb.EntryController do
         |> put_userpic(conn.assigns.current_user.id)
           |> maybe_generate_slug(params)
           |> maybe_clear_custom_filter_id()
-          |> put_word_count()
           |> put_excerpt(entry)
 
         # Inherit series_id from the existing entry if not in publish params,
@@ -687,17 +691,50 @@ defmodule InkwellWeb.EntryController do
   end
 
   # GET /api/drafts — list current user's drafts
+  # ?page, ?per_page (max 100), ?q (title/body, 2+ chars), ?sort=updated|created|title
   def list_drafts(conn, params) do
     user = conn.assigns.current_user
-    page = parse_int(params["page"], 1)
-    per_page = parse_int(params["per_page"], 20)
+    page = max(parse_int(params["page"], 1), 1)
+    per_page = params["per_page"] |> parse_int(20) |> max(1) |> min(100)
+    sort = if params["sort"] in ["updated", "created", "title"], do: params["sort"], else: "updated"
+    opts = [page: page, per_page: per_page, q: params["q"], sort: sort]
 
-    drafts = Journals.list_drafts(user.id, page: page, per_page: per_page)
+    drafts = Journals.list_drafts(user.id, opts)
+    total = Journals.count_drafts_matching(user.id, opts)
 
     json(conn, %{
-      data: Enum.map(drafts, &render_entry/1),
-      pagination: %{page: page, per_page: per_page}
+      data: Enum.map(drafts, &render_draft/1),
+      pagination: %{page: page, per_page: per_page, total: total, total_pages: max(1, ceil(total / per_page))},
+      meta: %{
+        draft_limit: draft_limit(user),
+        counted: Journals.count_drafts_toward_limit(user.id),
+        scheduled: Journals.count_scheduled_drafts(user.id)
+      }
     })
+  end
+
+  defp render_draft(entry) do
+    entry
+    |> render_entry()
+    |> Map.put(:preview_text, preview_text(entry.body_html))
+  end
+
+  # The opening of a draft as plain text, for drafts without a title.
+  defp preview_text(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<(br|\/p|\/h[1-6]|\/li|\/blockquote|\/figcaption)[^>]*>/i, " ")
+    |> String.replace(~r/<[^>]+>/, "")
+    |> InkwellWeb.FederationController.decode_html_entities()
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+    |> String.slice(0, 200)
+  end
+
+  defp preview_text(_), do: ""
+
+  @doc "The free plan's draft limit for this user, or nil when there is none."
+  def draft_limit(user) do
+    if (user.subscription_tier || "free") == "plus", do: nil, else: @free_draft_limit
   end
 
   # DELETE /api/entries/:id
@@ -1000,6 +1037,22 @@ defmodule InkwellWeb.EntryController do
   end
 
   # ── Helpers ───────────────────────────────────────────────────────────────
+
+  # What only the writer sees about their own entry: how many reads it has
+  # had, and the name of the custom list it's shared with.
+  defp put_owner_facts(result, entry) do
+    filter_name =
+      if entry.custom_filter_id do
+        case Repo.preload(entry, :custom_filter).custom_filter do
+          %{name: name} -> name
+          _ -> nil
+        end
+      end
+
+    result
+    |> Map.put(:read_count, Map.get(Inkwell.Reads.counts_for_entries([entry.id]), entry.id, 0))
+    |> Map.put(:custom_filter_name, filter_name)
+  end
 
   defp viewer_in_custom_filter?(entry, viewer_id) do
     entry = Repo.preload(entry, :custom_filter)
@@ -1326,19 +1379,6 @@ defmodule InkwellWeb.EntryController do
     end
   end
   defp parse_int(val, _) when is_integer(val), do: val
-
-  # Compute word_count from body_html and put it into attrs
-  defp put_word_count(%{"body_html" => html} = attrs) when is_binary(html) do
-    count =
-      html
-      |> String.replace(~r/<[^>]+>/, " ")
-      |> String.split(~r/\s+/)
-      |> Enum.reject(&(&1 == ""))
-      |> length()
-
-    Map.put(attrs, "word_count", count)
-  end
-  defp put_word_count(attrs), do: attrs
 
   # Auto-populate excerpt from body_html if not provided
   # Auto-assign series_order when adding to a series

@@ -3,122 +3,57 @@ import Link from "next/link";
 import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { DraftsList } from "./drafts-list";
+import { DRAFTS_PER_PAGE, type DraftsResponse } from "./draft-types";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Drafts" };
-
-interface DraftEntry {
-  id: string;
-  title: string | null;
-  body_html: string | null;
-  mood: string | null;
-  tags: string[];
-  privacy: string;
-  updated_at: string;
-  scheduled_at?: string | null;
-}
 
 export default async function DraftsPage({ searchParams }: { searchParams: Promise<{ scheduled?: string }> }) {
   const { scheduled } = await searchParams;
   const session = await requireSession("/drafts");
 
-  let drafts: DraftEntry[] = [];
-  try {
-    const data = await apiFetch<{ data: DraftEntry[] }>(
-      "/api/drafts",
-      {},
-      session.token
-    );
-    drafts = data.data ?? [];
-  } catch {
-    // show empty
-  }
+  // No catch on purpose: a failed load used to render "No drafts yet", which
+  // told a writer with 200 drafts they had none. An outage now throws and
+  // shows the self-recovering "Reconnecting" screen instead.
+  const res = await apiFetch<Partial<DraftsResponse>>(
+    `/api/drafts?page=1&per_page=${DRAFTS_PER_PAGE}&sort=updated`,
+    {},
+    session.token
+  );
+  const drafts = res.data ?? [];
+  const pagination = res.pagination ?? {
+    page: 1,
+    per_page: DRAFTS_PER_PAGE,
+    total: drafts.length,
+    total_pages: 1,
+  };
+  const meta = res.meta ?? { draft_limit: null, counted: drafts.length, scheduled: 0 };
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
       <div className="mx-auto max-w-4xl px-4 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-            >
-              Drafts
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-              Your unpublished work
-              {drafts.length > 1 && (
-                <>
-                  {" · "}
-                  <Link href="/manage?status=draft" className="hover:underline" style={{ color: "var(--accent)" }}>
-                    Manage in bulk
-                  </Link>
-                </>
-              )}
-            </p>
-          </div>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <h1
+            className="text-2xl font-bold"
+            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          >
+            Drafts
+          </h1>
           <Link
             href="/editor"
-            className="rounded-full px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ background: "var(--accent)", color: "#fff" }}
+            className="rounded-full px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80 flex-shrink-0"
+            style={{ background: "var(--accent)", color: "var(--background)" }}
           >
             + New entry
           </Link>
         </div>
 
-        {scheduled && (
-          <div
-            role="status"
-            className="rounded-xl border px-4 py-3 mb-6 text-sm"
-            style={{ borderColor: "var(--accent)", background: "var(--accent-light)", color: "var(--foreground)" }}
-          >
-            Scheduled. It will publish itself at the time you picked, and stays here until then so you can keep editing it.
-          </div>
-        )}
-
-        {/* Draft capacity indicator for free users */}
-        {session.user.subscription_tier !== "plus" && (() => {
-          const count = session.user.draft_count ?? drafts.length;
-          const limit = 10;
-          const pct = (count / limit) * 100;
-          if (pct < 70) {
-            return (
-              <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
-                {count} of {limit} drafts
-              </p>
-            );
-          }
-          const isAtLimit = count >= limit;
-          return (
-            <div
-              className="rounded-lg border px-4 py-3 mb-4 text-xs"
-              style={{
-                borderColor: isAtLimit ? "var(--danger)" : "var(--warning, #b45309)",
-                background: isAtLimit ? "rgba(220, 38, 38, 0.06)" : "rgba(180, 83, 9, 0.06)",
-                color: isAtLimit ? "var(--danger)" : "var(--warning, #b45309)",
-              }}
-            >
-              {isAtLimit ? (
-                <p>
-                  All {limit} draft slots full. Publish or remove a draft, or{" "}
-                  <Link href="/settings/billing" style={{ textDecoration: "underline" }}>
-                    upgrade to Plus
-                  </Link>{" "}
-                  for unlimited drafts.
-                </p>
-              ) : (
-                <p>
-                  {count} of {limit} drafts used.{" "}
-                  <Link href="/settings/billing" style={{ textDecoration: "underline" }}>
-                    Unlimited with Plus
-                  </Link>.
-                </p>
-              )}
-            </div>
-          );
-        })()}
-
-        <DraftsList initialDrafts={drafts} />
+        <DraftsList
+          initialDrafts={drafts}
+          initialPagination={pagination}
+          initialMeta={meta}
+          showScheduledNotice={!!scheduled}
+        />
       </div>
     </div>
   );

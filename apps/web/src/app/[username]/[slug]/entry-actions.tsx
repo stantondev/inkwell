@@ -1,53 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { DeleteEntryDialog } from "./delete-entry-dialog";
+import styles from "./entry-page.module.css";
 
+/**
+ * Edit/History/Delete as plain buttons. The writer's own entry page uses the
+ * "Your entry" strip (owner-strip.tsx) instead; this is what an admin sees on
+ * someone else's entry or sticky (showEdit=false).
+ */
 export function EntryActions({ entryId, username, showEdit = true }: { entryId: string; username: string; showEdit?: boolean }) {
-  const router = useRouter();
-  const [deleting, setDeleting] = useState(false);
-
-  async function handleDelete() {
-    if (!confirm("Permanently delete this entry? This cannot be undone.")) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/entries/${entryId}`, { method: "DELETE" });
-      if (res.ok || res.status === 204) {
-        router.push(`/${username}`);
-      }
-    } finally {
-      setDeleting(false);
-    }
-  }
+  const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {showEdit && (
         <>
-          <Link href={`/editor?edit=${entryId}`}
-            className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors"
-            style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+          <Link href={`/editor?edit=${entryId}`} className={styles.ownerButton}>
             Edit
           </Link>
-          <Link href={`/editor/history?entry=${entryId}`}
-            className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors flex items-center gap-1"
-            style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-            title="Version history">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+          <Link href={`/editor/history?entry=${entryId}`} className={styles.ownerButton} title="Version history">
             History
           </Link>
         </>
       )}
-      <button onClick={handleDelete} disabled={deleting}
-        className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50"
-        style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-        {deleting ? "Deleting…" : "Delete"}
+      <button type="button" onClick={() => setConfirming(true)} className={styles.adminDelete}>
+        Delete
       </button>
+      <DeleteEntryDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        entryId={entryId}
+        username={username}
+        ownEntry={showEdit}
+      />
     </div>
   );
 }

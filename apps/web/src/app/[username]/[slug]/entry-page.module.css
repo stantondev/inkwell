@@ -1,0 +1,350 @@
+/* Entry page: the owner's strip, its menu, the delete dialog, the
+   "Published" note. Also used by /preview/[id]. Colours are tokens only. */
+
+/* ── Owner strip ─────────────────────────────────────────────── */
+
+.ownerStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.875rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ownerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.ownerLabel {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  color: var(--foreground);
+}
+
+.factSep {
+  color: var(--border);
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.factLink {
+  composes: fact;
+  white-space: nowrap;
+  color: var(--muted);
+  text-decoration: none;
+}
+.factLink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.ownerButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+.ownerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.ownerButton:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ownerButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.iconButton {
+  composes: ownerButton;
+  padding: 0;
+  width: 2.25rem;
+}
+
+.ownerError {
+  flex-basis: 100%;
+  font-size: 0.8125rem;
+  color: var(--danger);
+}
+
+@media (max-width: 639px) {
+  .ownerButton {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+  .iconButton {
+    width: 2.75rem;
+  }
+}
+
+/* ── ⋯ menu (inside FloatingPopup) ───────────────────────────── */
+
+.menu {
+  min-width: 13rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--surface-hover, var(--accent-light));
+  outline: none;
+}
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.menuItem svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.menuHint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 0.35rem 0.25rem;
+  background: var(--border);
+}
+
+.menuDanger {
+  composes: menuItem;
+  color: var(--danger);
+}
+.menuDanger svg {
+  color: var(--danger);
+}
+
+@media (max-width: 639px) {
+  .menuItem {
+    min-height: 2.75rem;
+  }
+}
+
+/* ── Delete dialog ───────────────────────────────────────────── */
+
+.dialog {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 20px 48px -16px color-mix(in srgb, var(--foreground) 30%, transparent);
+}
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.dialogTitle {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.dialogBody {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.dialogError {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  color: var(--danger);
+}
+
+.dialogButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.dialogCancel {
+  composes: ownerButton;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+}
+
+.dialogDelete {
+  composes: ownerButton;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--background);
+}
+.dialogDelete:hover {
+  border-color: var(--danger);
+  color: var(--background);
+  opacity: 0.9;
+}
+.dialogDelete:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Admin-only delete on someone else's entry */
+.adminDelete {
+  composes: ownerButton;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.adminDelete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  opacity: 0.85;
+}
+
+/* ── "Published." note ───────────────────────────────────────── */
+
+.publishedNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+
+.publishedText {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.publishedText strong {
+  font-family: var(--font-lora, Georgia, serif);
+}
+
+.publishedText span {
+  color: var(--muted);
+}
+
+/* ── Preview banner (/preview/[id]) ──────────────────────────── */
+
+.previewBanner {
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-light);
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+@media (min-width: 1024px) {
+  .previewBanner {
+    position: sticky;
+    top: 0;
+  }
+
+  /* Clear of the fixed "Menu" pill that brings a hidden sidebar back. */
+  :global(body[data-sidebar-hidden]) .previewBanner {
+    padding-left: 7.5rem;
+  }
+}
+
+.previewText {
+  flex: 1 1 16rem;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.previewText strong {
+  font-family: var(--font-lora, Georgia, serif);
+}
+
+.previewMuted {
+  color: var(--muted);
+}
+
+.previewButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.previewPrimary {
+  composes: ownerButton;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--background);
+}
+.previewPrimary:hover {
+  color: var(--background);
+  opacity: 0.9;
+}

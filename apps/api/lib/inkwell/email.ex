@@ -383,7 +383,7 @@ defmodule Inkwell.Email do
       Calendar.strftime(DateTime.utc_now(), "%B %d, %Y")
     end
 
-    reading_time = max(1, div(entry.word_count || 0, 250))
+    reading_time = max(1, round((entry.word_count || 0) / 230))
 
     cover_image_html = if entry.cover_image_id do
       """
