@@ -252,18 +252,19 @@ defmodule Inkwell.Moderation.AutoModeration do
 
     entry_texts = Enum.flat_map(entries, &[&1.title || "", strip(&1.body_html)])
     social = user.social_links |> Kernel.||(%{}) |> Map.values() |> Enum.filter(&is_binary/1)
+    {home_texts, home_links} = Inkwell.ProfileHome.writing(user.profile_home)
 
     %{
       email_domain: email_domain(user.email),
       learned_spam_domains: learned,
       minutes_to_first_post: first_post && DateTime.diff(first_post, user.inserted_at, :second) / 60,
       texts:
-        Enum.reject(entry_texts ++ Enum.map(comments, &strip/1) ++ guestbook ++ [strip(user.bio_html || user.bio)], &(&1 in [nil, ""])),
+        Enum.reject(entry_texts ++ Enum.map(comments, &strip/1) ++ guestbook ++ [strip(user.bio_html || user.bio)] ++ home_texts, &(&1 in [nil, ""])),
       links:
         Enum.flat_map(entries, &SpamSignals.extract_links(&1.body_html)) ++
           Enum.flat_map(comments, &SpamSignals.extract_links/1) ++
           Enum.flat_map(guestbook, &SpamSignals.extract_links/1),
-      profile_links: SpamSignals.extract_links(user.bio_html || user.bio) ++ social,
+      profile_links: SpamSignals.extract_links(user.bio_html || user.bio) ++ social ++ home_links,
       interactions: interactions,
       engagement: engagement,
       reports: reports,

@@ -134,14 +134,23 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
 
   // ── Your space ───────────────────────────────────────────────────────
   {
+    id: "arrange",
+    href: "/arrange",
+    title: "Arrange your page",
+    blurb: "Move things around your profile, add notes, photos, quotes and countdowns, and pick a layout.",
+    icon: I.palette,
+    group: "space",
+    keywords: ["layout", "arrange", "widgets", "drag", "photo", "note", "scrapbook", "magazine", "minimal", "columns", "sidebar"],
+  },
+  {
     id: "customize",
     href: "/settings/customize",
     title: "Customise",
     blurb:
-      "Themes, colours, fonts, layouts, background and banner images, profile music, and custom HTML and CSS.",
+      "Themes, colours, fonts, background and banner images, profile music, and custom HTML and CSS.",
     icon: I.palette,
     group: "space",
-    keywords: ["theme", "colour", "color", "font", "layout", "css", "html", "music", "banner", "magazine"],
+    keywords: ["theme", "colour", "color", "font", "css", "html", "music", "banner"],
   },
   {
     id: "pinned",

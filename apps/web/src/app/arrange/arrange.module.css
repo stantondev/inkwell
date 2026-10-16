@@ -1,0 +1,810 @@
+/* Arrange my page. The page itself is drawn in the writer's theme; the
+   editing chrome (bars, outlines, panels) uses its own --arrange-* tokens so
+   it reads the same on every theme. */
+
+/* Tokens live on the editor and on the panels, which render outside it (portals). */
+.shell,
+.tray,
+.sheet {
+  --arrange-ink: #2d4a8a;
+  --arrange-ink-soft: rgba(45, 74, 138, 0.1);
+  --arrange-line: rgba(45, 74, 138, 0.35);
+  --arrange-panel: #fbfaf7;
+  --arrange-panel-ink: #1f1b16;
+  --arrange-panel-muted: #6b645a;
+  --arrange-panel-line: #e3ddd1;
+  --arrange-bar: rgba(255, 255, 255, 0.92);
+}
+
+.shell {
+  min-height: 100vh;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shell,
+  .tray,
+  .sheet {
+    --arrange-ink: #8fb0ea;
+    --arrange-ink-soft: rgba(143, 176, 234, 0.14);
+    --arrange-line: rgba(143, 176, 234, 0.4);
+    --arrange-panel: #1d1b18;
+    --arrange-panel-ink: #f1ece2;
+    --arrange-panel-muted: #a8a093;
+    --arrange-panel-line: #36322b;
+    --arrange-bar: rgba(29, 27, 24, 0.94);
+  }
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  padding: 0.55rem max(0.75rem, env(safe-area-inset-left)) 0.55rem max(0.75rem, env(safe-area-inset-right));
+  background: var(--arrange-bar);
+  color: var(--arrange-panel-ink);
+  border-bottom: 1px solid var(--arrange-panel-line);
+  backdrop-filter: blur(8px);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.875rem;
+}
+
+.toolTitle {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-weight: 600;
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.toolGroup {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.toolBtn,
+.toolLink,
+.textBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.25rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toolBtn:hover:not(:disabled),
+.toolLink:hover {
+  background: var(--arrange-ink-soft);
+}
+.toolBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.toolPrimaryOutline {
+  border-color: var(--arrange-ink);
+  color: var(--arrange-ink);
+  font-weight: 600;
+}
+
+.toolStatus {
+  color: var(--arrange-panel-muted);
+  font-size: 0.8rem;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saveBtn {
+  min-height: 2.25rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--arrange-ink);
+  color: var(--arrange-panel);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.saveBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.segment {
+  display: inline-flex;
+  border: 1px solid var(--arrange-panel-line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.segment button {
+  min-height: 2.1rem;
+  min-width: 2.4rem;
+  padding: 0 0.6rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.segment button[aria-pressed="true"] {
+  background: var(--arrange-ink);
+  color: var(--arrange-panel);
+}
+
+.menuWrap {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: min(20rem, 88vw);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--arrange-panel-line);
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.35);
+}
+.menuHeading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--arrange-panel-muted);
+  padding: 0.5rem 0.5rem 0.3rem;
+}
+.menuItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--arrange-ink-soft);
+}
+.menuItem span {
+  font-size: 0.8rem;
+  color: var(--arrange-panel-muted);
+}
+
+@media (max-width: 639px) {
+  .hideSmall,
+  .viewToggle {
+    display: none;
+  }
+  .toolTitle {
+    display: none;
+  }
+  .toolStatus {
+    order: 10;
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .toolStatusEmpty {
+    display: none;
+  }
+  .toolbar {
+    gap: 0.3rem 0.2rem;
+  }
+  .toolBtn,
+  .toolLink {
+    padding: 0 0.45rem;
+  }
+  .saveBtn {
+    padding: 0 0.85rem;
+    margin-left: auto;
+  }
+}
+
+/* ── Canvas ──────────────────────────────────────────────────────────── */
+
+.canvas {
+  transition: max-width 0.2s ease;
+}
+.phone {
+  max-width: 390px;
+  padding: 0.75rem;
+  border: 1px solid var(--arrange-line);
+  border-radius: 28px;
+  box-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.45);
+}
+
+.section {
+  position: relative;
+  padding: 0.5rem;
+  border: 1.5px dashed var(--arrange-line);
+  border-radius: 14px;
+}
+
+.sectionBar,
+.blockBar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  color: var(--arrange-ink);
+}
+.sectionBar {
+  margin-bottom: 0.5rem;
+}
+.sectionName {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 0.3rem;
+}
+.sectionSelect select {
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--arrange-line);
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  font: inherit;
+}
+.spacer {
+  flex: 1;
+}
+
+.iconBtn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.iconBtn:hover:not(:disabled) {
+  background: var(--arrange-ink-soft);
+}
+.iconBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.textBtn {
+  min-height: 2rem;
+  padding: 0 0.6rem;
+  font-weight: 600;
+  color: var(--arrange-ink);
+  border: 1px solid var(--arrange-line);
+}
+
+.column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 5rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  transition: background 0.15s ease, outline-color 0.15s ease;
+  outline: 2px solid transparent;
+}
+.columnFlow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-items: start;
+}
+.columnOver {
+  background: var(--arrange-ink-soft);
+}
+.columnTargeted {
+  outline-color: var(--arrange-line);
+}
+.emptyColumn {
+  margin: auto;
+  padding: 1rem;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--arrange-panel-muted);
+}
+
+.resizer {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  right: -1.3rem;
+  width: 0.8rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 3;
+}
+.resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--arrange-line);
+}
+.resizer:hover::after,
+.resizer:focus-visible::after {
+  background: var(--arrange-ink);
+}
+
+/* ── Blocks ──────────────────────────────────────────────────────────── */
+
+.block {
+  position: relative;
+  border-radius: 12px;
+  background: var(--arrange-ink-soft);
+  padding: 0.3rem 0.45rem 0.6rem;
+  outline: 1.5px solid var(--arrange-line);
+  touch-action: manipulation;
+}
+.blockDragging {
+  opacity: 0.35;
+}
+.blockFlash {
+  animation: arrange-flash 1.5s ease;
+}
+@keyframes arrange-flash {
+  0%,
+  40% {
+    outline-color: var(--arrange-ink);
+    outline-width: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .blockFlash {
+    animation: none;
+    outline-color: var(--arrange-ink);
+  }
+}
+.blockBar {
+  margin-bottom: 0.35rem;
+}
+.grip {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  touch-action: none;
+}
+.grip:active {
+  cursor: grabbing;
+}
+.grip:hover,
+.grip:focus-visible {
+  background: var(--arrange-ink-soft);
+}
+.blockLabel {
+  font-weight: 600;
+}
+.blockBody {
+  max-height: 22rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+}
+.blockEmpty {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1.5px dashed var(--arrange-line);
+  background: transparent;
+  color: var(--arrange-panel-muted);
+  font: 0.85rem/1.4 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.blockEmpty:disabled {
+  cursor: default;
+}
+.chip {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--arrange-ink-soft);
+  color: var(--arrange-ink);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+}
+
+.dragChip {
+  display: inline-block;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: var(--arrange-ink);
+  color: var(--arrange-panel);
+  font: 600 0.85rem system-ui, sans-serif;
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+}
+
+/* ── Adding rows ─────────────────────────────────────────────────────── */
+
+.insertRow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0.4rem 0;
+}
+.insertBtn {
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  border: 1px dashed var(--arrange-line);
+  background: var(--arrange-panel);
+  color: var(--arrange-ink);
+  font: 600 0.75rem system-ui, sans-serif;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.insertBtn:hover,
+.insertBtn:focus-visible,
+.insertBtn[aria-expanded="true"] {
+  opacity: 1;
+}
+.presetPicker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.4rem;
+  width: min(40rem, 100%);
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 12px;
+  border: 1px solid var(--arrange-panel-line);
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.35);
+}
+.presetBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: 0.72rem system-ui, sans-serif;
+  cursor: pointer;
+}
+.presetBtn:hover,
+.presetBtn:focus-visible {
+  border-color: var(--arrange-line);
+}
+.sketch {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  width: 5rem;
+  height: 2rem;
+}
+.sketch i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--arrange-line);
+}
+
+/* ── Tray and settings panels ────────────────────────────────────────── */
+
+.tray,
+.sheet {
+  position: fixed;
+  z-index: 60;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(24rem, 100vw);
+  overflow-y: auto;
+  padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  border-left: 1px solid var(--arrange-panel-line);
+  box-shadow: -18px 0 40px -24px rgba(0, 0, 0, 0.45);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+}
+.sheet {
+  z-index: 62;
+}
+.sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+}
+@media (max-width: 639px) {
+  .tray,
+  .sheet {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 72dvh;
+    border-left: none;
+    border-top: 1px solid var(--arrange-panel-line);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -18px 40px -24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.trayHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.trayHead h2 {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.trayHint,
+.fieldHint {
+  color: var(--arrange-panel-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.trayHeading {
+  margin: 1.1rem 0 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--arrange-panel-muted);
+}
+.trayGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.trayItem {
+  display: flex;
+  align-items: stretch;
+  border-radius: 10px;
+  border: 1px solid var(--arrange-panel-line);
+  background: var(--arrange-panel);
+}
+.trayItemDragging {
+  opacity: 0.4;
+}
+.trayAdd {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px 0 0 10px;
+}
+.trayAdd:hover,
+.trayAdd:focus-visible {
+  background: var(--arrange-ink-soft);
+}
+.trayAdd strong {
+  display: block;
+  font-size: 0.88rem;
+}
+.trayAdd span span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--arrange-panel-muted);
+}
+.trayIcon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--arrange-ink-soft);
+  color: var(--arrange-ink);
+  font-size: 0.95rem;
+}
+.trayGrip {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  border: none;
+  border-left: 1px solid var(--arrange-panel-line);
+  background: transparent;
+  color: var(--arrange-panel-muted);
+  cursor: grab;
+  touch-action: none;
+  border-radius: 0 10px 10px 0;
+}
+
+.doneBtn {
+  min-height: 2.2rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--arrange-ink);
+  color: var(--arrange-panel);
+  font: 600 0.85rem system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.6rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+.field > span,
+.field legend {
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}
+.field input,
+.field textarea,
+.row input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--arrange-panel-line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+.field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.field input:focus,
+.field textarea:focus,
+.row input:focus {
+  outline: 2px solid var(--arrange-ink);
+  outline-offset: 1px;
+}
+.count {
+  align-self: flex-end;
+  color: var(--arrange-panel-muted);
+  font-size: 0.72rem;
+}
+.fieldError {
+  color: #b42318;
+  font-size: 0.8rem;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.choices button,
+.suggestions button {
+  min-height: 2.1rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--arrange-panel-line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.choices button[aria-pressed="true"] {
+  background: var(--arrange-ink);
+  border-color: var(--arrange-ink);
+  color: var(--arrange-panel);
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.swatches {
+  display: flex;
+  gap: 0.45rem;
+}
+.swatch {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  border: 1px solid var(--arrange-panel-line);
+  cursor: pointer;
+}
+.swatch[aria-pressed="true"] {
+  outline: 2.5px solid var(--arrange-ink);
+  outline-offset: 2px;
+}
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+.photoPreview {
+  max-height: 12rem;
+  width: auto;
+  max-width: 100%;
+  border-radius: 6px;
+  object-fit: contain;
+  align-self: flex-start;
+}
+.uploadBtn {
+  align-self: flex-start;
+  min-height: 2.3rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--arrange-ink);
+  background: transparent;
+  color: var(--arrange-ink);
+  font: 600 0.85rem system-ui, sans-serif;
+  cursor: pointer;
+}
+.check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.check input {
+  margin-top: 0.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.check small {
+  display: block;
+  color: var(--arrange-panel-muted);
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+/* The sidebar's "Menu" pill sits in the top-left corner when the sidebar is
+   hidden; keep the bar's first button clear of it. */
+@media (min-width: 1024px) {
+  :global(body[data-sidebar-hidden]) .toolbar {
+    padding-left: 112px;
+  }
+}

@@ -136,8 +136,7 @@ defmodule InkwellWeb.UserController do
     # Plus-only profile customization fields (silently stripped for free users)
     plus_fields = [
       "profile_music", "profile_background_color", "profile_accent_color",
-      "profile_foreground_color", "profile_font", "profile_layout",
-      "profile_widgets", "avatar_animation",
+      "profile_foreground_color", "profile_font", "avatar_animation",
       "profile_effect", "profile_effect_intensity"
     ]
 

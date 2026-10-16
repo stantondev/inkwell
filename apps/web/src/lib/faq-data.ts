@@ -47,7 +47,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "what-is-plus",
     question: "What is Inkwell Plus?",
     answer:
-      'Inkwell Plus ($5/month) unlocks custom colors, fonts, layouts, background images, profile music, avatar frames and animations, custom HTML/CSS, custom domains, the First Class stamp, unlimited drafts, extended newsletter sends, and API write access. <a href="/settings/billing">Learn more</a>.',
+      'Inkwell Plus ($5/month) unlocks custom colors, fonts, background images, profile music, avatar animations, custom HTML/CSS, custom domains, the First Class stamp, unlimited drafts, extended newsletter sends, and API write access. <a href="/settings/billing">Learn more</a>.',
     category: "account",
   },
   {
@@ -279,7 +279,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "customize-profile",
     question: "How do I customize my profile?",
     answer:
-      'Go to <a href="/settings/customize">Settings &rarr; Customize</a>. All users get 8 themes, a status message, bio formatting, social links, and a banner image. Avatar frames are on <a href="/settings/avatar">Settings &rarr; Avatar</a>, next to your picture. Plus users also get custom colors, fonts, layouts, backgrounds, music, widget ordering, and custom HTML/CSS.',
+      'To arrange your page, choose <strong>Arrange page</strong> on your profile (or go to <a href="/arrange">Arrange your page</a>): drag things where you want them, change a row\'s columns, add notes, photos, quotes, a "Currently" list, countdowns and links, start from a layout or press Shuffle. It\'s free for everyone. To change how it looks, go to <a href="/settings/customize">Settings &rarr; Customize</a>: all users get 8 themes, a status message, bio formatting, social links and a banner image. Avatar frames are on <a href="/settings/avatar">Settings &rarr; Avatar</a>. Plus users also get custom colors, fonts, backgrounds, music and custom HTML/CSS.',
     category: "customization",
   },
   {
@@ -316,7 +316,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus ($5/month or $50/year, with a free 14-day trial) includes: reader stats (reads by day, most-read entries, where readers came from); custom profile colors, fonts, layouts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
+      'Plus ($5/month or $50/year, with a free 14-day trial) includes: reader stats (reads by day, most-read entries, where readers came from); custom profile colors, fonts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
     category: "billing",
   },
   {

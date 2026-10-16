@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { PROFILE_THEMES, PROFILE_FONTS, PROFILE_LAYOUTS } from "@/lib/profile-themes";
+import { PROFILE_THEMES, PROFILE_FONTS } from "@/lib/profile-themes";
 import { resizeBackgroundImage } from "@/lib/image-utils";
 import { parseMusicUrl } from "@/lib/music";
 import { MusicPlayer } from "@/components/music-player";
@@ -43,8 +43,6 @@ interface ProfileUser {
   settings?: { entries_per_page?: Record<string, number>; [key: string]: unknown } | null;
 }
 
-// The widgets in the sidebar or widget band (Inkwell.ProfileHome.from_legacy).
-const DEFAULT_WIDGET_ORDER = ["top_pals", "tags", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
 
 const PLUS_GATE_COPY: Record<string, { headline: string; detail: string }> = {
   "Custom colors": {
@@ -176,19 +174,10 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     profile_background_url: user.profile_background_url ?? "",
     profile_banner_url: user.profile_banner_url ?? "",
     profile_font: user.profile_font ?? "default",
-    profile_layout: user.profile_layout ?? "classic",
     profile_music: user.profile_music ?? "",
     profile_html: user.profile_html ?? "",
     profile_css: user.profile_css ?? "",
     profile_entry_display: user.profile_entry_display ?? "cards",
-  });
-
-  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
-    const saved = (user.profile_widgets as { order?: string[] })?.order?.filter((w) => DEFAULT_WIDGET_ORDER.includes(w));
-    if (!saved) return DEFAULT_WIDGET_ORDER;
-    // Merge any new widget types that weren't in the saved order
-    const missing = DEFAULT_WIDGET_ORDER.filter((w) => !saved.includes(w));
-    return [...saved, ...missing];
   });
 
   const PER_PAGE_OPTIONS: Record<string, number[]> = {
@@ -295,26 +284,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     setForm((f) => ({ ...f, profile_banner_url: "" }));
   }
 
-  function moveWidget(index: number, direction: "up" | "down") {
-    const newOrder = [...widgetOrder];
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= newOrder.length) return;
-    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
-    setWidgetOrder(newOrder);
-    setStatus("idle");
-  }
-
-  const widgetLabels: Record<string, string> = {
-    top_pals: "Top Pen Pals",
-    tags: "Tags",
-    support: "Support link",
-    newsletter: "Newsletter",
-    series: "Series",
-    guestbook: "Guestbook",
-    music: "Now Playing",
-    custom_html: "Custom HTML",
-  };
-
   async function handleSave() {
     setSaving(true);
     setStatus("idle");
@@ -345,9 +314,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
           profile_accent_color: form.profile_accent_color || null,
           profile_foreground_color: form.profile_foreground_color || null,
           profile_font: form.profile_font || null,
-          profile_layout: form.profile_layout || null,
           profile_music: form.profile_music || null,
-          profile_widgets: { order: widgetOrder },
         });
       }
 
@@ -409,6 +376,20 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <Link
+        href="/arrange"
+        className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[var(--accent)]"
+        style={{ borderColor: "var(--accent)", background: "var(--surface)" }}
+      >
+        <span className="text-sm">
+          <span className="font-medium">Arrange your page</span>
+          <span className="block text-xs" style={{ color: "var(--muted)" }}>
+            Move things around, add notes, photos, quotes and more, and choose a layout. Free for everyone.
+          </span>
+        </span>
+        <span className="text-sm whitespace-nowrap" style={{ color: "var(--accent)" }}>Arrange →</span>
+      </Link>
+
       <Link
         href="/settings/avatar"
         className="rounded-xl border p-4 flex items-center justify-between gap-3 transition-colors hover:border-[var(--accent)]"
@@ -620,12 +601,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
           Choose how journal entries appear on your profile page.
         </p>
-        {isPlus && form.profile_layout === "magazine" && (
-          <p className="text-xs mb-3 rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-            You&apos;re using the Magazine layout, which shows entries its own way (a featured entry,
-            then two columns). This choice applies when you switch to another layout.
-          </p>
-        )}
         <div className="flex flex-col gap-2">
           {([
             { id: "cards", label: "Cards", desc: "Visual grid with cover images, excerpts, and tags" },
@@ -868,31 +843,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         )}
       </Section>
 
-      {/* Layout */}
-      <Section title="Layout" defaultOpen={false}>
-        {isPlus ? (
-          <div className="grid grid-cols-2 gap-2">
-            {PROFILE_LAYOUTS.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => updateForm("profile_layout", l.id)}
-                className="rounded-lg border p-3 text-left transition-all"
-                style={{
-                  borderColor: form.profile_layout === l.id ? "var(--accent)" : "var(--border)",
-                  borderWidth: form.profile_layout === l.id ? 2 : 1,
-                }}>
-                <LayoutSketch id={l.id} active={form.profile_layout === l.id} />
-                <p className="text-sm font-medium mt-2">{l.name}</p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>{l.description}</p>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <PlusGate feature="Custom layouts" />
-        )}
-      </Section>
-
       {/* Profile Music */}
       <Section title="Profile Music" defaultOpen={false}>
         {listeningShown && (
@@ -931,45 +881,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         )}
       </Section>
 
-      {/* Widget Ordering */}
-      <Section title="Profile Sections Order" defaultOpen={false}>
-        {isPlus ? (
-          <div className="flex flex-col gap-1">
-            {widgetOrder.map((widget, i) => (
-              <div key={widget} className="flex items-center gap-2 py-1.5 px-3 rounded-lg border"
-                style={{ borderColor: "var(--border)" }}>
-                <span className="text-xs font-mono" style={{ color: "var(--muted)" }}>{i + 1}</span>
-                <span className="flex-1 text-sm">{widgetLabels[widget] ?? widget}</span>
-                <button
-                  type="button"
-                  onClick={() => moveWidget(i, "up")}
-                  disabled={i === 0}
-                  className="p-1 rounded disabled:opacity-20 hover:bg-[var(--surface-hover)] transition-colors"
-                  aria-label="Move up">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="18 15 12 9 6 15" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveWidget(i, "down")}
-                  disabled={i === widgetOrder.length - 1}
-                  className="p-1 rounded disabled:opacity-20 hover:bg-[var(--surface-hover)] transition-colors"
-                  aria-label="Move down">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <PlusGate feature="Widget ordering" />
-        )}
-      </Section>
-
       {/* Custom HTML & CSS */}
       <Section title="Custom HTML & CSS" defaultOpen={false}>
         {isPlus ? (
@@ -1005,55 +916,5 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         </a>
       </div>
     </div>
-  );
-}
-
-/** A tiny wireframe of each profile layout, so the choice is visible before saving. */
-function LayoutSketch({ id, active }: { id: string; active: boolean }) {
-  const ink = active ? "var(--accent)" : "var(--muted)";
-  const soft = { fill: ink, opacity: 0.18 } as const;
-  const line = { fill: ink, opacity: 0.45 } as const;
-  return (
-    <svg viewBox="0 0 120 72" className="w-full h-auto rounded" style={{ background: "var(--background)" }} aria-hidden="true">
-      {/* header */}
-      <rect x="8" y="6" width="104" height="10" rx="2" style={soft} />
-      {id === "classic" && (
-        <>
-          <rect x="8" y="22" width="68" height="14" rx="2" style={soft} />
-          <rect x="8" y="40" width="68" height="14" rx="2" style={soft} />
-          <rect x="8" y="58" width="68" height="8" rx="2" style={soft} />
-          <rect x="82" y="22" width="30" height="20" rx="2" style={line} />
-          <rect x="82" y="46" width="30" height="20" rx="2" style={line} />
-        </>
-      )}
-      {id === "wide" && (
-        <>
-          <rect x="8" y="22" width="32" height="18" rx="2" style={soft} />
-          <rect x="44" y="22" width="32" height="18" rx="2" style={soft} />
-          <rect x="80" y="22" width="32" height="18" rx="2" style={soft} />
-          <rect x="8" y="46" width="104" height="2" rx="1" style={line} />
-          <rect x="8" y="52" width="32" height="14" rx="2" style={line} />
-          <rect x="44" y="52" width="32" height="14" rx="2" style={line} />
-          <rect x="80" y="52" width="32" height="14" rx="2" style={line} />
-        </>
-      )}
-      {id === "minimal" && (
-        <>
-          <rect x="34" y="22" width="52" height="3" rx="1" style={line} />
-          <rect x="34" y="28" width="52" height="10" rx="2" style={soft} />
-          <rect x="34" y="42" width="52" height="3" rx="1" style={line} />
-          <rect x="34" y="48" width="52" height="10" rx="2" style={soft} />
-          <rect x="34" y="62" width="52" height="4" rx="1" style={soft} />
-        </>
-      )}
-      {id === "magazine" && (
-        <>
-          <rect x="8" y="22" width="104" height="22" rx="2" style={soft} />
-          <rect x="12" y="36" width="50" height="4" rx="1" style={line} />
-          <rect x="8" y="48" width="50" height="18" rx="2" style={soft} />
-          <rect x="62" y="48" width="50" height="18" rx="2" style={soft} />
-        </>
-      )}
-    </svg>
   );
 }

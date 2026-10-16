@@ -43,14 +43,20 @@ defmodule Inkwell.ProfileHome do
   @version 1
 
   # Blocks that appear at most once on a page.
-  @singletons ~w[profile_card entries pinned top_pals tags series music guestbook support newsletter custom_html rss]
-  # Blocks a page may hold several of.
-  @repeatables ~w[divider]
+  @singletons ~w[profile_card entries pinned top_pals tags series music guestbook support newsletter custom_html rss now]
+  # Blocks a page may hold several of. Everything after "divider" is content
+  # the writer puts on the page themselves (Phase 1, 2026-10-16).
+  @repeatables ~w[divider note photo quote countdown links]
   @block_types @singletons ++ @repeatables
 
   @section_styles ~w[columns flow tiles]
   @widths ~w[standard narrow]
   @entry_displays ~w[cards full preview magazine]
+  @note_styles ~w[card sticky index letter]
+  @sticky_colors ~w[yellow pink blue green lilac peach]
+  @photo_styles ~w[plain polaroid taped]
+  @divider_styles ~w[line wavy stars stitch]
+  @uuid ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
   @max_sections 40
   @max_columns 4
@@ -155,7 +161,14 @@ defmodule Inkwell.ProfileHome do
   dropped; spans are clamped; the profile card and entries are put back if
   missing. Returns `{:error, reason}` only when the value isn't a home at all.
   """
-  def normalize(%{"sections" => sections} = home) when is_list(sections) do
+  def normalize(home), do: normalize(home, [])
+
+  @doc """
+  Like `normalize/1`; with `owner_id:`, photos must be images that user
+  uploaded (anything else is dropped, so a page can't show someone else's
+  picture by its id).
+  """
+  def normalize(%{"sections" => sections} = home, opts) when is_list(sections) do
     {sections, _seen} =
       sections
       |> Enum.take(@max_sections)
@@ -164,6 +177,7 @@ defmodule Inkwell.ProfileHome do
     sections = Enum.reject(sections, &(&1 == nil))
     sections = sections |> ensure_block("profile_card", :first) |> ensure_block("entries", :last)
     sections = Enum.map(sections, &prune_empty_columns/1) |> Enum.reject(&(&1["columns"] == []))
+    sections = if owner = opts[:owner_id], do: keep_own_photos(sections, owner), else: sections
 
     {:ok,
      %{
@@ -174,8 +188,45 @@ defmodule Inkwell.ProfileHome do
      }}
   end
 
-  def normalize(%{} = home) when map_size(home) == 0, do: {:error, :empty}
-  def normalize(_), do: {:error, :not_a_home}
+  def normalize(%{} = home, _opts) when map_size(home) == 0, do: {:error, :empty}
+  def normalize(_, _opts), do: {:error, :not_a_home}
+
+  @doc """
+  The words and links a writer put on their page themselves (notes, quotes,
+  "Currently", countdowns, links), for the spam checker: a page is somewhere
+  to put a pitch, like a bio.
+  """
+  def writing(%{"sections" => sections}) when is_list(sections) do
+    blocks = for %{"columns" => cols} <- sections, is_list(cols), %{"blocks" => bs} <- cols, is_list(bs), b <- bs, do: b
+
+    Enum.reduce(blocks, {[], []}, fn
+      %{"type" => t, "config" => c}, {texts, links} when is_map(c) ->
+        items = if is_list(c["items"]), do: Enum.filter(c["items"], &is_map/1), else: []
+
+        new_texts =
+          [c["title"], c["body"], c["text"], c["cite"], c["caption"], c["label"]] ++
+            Enum.flat_map(items, &[&1["label"], &1["value"]])
+
+        new_links = if t == "links", do: Enum.map(items, & &1["url"]), else: []
+        {texts ++ Enum.filter(new_texts, &(is_binary(&1) and &1 != "")), links ++ Enum.filter(new_links, &is_binary/1)}
+
+      _, acc ->
+        acc
+    end)
+  end
+
+  def writing(_), do: {[], []}
+
+  @doc "Ids of the uploaded images a home shows (photo blocks), for orphan cleanup."
+  def image_ids(%{"sections" => sections}) when is_list(sections) do
+    for %{"columns" => cols} <- sections, is_list(cols),
+        %{"blocks" => blocks} <- cols, is_list(blocks),
+        %{"type" => "photo", "config" => %{"image_id" => id}} <- blocks,
+        is_binary(id),
+        do: id
+  end
+
+  def image_ids(_), do: []
 
   @doc "Every block id in page order (sections, then columns, then blocks)."
   def block_ids(%{"sections" => sections}) do
@@ -277,7 +328,144 @@ defmodule Inkwell.ProfileHome do
   defp normalize_block(_, seen, _style), do: {nil, seen}
 
   defp normalize_config("entries", %{"display" => d}) when d in @entry_displays, do: %{"display" => d}
+
+  defp normalize_config("divider", %{"style" => st}) when st in @divider_styles, do: %{"style" => st}
+
+  defp normalize_config("note", %{} = c) do
+    %{
+      "title" => text(c["title"], 80),
+      "body" => text(c["body"], 2000, multiline: true),
+      "style" => pick(c["style"], @note_styles, "card"),
+      "color" => pick(c["color"], @sticky_colors, "yellow")
+    }
+  end
+
+  defp normalize_config("photo", %{} = c) do
+    %{
+      "image_id" => if(is_binary(c["image_id"]) and Regex.match?(@uuid, c["image_id"]), do: c["image_id"], else: nil),
+      "caption" => text(c["caption"], 200),
+      "alt" => text(c["alt"], 300),
+      "style" => pick(c["style"], @photo_styles, "plain")
+    }
+  end
+
+  defp normalize_config("quote", %{} = c),
+    do: %{"text" => text(c["text"], 500, multiline: true), "cite" => text(c["cite"], 100)}
+
+  defp normalize_config("countdown", %{} = c) do
+    date =
+      case c["date"] do
+        d when is_binary(d) ->
+          case Date.from_iso8601(d) do
+            {:ok, date} -> Date.to_iso8601(date)
+            _ -> nil
+          end
+
+        _ ->
+          nil
+      end
+
+    %{"label" => text(c["label"], 80), "date" => date}
+  end
+
+  defp normalize_config("now", %{"items" => items}) when is_list(items) do
+    items =
+      items
+      |> Enum.filter(&is_map/1)
+      |> Enum.map(fn i -> %{"label" => text(i["label"], 30), "value" => text(i["value"], 120)} end)
+      |> Enum.reject(&(&1["label"] == "" and &1["value"] == ""))
+      |> Enum.take(8)
+
+    %{"items" => items}
+  end
+
+  defp normalize_config("links", %{} = c) do
+    items =
+      case c["items"] do
+        list when is_list(list) ->
+          list
+          |> Enum.filter(&is_map/1)
+          |> Enum.map(fn i -> %{"label" => text(i["label"], 60), "url" => web_url(i["url"])} end)
+          |> Enum.reject(&is_nil(&1["url"]))
+          |> Enum.take(12)
+
+        _ ->
+          []
+      end
+
+    %{"title" => text(c["title"], 60), "items" => items}
+  end
+
+  defp normalize_config(type, _config) when type in ~w[note photo quote countdown now links],
+    do: normalize_config(type, %{"items" => []})
+
   defp normalize_config(_type, _config), do: %{}
+
+  # Plain text only: tags are shown as typed (the page escapes them), control
+  # characters dropped, trimmed to a limit in characters.
+  defp text(value, max, opts \\ [])
+
+  defp text(value, max, opts) when is_binary(value) do
+    value =
+      if opts[:multiline],
+        do: value |> String.replace(~r/\r\n?/, "\n") |> String.replace(~r/[\x00-\x09\x0B-\x1F\x7F]/u, "") |> String.replace(~r/\n{3,}/, "\n\n"),
+        else: String.replace(value, ~r/[\x00-\x1F\x7F]/u, " ")
+
+    value |> String.trim() |> String.slice(0, max)
+  end
+
+  defp text(_value, _max, _opts), do: ""
+
+  defp pick(value, allowed, default), do: if(value in allowed, do: value, else: default)
+
+  # http(s) links only; a bare "example.com" gets https://.
+  defp web_url(url) when is_binary(url) do
+    url = String.trim(url)
+    url = if url != "" and not String.contains?(url, "://"), do: "https://" <> url, else: url
+
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host, port: port} when scheme in ["http", "https"] and is_binary(host) ->
+        ok? =
+          Regex.match?(~r/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i, host) and port in [80, 443] and
+            String.length(url) <= 500 and not String.contains?(url, [" ", "<", ">", "\""])
+
+        if ok?, do: url, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp web_url(_), do: nil
+
+  defp keep_own_photos(sections, owner_id) do
+    ids = image_ids(%{"sections" => sections})
+
+    owned =
+      if ids == [] do
+        MapSet.new()
+      else
+        import Ecto.Query
+
+        from(i in Inkwell.Journals.EntryImage, where: i.id in ^ids and i.user_id == ^owner_id, select: i.id)
+        |> Inkwell.Repo.all()
+        |> MapSet.new()
+      end
+
+    map_blocks(sections, fn
+      %{"type" => "photo", "config" => %{"image_id" => id} = c} = b when is_binary(id) ->
+        if MapSet.member?(owned, id), do: b, else: %{b | "config" => %{c | "image_id" => nil}}
+
+      b ->
+        b
+    end)
+  end
+
+  defp map_blocks(sections, fun) do
+    Enum.map(sections, fn s ->
+      %{s | "columns" => Enum.map(s["columns"], fn c -> %{c | "blocks" => Enum.map(c["blocks"], fun)} end)}
+    end)
+  end
 
   defp maybe_put_size(block, %{"w" => w, "h" => h}, "tiles"),
     do: Map.put(block, "size", %{"w" => clamp(w, 1, 4, 1), "h" => clamp(h, 1, 4, 1)})

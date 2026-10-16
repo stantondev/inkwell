@@ -360,11 +360,23 @@ export default function GuidePage() {
         {/* VI. Customizing Your Space */}
         <Section id="customizing" number="VI" title="Customizing Your Space">
           <p>
-            Visit{" "}
+            Your profile is your home on Inkwell, and you decide how it&apos;s
+            laid out. On your profile, choose{" "}
+            <Link href="/arrange" className="underline" style={{ color: "var(--accent)" }}>
+              Arrange page
+            </Link>{" "}
+            to drag things where you want them, change how many columns a row
+            has, and add your own notes, photos, quotes, a &ldquo;Currently&rdquo;
+            list, countdowns and links. Start from a layout (Scrapbook,
+            Writer&apos;s desk, Magazine…) or press Shuffle for a surprise; Undo
+            puts anything back. Nothing changes for visitors until you Save.
+          </p>
+          <p>
+            In{" "}
             <Link href="/settings/customize" className="underline" style={{ color: "var(--accent)" }}>
               Settings &rarr; Customize
             </Link>{" "}
-            to make your profile page your own. Every user gets:
+            you choose how it looks. Every user gets:
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>8 visual themes (Manuscript, Broadsheet, Midnight Library, and more)</li>
@@ -378,10 +390,9 @@ export default function GuidePage() {
             <Link href="/settings/billing" className="underline" style={{ color: "var(--accent)" }}>
               Plus members
             </Link>{" "}
-            ($5/mo) also get custom colors, backgrounds, fonts, layouts, a music
-            player, avatar frames, widget ordering, custom HTML/CSS, and a custom
-            domain for your profile — full creative control, like the early days
-            of the web.
+            ($5/mo) also get custom colors, backgrounds, fonts, a music player,
+            avatar animations, custom HTML/CSS, and a custom domain for your
+            profile.
           </p>
         </Section>
       </div>

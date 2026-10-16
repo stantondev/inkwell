@@ -233,6 +233,7 @@ defmodule InkwellWeb.Router do
     get "/me", UserController, :me
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
+    put "/me/home", ProfileHomeController, :update
     post "/me/avatar", UserController, :upload_avatar
     post "/me/banner", UserController, :upload_banner
     post "/me/background", UserController, :upload_background

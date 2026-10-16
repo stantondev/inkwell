@@ -18,12 +18,40 @@ export type ProfileBlockType =
   | "newsletter"
   | "custom_html"
   | "rss"
-  | "divider";
+  | "divider"
+  | "now"
+  | "note"
+  | "photo"
+  | "quote"
+  | "countdown"
+  | "links";
+
+export type NoteStyle = "card" | "sticky" | "index" | "letter";
+export type StickyColor = "yellow" | "pink" | "blue" | "green" | "lilac" | "peach";
+export type PhotoStyle = "plain" | "polaroid" | "taped";
+export type DividerStyle = "line" | "wavy" | "stars" | "stitch";
+
+/** Settings a block can carry; which ones apply depends on its type (Inkwell.ProfileHome cleans them). */
+export interface ProfileBlockConfig {
+  display?: "cards" | "full" | "preview" | "magazine";
+  style?: string;
+  title?: string;
+  body?: string;
+  color?: StickyColor;
+  image_id?: string | null;
+  caption?: string;
+  alt?: string;
+  text?: string;
+  cite?: string;
+  label?: string;
+  date?: string | null;
+  items?: { label: string; value?: string; url?: string }[];
+}
 
 export interface ProfileBlock {
   id: string;
   type: ProfileBlockType;
-  config: { display?: "cards" | "full" | "preview" | "magazine" };
+  config: ProfileBlockConfig;
   /** Tile size, in "tiles" sections only. */
   size?: { w: number; h: number };
 }
@@ -74,6 +102,12 @@ export const CLASSIC_HOME: ProfileHome = {
   ],
   stickers: [],
 };
+
+/** Blocks a page holds at most one of (the rest can repeat). */
+export const SINGLETON_BLOCKS: ProfileBlockType[] = [
+  "profile_card", "entries", "pinned", "top_pals", "tags", "series", "music",
+  "guestbook", "support", "newsletter", "custom_html", "rss", "now",
+];
 
 export function homeBlocks(home: ProfileHome): ProfileBlock[] {
   return home.sections.flatMap((s) => s.columns.flatMap((c) => c.blocks));

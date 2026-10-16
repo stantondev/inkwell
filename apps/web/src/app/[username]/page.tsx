@@ -1,30 +1,17 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { apiFetch, SERVER_API } from "@/lib/api";
 import { getProfile } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
-import { buildProfileStyles } from "@/lib/profile-styles";
-import { PROFILE_FONTS } from "@/lib/profile-themes";
-import { scopeEntryHtml } from "@/lib/scope-styles";
-import { CLASSIC_HOME, homeBlocks, type ProfileHome } from "@/lib/profile-home";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { BlockButton } from "./block-button";
-import type { JournalEntry } from "@/components/journal-entry-card";
-import { ProfileEffects } from "@/components/profile-effects";
 import { SignupCta } from "@/components/signup-cta";
-import { notFoundOrRethrow } from "@/lib/page-errors";
 import { fediverseHandle } from "@/lib/fediverse";
-import { archiveQuery, profileFiltersFromParams } from "@/lib/profile-archive-params";
+import { profileFiltersFromParams } from "@/lib/profile-archive-params";
 import { getSite } from "@/lib/site";
-import { ProfileLayout, type ProfileContext } from "./profile-layout";
-import type {
-  EntryDisplayMode,
-  ProfileEntry,
-  ProfileSeriesItem,
-  ProfileUser,
-  TopFriendSlot,
-} from "./profile-types";
+import { ProfileLayout } from "./profile-layout";
+import { loadProfile, ProfileFrame } from "./load-profile";
+import type { ProfileUser } from "./profile-types";
 
 interface ProfileParams {
   params: Promise<{ username: string }>;
@@ -127,103 +114,15 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
   // links and the Back button land on the same page of entries.
   const archive = profileFiltersFromParams(await searchParams);
   const session = await getSession();
-  const isOwnProfile = session?.user.username === username;
 
   // Detect custom domain context (for rendering "Powered by Inkwell" inside theme wrapper)
   const reqHeaders = await headers();
   const isOnCustomDomain = !!reqHeaders.get("x-custom-domain");
 
-  // Fetch user profile
-  let profile: ProfileUser;
-  let entries: ProfileEntry[] = [];
-  let topFriends: TopFriendSlot[] = [];
-  let seriesList: ProfileSeriesItem[] = [];
-  let entryCount = 0;
-  let penPalCount = 0;
-  let readerCount = 0;
-  let followerCount = 0;
-  let followingCount = 0;
-  let fediverseFollowerCount = 0;
-  let relationshipStatus: string | null = null;
-  let incomingRequest = false;
-  let letterAccess: string | null = null;
-
-  let entryYears: number[] = [];
-  let entryMonths: { year: number; month: number; count: number }[] = [];
-  let entryTags: { tag: string; count: number }[] = [];
-  let entryCategories: { category: string; count: number }[] = [];
-
-  try {
-    // Uses react.cache() — generateMetadata above hits the same key with the
-    // same token, so this returns from the in-render cache (no second roundtrip).
-    const data = await getProfile<{
-      data: ProfileUser;
-      meta: {
-        entry_count: number;
-        pen_pal_count?: number;
-        reader_count?: number;
-        follower_count?: number;
-        following_count?: number;
-        fediverse_follower_count?: number;
-        top_friends: TopFriendSlot[];
-        relationship_status?: string | null;
-        entry_years?: number[];
-        entry_months?: { year: number; month: number; count: number }[];
-        entry_tags?: { tag: string; count: number }[];
-        entry_categories?: { category: string; count: number }[];
-        incoming_request?: boolean;
-        letter_access?: string | null;
-        shows_listening?: boolean;
-      };
-    }>(username, session?.token);
-
-    profile = { ...data.data, shows_listening: data.meta.shows_listening ?? false };
-    entryCount = data.meta.entry_count;
-    penPalCount = data.meta.pen_pal_count ?? 0;
-    readerCount = data.meta.reader_count ?? 0;
-    followerCount = data.meta.follower_count ?? 0;
-    followingCount = data.meta.following_count ?? 0;
-    fediverseFollowerCount = data.meta.fediverse_follower_count ?? 0;
-    topFriends = data.meta.top_friends ?? [];
-    relationshipStatus = data.meta.relationship_status ?? null;
-    incomingRequest = data.meta.incoming_request ?? false;
-    letterAccess = data.meta.letter_access ?? null;
-    entryYears = data.meta.entry_years ?? [];
-    entryMonths = data.meta.entry_months ?? [];
-    entryTags = data.meta.entry_tags ?? [];
-    entryCategories = data.meta.entry_categories ?? [];
-  } catch (err) {
-    notFoundOrRethrow(err);
-  }
-
-  // Fetch custom domain for own profile (to show "Visit your site" link)
-  let customDomainName: string | null = null;
-  if (isOwnProfile && session?.token) {
-    try {
-      const domainRes = await apiFetch<{ data: { domain: string; status: string } | null }>(
-        "/api/custom-domain",
-        {},
-        session.token
-      );
-      if (domainRes.data && domainRes.data.status === "active") {
-        customDomainName = domainRes.data.domain;
-      }
-    } catch {
-      // no domain — ignore
-    }
-  }
-
-  // Fire-and-forget: increment visitor count for non-owner views
-  if (!isOwnProfile) {
-    fetch(`${SERVER_API}/api/users/${username}/view`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    }).catch(() => {});
-  }
+  const loaded = await loadProfile(username, session, archive);
 
   // Handle blocked states — show limited profile
-  if (relationshipStatus === "unavailable") {
+  if (loaded.kind === "unavailable") {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)", color: "var(--foreground)" }}>
         <div className="text-center p-8">
@@ -242,7 +141,8 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
     );
   }
 
-  if (relationshipStatus === "blocked_by_me") {
+  if (loaded.kind === "blocked_by_me") {
+    const { profile } = loaded;
     return (
       <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
         <div className="mx-auto max-w-2xl px-4 py-12">
@@ -259,206 +159,33 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
     );
   }
 
-  // The arrangement of the page (Inkwell.ProfileHome on the API). Every
-  // account has one; the classic page is only a fallback for an old API.
-  const home: ProfileHome = profile.profile_home ?? CLASSIC_HOME;
-  const entriesBlock = homeBlocks(home).find((b) => b.type === "entries");
-
-  // Magazine shows entries its own way (a cover story and newspaper
-  // columns); otherwise the writer's Entry Display choice.
-  const displayMode = (entriesBlock?.config.display === "magazine"
-    ? "magazine"
-    : (profile.profile_entry_display ?? "cards")) as EntryDisplayMode;
-  const perPageDefaults: Record<string, number> = { full: 5, cards: 9, preview: 20, magazine: 10 };
-  const perPage = profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
-
-  // Fetch entries (page 1) + series + pinned entries in parallel
-  const pinnedIds = profile.pinned_entry_ids ?? [];
-  let pinnedEntries: ProfileEntry[] = [];
-  let filteredTotal = entryCount;
-
-  const [entriesResult, seriesResult, stickiesResult] = await Promise.allSettled([
-    apiFetch<{ data: ProfileEntry[]; pagination: { total: number } }>(
-      `/api/users/${username}/entries?${archiveQuery(archive, perPage)}`,
-      {},
-      session?.token,
-    ),
-    apiFetch<{ data: ProfileSeriesItem[] }>(`/api/users/${username}/series`, {}, session?.token),
-    apiFetch<{ data: JournalEntry[]; pagination: { total: number } }>(
-      `/api/users/${username}/entries?kind=sticky&page=1&per_page=6`,
-      {},
-      session?.token,
-    ),
-  ]);
-  const stickies = stickiesResult.status === "fulfilled" ? stickiesResult.value.data ?? [] : [];
-  const stickyTotal = stickiesResult.status === "fulfilled" ? stickiesResult.value.pagination?.total ?? stickies.length : 0;
-  if (entriesResult.status === "fulfilled") {
-    entries = entriesResult.value.data ?? [];
-    // Total for this archive position (filtered); entryCount stays the
-    // profile's whole count, which the API already limits to this viewer.
-    if (entriesResult.value.pagination?.total != null) {
-      filteredTotal = entriesResult.value.pagination.total;
-    }
-    // Resolve pinned entries from the first page, or a larger page when
-    // some aren't on it.
-    if (pinnedIds.length > 0) {
-      const found = new Map(entries.map(e => [e.id, e]));
-      const missing = pinnedIds.filter(id => !found.has(id));
-      if (missing.length > 0) {
-        try {
-          const allRes = await apiFetch<{ data: ProfileEntry[] }>(
-            `/api/users/${username}/entries?page=1&per_page=100`,
-            {},
-            session?.token,
-          );
-          const allMap = new Map((allRes.data ?? []).map(e => [e.id, e]));
-          pinnedEntries = pinnedIds.map(id => allMap.get(id) ?? found.get(id)).filter(Boolean) as ProfileEntry[];
-        } catch {
-          pinnedEntries = pinnedIds.map(id => found.get(id)).filter(Boolean) as ProfileEntry[];
-        }
-      } else {
-        pinnedEntries = pinnedIds.map(id => found.get(id)).filter(Boolean) as ProfileEntry[];
-      }
-    }
-  }
-  if (seriesResult.status === "fulfilled") seriesList = seriesResult.value.data ?? [];
-
-  // JSON-LD structured data for profile
-  const profileJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ProfilePage",
-    mainEntity: {
-      "@type": "Person",
-      name: profile.display_name,
-      alternateName: `@${username}`,
-      url: `${getSite().url}/${username}`,
-      ...(profile.avatar_url
-        ? { image: `${getSite().url}/api/avatars/${username}` }
-        : {}),
-      ...(profile.bio
-        ? { description: profile.bio.replace(/<[^>]+>/g, "").slice(0, 300) }
-        : {}),
-    },
-  };
-
-  // Build profile customization styles (tier-aware)
-  const isPlus = (profile.subscription_tier ?? "free") === "plus";
-  const styles = buildProfileStyles(profile);
-  const font = isPlus
-    ? PROFILE_FONTS.find((f) => f.id === profile.profile_font)
-    : undefined;
-  const hasCustomBackground = isPlus && !!profile.profile_background_url;
-
-  // Custom profile HTML/CSS (Plus only)
-  const profileScopeId = `profile-${profile.id}`;
-  const customContent = isPlus && profile.profile_html
-    ? scopeEntryHtml(profile.profile_html, profileScopeId)
-    : null;
-  const customCss = isPlus && profile.profile_css
-    ? scopeEntryHtml(`<style>${profile.profile_css}</style>`, profileScopeId)
-    : null;
-
-  const ctx: ProfileContext = {
-    profile,
-    username,
-    styles,
-    isPlus,
-    isOwnProfile,
-    isLoggedIn: !!session,
-    viewerUsername: session?.user?.username,
-    card: {
-      profile,
-      username,
-      styles,
-      isPlus,
-      hasCustomBackground,
-      isOwnProfile,
-      isLoggedIn: !!session,
-      customDomainName,
-      relationshipStatus,
-      incomingRequest,
-      letterAccess,
-      entryCount,
-      followerCount,
-      followingCount,
-      fediverseFollowerCount,
-    },
-    topFriends,
-    seriesList,
-    pinnedEntries,
-    customHtml: customContent?.bodyHtml ? customContent : null,
-    scopeId: profileScopeId,
-    entries: {
-      displayMode,
-      perPage,
-      initial: entries,
-      total: entryCount,
-      filteredTotal,
-      years: entryYears,
-      months: entryMonths,
-      tags: entryTags,
-      categories: entryCategories,
-      filters: archive.filters,
-      page: archive.page,
-      stickies,
-      stickyTotal,
-    },
-  };
+  const { home, ctx, frame, jsonLd } = loaded;
+  const width = isOnCustomDomain ? "" : home.width === "narrow" ? "max-w-2xl" : "max-w-7xl";
 
   return (
-    <div className={`min-h-screen relative ${styles.themeClass}`} data-profile-wrapper style={{
-      ...styles.page,
-      ...(hasCustomBackground ? { background: "transparent" } : {}),
-    }}>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(profileJsonLd).replace(/</g, "\\u003c"),
-        }}
-      />
-      {/* Custom background image */}
-      {hasCustomBackground && (
-        <div className="fixed inset-0 -z-10" style={{
-          backgroundImage: `url(${profile.profile_background_url})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-          backgroundColor: styles.page.background || "var(--background)",
-        }} />
-      )}
-
-      {/* Profile particle effects (Plus only) */}
-      {profile.profile_effect && isPlus && (
-        <ProfileEffects
-          effect={profile.profile_effect}
-          intensity={profile.profile_effect_intensity ?? "subtle"}
+    <ProfileFrame
+      frame={frame}
+      containerClassName={`px-3 sm:px-4 ${isOnCustomDomain ? "lg:px-8 xl:px-12" : ""} py-8 ${width}`}
+      before={
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
         />
+      }
+    >
+      <ProfileLayout home={home} ctx={ctx} />
+
+      {/* Signup CTA for logged-out visitors (not on custom domain — it's their site) */}
+      {!session && !isOnCustomDomain && (
+        <div className="mt-12 mb-4">
+          <SignupCta
+            heading="Start your own journal"
+            subheading="Customize your space, connect with readers, and join the open social web. No algorithms, no ads."
+          />
+        </div>
       )}
 
-      {/* Custom CSS from profile_css field */}
-      {customCss?.scopedStyles && (
-        <style dangerouslySetInnerHTML={{ __html: customCss.scopedStyles }} />
-      )}
-
-      {/* Breakpoints inside are container queries (the profile's own width),
-          so the page looks the same whatever else is on screen, e.g. with
-          the app sidebar open on a laptop. */}
-      <div id={profileScopeId} className={`@container mx-auto px-3 sm:px-4 ${isOnCustomDomain ? "lg:px-8 xl:px-12" : ""} py-8 overflow-hidden ${isOnCustomDomain ? "" : home.width === "narrow" ? "max-w-2xl" : "max-w-7xl"}`}
-        style={{ fontFamily: font?.family }}>
-        <ProfileLayout home={home} ctx={ctx} />
-
-        {/* Signup CTA for logged-out visitors (not on custom domain — it's their site) */}
-        {!session && !isOnCustomDomain && (
-          <div className="mt-12 mb-4">
-            <SignupCta
-              heading="Start your own journal"
-              subheading="Customize your space, connect with readers, and join the open social web. No algorithms, no ads."
-            />
-          </div>
-        )}
-
-        {isOnCustomDomain && <PoweredByInkwell />}
-      </div>
-    </div>
+      {isOnCustomDomain && <PoweredByInkwell />}
+    </ProfileFrame>
   );
 }

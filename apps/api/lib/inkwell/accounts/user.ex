@@ -135,7 +135,7 @@ defmodule Inkwell.Accounts.User do
     feed explore search admin inbox outbox users
     newsletter billing noreply postmaster webmaster abuse
     switch transparency founding readers
-    comments entries fediverse preview drafts
+    comments entries fediverse preview drafts arrange
   )
 
   # Brand-related prefixes — any username starting with these is blocked
@@ -338,10 +338,12 @@ defmodule Inkwell.Accounts.User do
     |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
     |> validate_avatar_config()
     |> clean_profile_widgets()
-    |> regenerate_home()
     |> maybe_validate_inclusion(:heard_from, Inkwell.Growth.heard_from_options())
     |> validate_length(:heard_from_detail, max: 200)
   end
+
+  @doc "The page arrangement, already cleaned by Inkwell.ProfileHome.normalize/2."
+  def home_changeset(user, home), do: change(user, profile_home: home)
 
   @doc "Signup attribution, written once when the account is created (Inkwell.Growth)."
   def attribution_changeset(user, attrs) do
@@ -377,17 +379,6 @@ defmodule Inkwell.Accounts.User do
 
       :error ->
         changeset
-    end
-  end
-
-  # Settings → Customize still edits the old layout and widget order; the
-  # page renders profile_home, so rebuild it from them when either changes.
-  defp regenerate_home(changeset) do
-    if changeset.valid? and
-         (Map.has_key?(changeset.changes, :profile_layout) or Map.has_key?(changeset.changes, :profile_widgets)) do
-      put_change(changeset, :profile_home, Inkwell.ProfileHome.from_legacy(apply_changes(changeset)))
-    else
-      changeset
     end
   end
 

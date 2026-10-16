@@ -12,6 +12,16 @@ import { ProfileEntries } from "./profile-entries";
 import { ProfileSearchFilter } from "./profile-search-filter";
 import { ProfileCard, type ProfileCardProps } from "./profile-card";
 import {
+  CountdownWidget,
+  FancyDivider,
+  LinksWidget,
+  NoteWidget,
+  NowWidget,
+  PhotoWidget,
+  QuoteWidget,
+  homeBlockFilled,
+} from "./home-widgets";
+import {
   CustomHtmlWidget,
   PinnedEntries,
   RssWidget,
@@ -92,6 +102,13 @@ export function blockVisible(block: ProfileBlock, ctx: ProfileContext): boolean 
       return !!profile.newsletter_enabled;
     case "custom_html":
       return !!ctx.customHtml?.bodyHtml;
+    case "note":
+    case "photo":
+    case "quote":
+    case "now":
+    case "countdown":
+    case "links":
+      return homeBlockFilled(block);
     default:
       return false;
   }
@@ -153,7 +170,23 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
     case "entries":
       return <EntriesBlock ctx={ctx} />;
     case "divider":
-      return <div className={`profile-section-divider ${className ?? ""}`} />;
+      return block.config.style && block.config.style !== "line" ? (
+        <FancyDivider style={block.config.style} className={className} />
+      ) : (
+        <div className={`profile-section-divider ${className ?? ""}`} />
+      );
+    case "note":
+      return <NoteWidget block={block} styles={styles} displayName={profile.display_name || username} />;
+    case "photo":
+      return <PhotoWidget block={block} styles={styles} />;
+    case "quote":
+      return <QuoteWidget block={block} styles={styles} />;
+    case "now":
+      return <NowWidget block={block} styles={styles} />;
+    case "countdown":
+      return <CountdownWidget block={block} styles={styles} />;
+    case "links":
+      return <LinksWidget block={block} styles={styles} />;
     case "pinned":
       return <PinnedEntries entries={ctx.pinnedEntries} username={username} styles={styles} />;
     case "top_pals":

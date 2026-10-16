@@ -204,7 +204,7 @@ export default async function LandingPage() {
                 </li>
                 <li>
                   <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
-                  <span><strong>A page that looks like you.</strong> Custom colors, fonts, layouts, HTML &amp; CSS.</span>
+                  <span><strong>A page that looks like you.</strong> Custom colors, fonts, backgrounds, HTML &amp; CSS.</span>
                 </li>
               </ul>
               <p className="landing-price-extras">

@@ -19135,3 +19135,302 @@ body[data-look="classic"] .entry-current-label {
   }
   .feed-reply-short { display: inline; }
 }
+
+/* ─── Profile home: writers' own blocks (Arrange my page) ───────────────
+   Notes, photos, quotes, "Currently", countdowns, links and divider styles
+   (app/[username]/home-widgets.tsx). Paper colours are tokens with dark
+   versions; tilts come from each block's id so they never move. */
+
+:root {
+  --home-paper: #fffdf6;
+  --home-paper-ink: #2b2620;
+  --home-paper-muted: rgba(43, 38, 32, 0.6);
+  --home-rule: rgba(70, 110, 170, 0.22);
+  --home-margin-line: rgba(200, 70, 70, 0.45);
+  --home-polaroid: #fbfaf6;
+  --home-tape: rgba(240, 214, 140, 0.72);
+  --home-shadow: 0 1px 2px rgba(60, 45, 20, 0.12), 0 8px 18px -8px rgba(60, 45, 20, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --home-paper: #2a2722;
+    --home-paper-ink: #f1ece2;
+    --home-paper-muted: rgba(241, 236, 226, 0.6);
+    --home-rule: rgba(140, 170, 220, 0.18);
+    --home-margin-line: rgba(220, 110, 110, 0.4);
+    --home-polaroid: #e9e5dc;
+    --home-tape: rgba(200, 175, 110, 0.55);
+    --home-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 20px -8px rgba(0, 0, 0, 0.6);
+  }
+}
+
+.home-note-body {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* Sticky note */
+.home-sticky {
+  position: relative;
+  color: var(--sticky-ink);
+  padding: 1.4rem 1.2rem 1.2rem;
+  border-radius: 2px 2px 3px 14px / 2px 2px 3px 6px;
+  box-shadow: var(--sticky-shadow);
+  transform: rotate(var(--home-tilt, 0deg));
+  margin: 0.4rem 0.3rem;
+}
+.home-sticky::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 72px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-2deg);
+  background: var(--sticky-tape);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+.home-sticky-title {
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Index card: ruled lines and a red header line */
+.home-index-card {
+  background-color: var(--home-paper);
+  color: var(--home-paper-ink);
+  box-shadow: var(--home-shadow);
+  border-radius: 3px;
+  padding: 0.6rem 1.1rem 1rem;
+}
+.home-index-title {
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.8rem;
+  border-bottom: 1.5px solid var(--home-margin-line);
+  margin-bottom: 0.45rem;
+}
+/* The ruling is drawn on the text itself, one rule under each line, so the
+   words always sit on it whatever the font or size. */
+.home-index-body {
+  line-height: 27px;
+  font-size: 0.95rem;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 26px, var(--home-rule) 26px, var(--home-rule) 27px);
+  padding-bottom: 27px;
+}
+
+/* A letter to visitors */
+.home-letter {
+  background: var(--home-paper);
+  color: var(--home-paper-ink);
+  box-shadow: var(--home-shadow);
+  border-radius: 3px;
+  padding: 1.4rem 1.5rem 1.2rem;
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+}
+.home-letter-salutation {
+  font-style: italic;
+  margin-bottom: 0.6rem;
+}
+.home-letter-signature {
+  font-style: italic;
+  text-align: right;
+  margin-top: 0.9rem;
+  color: var(--home-paper-muted);
+}
+
+/* Photos */
+.home-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.home-photo figcaption {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  font-style: italic;
+}
+.home-polaroid,
+.home-taped {
+  position: relative;
+  transform: rotate(var(--home-tilt, 0deg));
+  margin: 0.5rem 0.4rem;
+}
+.home-polaroid {
+  background: var(--home-polaroid);
+  padding: 0.6rem 0.6rem 0;
+  box-shadow: var(--home-shadow);
+}
+.home-polaroid img,
+.home-taped img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.home-polaroid figcaption {
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-style: italic;
+  color: #3a332a;
+  text-align: center;
+  padding: 0.55rem 0.3rem 0.8rem;
+  font-size: 0.92rem;
+  min-height: 2.4rem;
+}
+.home-polaroid:not(:has(figcaption)) {
+  padding-bottom: 2.4rem;
+}
+.home-taped {
+  box-shadow: var(--home-shadow);
+}
+.home-taped::before,
+.home-taped::after {
+  content: "";
+  position: absolute;
+  width: 76px;
+  height: 22px;
+  background: var(--home-tape);
+  z-index: 1;
+}
+.home-taped::before {
+  top: -8px;
+  left: -16px;
+  transform: rotate(-32deg);
+}
+.home-taped::after {
+  top: -8px;
+  right: -16px;
+  transform: rotate(32deg);
+}
+.home-taped figcaption {
+  background: var(--home-paper);
+  color: var(--home-paper-ink);
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.7rem;
+}
+
+/* Quote */
+.home-quote {
+  position: relative;
+}
+.home-quote-mark {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.7rem;
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-size: 3.4rem;
+  line-height: 1;
+  opacity: 0.35;
+}
+.home-quote blockquote {
+  font-size: 1.08rem;
+  font-style: italic;
+  padding-top: 1.4rem;
+}
+.home-quote figcaption {
+  font-size: 0.8rem;
+  text-align: right;
+  margin-top: 0.6rem;
+}
+
+/* Currently */
+.home-now {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.home-now-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+.home-now-row dt {
+  font-weight: 600;
+  min-width: 5.5rem;
+  flex-shrink: 0;
+}
+.home-now-row dt::after {
+  content: ":";
+}
+.home-now-row dd {
+  overflow-wrap: anywhere;
+}
+
+/* Countdown */
+.home-countdown {
+  text-align: center;
+}
+.home-countdown-number {
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-size: 2.6rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.home-countdown-label {
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+.home-countdown-today {
+  font-family: var(--serif, var(--font-lora, Georgia, serif));
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* Divider styles */
+.home-divider {
+  height: 14px;
+  color: var(--profile-accent, var(--accent));
+}
+.home-divider-wavy {
+  background: radial-gradient(circle at 10px -4px, transparent 11px, currentColor 12px, currentColor 13px, transparent 14px) 0 2px / 20px 14px repeat-x;
+  opacity: 0.45;
+}
+.home-divider-stars {
+  height: auto;
+  text-align: center;
+  letter-spacing: 0.9em;
+  opacity: 0.55;
+}
+.home-divider-stars::before {
+  content: "✦ ✦ ✦";
+}
+.home-divider-stitch {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  opacity: 0.4;
+  margin: 6px 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-sticky,
+  .home-polaroid,
+  .home-taped {
+    transition: transform 0.25s ease;
+  }
+}
+
+/* Arrange my page gets the whole screen on phones, like the editor: its own
+   bar has the way back. */
+@media (max-width: 1023px) {
+  body:has(.arrange-shell) .mobile-top-bar-shell,
+  body:has(.arrange-shell) .bottom-tab-bar {
+    display: none !important;
+  }
+
+  body:has(.arrange-shell) .has-bottom-tabs {
+    padding-bottom: 0;
+  }
+}
+
+body:has(.arrange-shell) .site-footer {
+  display: none;
+}

@@ -60,13 +60,14 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "f-handle", title: "Your fediverse handle", snippet: "Your handle is @username@inkwell.social — share it anywhere.", keywords: ["handle", "address", "identity", "fediverse"], category: "fediverse", href: "/help/faq#fediverse-handle" },
 
   // ── Customization ──
+  { id: "c-arrange", title: "Arrange your page", snippet: "Drag things around your profile, add notes, photos, quotes and more, pick a layout or Shuffle.", keywords: ["arrange", "layout", "widgets", "drag", "scrapbook", "photo", "note", "columns", "sidebar", "move"], category: "customization", href: "/help/faq#customize-profile" },
   { id: "c-themes", title: "Profile themes", snippet: "Choose from 8 structural themes with unique typography and style.", keywords: ["theme", "customize", "design", "appearance"], category: "customization", href: "/help/faq#themes" },
   { id: "c-html", title: "Custom HTML/CSS on your profile", snippet: "Plus users can restyle their profile with CSS and add a card of their own HTML.", keywords: ["html", "css", "custom", "template", "myspace"], category: "customization", href: "/help/faq#custom-html" },
   { id: "c-domain", title: "Custom domains", snippet: "Point your own domain at your Inkwell profile.", keywords: ["domain", "custom", "url", "dns"], category: "customization", href: "/help/faq#custom-domain" },
   { id: "c-avatar", title: "Avatar builder", snippet: "Create a hand-drawn avatar character without uploading a photo.", keywords: ["avatar", "builder", "character", "croodles"], category: "customization", href: "/help/faq#avatar-builder" },
 
   // ── Billing & Plus ──
-  { id: "b-plus", title: "Inkwell Plus features", snippet: "Custom colors, fonts, layouts, stamps, domains, and more for $5/mo.", keywords: ["plus", "subscription", "premium", "features", "upgrade"], category: "billing", href: "/help/faq#plus-features" },
+  { id: "b-plus", title: "Inkwell Plus features", snippet: "Custom colors, fonts, stamps, domains, and more for $5/mo.", keywords: ["plus", "subscription", "premium", "features", "upgrade"], category: "billing", href: "/help/faq#plus-features" },
   { id: "b-cancel", title: "Canceling your subscription", snippet: "Cancel from Settings → Billing; Plus lasts until the paid period ends.", keywords: ["cancel", "unsubscribe", "stop", "billing"], category: "billing", href: "/help/faq#cancel" },
   { id: "b-support", title: "Support links", snippet: "Add a Ko-fi, Patreon or other payment link to your profile and entries.", keywords: ["support", "tip", "ko-fi", "patreon", "money", "postage"], category: "billing", href: "/help/faq#support-link" },
   { id: "b-donor", title: "Ink Donor", snippet: "Contribute $1–$3/month to support Inkwell and get a badge.", keywords: ["donor", "donation", "support", "badge"], category: "billing", href: "/help/faq#ink-donor" },

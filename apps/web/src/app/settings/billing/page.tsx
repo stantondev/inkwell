@@ -872,7 +872,7 @@ export default function BillingPage() {
                 "Custom domain (your-site.com)",
                 "Reader stats: reads by day, top entries, where readers came from",
                 "Unlimited newsletter subscribers, 8 sends/mo",
-                "Custom colors, fonts, layouts & themes",
+                "Custom colors & fonts",
                 "Custom HTML & CSS theming",
                 "Background images & profile music",
                 "Post by Email",

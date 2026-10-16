@@ -1578,8 +1578,18 @@ defmodule Inkwell.Journals do
       |> Enum.flat_map(&extract_image_ids/1)
       |> MapSet.new()
 
+    # And photos on profile pages (Inkwell.ProfileHome photo blocks)
+    home_referenced =
+      Inkwell.Accounts.User
+      |> where([u], not is_nil(u.profile_home))
+      |> select([u], u.profile_home)
+      |> Repo.all()
+      |> Enum.flat_map(&Inkwell.ProfileHome.image_ids/1)
+      |> MapSet.new()
+
     referenced_ids =
       entry_referenced
+      |> MapSet.union(home_referenced)
       |> MapSet.union(cover_image_referenced)
       |> MapSet.union(series_cover_referenced)
       |> MapSet.union(feedback_referenced)

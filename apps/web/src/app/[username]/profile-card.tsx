@@ -87,6 +87,11 @@ export function ProfileCard({
                   {customDomainName}
                 </a>
               )}
+              <Link href="/arrange"
+                className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                style={{ borderColor: styles.accent, color: styles.accent }}>
+                Arrange page
+              </Link>
               <Link href="/settings/profile"
                 className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
                 style={{ borderColor: styles.border, color: styles.muted }}>

@@ -3,7 +3,8 @@ defmodule Inkwell.ProfileHomeTest do
 
   import Inkwell.Factory
 
-  alias Inkwell.{Accounts, ProfileHome, Repo}
+  import Ecto.Query
+  alias Inkwell.{ProfileHome, Repo}
 
   defp plus(user), do: user |> Ecto.Changeset.change(subscription_tier: "plus", subscription_status: "active") |> Repo.update!()
 
@@ -138,24 +139,107 @@ defmodule Inkwell.ProfileHomeTest do
     end
   end
 
-  describe "saving the old customiser" do
-    test "changing layout or widget order rebuilds the home" do
-      user = create_user() |> plus()
-      {:ok, user} = Accounts.update_user_profile(user, %{"profile_layout" => "wide"})
-      assert [_, _, _, {"columns", [{12, ["entries"]}]}, _, {"flow", _}] = shape(user.profile_home)
-
-      {:ok, user} = Accounts.update_user_profile(user, %{"profile_widgets" => %{"order" => ["music"], "html_mode" => "fullpage", "x" => 1}})
-      assert user.profile_widgets == %{"order" => ["music"]}
-      [{"flow", [{12, [first | _]}]} | _] = Enum.reverse(shape(user.profile_home))
-      assert first == "music"
+  describe "saving from the Arrange my page editor" do
+    defp png_upload(user) do
+      png = <<0x89, "PNG", 13, 10, 26, 10>> <> :binary.copy(<<0>>, 64)
+      {:ok, img} = Inkwell.Images.store(user.id, png, filename: "x.png")
+      img.id
     end
 
-    test "other edits leave the home alone" do
+    test "anyone can save, it's cleaned, and the page shows it", %{conn: conn} do
+      user = create_user()
+
+      home = %{
+        "sections" => [
+          %{"columns" => [%{"span" => 12, "blocks" => [%{"type" => "profile_card"}]}]},
+          %{"columns" => [
+            %{"span" => 6, "blocks" => [%{"type" => "note", "config" => %{"title" => "Hi", "body" => "<b>a</b>\r\n\r\n\r\n\r\nb", "style" => "sticky", "color" => "mauve"}}]},
+            %{"span" => 6, "blocks" => [%{"type" => "quote", "config" => %{"text" => "Words", "cite" => "Me"}}, %{"type" => "now", "config" => %{"items" => [%{"label" => "Reading", "value" => "Middlemarch"}, %{"label" => "", "value" => ""}]}}]}
+          ]},
+          %{"columns" => [%{"blocks" => [
+            %{"type" => "links", "config" => %{"items" => [%{"label" => "Site", "url" => "example.com"}, %{"label" => "Bad", "url" => "javascript:alert(1)"}]}},
+            %{"type" => "countdown", "config" => %{"label" => "Spring", "date" => "2027-03-20"}},
+            %{"type" => "countdown", "config" => %{"label" => "Never", "date" => "soon"}}
+          ]}]}
+        ]
+      }
+
+      data = conn |> log_in_user(user) |> put("/api/me/home", %{"home" => home}) |> json_response(200) |> Map.fetch!("data")
+      blocks = for s <- data["sections"], c <- s["columns"], b <- c["blocks"], into: %{}, do: {b["type"] <> "#" <> b["id"], b}
+      by_type = fn t -> blocks |> Enum.filter(fn {k, _} -> String.starts_with?(k, t <> "#") end) |> Enum.map(&elem(&1, 1)) end
+
+      [note] = by_type.("note")
+      assert note["config"] == %{"title" => "Hi", "body" => "<b>a</b>\n\nb", "style" => "sticky", "color" => "yellow"}
+      [now] = by_type.("now")
+      assert now["config"]["items"] == [%{"label" => "Reading", "value" => "Middlemarch"}]
+      [links] = by_type.("links")
+      assert links["config"]["items"] == [%{"label" => "Site", "url" => "https://example.com"}]
+      dates = by_type.("countdown") |> Enum.map(& &1["config"]["date"]) |> Enum.sort_by(&(&1 || ""))
+      assert dates == [nil, "2027-03-20"]
+      # entries put back
+      assert Enum.any?(Map.keys(blocks), &String.starts_with?(&1, "entries#"))
+
+      shown = conn |> get("/api/users/#{user.username}") |> json_response(200)
+      assert shown["data"]["profile_home"] == data
+    end
+
+    test "photos must be the writer's own uploads", %{conn: conn} do
+      me = create_user()
+      other = create_user()
+      mine = png_upload(me)
+      theirs = png_upload(other)
+
+      home = %{"sections" => [%{"columns" => [%{"blocks" => [
+        %{"type" => "photo", "config" => %{"image_id" => mine, "caption" => "Cat", "style" => "polaroid"}},
+        %{"type" => "photo", "config" => %{"image_id" => theirs}}
+      ]}]}]}
+
+      data = conn |> log_in_user(me) |> put("/api/me/home", %{"home" => home}) |> json_response(200) |> Map.fetch!("data")
+      ids = for s <- data["sections"], c <- s["columns"], b <- c["blocks"], b["type"] == "photo", do: b["config"]["image_id"]
+      assert ids == [mine, nil]
+      assert ProfileHome.image_ids(data) == [mine]
+    end
+
+    test "a widget photo isn't cleaned up as an orphan", %{conn: conn} do
+      me = create_user()
+      id = png_upload(me)
+      old = DateTime.add(DateTime.utc_now(), -3, :day)
+      Repo.update_all(from(i in Inkwell.Journals.EntryImage, where: i.id == ^id), set: [inserted_at: old])
+
+      conn |> log_in_user(me) |> put("/api/me/home", %{"home" => %{"sections" => [%{"columns" => [%{"blocks" => [%{"type" => "photo", "config" => %{"image_id" => id}}]}]}]}}) |> json_response(200)
+      Inkwell.Journals.cleanup_orphaned_images(24)
+      assert Repo.get(Inkwell.Journals.EntryImage, id)
+    end
+
+    test "rejects things that aren't a page", %{conn: conn} do
+      user = create_user()
+      conn = log_in_user(conn, user)
+      assert conn |> put("/api/me/home", %{"home" => %{"sections" => "x"}}) |> json_response(422)
+      assert build_conn() |> log_in_user(user) |> put("/api/me/home", %{"nope" => 1}) |> json_response(422)
+      assert build_conn() |> put("/api/me/home", %{"home" => %{"sections" => []}}) |> json_response(401)
+    end
+
+    test "the old layout fields no longer change the page", %{conn: conn} do
       user = create_user() |> plus()
-      {:ok, user} = Accounts.update_user_profile(user, %{"profile_status" => "hi"})
+      conn |> log_in_user(user) |> patch("/api/me", %{"profile_layout" => "minimal", "profile_widgets" => %{"order" => ["music"]}}) |> json_response(200)
+      user = Repo.reload(user)
+      assert user.profile_layout == nil
       assert user.profile_home == nil
-      assert ProfileHome.for_user(user) == ProfileHome.from_legacy(user)
     end
+  end
+
+  test "the spam checker can read what a writer put on their page" do
+    home = %{"sections" => [%{"columns" => [%{"blocks" => [
+      %{"type" => "note", "config" => %{"title" => "Best casino bonus", "body" => "Click now"}},
+      %{"type" => "links", "config" => %{"items" => [%{"label" => "Deals", "url" => "https://spam.example"}]}},
+      %{"type" => "now", "config" => %{"items" => [%{"label" => "Reading", "value" => "Middlemarch"}]}},
+      %{"type" => "guestbook", "config" => %{}}
+    ]}]}]}
+
+    {texts, links} = ProfileHome.writing(home)
+    assert "Best casino bonus" in texts and "Click now" in texts and "Middlemarch" in texts and "Deals" in texts
+    assert links == ["https://spam.example"]
+    assert ProfileHome.writing(nil) == {[], []}
   end
 
   test "backfill writes a home for everyone without one, once" do
