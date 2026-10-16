@@ -133,17 +133,33 @@ export function BlockSettings({
           )}
 
           {block.type === "entries" && (
-            <label className={s.check}>
-              <input
-                type="checkbox"
-                checked={c.display === "magazine"}
-                onChange={(e) => set({ display: e.target.checked ? "magazine" : undefined })}
+            <>
+              <Choice
+                label="How many"
+                options={[
+                  { id: "all", label: "All, with pages" },
+                  { id: "3", label: "Latest 3" },
+                  { id: "6", label: "Latest 6" },
+                  { id: "9", label: "Latest 9" },
+                  { id: "12", label: "Latest 12" },
+                ]}
+                value={c.limit ? String(c.limit) : "all"}
+                onPick={(id) => set({ limit: id === "all" ? undefined : Number(id) })}
               />
-              <span>
-                Show entries as a magazine
-                <small>A cover story, a spread and newspaper columns. Otherwise they look the way Settings → Customize → Entry Display says.</small>
-              </span>
-            </label>
+              <p className={s.fieldHint}>With a number, the page shows just your latest entries and a “See all” link to your whole journal, with search and the archive.</p>
+              <Choice
+                label="Look"
+                options={[
+                  { id: "default", label: "As in Customize" },
+                  { id: "cards", label: "Cards" },
+                  { id: "full", label: "Full posts" },
+                  { id: "preview", label: "List" },
+                  { id: "magazine", label: "Magazine" },
+                ]}
+                value={c.display ?? "default"}
+                onPick={(id) => set({ display: id === "default" ? undefined : (id as ProfileBlockConfig["display"]) })}
+              />
+            </>
           )}
         </div>
       </div>

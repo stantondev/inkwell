@@ -34,6 +34,8 @@ export type DividerStyle = "line" | "wavy" | "stars" | "stitch";
 /** Settings a block can carry; which ones apply depends on its type (Inkwell.ProfileHome cleans them). */
 export interface ProfileBlockConfig {
   display?: "cards" | "full" | "preview" | "magazine";
+  /** Entries: show only the latest few (3, 6, 9 or 12), with a link to the rest. */
+  limit?: number;
   style?: string;
   title?: string;
   body?: string;
@@ -108,6 +110,20 @@ export const SINGLETON_BLOCKS: ProfileBlockType[] = [
   "profile_card", "entries", "pinned", "top_pals", "tags", "series", "music",
   "guestbook", "support", "newsletter", "custom_html", "rss", "now",
 ];
+
+/** The whole journal on its own (?journal=1): the profile card, then every entry. */
+export function journalHome(home: ProfileHome): ProfileHome {
+  const blocks = homeBlocks(home);
+  const card = blocks.find((b) => b.type === "profile_card") ?? { id: "b-profile-card", type: "profile_card" as const, config: {} };
+  const entries = blocks.find((b) => b.type === "entries") ?? { id: "b-entries", type: "entries" as const, config: {} };
+  return {
+    ...home,
+    sections: [
+      { id: "s-journal-card", style: "columns", columns: [{ id: "c-journal-card", span: 12, blocks: [card] }] },
+      { id: "s-journal-entries", style: "columns", columns: [{ id: "c-journal-entries", span: 12, blocks: [{ ...entries, config: { ...entries.config, limit: undefined } }] }] },
+    ],
+  };
+}
 
 export function homeBlocks(home: ProfileHome): ProfileBlock[] {
   return home.sections.flatMap((s) => s.columns.flatMap((c) => c.blocks));

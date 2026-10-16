@@ -44,7 +44,13 @@ export async function loadProfile(
   username: string,
   session: { user: SessionUser; token: string } | null,
   archive: Archive,
-  opts: { countView?: boolean } = {},
+  opts: {
+    countView?: boolean;
+    /** The whole journal on its own (?journal=1), whatever the page shows. */
+    journal?: boolean;
+    /** Where the writer's page lives: /username, or / on their own domain. */
+    profileHref?: string;
+  } = {},
 ): Promise<LoadedProfile> {
   const isOwnProfile = session?.user.username === username;
 
@@ -146,13 +152,20 @@ export async function loadProfile(
   const home: ProfileHome = profile.profile_home ?? CLASSIC_HOME;
   const entriesBlock = homeBlocks(home).find((b) => b.type === "entries");
 
-  // Magazine shows entries its own way (a cover story and newspaper
-  // columns); otherwise the writer's Entry Display choice.
-  const displayMode = (entriesBlock?.config.display === "magazine"
-    ? "magazine"
-    : (profile.profile_entry_display ?? "cards")) as EntryDisplayMode;
+  // The whole journal on its own: asked for, or a link into the archive
+  // (?year=, ?tag=, ?page=…), which must keep working however short the
+  // page's own list of entries is.
+  const f = archive.filters;
+  const journalView =
+    !!opts.journal || archive.page > 1 || !!(f.q || f.category || f.tag || f.year || f.month || f.sort !== "newest");
+
+  // How the entries look: the block's own choice (Magazine, or what a layout
+  // like Scrapbook set), else the writer's Entry Display setting.
+  const displayMode = (entriesBlock?.config.display ?? profile.profile_entry_display ?? "cards") as EntryDisplayMode;
+  // A page can show just the latest few, with a link to the rest.
+  const limit = journalView ? null : entriesBlock?.config.limit ?? null;
   const perPageDefaults: Record<string, number> = { full: 5, cards: 9, preview: 20, magazine: 10 };
-  const perPage = profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
+  const perPage = limit ?? profile.entries_per_page?.[displayMode] ?? perPageDefaults[displayMode] ?? 9;
 
   // Fetch entries (page 1) + series + pinned entries in parallel
   const pinnedIds = profile.pinned_entry_ids ?? [];
@@ -270,7 +283,10 @@ export async function loadProfile(
     pinnedEntries,
     customHtml: customContent?.bodyHtml ? customContent : null,
     scopeId: profileScopeId,
+    profileHref: opts.profileHref ?? `/${username}`,
+    journalView,
     entries: {
+      limit,
       displayMode,
       perPage,
       initial: entries,

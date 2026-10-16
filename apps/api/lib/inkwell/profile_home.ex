@@ -52,6 +52,7 @@ defmodule Inkwell.ProfileHome do
   @section_styles ~w[columns flow tiles]
   @widths ~w[standard narrow]
   @entry_displays ~w[cards full preview magazine]
+  @entry_limits [3, 6, 9, 12]
   @note_styles ~w[card sticky index letter]
   @sticky_colors ~w[yellow pink blue green lilac peach]
   @photo_styles ~w[plain polaroid taped]
@@ -327,7 +328,13 @@ defmodule Inkwell.ProfileHome do
 
   defp normalize_block(_, seen, _style), do: {nil, seen}
 
-  defp normalize_config("entries", %{"display" => d}) when d in @entry_displays, do: %{"display" => d}
+  # display: how entries look here (else the writer's Entry Display setting);
+  # limit: show only the latest few, with a link to the whole journal.
+  defp normalize_config("entries", %{} = c) do
+    %{}
+    |> then(fn m -> if c["display"] in @entry_displays, do: Map.put(m, "display", c["display"]), else: m end)
+    |> then(fn m -> if c["limit"] in @entry_limits, do: Map.put(m, "limit", c["limit"]), else: m end)
+  end
 
   defp normalize_config("divider", %{"style" => st}) when st in @divider_styles, do: %{"style" => st}
 

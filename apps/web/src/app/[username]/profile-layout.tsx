@@ -56,7 +56,13 @@ export interface ProfileContext {
   pinnedEntries: ProfileEntry[];
   customHtml: { bodyHtml: string; scopedStyles?: string | null } | null;
   scopeId: string;
+  /** The writer's page: /username, or / on their own domain. */
+  profileHref: string;
+  /** Showing the whole journal on its own (?journal=1 or an archive link). */
+  journalView: boolean;
   entries: {
+    /** Only the latest few, with a link to the rest (null: all, with pages). */
+    limit: number | null;
     displayMode: EntryDisplayMode;
     perPage: number;
     initial: ProfileEntry[];
@@ -117,11 +123,46 @@ export function blockVisible(block: ProfileBlock, ctx: ProfileContext): boolean 
 function EntriesBlock({ ctx }: { ctx: ProfileContext }) {
   const { entries: e, styles, username, profile } = ctx;
   const hasFilterMeta = e.years.length > 0 || e.tags.length > 0 || e.categories.length > 0;
+  const name = profile.display_name || username;
+
+  // A shelf of the latest few, ending with the way to the rest.
+  if (e.limit) {
+    return (
+      <section className="min-w-0">
+        <h2 className="text-sm font-medium uppercase tracking-widest mb-4" style={{ color: styles.muted }}>
+          Latest entries
+        </h2>
+        <ProfileEntries
+          username={username}
+          displayMode={e.displayMode}
+          initialEntries={e.initial.slice(0, e.limit)}
+          totalCount={Math.min(e.total, e.limit)}
+          styles={styles}
+          perPage={e.limit}
+        />
+        {e.total > e.limit && (
+          <p className="mt-4 text-right">
+            <a href={`${ctx.profileHref}?journal=1`} className="text-sm font-medium hover:underline" style={{ color: styles.accent }}>
+              See all {e.total.toLocaleString("en-US")} entries <span aria-hidden="true">→</span>
+            </a>
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="min-w-0">
+      {ctx.journalView && (
+        <p className="mb-4">
+          <a href={ctx.profileHref} className="text-sm hover:underline" style={{ color: styles.accent }}>
+            <span aria-hidden="true">←</span> Back to {name}&apos;s page
+          </a>
+        </p>
+      )}
       <ProfileCorkboard
         username={username}
-        displayName={profile.display_name || username}
+        displayName={name}
         initialStickies={e.stickies}
         total={e.stickyTotal}
         isOwnProfile={ctx.isOwnProfile}

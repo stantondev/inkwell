@@ -228,6 +228,20 @@ defmodule Inkwell.ProfileHomeTest do
     end
   end
 
+  test "entries can show only the latest few" do
+    {:ok, home} =
+      ProfileHome.normalize(%{"sections" => [%{"columns" => [%{"blocks" => [
+        %{"type" => "entries", "config" => %{"display" => "cards", "limit" => 6, "x" => 1}}
+      ]}]}]})
+
+    entries = Enum.find(for(s <- home["sections"], c <- s["columns"], b <- c["blocks"], do: b), &(&1["type"] == "entries"))
+    assert entries["config"] == %{"display" => "cards", "limit" => 6}
+
+    {:ok, home} = ProfileHome.normalize(%{"sections" => [%{"columns" => [%{"blocks" => [%{"type" => "entries", "config" => %{"limit" => 500}}]}]}]})
+    entries = Enum.find(for(s <- home["sections"], c <- s["columns"], b <- c["blocks"], do: b), &(&1["type"] == "entries"))
+    assert entries["config"] == %{}
+  end
+
   test "the spam checker can read what a writer put on their page" do
     home = %{"sections" => [%{"columns" => [%{"blocks" => [
       %{"type" => "note", "config" => %{"title" => "Best casino bonus", "body" => "Click now"}},

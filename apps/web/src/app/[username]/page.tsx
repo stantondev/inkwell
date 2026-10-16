@@ -10,6 +10,7 @@ import { fediverseHandle } from "@/lib/fediverse";
 import { profileFiltersFromParams } from "@/lib/profile-archive-params";
 import { getSite } from "@/lib/site";
 import { ProfileLayout } from "./profile-layout";
+import { journalHome } from "@/lib/profile-home";
 import { loadProfile, ProfileFrame } from "./load-profile";
 import type { ProfileUser } from "./profile-types";
 
@@ -18,8 +19,10 @@ interface ProfileParams {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({ params }: ProfileParams): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: ProfileParams): Promise<Metadata> {
   const { username } = await params;
+  // The whole-journal view repeats the entries' own pages; keep it out of search.
+  const journalOnly = (await searchParams).journal === "1";
 
   // Detect custom domain context
   const headersList = await import("next/headers").then(m => m.headers());
@@ -51,7 +54,11 @@ export async function generateMetadata({ params }: ProfileParams): Promise<Metad
     const cardAlt = `${displayName}'s journal on Inkwell`;
 
     return {
-      ...(data.meta?.noindex ? { robots: { index: false, follow: false } } : {}),
+      ...(data.meta?.noindex
+        ? { robots: { index: false, follow: false } }
+        : journalOnly
+          ? { robots: { index: false, follow: true } }
+          : {}),
       // On the writer's own domain the site is theirs — drop the root
       // layout's "· Inkwell" suffix.
       title: customDomain
@@ -112,14 +119,18 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
   const { username } = await params;
   // ?year=&month=&page=&sort=&tag=&category=&q= : the archive position, so
   // links and the Back button land on the same page of entries.
-  const archive = profileFiltersFromParams(await searchParams);
+  const query = await searchParams;
+  const archive = profileFiltersFromParams(query);
   const session = await getSession();
 
   // Detect custom domain context (for rendering "Powered by Inkwell" inside theme wrapper)
   const reqHeaders = await headers();
   const isOnCustomDomain = !!reqHeaders.get("x-custom-domain");
 
-  const loaded = await loadProfile(username, session, archive);
+  const loaded = await loadProfile(username, session, archive, {
+    journal: query.journal === "1",
+    profileHref: isOnCustomDomain ? "/" : `/${username}`,
+  });
 
   // Handle blocked states — show limited profile
   if (loaded.kind === "unavailable") {
@@ -159,7 +170,9 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
     );
   }
 
-  const { home, ctx, frame, jsonLd } = loaded;
+  const { ctx, frame, jsonLd } = loaded;
+  // The whole journal on its own shows the card and every entry, nothing else.
+  const home = ctx.journalView ? journalHome(loaded.home) : loaded.home;
   const width = isOnCustomDomain ? "" : home.width === "narrow" ? "max-w-2xl" : "max-w-7xl";
 
   return (

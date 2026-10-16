@@ -21,7 +21,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     id: "2026-10-16-arrange-your-page",
     date: "2026-10-16",
     title: "Arrange your page, your way",
-    body: "Your profile is yours to lay out now, free for everyone. Drag things where you want them, give a row two, three or four columns and drag the space between them wider or narrower, and add things of your own: notes (as a card, sticky note, index card or letter), photos (plain, polaroid or taped in), quotes, a \"Currently\" list, countdowns and links. Start from a layout like Scrapbook or Writer's desk, or press Shuffle for a surprise. Undo puts anything back, there's a phone preview, and visitors see nothing until you Save. Stickers to decorate it with are next.",
+    body: "Your profile is yours to lay out now, free for everyone. Drag things where you want them, give a row two, three or four columns and drag the space between them wider or narrower, and add things of your own: notes (as a card, sticky note, index card or letter), photos (plain, polaroid or taped in), quotes, a \"Currently\" list, countdowns and links. Start from a layout like Scrapbook or Writer's desk, or press Shuffle for a surprise. Your entries can be a shelf of just the latest few, with a link to your whole journal. Undo puts anything back, there's a phone preview, and visitors see nothing until you Save. Stickers to decorate it with are next.",
     howTo: "On your profile, choose Arrange page.",
     href: "/arrange",
     cta: "Arrange your page",

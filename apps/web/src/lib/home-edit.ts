@@ -305,9 +305,20 @@ const sec = (style: ProfileSection["style"], ...cols: [number, (ProfileBlock | n
 
 const divider = (style = "line"): ProfileBlock => ({ id: newId("b"), type: "divider", config: { style } });
 
-const withDisplay = (entries: ProfileBlock, magazine: boolean): ProfileBlock => ({
+/** The entries block as a layout wants it: how they look and how many show. */
+const withDisplay = (
+  entries: ProfileBlock,
+  magazine: boolean,
+  shelf?: { display: ProfileBlockConfig["display"]; limit: number },
+): ProfileBlock => ({
   ...entries,
-  config: { ...entries.config, display: magazine ? "magazine" : entries.config.display === "magazine" ? undefined : entries.config.display },
+  config: shelf
+    ? { ...entries.config, display: shelf.display, limit: shelf.limit }
+    : {
+        ...entries.config,
+        display: magazine ? "magazine" : entries.config.display === "magazine" ? undefined : entries.config.display,
+        limit: undefined,
+      },
 });
 
 function page(width: ProfileHome["width"], sections: ProfileSection[]): ProfileHome {
@@ -337,7 +348,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "scrapbook",
     label: "Scrapbook",
-    blurb: "A row of photos and notes under your card.",
+    blurb: "Photos and notes up top, your latest entries as a shelf, cards below.",
     build: (p) => {
       // Up to three slots: whatever's already made, then a photo, note and
       // quote it doesn't have yet (empty ones don't show to visitors).
@@ -345,12 +356,16 @@ export const TEMPLATES: Template[] = [
       const extra = (["photo", "note", "quote"] as const).filter((t) => !have.has(t)).slice(0, Math.max(0, 3 - p.keepsakes.length));
       const keepsakes = [...p.keepsakes, ...extra.map(newBlock)];
       const [a, b, c] = deal(keepsakes, 3);
+      // Entries are a shelf of the latest six across the page, so nothing
+      // runs on beside them; the rest of the journal is a link away.
       return page("standard", [
         sec("columns", [12, [p.card]]),
         sec("columns", [4, a], [4, b], [4, c]),
         sec("columns", [12, [divider("stitch")]]),
         sec("columns", [12, [p.pinned]]),
-        sec("columns", [8, [withDisplay(p.entries, false)]], [4, [p.now, ...p.widgets, p.rss]]),
+        sec("columns", [12, [withDisplay(p.entries, false, { display: "cards", limit: 6 })]]),
+        sec("columns", [12, [divider("wavy")]]),
+        sec("flow", [12, [p.now, ...p.widgets, p.rss]]),
       ]);
     },
   },

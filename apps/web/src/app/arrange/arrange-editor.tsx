@@ -832,12 +832,16 @@ function EditorBlock({
 
 /** Entries are long; the editor shows the first few so the page stays easy to move around. */
 function EntriesPreview({ block, ctx }: { block: ProfileBlock; ctx: ProfileContext }) {
-  const entries = ctx.entries.initial.slice(0, 3);
-  const magazine = block.config.display === "magazine";
+  const limit = block.config.limit ?? null;
+  const entries = ctx.entries.initial.slice(0, Math.min(3, limit ?? 3));
+  const looks: Record<string, string> = { cards: "as cards", full: "as full posts", preview: "as a list", magazine: "as a magazine" };
+  const look = block.config.display ? looks[block.config.display] : null;
   return (
     <section>
       <h2 className="text-sm font-medium uppercase tracking-widest mb-3" style={{ color: ctx.styles.muted }}>
-        Journal entries {magazine && <span className={s.chip}>as a magazine</span>}
+        {limit ? "Latest entries" : "Journal entries"}
+        <span className={s.chip}>{limit ? `latest ${limit}, then “See all”` : "all, with pages"}</span>
+        {look && <span className={s.chip}>{look}</span>}
       </h2>
       <div className="flex flex-col gap-3">
         {entries.map((e) => (
@@ -848,7 +852,11 @@ function EntriesPreview({ block, ctx }: { block: ProfileBlock; ctx: ProfileConte
         ))}
         {entries.length === 0 && <p className="text-sm" style={{ color: ctx.styles.muted }}>Your entries will be here.</p>}
         {ctx.entries.total > entries.length && (
-          <p className="text-xs" style={{ color: ctx.styles.muted }}>…and {ctx.entries.total - entries.length} more</p>
+          <p className="text-xs" style={{ color: ctx.styles.muted }}>
+            {limit
+              ? `…${Math.min(limit, ctx.entries.total) - entries.length > 0 ? `${Math.min(limit, ctx.entries.total) - entries.length} more here, ` : ""}${ctx.entries.total.toLocaleString("en-US")} in your whole journal`
+              : `…and ${ctx.entries.total - entries.length} more`}
+          </p>
         )}
       </div>
     </section>
