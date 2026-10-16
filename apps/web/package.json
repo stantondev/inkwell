@@ -7,14 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:arrange": "tsx --test src/lib/home-edit.test.ts"
   },
   "dependencies": {
     "@apache-annotator/dom": "^0.2.0",
     "@apache-annotator/selector": "^0.2.0",
     "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
     "@tiptap/extension-character-count": "^3.20.0",
     "@tiptap/extension-color": "^3.20.0",
     "@tiptap/extension-highlight": "^3.20.0",

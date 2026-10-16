@@ -368,6 +368,63 @@
 .blockDragging {
   opacity: 0.35;
 }
+
+/* Where a drag will land: a line on the side of the block it goes next to.
+   Shadows, not borders or new elements, so nothing moves while dragging. */
+.dropTop {
+  box-shadow: 0 -4px 0 0 var(--arrange-ink);
+}
+.dropBottom {
+  box-shadow: 0 4px 0 0 var(--arrange-ink);
+}
+.dropLeft {
+  box-shadow: -4px 0 0 0 var(--arrange-ink);
+}
+.dropRight {
+  box-shadow: 4px 0 0 0 var(--arrange-ink);
+}
+.dropEnd {
+  height: 0;
+  margin-top: -0.5rem;
+  border-top: 4px solid var(--arrange-ink);
+  border-radius: 2px;
+}
+.dragging,
+.dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.moves {
+  display: inline-flex;
+}
+
+.draftBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem max(0.75rem, env(safe-area-inset-left));
+  background: var(--arrange-ink-soft);
+  color: var(--arrange-panel-ink);
+  border-bottom: 1px solid var(--arrange-panel-line);
+  font: 0.85rem system-ui, sans-serif;
+}
+
+.crash {
+  margin: 2rem auto;
+  max-width: 28rem;
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--arrange-line);
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  font: 0.9rem system-ui, sans-serif;
+  text-align: center;
+}
+.crash p {
+  margin-bottom: 0.6rem;
+}
 .blockFlash {
   animation: arrange-flash 1.5s ease;
 }

@@ -161,6 +161,44 @@ export function nudgeBlock(home: ProfileHome, id: string, dir: -1 | 1): ProfileH
   return moveBlock(home, id, next.id, dir === 1 ? 0 : next.blocks.length);
 }
 
+/** The column beside a block's own in the same row (dir -1: left, 1: right), if there is one. */
+export function neighbourColumn(home: ProfileHome, id: string, dir: -1 | 1): ProfileColumn | null {
+  const found = findBlock(home, id);
+  if (!found || found.section.style !== "columns") return null;
+  const ci = found.section.columns.findIndex((c) => c.id === found.column.id);
+  return found.section.columns[ci + dir] ?? null;
+}
+
+/** Move a block into the column to its left or right, at the same height where it can. */
+export function moveAcross(home: ProfileHome, id: string, dir: -1 | 1): ProfileHome {
+  const found = findBlock(home, id);
+  const target = neighbourColumn(home, id, dir);
+  if (!found || !target) return home;
+  return moveBlock(home, id, target.id, Math.min(found.index, target.blocks.length));
+}
+
+/** Where a drag will land: before or after a block, or at the end of a column. */
+export type DropTarget =
+  | { columnId: string; blockId: string; edge: "before" | "after" }
+  | { columnId: string; blockId: null; edge: "end" };
+
+/** The index in its column that a drop target stands for. */
+export function dropIndex(home: ProfileHome, target: DropTarget): number {
+  const col = home.sections.flatMap((x) => x.columns).find((c) => c.id === target.columnId);
+  if (!col) return 0;
+  if (target.blockId === null) return col.blocks.length;
+  const i = col.blocks.findIndex((b) => b.id === target.blockId);
+  if (i < 0) return col.blocks.length;
+  return target.edge === "before" ? i : i + 1;
+}
+
+/** Move an existing block to a drop target. Dropping a block onto itself changes nothing. */
+export function dropBlock(home: ProfileHome, id: string, target: DropTarget): ProfileHome {
+  if (target.blockId === id) return home;
+  if (!home.sections.some((x) => x.columns.some((c) => c.id === target.columnId))) return home;
+  return moveBlock(home, id, target.columnId, dropIndex(home, target));
+}
+
 export function updateConfig(home: ProfileHome, id: string, config: ProfileBlockConfig): ProfileHome {
   return mapColumns(home, (c) => ({
     ...c,
@@ -281,10 +319,15 @@ interface Pieces {
   widgets: ProfileBlock[];
   /** The writer's own notes, photos, quotes… in page order. */
   keepsakes: ProfileBlock[];
+  /** A divider for a layout's slot: one of the writer's own if any are left, else a new one in this style. */
+  divider: (style?: string) => ProfileBlock;
+  /** The writer's dividers no slot used, so nothing is lost. */
+  spareDividers: () => ProfileBlock[];
 }
 
 function piecesOf(home: ProfileHome): Pieces {
   const all = home.sections.flatMap((s) => s.columns.flatMap((c) => c.blocks));
+  const pool = all.filter((b) => b.type === "divider");
   const take = (t: ProfileBlockType) => all.find((b) => b.type === t) ?? null;
   return {
     card: take("profile_card") ?? newBlock("profile_card"),
@@ -294,7 +337,20 @@ function piecesOf(home: ProfileHome): Pieces {
     now: take("now"),
     widgets: all.filter((b) => isSingleton(b.type) && !["profile_card", "entries", "pinned", "rss", "now"].includes(b.type)),
     keepsakes: all.filter((b) => !isSingleton(b.type) && b.type !== "divider"),
+    divider: (style = "line") => pool.shift() ?? { id: newId("b"), type: "divider", config: { style } },
+    spareDividers: () => pool.splice(0),
   };
+}
+
+/** A built page plus anything of the writer's no slot took, at the end of its last column. */
+function keepSpares(home: ProfileHome, spares: ProfileBlock[]): ProfileHome {
+  if (spares.length === 0 || home.sections.length === 0) return home;
+  const sections = [...home.sections];
+  const last = sections[sections.length - 1];
+  const cols = [...last.columns];
+  cols[cols.length - 1] = { ...cols[cols.length - 1], blocks: [...cols[cols.length - 1].blocks, ...spares] };
+  sections[sections.length - 1] = { ...last, columns: cols };
+  return { ...home, sections };
 }
 
 const sec = (style: ProfileSection["style"], ...cols: [number, (ProfileBlock | null)[]][]): ProfileSection => ({
@@ -302,8 +358,6 @@ const sec = (style: ProfileSection["style"], ...cols: [number, (ProfileBlock | n
   style,
   columns: cols.map(([span, blocks]) => ({ id: newId("c"), span, blocks: blocks.filter((b): b is ProfileBlock => !!b) })),
 });
-
-const divider = (style = "line"): ProfileBlock => ({ id: newId("b"), type: "divider", config: { style } });
 
 /** The entries block as a layout wants it: how they look and how many show. */
 const withDisplay = (
@@ -340,7 +394,7 @@ export const TEMPLATES: Template[] = [
     build: (p) =>
       page("standard", [
         sec("columns", [12, [p.card]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [9, [withDisplay(p.entries, false)]], [3, [p.now, ...p.keepsakes, ...p.widgets, p.rss]]),
       ]),
@@ -361,11 +415,31 @@ export const TEMPLATES: Template[] = [
       return page("standard", [
         sec("columns", [12, [p.card]]),
         sec("columns", [4, a], [4, b], [4, c]),
-        sec("columns", [12, [divider("stitch")]]),
+        sec("columns", [12, [p.divider("stitch")]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [12, [withDisplay(p.entries, false, { display: "cards", limit: 6 })]]),
-        sec("columns", [12, [divider("wavy")]]),
+        sec("columns", [12, [p.divider("wavy")]]),
         sec("flow", [12, [p.now, ...p.widgets, p.rss]]),
+      ]);
+    },
+  },
+  {
+    id: "scrapbook-sidebar",
+    label: "Scrapbook with sidebar",
+    blurb: "Photos and notes up top, your latest entries beside a sidebar of your cards.",
+    build: (p) => {
+      const have = new Set(p.keepsakes.map((b) => b.type));
+      const extra = (["photo", "note", "quote"] as const).filter((t) => !have.has(t)).slice(0, Math.max(0, 3 - p.keepsakes.length));
+      const keepsakes = [...p.keepsakes, ...extra.map(newBlock)];
+      const [a, b, c] = deal(keepsakes, 3);
+      // The latest six entries as cards beside the sidebar, so the two end
+      // at about the same place; the rest of the journal is a link away.
+      return page("standard", [
+        sec("columns", [12, [p.card]]),
+        sec("columns", [4, a], [4, b], [4, c]),
+        sec("columns", [12, [p.divider("stitch")]]),
+        sec("columns", [12, [p.pinned]]),
+        sec("columns", [8, [withDisplay(p.entries, false, { display: "cards", limit: 6 })]], [4, [p.now, ...p.widgets, p.rss]]),
       ]);
     },
   },
@@ -376,7 +450,7 @@ export const TEMPLATES: Template[] = [
     build: (p) =>
       page("standard", [
         sec("columns", [8, [p.card]], [4, [p.now ?? newBlock("now"), ...p.keepsakes.slice(0, 1)]]),
-        sec("columns", [12, [divider("stars")]]),
+        sec("columns", [12, [p.divider("stars")]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [9, [withDisplay(p.entries, false)]], [3, [...p.keepsakes.slice(1), ...p.widgets, p.rss]]),
       ]),
@@ -388,10 +462,10 @@ export const TEMPLATES: Template[] = [
     build: (p) =>
       page("standard", [
         sec("columns", [12, [p.card]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [12, [withDisplay(p.entries, false)]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("flow", [12, [p.now, ...p.keepsakes, ...p.widgets, p.rss]]),
       ]),
   },
@@ -402,10 +476,10 @@ export const TEMPLATES: Template[] = [
     build: (p) =>
       page("standard", [
         sec("columns", [12, [p.card]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [12, [withDisplay(p.entries, true)]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("flow", [12, [p.now, ...p.keepsakes, ...p.widgets, p.rss]]),
       ]),
   },
@@ -416,17 +490,19 @@ export const TEMPLATES: Template[] = [
     build: (p) =>
       page("narrow", [
         sec("columns", [12, [p.card]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         sec("columns", [12, [p.pinned]]),
         sec("columns", [12, [withDisplay(p.entries, false)]]),
-        sec("columns", [12, [divider()]]),
+        sec("columns", [12, [p.divider()]]),
         ...[p.now, ...p.keepsakes, ...p.widgets, p.rss].filter((b): b is ProfileBlock => !!b).map((b) => sec("columns", [12, [b]])),
       ]),
   },
 ];
 
 export function applyTemplate(home: ProfileHome, template: Template): ProfileHome {
-  return template.build(piecesOf(home));
+  const pieces = piecesOf(home);
+  const built = template.build(pieces);
+  return keepSpares(built, pieces.spareDividers());
 }
 
 function shuffled<T>(list: T[]): T[] {
@@ -450,7 +526,7 @@ export function shuffleHome(home: ProfileHome, shown: (b: ProfileBlock) => boole
   // made of blocks visitors can't see yet.
   const mixed = shuffled([p.now, ...p.keepsakes, ...p.widgets].filter((b): b is ProfileBlock => !!b));
   const loose = [...mixed.filter(shown), ...mixed.filter((b) => !shown(b))];
-  const ornament = () => divider(pick(["line", "wavy", "stars", "stitch"]));
+  const ornament = () => p.divider(pick(["line", "wavy", "stars", "stitch"]));
   const entries = withDisplay(p.entries, false);
 
   const top = pick<() => ProfileSection[]>([
@@ -474,5 +550,6 @@ export function shuffleHome(home: ProfileHome, shown: (b: ProfileBlock) => boole
     ? sec("columns", [side, [...loose, p.rss]], [main, [entries]])
     : sec("columns", [main, [entries]], [side, [...loose, p.rss]]);
 
-  return page(home.width, [...top, sec("columns", [12, [ornament()]]), ...band, sec("columns", [12, [p.pinned]]), body]);
+  const built = page(home.width, [...top, sec("columns", [12, [ornament()]]), ...band, sec("columns", [12, [p.pinned]]), body]);
+  return keepSpares(built, p.spareDividers());
 }

@@ -1,32 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   PointerSensor,
   TouchSensor,
-  closestCorners,
-  useDroppable,
+  useDraggable,
   useSensor,
   useSensors,
-  type Announcements,
   type DragEndEvent,
-  type DragOverEvent,
+  type DragMoveEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 import { columnTracks, type ProfileBlock, type ProfileBlockType, type ProfileHome, type ProfileSection } from "@/lib/profile-home";
 import {
@@ -36,10 +24,14 @@ import {
   addSection,
   applyPreset,
   applyTemplate,
+  dropBlock,
+  dropIndex,
   findBlock,
   insertBlock,
   isSingleton,
+  moveAcross,
   moveSection,
+  neighbourColumn,
   newBlock,
   nudgeBlock,
   presetOf,
@@ -49,7 +41,9 @@ import {
   sectionRemovable,
   shuffleHome,
   updateConfig,
+  type DropTarget,
 } from "@/lib/home-edit";
+import { historyReducer, initHistory } from "@/lib/home-history";
 import { ProfileFrame, type ProfileFrameProps } from "@/app/[username]/profile-frame";
 import { ProfileBlockView, blockVisible, type ProfileContext } from "@/app/[username]/profile-layout";
 import { BlockSettings } from "./block-settings";
@@ -64,8 +58,6 @@ interface Props {
 }
 
 type Drag = { kind: "block"; id: string } | { kind: "tray"; type: ProfileBlockType } | null;
-
-const COL = "col:";
 
 /** Why a piece of the profile shows nothing yet, and where to change that. */
 const EMPTY_HINTS: Partial<Record<ProfileBlockType, string>> = {
@@ -84,10 +76,47 @@ const EMPTY_HINTS: Partial<Record<ProfileBlockType, string>> = {
   links: "Edit it to add your links.",
 };
 
+const draftKey = (username: string) => `inkwell-arrange-draft:${username}`;
+
+/**
+ * Where the pointer would drop something, read from the page itself: the
+ * block or column under the pointer. Nothing on the page moves while
+ * dragging (only a line shows where it will land), so this can't feed back
+ * into itself the way moving blocks live did.
+ */
+function targetAt(x: number, y: number, draggingId: string | null): DropTarget | null {
+  for (const el of document.elementsFromPoint(x, y)) {
+    if (!(el instanceof HTMLElement)) continue;
+    const blockId = el.dataset.dropBlock;
+    const columnId = el.dataset.dropCol;
+    if (blockId && columnId) {
+      if (blockId === draggingId) return null;
+      const r = el.getBoundingClientRect();
+      const before = el.dataset.dropFlow === "1" ? x < r.left + r.width / 2 : y < r.top + r.height / 2;
+      return { columnId, blockId, edge: before ? "before" : "after" };
+    }
+    const column = el.dataset.dropColumn;
+    if (column) {
+      // In the gaps of a column: before the first block whose middle is below the pointer.
+      const blocks = Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-drop-block]"));
+      const flow = el.dataset.dropFlow === "1";
+      for (const b of blocks) {
+        const r = b.getBoundingClientRect();
+        const ahead = flow ? y < r.bottom && (y < r.top || x < r.left + r.width / 2) : y < r.top + r.height / 2;
+        if (ahead) {
+          if (b.dataset.dropBlock === draggingId) return null;
+          return { columnId: column, blockId: b.dataset.dropBlock!, edge: "before" };
+        }
+      }
+      return { columnId: column, blockId: null, edge: "end" };
+    }
+  }
+  return null;
+}
+
 export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
-  const [home, setHome] = useState<ProfileHome>(initialHome);
-  const [past, setPast] = useState<ProfileHome[]>([]);
-  const [future, setFuture] = useState<ProfileHome[]>([]);
+  const [state, dispatch] = useReducer(historyReducer, initialHome, initHistory);
+  const { home, past, future } = state;
   const [saved, setSaved] = useState(() => JSON.stringify(initialHome));
   const [status, setStatus] = useState<{ kind: "idle" | "saving" | "saved" | "error" | "note"; text?: string }>({ kind: "idle" });
   const [view, setView] = useState<"desktop" | "phone">("desktop");
@@ -95,60 +124,55 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [targetColumn, setTargetColumn] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag>(null);
+  const [drop, setDrop] = useState<DropTarget | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [menu, setMenu] = useState<null | "layouts">(null);
-  const snapshot = useRef<ProfileHome | null>(null);
-  // The current home for handlers that outlive a render (column resizing).
+  const [draft, setDraft] = useState<ProfileHome | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const pointer = useRef({ x: 0, y: 0 });
   const homeRef = useRef(home);
+
   useEffect(() => {
     homeRef.current = home;
   }, [home]);
   const getHome = useCallback(() => homeRef.current, []);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const dirty = JSON.stringify(home) !== saved;
 
-  // ── History ────────────────────────────────────────────────────────────
   const commit = useCallback((next: ProfileHome, before?: ProfileHome) => {
-    setHome((current) => {
-      const prev = before ?? current;
-      if (JSON.stringify(prev) === JSON.stringify(next)) return current;
-      setPast((p) => [...p.slice(-49), prev]);
-      setFuture([]);
-      return next;
-    });
+    dispatch({ type: "commit", next, before });
     setStatus((st) => (st.kind === "saved" || st.kind === "note" ? { kind: "idle" } : st));
   }, []);
+  const undo = useCallback(() => dispatch({ type: "undo" }), []);
+  const redo = useCallback(() => dispatch({ type: "redo" }), []);
 
-  const undo = useCallback(() => {
-    setPast((p) => {
-      if (p.length === 0) return p;
-      const prev = p[p.length - 1];
-      setHome((current) => {
-        setFuture((f) => [current, ...f].slice(0, 50));
-        return prev;
-      });
-      return p.slice(0, -1);
-    });
+  // A copy of unsaved work in this browser tab, so a crash or a reload
+  // doesn't lose it; offered back on the next visit.
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const raw = sessionStorage.getItem(draftKey(username));
+      if (raw && raw !== JSON.stringify(initialHome)) setDraft(JSON.parse(raw));
+    } catch {
+      // no storage: nothing to offer
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const redo = useCallback(() => {
-    setFuture((f) => {
-      if (f.length === 0) return f;
-      const next = f[0];
-      setHome((current) => {
-        setPast((p) => [...p.slice(-49), current]);
-        return next;
-      });
-      return f.slice(1);
-    });
-  }, []);
+  useEffect(() => {
+    if (!mounted || draft) return;
+    try {
+      if (dirty) sessionStorage.setItem(draftKey(username), JSON.stringify(home));
+      else sessionStorage.removeItem(draftKey(username));
+    } catch {
+      // storage full or blocked: the page still works
+    }
+  }, [home, dirty, mounted, draft, username]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -161,14 +185,11 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
 
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-    };
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  // ── Saving ─────────────────────────────────────────────────────────────
   async function save() {
     setStatus({ kind: "saving" });
     try {
@@ -178,18 +199,18 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
         body: JSON.stringify({ home }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Couldn't save your page.");
+      if (!res.ok) throw new Error(data.error || "Couldn't save your page. Try again.");
       const clean = data.data as ProfileHome;
-      setHome(clean);
+      dispatch({ type: "replace", home: clean });
       setSaved(JSON.stringify(clean));
       setStatus({ kind: "saved" });
     } catch (err) {
-      setStatus({ kind: "error", text: err instanceof Error ? err.message : "Couldn't save your page." });
+      setStatus({ kind: "error", text: err instanceof Error ? err.message : "Couldn't save your page. Try again." });
     }
   }
 
   // ── Adding ─────────────────────────────────────────────────────────────
-  /** Where a click in the tray puts things: the column last clicked, else a sidebar, else the last column. */
+  /** Where Add puts things: the column last picked, else a sidebar, else the last column. */
   function defaultColumn(h: ProfileHome): string {
     if (targetColumn && h.sections.some((sec) => sec.columns.some((c) => c.id === targetColumn))) return targetColumn;
     const columns = h.sections.flatMap((sec) => sec.columns);
@@ -199,128 +220,100 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
 
   function add(type: ProfileBlockType, columnId?: string, index?: number) {
     const block = newBlock(type);
-    const col = columnId ?? defaultColumn(home);
-    commit(insertBlock(home, block, col, index));
+    commit(insertBlock(home, block, columnId ?? defaultColumn(home), index));
     reveal(block.id, BLOCK_INFO[type].own && BLOCK_INFO[type].editable);
-    return block;
   }
 
   function reveal(id: string, openSettings?: boolean) {
     setFlash(id);
-    setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600);
-    requestAnimationFrame(() => {
-      document.getElementById(`arrange-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+    window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600);
+    window.setTimeout(() => document.getElementById(`arrange-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
     if (openSettings) {
       setTrayOpen(false);
       setSettingsId(id);
     }
   }
 
+  function moveBy(id: string, change: (h: ProfileHome) => ProfileHome, focus: string) {
+    commit(change(home));
+    // Keep focus on the button pressed, wherever the block went.
+    requestAnimationFrame(() => document.getElementById(`arrange-${id}`)?.querySelector<HTMLButtonElement>(`[data-move="${focus}"]:not(:disabled)`)?.focus());
+  }
+
   // ── Dragging ───────────────────────────────────────────────────────────
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
   );
 
-  const containerOf = useCallback(
-    (id: string): string | null => {
-      if (id.startsWith(COL)) return id.slice(COL.length);
-      return findBlock(home, id)?.column.id ?? null;
-    },
-    [home],
-  );
+  useEffect(() => {
+    if (!drag) return;
+    const onPointer = (e: PointerEvent) => (pointer.current = { x: e.clientX, y: e.clientY });
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (t) pointer.current = { x: t.clientX, y: t.clientY };
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("touchmove", onTouch);
+    };
+  }, [drag]);
 
-  const labelOf = useCallback(
-    (id: string | number): string => {
-      const key = String(id);
-      if (key.startsWith(TRAY_PREFIX)) return BLOCK_INFO[key.slice(TRAY_PREFIX.length) as ProfileBlockType]?.label ?? "a new block";
-      if (key.startsWith(COL)) return "an empty column";
-      const b = findBlock(home, key)?.block;
-      return b ? BLOCK_INFO[b.type].label : "a block";
-    },
-    [home],
-  );
-
-  const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up ${labelOf(active.id)}.`,
-    onDragOver: ({ active, over }) => (over ? `${labelOf(active.id)} is over ${labelOf(over.id)}.` : `${labelOf(active.id)} isn't over anywhere it can go.`),
-    onDragEnd: ({ active, over }) => (over ? `${labelOf(active.id)} dropped by ${labelOf(over.id)}.` : `${labelOf(active.id)} put back.`),
-    onDragCancel: ({ active }) => `Moving ${labelOf(active.id)} cancelled; it's back where it was.`,
-  };
-
-  function onDragStart(e: DragStartEvent) {
-    const id = String(e.active.id);
-    snapshot.current = home;
-    setDrag(id.startsWith(TRAY_PREFIX) ? { kind: "tray", type: id.slice(TRAY_PREFIX.length) as ProfileBlockType } : { kind: "block", id });
+  function startPointer(e: DragStartEvent) {
+    const ev = e.activatorEvent as PointerEvent | TouchEvent | MouseEvent | null;
+    if (ev && "touches" in ev && ev.touches[0]) pointer.current = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+    else if (ev && "clientX" in ev) pointer.current = { x: ev.clientX, y: ev.clientY };
   }
 
-  function onDragOver(e: DragOverEvent) {
-    const { active, over } = e;
-    if (!over) return;
-    const activeId = String(active.id);
-    if (activeId.startsWith(TRAY_PREFIX)) return;
-    const from = containerOf(activeId);
-    const to = containerOf(String(over.id));
-    if (!from || !to || from === to) return;
-    // Across columns: move it now, so the page makes room as it goes.
-    setHome((h) => {
-      const target = h.sections.flatMap((x) => x.columns).find((c) => c.id === to);
-      if (!target) return h;
-      const overIndex = target.blocks.findIndex((b) => b.id === String(over.id));
-      const found = findBlock(h, activeId);
-      if (!found) return h;
-      const without = removeBlock(h, activeId);
-      return insertBlock(without, found.block, to, overIndex >= 0 ? overIndex : target.blocks.length);
-    });
+  function onDragStart(e: DragStartEvent) {
+    startPointer(e);
+    const id = String(e.active.id);
+    setDrag(id.startsWith(TRAY_PREFIX) ? { kind: "tray", type: id.slice(TRAY_PREFIX.length) as ProfileBlockType } : { kind: "block", id });
+    setDrop(null);
+  }
+
+  const lastDropKey = useRef("");
+  function onDragMove(e: DragMoveEvent) {
+    const id = String(e.active.id);
+    const t = targetAt(pointer.current.x, pointer.current.y, id.startsWith(TRAY_PREFIX) ? null : id);
+    const key = t ? `${t.columnId}|${t.blockId}|${t.edge}` : "";
+    if (key !== lastDropKey.current) {
+      lastDropKey.current = key;
+      setDrop(t);
+    }
   }
 
   function onDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    const before = snapshot.current ?? home;
-    snapshot.current = null;
+    const id = String(e.active.id);
+    const t = targetAt(pointer.current.x, pointer.current.y, id.startsWith(TRAY_PREFIX) ? null : id);
     setDrag(null);
-    const activeId = String(active.id);
-
-    if (activeId.startsWith(TRAY_PREFIX)) {
-      if (!over) return;
-      const type = activeId.slice(TRAY_PREFIX.length) as ProfileBlockType;
-      const to = containerOf(String(over.id));
-      if (!to) return;
-      const col = home.sections.flatMap((x) => x.columns).find((c) => c.id === to);
-      const index = col ? col.blocks.findIndex((b) => b.id === String(over.id)) : -1;
-      add(type, to, index >= 0 ? index : undefined);
+    setDrop(null);
+    lastDropKey.current = "";
+    if (!t) return;
+    if (id.startsWith(TRAY_PREFIX)) {
+      add(id.slice(TRAY_PREFIX.length) as ProfileBlockType, t.columnId, dropIndex(home, t));
       return;
     }
-
-    let next = home;
-    if (over) {
-      const from = containerOf(activeId);
-      const to = containerOf(String(over.id));
-      if (from && from === to && !String(over.id).startsWith(COL)) {
-        next = {
-          ...home,
-          sections: home.sections.map((sec) => ({
-            ...sec,
-            columns: sec.columns.map((c) => {
-              if (c.id !== to) return c;
-              const a = c.blocks.findIndex((b) => b.id === activeId);
-              const b = c.blocks.findIndex((x) => x.id === String(over.id));
-              return a >= 0 && b >= 0 ? { ...c, blocks: arrayMove(c.blocks, a, b) } : c;
-            }),
-          })),
-        };
-      }
-    }
-    commit(next, before);
+    commit(dropBlock(home, id, t));
+    setFlash(id);
+    window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 1200);
   }
 
   function onDragCancel() {
-    if (snapshot.current) setHome(snapshot.current);
-    snapshot.current = null;
     setDrag(null);
+    setDrop(null);
+    lastDropKey.current = "";
   }
+
+  const labelOf = useCallback(
+    (id: string): string => {
+      const b = findBlock(home, id)?.block;
+      return b ? BLOCK_INFO[b.type].label : "Block";
+    },
+    [home],
+  );
 
   // ── Rendering ──────────────────────────────────────────────────────────
   const editing = settingsId ? findBlock(home, settingsId)?.block ?? null : null;
@@ -335,7 +328,7 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   const toolbar = (
     <div className={s.toolbar} role="toolbar" aria-label="Arrange my page">
       <Link
-        href={`/${username}`}
+        href={ctx.profileHref}
         className={s.toolLink}
         onClick={(e) => {
           if (dirty && !confirm("Leave without saving your changes?")) e.preventDefault();
@@ -352,11 +345,19 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
         <span aria-hidden="true">＋</span> Add
       </button>
       <span className={s.menuWrap}>
-        <button type="button" className={s.toolBtn} aria-expanded={menu === "layouts"} onClick={() => setMenu(menu === "layouts" ? null : "layouts")}>
+        <button
+          type="button"
+          className={s.toolBtn}
+          aria-expanded={menu === "layouts"}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenu(menu === "layouts" ? null : "layouts");
+          }}
+        >
           Layouts <span aria-hidden="true">▾</span>
         </button>
         {menu === "layouts" && (
-          <div className={s.menu} role="menu">
+          <div className={s.menu} role="menu" onClick={(e) => e.stopPropagation()}>
             <p className={s.menuHeading}>Start from a layout</p>
             {TEMPLATES.map((t) => (
               <button
@@ -377,12 +378,7 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
             <p className={s.menuHeading}>Page width</p>
             <div className={s.segment}>
               {(["standard", "narrow"] as const).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  aria-pressed={home.width === w}
-                  onClick={() => commit({ ...home, width: w })}
-                >
+                <button key={w} type="button" aria-pressed={home.width === w} onClick={() => commit({ ...home, width: w })}>
                   {w === "standard" ? "Wide" : "Narrow"}
                 </button>
               ))}
@@ -413,7 +409,7 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
         {statusText}
       </span>
       {status.kind === "saved" && !dirty && (
-        <Link href={`/${username}`} className={s.toolLink}>See it</Link>
+        <Link href={ctx.profileHref} className={s.toolLink}>See it</Link>
       )}
       <button type="button" className={s.saveBtn} onClick={save} disabled={!dirty || status.kind === "saving"}>
         Save
@@ -422,79 +418,106 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   );
 
   return (
-    <div className={`arrange-shell ${s.shell}`} onClick={() => menu && setMenu(null)}>
+    <div className={`arrange-shell ${s.shell} ${drag ? s.dragging : ""}`} onClick={() => menu && setMenu(null)}>
       {toolbar}
+      {draft && (
+        <div className={s.draftBar} role="alert">
+          <span>You have changes from earlier that weren&apos;t saved.</span>
+          <button
+            type="button"
+            className={s.textBtn}
+            onClick={() => {
+              commit(draft);
+              setDraft(null);
+            }}
+          >
+            Bring them back
+          </button>
+          <button
+            type="button"
+            className={s.toolBtn}
+            onClick={() => {
+              setDraft(null);
+              try {
+                sessionStorage.removeItem(draftKey(username));
+              } catch {
+                // ignore
+              }
+            }}
+          >
+            Discard
+          </button>
+        </div>
+      )}
       <DndContext
+        id="arrange-dnd"
         sensors={sensors}
-        collisionDetection={closestCorners}
         onDragStart={onDragStart}
-        onDragOver={onDragOver}
+        onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         onDragCancel={onDragCancel}
-        accessibility={{ announcements }}
+        autoScroll={{ threshold: { x: 0, y: 0.12 }, acceleration: 6 }}
       >
         <ProfileFrame frame={frame} containerClassName="px-3 sm:px-4 pt-6 pb-24">
-          <div
-            className={`${s.canvas} ${view === "phone" ? s.phone : ""} @container mx-auto ${view === "phone" ? "" : narrow ? "max-w-2xl" : "max-w-7xl"}`}
-          >
-            <InsertRow onAdd={(preset) => {
-              const { home: next, section } = addSection(home, 0, preset);
-              commit(next);
-              setTargetColumn(section.columns[0].id);
-            }} />
-            {home.sections.map((section, i) => (
-              <div key={section.id}>
-                <EditorSection
-                  section={section}
-                  index={i}
-                  count={home.sections.length}
-                  ctx={ctx}
-                  view={view}
-                  flash={flash}
-                  targetColumn={targetColumn}
-                  onTarget={setTargetColumn}
-                  onPreset={(preset) => commit(applyPreset(home, section.id, preset))}
-                  onMove={(dir) => commit(moveSection(home, section.id, dir))}
-                  onRemove={() => {
-                    const lose = section.columns.flatMap((c) => c.blocks).filter((b) => !isSingleton(b.type) && b.type !== "divider");
-                    if (lose.length > 0 && !confirm(`This row has ${lose.length} thing${lose.length === 1 ? "" : "s"} you made in it. Remove it anyway? (Undo brings it back.)`)) return;
-                    commit(removeSection(home, section.id));
-                  }}
-                  onResize={(left, delta, before) => commit(resizeColumns(before, section.id, left, delta), before)}
-                  onResizePreview={(left, delta, before) => setHome(resizeColumns(before, section.id, left, delta))}
-                  getHome={getHome}
-                  onBlockSettings={setSettingsId}
-                  onBlockRemove={(id) => commit(removeBlock(home, id))}
-                  onBlockNudge={(id, dir) => {
-                    commit(nudgeBlock(home, id, dir));
-                    requestAnimationFrame(() => document.getElementById(`arrange-${id}`)?.querySelector<HTMLButtonElement>(`[data-nudge="${dir}"]`)?.focus());
-                  }}
-                />
-                <InsertRow onAdd={(preset) => {
-                  const { home: next, section: added } = addSection(home, i + 1, preset);
+          <CanvasBoundary>
+            <div className={`${s.canvas} ${view === "phone" ? s.phone : ""} @container mx-auto ${view === "phone" ? "" : narrow ? "max-w-2xl" : "max-w-7xl"}`}>
+              <InsertRow
+                onAdd={(preset) => {
+                  const { home: next, section } = addSection(home, 0, preset);
                   commit(next);
-                  setTargetColumn(added.columns[0].id);
-                }} />
-              </div>
-            ))}
-          </div>
+                  setTargetColumn(section.columns[0].id);
+                }}
+              />
+              {home.sections.map((section, i) => (
+                <div key={section.id}>
+                  <EditorSection
+                    home={home}
+                    section={section}
+                    index={i}
+                    count={home.sections.length}
+                    ctx={ctx}
+                    view={view}
+                    flash={flash}
+                    drop={drop}
+                    draggingId={drag?.kind === "block" ? drag.id : null}
+                    targetColumn={targetColumn}
+                    onTarget={setTargetColumn}
+                    onPreset={(preset) => commit(applyPreset(home, section.id, preset))}
+                    onMove={(dir) => commit(moveSection(home, section.id, dir))}
+                    onRemove={() => {
+                      const lose = section.columns.flatMap((c) => c.blocks).filter((b) => !isSingleton(b.type) && b.type !== "divider");
+                      if (lose.length > 0 && !confirm(`This row has ${lose.length} thing${lose.length === 1 ? "" : "s"} you made in it. Remove it anyway? (Undo brings it back.)`)) return;
+                      commit(removeSection(home, section.id));
+                    }}
+                    onResize={(left, delta, before) => commit(resizeColumns(before, section.id, left, delta), before)}
+                    onResizePreview={(left, delta, before) => dispatch({ type: "preview", home: resizeColumns(before, section.id, left, delta) })}
+                    getHome={getHome}
+                    onBlockSettings={setSettingsId}
+                    onBlockRemove={(id) => commit(removeBlock(home, id))}
+                    onBlockNudge={(id, dir) => moveBy(id, (h) => nudgeBlock(h, id, dir), dir === -1 ? "up" : "down")}
+                    onBlockAcross={(id, dir) => moveBy(id, (h) => moveAcross(h, id, dir), dir === -1 ? "left" : "right")}
+                  />
+                  <InsertRow
+                    onAdd={(preset) => {
+                      const { home: next, section: added } = addSection(home, i + 1, preset);
+                      commit(next);
+                      setTargetColumn(added.columns[0].id);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </CanvasBoundary>
         </ProfileFrame>
 
         {mounted && trayOpen && createPortal(
-          <WidgetTray
-            home={home}
-            ctx={ctx}
-            onAdd={(type) => add(type)}
-            onClose={() => setTrayOpen(false)}
-          />,
+          <WidgetTray home={home} ctx={ctx} onAdd={(type) => add(type)} onClose={() => setTrayOpen(false)} />,
           document.body,
         )}
 
-        <DragOverlay dropAnimation={null}>
+        <DragOverlay dropAnimation={null} style={{ pointerEvents: "none" }}>
           {drag ? (
-            <div className={s.dragChip}>
-              {drag.kind === "tray" ? BLOCK_INFO[drag.type].label : labelOf(drag.id)}
-            </div>
+            <div className={s.dragChip}>{drag.kind === "tray" ? BLOCK_INFO[drag.type].label : labelOf(drag.id)}</div>
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -503,9 +526,9 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
         <BlockSettings
           block={editing}
           ctx={ctx}
-          onChange={(config, before) => {
-            if (before) commit(updateConfig(home, editing.id, config));
-            else setHome((h) => updateConfig(h, editing.id, config));
+          onChange={(config, first) => {
+            if (first) commit(updateConfig(home, editing.id, config));
+            else dispatch({ type: "preview", home: updateConfig(homeRef.current, editing.id, config) });
           }}
           onClose={() => setSettingsId(null)}
         />,
@@ -515,17 +538,51 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   );
 }
 
+/** If drawing the page ever fails, say so and keep the editor (and its unsaved work) alive. */
+class CanvasBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+  state = { error: false };
+  static getDerivedStateFromError() {
+    return { error: true };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className={s.crash} role="alert">
+          <p>Something on this page couldn&apos;t be drawn. Your changes are still here.</p>
+          <button type="button" className={s.textBtn} onClick={() => this.setState({ error: false })}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Rows ───────────────────────────────────────────────────────────────────
 
 function InsertRow({ onAdd }: { onAdd: (preset: (typeof LAYOUT_PRESETS)[number]) => void }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
   return (
-    <div className={s.insertRow}>
-      <button type="button" className={s.insertBtn} aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+    <div className={s.insertRow} ref={ref}>
+      <button type="button" className={s.insertBtn} aria-expanded={open} onClick={() => setOpen(!open)}>
         ＋ Add a row
       </button>
       {open && (
-        <div className={s.presetPicker} onClick={(e) => e.stopPropagation()}>
+        <div className={s.presetPicker}>
           {LAYOUT_PRESETS.map((p) => (
             <button key={p.id} type="button" className={s.presetBtn} onClick={() => { onAdd(p); setOpen(false); }} title={p.label}>
               <PresetSketch preset={p} />
@@ -549,12 +606,15 @@ function PresetSketch({ preset }: { preset: (typeof LAYOUT_PRESETS)[number] }) {
 }
 
 interface SectionProps {
+  home: ProfileHome;
   section: ProfileSection;
   index: number;
   count: number;
   ctx: ProfileContext;
   view: "desktop" | "phone";
   flash: string | null;
+  drop: DropTarget | null;
+  draggingId: string | null;
   targetColumn: string | null;
   onTarget: (id: string) => void;
   onPreset: (preset: (typeof LAYOUT_PRESETS)[number]) => void;
@@ -566,10 +626,11 @@ interface SectionProps {
   onBlockSettings: (id: string) => void;
   onBlockRemove: (id: string) => void;
   onBlockNudge: (id: string, dir: -1 | 1) => void;
+  onBlockAcross: (id: string, dir: -1 | 1) => void;
 }
 
 function EditorSection(props: SectionProps) {
-  const { section, index, count, ctx, view } = props;
+  const { section, index, count, view } = props;
   const preset = presetOf(section);
   const tracks = columnTracks(section.columns);
   const many = section.style === "columns" && section.columns.length > 1;
@@ -611,28 +672,16 @@ function EditorSection(props: SectionProps) {
 
       <div
         ref={gridRef}
-        className={
-          section.style === "flow"
-            ? s.flowGrid
-            : many
-              ? `grid gap-8 @3xl:grid-cols-[var(--cols-md)] @5xl:grid-cols-[var(--cols-lg)] @6xl:grid-cols-[var(--cols-xl)]`
-              : ""
-        }
+        className={many ? "grid gap-8 @3xl:grid-cols-[var(--cols-md)] @5xl:grid-cols-[var(--cols-lg)] @6xl:grid-cols-[var(--cols-xl)]" : ""}
         style={many ? ({ "--cols-md": tracks.md, "--cols-lg": tracks.lg, "--cols-xl": tracks.xl } as React.CSSProperties) : undefined}
       >
         {section.columns.map((column, ci) => (
           <EditorColumn
             key={column.id}
+            props={props}
             columnId={column.id}
             blocks={column.blocks}
             flow={section.style === "flow"}
-            ctx={ctx}
-            flash={props.flash}
-            targeted={props.targetColumn === column.id}
-            onTarget={() => props.onTarget(column.id)}
-            onBlockSettings={props.onBlockSettings}
-            onBlockRemove={props.onBlockRemove}
-            onBlockNudge={props.onBlockNudge}
             resizer={
               many && ci < section.columns.length - 1 && view === "desktop" ? (
                 <ColumnResizer
@@ -654,46 +703,45 @@ function EditorSection(props: SectionProps) {
 
 // ── Columns ────────────────────────────────────────────────────────────────
 
-interface ColumnProps {
+function EditorColumn({
+  props,
+  columnId,
+  blocks,
+  flow,
+  resizer,
+}: {
+  props: SectionProps;
   columnId: string;
   blocks: ProfileBlock[];
   flow: boolean;
-  ctx: ProfileContext;
-  flash: string | null;
-  targeted: boolean;
-  onTarget: () => void;
-  onBlockSettings: (id: string) => void;
-  onBlockRemove: (id: string) => void;
-  onBlockNudge: (id: string, dir: -1 | 1) => void;
-  resizer: React.ReactNode;
-}
-
-function EditorColumn(props: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: COL + props.columnId });
+  resizer: ReactNode;
+}) {
+  const { drop } = props;
+  const dropHere = drop?.columnId === columnId;
   return (
     <div
-      ref={setNodeRef}
-      className={`${s.column} ${props.flow ? s.columnFlow : ""} ${isOver ? s.columnOver : ""} ${props.targeted ? s.columnTargeted : ""}`}
-      onPointerDown={props.onTarget}
-      onFocus={props.onTarget}
+      className={`${s.column} ${flow ? s.columnFlow : ""} ${dropHere ? s.columnOver : ""} ${props.targetColumn === columnId ? s.columnTargeted : ""}`}
+      data-drop-column={columnId}
+      data-drop-flow={flow ? "1" : "0"}
+      onPointerDown={() => props.onTarget(columnId)}
+      onFocus={() => props.onTarget(columnId)}
     >
-      <SortableContext items={props.blocks.map((b) => b.id)} strategy={props.flow ? rectSortingStrategy : verticalListSortingStrategy}>
-        {props.blocks.map((b) => (
-          <EditorBlock
-            key={b.id}
-            block={b}
-            ctx={props.ctx}
-            flash={props.flash === b.id}
-            onSettings={() => props.onBlockSettings(b.id)}
-            onRemove={() => props.onBlockRemove(b.id)}
-            onNudge={(dir) => props.onBlockNudge(b.id, dir)}
-          />
-        ))}
-      </SortableContext>
-      {props.blocks.length === 0 && (
-        <p className={s.emptyColumn}>Drag something here, or click a column and use ＋ Add.</p>
+      {blocks.map((b) => (
+        <EditorBlock
+          key={b.id}
+          block={b}
+          columnId={columnId}
+          flow={flow}
+          props={props}
+          dropEdge={dropHere && drop?.blockId === b.id ? drop.edge : null}
+        />
+      ))}
+      {blocks.length === 0 ? (
+        <p className={s.emptyColumn}>{dropHere ? "Drop it here" : "Drag something here, or click this column and use ＋ Add."}</p>
+      ) : (
+        dropHere && drop?.edge === "end" && <div className={s.dropEnd} aria-hidden="true" />
       )}
-      {props.resizer}
+      {resizer}
     </div>
   );
 }
@@ -734,10 +782,12 @@ function ColumnResizer({
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
       onResize(left, delta, before);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   return (
@@ -766,21 +816,21 @@ function ColumnResizer({
 
 function EditorBlock({
   block,
-  ctx,
-  flash,
-  onSettings,
-  onRemove,
-  onNudge,
+  columnId,
+  flow,
+  props,
+  dropEdge,
 }: {
   block: ProfileBlock;
-  ctx: ProfileContext;
-  flash: boolean;
-  onSettings: () => void;
-  onRemove: () => void;
-  onNudge: (dir: -1 | 1) => void;
+  columnId: string;
+  flow: boolean;
+  props: SectionProps;
+  dropEdge: "before" | "after" | "end" | null;
 }) {
+  const { ctx, home } = props;
   const info = BLOCK_INFO[block.type];
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef } = useDraggable({ id: block.id });
+  const dragging = props.draggingId === block.id;
   const visible = blockVisible(block, ctx);
   const preview = useMemo(() => {
     if (!visible) return null;
@@ -788,33 +838,54 @@ function EditorBlock({
     return <ProfileBlockView block={block} ctx={ctx} />;
   }, [block, ctx, visible]);
 
+  const found = findBlock(home, block.id);
+  const columns = home.sections.flatMap((x) => x.columns);
+  const ci = found ? columns.findIndex((c) => c.id === found.column.id) : -1;
+  const canUp = !!found && (found.index > 0 || ci > 0);
+  const canDown = !!found && (found.index < found.column.blocks.length - 1 || ci < columns.length - 1);
+  const canLeft = !!neighbourColumn(home, block.id, -1);
+  const canRight = !!neighbourColumn(home, block.id, 1);
+  const edgeClass =
+    dropEdge === "before" ? (flow ? s.dropLeft : s.dropTop)
+    : dropEdge === "after" ? (flow ? s.dropRight : s.dropBottom)
+    : "";
+
   return (
     <div
       ref={setNodeRef}
       id={`arrange-${block.id}`}
-      className={`${s.block} ${isDragging ? s.blockDragging : ""} ${flash ? s.blockFlash : ""}`}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
+      data-drop-block={block.id}
+      data-drop-col={columnId}
+      data-drop-flow={flow ? "1" : "0"}
+      className={`${s.block} ${dragging ? s.blockDragging : ""} ${props.flash === block.id ? s.blockFlash : ""} ${edgeClass}`}
     >
       <div className={s.blockBar}>
         <button
           ref={setActivatorNodeRef}
           type="button"
           className={s.grip}
-          aria-label={`Move ${info.label}`}
           {...attributes}
           {...listeners}
+          aria-label={`Drag ${info.label} (or use the arrow buttons)`}
+          // Pointer and touch only; keyboards use the arrow buttons, which
+          // say where the block goes.
+          tabIndex={-1}
         >
           <svg width="12" height="16" viewBox="0 0 12 16" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="9" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="9" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="9" cy="13" r="1.4" /></g></svg>
         </button>
         <span className={s.blockLabel}>{info.label}</span>
         <span className={s.spacer} />
         {info.editable && (
-          <button type="button" className={s.textBtn} onClick={onSettings}>Edit</button>
+          <button type="button" className={s.textBtn} onClick={() => props.onBlockSettings(block.id)}>Edit</button>
         )}
-        <button type="button" className={s.iconBtn} data-nudge="-1" onClick={() => onNudge(-1)} aria-label={`Move ${info.label} up`}>↑</button>
-        <button type="button" className={s.iconBtn} data-nudge="1" onClick={() => onNudge(1)} aria-label={`Move ${info.label} down`}>↓</button>
+        <span className={s.moves}>
+          <button type="button" className={s.iconBtn} data-move="left" onClick={() => props.onBlockAcross(block.id, -1)} disabled={!canLeft} aria-label={`Move ${info.label} to the column on the left`} title="Move to the column on the left">←</button>
+          <button type="button" className={s.iconBtn} data-move="up" onClick={() => props.onBlockNudge(block.id, -1)} disabled={!canUp} aria-label={`Move ${info.label} up`} title="Move up">↑</button>
+          <button type="button" className={s.iconBtn} data-move="down" onClick={() => props.onBlockNudge(block.id, 1)} disabled={!canDown} aria-label={`Move ${info.label} down`} title="Move down">↓</button>
+          <button type="button" className={s.iconBtn} data-move="right" onClick={() => props.onBlockAcross(block.id, 1)} disabled={!canRight} aria-label={`Move ${info.label} to the column on the right`} title="Move to the column on the right">→</button>
+        </span>
         {!info.fixed && (
-          <button type="button" className={s.iconBtn} onClick={onRemove} aria-label={`Take ${info.label} off the page`} title="Take off the page">✕</button>
+          <button type="button" className={s.iconBtn} onClick={() => props.onBlockRemove(block.id)} aria-label={`Take ${info.label} off the page`} title="Take off the page">✕</button>
         )}
       </div>
       {preview ? (
@@ -822,7 +893,7 @@ function EditorBlock({
           {preview}
         </div>
       ) : (
-        <button type="button" className={s.blockEmpty} onClick={info.editable ? onSettings : undefined} disabled={!info.editable}>
+        <button type="button" className={s.blockEmpty} onClick={info.editable ? () => props.onBlockSettings(block.id) : undefined} disabled={!info.editable}>
           {EMPTY_HINTS[block.type] ?? "Nothing to show here yet."}
         </button>
       )}
@@ -836,6 +907,7 @@ function EntriesPreview({ block, ctx }: { block: ProfileBlock; ctx: ProfileConte
   const entries = ctx.entries.initial.slice(0, Math.min(3, limit ?? 3));
   const looks: Record<string, string> = { cards: "as cards", full: "as full posts", preview: "as a list", magazine: "as a magazine" };
   const look = block.config.display ? looks[block.config.display] : null;
+  const shown = Math.min(limit ?? ctx.entries.total, ctx.entries.total);
   return (
     <section>
       <h2 className="text-sm font-medium uppercase tracking-widest mb-3" style={{ color: ctx.styles.muted }}>
@@ -851,11 +923,9 @@ function EntriesPreview({ block, ctx }: { block: ProfileBlock; ctx: ProfileConte
           </article>
         ))}
         {entries.length === 0 && <p className="text-sm" style={{ color: ctx.styles.muted }}>Your entries will be here.</p>}
-        {ctx.entries.total > entries.length && (
+        {shown > entries.length && (
           <p className="text-xs" style={{ color: ctx.styles.muted }}>
-            {limit
-              ? `…${Math.min(limit, ctx.entries.total) - entries.length > 0 ? `${Math.min(limit, ctx.entries.total) - entries.length} more here, ` : ""}${ctx.entries.total.toLocaleString("en-US")} in your whole journal`
-              : `…and ${ctx.entries.total - entries.length} more`}
+            …{shown - entries.length} more on your page{limit && ctx.entries.total > limit ? `, ${ctx.entries.total.toLocaleString("en-US")} in your whole journal` : ""}
           </p>
         )}
       </div>
