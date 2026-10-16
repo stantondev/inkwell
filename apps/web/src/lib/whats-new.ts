@@ -21,7 +21,7 @@ export const WHATS_NEW: WhatsNewItem[] = [
     id: "2026-10-16-stickers",
     date: "2026-10-16",
     title: "Stickers for your page",
-    body: "Decorate your page with stickers: postage stamps, a postmark, airmail and washi tape, a paper clip, pressed flowers, an ink blot, hearts and gold stars, and a ticket stub. Pick one, tap a card to stick it on its edge (or anywhere on a photo), then drag it, turn it or make it bigger. Some take your page's own colour. Plus members also get a Keepsakes pack: a wax seal, gilded corners, a pressed rose, the moon and stars, a par avion label and a butterfly.",
+    body: "Decorate your page with stickers: postage stamps, a postmark, airmail and washi tape, a paper clip, pressed flowers, an ink blot, hearts and gold stars, and a ticket stub. Pick one, tap anywhere on a card to stick it there (or near an edge to let it hang off), then drag it, turn it or make it bigger. Some take your page's own colour. Plus members also get a Keepsakes pack: a wax seal, gilded corners, a pressed rose, the moon and stars, a par avion label and a butterfly.",
     howTo: "On your profile, choose Arrange page, then Stickers.",
     href: "/arrange",
     cta: "Add stickers",

@@ -625,20 +625,20 @@ function newSticker(): string {
 }
 
 /**
- * Where a sticker lands on a block from a point on screen: photos take it
- * anywhere on the picture; anything else on its nearer edge, so it frames
- * the card without covering what's written in it.
+ * Where a sticker lands on a block from a point on screen. Within 32px of
+ * the top or bottom edge (or hanging past it) it's measured from that edge,
+ * so it stays on the edge when the card grows; anywhere else on the card
+ * it's placed by % of the card's size.
  */
 export function placeOn(
   rect: { left: number; top: number; width: number; height: number },
   x: number,
   y: number,
-  photo: boolean,
 ): Pick<ProfileSticker, "edge" | "x" | "y"> {
-  const px = rect.width > 0 ? ((x - rect.left) / rect.width) * 100 : 50;
-  if (photo) return { edge: "free", x: round1(clamp(px, -10, 110)), y: round1(clamp(rect.height > 0 ? ((y - rect.top) / rect.height) * 100 : 50, 0, 100)) };
-  const top = y < rect.top + rect.height / 2;
-  return top
-    ? { edge: "top", x: round1(clamp(px, -10, 110)), y: round1(clamp(y - rect.top, -48, 32)) }
-    : { edge: "bottom", x: round1(clamp(px, -10, 110)), y: round1(clamp(y - (rect.top + rect.height), -32, 48)) };
+  const px = round1(clamp(rect.width > 0 ? ((x - rect.left) / rect.width) * 100 : 50, -10, 110));
+  const band = Math.min(32, rect.height / 2);
+  const bottom = rect.top + rect.height;
+  if (y < rect.top + band) return { edge: "top", x: px, y: round1(clamp(y - rect.top, -48, 32)) };
+  if (y > bottom - band) return { edge: "bottom", x: px, y: round1(clamp(y - bottom, -32, 48)) };
+  return { edge: "free", x: px, y: round1(clamp(((y - rect.top) / rect.height) * 100, 0, 100)) };
 }

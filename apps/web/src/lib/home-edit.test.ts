@@ -288,11 +288,16 @@ test("a block's stickers go with it, and layouts keep everyone else's", () => {
   assert.equal(moved.stickers.find((x) => x.id === "k-a")!.anchor, "a");
 });
 
-test("placing snaps to the nearer edge, or anywhere on a photo", () => {
+test("placing: edges near the top and bottom, anywhere in between", () => {
   const rect = { left: 100, top: 200, width: 400, height: 300 };
-  assert.deepEqual(placeOn(rect, 300, 210, false), { edge: "top", x: 50, y: 10 });
-  assert.deepEqual(placeOn(rect, 100, 495, false), { edge: "bottom", x: 0, y: -5 });
-  assert.deepEqual(placeOn(rect, 300, 340, false), { edge: "top", x: 50, y: 32 }, "the middle of a card snaps to an edge");
-  assert.deepEqual(placeOn(rect, 900, 100, false), { edge: "top", x: 110, y: -48 });
-  assert.deepEqual(placeOn(rect, 200, 350, true), { edge: "free", x: 25, y: 50 });
+  assert.deepEqual(placeOn(rect, 300, 210), { edge: "top", x: 50, y: 10 });
+  assert.deepEqual(placeOn(rect, 300, 150), { edge: "top", x: 50, y: -48 }, "hanging off the top, held to the band");
+  assert.deepEqual(placeOn(rect, 100, 495), { edge: "bottom", x: 0, y: -5 });
+  assert.deepEqual(placeOn(rect, 100, 530), { edge: "bottom", x: 0, y: 30 });
+  assert.deepEqual(placeOn(rect, 300, 350), { edge: "free", x: 50, y: 50 }, "the middle of a card");
+  assert.deepEqual(placeOn(rect, 200, 260), { edge: "free", x: 25, y: 20 });
+  assert.deepEqual(placeOn(rect, 900, 350), { edge: "free", x: 110, y: 50 });
+  // A short card is all edge.
+  assert.equal(placeOn({ left: 0, top: 0, width: 100, height: 40 }, 50, 12).edge, "top");
+  assert.equal(placeOn({ left: 0, top: 0, width: 100, height: 40 }, 50, 28).edge, "bottom");
 });

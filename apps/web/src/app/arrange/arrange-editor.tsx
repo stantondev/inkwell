@@ -942,7 +942,6 @@ function EditorBlock({
       <div
         className={s.stickerHost}
         data-sticker-host={block.id}
-        data-sticker-photo={block.type === "photo" ? "1" : "0"}
         style={{ "--sticker-accent": ctx.styles.accent } as React.CSSProperties}
       >
         {preview ? (

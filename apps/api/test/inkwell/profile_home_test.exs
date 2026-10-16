@@ -269,8 +269,8 @@ defmodule Inkwell.ProfileHomeTest do
 
       [a, b, c, d] = home["stickers"]
       assert a == %{"id" => "k-1", "key" => "stamp", "anchor" => "b-card", "edge" => "top", "x" => 110.0, "y" => -48.0, "rotate" => 180, "scale" => 2.5}
-      # Not a photo: free placement becomes the top edge, so it can't sit over the words.
-      assert b["edge"] == "top" and b["y"] == 32.0
+      # Anywhere on any card.
+      assert b["edge"] == "free" and b["y"] == 50.0
       assert c["edge"] == "free" and c["x"] == 40.3 and c["y"] == 70.0
       # A duplicate id gets a new one; bottom offsets are clamped too.
       assert d["id"] != "k-1" and d["edge"] == "bottom" and d["y"] == 48.0

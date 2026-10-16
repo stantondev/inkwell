@@ -234,8 +234,9 @@ defmodule Inkwell.ProfileHome do
   # Decorations pinned to a block: %{"id", "key", "anchor" (block id),
   # "edge" ("top" | "bottom" | "free"), "x" (% across the block, centre),
   # "y" (px from that edge for top/bottom; % down for free), "rotate"
-  # (degrees), "scale"}. They sit along a card's top or bottom edge so they
-  # can't cover the middle of someone's words; only photos take them anywhere.
+  # (degrees), "scale"}. Near or past a card's top or bottom edge they're
+  # measured from that edge (so they stay put when the card grows); anywhere
+  # else on the card they're "free", placed by % of its size.
   # Keys mirror apps/web/src/lib/stickers.tsx.
   @sticker_keys ~w[stamp postmark airmail washi-dots washi-plain paperclip daisy leaf inkblot heart star ticket]
   @plus_sticker_keys ~w[wax-seal photo-corner rose moon par-avion butterfly]
@@ -266,7 +267,7 @@ defmodule Inkwell.ProfileHome do
 
             edge =
               cond do
-                anchor_type == "photo" and st["edge"] == "free" -> "free"
+                st["edge"] == "free" -> "free"
                 st["edge"] == "bottom" -> "bottom"
                 true -> "top"
               end

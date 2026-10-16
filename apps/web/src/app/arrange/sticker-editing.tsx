@@ -55,7 +55,7 @@ function hostAt(x: number, y: number): HTMLElement | null {
 }
 
 function placeOnHost(host: HTMLElement, x: number, y: number) {
-  return placeOn(host.getBoundingClientRect(), x, y, host.dataset.stickerPhoto === "1");
+  return placeOn(host.getBoundingClientRect(), x, y);
 }
 
 /** Scrolls the window while a sticker is held near the top or bottom of the screen. */
@@ -153,10 +153,15 @@ export function useStickerEditing({
       let last = before;
       let speed = 0;
       let frame = 0;
+      // Off every card (over a block's buttons, past an edge), it stays with
+      // the card it was last on and hangs off that card's edge.
+      let lastHost = e.currentTarget.closest<HTMLElement>("[data-sticker-host]");
 
       const place = () => {
-        const host = hostAt(pointer.x, pointer.y);
+        const under = hostAt(pointer.x, pointer.y);
+        const host = under?.dataset.stickerHost ? under : lastHost?.isConnected ? lastHost : null;
         if (!host?.dataset.stickerHost) return;
+        lastHost = host;
         const pos = placeOnHost(host, pointer.x + off.x, pointer.y + off.y);
         last = updateSticker(before, st.id, { anchor: host.dataset.stickerHost, ...pos });
         preview(last);
@@ -419,7 +424,7 @@ export function StickerDrawer({
         <button type="button" className={s.iconBtn} onClick={onClose} aria-label="Close">✕</button>
       </div>
       <p className={s.trayHint}>
-        Pick one, then tap a card on your page to stick it on. They go on a card&apos;s top or bottom edge, or anywhere on a photo.
+        Pick one, then tap anywhere on a card to stick it there, or near an edge to let it hang off.
         {" "}{home.stickers.length} of {MAX_STICKERS} used.
       </p>
       {full && <p className={s.trayHint}><strong>Your page is full of stickers.</strong> Take one off to add another.</p>}
