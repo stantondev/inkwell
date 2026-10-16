@@ -33,7 +33,7 @@ export default function AIPage() {
         AI Policy
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: March 30, 2026
+        Last Updated: October 16, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">
@@ -69,6 +69,19 @@ export default function AIPage() {
               provide on-demand translation of entries and comments. DeepL
               processes text for translation only &mdash; it does not store or
               train on your content.
+            </li>
+            <li id="subject-finder" className="scroll-mt-24">
+              <strong>Cutting out stickers (optional, on your own device).</strong>{" "}
+              When you make a sticker from one of your pictures, you can choose
+              &ldquo;Find the subject&rdquo;. It runs an open-source image model
+              (IMG.LY&rsquo;s background removal, built on ISNet) inside your own
+              browser to work out which part of the picture is the main thing,
+              so the rest can be cut away. Your picture is not uploaded to do
+              this and is never used to train anything. The model is downloaded
+              from Inkwell&rsquo;s own server the first time you use it (about
+              56 MB), and nothing runs unless you choose it. It doesn&rsquo;t
+              create or change any image; it only decides what to cut out, and
+              you can fix its choice with the Erase and Restore brushes.
             </li>
           </ul>
           <p className="mt-3">

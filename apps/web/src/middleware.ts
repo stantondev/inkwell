@@ -257,6 +257,6 @@ export const config = {
   // Run on all page routes, skip Next.js internals, API proxy routes, static files,
   // and ActivityPub federation endpoints (.well-known, /users, /inbox, /nodeinfo)
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|icons/|stamps/|api/|\\.well-known/|users/|inbox$|nodeinfo/).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|icons/|stamps/|cutout/|api/|\\.well-known/|users/|inbox$|nodeinfo/).*)",
   ],
 };

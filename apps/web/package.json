@@ -3,17 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "mkdir -p .next && touch .next/.metadata_never_index",
+    "predev": "mkdir -p .next && touch .next/.metadata_never_index && node scripts/fetch-cutout-model.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts"
+    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts",
+    "prebuild": "node scripts/fetch-cutout-model.mjs"
   },
   "dependencies": {
     "@apache-annotator/dom": "^0.2.0",
     "@apache-annotator/selector": "^0.2.0",
     "@dnd-kit/core": "^6.3.1",
+    "@imgly/background-removal": "1.7.0",
     "@tiptap/extension-character-count": "^3.20.0",
     "@tiptap/extension-color": "^3.20.0",
     "@tiptap/extension-highlight": "^3.20.0",
@@ -36,6 +38,7 @@
     "marked": "^17.0.6",
     "motion": "^12.34.3",
     "next": "16.1.6",
+    "onnxruntime-web": "1.21.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

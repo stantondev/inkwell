@@ -70,3 +70,6 @@ stanton-profile*.css
 
 # Private feedback drafts
 vibefed-feedback-*.md
+
+# Sticker subject-finder model (fetched by apps/web/scripts/fetch-cutout-model.mjs)
+apps/web/public/cutout/

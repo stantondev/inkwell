@@ -125,3 +125,114 @@ export function fitWithin(width: number, height: number, max: number): { width: 
   const k = Math.min(1, max / Math.max(width, height));
   return { width: Math.max(1, Math.round(width * k)), height: Math.max(1, Math.round(height * k)) };
 }
+
+/**
+ * Firms up a cut-out's edges: alpha below `low` (0–255) goes fully clear,
+ * above `high` fully solid, with a smooth ramp between. Subject-detection
+ * models leave a faint haze over things they half-recognise (the leaves
+ * behind the one you wanted), which the white edge would outline.
+ */
+export function firmUpAlpha(px: Pixels, low = 80, high = 190): Pixels {
+  const data = new Uint8ClampedArray(px.data);
+  const span = Math.max(1, high - low);
+  for (let i = 3; i < data.length; i += 4) {
+    const a = data[i];
+    data[i] = a <= low ? 0 : a >= high ? 255 : Math.round(((a - low) / span) * 255);
+  }
+  return { width: px.width, height: px.height, data };
+}
+
+/**
+ * Keeps the main subject: the largest solid piece, and any other piece at
+ * least `minShare` of its size (two mugs side by side both stay). Specks and
+ * stray scraps go.
+ */
+export function keepMainPieces(px: Pixels, minShare = 0.15, threshold = 12): Pixels {
+  const { width: w, height: h } = px;
+  const data = new Uint8ClampedArray(px.data);
+  const label = new Int32Array(w * h).fill(-1);
+  const sizes: number[] = [];
+  const stack = new Int32Array(w * h);
+  for (let start = 0; start < w * h; start++) {
+    if (label[start] !== -1 || data[start * 4 + 3] <= threshold) continue;
+    const id = sizes.length;
+    let size = 0;
+    let top = 0;
+    stack[top++] = start;
+    label[start] = id;
+    while (top > 0) {
+      const p = stack[--top];
+      size++;
+      const x = p % w;
+      const y = (p - x) / w;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const q = ny * w + nx;
+          if (label[q] === -1 && data[q * 4 + 3] > threshold) {
+            label[q] = id;
+            stack[top++] = q;
+          }
+        }
+      }
+    }
+    sizes.push(size);
+  }
+  if (sizes.length <= 1) return { width: w, height: h, data };
+  const keepAbove = Math.max(...sizes) * minShare;
+  for (let p = 0; p < w * h; p++) {
+    const id = label[p];
+    if (id !== -1 && sizes[id] < keepAbove) data[p * 4 + 3] = 0;
+  }
+  return { width: w, height: h, data };
+}
+
+/** A cut-out with only its alpha taken from `mask` (same size), colours from `base`. */
+export function withAlpha(base: Pixels, alpha: Uint8ClampedArray): Pixels {
+  const data = new Uint8ClampedArray(base.data);
+  for (let p = 0, i = 3; p < alpha.length; p++, i += 4) data[i] = alpha[p];
+  return { width: base.width, height: base.height, data };
+}
+
+/** The alpha channel of a picture, one byte a pixel. */
+export function alphaOf(px: Pixels): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(px.width * px.height);
+  for (let p = 0, i = 3; p < out.length; p++, i += 4) out[p] = px.data[i];
+  return out;
+}
+
+/**
+ * Paints a round brush stroke into an alpha mask, from (x0, y0) to (x1, y1)
+ * in pixels: `value` 0 erases, 255 restores. Soft at the rim.
+ */
+export function paintMask(
+  mask: Uint8ClampedArray,
+  width: number,
+  height: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  radius: number,
+  value: 0 | 255,
+): void {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / Math.max(1, radius / 3)));
+  for (let s = 0; s <= steps; s++) {
+    const cx = x0 + ((x1 - x0) * s) / steps;
+    const cy = y0 + ((y1 - y0) * s) / steps;
+    const r = Math.ceil(radius);
+    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(height - 1, Math.ceil(cy + r)); y++) {
+      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(width - 1, Math.ceil(cx + r)); x++) {
+        const d = Math.hypot(x - cx, y - cy);
+        if (d > radius) continue;
+        // full strength inside 70% of the radius, fading to the rim
+        const k = d <= radius * 0.7 ? 1 : 1 - (d - radius * 0.7) / (radius * 0.3);
+        const p = y * width + x;
+        mask[p] = value === 0 ? Math.round(mask[p] * (1 - k)) : Math.round(mask[p] + (255 - mask[p]) * k);
+      }
+    }
+  }
+}

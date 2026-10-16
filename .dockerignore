@@ -21,3 +21,4 @@ deploy.sh
 supervisord.conf
 setup-supervisor.sh
 fly.*.toml
+apps/web/public/cutout/

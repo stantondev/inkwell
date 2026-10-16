@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-16-find-the-subject",
+    date: "2026-10-16",
+    title: "Cut the subject out of any photo",
+    body: "Making a sticker from a photo with a busy background? Choose Find the subject and Inkwell works out what the picture is of (a plant, a pet, a mug of tea) and cuts it out, leaving the rest behind. It runs on your own device, so your picture isn't sent anywhere to do it. Brush away anything it missed, or bring back anything it took, then save. The first time, it downloads the finder (56 MB).",
+    howTo: "On your profile, choose Arrange page, then Stickers, then Make a sticker from a picture, then Find the subject.",
+    href: "/arrange",
+    cta: "Make a sticker",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-16-your-own-stickers",
     date: "2026-10-16",
     title: "Make stickers from your own pictures",
