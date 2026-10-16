@@ -43,15 +43,8 @@ interface ProfileUser {
   settings?: { entries_per_page?: Record<string, number>; [key: string]: unknown } | null;
 }
 
-const SOCIAL_PLATFORMS_CONFIG = [
-  { key: "twitter", label: "X / Twitter", placeholder: "https://x.com/username" },
-  { key: "bluesky", label: "Bluesky", placeholder: "https://bsky.app/profile/you.bsky.social" },
-  { key: "mastodon", label: "Mastodon", placeholder: "https://mastodon.social/@username" },
-  { key: "github", label: "GitHub", placeholder: "https://github.com/username" },
-  { key: "website", label: "Website", placeholder: "https://yoursite.com" },
-];
-
-const DEFAULT_WIDGET_ORDER = ["about", "entries", "top_pals", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
+// The widgets in the sidebar or widget band (Inkwell.ProfileHome.from_legacy).
+const DEFAULT_WIDGET_ORDER = ["top_pals", "tags", "support", "newsletter", "series", "guestbook", "music", "custom_html"];
 
 const PLUS_GATE_COPY: Record<string, { headline: string; detail: string }> = {
   "Custom colors": {
@@ -136,23 +129,16 @@ function PlusGate({ feature }: { feature: string }) {
   );
 }
 
-function Section({ title, children, defaultOpen = true, overriddenByFullPage }: { title: string; children: React.ReactNode; defaultOpen?: boolean; overriddenByFullPage?: string }) {
+function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border rounded-xl overflow-hidden" style={{ borderColor: "var(--border)", opacity: overriddenByFullPage ? 0.5 : 1 }}>
+    <div className="border rounded-xl overflow-hidden" style={{ borderColor: "var(--border)" }}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-left transition-colors hover:bg-[var(--surface-hover)]"
         style={{ background: "var(--surface)" }}>
-        <span className="flex items-center gap-2">
-          {title}
-          {overriddenByFullPage && (
-            <span className="text-[10px] font-normal uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "var(--border)", color: "var(--muted)" }}>
-              Full-page override
-            </span>
-          )}
-        </span>
+        <span className="flex items-center gap-2">{title}</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           className={`transition-transform ${open ? "rotate-180" : ""}`}>
@@ -161,11 +147,6 @@ function Section({ title, children, defaultOpen = true, overriddenByFullPage }: 
       </button>
       {open && (
         <div className="px-4 py-4 border-t" style={{ borderColor: "var(--border)" }}>
-          {overriddenByFullPage && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--surface-hover)", color: "var(--muted)", borderLeft: "3px solid var(--accent)" }}>
-              {overriddenByFullPage}
-            </div>
-          )}
           {children}
         </div>
       )}
@@ -202,28 +183,12 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
     profile_entry_display: user.profile_entry_display ?? "cards",
   });
 
-  const [socialLinks, setSocialLinks] = useState<Record<string, string>>(() => {
-    const links = user.social_links ?? {};
-    const result: Record<string, string> = {};
-    for (const p of SOCIAL_PLATFORMS_CONFIG) {
-      result[p.key] = (links[p.key] as string) ?? "";
-    }
-    return result;
-  });
-
-  const [pinnedIds] = useState<string[]>(user.pinned_entry_ids ?? []);
-
   const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
-    const saved = (user.profile_widgets as { order?: string[]; html_mode?: string })?.order;
+    const saved = (user.profile_widgets as { order?: string[] })?.order?.filter((w) => DEFAULT_WIDGET_ORDER.includes(w));
     if (!saved) return DEFAULT_WIDGET_ORDER;
     // Merge any new widget types that weren't in the saved order
     const missing = DEFAULT_WIDGET_ORDER.filter((w) => !saved.includes(w));
     return [...saved, ...missing];
-  });
-
-  const [htmlMode, setHtmlMode] = useState<"widget" | "fullpage">(() => {
-    const saved = (user.profile_widgets as { html_mode?: string })?.html_mode;
-    return saved === "fullpage" ? "fullpage" : "widget";
   });
 
   const PER_PAGE_OPTIONS: Record<string, number[]> = {
@@ -340,9 +305,9 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
   }
 
   const widgetLabels: Record<string, string> = {
-    about: "About / Bio",
-    entries: "Journal Entries",
     top_pals: "Top Pen Pals",
+    tags: "Tags",
+    support: "Support link",
     newsletter: "Newsletter",
     series: "Series",
     guestbook: "Guestbook",
@@ -370,16 +335,6 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
         profile_banner_url: form.profile_banner_url || null,
         profile_entry_display: form.profile_entry_display || "cards",
         settings: { entries_per_page: Object.keys(eppToSave).length > 0 ? eppToSave : null },
-        pinned_entry_ids: pinnedIds,
-        social_links: Object.fromEntries(
-          Object.entries(socialLinks)
-            .filter(([, v]) => v.trim())
-            .map(([k, v]) => {
-              const trimmed = v.trim();
-              if (/^https?:\/\//i.test(trimmed)) return [k, trimmed];
-              return [k, `https://${trimmed}`];
-            }),
-        ),
       };
 
       if (isPlus) {
@@ -392,7 +347,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
           profile_font: form.profile_font || null,
           profile_layout: form.profile_layout || null,
           profile_music: form.profile_music || null,
-          profile_widgets: { order: widgetOrder, html_mode: htmlMode },
+          profile_widgets: { order: widgetOrder },
         });
       }
 
@@ -641,7 +596,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Theme Presets */}
-      <Section title="Theme" defaultOpen={true} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls colors and styling in full-page mode. Theme settings are applied but may be overridden." : undefined}>
+      <Section title="Theme" defaultOpen={true}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {PROFILE_THEMES.map((t) => (
             <button
@@ -661,7 +616,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Entry Display */}
-      <Section title="Entry Display" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Entry display is controlled by the {{entries}} tag in your custom HTML." : undefined}>
+      <Section title="Entry Display" defaultOpen={false}>
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
           Choose how journal entries appear on your profile page.
         </p>
@@ -729,7 +684,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Colors */}
-      <Section title="Colors" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls colors in full-page mode. These settings are applied but may be overridden." : undefined}>
+      <Section title="Colors" defaultOpen={false}>
         {isPlus ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -887,7 +842,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Font */}
-      <Section title="Font" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Your custom CSS controls fonts in full-page mode." : undefined}>
+      <Section title="Font" defaultOpen={false}>
         {isPlus ? (
           <>
             <select
@@ -914,7 +869,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Layout */}
-      <Section title="Layout" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Layout is controlled by your custom HTML in full-page mode. This setting has no effect." : undefined}>
+      <Section title="Layout" defaultOpen={false}>
         {isPlus ? (
           <div className="grid grid-cols-2 gap-2">
             {PROFILE_LAYOUTS.map((l) => (
@@ -977,7 +932,7 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Widget Ordering */}
-      <Section title="Profile Sections Order" defaultOpen={false} overriddenByFullPage={htmlMode === "fullpage" ? "Widget order is controlled by {{tag}} placement in your custom HTML. This setting has no effect." : undefined}>
+      <Section title="Profile Sections Order" defaultOpen={false}>
         {isPlus ? (
           <div className="flex flex-col gap-1">
             {widgetOrder.map((widget, i) => (
@@ -1016,25 +971,13 @@ export function ProfileCustomizeEditor({ user }: { user: ProfileUser }) {
       </Section>
 
       {/* Custom HTML & CSS */}
-      <Section title={htmlMode === "fullpage" ? "Custom Profile (Full-Page)" : "Custom HTML & CSS"} defaultOpen={htmlMode === "fullpage"}>
+      <Section title="Custom HTML & CSS" defaultOpen={false}>
         {isPlus ? (
           <HtmlEditor
             html={form.profile_html}
             css={form.profile_css}
-            htmlMode={htmlMode}
             onHtmlChange={(v) => updateForm("profile_html", v)}
             onCssChange={(v) => updateForm("profile_css", v)}
-            onModeChange={setHtmlMode}
-            theme={{
-              background: "var(--background, #fff)",
-              surface: "var(--surface, #fafafa)",
-              foreground: "var(--foreground, #1a1a1a)",
-              muted: "var(--muted, #888)",
-              accent: "var(--accent, #2d4a8a)",
-              border: "var(--border, #e5e5e5)",
-            }}
-            displayName={user.display_name}
-            username={user.username}
           />
         ) : (
           <PlusGate feature="Custom HTML & CSS" />

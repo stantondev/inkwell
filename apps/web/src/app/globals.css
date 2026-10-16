@@ -9621,11 +9621,6 @@ body[data-focus-mode] .sidebar-reveal-tab {
   }
 }
 
-/* ─── Full-Page Custom Profile Widget Spacing ─────────────────────── */
-.inkwell-fullpage-profile [data-inkwell-widget] + [data-inkwell-widget] {
-  margin-top: 1.5rem;
-}
-
 /* ─── Poll Card & Widget ──────────────────────────────────────────── */
 
 .poll-card {

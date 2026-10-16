@@ -80,7 +80,7 @@ defmodule InkwellWeb.UserController do
         end
 
         conn |> json(%{
-          data: render_user(user),
+          data: user |> render_user() |> Map.put(:profile_home, Inkwell.ProfileHome.for_user(user)),
           meta: %{
             entry_count: entry_count,
             pen_pal_count: pen_pal_count,
@@ -476,6 +476,20 @@ defmodule InkwellWeb.UserController do
     end
   end
 
+  # GET /api/backgrounds/:username — the profile background image (public)
+  def serve_background(conn, %{"username" => username}) do
+    case Accounts.get_user_by_username(username) do
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "Not found"})
+
+      %{profile_background_url: url} when url in [nil, ""] ->
+        conn |> put_status(:not_found) |> json(%{error: "No background"})
+
+      user ->
+        serve_data_uri_image(conn, user.profile_background_url, user.updated_at)
+    end
+  end
+
   # Only PNG, JPEG, GIF and WebP are ever served (Inkwell.Images); anything
   # else stored here would 404 rather than go out under its own claimed type.
   defp serve_data_uri_image(conn, data_uri, updated_at) do
@@ -605,14 +619,16 @@ defmodule InkwellWeb.UserController do
       profile_html: user.profile_html,
       profile_css: user.profile_css,
       profile_music: user.profile_music,
-      profile_background_url: user.profile_background_url,
+      # Links, not the stored image: these were inlined into every profile
+      # response (and entry pages, which carry the author) at up to 5 MB each.
+      profile_background_url: Avatars.background_url(user),
       profile_background_color: user.profile_background_color,
       profile_accent_color: user.profile_accent_color,
       profile_foreground_color: user.profile_foreground_color,
       profile_font: user.profile_font,
       profile_layout: user.profile_layout,
       profile_widgets: user.profile_widgets,
-      profile_banner_url: user.profile_banner_url,
+      profile_banner_url: Avatars.banner_url(user),
       profile_status: user.profile_status,
       profile_theme: user.profile_theme,
       profile_entry_display: user.profile_entry_display || "cards",
@@ -658,6 +674,7 @@ defmodule InkwellWeb.UserController do
     |> render_user()
     |> Map.merge(%{
       email: user.email,
+      profile_home: Inkwell.ProfileHome.for_user(user),
       profile_html: user.profile_html,
       profile_css: user.profile_css,
       settings: user.settings,
@@ -727,10 +744,10 @@ defmodule InkwellWeb.UserController do
   end
 
   defp drop_echoed_image_urls(params) do
-    Enum.reduce(["avatar_url", "profile_banner_url"], params, fn key, acc ->
+    Enum.reduce(["avatar_url", "profile_banner_url", "profile_background_url"], params, fn key, acc ->
       case Map.get(acc, key) do
         url when is_binary(url) ->
-          if Regex.match?(~r{^(https?://[^/]+)?/api/(avatars|banners)/}, url),
+          if Regex.match?(~r{^(https?://[^/]+)?/api/(avatars|banners|backgrounds)/}, url),
             do: Map.delete(acc, key),
             else: acc
 

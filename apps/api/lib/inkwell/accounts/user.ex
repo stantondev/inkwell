@@ -24,6 +24,8 @@ defmodule Inkwell.Accounts.User do
     field :profile_font, :string
     field :profile_layout, :string
     field :profile_widgets, :map, default: %{}
+    # The arrangement of the profile page (Inkwell.ProfileHome).
+    field :profile_home, :map
     field :profile_banner_url, :string
     field :profile_status, :string
     field :profile_theme, :string
@@ -335,6 +337,8 @@ defmodule Inkwell.Accounts.User do
     |> maybe_validate_inclusion(:profile_effect_intensity, @allowed_effect_intensities)
     |> maybe_validate_inclusion(:profile_entry_display, @allowed_entry_displays)
     |> validate_avatar_config()
+    |> clean_profile_widgets()
+    |> regenerate_home()
     |> maybe_validate_inclusion(:heard_from, Inkwell.Growth.heard_from_options())
     |> validate_length(:heard_from_detail, max: 200)
   end
@@ -353,6 +357,37 @@ defmodule Inkwell.Accounts.User do
       nil -> changeset
       %{"style" => style, "options" => options} when is_binary(style) and is_map(options) -> changeset
       _ -> add_error(changeset, :avatar_config, "must have style and options keys")
+    end
+  end
+
+  # The old widget settings: an order and a hidden list. Nothing else is kept
+  # (the full-page custom HTML mode was retired on 2026-10-16).
+  defp clean_profile_widgets(changeset) do
+    case fetch_change(changeset, :profile_widgets) do
+      {:ok, %{} = widgets} ->
+        clean =
+          for key <- ["order", "hidden"], is_list(widgets[key]), into: %{} do
+            {key, widgets[key] |> Enum.filter(&is_binary/1) |> Enum.take(30)}
+          end
+
+        put_change(changeset, :profile_widgets, clean)
+
+      {:ok, _} ->
+        put_change(changeset, :profile_widgets, %{})
+
+      :error ->
+        changeset
+    end
+  end
+
+  # Settings → Customize still edits the old layout and widget order; the
+  # page renders profile_home, so rebuild it from them when either changes.
+  defp regenerate_home(changeset) do
+    if changeset.valid? and
+         (Map.has_key?(changeset.changes, :profile_layout) or Map.has_key?(changeset.changes, :profile_widgets)) do
+      put_change(changeset, :profile_home, Inkwell.ProfileHome.from_legacy(apply_changes(changeset)))
+    else
+      changeset
     end
   end
 

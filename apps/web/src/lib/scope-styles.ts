@@ -177,49 +177,6 @@ function sanitizeHtml(html: string): string {
 }
 
 /**
- * Strip CSS selectors that target site-level elements (body, html, #__next, nav, sidebar).
- * Used for full-page custom profile mode to prevent user CSS from breaking the site chrome.
- */
-export function stripSiteSelectors(css: string): string {
-  const siteSelectors = [
-    "body", "html", ":root", "*",
-    "#__next", ".app-content", ".sidebar",
-    ".sidebar-nav", ".nav", "nav", "header", "footer",
-    "[data-sidebar-hidden]", "[data-focus-mode]",
-  ];
-
-  return css
-    .split("\n")
-    .map((line) => {
-      // Check if this line has a selector targeting site elements
-      const selectorMatch = line.match(/^(\s*)((?:(?!@)[^{}])+?)\s*\{/);
-      if (!selectorMatch) return line;
-
-      const indent = selectorMatch[1];
-      const selectors = selectorMatch[2];
-      const filtered = selectors
-        .split(",")
-        .filter((s) => {
-          const trimmed = s.trim().toLowerCase();
-          // Remove selectors that are just a site element
-          return !siteSelectors.some(
-            (site) => trimmed === site || trimmed.startsWith(site + " ") || trimmed.startsWith(site + ".")
-          );
-        })
-        .join(", ");
-
-      if (!filtered.trim()) {
-        // All selectors were site-targeting — remove the entire rule
-        // We'll leave an empty line; the browser handles it fine
-        return "";
-      }
-
-      return `${indent}${filtered} {`;
-    })
-    .join("\n");
-}
-
-/**
  * Process entry HTML for safe rendering:
  * 1. Sanitizes dangerous content (scripts, event handlers)
  * 2. Extracts <style> tags and scopes their selectors to the entry container

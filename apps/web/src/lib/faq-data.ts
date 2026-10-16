@@ -293,7 +293,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "custom-html",
     question: "How does custom HTML/CSS work?",
     answer:
-      'Plus users can write custom HTML and CSS for their profile in <a href="/settings/customize">Settings &rarr; Customize</a>. You can use it as a sidebar widget or in full-page mode where your HTML replaces the entire profile layout. 17 template tags (like {{entries}}, {{guestbook}}, {{avatar}}) let you embed platform widgets in your custom layout.',
+      'Plus users can add custom CSS and HTML to their profile in <a href="/settings/customize">Settings &rarr; Customize</a>. Your CSS restyles your whole profile page (and only your page); your HTML appears as a card among your widgets.',
     category: "customization",
   },
   {

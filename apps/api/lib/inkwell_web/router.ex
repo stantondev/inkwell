@@ -90,6 +90,7 @@ defmodule InkwellWeb.Router do
     get "/avatars/:username", UserController, :serve_avatar
     get "/userpics/:id", UserIconController, :show
     get "/banners/:username", UserController, :serve_banner
+    get "/backgrounds/:username", UserController, :serve_background
 
     # Search
     get "/search", SearchController, :search

@@ -76,6 +76,10 @@ defmodule Inkwell.Avatars do
   def banner_url(%{profile_banner_url: url} = user), do: public_url(url, user, "banners")
   def banner_url(_), do: nil
 
+  @doc "Public URL for a user's profile background image, or nil when they have none."
+  def background_url(%{profile_background_url: url} = user), do: public_url(url, user, "backgrounds")
+  def background_url(_), do: nil
+
   defp public_url(url, _user, _kind) when url in [nil, ""], do: nil
 
   defp public_url("data:" <> _, %{username: username} = user, kind)

@@ -61,7 +61,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   // ── Customization ──
   { id: "c-themes", title: "Profile themes", snippet: "Choose from 8 structural themes with unique typography and style.", keywords: ["theme", "customize", "design", "appearance"], category: "customization", href: "/help/faq#themes" },
-  { id: "c-html", title: "Custom HTML/CSS profiles", snippet: "Plus users can build their own profile layout with template tags.", keywords: ["html", "css", "custom", "template", "myspace"], category: "customization", href: "/help/faq#custom-html" },
+  { id: "c-html", title: "Custom HTML/CSS on your profile", snippet: "Plus users can restyle their profile with CSS and add a card of their own HTML.", keywords: ["html", "css", "custom", "template", "myspace"], category: "customization", href: "/help/faq#custom-html" },
   { id: "c-domain", title: "Custom domains", snippet: "Point your own domain at your Inkwell profile.", keywords: ["domain", "custom", "url", "dns"], category: "customization", href: "/help/faq#custom-domain" },
   { id: "c-avatar", title: "Avatar builder", snippet: "Create a hand-drawn avatar character without uploading a photo.", keywords: ["avatar", "builder", "character", "croodles"], category: "customization", href: "/help/faq#avatar-builder" },
 
