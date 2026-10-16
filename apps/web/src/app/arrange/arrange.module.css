@@ -865,3 +865,155 @@
     padding-left: 112px;
   }
 }
+
+/* ── Stickers ─────────────────────────────────────────────────────────── */
+
+/* The editing chrome sits above stickers, so a sticker never covers a
+   block's buttons. */
+.blockBar {
+  position: relative;
+  z-index: 5;
+}
+.stickerHost {
+  position: relative;
+}
+.stickerLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+/* The sticker being edited comes up over the block bars, so its corner dot
+   is never under the next block's buttons. */
+.stickerLayer:has(.stickerSelected),
+.stickerLayer:has(.stickerDragging) {
+  z-index: 6;
+}
+.sticker {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22));
+  border-radius: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.sticker:focus-visible,
+.stickerSelected {
+  outline: 2px dashed var(--arrange-ink);
+  outline-offset: 3px;
+}
+.stickerDragging {
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.85;
+}
+.stickerLocked {
+  opacity: 0.45;
+}
+.stickerHandle {
+  position: absolute;
+  right: -11px;
+  bottom: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--arrange-ink);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+/* A bigger target for fingers. */
+.stickerHandle::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.placing .stickerHost {
+  cursor: copy;
+}
+.placing .stickerHost:hover {
+  outline: 2px dashed var(--arrange-ink);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.stickerBar {
+  position: fixed;
+  z-index: 55;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: max-content;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.45rem 0.6rem;
+  border-radius: 14px;
+  background: var(--arrange-panel);
+  color: var(--arrange-panel-ink);
+  border: 1px solid var(--arrange-panel-line);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.45);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+}
+.stickerBarText {
+  padding: 0 0.35rem;
+}
+
+.stickerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.stickerPick {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--arrange-panel-line);
+  background: var(--arrange-panel);
+  cursor: pointer;
+}
+.stickerPick:hover:not(:disabled) {
+  border-color: var(--arrange-ink);
+  background: var(--arrange-ink-soft);
+}
+.stickerPick:disabled {
+  cursor: default;
+}
+.stickerPick:disabled .stickerPickArt {
+  opacity: 0.4;
+}
+.stickerPickArt {
+  display: block;
+}
+.stickerPickLock {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 0.7rem;
+}
+.plusChip {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  background: var(--arrange-ink-soft);
+  color: var(--arrange-ink);
+}
+.inlineLink {
+  color: var(--arrange-ink);
+  text-decoration: underline;
+}

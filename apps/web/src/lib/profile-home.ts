@@ -72,11 +72,27 @@ export interface ProfileSection {
   columns: ProfileColumn[];
 }
 
+/**
+ * A sticker pinned to a block. On the top or bottom edge, y is px from that
+ * edge (the sticker's centre); "free" (photos only) puts it anywhere on the
+ * picture, x and y both in %. x is always % across the block.
+ */
+export interface ProfileSticker {
+  id: string;
+  key: string;
+  anchor: string;
+  edge: "top" | "bottom" | "free";
+  x: number;
+  y: number;
+  rotate: number;
+  scale: number;
+}
+
 export interface ProfileHome {
   version: number;
   width: "standard" | "narrow";
   sections: ProfileSection[];
-  stickers: unknown[];
+  stickers: ProfileSticker[];
 }
 
 /** What the page looked like before homes existed: the classic layout. */

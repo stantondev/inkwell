@@ -7,6 +7,7 @@
 
 import {
   SINGLETON_BLOCKS,
+  type ProfileSticker,
   type ProfileBlock,
   type ProfileBlockConfig,
   type ProfileBlockType,
@@ -125,7 +126,13 @@ function mapColumns(home: ProfileHome, fn: (c: ProfileColumn, s: ProfileSection)
   return { ...home, sections: home.sections.map((s) => ({ ...s, columns: s.columns.map((c) => fn(c, s)) })) };
 }
 
+/** Takes a block off the page, with any stickers on it. */
 export function removeBlock(home: ProfileHome, id: string): ProfileHome {
+  return pruneStickers(liftBlock(home, id));
+}
+
+/** Takes a block out to put it somewhere else: its stickers stay on it. */
+function liftBlock(home: ProfileHome, id: string): ProfileHome {
   return mapColumns(home, (c) => ({ ...c, blocks: c.blocks.filter((b) => b.id !== id) }));
 }
 
@@ -143,7 +150,7 @@ export function moveBlock(home: ProfileHome, id: string, toColumnId: string, toI
   if (!found) return home;
   let index = toIndex;
   if (found.column.id === toColumnId && found.index < toIndex) index -= 1;
-  return insertBlock(removeBlock(home, id), found.block, toColumnId, Math.max(0, index));
+  return insertBlock(liftBlock(home, id), found.block, toColumnId, Math.max(0, index));
 }
 
 /** One step up or down through the page, crossing into the neighbouring column or section. */
@@ -278,7 +285,7 @@ export function sectionRemovable(section: ProfileSection): boolean {
 }
 
 export function removeSection(home: ProfileHome, id: string): ProfileHome {
-  return { ...home, sections: home.sections.filter((s) => s.id !== id) };
+  return pruneStickers({ ...home, sections: home.sections.filter((s) => s.id !== id) });
 }
 
 /** Move the border between columns `left` and `left + 1` by `delta` grid units. */
@@ -502,7 +509,7 @@ export const TEMPLATES: Template[] = [
 export function applyTemplate(home: ProfileHome, template: Template): ProfileHome {
   const pieces = piecesOf(home);
   const built = template.build(pieces);
-  return keepSpares(built, pieces.spareDividers());
+  return pruneStickers({ ...keepSpares(built, pieces.spareDividers()), stickers: home.stickers });
 }
 
 function shuffled<T>(list: T[]): T[] {
@@ -551,5 +558,87 @@ export function shuffleHome(home: ProfileHome, shown: (b: ProfileBlock) => boole
     : sec("columns", [main, [entries]], [side, [...loose, p.rss]]);
 
   const built = page(home.width, [...top, sec("columns", [12, [ornament()]]), ...band, sec("columns", [12, [p.pinned]]), body]);
-  return keepSpares(built, p.spareDividers());
+  return pruneStickers({ ...keepSpares(built, p.spareDividers()), stickers: home.stickers });
+}
+
+// ── Stickers ─────────────────────────────────────────────────────────────
+
+/** The most stickers a page can carry (the API refuses more). */
+export const MAX_STICKERS = 30;
+
+/** Stickers whose block is gone go with it. */
+export function pruneStickers(home: ProfileHome): ProfileHome {
+  const ids = new Set(home.sections.flatMap((s) => s.columns.flatMap((c) => c.blocks.map((b) => b.id))));
+  const kept = home.stickers.filter((st) => ids.has(st.anchor));
+  return kept.length === home.stickers.length ? home : { ...home, stickers: kept };
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Keeps a sticker within what the API accepts: the same ranges as
+ * `normalize_stickers` in apps/api/lib/inkwell/profile_home.ex.
+ */
+export function clampSticker(st: ProfileSticker): ProfileSticker {
+  const y =
+    st.edge === "free" ? clamp(st.y, 0, 100)
+    : st.edge === "bottom" ? clamp(st.y, -32, 48)
+    : clamp(st.y, -48, 32);
+  return {
+    ...st,
+    x: round1(clamp(st.x, -10, 110)),
+    y: round1(y),
+    rotate: Math.round(((((st.rotate + 180) % 360) + 360) % 360) - 180),
+    scale: Math.round(clamp(st.scale, 0.4, 2.5) * 100) / 100,
+  };
+}
+
+/** Adds a sticker; a full page is returned unchanged. */
+export function addSticker(home: ProfileHome, st: Omit<ProfileSticker, "id"> & { id?: string }): ProfileHome {
+  if (home.stickers.length >= MAX_STICKERS || !findBlock(home, st.anchor)) return home;
+  const sticker = clampSticker({ ...st, id: st.id ?? newSticker() });
+  return { ...home, stickers: [...home.stickers, sticker] };
+}
+
+export function updateSticker(home: ProfileHome, id: string, patch: Partial<Omit<ProfileSticker, "id">>): ProfileHome {
+  if (patch.anchor && !findBlock(home, patch.anchor)) return home;
+  return {
+    ...home,
+    stickers: home.stickers.map((st) => (st.id === id ? clampSticker({ ...st, ...patch }) : st)),
+  };
+}
+
+export function removeSticker(home: ProfileHome, id: string): ProfileHome {
+  return { ...home, stickers: home.stickers.filter((st) => st.id !== id) };
+}
+
+/** Last in the list draws on top; this brings one there. */
+export function raiseSticker(home: ProfileHome, id: string): ProfileHome {
+  const st = home.stickers.find((x) => x.id === id);
+  if (!st || home.stickers[home.stickers.length - 1].id === id) return home;
+  return { ...home, stickers: [...home.stickers.filter((x) => x.id !== id), st] };
+}
+
+function newSticker(): string {
+  return `k${newId("b").slice(1)}`;
+}
+
+/**
+ * Where a sticker lands on a block from a point on screen: photos take it
+ * anywhere on the picture; anything else on its nearer edge, so it frames
+ * the card without covering what's written in it.
+ */
+export function placeOn(
+  rect: { left: number; top: number; width: number; height: number },
+  x: number,
+  y: number,
+  photo: boolean,
+): Pick<ProfileSticker, "edge" | "x" | "y"> {
+  const px = rect.width > 0 ? ((x - rect.left) / rect.width) * 100 : 50;
+  if (photo) return { edge: "free", x: round1(clamp(px, -10, 110)), y: round1(clamp(rect.height > 0 ? ((y - rect.top) / rect.height) * 100 : 50, 0, 100)) };
+  const top = y < rect.top + rect.height / 2;
+  return top
+    ? { edge: "top", x: round1(clamp(px, -10, 110)), y: round1(clamp(y - rect.top, -48, 32)) }
+    : { edge: "bottom", x: round1(clamp(px, -10, 110)), y: round1(clamp(y - (rect.top + rect.height), -32, 48)) };
 }

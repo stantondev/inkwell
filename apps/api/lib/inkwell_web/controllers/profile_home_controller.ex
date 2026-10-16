@@ -17,7 +17,9 @@ defmodule InkwellWeb.ProfileHomeController do
     user = conn.assigns.current_user
 
     with :ok <- check_size(home),
-         {:ok, clean} <- ProfileHome.normalize(home, owner_id: user.id),
+         # Plus sticker packs are kept only for Plus members (Inkwell.ProfileHome).
+         plus? = Inkwell.SelfHosted.effective_tier(user) == "plus",
+         {:ok, clean} <- ProfileHome.normalize(home, owner_id: user.id, plus: plus?),
          {:ok, updated} <- user |> User.home_changeset(clean) |> Repo.update() do
       # A new account's page gets the same spam check as its bio and first posts.
       if Inkwell.Moderation.RequestGate.new_account?(updated),

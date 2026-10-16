@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { ProfileListening } from "@/components/profile-listening";
 import type { JournalEntry } from "@/components/journal-entry-card";
-import { columnTracks, type ProfileBlock, type ProfileColumn, type ProfileHome, type ProfileSection } from "@/lib/profile-home";
+import { columnTracks, type ProfileBlock, type ProfileColumn, type ProfileHome, type ProfileSection, type ProfileSticker } from "@/lib/profile-home";
+import { StickerHost, visibleStickers } from "./sticker-layer";
 import type { ProfileFilters } from "./profile-search-bar";
 import { Guestbook } from "./guestbook";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
@@ -297,15 +298,27 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
 // Wide content in a column of its own; a column of only widgets is an aside.
 const MAIN_BLOCKS = new Set(["entries", "profile_card", "pinned"]);
 
-function Column({ column, ctx, many }: { column: ProfileColumn; ctx: ProfileContext; many: boolean }) {
+/** Stickers by the block they're on. */
+type StickerMap = Map<string, ProfileSticker[]>;
+
+/** A block as visitors see it, with any stickers on it. */
+function Placed({ block, ctx, stickers, className }: { block: ProfileBlock; ctx: ProfileContext; stickers: StickerMap; className?: string }) {
+  return (
+    <StickerHost stickers={stickers.get(block.id) ?? []} accent={ctx.styles.accent}>
+      <ProfileBlockView block={block} ctx={ctx} className={className} />
+    </StickerHost>
+  );
+}
+
+function Column({ column, ctx, many, stickers }: { column: ProfileColumn; ctx: ProfileContext; many: boolean; stickers: StickerMap }) {
   const blocks = column.blocks.filter((b) => blockVisible(b, ctx));
-  const content = blocks.map((b) => <ProfileBlockView key={b.id} block={b} ctx={ctx} />);
+  const content = blocks.map((b) => <Placed key={b.id} block={b} ctx={ctx} stickers={stickers} />);
   if (!many && blocks.length === 1) return content[0];
   const Tag = many && !blocks.some((b) => MAIN_BLOCKS.has(b.type)) ? "aside" : "div";
   return <Tag className="flex flex-col gap-6 min-w-0">{content}</Tag>;
 }
 
-function Section({ section, ctx, afterCard }: { section: ProfileSection; ctx: ProfileContext; afterCard: boolean }): ReactNode {
+function Section({ section, ctx, afterCard, stickers }: { section: ProfileSection; ctx: ProfileContext; afterCard: boolean; stickers: StickerMap }): ReactNode {
   const columns = section.columns.filter((c) => c.blocks.some((b) => blockVisible(b, ctx)));
   if (columns.length === 0) return null;
 
@@ -316,7 +329,7 @@ function Section({ section, ctx, afterCard }: { section: ProfileSection; ctx: Pr
   // the profile card those margins meet the card's; anywhere else they add to
   // the gap, as they did between entries and widgets.
   if (visible.length === 1 && visible[0].type === "divider") {
-    const divider = <ProfileBlockView block={visible[0]} ctx={ctx} className={afterCard ? "mb-8" : ""} />;
+    const divider = <Placed block={visible[0]} ctx={ctx} stickers={stickers} className={afterCard ? "mb-8" : ""} />;
     return afterCard ? divider : <div className="flow-root mb-8" data-section={section.id}>{divider}</div>;
   }
 
@@ -326,7 +339,7 @@ function Section({ section, ctx, afterCard }: { section: ProfileSection; ctx: Pr
     return (
       <div className="flow-root mb-8" data-section={section.id}>
         <WidgetColumns className="@2xl:columns-2 @5xl:columns-3">
-          {visible.map((b) => <ProfileBlockView key={b.id} block={b} ctx={ctx} />)}
+          {visible.map((b) => <Placed key={b.id} block={b} ctx={ctx} stickers={stickers} />)}
         </WidgetColumns>
       </div>
     );
@@ -335,7 +348,7 @@ function Section({ section, ctx, afterCard }: { section: ProfileSection; ctx: Pr
   if (columns.length === 1) {
     return (
       <div className="flow-root mb-8" data-section={section.id}>
-        <Column column={columns[0]} ctx={ctx} many={false} />
+        <Column column={columns[0]} ctx={ctx} many={false} stickers={stickers} />
       </div>
     );
   }
@@ -348,13 +361,17 @@ function Section({ section, ctx, afterCard }: { section: ProfileSection; ctx: Pr
       style={{ "--cols-md": tracks.md, "--cols-lg": tracks.lg, "--cols-xl": tracks.xl } as React.CSSProperties}
       data-section={section.id}
     >
-      {columns.map((c) => <Column key={c.id} column={c} ctx={ctx} many />)}
+      {columns.map((c) => <Column key={c.id} column={c} ctx={ctx} many stickers={stickers} />)}
     </div>
   );
 }
 
 /** The whole arrangement: sections down the page, in the writer's order. */
 export function ProfileLayout({ home, ctx }: { home: ProfileHome; ctx: ProfileContext }) {
+  const stickers: StickerMap = new Map();
+  for (const st of visibleStickers(home.stickers ?? [], ctx.isPlus)) {
+    stickers.set(st.anchor, [...(stickers.get(st.anchor) ?? []), st]);
+  }
   return (
     <div className="[&>*:last-child]:mb-0">
       {home.sections.map((s, i) => (
@@ -362,6 +379,7 @@ export function ProfileLayout({ home, ctx }: { home: ProfileHome; ctx: ProfileCo
           key={s.id}
           section={s}
           ctx={ctx}
+          stickers={stickers}
           afterCard={i > 0 && home.sections[i - 1].columns.some((c) => c.blocks.some((b) => b.type === "profile_card"))}
         />
       ))}

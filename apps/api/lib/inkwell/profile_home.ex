@@ -185,7 +185,7 @@ defmodule Inkwell.ProfileHome do
        "version" => @version,
        "width" => if(home["width"] in @widths, do: home["width"], else: "standard"),
        "sections" => sections,
-       "stickers" => []
+       "stickers" => normalize_stickers(home["stickers"], sections, opts)
      }}
   end
 
@@ -228,6 +228,83 @@ defmodule Inkwell.ProfileHome do
   end
 
   def image_ids(_), do: []
+
+  # ── Stickers ───────────────────────────────────────────────────────────────
+  #
+  # Decorations pinned to a block: %{"id", "key", "anchor" (block id),
+  # "edge" ("top" | "bottom" | "free"), "x" (% across the block, centre),
+  # "y" (px from that edge for top/bottom; % down for free), "rotate"
+  # (degrees), "scale"}. They sit along a card's top or bottom edge so they
+  # can't cover the middle of someone's words; only photos take them anywhere.
+  # Keys mirror apps/web/src/lib/stickers.tsx.
+  @sticker_keys ~w[stamp postmark airmail washi-dots washi-plain paperclip daisy leaf inkblot heart star ticket]
+  @plus_sticker_keys ~w[wax-seal photo-corner rose moon par-avion butterfly]
+  @max_stickers 30
+
+  def sticker_keys, do: @sticker_keys
+  def plus_sticker_keys, do: @plus_sticker_keys
+
+  defp normalize_stickers(list, sections, opts) when is_list(list) do
+    types = for s <- sections, c <- s["columns"], b <- c["blocks"], into: %{}, do: {b["id"], b["type"]}
+    allowed = if Keyword.get(opts, :plus, true), do: @sticker_keys ++ @plus_sticker_keys, else: @sticker_keys
+
+    {stickers, _} =
+      list
+      |> Enum.filter(&is_map/1)
+      |> Enum.reduce({[], MapSet.new()}, fn st, {acc, seen} ->
+        anchor_type = Map.get(types, st["anchor"])
+
+        cond do
+          length(acc) >= @max_stickers -> {acc, seen}
+          anchor_type == nil -> {acc, seen}
+          st["key"] not in allowed -> {acc, seen}
+          true ->
+            id =
+              if is_binary(st["id"]) and Regex.match?(@id_format, st["id"]) and not MapSet.member?(seen, st["id"]),
+                do: st["id"],
+                else: unique_id("k", seen)
+
+            edge =
+              cond do
+                anchor_type == "photo" and st["edge"] == "free" -> "free"
+                st["edge"] == "bottom" -> "bottom"
+                true -> "top"
+              end
+
+            y =
+              case edge do
+                "free" -> num(st["y"], 0, 100, 50)
+                "top" -> num(st["y"], -48, 32, 0)
+                "bottom" -> num(st["y"], -32, 48, 0)
+              end
+
+            sticker = %{
+              "id" => id,
+              "key" => st["key"],
+              "anchor" => st["anchor"],
+              "edge" => edge,
+              "x" => num(st["x"], -10, 110, 90),
+              "y" => y,
+              "rotate" => num(st["rotate"], -180, 180, 0) |> round(),
+              "scale" => num(st["scale"], 0.4, 2.5, 1.0)
+            }
+
+            {[sticker | acc], MapSet.put(seen, id)}
+        end
+      end)
+
+    Enum.reverse(stickers)
+  end
+
+  defp normalize_stickers(_list, _sections, _opts), do: []
+
+  # A number clamped to a range and rounded to one decimal (two for scale-sized ranges).
+  defp num(v, lo, hi, _default) when is_number(v) do
+    v = v |> max(lo) |> min(hi)
+    if hi - lo <= 3, do: Float.round(v / 1, 2), else: Float.round(v / 1, 1)
+  end
+
+  defp num(_v, _lo, _hi, default), do: default
 
   @doc "Every block id in page order (sections, then columns, then blocks)."
   def block_ids(%{"sections" => sections}) do

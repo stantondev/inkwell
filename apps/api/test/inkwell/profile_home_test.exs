@@ -242,6 +242,69 @@ defmodule Inkwell.ProfileHomeTest do
     assert entries["config"] == %{}
   end
 
+  describe "stickers" do
+    defp page_with(stickers) do
+      %{
+        "sections" => [
+          %{"columns" => [%{"blocks" => [%{"id" => "b-card", "type" => "profile_card"}]}]},
+          %{"columns" => [%{"blocks" => [%{"id" => "b-note", "type" => "note"}, %{"id" => "b-pic", "type" => "photo"}]}]}
+        ],
+        "stickers" => stickers
+      }
+    end
+
+    test "are kept on their block, clamped, and dropped when their block or key is unknown" do
+      {:ok, home} =
+        ProfileHome.normalize(
+          page_with([
+            %{"id" => "k-1", "key" => "stamp", "anchor" => "b-card", "edge" => "top", "x" => 140, "y" => -500, "rotate" => 900, "scale" => 9, "extra" => 1},
+            %{"id" => "k-2", "key" => "daisy", "anchor" => "b-note", "edge" => "free", "x" => 50, "y" => 50},
+            %{"id" => "k-3", "key" => "daisy", "anchor" => "b-pic", "edge" => "free", "x" => 40.25, "y" => 70},
+            %{"id" => "k-4", "key" => "not-a-sticker", "anchor" => "b-card"},
+            %{"id" => "k-5", "key" => "heart", "anchor" => "b-gone"},
+            %{"id" => "k-1", "key" => "heart", "anchor" => "b-card", "edge" => "bottom", "y" => 99},
+            "junk"
+          ])
+        )
+
+      [a, b, c, d] = home["stickers"]
+      assert a == %{"id" => "k-1", "key" => "stamp", "anchor" => "b-card", "edge" => "top", "x" => 110.0, "y" => -48.0, "rotate" => 180, "scale" => 2.5}
+      # Not a photo: free placement becomes the top edge, so it can't sit over the words.
+      assert b["edge"] == "top" and b["y"] == 32.0
+      assert c["edge"] == "free" and c["x"] == 40.3 and c["y"] == 70.0
+      # A duplicate id gets a new one; bottom offsets are clamped too.
+      assert d["id"] != "k-1" and d["edge"] == "bottom" and d["y"] == 48.0
+    end
+
+    test "Plus packs only for Plus members; at most 30" do
+      plus = %{"id" => "k-p", "key" => "wax-seal", "anchor" => "b-card"}
+      {:ok, home} = ProfileHome.normalize(page_with([plus]), plus: false)
+      assert home["stickers"] == []
+      {:ok, home} = ProfileHome.normalize(page_with([plus]), plus: true)
+      assert length(home["stickers"]) == 1
+
+      many = for i <- 1..40, do: %{"id" => "k-#{i}", "key" => "star", "anchor" => "b-note"}
+      {:ok, home} = ProfileHome.normalize(page_with(many))
+      assert length(home["stickers"]) == 30
+    end
+
+    test "saving through the API drops a free member's Plus stickers", %{conn: conn} do
+      user = create_user()
+
+      data =
+        conn
+        |> log_in_user(user)
+        |> put("/api/me/home", %{"home" => page_with([
+          %{"key" => "wax-seal", "anchor" => "b-card"},
+          %{"key" => "stamp", "anchor" => "b-card", "x" => 90, "y" => -10, "rotate" => 8}
+        ])})
+        |> json_response(200)
+        |> Map.fetch!("data")
+
+      assert [%{"key" => "stamp", "rotate" => 8}] = data["stickers"]
+    end
+  end
+
   test "the spam checker can read what a writer put on their page" do
     home = %{"sections" => [%{"columns" => [%{"blocks" => [
       %{"type" => "note", "config" => %{"title" => "Best casino bonus", "body" => "Click now"}},

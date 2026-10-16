@@ -17,8 +17,17 @@ import {
   neighbourColumn,
   newId,
   nudgeBlock,
+  MAX_STICKERS,
+  addSticker,
+  clampSticker,
+  placeOn,
+  raiseSticker,
+  removeBlock,
+  removeSection,
+  removeSticker,
   resizeColumns,
   shuffleHome,
+  updateSticker,
   type DropTarget,
 } from "./home-edit";
 import { historyReducer, initHistory } from "./home-history";
@@ -225,4 +234,65 @@ test("Undo history: commit, undo, redo, previews and no-op changes", () => {
   let big = initHistory(a);
   for (let i = 0; i < 80; i++) big = historyReducer(big, { type: "commit", next: { ...a, width: i % 2 ? "narrow" : "standard" } });
   assert.ok(big.past.length <= 50);
+});
+
+// ── Stickers ───────────────────────────────────────────────────────────────
+
+const stuck = (anchor: string, extra: Partial<Parameters<typeof addSticker>[1]> = {}) =>
+  ({ key: "stamp", anchor, edge: "top" as const, x: 50, y: 0, rotate: 0, scale: 1, ...extra });
+
+test("stickers go on blocks that exist, up to the page limit", () => {
+  let h = addSticker(sample(), stuck("a", { id: "k-1" }));
+  assert.equal(h.stickers.length, 1);
+  assert.equal(h.stickers[0].id, "k-1");
+  assert.equal(addSticker(h, stuck("nope")), h, "no block, no sticker");
+  for (let i = 0; i < 40; i++) h = addSticker(h, stuck("a"));
+  assert.equal(h.stickers.length, MAX_STICKERS);
+  assert.equal(new Set(h.stickers.map((x) => x.id)).size, MAX_STICKERS, "ids are unique");
+  for (const st of h.stickers) assert.match(st.id, /^[a-z0-9][a-z0-9_-]{0,39}$/);
+});
+
+test("sticker values stay within what the API keeps", () => {
+  const c = clampSticker({ id: "k", key: "stamp", anchor: "a", edge: "top", x: 400, y: -500, rotate: 190, scale: 9 });
+  assert.deepEqual([c.x, c.y, c.rotate, c.scale], [110, -48, -170, 2.5]);
+  const b = clampSticker({ ...c, edge: "bottom", y: 500, rotate: -725, scale: 0 });
+  assert.deepEqual([b.y, b.rotate, b.scale], [48, -5, 0.4]);
+  const f = clampSticker({ ...c, edge: "free", y: -3 });
+  assert.equal(f.y, 0);
+  assert.equal(clampSticker({ ...c, x: NaN }).x, -10, "nonsense never reaches the page");
+});
+
+test("moving, turning, raising and removing a sticker", () => {
+  let h = addSticker(addSticker(sample(), stuck("a", { id: "k-1" })), stuck("b", { id: "k-2" }));
+  h = updateSticker(h, "k-1", { anchor: "x", edge: "bottom", y: 10, rotate: 30 });
+  assert.deepEqual(
+    (({ anchor, edge, y, rotate }) => ({ anchor, edge, y, rotate }))(h.stickers[0]),
+    { anchor: "x", edge: "bottom", y: 10, rotate: 30 },
+  );
+  assert.equal(updateSticker(h, "k-1", { anchor: "gone" }), h, "can't move onto a block that isn't there");
+  assert.deepEqual(raiseSticker(h, "k-1").stickers.map((x) => x.id), ["k-2", "k-1"]);
+  assert.equal(raiseSticker(h, "k-2"), h, "already on top");
+  assert.deepEqual(removeSticker(h, "k-1").stickers.map((x) => x.id), ["k-2"]);
+});
+
+test("a block's stickers go with it, and layouts keep everyone else's", () => {
+  let h = sample();
+  for (const anchor of ["a", "b", "x", "entries", "card"]) h = addSticker(h, stuck(anchor, { id: `k-${anchor}` }));
+  assert.deepEqual(removeBlock(h, "a").stickers.map((x) => x.anchor), ["b", "x", "entries", "card"]);
+  assert.deepEqual(removeSection(h, "s3").stickers.map((x) => x.anchor), ["a", "b", "entries", "card"]);
+  for (const out of [...TEMPLATES.map((t) => applyTemplate(h, t)), shuffleHome(h), applyPreset(h, "s2", LAYOUT_PRESETS[0])]) {
+    assert.equal(out.stickers.length, 5, "every sticker survives a new layout");
+  }
+  // Moving a block takes its stickers along, since they hang on its id.
+  const moved = dropBlock(h, "a", { columnId: "c-band", blockId: null, edge: "end" });
+  assert.equal(moved.stickers.find((x) => x.id === "k-a")!.anchor, "a");
+});
+
+test("placing snaps to the nearer edge, or anywhere on a photo", () => {
+  const rect = { left: 100, top: 200, width: 400, height: 300 };
+  assert.deepEqual(placeOn(rect, 300, 210, false), { edge: "top", x: 50, y: 10 });
+  assert.deepEqual(placeOn(rect, 100, 495, false), { edge: "bottom", x: 0, y: -5 });
+  assert.deepEqual(placeOn(rect, 300, 340, false), { edge: "top", x: 50, y: 32 }, "the middle of a card snaps to an edge");
+  assert.deepEqual(placeOn(rect, 900, 100, false), { edge: "top", x: 110, y: -48 });
+  assert.deepEqual(placeOn(rect, 200, 350, true), { edge: "free", x: 25, y: 50 });
 });

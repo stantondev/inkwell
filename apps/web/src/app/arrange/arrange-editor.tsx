@@ -48,6 +48,7 @@ import { ProfileFrame, type ProfileFrameProps } from "@/app/[username]/profile-f
 import { ProfileBlockView, blockVisible, type ProfileContext } from "@/app/[username]/profile-layout";
 import { BlockSettings } from "./block-settings";
 import { WidgetTray, TRAY_PREFIX } from "./widget-tray";
+import { EditorStickers, StickerBar, StickerDrawer, useStickerEditing, type StickerEditing } from "./sticker-editing";
 import s from "./arrange.module.css";
 
 interface Props {
@@ -145,6 +146,11 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   }, []);
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
+  const preview = useCallback((next: ProfileHome) => dispatch({ type: "preview", home: next }), []);
+  const note = useCallback((text: string) => setStatus({ kind: "note", text }), []);
+  const stickers = useStickerEditing({ getHome, commit, preview, isPlus: ctx.isPlus, note });
+  const [stickerDrawer, setStickerDrawer] = useState(false);
+  const swallowClick = useRef(false);
 
   // A copy of unsaved work in this browser tab, so a crash or a reload
   // doesn't lose it; offered back on the next visit.
@@ -344,6 +350,18 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
       <button type="button" className={`${s.toolBtn} ${s.toolPrimaryOutline}`} onClick={() => setTrayOpen(true)}>
         <span aria-hidden="true">＋</span> Add
       </button>
+      <button
+        type="button"
+        className={s.toolBtn}
+        aria-expanded={stickerDrawer}
+        onClick={() => {
+          setTrayOpen(false);
+          setSettingsId(null);
+          setStickerDrawer(true);
+        }}
+      >
+        <span aria-hidden="true">✿</span> <span className={s.hideSmall}>Stickers</span>
+      </button>
       <span className={s.menuWrap}>
         <button
           type="button"
@@ -460,7 +478,24 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
       >
         <ProfileFrame frame={frame} containerClassName="px-3 sm:px-4 pt-6 pb-24">
           <CanvasBoundary>
-            <div className={`${s.canvas} ${view === "phone" ? s.phone : ""} @container mx-auto ${view === "phone" ? "" : narrow ? "max-w-2xl" : "max-w-7xl"}`}>
+            <div
+              className={`${s.canvas} ${view === "phone" ? s.phone : ""} ${stickers.placing ? s.placing : ""} @container mx-auto ${view === "phone" ? "" : narrow ? "max-w-2xl" : "max-w-7xl"}`}
+              onPointerDownCapture={(e) => {
+                // Placing a sticker: the press sticks it on, and nothing else
+                // under it (a button, a drag) reacts.
+                if (stickers.placing && stickers.placeAt(e.clientX, e.clientY)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  swallowClick.current = true;
+                }
+              }}
+              onClickCapture={(e) => {
+                if (!swallowClick.current) return;
+                swallowClick.current = false;
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
               <InsertRow
                 onAdd={(preset) => {
                   const { home: next, section } = addSection(home, 0, preset);
@@ -496,6 +531,7 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
                     onBlockRemove={(id) => commit(removeBlock(home, id))}
                     onBlockNudge={(id, dir) => moveBy(id, (h) => nudgeBlock(h, id, dir), dir === -1 ? "up" : "down")}
                     onBlockAcross={(id, dir) => moveBy(id, (h) => moveAcross(h, id, dir), dir === -1 ? "left" : "right")}
+                    stickers={stickers}
                   />
                   <InsertRow
                     onAdd={(preset) => {
@@ -510,6 +546,11 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
           </CanvasBoundary>
         </ProfileFrame>
 
+        {mounted && stickerDrawer && createPortal(
+          <StickerDrawer home={home} editing={stickers} accent={ctx.styles.accent} onClose={() => setStickerDrawer(false)} />,
+          document.body,
+        )}
+
         {mounted && trayOpen && createPortal(
           <WidgetTray home={home} ctx={ctx} onAdd={(type) => add(type)} onClose={() => setTrayOpen(false)} />,
           document.body,
@@ -521,6 +562,15 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <StickerBar
+        home={home}
+        editing={stickers}
+        shown={(id) => {
+          const b = findBlock(home, id)?.block;
+          return !b || blockVisible(b, ctx);
+        }}
+      />
 
       {mounted && editing && createPortal(
         <BlockSettings
@@ -627,6 +677,7 @@ interface SectionProps {
   onBlockRemove: (id: string) => void;
   onBlockNudge: (id: string, dir: -1 | 1) => void;
   onBlockAcross: (id: string, dir: -1 | 1) => void;
+  stickers: StickerEditing;
 }
 
 function EditorSection(props: SectionProps) {
@@ -888,15 +939,23 @@ function EditorBlock({
           <button type="button" className={s.iconBtn} onClick={() => props.onBlockRemove(block.id)} aria-label={`Take ${info.label} off the page`} title="Take off the page">✕</button>
         )}
       </div>
-      {preview ? (
-        <div className={s.blockBody} inert>
-          {preview}
-        </div>
-      ) : (
-        <button type="button" className={s.blockEmpty} onClick={info.editable ? () => props.onBlockSettings(block.id) : undefined} disabled={!info.editable}>
-          {EMPTY_HINTS[block.type] ?? "Nothing to show here yet."}
-        </button>
-      )}
+      <div
+        className={s.stickerHost}
+        data-sticker-host={block.id}
+        data-sticker-photo={block.type === "photo" ? "1" : "0"}
+        style={{ "--sticker-accent": ctx.styles.accent } as React.CSSProperties}
+      >
+        {preview ? (
+          <div className={s.blockBody} inert>
+            {preview}
+          </div>
+        ) : (
+          <button type="button" className={s.blockEmpty} onClick={info.editable ? () => props.onBlockSettings(block.id) : undefined} disabled={!info.editable}>
+            {EMPTY_HINTS[block.type] ?? "Nothing to show here yet."}
+          </button>
+        )}
+        <EditorStickers stickers={home.stickers.filter((st) => st.anchor === block.id)} editing={props.stickers} />
+      </div>
     </div>
   );
 }

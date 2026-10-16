@@ -368,7 +368,8 @@ export default function GuidePage() {
             to drag things where you want them, change how many columns a row
             has, and add your own notes, photos, quotes, a &ldquo;Currently&rdquo;
             list, countdowns and links. Start from a layout (Scrapbook,
-            Writer&apos;s desk, Magazine…) or press Shuffle for a surprise; Undo
+            Writer&apos;s desk, Magazine…) or press Shuffle for a surprise, and
+            decorate it with stickers (stamps, tape, pressed flowers…); Undo
             puts anything back. Nothing changes for visitors until you Save.
           </p>
           <p>

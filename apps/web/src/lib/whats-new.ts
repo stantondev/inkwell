@@ -18,10 +18,20 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-16-stickers",
+    date: "2026-10-16",
+    title: "Stickers for your page",
+    body: "Decorate your page with stickers: postage stamps, a postmark, airmail and washi tape, a paper clip, pressed flowers, an ink blot, hearts and gold stars, and a ticket stub. Pick one, tap a card to stick it on its edge (or anywhere on a photo), then drag it, turn it or make it bigger. Some take your page's own colour. Plus members also get a Keepsakes pack: a wax seal, gilded corners, a pressed rose, the moon and stars, a par avion label and a butterfly.",
+    howTo: "On your profile, choose Arrange page, then Stickers.",
+    href: "/arrange",
+    cta: "Add stickers",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-16-arrange-your-page",
     date: "2026-10-16",
     title: "Arrange your page, your way",
-    body: "Your profile is yours to lay out now, free for everyone. Drag things where you want them, give a row two, three or four columns and drag the space between them wider or narrower, and add things of your own: notes (as a card, sticky note, index card or letter), photos (plain, polaroid or taped in), quotes, a \"Currently\" list, countdowns and links. Start from a layout like Scrapbook or Writer's desk, or press Shuffle for a surprise. Your entries can be a shelf of just the latest few, with a link to your whole journal. Undo puts anything back, there's a phone preview, and visitors see nothing until you Save. Stickers to decorate it with are next.",
+    body: "Your profile is yours to lay out now, free for everyone. Drag things where you want them, give a row two, three or four columns and drag the space between them wider or narrower, and add things of your own: notes (as a card, sticky note, index card or letter), photos (plain, polaroid or taped in), quotes, a \"Currently\" list, countdowns and links. Start from a layout like Scrapbook or Writer's desk, or press Shuffle for a surprise. Your entries can be a shelf of just the latest few, with a link to your whole journal. Undo puts anything back, there's a phone preview, and visitors see nothing until you Save.",
     howTo: "On your profile, choose Arrange page.",
     href: "/arrange",
     cta: "Arrange your page",

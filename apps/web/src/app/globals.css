@@ -19418,6 +19418,27 @@ body[data-look="classic"] .entry-current-label {
   }
 }
 
+/* Stickers (Arrange my page): pinned to a block's edge, drawn over it and
+   over its neighbours, never in the way of a click. */
+.sticker-host {
+  position: relative;
+}
+.sticker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.sticker {
+  display: block;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22));
+}
+@media print {
+  .sticker-layer {
+    display: none;
+  }
+}
+
 /* Arrange my page gets the whole screen on phones, like the editor: its own
    bar has the way back. */
 @media (max-width: 1023px) {
