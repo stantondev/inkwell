@@ -234,6 +234,10 @@ defmodule InkwellWeb.Router do
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
     put "/me/home", ProfileHomeController, :update
+    get "/me/stickers", UserStickerController, :index
+    post "/me/stickers", UserStickerController, :create
+    patch "/me/stickers/:id", UserStickerController, :update
+    delete "/me/stickers/:id", UserStickerController, :delete
     post "/me/avatar", UserController, :upload_avatar
     post "/me/banner", UserController, :upload_banner
     post "/me/background", UserController, :upload_background

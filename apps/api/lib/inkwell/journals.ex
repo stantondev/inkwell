@@ -1586,6 +1586,8 @@ defmodule Inkwell.Journals do
       |> Repo.all()
       |> Enum.flat_map(&Inkwell.ProfileHome.image_ids/1)
       |> MapSet.new()
+      # Writers' own stickers, placed or still in their library
+      |> MapSet.union(MapSet.new(Inkwell.Stickers.all_image_ids()))
 
     referenced_ids =
       entry_referenced

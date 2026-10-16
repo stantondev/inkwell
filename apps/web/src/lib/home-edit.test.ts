@@ -288,6 +288,19 @@ test("a block's stickers go with it, and layouts keep everyone else's", () => {
   assert.equal(moved.stickers.find((x) => x.id === "k-a")!.anchor, "a");
 });
 
+test("a writer's own sticker keeps its picture through edits", () => {
+  let h = addSticker(sample(), stuck("a", { id: "k-u", key: "upload", image_id: "img-1", ratio: 1.5, outline: true }));
+  h = updateSticker(h, "k-u", { x: 20, rotate: 30, outline: false });
+  assert.deepEqual(
+    (({ key, image_id, ratio, outline, x, rotate }) => ({ key, image_id, ratio, outline, x, rotate }))(h.stickers[0]),
+    { key: "upload", image_id: "img-1", ratio: 1.5, outline: false, x: 20, rotate: 30 },
+  );
+  // Moving its block, a new layout and Shuffle keep it.
+  for (const out of [dropBlock(h, "a", { columnId: "c-band", blockId: null, edge: "end" }), applyTemplate(h, TEMPLATES[1]), shuffleHome(h)]) {
+    assert.equal(out.stickers[0].image_id, "img-1");
+  }
+});
+
 test("placing: edges near the top and bottom, anywhere in between", () => {
   const rect = { left: 100, top: 200, width: 400, height: 300 };
   assert.deepEqual(placeOn(rect, 300, 210), { edge: "top", x: 50, y: 10 });

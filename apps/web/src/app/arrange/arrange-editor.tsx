@@ -48,7 +48,7 @@ import { ProfileFrame, type ProfileFrameProps } from "@/app/[username]/profile-f
 import { ProfileBlockView, blockVisible, type ProfileContext } from "@/app/[username]/profile-layout";
 import { BlockSettings } from "./block-settings";
 import { WidgetTray, TRAY_PREFIX } from "./widget-tray";
-import { EditorStickers, StickerBar, StickerDrawer, useStickerEditing, type StickerEditing } from "./sticker-editing";
+import { EditorStickers, StickerBar, StickerDragGhost, StickerDrawer, useStickerEditing, type StickerEditing } from "./sticker-editing";
 import s from "./arrange.module.css";
 
 interface Props {
@@ -563,6 +563,7 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
         </DragOverlay>
       </DndContext>
 
+      <StickerDragGhost editing={stickers} accent={ctx.styles.accent} />
       <StickerBar
         home={home}
         editing={stickers}

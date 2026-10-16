@@ -19433,6 +19433,19 @@ body[data-look="classic"] .entry-current-label {
   display: block;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22));
 }
+/* A writer's own sticker: their picture, with an optional white die-cut
+   edge that follows its cut-out shape. */
+.sticker-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.sticker-outline .sticker-picture {
+  filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+}
 @media print {
   .sticker-layer {
     display: none;

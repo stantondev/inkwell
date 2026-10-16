@@ -122,7 +122,7 @@ export function BlockSettings({
                 <span>Date</span>
                 <input type="date" value={c.date ?? ""} onChange={(e) => set({ date: e.target.value || null })} />
               </label>
-              <p className={s.fieldHint}>Counts the days until it, or since it once it's passed.</p>
+              <p className={s.fieldHint}>Counts the days until it, or since it once it&apos;s passed.</p>
             </>
           )}
 

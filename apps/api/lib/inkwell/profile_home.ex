@@ -218,13 +218,19 @@ defmodule Inkwell.ProfileHome do
 
   def writing(_), do: {[], []}
 
-  @doc "Ids of the uploaded images a home shows (photo blocks), for orphan cleanup."
-  def image_ids(%{"sections" => sections}) when is_list(sections) do
-    for %{"columns" => cols} <- sections, is_list(cols),
-        %{"blocks" => blocks} <- cols, is_list(blocks),
-        %{"type" => "photo", "config" => %{"image_id" => id}} <- blocks,
-        is_binary(id),
-        do: id
+  @doc "Ids of the uploaded images a home shows (photo blocks, own stickers), for orphan cleanup."
+  def image_ids(%{"sections" => sections} = home) when is_list(sections) do
+    photos =
+      for %{"columns" => cols} <- sections, is_list(cols),
+          %{"blocks" => blocks} <- cols, is_list(blocks),
+          %{"type" => "photo", "config" => %{"image_id" => id}} <- blocks,
+          is_binary(id),
+          do: id
+
+    stickers =
+      for %{"key" => "upload", "image_id" => id} <- List.wrap(home["stickers"]), is_binary(id), do: id
+
+    photos ++ stickers
   end
 
   def image_ids(_), do: []
@@ -249,6 +255,14 @@ defmodule Inkwell.ProfileHome do
     types = for s <- sections, c <- s["columns"], b <- c["blocks"], into: %{}, do: {b["id"], b["type"]}
     allowed = if Keyword.get(opts, :plus, true), do: @sticker_keys ++ @plus_sticker_keys, else: @sticker_keys
 
+    # A writer's own stickers ("upload") show one of their library pictures.
+    # Saving checks it's theirs; reading trusts what was saved.
+    library =
+      case opts[:owner_id] do
+        nil -> :any
+        owner -> if Enum.any?(list, &(is_map(&1) and &1["key"] == "upload")), do: Inkwell.Stickers.library_image_ids(owner), else: MapSet.new()
+      end
+
     {stickers, _} =
       list
       |> Enum.filter(&is_map/1)
@@ -258,7 +272,8 @@ defmodule Inkwell.ProfileHome do
         cond do
           length(acc) >= @max_stickers -> {acc, seen}
           anchor_type == nil -> {acc, seen}
-          st["key"] not in allowed -> {acc, seen}
+          st["key"] == "upload" and not own_upload?(st["image_id"], library) -> {acc, seen}
+          st["key"] != "upload" and st["key"] not in allowed -> {acc, seen}
           true ->
             id =
               if is_binary(st["id"]) and Regex.match?(@id_format, st["id"]) and not MapSet.member?(seen, st["id"]),
@@ -290,6 +305,17 @@ defmodule Inkwell.ProfileHome do
               "scale" => num(st["scale"], 0.4, 2.5, 1.0)
             }
 
+            sticker =
+              if st["key"] == "upload" do
+                Map.merge(sticker, %{
+                  "image_id" => st["image_id"],
+                  "ratio" => ratio(st["ratio"]),
+                  "outline" => st["outline"] != false
+                })
+              else
+                sticker
+              end
+
             {[sticker | acc], MapSet.put(seen, id)}
         end
       end)
@@ -306,6 +332,18 @@ defmodule Inkwell.ProfileHome do
   end
 
   defp num(_v, _lo, _hi, default), do: default
+
+  defp own_upload?(id, library) when is_binary(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, _} -> library == :any or MapSet.member?(library, id)
+      :error -> false
+    end
+  end
+
+  defp own_upload?(_, _), do: false
+
+  defp ratio(r) when is_number(r) and r > 0, do: r |> max(0.1) |> min(10.0) |> Kernel.*(1.0) |> Float.round(3)
+  defp ratio(_), do: 1.0
 
   @doc "Every block id in page order (sections, then columns, then blocks)."
   def block_ids(%{"sections" => sections}) do

@@ -13,7 +13,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
-import type { ProfileHome, ProfileSticker } from "@/lib/profile-home";
+import { createPortal } from "react-dom";
+
+import type { OwnSticker, ProfileHome, ProfileSticker } from "@/lib/profile-home";
 import {
   MAX_STICKERS,
   addSticker,
@@ -22,17 +24,45 @@ import {
   removeSticker,
   updateSticker,
 } from "@/lib/home-edit";
-import { STICKER_PACKS, StickerArt, isPlusSticker, stickerDef } from "@/lib/stickers";
-import { stickerBoxStyle } from "@/app/[username]/sticker-layer";
+import { STICKER_PACKS, StickerArt, isPlusSticker } from "@/lib/stickers";
+import { StickerFace, stickerBoxStyle, stickerClasses, stickerLabel } from "@/app/[username]/sticker-layer";
+import { StickerMaker } from "./sticker-maker";
 import s from "./arrange.module.css";
+
+/** The sticker about to be stuck on: a pack's, or one of the writer's own. */
+export interface Placing {
+  key: string;
+  label: string;
+  image_id?: string;
+  ratio?: number;
+  outline?: boolean;
+}
+
+export interface OwnLibrary {
+  stickers: OwnSticker[];
+  limit: number;
+  maxBytes: number;
+  blockedReason: string | null;
+  loaded: boolean;
+}
+
+/** The copy that follows the pointer while a sticker is being moved. */
+export interface DragGhost {
+  st: ProfileSticker;
+  w: number;
+  h: number;
+  x: number;
+  y: number;
+}
 
 export interface StickerEditing {
   selected: string | null;
-  placing: string | null;
+  ghost: DragGhost | null;
+  placing: Placing | null;
   draggingId: string | null;
   isPlus: boolean;
   select: (id: string | null) => void;
-  startPlacing: (key: string) => void;
+  startPlacing: (p: Placing) => void;
   cancelPlacing: () => void;
   /** Sticks the sticker being placed on the card under (x, y); false if there's no card there. */
   placeAt: (x: number, y: number) => boolean;
@@ -43,6 +73,11 @@ export interface StickerEditing {
   grow: (id: string, by: number) => void;
   toFront: (id: string) => void;
   remove: (id: string) => void;
+  setOutline: (id: string, on: boolean) => void;
+  /** The writer's own stickers. */
+  own: OwnLibrary;
+  addOwn: (sticker: OwnSticker) => void;
+  deleteOwn: (sticker: OwnSticker) => Promise<boolean>;
 }
 
 /** The card under a point on screen that a sticker can go on. */
@@ -81,8 +116,30 @@ export function useStickerEditing({
   note: (text: string) => void;
 }): StickerEditing {
   const [selected, setSelected] = useState<string | null>(null);
-  const [placing, setPlacing] = useState<string | null>(null);
+  const [placing, setPlacing] = useState<Placing | null>(null);
+  const [own, setOwn] = useState<OwnLibrary>({ stickers: [], limit: 10, maxBytes: 600_000, blockedReason: null, loaded: false });
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me/stickers")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (!live || !body) return;
+        setOwn({
+          stickers: body.data ?? [],
+          limit: body.meta?.limit ?? 10,
+          maxBytes: body.meta?.max_bytes ?? 600_000,
+          blockedReason: body.meta?.blocked_reason ?? null,
+          loaded: true,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [ghost, setGhost] = useState<DragGhost | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanup.current?.(), []);
@@ -124,7 +181,9 @@ export function useStickerEditing({
       const id = `k-${Math.random().toString(36).slice(2, 10)}`;
       // A little tilt, the way stickers go on by hand.
       const rotate = Math.round(Math.random() * 14 - 7);
-      const next = addSticker(home, { id, key: placing, anchor: host.dataset.stickerHost, ...placeOnHost(host, x, y), rotate, scale: 1 });
+      const extra =
+        placing.key === "upload" ? { image_id: placing.image_id, ratio: placing.ratio, outline: placing.outline } : {};
+      const next = addSticker(home, { id, key: placing.key, ...extra, anchor: host.dataset.stickerHost, ...placeOnHost(host, x, y), rotate, scale: 1 });
       if (next === home) return false;
       commit(next);
       setPlacing(null);
@@ -144,6 +203,11 @@ export function useStickerEditing({
       e.currentTarget.focus({ preventScroll: true });
 
       const before = getHome();
+      // The sticker being held stays where it is (hidden) until it's let go,
+      // and a copy follows the pointer. Moving the real one from card to
+      // card mid-gesture took away the element the finger was on, and the
+      // browser then dropped the next touch (the page wouldn't scroll).
+      const size = { w: e.currentTarget.offsetWidth, h: e.currentTarget.offsetHeight };
       const r = e.currentTarget.getBoundingClientRect();
       // Keep the sticker where it was grabbed, not centred on the pointer.
       const off = { x: r.left + r.width / 2 - e.clientX, y: r.top + r.height / 2 - e.clientY };
@@ -164,7 +228,7 @@ export function useStickerEditing({
         lastHost = host;
         const pos = placeOnHost(host, pointer.x + off.x, pointer.y + off.y);
         last = updateSticker(before, st.id, { anchor: host.dataset.stickerHost, ...pos });
-        preview(last);
+        setGhost({ st, ...size, x: pointer.x + off.x, y: pointer.y + off.y });
       };
       const scroll = () => {
         frame = 0;
@@ -195,12 +259,13 @@ export function useStickerEditing({
         if (frame) cancelAnimationFrame(frame);
         cleanup.current = null;
         setDraggingId(null);
+        setGhost(null);
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", end);
       window.addEventListener("pointercancel", end);
     },
-    [placing, getHome, preview, commit],
+    [placing, getHome, commit],
   );
 
   const onHandlePointerDown = useCallback(
@@ -256,6 +321,28 @@ export function useStickerEditing({
   const turn = useCallback((id: string, by: number) => change(id, (st) => ({ rotate: st.rotate + by })), [change]);
   const grow = useCallback((id: string, by: number) => change(id, (st) => ({ scale: st.scale + by })), [change]);
   const toFront = useCallback((id: string) => commit(raiseSticker(getHome(), id)), [commit, getHome]);
+  const setOutline = useCallback((id: string, on: boolean) => change(id, () => ({ outline: on })), [change]);
+
+  const addOwn = useCallback((sticker: OwnSticker) => {
+    setOwn((o) => ({ ...o, stickers: [sticker, ...o.stickers] }));
+  }, []);
+
+  const deleteOwn = useCallback(
+    async (sticker: OwnSticker) => {
+      const res = await fetch(`/api/me/stickers/${sticker.id}`, { method: "DELETE" }).catch(() => null);
+      if (!res?.ok) {
+        note("Couldn't delete that sticker. Try again.");
+        return false;
+      }
+      setOwn((o) => ({ ...o, stickers: o.stickers.filter((x) => x.id !== sticker.id) }));
+      // The server took it off the saved page; take it off this one too.
+      const home = getHome();
+      const kept = home.stickers.filter((x) => x.image_id !== sticker.image_id);
+      if (kept.length !== home.stickers.length) commit({ ...home, stickers: kept });
+      return true;
+    },
+    [getHome, commit, note],
+  );
   const remove = useCallback(
     (id: string) => {
       commit(removeSticker(getHome(), id));
@@ -292,13 +379,14 @@ export function useStickerEditing({
 
   return {
     selected,
+    ghost,
     placing,
     draggingId,
     isPlus,
     select: setSelected,
-    startPlacing: (key: string) => {
+    startPlacing: (p: Placing) => {
       setSelected(null);
-      setPlacing(key);
+      setPlacing(p);
     },
     cancelPlacing: () => setPlacing(null),
     placeAt,
@@ -309,7 +397,16 @@ export function useStickerEditing({
     grow,
     toFront,
     remove,
+    setOutline,
+    own,
+    addOwn,
+    deleteOwn,
   };
+}
+
+function ownName(editing: StickerEditing, st: ProfileSticker): string | null {
+  if (st.key !== "upload") return null;
+  return editing.own.stickers.find((o) => o.image_id === st.image_id)?.name ?? null;
 }
 
 /** The stickers on one card in the editor: the same places as on the page, but you can pick them up. */
@@ -318,26 +415,27 @@ export function EditorStickers({ stickers, editing }: { stickers: ProfileSticker
   return (
     <div className={s.stickerLayer}>
       {stickers.map((st) => {
-        const def = stickerDef(st.key);
-        if (!def) return null;
-        const locked = !editing.isPlus && isPlusSticker(st.key);
+        const box = stickerBoxStyle(st);
+        if (!box) return null;
+        const locked = st.key !== "upload" && !editing.isPlus && isPlusSticker(st.key);
         const isSelected = editing.selected === st.id;
+        const label = stickerLabel(st, ownName(editing, st));
         return (
           <button
             key={st.id}
             type="button"
             data-sticker-id={st.id}
-            className={`${s.sticker} ${isSelected ? s.stickerSelected : ""} ${editing.draggingId === st.id ? s.stickerDragging : ""} ${locked ? s.stickerLocked : ""}`}
-            style={stickerBoxStyle(st, def) as CSSProperties}
-            aria-label={`${def.label} sticker${locked ? " (shows only with Plus)" : ""}. Arrow keys move it, [ and ] turn it, minus and plus resize it, Delete takes it off.`}
+            className={`${s.sticker} ${stickerClasses(st)} ${isSelected ? s.stickerSelected : ""} ${editing.draggingId === st.id ? s.stickerDragging : ""} ${locked ? s.stickerLocked : ""}`}
+            style={box}
+            aria-label={`${label} sticker${locked ? " (shows only with Plus)" : ""}. Arrow keys move it, [ and ] turn it, minus and plus resize it, Delete takes it off.`}
             aria-pressed={isSelected}
-            title={locked ? "Visitors see this one only while you have Plus" : def.label}
+            title={locked ? "Visitors see this one only while you have Plus" : label}
             onPointerDown={(e) => editing.onStickerPointerDown(e, st)}
             onKeyDown={(e) => editing.onStickerKeyDown(e, st)}
             onClick={(e) => e.stopPropagation()}
             onFocus={() => editing.select(st.id)}
           >
-            <StickerArt def={def} />
+            <StickerFace st={st} />
             {isSelected && (
               <span
                 className={s.stickerHandle}
@@ -365,21 +463,20 @@ export function StickerBar({
   shown: (blockId: string) => boolean;
 }) {
   if (editing.placing) {
-    const def = stickerDef(editing.placing);
+    const what = editing.placing.key === "upload" ? "your sticker" : `the ${editing.placing.label.toLowerCase()}`;
     return (
       <div className={s.stickerBar} data-sticker-bar role="status" aria-live="polite">
-        <span className={s.stickerBarText}>Tap a card on your page to stick the {def?.label.toLowerCase() ?? "sticker"} on it.</span>
+        <span className={s.stickerBarText}>Tap anywhere on a card to stick {what} there.</span>
         <button type="button" className={s.toolBtn} onClick={editing.cancelPlacing}>Cancel</button>
       </div>
     );
   }
   const st = editing.selected ? home.stickers.find((x) => x.id === editing.selected) : null;
   if (!st) return null;
-  const def = stickerDef(st.key);
   return (
     <div className={s.stickerBar} data-sticker-bar role="toolbar" aria-label="Sticker">
       <span className={s.stickerBarText}>
-        <strong>{def?.label ?? "Sticker"}</strong>
+        <strong>{stickerLabel(st, ownName(editing, st))}</strong>
         {shown(st.anchor) ? (
           <span className={s.hideSmall}> · drag to move, drag the dot to turn and resize</span>
         ) : (
@@ -390,6 +487,17 @@ export function StickerBar({
       <button type="button" className={s.iconBtn} onClick={() => editing.turn(st.id, 15)} aria-label="Turn right" title="Turn right ( ] )">⟳</button>
       <button type="button" className={s.iconBtn} onClick={() => editing.grow(st.id, -0.15)} disabled={st.scale <= 0.4} aria-label="Smaller" title="Smaller ( − )">−</button>
       <button type="button" className={s.iconBtn} onClick={() => editing.grow(st.id, 0.15)} disabled={st.scale >= 2.5} aria-label="Bigger" title="Bigger ( + )">+</button>
+      {st.key === "upload" && (
+        <button
+          type="button"
+          className={s.textBtn}
+          aria-pressed={st.outline !== false}
+          onClick={() => editing.setOutline(st.id, st.outline === false)}
+          title="A white die-cut border around the shape"
+        >
+          {st.outline === false ? "Add white edge" : "No white edge"}
+        </button>
+      )}
       <button type="button" className={s.textBtn} onClick={() => editing.toFront(st.id)} title="Put it on top of the others">To front</button>
       <button type="button" className={s.textBtn} onClick={() => editing.remove(st.id)}>Remove</button>
       <button type="button" className={s.toolBtn} onClick={() => editing.select(null)}>Done</button>
@@ -410,7 +518,8 @@ export function StickerDrawer({
   onClose: () => void;
 }) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Escape closes the sticker maker first, when it's open over the drawer.
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("[data-sticker-maker]") && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -428,6 +537,7 @@ export function StickerDrawer({
         {" "}{home.stickers.length} of {MAX_STICKERS} used.
       </p>
       {full && <p className={s.trayHint}><strong>Your page is full of stickers.</strong> Take one off to add another.</p>}
+      <OwnStickers editing={editing} full={full} onPicked={onClose} />
       {STICKER_PACKS.map((pack) => {
         const locked = pack.plus && !editing.isPlus;
         return (
@@ -455,7 +565,7 @@ export function StickerDrawer({
                   aria-label={locked ? `${def.label} (Plus)` : `Stick on ${def.label.toLowerCase()}`}
                   title={def.label}
                   onClick={() => {
-                    editing.startPlacing(def.key);
+                    editing.startPlacing({ key: def.key, label: def.label });
                     onClose();
                   }}
                 >
@@ -473,5 +583,118 @@ export function StickerDrawer({
         );
       })}
     </aside>
+  );
+}
+
+/** "Your stickers": the writer's own, and making a new one from a picture. */
+function OwnStickers({ editing, full, onPicked }: { editing: StickerEditing; full: boolean; onPicked: () => void }) {
+  const { own } = editing;
+  const [file, setFile] = useState<File | null>(null);
+  const atLimit = own.stickers.length >= own.limit;
+
+  return (
+    <section>
+      <h3 className={s.trayHeading}>
+        Your stickers
+        {own.loaded && <span className={s.ownCount}>{own.stickers.length} of {own.limit}</span>}
+      </h3>
+      {own.blockedReason ? (
+        <p className={s.trayHint}>{own.blockedReason}</p>
+      ) : atLimit ? (
+        <p className={s.trayHint}>You have {own.limit}, the most your plan allows. Delete one to make another.</p>
+      ) : (
+        <label className={s.makeBtn}>
+          <span aria-hidden="true">＋</span> Make a sticker from a picture
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) setFile(f);
+            }}
+          />
+        </label>
+      )}
+      {own.stickers.length > 0 && (
+        <div className={s.stickerGrid}>
+          {own.stickers.map((o) => (
+            <div key={o.id} className={s.ownItem}>
+              <button
+                type="button"
+                className={s.stickerPick}
+                disabled={full}
+                aria-label={`Stick on ${o.name || "your sticker"}`}
+                title={o.name || "Your sticker"}
+                onClick={() => {
+                  editing.startPlacing({ key: "upload", label: o.name || "your sticker", image_id: o.image_id, ratio: o.ratio, outline: o.outline });
+                  onPicked();
+                }}
+              >
+                <span
+                  className={`${s.stickerPickArt} ${o.outline ? "sticker-outline" : ""}`}
+                  style={{ aspectRatio: `${o.ratio}`, width: `${Math.min(100, o.ratio * 100)}%` }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={o.url} alt="" className="sticker-picture" draggable={false} />
+                </span>
+              </button>
+              <button
+                type="button"
+                className={s.ownDelete}
+                aria-label={`Delete ${o.name || "this sticker"}`}
+                title="Delete this sticker"
+                onClick={() => {
+                  if (confirm("Delete this sticker? It comes off your page too.")) void editing.deleteOwn(o);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {file &&
+        createPortal(
+          <StickerMaker
+            file={file}
+            maxBytes={own.maxBytes}
+            onCancel={() => setFile(null)}
+            onSaved={(sticker) => {
+              setFile(null);
+              editing.addOwn(sticker);
+              if (!full) {
+                editing.startPlacing({ key: "upload", label: sticker.name || "your sticker", image_id: sticker.image_id, ratio: sticker.ratio, outline: sticker.outline });
+                onPicked();
+              }
+            }}
+          />,
+          document.body,
+        )}
+    </section>
+  );
+}
+
+/** The sticker following the pointer while it's moved (see onStickerPointerDown). */
+export function StickerDragGhost({ editing, accent }: { editing: StickerEditing; accent: string }) {
+  const g = editing.ghost;
+  if (!g || typeof document === "undefined") return null;
+  return createPortal(
+    <span
+      className={`${s.stickerGhost} ${stickerClasses(g.st)}`}
+      aria-hidden="true"
+      style={{
+        width: g.w,
+        height: g.h,
+        left: g.x,
+        top: g.y,
+        transform: `translate(-50%, -50%) rotate(${g.st.rotate}deg)`,
+        ["--sticker-accent" as string]: accent,
+      } as CSSProperties}
+    >
+      <StickerFace st={g.st} />
+    </span>,
+    document.body,
   );
 }

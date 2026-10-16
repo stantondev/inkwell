@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:arrange": "tsx --test src/lib/home-edit.test.ts"
+    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts"
   },
   "dependencies": {
     "@apache-annotator/dom": "^0.2.0",

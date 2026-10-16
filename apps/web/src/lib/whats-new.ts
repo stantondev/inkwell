@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-16-your-own-stickers",
+    date: "2026-10-16",
+    title: "Make stickers from your own pictures",
+    body: "Turn any picture into a sticker for your page: your cat, a ticket stub, a doodle, a photo from a trip. Inkwell can clear a plain background (a wall, a desk, the sky) right in your browser, trim it to the shape and give it a white die-cut edge. Animated GIFs stay animated. Your stickers wait in the drawer to use again. Up to 10 on the free plan, 50 with Plus.",
+    howTo: "On your profile, choose Arrange page, then Stickers, then Make a sticker from a picture.",
+    href: "/arrange",
+    cta: "Make a sticker",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-16-stickers",
     date: "2026-10-16",
     title: "Stickers for your page",

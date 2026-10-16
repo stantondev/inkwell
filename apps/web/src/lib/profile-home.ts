@@ -79,6 +79,7 @@ export interface ProfileSection {
  */
 export interface ProfileSticker {
   id: string;
+  /** A pack sticker's key (lib/stickers.tsx), or "upload" for one of the writer's own. */
   key: string;
   anchor: string;
   edge: "top" | "bottom" | "free";
@@ -86,6 +87,20 @@ export interface ProfileSticker {
   y: number;
   rotate: number;
   scale: number;
+  /** "upload" only: the picture (an entry image), its width ÷ height, and the white die-cut edge. */
+  image_id?: string;
+  ratio?: number;
+  outline?: boolean;
+}
+
+/** One of the writer's own stickers in their library (GET /api/me/stickers). */
+export interface OwnSticker {
+  id: string;
+  image_id: string;
+  url: string;
+  name: string | null;
+  outline: boolean;
+  ratio: number;
 }
 
 export interface ProfileHome {
