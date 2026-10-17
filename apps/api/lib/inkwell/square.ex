@@ -899,6 +899,50 @@ defmodule Inkwell.Square do
   end
 
   @doc """
+  Every payment at our location since `since` (a DateTime), oldest first,
+  following Square's cursor up to `max_pages` pages of 100.
+  """
+  def list_payments_since(%DateTime{} = since, opts \\ []) do
+    max_pages = Keyword.get(opts, :max_pages, 20)
+    location_id = square_config()[:location_id]
+
+    if is_nil(location_id) or location_id == "" do
+      {:error, :square_not_configured}
+    else
+      fetch_payment_pages(since, location_id, nil, max_pages, [])
+    end
+  end
+
+  defp fetch_payment_pages(_since, _loc, _cursor, 0, acc), do: {:ok, acc}
+
+  defp fetch_payment_pages(since, location_id, cursor, pages_left, acc) do
+    params =
+      %{
+        "begin_time" => DateTime.to_iso8601(since),
+        "sort_order" => "ASC",
+        "location_id" => location_id,
+        "limit" => 100
+      }
+      |> then(fn p -> if cursor, do: Map.put(p, "cursor", cursor), else: p end)
+
+    case square_get("/payments?#{URI.encode_query(params)}") do
+      {:ok, %{} = body} ->
+        acc = acc ++ (body["payments"] || [])
+
+        case body["cursor"] do
+          next when is_binary(next) and next != "" ->
+            fetch_payment_pages(since, location_id, next, pages_left - 1, acc)
+
+          _ ->
+            {:ok, acc}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
   Search Square subscriptions for a given customer ID.
   Returns a list of all subscriptions (active and inactive) for that customer.
   """

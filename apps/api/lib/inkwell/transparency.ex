@@ -47,8 +47,119 @@ defmodule Inkwell.Transparency do
       paying_members: revenue.paying_members + founding.sold,
       monthly_paying_members: revenue.paying_members,
       founding: founding,
+      lifetime: lifetime(),
       users: user_counts()
     }
+  end
+
+  @doc """
+  Since launch: what running Inkwell has cost (from the configured monthly
+  bills), what members have paid (every completed Square payment, not
+  counting the admins' own), and the difference. `paid_cents` is nil when
+  Square can't be reached and nothing is cached.
+  """
+  def lifetime(today \\ Date.utc_today()) do
+    started_on = Application.get_env(:inkwell, :transparency_started_on, ~D[2026-02-20])
+    history = Application.get_env(:inkwell, :transparency_cost_history, [])
+    cost = cost_between(history, started_on, today)
+    paid = lifetime_paid()
+
+    %{
+      started_on: started_on,
+      days: max(Date.diff(today, started_on), 0),
+      cost_cents: cost,
+      cost_estimated: Application.get_env(:inkwell, :transparency_costs_estimated, true),
+      paid_cents: paid,
+      behind_cents: if(is_integer(paid), do: max(cost - paid, 0), else: nil)
+    }
+  end
+
+  @doc """
+  Cost in cents from `from` up to `to`, given `[{start_date, monthly_cents}]`
+  periods (each runs until the next one starts). A month is 1/12 of a year.
+  """
+  def cost_between(history, %Date{} = from, %Date{} = to) do
+    periods = Enum.sort_by(history, &elem(&1, 0), Date)
+    ends = Enum.map(Enum.drop(periods, 1), &elem(&1, 0)) ++ [to]
+
+    periods
+    |> Enum.zip(ends)
+    |> Enum.reduce(0, fn {{start, monthly}, finish}, acc ->
+      start = Enum.max([start, from], Date)
+      finish = Enum.min([finish, to], Date)
+      days = max(Date.diff(finish, start), 0)
+      acc + round(days * monthly * 12 / 365.25)
+    end)
+  end
+
+  @paid_cache_key {__MODULE__, :lifetime_paid}
+
+  defp lifetime_paid do
+    now = System.system_time(:second)
+
+    case :persistent_term.get(@paid_cache_key, nil) do
+      {cached_at, value} when now - cached_at < @cache_ttl_seconds ->
+        value
+
+      cached ->
+        case compute_lifetime_paid() do
+          {:ok, value} ->
+            :persistent_term.put(@paid_cache_key, {now, value})
+            value
+
+          :error ->
+            # Keep showing the last good number rather than nothing.
+            case cached do
+              {_, value} -> value
+              _ -> nil
+            end
+        end
+    end
+  end
+
+  defp compute_lifetime_paid do
+    started_on = Application.get_env(:inkwell, :transparency_started_on, ~D[2026-02-20])
+    {:ok, since} = DateTime.new(started_on, ~T[00:00:00], "Etc/UTC")
+
+    admin_customers =
+      from(u in User,
+        where: u.id in ^MapSet.to_list(admin_user_ids()) and not is_nil(u.square_customer_id),
+        select: u.square_customer_id
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    case Square.list_payments_since(since) do
+      {:ok, payments} ->
+        {:ok,
+         payments
+         |> Enum.filter(&(&1["status"] == "COMPLETED"))
+         |> Enum.reject(&MapSet.member?(admin_customers, &1["customer_id"]))
+         |> Enum.map(&net_cents/1)
+         |> Enum.sum()}
+
+      {:error, reason} ->
+        Logger.warning("[Transparency] lifetime payments unavailable: #{inspect(reason)}")
+        :error
+    end
+  rescue
+    e ->
+      Logger.warning("[Transparency] lifetime payments failed: #{Exception.message(e)}")
+      :error
+  end
+
+  @doc false
+  # What reached Inkwell from one payment: the amount, less refunds and Square's fee.
+  def net_cents(payment) do
+    amount = get_in(payment, ["amount_money", "amount"]) || 0
+    refunded = get_in(payment, ["refunded_money", "amount"]) || 0
+
+    fees =
+      (payment["processing_fee"] || [])
+      |> Enum.map(&(get_in(&1, ["amount_money", "amount"]) || 0))
+      |> Enum.sum()
+
+    max(amount - refunded - fees, 0)
   end
 
   def costs do
@@ -108,7 +219,10 @@ defmodule Inkwell.Transparency do
   end
 
   @doc false
-  def clear_cache, do: :persistent_term.erase(@cache_key)
+  def clear_cache do
+    :persistent_term.erase(@cache_key)
+    :persistent_term.erase(@paid_cache_key)
+  end
 
   defp compute_revenue do
     admins = admin_user_ids()

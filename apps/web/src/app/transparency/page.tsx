@@ -30,7 +30,20 @@ interface TransparencyData {
   paying_members: number;
   monthly_paying_members?: number;
   founding: FoundingStatus & { raised_cents: number };
+  lifetime?: {
+    started_on: string;
+    days: number;
+    cost_cents: number;
+    cost_estimated: boolean;
+    paid_cents: number | null;
+    behind_cents: number | null;
+  };
   users: { total: number; active_writers_30d: number };
+}
+
+// Whole dollars for estimates: cents would claim a precision we don't have.
+function roundDollars(cents: number) {
+  return Math.round(cents / 100) * 100;
 }
 
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
@@ -49,8 +62,13 @@ export default async function TransparencyPage() {
   const covered = data ? Math.min(data.percent_covered, 100) : 0;
   const gap = data ? Math.max(data.monthly_cost_cents - data.monthly_revenue_cents, 0) : 0;
   const raised = data?.founding.raised_cents ?? 0;
-  // How long the one-time Founding money would cover what monthly members don't.
-  const monthsCovered = gap > 0 ? Math.floor(raised / gap) : 0;
+  const life = data?.lifetime;
+  const lifePaid = life?.paid_cents ?? null;
+  const lifeShare = life && lifePaid != null && life.cost_cents > 0 ? Math.min(Math.round((lifePaid * 100) / life.cost_cents), 100) : 0;
+  const lifeMonths = life ? Math.max(Math.round(life.days / 30.44), 1) : 0;
+  const openedOn = life
+    ? new Date(`${life.started_on}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
+    : "";
   const priceNote = foundingPriceNote(data?.founding);
 
   return (
@@ -107,12 +125,66 @@ export default async function TransparencyPage() {
                   On top of that, {data.founding.sold} Founding {data.founding.sold === 1 ? "Member has" : "Members have"} paid{" "}
                   {dollars(raised)} once.
                 </strong>{" "}
-                {gap > 0 && monthsCovered > 0
-                  ? `That's enough to cover the rest of the bill for about ${monthsCovered} ${monthsCovered === 1 ? "month" : "months"}. It isn't counted in the meter above, which shows only what comes in every month.`
-                  : "It isn't counted in the meter above, which shows only what comes in every month."}
+                It isn&apos;t counted in the meter above, which shows only what comes in every month.
               </p>
             )}
           </section>
+
+          {/* Since launch */}
+          {life && (
+            <section className="rounded-xl border p-6 mb-8" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+              <h2 className="text-lg font-semibold mb-1" style={serif}>Since Inkwell opened</h2>
+              <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+                Inkwell opened on {openedOn}, about {lifeMonths} {lifeMonths === 1 ? "month" : "months"} ago.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <p className="text-2xl font-semibold" style={serif}>{life.cost_estimated ? "about " : ""}{dollars(roundDollars(life.cost_cents))}</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>What running it has cost{life.cost_estimated ? " (estimated)" : ""}</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-semibold" style={serif}>{lifePaid != null ? dollars(lifePaid) : "—"}</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>What members have paid in total</p>
+                </div>
+              </div>
+              {lifePaid != null && (
+                <>
+                  <div
+                    className="h-3 rounded-full overflow-hidden"
+                    style={{ background: "var(--border)" }}
+                    role="progressbar"
+                    aria-valuenow={lifeShare}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Costs since launch paid back by members"
+                  >
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(lifeShare, 2)}%`, background: "var(--accent)" }} />
+                  </div>
+                  <p className="text-sm mt-3">
+                    {(life.behind_cents ?? 0) > 0 ? (
+                      <>
+                        <strong>The founder is about {dollars(roundDollars(life.behind_cents ?? 0))} behind.</strong>{" "}
+                        <span style={{ color: "var(--muted)" }}>
+                          {gap > 0
+                            ? `Members cover ${data.percent_covered}% of each month right now, so that grows by about ${dollars(gap)} a month until they cover all of it.`
+                            : "Members now cover each month in full, so the gap is shrinking."}
+                        </span>
+                      </>
+                    ) : (
+                      <strong>Members have paid back everything Inkwell has cost. Thank you.</strong>
+                    )}
+                  </p>
+                </>
+              )}
+              <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
+                {life.cost_estimated
+                  ? "The cost is estimated from the monthly bills below, carried back to the day Inkwell opened. "
+                  : ""}
+                Member payments are every payment through Square since April 2026, after card fees and refunds,
+                not counting the founder&apos;s own.
+              </p>
+            </section>
+          )}
 
           {/* Numbers */}
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
