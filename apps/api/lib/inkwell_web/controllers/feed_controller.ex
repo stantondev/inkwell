@@ -113,7 +113,7 @@ defmodule InkwellWeb.FeedController do
       |> Enum.filter(& &1.type == :local)
       |> Enum.map(& &1.entry.id)
 
-    stamp_types_map = Stamps.get_stamp_types_for_entries(local_entry_ids)
+    stamp_summaries = Stamps.summaries(local_entry_ids)
     my_stamps_map = Stamps.get_user_stamps_for_entries(user.id, local_entry_ids)
     comment_counts = Journals.count_comments_for_entries(local_entry_ids)
     bookmarks_set = Bookmarks.get_bookmarks_for_entries(user.id, local_entry_ids)
@@ -128,7 +128,7 @@ defmodule InkwellWeb.FeedController do
       |> Enum.filter(& &1.type == :remote)
       |> Enum.map(& &1.entry.id)
 
-    remote_stamp_types_map = Stamps.get_stamp_types_for_remote_entries(remote_entry_ids)
+    remote_stamp_summaries = Stamps.remote_summaries(remote_entry_ids)
     remote_my_stamps_map = Stamps.get_user_stamps_for_remote_entries(user.id, remote_entry_ids)
 
     # Replies/boosts/favourites from the post's home server + what members did.
@@ -156,7 +156,9 @@ defmodule InkwellWeb.FeedController do
             founding_member_number: author.founding_member_number
           },
           comment_count: Map.get(comment_counts, entry.id, 0),
-          stamps: Map.get(stamp_types_map, entry.id, []),
+          stamps: Stamps.types(stamp_summaries, entry.id),
+          stamp_marks: Stamps.marks(stamp_summaries, entry.id),
+          stamp_count: Stamps.count(stamp_summaries, entry.id),
           my_stamp: Map.get(my_stamps_map, entry.id),
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
           ink_count: entry.ink_count || 0,
@@ -190,7 +192,9 @@ defmodule InkwellWeb.FeedController do
             ink_donor_status: nil
           },
           comment_count: Map.get(comment_counts, entry.id, 0),
-          stamps: Map.get(stamp_types_map, entry.id, []),
+          stamps: Stamps.types(stamp_summaries, entry.id),
+          stamp_marks: Stamps.marks(stamp_summaries, entry.id),
+          stamp_count: Stamps.count(stamp_summaries, entry.id),
           my_stamp: Map.get(my_stamps_map, entry.id),
           bookmarked: MapSet.member?(bookmarks_set, entry.id),
           ink_count: entry.ink_count || 0,
@@ -227,7 +231,9 @@ defmodule InkwellWeb.FeedController do
             ap_id: actor.ap_id,
             profile_url: profile_url
           },
-          stamps: Map.get(remote_stamp_types_map, re.id, []),
+          stamps: Stamps.types(remote_stamp_summaries, re.id),
+          stamp_marks: Stamps.marks(remote_stamp_summaries, re.id),
+          stamp_count: Stamps.count(remote_stamp_summaries, re.id),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: remote_counts[re.id].comment_count,
           ink_count: remote_counts[re.id].ink_count,

@@ -7,10 +7,9 @@ defmodule InkwellWeb.RemoteEntryController do
   alias InkwellWeb.Helpers.MentionHelper
   alias Inkwell.Federation.Workers.{DeliverActivityWorker, FetchRepliesWorker}
   alias Inkwell.Repo
+  alias InkwellWeb.StampController
 
   import Ecto.Query
-
-  @valid_stamp_types ~w(felt holding_space beautifully_said rooting throwback i_cannot first_class)
 
   # GET /api/remote-entries/:id — detail view for a single fediverse entry
   def show(conn, %{"id" => id}) do
@@ -31,9 +30,12 @@ defmodule InkwellWeb.RemoteEntryController do
           conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
         else
           # Fetch engagement data
-          entry_ids = [id]
-          stamp_types_map = Stamps.get_stamp_types_for_remote_entries(entry_ids)
-          my_stamps_map = if viewer, do: Stamps.get_user_stamps_for_remote_entries(viewer.id, entry_ids), else: %{}
+          stamp_fields =
+            Map.merge(
+              Stamps.remote_entry_fields(remote_entry.id),
+              StampController.my_fields(viewer && Stamps.get_user_remote_stamp(viewer.id, remote_entry.id))
+            )
+
           counts = Engagement.summary(remote_entry, viewer && viewer.id)
           Engagement.refresh_stale([remote_entry])
 
@@ -51,7 +53,7 @@ defmodule InkwellWeb.RemoteEntryController do
 
           json(conn, %{
             enriching_preview: enriching_preview,
-            data: %{
+            data: Map.merge(stamp_fields, %{
               id: remote_entry.id,
               source: "remote",
               relay_source: remote_entry.source,
@@ -69,8 +71,6 @@ defmodule InkwellWeb.RemoteEntryController do
                 ap_id: actor.ap_id,
                 profile_url: get_profile_url(actor)
               },
-              stamps: Map.get(stamp_types_map, id, []),
-              my_stamp: Map.get(my_stamps_map, id),
               comment_count: counts.comment_count,
               ink_count: counts.ink_count,
               reprint_count: counts.reprint_count,
@@ -80,7 +80,7 @@ defmodule InkwellWeb.RemoteEntryController do
               sensitive: remote_entry.sensitive || false,
               content_warning: remote_entry.content_warning,
               is_sensitive: remote_entry.sensitive || false
-            }
+            })
           })
         end
 
@@ -89,40 +89,74 @@ defmodule InkwellWeb.RemoteEntryController do
     end
   end
 
-  # POST /api/remote-entries/:id/stamp
+  # GET /api/remote-entries/:id/stamps
+  def stamps(conn, %{"id" => id}) do
+    viewer = conn.assigns[:current_user]
+
+    case get_remote_entry(id) do
+      {:ok, remote_entry} ->
+        mine = viewer && Stamps.get_user_remote_stamp(viewer.id, remote_entry.id)
+
+        json(conn, %{
+          data: Map.merge(Stamps.remote_entry_fields(remote_entry.id), StampController.my_fields(mine))
+        })
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+    end
+  end
+
+  # POST /api/remote-entries/:id/stamp  {stamp_type, note?}
+  # The stamp goes to the post's author as a Like carrying our stamp as a
+  # custom emoji: Misskey and Akkoma show the stamp itself, Mastodon a favourite.
   def stamp(conn, %{"id" => id} = params) do
     user = conn.assigns.current_user
     stamp_type = params["stamp_type"]
 
-    with :ok <- validate_stamp_type(stamp_type),
-         :ok <- validate_plus_for_first_class(stamp_type, user),
+    with :ok <- StampController.validate_stamp_type(stamp_type),
+         :ok <- StampController.validate_plus_sheet(stamp_type, user),
          {:ok, remote_entry} <- get_remote_entry(id) do
-      case Stamps.stamp_remote_entry(user.id, id, stamp_type) do
-        {:ok, stamp, _action} ->
-          # Send Like activity to the remote actor's inbox
+      case Stamps.stamp_remote_entry(user.id, remote_entry.id, StampController.stamp_attrs(stamp_type, params)) do
+        {:ok, stamp, action, previous} ->
           remote_entry = Repo.preload(remote_entry, :remote_actor)
-          deliver_like(remote_entry, user)
-          Engagement.refresh_soon(id)
+          new_type = Atom.to_string(stamp.stamp_type)
 
-          json(conn, %{data: %{
-            stamp_type: Atom.to_string(stamp.stamp_type),
-            stamps: Stamps.get_stamp_types_for_remote_entries([id]) |> Map.get(id, [])
-          }})
+          cond do
+            action == :created ->
+              deliver_like(remote_entry, user, new_type)
+
+            previous && Atom.to_string(previous) != new_type ->
+              # A new design is a new reaction: take the old one back first.
+              deliver_undo_like(remote_entry, user, Atom.to_string(previous))
+              deliver_like(remote_entry, user, new_type)
+
+            true ->
+              # Only the note changed; notes stay on Inkwell.
+              :ok
+          end
+
+          Engagement.refresh_soon(remote_entry.id)
+
+          json(conn, %{
+            data:
+              Map.merge(Stamps.remote_entry_fields(remote_entry.id), %{
+                stamp_type: new_type,
+                note: stamp.note
+              })
+              |> Map.merge(StampController.my_fields(stamp))
+          })
 
         {:error, changeset} ->
           conn
           |> put_status(:unprocessable_entity)
-          |> json(%{error: format_errors(changeset)})
+          |> json(%{error: StampController.first_error(changeset), errors: format_errors(changeset)})
       end
     else
-      {:error, :invalid_stamp_type} ->
-        conn |> put_status(:bad_request) |> json(%{error: "Invalid stamp type"})
-
-      {:error, :plus_required} ->
-        conn |> put_status(:forbidden) |> json(%{error: "Plus subscription required for this stamp"})
-
       {:error, :not_found} ->
         conn |> put_status(:not_found) |> json(%{error: "Remote entry not found"})
+
+      error ->
+        StampController.render_error(conn, error)
     end
   end
 
@@ -132,18 +166,18 @@ defmodule InkwellWeb.RemoteEntryController do
 
     case get_remote_entry(id) do
       {:ok, remote_entry} ->
-        case Stamps.remove_remote_stamp(user.id, id) do
-          {:ok, _} ->
-            # Send Undo { Like } to remote inbox
+        case Stamps.remove_remote_stamp(user.id, remote_entry.id) do
+          {:ok, stamp} ->
             remote_entry = Repo.preload(remote_entry, :remote_actor)
-            deliver_undo_like(remote_entry, user)
-            Engagement.refresh_soon(id)
+            deliver_undo_like(remote_entry, user, Atom.to_string(stamp.stamp_type))
+            Engagement.refresh_soon(remote_entry.id)
 
-            stamps = Stamps.get_stamp_types_for_remote_entries([id]) |> Map.get(id, [])
-            json(conn, %{data: %{stamps: stamps, my_stamp: nil}})
+            json(conn, %{
+              data: Map.merge(Stamps.remote_entry_fields(remote_entry.id), StampController.my_fields(nil))
+            })
 
           {:error, :not_found} ->
-            conn |> put_status(:not_found) |> json(%{error: "No stamp to remove"})
+            conn |> put_status(:not_found) |> json(%{error: "No stamp to take back"})
         end
 
       {:error, :not_found} ->
@@ -300,10 +334,10 @@ defmodule InkwellWeb.RemoteEntryController do
 
   # ── Activity delivery helpers ──────────────────────────────────────────
 
-  defp deliver_like(remote_entry, user) do
+  defp deliver_like(remote_entry, user, stamp_type) do
     actor = remote_entry.remote_actor
     if actor do
-      activity = ActivityBuilder.build_like(remote_entry.ap_id, user, actor.ap_id)
+      activity = ActivityBuilder.build_like(remote_entry.ap_id, user, actor.ap_id, stamp_type)
       inbox = actor.shared_inbox || actor.inbox
 
       %{activity: activity, inbox_url: inbox, user_id: user.id}
@@ -312,10 +346,10 @@ defmodule InkwellWeb.RemoteEntryController do
     end
   end
 
-  defp deliver_undo_like(remote_entry, user) do
+  defp deliver_undo_like(remote_entry, user, stamp_type) do
     actor = remote_entry.remote_actor
     if actor do
-      activity = ActivityBuilder.build_undo_like(remote_entry.ap_id, user, actor.ap_id)
+      activity = ActivityBuilder.build_undo_like(remote_entry.ap_id, user, actor.ap_id, stamp_type)
       inbox = actor.shared_inbox || actor.inbox
 
       %{activity: activity, inbox_url: inbox, user_id: user.id}
@@ -327,19 +361,13 @@ defmodule InkwellWeb.RemoteEntryController do
   # ── Helpers ────────────────────────────────────────────────────────────
 
   defp get_remote_entry(id) do
-    case RemoteEntries.get_remote_entry(id) do
-      nil -> {:error, :not_found}
-      entry -> {:ok, entry}
+    with {:ok, uuid} <- Ecto.UUID.cast(id),
+         %{} = entry <- RemoteEntries.get_remote_entry(uuid) do
+      {:ok, entry}
+    else
+      _ -> {:error, :not_found}
     end
   end
-
-  defp validate_stamp_type(stamp_type) when stamp_type in @valid_stamp_types, do: :ok
-  defp validate_stamp_type(_), do: {:error, :invalid_stamp_type}
-
-  defp validate_plus_for_first_class("first_class", user) do
-    if user.subscription_tier == "plus", do: :ok, else: {:error, :plus_required}
-  end
-  defp validate_plus_for_first_class(_, _), do: :ok
 
   defp render_comment(comment) do
     author =

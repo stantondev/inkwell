@@ -2,7 +2,7 @@
 
 Inkwell is a social journaling platform that federates over ActivityPub. Every member is followable from Mastodon, GoToSocial, Pleroma/Akkoma, Misskey, Pixelfed, NodeBB, WordPress and other fediverse software as `@username@inkwell.social`.
 
-This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md). It describes what the code does today; when they disagree, the code wins and this file is out of date. Last reviewed 2026-09-24.
+This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md). It describes what the code does today; when they disagree, the code wins and this file is out of date. Last reviewed 2026-10-17.
 
 ## Supported federation protocols and standards
 
@@ -24,6 +24,7 @@ This document follows [FEP-67ff](https://codeberg.org/fediverse/fep/src/branch/m
 | [FEP-7458](https://codeberg.org/fediverse/fep/src/branch/main/fep/7458/fep-7458.md) Replies collection | A fediverse post's `replies` collection is read to fill in the conversation (Mastodon's public context API instead, which returns the whole thread). Inkwell does not publish `replies` collections itself. |
 | [FEP-400e](https://codeberg.org/fediverse/fep/src/branch/main/fep/400e/fep-400e.md) Publicly-appendable collections | The profile guestbook. See [Guestbook](#guestbook-fep-400e). |
 | [FEP-2345](https://codeberg.org/fediverse/fep/src/branch/main/fep/2345/fep-2345.md) `fediverse:creator` | Entry and profile pages carry `<meta name="fediverse:creator">`; actors list `attributionDomains`. |
+| [FEP-c0e0](https://codeberg.org/fediverse/fep/src/branch/main/fep/c0e0/fep-c0e0.md) Emoji reactions | Stamps. A member's stamp on a fediverse post is a `Like` carrying the stamp as a custom emoji (`content` + `_misskey_reaction` = `:inkwell_felt:`, an `Emoji` in `tag` whose icon is a PNG at `/api/stamps/{design}.png`). Received `EmojiReact`s and emoji `Like`s become "stamps from abroad". See [Stamps](#stamps-emoji-reactions). |
 | [FEP-0c7f](docs/fep/0c7f/fep-0c7f.md) Imported Objects (**draft by Inkwell, not yet submitted**) | Imported entries carry `importedFrom`; mentions in incoming objects that carry it don't notify. See [Imported entries](#imported-entries-fep-0c7f). |
 
 ---
@@ -182,6 +183,34 @@ Letters are Inkwell's private messages. A letter to a fediverse account is a `Cr
 
 Members can only write to fediverse accounts they follow, that follow them, or that wrote to them first and were accepted.
 
+### Stamps (emoji reactions)
+
+A stamp is a reaction a reader sends a writer, drawn as a postage stamp. On Inkwell the writer also sees who sent it and an optional private note; neither is federated.
+
+**Sent.** Stamping a fediverse post sends the post's author:
+
+```json
+{
+  "type": "Like",
+  "id": "https://inkwell.social/users/alice#like-<hash>-felt",
+  "actor": "https://inkwell.social/users/alice",
+  "object": "https://example.social/notes/1",
+  "to": ["https://example.social/users/bob"],
+  "content": ":inkwell_felt:",
+  "_misskey_reaction": ":inkwell_felt:",
+  "tag": [{
+    "type": "Emoji",
+    "id": "https://inkwell.social/api/stamps/felt",
+    "name": ":inkwell_felt:",
+    "icon": {"type": "Image", "mediaType": "image/png", "url": "https://inkwell.social/api/stamps/felt.png"}
+  }]
+}
+```
+
+Software that reads emoji reactions (Misskey, Akkoma, Pleroma and others, per FEP-c0e0's "Like with content") shows the stamp; Mastodon ignores `content` and shows a favourite. The id includes the design, so changing the stamp sends `Undo` for the old one and a new `Like`.
+
+**Received.** An `EmojiReact`, or a `Like` whose `content`/`_misskey_reaction` is an emoji or a `:shortcode:` with an https `Emoji` icon in `tag`, on a member's entry becomes a stamp from abroad (one per account per entry; a new reaction replaces the old). `:inkwell_<design>:` from another Inkwell server becomes that design. A plain Like stays an ink.
+
 ### Guestbook (FEP-400e)
 
 Each member's guestbook is a publicly-appendable `OrderedCollection` at `/users/{username}/guestbook`:
@@ -228,7 +257,7 @@ Mentions are `Mention` tags (`href` the actor id, `name` `@user@server`), and th
 | `Delete {Tombstone}` (comment) | A comment is deleted, or its entry is deleted, made non-public or hidden | Everyone who got it, plus the writer's followers |
 | `Delete {Person}` | A member deletes their account | Followers, accounts they follow, authors they replied to, people they wrote letters to |
 | `Create {Note}` / `Update {Note}` (letter) | A letter to a fediverse account is sent or edited | That account only |
-| `Like` / `Undo {Like}` | A member stamps (or unstamps) a fediverse post | The post's author |
+| `Like` / `Undo {Like}` | A member stamps (or unstamps) a fediverse post. The `Like` carries the stamp as a custom emoji; changing the design is an `Undo` and a new `Like` | The post's author |
 | `Announce` / `Undo {Announce}` | A member reprints (or un-reprints) a public post | The member's followers, and for a fediverse post its author (cc'd, as Mastodon does with boosts) |
 | `Create {Article}` with FEP-e232 tag | A member quote-reprints a post | The member's followers |
 | `Follow` / `Undo {Follow}` | A member follows or unfollows a fediverse account; the instance actor subscribes to a relay | That account or relay |
@@ -258,16 +287,17 @@ Inbox and shared inbox (`POST /users/{username}/inbox`, `POST /inbox`) verify th
 | `Create {Note/Article/Page}`, other public posts | Stored as a fediverse post for Explore and Feed. A mention of the inbox's owner notifies them, unless the object carries `importedFrom` (FEP-0c7f). Video and audio attachments become players; image attachments are kept. |
 | `Update` | Updates the stored comment, post or letter. Only a letter's own author can edit it. |
 | `Delete` | Removes the matching comment, post, guestbook signature or letter. A `Delete` of an actor removes that account and everything cached from it. |
-| `Like` | Counts as an ink on the entry (Inkwell's discovery signal) and notifies the writer. |
-| `Undo {Like}` | Removes that ink. |
+| `Like` | A plain Like (no `content`, or Misskey's default heart) counts as an ink on the entry (Inkwell's discovery signal) and notifies the writer. A Like carrying an emoji is a stamp, as for `EmojiReact`. |
+| `EmojiReact` | A "stamp from abroad" on the entry: the sender's emoji in Inkwell's stamp frame. Notifies the writer. |
+| `Undo {Like}`, `Undo {EmojiReact}` | Removes that ink or stamp. |
 | `Announce` | A boost of an Inkwell entry is recorded as a reprint and notifies the writer. An `Announce` from a subscribed relay fetches and stores the relayed post. |
 | `Undo {Announce}` | Removes the reprint. |
 | Anything else | Accepted with `202` and ignored. |
 
 Additional rules:
 
-- **Duplicates.** Replies and letters are unique by their ActivityPub id; a redelivery (common when a post mentions two members) is stored once and notifies once.
-- **Blocks.** A member's blocked accounts and blocked domains cannot comment, sign their guestbook, mention or message them, or follow them. Inbound Likes and Announces are not filtered yet; they only change counts. Admin-defederated domains are dropped for everyone.
+- **Duplicates.** Replies, letters and emoji reactions are unique by their ActivityPub id; a redelivery (common when a post mentions two members) is stored once and notifies once.
+- **Blocks.** A member's blocked accounts and blocked domains cannot comment, sign their guestbook, mention or message them, stamp their entries, or follow them. Blocking an account removes its stamps. Inbound plain Likes and Announces are not filtered yet; they only change counts. Admin-defederated domains are dropped for everyone.
 - **Deleted accounts.** A `Delete` from an account whose server returns 404/410 for its key is accepted rather than refused. The key is gone, so the signature can never verify, and refusing it only makes the sender retry for days. The account is removed only when it deletes itself.
 - **Forwarded activities** (signed by a different server than the actor's) are refused for now. Inkwell does not verify LD Signatures.
 

@@ -112,10 +112,29 @@ defmodule Inkwell.Push do
 
   # --- Private helpers ---
 
+  @stamp_labels %{
+    "felt" => "Felt", "rooting" => "Rooting For You", "beautifully_said" => "Beautifully Said",
+    "holding_space" => "Holding Space", "thank_you" => "Thank You", "made_me_laugh" => "Made Me Laugh",
+    "first_class" => "First Class", "autumn_2026" => "Autumn Leaves", "wax_seal" => "Sealed With Care",
+    "gilded" => "Gilded", "pressed_flower" => "Pressed Flower", "throwback" => "Throwback",
+    "i_cannot" => "I Cannot", "abroad" => "From Abroad"
+  }
+
+  defp stamp_label(type), do: Map.get(@stamp_labels, type, "postage")
+
   defp build_text("comment", actor, _), do: {"New comment", "#{actor} commented on your entry"}
   defp build_text("reply", actor, _), do: {"New reply", "#{actor} replied to your comment"}
   defp build_text("mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a comment"}
-  defp build_text("stamp", actor, _), do: {"New stamp", "#{actor} stamped your entry"}
+  defp build_text("stamp", actor, n) do
+    label = stamp_label(get_in_data(n, "stamp_type"))
+    who = if get_in_data(n, "remote_actor"), do: "Someone on the fediverse", else: actor
+    body = "#{who} sent you a #{label} stamp"
+
+    case get_in_data(n, "note") do
+      note when is_binary(note) and note != "" -> {"A stamp for you", "#{body}: “#{note}”"}
+      _ -> {"A stamp for you", body}
+    end
+  end
   defp build_text("ink", actor, _), do: {"New ink", "#{actor} inked your entry"}
   defp build_text("follow_request", actor, _), do: {"Pen pal request", "#{actor} wants to be your pen pal"}
   defp build_text("follow_accepted", actor, _), do: {"Request accepted", "#{actor} accepted your pen pal request"}
@@ -200,9 +219,12 @@ defmodule Inkwell.Push do
     n.target_id || ""
   end
 
+  # Notifications built in this request still have atom keys; ones read
+  # back from the database have string keys.
   defp get_in_data(n, key) do
     case n.data do
       %{^key => val} -> val
+      %{} = data -> Enum.find_value(data, fn {k, v} -> if is_atom(k) and Atom.to_string(k) == key, do: v end)
       _ -> nil
     end
   end

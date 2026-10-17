@@ -605,29 +605,33 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   @doc """
   Builds a Like activity for stamping a remote entry.
-  `remote_actor_ap_id` is the AP ID of the post author (used for `to` addressing).
-  Like ID is deterministic (hash of object URL) so Undo can reconstruct it exactly.
+
+  The Like carries the stamp as a custom emoji (FEP-c0e0's "Like with
+  content", Misskey's `_misskey_reaction`): Misskey, Akkoma and others show
+  the stamp itself; Mastodon ignores `content` and shows a favourite.
+  The id is deterministic per post *and design*, so Undo can rebuild it and
+  changing the design is an Undo followed by a fresh Like.
   """
-  def build_like(remote_entry_ap_id, user, remote_actor_ap_id) do
+  def build_like(remote_entry_ap_id, user, remote_actor_ap_id, stamp_type \\ nil) do
     actor_url = actor_url(user)
 
     %{
-      "@context" => ap_context(),
+      "@context" => like_context(stamp_type),
       "type" => "Like",
-      "id" => "#{actor_url}#like-#{object_hash(remote_entry_ap_id)}",
+      "id" => like_id(actor_url, remote_entry_ap_id, stamp_type),
       "actor" => actor_url,
       "to" => [remote_actor_ap_id],
       "object" => remote_entry_ap_id
     }
+    |> put_stamp_emoji(stamp_type)
   end
 
   @doc """
   Builds an Undo { Like } activity for removing a stamp from a remote entry.
   Inner Like ID matches the original Like's deterministic ID.
   """
-  def build_undo_like(remote_entry_ap_id, user, remote_actor_ap_id) do
+  def build_undo_like(remote_entry_ap_id, user, remote_actor_ap_id, stamp_type \\ nil) do
     actor_url = actor_url(user)
-    like_id = "#{actor_url}#like-#{object_hash(remote_entry_ap_id)}"
 
     %{
       "@context" => ap_context(),
@@ -637,11 +641,58 @@ defmodule Inkwell.Federation.ActivityBuilder do
       "to" => [remote_actor_ap_id],
       "object" => %{
         "type" => "Like",
-        "id" => like_id,
+        "id" => like_id(actor_url, remote_entry_ap_id, stamp_type),
         "actor" => actor_url,
         "object" => remote_entry_ap_id
       }
     }
+  end
+
+  defp like_id(actor_url, object, nil), do: "#{actor_url}#like-#{object_hash(object)}"
+  defp like_id(actor_url, object, type), do: "#{actor_url}#like-#{object_hash(object)}-#{type}"
+
+  @doc "The custom-emoji shortcode for a stamp design: `:inkwell_felt:`."
+  def stamp_shortcode(type), do: ":inkwell_#{type}:"
+
+  @doc "The Emoji object for a stamp design (its picture is a PNG on the web app)."
+  def stamp_emoji(type) do
+    base = Inkwell.Instance.frontend_url()
+
+    %{
+      "id" => "#{base}/api/stamps/#{type}",
+      "type" => "Emoji",
+      "name" => stamp_shortcode(type),
+      "icon" => %{
+        "type" => "Image",
+        "mediaType" => "image/png",
+        "url" => "#{base}/api/stamps/#{type}.png"
+      }
+    }
+  end
+
+  defp put_stamp_emoji(activity, nil), do: activity
+
+  defp put_stamp_emoji(activity, type) do
+    code = stamp_shortcode(type)
+
+    activity
+    |> Map.put("content", code)
+    |> Map.put("_misskey_reaction", code)
+    |> Map.put("tag", [stamp_emoji(type)])
+  end
+
+  defp like_context(nil), do: ap_context()
+
+  defp like_context(_type) do
+    ap_context() ++
+      [
+        %{
+          "toot" => "http://joinmastodon.org/ns#",
+          "Emoji" => "toot:Emoji",
+          "misskey" => "https://misskey-hub.net/ns#",
+          "_misskey_reaction" => "misskey:_misskey_reaction"
+        }
+      ]
   end
 
   # ── Announce (boost/ink) ─────────────────────────────────────────────────

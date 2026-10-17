@@ -125,6 +125,7 @@ check_body "outbox"               "$WEB/users/$USER_HANDLE/outbox" 'OrderedColle
 check_body "NodeInfo discovery"   "$WEB/.well-known/nodeinfo" 'nodeinfo'
 check_body "NodeInfo 2.1"         "$WEB/nodeinfo/2.1" '"inkwell"'
 check "avatar"                    200 "$WEB/api/avatars/$USER_HANDLE"
+check "stamp emoji (PNG)"         200 "$WEB/api/stamps/felt.png"
 
 echo "RSS"
 check_body "profile feed"  "$WEB/api/users/$USER_HANDLE/feed.xml" '<rss'

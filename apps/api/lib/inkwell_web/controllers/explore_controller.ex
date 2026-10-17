@@ -112,7 +112,7 @@ defmodule InkwellWeb.ExploreController do
       |> Enum.filter(& &1.type == :local)
       |> Enum.map(& &1.entry.id)
 
-    stamp_types_map = Stamps.get_stamp_types_for_entries(local_entry_ids)
+    stamp_summaries = Stamps.summaries(local_entry_ids)
 
     my_stamps_map =
       if viewer do
@@ -134,7 +134,7 @@ defmodule InkwellWeb.ExploreController do
       |> Enum.filter(& &1.type == :remote)
       |> Enum.map(& &1.entry.id)
 
-    remote_stamp_types_map = Stamps.get_stamp_types_for_remote_entries(remote_entry_ids)
+    remote_stamp_summaries = Stamps.remote_summaries(remote_entry_ids)
 
     remote_my_stamps_map =
       if viewer do
@@ -197,7 +197,9 @@ defmodule InkwellWeb.ExploreController do
               founding_member_number: author.founding_member_number
             },
             comment_count: Map.get(local_comment_counts, entry.id, 0),
-            stamps: Map.get(stamp_types_map, entry.id, []),
+            stamps: Stamps.types(stamp_summaries, entry.id),
+            stamp_marks: Stamps.marks(stamp_summaries, entry.id),
+            stamp_count: Stamps.count(stamp_summaries, entry.id),
             my_stamp: Map.get(my_stamps_map, entry.id),
             bookmarked: MapSet.member?(bookmarks_set, entry.id),
             ink_count: entry.ink_count || 0,
@@ -245,7 +247,9 @@ defmodule InkwellWeb.ExploreController do
             ap_id: actor.ap_id,
             profile_url: get_profile_url(actor)
           },
-          stamps: Map.get(remote_stamp_types_map, re.id, []),
+          stamps: Stamps.types(remote_stamp_summaries, re.id),
+          stamp_marks: Stamps.marks(remote_stamp_summaries, re.id),
+          stamp_count: Stamps.count(remote_stamp_summaries, re.id),
           my_stamp: Map.get(remote_my_stamps_map, re.id),
           comment_count: remote_counts[re.id].comment_count,
           ink_count: remote_counts[re.id].ink_count,
@@ -309,7 +313,7 @@ defmodule InkwellWeb.ExploreController do
     entries = Redactions.filter_entries(entries, redacted_words)
 
     entry_ids = Enum.map(entries, & &1.id)
-    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+    stamp_summaries = Stamps.summaries(entry_ids)
     comment_counts = Journals.count_comments_for_entries(entry_ids)
 
     inks_set =
@@ -357,7 +361,9 @@ defmodule InkwellWeb.ExploreController do
           founding_member_number: author.founding_member_number
         },
         comment_count: Map.get(comment_counts, entry.id, 0),
-        stamps: Map.get(stamp_types_map, entry.id, []),
+        stamps: Stamps.types(stamp_summaries, entry.id),
+        stamp_marks: Stamps.marks(stamp_summaries, entry.id),
+        stamp_count: Stamps.count(stamp_summaries, entry.id),
         my_stamp: Map.get(my_stamps_map, entry.id),
         bookmarked: MapSet.member?(bookmarks_set, entry.id),
         ink_count: entry.ink_count || 0,

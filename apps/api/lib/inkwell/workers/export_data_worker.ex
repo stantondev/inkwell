@@ -195,6 +195,7 @@ defmodule Inkwell.Workers.ExportDataWorker do
     |> Enum.map(fn s ->
       %{
         stamp_type: s.stamp_type,
+        note: s.note,
         entry_title: if(s.entry, do: s.entry.title, else: nil),
         entry_author: if(s.entry && s.entry.user, do: s.entry.user.username, else: nil),
         created_at: s.inserted_at

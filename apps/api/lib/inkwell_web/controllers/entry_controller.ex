@@ -52,7 +52,7 @@ defmodule InkwellWeb.EntryController do
         end
 
       entry_ids = Enum.map(entries, & &1.id)
-      stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+      stamp_summaries = Stamps.summaries(entry_ids)
       comment_counts = Journals.count_comments_for_entries(entry_ids)
 
       # Total count for pagination UI (respects active filters)
@@ -64,7 +64,7 @@ defmodule InkwellWeb.EntryController do
           Enum.map(entries, fn entry ->
             render_entry(entry)
             |> Map.put(:mood_theme, mood_theme(%{user: user}))
-            |> Map.put(:stamps, Map.get(stamp_types_map, entry.id, []))
+            |> Map.merge(Stamps.fields(stamp_summaries, entry.id))
             |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
           end)
           |> put_sticky_expansions(viewer && viewer.id)
@@ -91,7 +91,7 @@ defmodule InkwellWeb.EntryController do
       else
 
       render_with_stamps = fn ->
-        stamp_types = Stamps.get_entry_stamp_types(entry.id)
+        stamp_fields = Stamps.entry_fields(entry.id)
         my_stamp = if viewer, do: Stamps.get_user_stamp(viewer.id, entry.id), else: nil
         bookmarked = if viewer, do: Bookmarks.get_user_bookmark(viewer.id, entry.id) != nil, else: false
         my_ink = if viewer, do: Inks.has_inked?(viewer.id, entry.id), else: false
@@ -133,8 +133,8 @@ defmodule InkwellWeb.EntryController do
 
         result =
           render_entry_full(entry, user)
-          |> Map.put(:stamps, stamp_types)
-          |> Map.put(:my_stamp, if(my_stamp, do: Atom.to_string(my_stamp.stamp_type), else: nil))
+          |> Map.merge(stamp_fields)
+          |> Map.merge(InkwellWeb.StampController.my_fields(my_stamp))
           |> Map.put(:bookmarked, bookmarked)
           |> Map.put(:my_ink, my_ink)
           |> Map.put(:my_reprint, my_reprint)

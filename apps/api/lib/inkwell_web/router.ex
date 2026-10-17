@@ -188,6 +188,7 @@ defmodule InkwellWeb.Router do
 
     # Stamps (optional auth: author sees who stamped)
     get "/entries/:entry_id/stamps", StampController, :index
+    get "/remote-entries/:id/stamps", RemoteEntryController, :stamps
 
     # Margin notes (inline marginalia — optional auth to filter blocked users)
     get "/entries/:entry_id/margin-notes", MarginNoteController, :index
@@ -234,6 +235,7 @@ defmodule InkwellWeb.Router do
     patch "/me", UserController, :update
     patch "/me/profile", UserController, :update_profile
     put "/me/home", ProfileHomeController, :update
+    get "/me/stamps", StampController, :album
     get "/me/stickers", UserStickerController, :index
     post "/me/stickers", UserStickerController, :create
     patch "/me/stickers/:id", UserStickerController, :update

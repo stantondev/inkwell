@@ -33,7 +33,7 @@ defmodule InkwellWeb.BookmarkController do
     bookmarks = Bookmarks.list_user_bookmarks(user.id, page: page, per_page: per_page)
 
     entry_ids = Enum.map(bookmarks, fn {entry, _author, _saved_at} -> entry.id end)
-    stamp_types_map = Stamps.get_stamp_types_for_entries(entry_ids)
+    stamp_summaries = Stamps.summaries(entry_ids)
 
     json(conn, %{
       data: Enum.map(bookmarks, fn {entry, author, saved_at} ->
@@ -45,7 +45,9 @@ defmodule InkwellWeb.BookmarkController do
             display_name: author.display_name,
             avatar_url: author.avatar_url
           },
-          stamps: Map.get(stamp_types_map, entry.id, []),
+          stamps: Stamps.types(stamp_summaries, entry.id),
+          stamp_marks: Stamps.marks(stamp_summaries, entry.id),
+          stamp_count: Stamps.count(stamp_summaries, entry.id),
           saved_at: saved_at,
           bookmarked: true
         })

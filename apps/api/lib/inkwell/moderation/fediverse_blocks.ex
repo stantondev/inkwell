@@ -199,6 +199,14 @@ defmodule Inkwell.Moderation.FediverseBlocks do
     )
     |> Repo.delete_all()
 
+    # Delete stamps (emoji reactions) from this actor on the user's entries
+    from(s in Inkwell.Stamps.Stamp,
+      where: s.remote_actor_id == ^remote_actor_id,
+      join: e in Inkwell.Journals.Entry, on: s.entry_id == e.id,
+      where: e.user_id == ^user_id
+    )
+    |> Repo.delete_all()
+
     # Delete federated reprints from this actor on the user's entries
     from(r in Inkwell.Reprints.Reprint,
       where: r.remote_actor_id == ^remote_actor_id,

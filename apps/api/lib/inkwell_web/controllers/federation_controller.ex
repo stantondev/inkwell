@@ -737,6 +737,7 @@ defmodule InkwellWeb.FederationController do
   defp dispatch_activity("Create", activity, target_user), do: handle_create(activity, target_user)
   defp dispatch_activity("Accept", activity, target_user), do: handle_accept(activity, target_user)
   defp dispatch_activity("Like", activity, target_user), do: handle_like(activity, target_user)
+  defp dispatch_activity("EmojiReact", activity, target_user), do: handle_like(activity, target_user)
   defp dispatch_activity("Update", activity, target_user), do: handle_update(activity, target_user)
   defp dispatch_activity("Delete", activity, target_user), do: handle_delete(activity, target_user)
   defp dispatch_activity("Announce", activity, target_user), do: handle_announce(activity, target_user)
@@ -1148,9 +1149,15 @@ defmodule InkwellWeb.FederationController do
             Logger.info("Processed unfollow from #{actor_uri}")
         end
 
+      %{"type" => "EmojiReact", "object" => object_uri} = react_object ->
+        undo_stamp_reaction(activity["actor"], object_id(object_uri), react_object["id"])
+
       %{"type" => "Like", "object" => object_uri} = like_object when is_binary(object_uri) ->
         actor_uri = activity["actor"]
         like_id = like_object["id"]
+
+        # A Like may have been an emoji reaction (a stamp) or a plain one (an ink).
+        stamp_removed? = undo_stamp_reaction(actor_uri, object_uri, like_id) > 0
 
         case RemoteActor.get_by_ap_id(actor_uri) do
           nil ->
@@ -1163,7 +1170,7 @@ defmodule InkwellWeb.FederationController do
                 if is_binary(like_id), do: Inkwell.Inks.remove_remote_ink_by_ap_id(like_id)
 
               entry ->
-                Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
+                unless stamp_removed?, do: Inkwell.Inks.remove_remote_ink(remote_actor.id, entry.id)
                 Logger.info("Processed Undo Like from #{actor_uri} on entry #{entry.id}")
             end
         end
@@ -1719,7 +1726,99 @@ defmodule InkwellWeb.FederationController do
 
   # ── Like handling ───────────────────────────────────────────────────────
 
-  defp handle_like(activity, _target_user) do
+  defp handle_like(activity, target_user) do
+    case Inkwell.Federation.StampReactions.parse(activity) do
+      {:stamp, attrs} -> handle_stamp_reaction(activity, attrs, target_user)
+      :plain -> handle_plain_like(activity, target_user)
+    end
+  end
+
+  # An emoji reaction (EmojiReact, or a Like carrying an emoji) on a member's
+  # entry: a stamp from abroad. Undo removes it (see handle_undo).
+  defp handle_stamp_reaction(activity, attrs, _target_user) do
+    object_uri = object_id(activity["object"])
+    actor_uri = activity["actor"]
+
+    with entry when not is_nil(entry) <- find_entry_by_ap_url(object_uri),
+         :published <- entry.status,
+         {:ok, remote_actor} <- RemoteActor.fetch(actor_uri),
+         false <- blocked_for_user?(entry.user_id, remote_actor) do
+      case Inkwell.Stamps.receive_remote_stamp(remote_actor.id, entry.id, attrs) do
+        {:ok, :created, stamp} ->
+          create_stamp_notification(entry, remote_actor, stamp)
+          Logger.info("Received a stamp from abroad on entry #{entry.id} from #{actor_uri}")
+
+        {:ok, _, _} ->
+          :ok
+
+        {:ok, :existing} ->
+          Logger.info("Duplicate reaction #{inspect(attrs[:ap_id])} from #{actor_uri}, skipping")
+
+        {:error, reason} ->
+          Logger.warning("Failed to record a stamp from abroad: #{inspect(reason)}")
+      end
+    else
+      true -> Logger.info("Dropping reaction from blocked #{actor_uri}")
+      _ -> :ok
+    end
+
+    :ok
+  end
+
+  defp object_id(uri) when is_binary(uri), do: uri
+  defp object_id(%{"id" => id}) when is_binary(id), do: id
+  defp object_id(_), do: nil
+
+  # Removes a fediverse account's stamp: by the reaction's id when we have
+  # it, else theirs on that entry (only for an EmojiReact, whose Undo can't
+  # be an ink). Returns how many were removed.
+  defp undo_stamp_reaction(actor_uri, object_uri, reaction_id) do
+    case RemoteActor.get_by_ap_id(actor_uri) do
+      nil ->
+        0
+
+      remote_actor ->
+        entry_id =
+          case find_entry_by_ap_url(object_uri) do
+            %{id: id} -> id
+            _ -> nil
+          end
+
+        Inkwell.Stamps.remove_remote_actor_stamp(remote_actor.id, entry_id, if(is_binary(reaction_id), do: reaction_id))
+    end
+  end
+
+  defp create_stamp_notification(entry, remote_actor, stamp) do
+    profile_url =
+      case remote_actor.raw_data do
+        %{"url" => url} when is_binary(url) -> url
+        _ -> remote_actor.ap_id
+      end
+
+    Accounts.create_notification(%{
+      user_id: entry.user_id,
+      type: :stamp,
+      target_type: "entry",
+      target_id: entry.id,
+      data: %{
+        stamp_type: Atom.to_string(stamp.stamp_type),
+        emoji: Inkwell.Federation.StampReactions.drawable_emoji(stamp.emoji),
+        emoji_url: stamp.emoji_url,
+        entry_id: entry.id,
+        entry_title: entry.title,
+        remote_actor: %{
+          display_name: remote_actor.display_name || remote_actor.username,
+          username: remote_actor.username,
+          domain: remote_actor.domain,
+          avatar_url: remote_actor.avatar_url,
+          profile_url: profile_url,
+          ap_id: remote_actor.ap_id
+        }
+      }
+    })
+  end
+
+  defp handle_plain_like(activity, _target_user) do
     object_uri = activity["object"]
     actor_uri = activity["actor"]
     like_id = activity["id"]
