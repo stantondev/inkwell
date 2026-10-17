@@ -84,7 +84,7 @@ check "unknown profile is 404" 404 "$WEB/this-user-should-not-exist-$RANDOM$RAND
 # A journal entry federates as an Article; a sticky federates as a Note. Both
 # are on Explore, so pick one of each rather than taking whatever is newest —
 # that assumed Article and started failing the day stickies shipped.
-explore=$(curl -s --max-time 20 "$API/api/explore?per_page=40")
+explore=$(curl -s --max-time 20 "$API/api/explore?source=inkwell&per_page=40")
 entry=$(printf '%s' "$explore" |
   python3 -c 'import sys,json
 try:
