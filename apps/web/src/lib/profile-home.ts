@@ -48,7 +48,11 @@ export interface ProfileBlockConfig {
   label?: string;
   date?: string | null;
   items?: { label: string; value?: string; url?: string }[];
+  /** Guestbook: how signatures look (no look = list, as before). */
+  look?: GuestbookLook;
 }
+
+export type GuestbookLook = "list" | "envelopes" | "postcards";
 
 export interface ProfileBlock {
   id: string;
@@ -91,6 +95,29 @@ export interface ProfileSticker {
   image_id?: string;
   ratio?: number;
   outline?: boolean;
+  /** A pen pal gave it (Inkwell.StickerGifts); the server takes the sticker from the gift. */
+  gift_id?: string;
+}
+
+/** Someone who gave a sticker on the page. */
+export interface StickerGiver {
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+/** A sticker a pen pal gave, waiting in the Gifts drawer (or on the page). */
+export interface StickerGift {
+  id: string;
+  /** A pack key, or "upload" for one of the giver's own stickers. */
+  key: string;
+  image_id: string | null;
+  url: string | null;
+  ratio: number;
+  outline: boolean;
+  note: string | null;
+  given_at: string;
+  from: StickerGiver | null;
 }
 
 /** One of the writer's own stickers in their library (GET /api/me/stickers). */

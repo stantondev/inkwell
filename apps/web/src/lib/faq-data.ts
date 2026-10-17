@@ -279,7 +279,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "customize-profile",
     question: "How do I customize my profile?",
     answer:
-      'To arrange your page, choose <strong>Arrange page</strong> on your profile (or go to <a href="/arrange">Arrange your page</a>): drag things where you want them, change a row\'s columns, add notes, photos, quotes, a "Currently" list, countdowns and links, start from a layout or press Shuffle, and add stickers (choose <strong>Stickers</strong>, then tap a card), including ones you make from your own pictures (<strong>Find the subject</strong> cuts out what\'s in a photo, on your own device). It\'s free for everyone; Plus adds a Keepsakes sticker pack and room for 50 of your own stickers instead of 10. To change how it looks, go to <a href="/settings/customize">Settings &rarr; Customize</a>: all users get 8 themes, a status message, bio formatting, social links and a banner image. Avatar frames are on <a href="/settings/avatar">Settings &rarr; Avatar</a>. Plus users also get custom colors, fonts, backgrounds, music and custom HTML/CSS.',
+      'To arrange your page, choose <strong>Arrange page</strong> on your profile (or go to <a href="/arrange">Arrange your page</a>): drag things where you want them, change a row\'s columns, add notes, photos, quotes, a "Currently" list, countdowns and links, start from a layout or press Shuffle, and add stickers (choose <strong>Stickers</strong>, then tap a card), including ones you make from your own pictures (<strong>Find the subject</strong> cuts out what\'s in a photo, on your own device). Pen pals can give each other stickers with the gift button on a profile; gifts wait in your Stickers drawer until you place them. Your guestbook can show notes as a list, envelopes or postcards (Edit on the guestbook). It\'s free for everyone; Plus adds a Keepsakes sticker pack and room for 50 of your own stickers instead of 10. To change how it looks, go to <a href="/settings/customize">Settings &rarr; Customize</a>: all users get 8 themes, a status message, bio formatting, social links and a banner image. Avatar frames are on <a href="/settings/avatar">Settings &rarr; Avatar</a>. Plus users also get custom colors, fonts, backgrounds, music and custom HTML/CSS.',
     category: "customization",
   },
   {
@@ -388,7 +388,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "data-export",
     question: "Can I export my data?",
     answer:
-      'Yes. Go to <a href="/settings/export">Settings &rarr; Data Export</a> to download all your entries, comments, and account data. Your entries are also available via RSS at your profile page.',
+      'Yes. Go to <a href="/settings/export">Settings &rarr; Data Export</a> to download all your entries, comments, and account data. On the same page, <strong>Download as a website</strong> gives you your page and every public entry as plain files you can open in a browser or put on any web host (Neocities, GitHub Pages, your own server). Your entries are also available via RSS at your profile page.',
     category: "safety",
   },
 ];

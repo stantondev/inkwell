@@ -150,6 +150,11 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
   const note = useCallback((text: string) => setStatus({ kind: "note", text }), []);
   const stickers = useStickerEditing({ getHome, commit, preview, isPlus: ctx.isPlus, note });
   const [stickerDrawer, setStickerDrawer] = useState(false);
+
+  // A sticker gift notification links here with ?gifts=1: open the drawer on the gifts.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("gifts") === "1") setStickerDrawer(true);
+  }, []);
   const swallowClick = useRef(false);
 
   // A copy of unsaved work in this browser tab, so a crash or a reload
@@ -401,6 +406,11 @@ export function ArrangeEditor({ initialHome, ctx, frame, username }: Props) {
                 </button>
               ))}
             </div>
+            <p className={s.menuHeading}>Take it with you</p>
+            <Link className={s.menuItem} href="/settings/export#website">
+              <strong>Download as a website</strong>
+              <span>Your saved page as plain files you can host anywhere.</span>
+            </Link>
           </div>
         )}
       </span>

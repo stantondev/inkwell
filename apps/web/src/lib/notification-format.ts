@@ -112,6 +112,10 @@ export function notificationText(n: Notification): string {
       return "followed you from the fediverse";
     case "fediverse_mention":
       return "mentioned you from the fediverse";
+    case "sticker_gift": {
+      const note = n.data?.note as string | undefined;
+      return `gave you a sticker${note ? ` — “${note}”` : ""}`;
+    }
     case "guestbook": {
       const excerpt = n.data?.excerpt as string | undefined;
       const where = n.remote_actor ? " from the fediverse" : "";
@@ -282,6 +286,10 @@ export function getNotificationHref(n: Notification): string | null {
     const actor = n.data?.remote_actor as { profile_url?: string } | undefined;
     if (n.data?.public === true && n.data?.post_url) return n.data.post_url as string;
     return actor?.profile_url ?? null;
+  }
+  // A sticker gift opens the Gifts drawer in Arrange my page
+  if (n.type === "sticker_gift") {
+    return "/arrange?gifts=1";
   }
   // Guestbook notification — link to the profile's guestbook section
   if (n.type === "guestbook" && n.data?.profile_username) {

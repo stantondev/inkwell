@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts",
+    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts src/lib/site-export/build.test.ts",
     "prebuild": "node scripts/fetch-cutout-model.mjs"
   },
   "dependencies": {
@@ -35,6 +35,7 @@
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
     "fastest-levenshtein": "^1.0.16",
+    "fflate": "0.8.2",
     "marked": "^17.0.6",
     "motion": "^12.34.3",
     "next": "16.1.6",

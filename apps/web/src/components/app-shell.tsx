@@ -32,8 +32,9 @@ export async function AppShell({
   const customDomain = headersList.get("x-custom-domain");
   const customDomainUsername = headersList.get("x-custom-domain-username");
 
-  // Custom domain mode — no header, no sidebar, no app nav
-  if (customDomain && customDomainUsername) {
+  // Custom domain mode — no header, no sidebar, no app nav. Same for a page
+  // drawn for "Download as a website" (app/api/me/site-export).
+  if ((customDomain && customDomainUsername) || headersList.get("x-inkwell-export") === "1") {
     return (
       <main className="flex flex-col min-h-screen no-sidebar">
         {children}

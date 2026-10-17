@@ -11,7 +11,7 @@ defmodule Inkwell.Push do
     comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
     circle_prompt circle_prompt_response circle_owner
-    feedback_mention poll_mention writer_plan_subscribe guestbook margin_note
+    feedback_mention poll_mention writer_plan_subscribe guestbook margin_note sticker_gift
   )a
 
   @doc "Returns true if VAPID keys are configured."

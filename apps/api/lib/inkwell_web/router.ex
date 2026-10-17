@@ -238,6 +238,9 @@ defmodule InkwellWeb.Router do
     post "/me/stickers", UserStickerController, :create
     patch "/me/stickers/:id", UserStickerController, :update
     delete "/me/stickers/:id", UserStickerController, :delete
+    get "/me/sticker-gifts", StickerGiftController, :index
+    delete "/me/sticker-gifts/:id", StickerGiftController, :delete
+    post "/users/:username/sticker-gifts", StickerGiftController, :create
     post "/me/avatar", UserController, :upload_avatar
     post "/me/banner", UserController, :upload_banner
     post "/me/background", UserController, :upload_background

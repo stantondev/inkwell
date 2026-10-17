@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import type { ProfileStyles } from "@/lib/profile-styles";
 import { Avatar } from "@/components/avatar-with-frame";
 import { getSite, siteUrl } from "@/lib/site";
+import type { GuestbookLook } from "@/lib/profile-home";
 
 interface RemoteAuthor {
   ap_id: string;
@@ -14,9 +16,20 @@ interface RemoteAuthor {
   profile_url: string | null;
 }
 
-interface GuestbookEntry {
+type Paper = "cream" | "sky" | "rose" | "sage" | "lilac" | "kraft";
+const PAPERS: { id: Paper; label: string }[] = [
+  { id: "cream", label: "Cream" },
+  { id: "sky", label: "Sky blue" },
+  { id: "rose", label: "Rose" },
+  { id: "sage", label: "Sage" },
+  { id: "lilac", label: "Lilac" },
+  { id: "kraft", label: "Kraft" },
+];
+
+export interface GuestbookEntry {
   id: string;
   body: string;
+  stationery?: Paper;
   created_at: string;
   author: {
     id: string;
@@ -67,25 +80,35 @@ export function Guestbook({
   isLoggedIn,
   viewerUsername,
   styles,
+  look = "list",
+  initial,
+  staticView = false,
 }: {
   username: string;
   isOwnProfile: boolean;
   isLoggedIn: boolean;
   viewerUsername?: string;
   styles: ProfileStyles;
+  /** How signatures look: a list, envelopes that open, or postcards. */
+  look?: GuestbookLook;
+  /** Signatures fetched on the server (the exported website, which has no scripts). */
+  initial?: GuestbookEntry[];
+  /** Read-only: no signing, no removing, envelopes already open. */
+  staticView?: boolean;
 }) {
-  const [entries, setEntries] = useState<GuestbookEntry[]>([]);
-  const [total, setTotal] = useState(0);
+  const [entries, setEntries] = useState<GuestbookEntry[]>(initial ?? []);
+  const [total, setTotal] = useState(initial?.length ?? 0);
   const [message, setMessage] = useState("");
   const [posting, setPosting] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState("");
   const [signed, setSigned] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [paper, setPaper] = useState<Paper>("cream");
   const signInHref = `/login?next=${encodeURIComponent(`/${username}#guestbook`)}`;
 
   useEffect(() => {
-    fetchEntries();
+    if (!initial) fetchEntries();
   }, [username]);
 
   async function fetchEntries() {
@@ -114,7 +137,7 @@ export function Guestbook({
       const res = await fetch(`/api/users/${username}/guestbook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: message.trim() }),
+        body: JSON.stringify({ body: message.trim(), stationery: paper }),
       });
 
       if (res.ok) {
@@ -166,14 +189,14 @@ export function Guestbook({
       <h3 className="text-xs font-medium uppercase tracking-widest mb-1" style={{ color: styles.muted }}>
         Guestbook {total > 0 && <span className="normal-case font-normal">({total})</span>}
       </h3>
-      <p className="text-xs mb-3" style={{ color: styles.muted }}>
+      {!staticView && <p className="text-xs mb-3" style={{ color: styles.muted }}>
         {isOwnProfile
           ? "Notes visitors leave on your page. You're notified when someone signs."
           : `A public note on ${username}'s page, like an old-school guestbook. They'll be notified.`}
-      </p>
+      </p>}
 
       {/* Sign form */}
-      {isLoggedIn && !isOwnProfile && (
+      {isLoggedIn && !isOwnProfile && !staticView && (
         <form onSubmit={handleSubmit} className="mb-3">
           {signed && (
             <p className="text-xs mb-2" role="status" style={{ color: styles.accent }}>
@@ -190,8 +213,25 @@ export function Guestbook({
             className="w-full rounded-lg border px-3 py-2 text-sm bg-transparent outline-none focus:ring-2 focus:ring-[var(--accent)] transition resize-none"
             style={{ borderColor: styles.border }}
           />
-          <div className="flex items-center justify-between mt-1.5">
+          <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
             <span className="text-xs" style={{ color: styles.muted }}>{message.length}/500</span>
+            {look !== "list" && (
+              <span className="gb-papers" role="radiogroup" aria-label="Your paper">
+                {PAPERS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={paper === p.id}
+                    aria-label={p.label}
+                    title={p.label}
+                    className="gb-paper-swatch"
+                    data-paper={p.id}
+                    onClick={() => setPaper(p.id)}
+                  />
+                ))}
+              </span>
+            )}
             <button
               type="submit"
               disabled={posting || !message.trim()}
@@ -214,7 +254,7 @@ export function Guestbook({
       {loading ? (
         <p className="text-xs" style={{ color: styles.muted }}>Loading...</p>
       ) : entries.length === 0 ? (
-        !isOwnProfile && (
+        !isOwnProfile && !staticView && (
           <p className="text-xs" style={{ color: styles.muted }}>
             {isLoggedIn ? "Be the first to sign!" : (
               <>
@@ -223,14 +263,23 @@ export function Guestbook({
                   Sign in
                 </a>{" "}
                 or{" "}
-                <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+                <Link href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
                   join Inkwell
-                </a>{" "}
+                </Link>{" "}
                 to be the first to sign.
               </>
             )}
           </p>
         )
+      ) : look === "envelopes" || look === "postcards" ? (
+        <Signatures
+          look={look}
+          entries={entries}
+          owner={username}
+          staticView={staticView}
+          canRemove={(e) => !staticView && (isOwnProfile || (!!viewerUsername && e.author?.username === viewerUsername))}
+          onRemove={handleDelete}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {entries.map((entry) => {
@@ -306,21 +355,21 @@ export function Guestbook({
       )}
 
       {/* Logged-out CTA to sign guestbook */}
-      {!isLoggedIn && !isOwnProfile && entries.length > 0 && (
+      {!isLoggedIn && !isOwnProfile && !staticView && entries.length > 0 && (
         <p className="text-xs mt-3 pt-2 border-t" style={{ color: styles.muted, borderColor: styles.border }}>
           <a href={signInHref} className="font-medium hover:underline" style={{ color: styles.accent }}>
             Sign in
           </a>{" "}
           or{" "}
-          <a href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
+          <Link href="/get-started" className="font-medium hover:underline" style={{ color: styles.accent }}>
             join Inkwell
-          </a>{" "}
+          </Link>{" "}
           to sign {username}&apos;s guestbook.
         </p>
       )}
 
       {/* From the fediverse? hint — for visitors who aren't signed in to Inkwell */}
-      {!isLoggedIn && (
+      {!isLoggedIn && !staticView && (
       <div className="mt-3 pt-2 border-t" style={{ borderColor: styles.border }}>
         <div className="flex items-center gap-1.5 mb-1">
           <GlobeIcon />
@@ -350,5 +399,144 @@ export function Guestbook({
       </div>
       )}
     </div>
+  );
+}
+
+function signer(entry: GuestbookEntry) {
+  const isRemote = !!entry.remote_author;
+  return {
+    isRemote,
+    name: isRemote
+      ? entry.remote_author!.display_name || entry.remote_author!.username
+      : entry.author?.display_name || entry.author?.username || "Someone who left",
+    avatar: isRemote ? entry.remote_author!.avatar_url : entry.author?.avatar_url ?? null,
+    href: isRemote ? entry.remote_author!.profile_url : entry.author ? `/${entry.author.username}` : null,
+    handle: isRemote ? `@${entry.remote_author!.username}@${entry.remote_author!.domain}` : null,
+  };
+}
+
+/** A signature's date as a postmark: "16 OCT 2026". */
+function postmark(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+    .toUpperCase();
+}
+
+/** Envelopes that open, or postcards: the guestbook as correspondence. */
+function Signatures({
+  look,
+  entries,
+  owner,
+  staticView = false,
+  canRemove,
+  onRemove,
+}: {
+  look: "envelopes" | "postcards";
+  entries: GuestbookEntry[];
+  owner: string;
+  staticView?: boolean;
+  canRemove: (e: GuestbookEntry) => boolean;
+  onRemove: (id: string) => void;
+}) {
+  // Without scripts the envelopes can't be opened, so the exported page shows them open.
+  const [open, setOpen] = useState<Set<string>>(() => (staticView ? new Set(entries.map((e) => e.id)) : new Set()));
+  const allOpen = entries.length > 0 && entries.every((e) => open.has(e.id));
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  if (look === "postcards") {
+    return (
+      <ul className="gb-postcards">
+        {entries.map((entry) => {
+          const who = signer(entry);
+          return (
+            <li key={entry.id} className="gb-postcard" data-paper={entry.stationery ?? "cream"}>
+              <p className="gb-postcard-message">{entry.body}</p>
+              <div className="gb-postcard-side">
+                <span className="gb-postcard-stamp" aria-hidden="true">
+                  <Avatar url={who.avatar} name={who.name} size={30} />
+                </span>
+                <span className="gb-postmark" aria-hidden="true">{postmark(entry.created_at)}</span>
+                <span className="gb-postcard-line">To {owner}</span>
+                <span className="gb-postcard-line">
+                  From{" "}
+                  {who.href ? (
+                    <a href={who.href} {...(who.isRemote ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{who.name}</a>
+                  ) : (
+                    who.name
+                  )}
+                </span>
+                {who.handle && <span className="gb-postcard-handle">{who.handle}</span>}
+                {canRemove(entry) && (
+                  <button type="button" className="gb-remove" onClick={() => onRemove(entry.id)}>Remove</button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  return (
+    <>
+      {!staticView && <div className="gb-envelopes-head">
+        <button
+          type="button"
+          className="gb-open-all"
+          onClick={() => setOpen(allOpen ? new Set() : new Set(entries.map((e) => e.id)))}
+        >
+          {allOpen ? "Close them all" : "Open them all"}
+        </button>
+      </div>}
+      <ul className="gb-envelopes">
+        {entries.map((entry) => {
+          const who = signer(entry);
+          const isOpen = open.has(entry.id);
+          return (
+            <li key={entry.id} className="gb-envelope" data-paper={entry.stationery ?? "cream"} data-open={isOpen || undefined}>
+              <button
+                type="button"
+                className="gb-envelope-front"
+                aria-expanded={isOpen}
+                aria-controls={`gb-letter-${entry.id}`}
+                onClick={() => toggle(entry.id)}
+              >
+                <span className="gb-envelope-flap" aria-hidden="true" />
+                <span className="gb-envelope-from">
+                  <span className="gb-envelope-label">From</span> {who.name}
+                </span>
+                <span className="gb-envelope-stamp" aria-hidden="true">
+                  <Avatar url={who.avatar} name={who.name} size={26} />
+                </span>
+                <span className="gb-postmark" aria-hidden="true">{postmark(entry.created_at)}</span>
+                <span className="sr-only">{isOpen ? "Close" : "Open"} the note</span>
+              </button>
+              {isOpen && (
+                <div className="gb-letter" id={`gb-letter-${entry.id}`}>
+                  <p>{entry.body}</p>
+                  <p className="gb-letter-sign">
+                    {who.href ? (
+                      <a href={who.href} {...(who.isRemote ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{who.name}</a>
+                    ) : (
+                      who.name
+                    )}
+                    {who.handle && <span className="gb-postcard-handle"> {who.handle}</span>}
+                  </p>
+                  {canRemove(entry) && (
+                    <button type="button" className="gb-remove" onClick={() => onRemove(entry.id)}>Remove</button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

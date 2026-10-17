@@ -39,10 +39,14 @@ defmodule InkwellWeb.GuestbookController do
         if Social.is_blocked_between?(current_user.id, profile_user.id) do
           conn |> put_status(:forbidden) |> json(%{error: "Cannot sign this guestbook"})
         else
+          stationery = conn.params["stationery"]
+
           case Guestbook.create_entry(%{
             "body" => body,
             "profile_user_id" => profile_user.id,
-            "author_id" => current_user.id
+            "author_id" => current_user.id,
+            # Unknown papers fall back to cream rather than refusing the signature.
+            "stationery" => if(stationery in Inkwell.Guestbook.GuestbookEntry.stationery_options(), do: stationery)
           }) do
             {:ok, entry} ->
               entry = Inkwell.Repo.preload(entry, :author)
@@ -107,12 +111,14 @@ defmodule InkwellWeb.GuestbookController do
     base = %{
       id: entry.id,
       body: entry.body,
+      stationery: entry.stationery || "cream",
       created_at: entry.inserted_at,
       author: if(entry.author, do: %{
         id: entry.author.id,
         username: entry.author.username,
         display_name: entry.author.display_name,
-        avatar_url: entry.author.avatar_url
+        # A link, never the stored data URI (see Inkwell.Avatars).
+        avatar_url: Inkwell.Avatars.avatar_url(entry.author)
       }, else: nil),
       remote_author: entry.remote_author
     }

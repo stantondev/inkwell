@@ -79,8 +79,10 @@ defmodule InkwellWeb.UserController do
           _ -> nil
         end
 
+        {home, sticker_givers} = Inkwell.StickerGifts.for_page(Inkwell.ProfileHome.for_user(user), user.id)
+
         conn |> json(%{
-          data: user |> render_user() |> Map.put(:profile_home, Inkwell.ProfileHome.for_user(user)),
+          data: user |> render_user() |> Map.put(:profile_home, home),
           meta: %{
             entry_count: entry_count,
             pen_pal_count: pen_pal_count,
@@ -97,6 +99,13 @@ defmodule InkwellWeb.UserController do
                 access -> to_string(access)
               end,
             custom_domain: custom_domain,
+            # Pen pals who gave the stickers on this page, and whether the viewer may give one.
+            sticker_givers: sticker_givers,
+            can_give_sticker:
+              case conn.assigns[:current_user] do
+                %{} = viewer -> Inkwell.StickerGifts.can_give?(viewer, user)
+                _ -> false
+              end,
             # The profile shows a ListenBrainz "listening now" card.
             shows_listening: Inkwell.ListenBrainz.profile_username(user) != nil,
             noindex: Inkwell.Journals.held_back_from_search?(user.id),
@@ -673,7 +682,7 @@ defmodule InkwellWeb.UserController do
     |> render_user()
     |> Map.merge(%{
       email: user.email,
-      profile_home: Inkwell.ProfileHome.for_user(user),
+      profile_home: user |> Inkwell.ProfileHome.for_user() |> Inkwell.StickerGifts.for_page(user.id) |> elem(0),
       profile_html: user.profile_html,
       profile_css: user.profile_css,
       settings: user.settings,

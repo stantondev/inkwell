@@ -28,6 +28,7 @@ import {
   resizeColumns,
   shuffleHome,
   updateSticker,
+  newBlock,
   type DropTarget,
 } from "./home-edit";
 import { historyReducer, initHistory } from "./home-history";
@@ -313,4 +314,21 @@ test("placing: edges near the top and bottom, anywhere in between", () => {
   // A short card is all edge.
   assert.equal(placeOn({ left: 0, top: 0, width: 100, height: 40 }, 50, 12).edge, "top");
   assert.equal(placeOn({ left: 0, top: 0, width: 100, height: 40 }, 50, 28).edge, "bottom");
+});
+
+test("a gifted sticker keeps its gift through edits and layouts", () => {
+  let h = addSticker(sample(), stuck("b", { id: "k-g", key: "rose", gift_id: "gift-1" }));
+  h = updateSticker(h, "k-g", { rotate: 12 });
+  for (const out of [dropBlock(h, "b", { columnId: "c-band", blockId: null, edge: "end" }), ...TEMPLATES.map((t) => applyTemplate(h, t)), shuffleHome(h)]) {
+    assert.equal(out.stickers.find((x) => x.id === "k-g")!.gift_id, "gift-1");
+  }
+});
+
+test("a new guestbook, and one laid out by a template, are envelopes; a chosen look stays", () => {
+  assert.equal(newBlock("guestbook").config.look, "envelopes");
+  const gbOf = (h: ProfileHome) => h.sections.flatMap((x) => x.columns.flatMap((c) => c.blocks)).find((x) => x.type === "guestbook")!;
+  for (const t of TEMPLATES) assert.equal(gbOf(applyTemplate(sample(), t)).config.look, "envelopes", t.id);
+  const postcards = sample();
+  postcards.sections[1].columns[1].blocks[0].config = { look: "postcards" };
+  for (const t of TEMPLATES) assert.equal(gbOf(applyTemplate(postcards, t)).config.look, "postcards", t.id);
 });

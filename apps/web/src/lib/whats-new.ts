@@ -18,6 +18,36 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-17-page-as-website",
+    date: "2026-10-17",
+    title: "Take your page with you, as a website",
+    body: "Download your page, and a page for every public entry and sticky, as plain HTML, CSS and pictures. It opens in any browser, works offline, and you can put the folder on Neocities, GitHub Pages or your own server. Your stickers, notes, photos and guestbook come along, looking the way they do here.",
+    howTo: "Settings → Data export → Download as a website. Or in Arrange my page, Layouts → Download as a website.",
+    href: "/settings/export#website",
+    cta: "Download your page",
+    tag: "Profile",
+  },
+  {
+    id: "2026-10-17-guestbook-envelopes",
+    date: "2026-10-17",
+    title: "Guestbook notes as envelopes and postcards",
+    body: "Your guestbook can be a stack of envelopes that visitors open, or postcards with a stamp of the signer's picture. People who sign choose the colour of their paper: cream, sky, rose, sage, lilac or kraft. The plain list is still there if you like it.",
+    howTo: "On your profile, choose Arrange page, then Edit on your guestbook, and pick a Look.",
+    href: "/arrange",
+    cta: "Choose a look",
+    tag: "Profile",
+  },
+  {
+    id: "2026-10-17-sticker-gifts",
+    date: "2026-10-17",
+    title: "Give a pen pal a sticker",
+    body: "Give a pen pal a sticker for their page, with a note: one from the Inkwell packs, or one you made yourself. It waits in their gift drawer until they stick it wherever they like, or put it away. Plus members can give Keepsakes, and those stay on the page whatever plan the person has. Pages say who gave their stickers.",
+    howTo: "On a pen pal's profile, press the gift button. Gifts you're given are in Arrange my page → Stickers.",
+    href: "/arrange?gifts=1",
+    cta: "See your gifts",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-16-find-the-subject",
     date: "2026-10-16",
     title: "Cut the subject out of any photo",

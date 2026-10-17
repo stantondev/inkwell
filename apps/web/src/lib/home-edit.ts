@@ -38,7 +38,7 @@ export const BLOCK_INFO: Record<ProfileBlockType, BlockInfo> = {
   tags: { label: "Tags", blurb: "The tags you write about most." },
   series: { label: "Series", blurb: "Your series of entries." },
   music: { label: "Music", blurb: "Your profile song, or what you're listening to." },
-  guestbook: { label: "Guestbook", blurb: "Notes visitors leave you." },
+  guestbook: { label: "Guestbook", blurb: "Notes visitors leave you, as a list, envelopes or postcards.", editable: true },
   support: { label: "Support link", blurb: "Your Ko-fi, Patreon or similar." },
   newsletter: { label: "Newsletter sign-up", blurb: "Readers can subscribe by email." },
   custom_html: { label: "Custom HTML", blurb: "The card you write in Customize.", plusOnly: true },
@@ -75,6 +75,8 @@ export function defaultConfig(type: ProfileBlockType): ProfileBlockConfig {
       return { title: "", items: [] };
     case "divider":
       return { style: "wavy" };
+    case "guestbook":
+      return { look: "envelopes" };
     default:
       return {};
   }
@@ -342,7 +344,10 @@ function piecesOf(home: ProfileHome): Pieces {
     pinned: take("pinned"),
     rss: take("rss"),
     now: take("now"),
-    widgets: all.filter((b) => isSingleton(b.type) && !["profile_card", "entries", "pinned", "rss", "now"].includes(b.type)),
+    widgets: all
+      .filter((b) => isSingleton(b.type) && !["profile_card", "entries", "pinned", "rss", "now"].includes(b.type))
+      // Templates are a fresh look: a guestbook with no look of its own becomes envelopes.
+      .map((b) => (b.type === "guestbook" && !b.config.look ? { ...b, config: { ...b.config, look: "envelopes" as const } } : b)),
     keepsakes: all.filter((b) => !isSingleton(b.type) && b.type !== "divider"),
     divider: (style = "line") => pool.shift() ?? { id: newId("b"), type: "divider", config: { style } },
     spareDividers: () => pool.splice(0),

@@ -334,10 +334,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     id: "export",
     href: "/settings/export",
     title: "Data export",
-    blurb: "Download everything you've written as a single file. Yours to keep, whatever happens here.",
+    blurb: "Download everything you've written, or your page as a website you can host anywhere.",
     icon: I.download,
     group: "plan",
-    keywords: ["download", "backup", "archive", "json"],
+    keywords: ["download", "backup", "archive", "json", "website", "neocities", "static site", "zip", "host"],
   },
   {
     id: "account",

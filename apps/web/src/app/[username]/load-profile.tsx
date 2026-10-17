@@ -4,9 +4,10 @@ import type { SessionUser } from "@/lib/session";
 import { buildProfileStyles } from "@/lib/profile-styles";
 import { PROFILE_FONTS } from "@/lib/profile-themes";
 import { scopeEntryHtml } from "@/lib/scope-styles";
-import { CLASSIC_HOME, homeBlocks, type ProfileHome } from "@/lib/profile-home";
+import { CLASSIC_HOME, homeBlocks, type ProfileHome, type StickerGiver } from "@/lib/profile-home";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import { allGuestbook, allPublicEntries } from "@/lib/site-export/collect";
 import { archiveQuery, profileFiltersFromParams } from "@/lib/profile-archive-params";
 import { getSite } from "@/lib/site";
 import type { ProfileContext } from "./profile-layout";
@@ -50,6 +51,8 @@ export async function loadProfile(
     journal?: boolean;
     /** Where the writer's page lives: /username, or / on their own domain. */
     profileHref?: string;
+    /** Drawing the page for "Download as a website" (see ProfileContext.exportView). */
+    exportView?: boolean;
   } = {},
 ): Promise<LoadedProfile> {
   const isOwnProfile = session?.user.username === username;
@@ -68,6 +71,8 @@ export async function loadProfile(
   let relationshipStatus: string | null = null;
   let incomingRequest = false;
   let letterAccess: string | null = null;
+  let canGiveSticker = false;
+  let stickerGivers: StickerGiver[] = [];
 
   let entryYears: number[] = [];
   let entryMonths: { year: number; month: number; count: number }[] = [];
@@ -95,6 +100,8 @@ export async function loadProfile(
         incoming_request?: boolean;
         letter_access?: string | null;
         shows_listening?: boolean;
+        can_give_sticker?: boolean;
+        sticker_givers?: StickerGiver[];
       };
     }>(username, session?.token);
 
@@ -109,6 +116,8 @@ export async function loadProfile(
     relationshipStatus = data.meta.relationship_status ?? null;
     incomingRequest = data.meta.incoming_request ?? false;
     letterAccess = data.meta.letter_access ?? null;
+    canGiveSticker = data.meta.can_give_sticker ?? false;
+    stickerGivers = data.meta.sticker_givers ?? [];
     entryYears = data.meta.entry_years ?? [];
     entryMonths = data.meta.entry_months ?? [];
     entryTags = data.meta.entry_tags ?? [];
@@ -218,6 +227,10 @@ export async function loadProfile(
   }
   if (seriesResult.status === "fulfilled") seriesList = seriesResult.value.data ?? [];
 
+  const exportView = opts.exportView
+    ? await Promise.all([allPublicEntries(username), allGuestbook(username)]).then(([all, guestbook]) => ({ entries: all, guestbook }))
+    : undefined;
+
   // JSON-LD structured data for profile
   const profileJsonLd = {
     "@context": "https://schema.org",
@@ -273,12 +286,17 @@ export async function loadProfile(
       relationshipStatus,
       incomingRequest,
       letterAccess,
+      canGiveSticker,
+      viewerIsPlus: !!session?.user && (session.user.subscription_tier === "plus" || !!session.user.self_hosted),
+      exportView: !!opts.exportView,
       entryCount,
       followerCount,
       followingCount,
       fediverseFollowerCount,
     },
     topFriends,
+    stickerGivers,
+    exportView,
     seriesList,
     pinnedEntries,
     customHtml: customContent?.bodyHtml ? customContent : null,

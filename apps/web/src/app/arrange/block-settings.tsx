@@ -132,6 +132,22 @@ export function BlockSettings({
             <Choice label="Style" options={DIVIDER_STYLES} value={c.style ?? "line"} onPick={(style) => set({ style })} />
           )}
 
+          {block.type === "guestbook" && (
+            <>
+              <Choice
+                label="Look"
+                options={[
+                  { id: "list", label: "List" },
+                  { id: "envelopes", label: "Envelopes" },
+                  { id: "postcards", label: "Postcards" },
+                ]}
+                value={c.look ?? "list"}
+                onPick={(id) => set({ look: id as ProfileBlockConfig["look"] })}
+              />
+              <p className={s.fieldHint}>Envelopes open when a visitor taps them. People who sign choose the colour of their paper.</p>
+            </>
+          )}
+
           {block.type === "entries" && (
             <>
               <Choice

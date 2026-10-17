@@ -60,7 +60,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "f-handle", title: "Your fediverse handle", snippet: "Your handle is @username@inkwell.social — share it anywhere.", keywords: ["handle", "address", "identity", "fediverse"], category: "fediverse", href: "/help/faq#fediverse-handle" },
 
   // ── Customization ──
-  { id: "c-arrange", title: "Arrange your page", snippet: "Drag things around your profile, add notes, photos, quotes and stickers, pick a layout or Shuffle.", keywords: ["arrange", "sticker", "stickers", "decorate", "upload", "own sticker", "cut out", "background", "remove background", "subject", "find the subject", "layout", "widgets", "drag", "scrapbook", "photo", "note", "columns", "sidebar", "move"], category: "customization", href: "/help/faq#customize-profile" },
+  { id: "c-arrange", title: "Arrange your page", snippet: "Drag things around your profile, add notes, photos, quotes and stickers, pick a layout or Shuffle.", keywords: ["arrange", "sticker", "stickers", "decorate", "upload", "own sticker", "cut out", "background", "remove background", "subject", "find the subject", "gift", "give a sticker", "envelopes", "postcards", "guestbook look", "stationery", "layout", "widgets", "drag", "scrapbook", "photo", "note", "columns", "sidebar", "move"], category: "customization", href: "/help/faq#customize-profile" },
   { id: "c-themes", title: "Profile themes", snippet: "Choose from 8 structural themes with unique typography and style.", keywords: ["theme", "customize", "design", "appearance"], category: "customization", href: "/help/faq#themes" },
   { id: "c-html", title: "Custom HTML/CSS on your profile", snippet: "Plus users can restyle their profile with CSS and add a card of their own HTML.", keywords: ["html", "css", "custom", "template", "myspace"], category: "customization", href: "/help/faq#custom-html" },
   { id: "c-domain", title: "Custom domains", snippet: "Point your own domain at your Inkwell profile.", keywords: ["domain", "custom", "url", "dns"], category: "customization", href: "/help/faq#custom-domain" },
@@ -78,7 +78,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "p-redactions", title: "Redactions (keyword muting)", snippet: "Hide entries containing specific words from your feeds.", keywords: ["redact", "mute", "filter", "keyword", "hide"], category: "safety", href: "/help/faq#redactions" },
   { id: "p-cw", title: "Content warnings", snippet: "Label sensitive content and control what you see.", keywords: ["content warning", "sensitive", "nsfw", "trigger"], category: "safety", href: "/help/faq#content-warnings" },
   { id: "p-delete", title: "Deleting your account", snippet: "Permanently remove your account and all associated data.", keywords: ["delete", "remove", "account", "data", "permanent"], category: "safety", href: "/help/faq#delete-account" },
-  { id: "p-export", title: "Data export", snippet: "Download all your entries, comments, and account data.", keywords: ["export", "download", "data", "backup"], category: "safety", href: "/help/faq#data-export" },
+  { id: "p-export", title: "Data export", snippet: "Download all your entries, comments, and account data.", keywords: ["export", "download", "data", "backup", "website", "static site", "neocities", "host", "zip"], category: "safety", href: "/help/faq#data-export" },
 
   // ── Technical ──
   { id: "t-api", title: "API documentation", snippet: "Programmatic access with API keys and REST endpoints.", keywords: ["api", "developer", "key", "endpoint", "rest"], category: "technical", href: "/developers" },

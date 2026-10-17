@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 
 import { createPortal } from "react-dom";
 
-import type { OwnSticker, ProfileHome, ProfileSticker } from "@/lib/profile-home";
+import type { OwnSticker, ProfileHome, ProfileSticker, StickerGift } from "@/lib/profile-home";
 import {
   MAX_STICKERS,
   addSticker,
@@ -24,7 +24,7 @@ import {
   removeSticker,
   updateSticker,
 } from "@/lib/home-edit";
-import { STICKER_PACKS, StickerArt, isPlusSticker } from "@/lib/stickers";
+import { STICKER_PACKS, StickerArt, isPlusSticker, stickerDef } from "@/lib/stickers";
 import { StickerFace, stickerBoxStyle, stickerClasses, stickerLabel } from "@/app/[username]/sticker-layer";
 import { StickerMaker } from "./sticker-maker";
 import s from "./arrange.module.css";
@@ -36,6 +36,8 @@ export interface Placing {
   image_id?: string;
   ratio?: number;
   outline?: boolean;
+  /** A gift from a pen pal (the Gifts drawer). */
+  gift_id?: string;
 }
 
 export interface OwnLibrary {
@@ -78,6 +80,9 @@ export interface StickerEditing {
   own: OwnLibrary;
   addOwn: (sticker: OwnSticker) => void;
   deleteOwn: (sticker: OwnSticker) => Promise<boolean>;
+  /** Stickers pen pals gave, newest first. */
+  gifts: StickerGift[];
+  putAwayGift: (gift: StickerGift) => Promise<boolean>;
 }
 
 /** The card under a point on screen that a sticker can go on. */
@@ -118,6 +123,18 @@ export function useStickerEditing({
   const [selected, setSelected] = useState<string | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const [own, setOwn] = useState<OwnLibrary>({ stickers: [], limit: 10, maxBytes: 600_000, blockedReason: null, loaded: false });
+  const [gifts, setGifts] = useState<StickerGift[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me/sticker-gifts")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => live && body && setGifts(body.data ?? []))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -181,8 +198,10 @@ export function useStickerEditing({
       const id = `k-${Math.random().toString(36).slice(2, 10)}`;
       // A little tilt, the way stickers go on by hand.
       const rotate = Math.round(Math.random() * 14 - 7);
-      const extra =
-        placing.key === "upload" ? { image_id: placing.image_id, ratio: placing.ratio, outline: placing.outline } : {};
+      const extra = {
+        ...(placing.key === "upload" ? { image_id: placing.image_id, ratio: placing.ratio, outline: placing.outline } : {}),
+        ...(placing.gift_id ? { gift_id: placing.gift_id } : {}),
+      };
       const next = addSticker(home, { id, key: placing.key, ...extra, anchor: host.dataset.stickerHost, ...placeOnHost(host, x, y), rotate, scale: 1 });
       if (next === home) return false;
       commit(next);
@@ -337,7 +356,24 @@ export function useStickerEditing({
       setOwn((o) => ({ ...o, stickers: o.stickers.filter((x) => x.id !== sticker.id) }));
       // The server took it off the saved page; take it off this one too.
       const home = getHome();
-      const kept = home.stickers.filter((x) => x.image_id !== sticker.image_id);
+      const kept = home.stickers.filter((x) => x.gift_id || x.image_id !== sticker.image_id);
+      if (kept.length !== home.stickers.length) commit({ ...home, stickers: kept });
+      return true;
+    },
+    [getHome, commit, note],
+  );
+
+  const putAwayGift = useCallback(
+    async (gift: StickerGift) => {
+      const res = await fetch(`/api/me/sticker-gifts/${gift.id}`, { method: "DELETE" }).catch(() => null);
+      if (!res?.ok) {
+        note("Couldn't put that gift away. Try again.");
+        return false;
+      }
+      setGifts((g) => g.filter((x) => x.id !== gift.id));
+      // The server took it off the saved page; take it off this one too.
+      const home = getHome();
+      const kept = home.stickers.filter((x) => x.gift_id !== gift.id);
       if (kept.length !== home.stickers.length) commit({ ...home, stickers: kept });
       return true;
     },
@@ -401,10 +437,17 @@ export function useStickerEditing({
     own,
     addOwn,
     deleteOwn,
+    gifts,
+    putAwayGift,
   };
 }
 
+function giverName(gift: StickerGift | undefined): string {
+  return gift?.from ? gift.from.display_name || `@${gift.from.username}` : "a pen pal";
+}
+
 function ownName(editing: StickerEditing, st: ProfileSticker): string | null {
+  if (st.gift_id) return `Gift from ${giverName(editing.gifts.find((g) => g.id === st.gift_id))}`;
   if (st.key !== "upload") return null;
   return editing.own.stickers.find((o) => o.image_id === st.image_id)?.name ?? null;
 }
@@ -417,7 +460,8 @@ export function EditorStickers({ stickers, editing }: { stickers: ProfileSticker
       {stickers.map((st) => {
         const box = stickerBoxStyle(st);
         if (!box) return null;
-        const locked = st.key !== "upload" && !editing.isPlus && isPlusSticker(st.key);
+        // Keepsakes show only with Plus, unless a pen pal gave them.
+        const locked = st.key !== "upload" && !st.gift_id && !editing.isPlus && isPlusSticker(st.key);
         const isSelected = editing.selected === st.id;
         const label = stickerLabel(st, ownName(editing, st));
         return (
@@ -463,7 +507,11 @@ export function StickerBar({
   shown: (blockId: string) => boolean;
 }) {
   if (editing.placing) {
-    const what = editing.placing.key === "upload" ? "your sticker" : `the ${editing.placing.label.toLowerCase()}`;
+    const what = editing.placing.gift_id
+      ? editing.placing.label
+      : editing.placing.key === "upload"
+        ? "your sticker"
+        : `the ${editing.placing.label.toLowerCase()}`;
     return (
       <div className={s.stickerBar} data-sticker-bar role="status" aria-live="polite">
         <span className={s.stickerBarText}>Tap anywhere on a card to stick {what} there.</span>
@@ -537,6 +585,7 @@ export function StickerDrawer({
         {" "}{home.stickers.length} of {MAX_STICKERS} used.
       </p>
       {full && <p className={s.trayHint}><strong>Your page is full of stickers.</strong> Take one off to add another.</p>}
+      {editing.gifts.length > 0 && <Gifts home={home} editing={editing} full={full} onPicked={onClose} />}
       <OwnStickers editing={editing} full={full} onPicked={onClose} />
       {STICKER_PACKS.map((pack) => {
         const locked = pack.plus && !editing.isPlus;
@@ -583,6 +632,81 @@ export function StickerDrawer({
         );
       })}
     </aside>
+  );
+}
+
+/** Gifts from pen pals: each goes on the page once, or can be put away. */
+function Gifts({ home, editing, full, onPicked }: { home: ProfileHome; editing: StickerEditing; full: boolean; onPicked: () => void }) {
+  const placed = new Set(home.stickers.map((x) => x.gift_id).filter(Boolean));
+  return (
+    <section data-gifts>
+      <h3 className={s.trayHeading}>
+        Gifts
+        <span className={s.ownCount}>{editing.gifts.length}</span>
+      </h3>
+      <p className={s.trayHint}>Stickers your pen pals gave you. Each one goes on your page once.</p>
+      <ul className={s.giftList}>
+        {editing.gifts.map((g) => {
+          const onPage = placed.has(g.id);
+          const def = g.key === "upload" ? null : stickerDef(g.key);
+          const label = `the ${def ? def.label.toLowerCase() : "sticker"} from ${giverName(g)}`;
+          return (
+            <li key={g.id} className={s.giftItem}>
+              <span className={`${s.giftArt} ${g.key === "upload" && g.outline ? "sticker-outline" : ""}`} aria-hidden="true">
+                {g.key === "upload" && g.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={g.url} alt="" className="sticker-picture" draggable={false} />
+                ) : def ? (
+                  <StickerArt def={def} />
+                ) : null}
+              </span>
+              <span className={s.giftText}>
+                <span>
+                  From{" "}
+                  {g.from ? (
+                    <Link href={`/${g.from.username}`} className={s.inlineLink}>{giverName(g)}</Link>
+                  ) : (
+                    "a pen pal"
+                  )}
+                </span>
+                {g.note && <q className={s.giftNote}>{g.note}</q>}
+                <span className={s.giftActions}>
+                  {onPage ? (
+                    <span className={s.giftPlaced}>On your page</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={s.textBtn}
+                      disabled={full}
+                      onClick={() => {
+                        editing.startPlacing({
+                          key: g.key,
+                          label,
+                          gift_id: g.id,
+                          ...(g.key === "upload" ? { image_id: g.image_id ?? undefined, ratio: g.ratio, outline: g.outline } : {}),
+                        });
+                        onPicked();
+                      }}
+                    >
+                      Stick it on
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={s.textBtn}
+                    onClick={() => {
+                      if (confirm(onPage ? "Put this gift away? It comes off your page too." : "Put this gift away?")) void editing.putAwayGift(g);
+                    }}
+                  >
+                    Put away
+                  </button>
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

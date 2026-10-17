@@ -1295,3 +1295,56 @@
     opacity: 1;
   }
 }
+
+/* ── Gifts from pen pals (sticker drawer) ─────────────────────────────── */
+.giftList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.giftItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--arrange-panel-line);
+  border-radius: 10px;
+}
+.giftArt {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+}
+.giftArt svg,
+.giftArt img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.giftText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.giftNote {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.giftActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+.giftPlaced {
+  color: var(--arrange-panel-muted);
+  font-size: 0.8rem;
+}

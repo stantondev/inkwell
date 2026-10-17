@@ -19452,6 +19452,232 @@ body[data-look="classic"] .entry-current-label {
   }
 }
 
+/* "Stickers from …": who gave the stickers on a page. */
+.sticker-givers {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.sticker-givers a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Give a sticker (pen pal's profile) ───────────────────────────────── */
+.gift-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+}
+.gift-open-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.gift-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(20, 22, 30, 0.45);
+}
+.gift-dialog {
+  position: fixed;
+  z-index: 81;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100dvh - 2rem));
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem 1.25rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.45);
+  font-size: 0.9rem;
+  --sticker-accent: var(--accent);
+}
+.gift-dialog:focus {
+  outline: none;
+}
+@media (max-width: 639px) {
+  .gift-dialog {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    max-height: 88dvh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+}
+.gift-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.gift-head h2 {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.gift-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.gift-hint {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.gift-dialog h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.gift-plus {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+.gift-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.6rem, 1fr));
+  gap: 0.4rem;
+}
+.gift-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0.45rem;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: var(--surface-hover);
+  cursor: pointer;
+}
+.gift-cell[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.gift-cell:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.gift-cell svg,
+.gift-own {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.sticker-outline-img {
+  filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+}
+.gift-note {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 1rem;
+}
+.gift-note > span:first-child {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.gift-note textarea {
+  resize: vertical;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 16px;
+}
+.gift-count {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.gift-error {
+  margin-top: 0.5rem;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+.gift-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.gift-cancel,
+.gift-send {
+  min-height: 2.5rem;
+  padding: 0 1.1rem;
+  border-radius: 9999px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.gift-cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+}
+.gift-send {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--background);
+}
+.gift-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.gift-sent {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 1rem 0 0.25rem;
+  text-align: center;
+}
+.gift-sent-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  transform: rotate(-6deg);
+}
+.gift-sent-art svg,
+.gift-sent-art img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
 /* Arrange my page gets the whole screen on phones, like the editor: its own
    bar has the way back. */
 @media (max-width: 1023px) {
@@ -19467,4 +19693,277 @@ body[data-look="classic"] .entry-current-label {
 
 body:has(.arrange-shell) .site-footer {
   display: none;
+}
+
+/* ── Guestbook as correspondence: envelopes and postcards ─────────────── */
+[data-paper] {
+  --gb-paper: #fbf6e9;
+  --gb-ink: #2b2620;
+}
+[data-paper="sky"] { --gb-paper: #e3eef8; }
+[data-paper="rose"] { --gb-paper: #f8e4e6; }
+[data-paper="sage"] { --gb-paper: #e4eedf; }
+[data-paper="lilac"] { --gb-paper: #ece6f6; }
+[data-paper="kraft"] { --gb-paper: #dcc6a2; }
+
+.gb-papers {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.gb-paper-swatch {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: var(--gb-paper);
+  cursor: pointer;
+}
+.gb-paper-swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--surface, #fff), 0 0 0 3.5px var(--accent);
+}
+
+.gb-postmark {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  color: rgba(43, 38, 32, 0.55);
+}
+.gb-remove {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(43, 38, 32, 0.6);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Envelopes: the flap opens upward and the note slides out below. */
+.gb-envelopes-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
+}
+.gb-open-all {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.gb-envelopes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gb-envelope {
+  transition: padding-top 0.35s ease;
+}
+.gb-envelope[data-open] {
+  /* room for the open flap: a quarter of the envelope's width */
+  padding-top: 24%;
+}
+.gb-envelope-front {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  max-height: 11rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--gb-paper);
+  color: var(--gb-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 14px -8px rgba(0, 0, 0, 0.3);
+  text-align: left;
+  cursor: pointer;
+  perspective: 600px;
+}
+.gb-envelope-front:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* The back of the envelope: the flap as a triangle from the top edge. */
+.gb-envelope-flap {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 48%;
+  background: color-mix(in srgb, var(--gb-paper) 86%, #6d5b44);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top;
+  transition: transform 0.4s ease;
+  border-radius: 4px 4px 0 0;
+}
+.gb-envelope[data-open] .gb-envelope-flap {
+  transform: rotateX(180deg);
+}
+.gb-envelope-from {
+  position: absolute;
+  left: 8%;
+  bottom: 14%;
+  right: 30%;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.gb-envelope-label {
+  font-style: normal;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.gb-envelope-stamp,
+.gb-postcard-stamp {
+  display: inline-flex;
+  padding: 3px;
+  background: #fffdf8;
+  outline: 2px dotted rgba(43, 38, 32, 0.25);
+  outline-offset: -1px;
+  transform: rotate(3deg);
+}
+.gb-envelope-stamp {
+  position: absolute;
+  top: 10%;
+  right: 6%;
+  z-index: 1;
+}
+.gb-envelope .gb-postmark {
+  position: absolute;
+  top: 44%;
+  right: 6%;
+}
+.gb-letter {
+  position: relative;
+  margin: -0.4rem 0.6rem 0;
+  padding: 0.85rem 1rem 0.75rem;
+  border-radius: 0 0 4px 4px;
+  background: #fffdf8;
+  color: var(--gb-ink);
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.35);
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  animation: gb-letter-out 0.35s ease;
+}
+.gb-letter p {
+  margin: 0;
+}
+.gb-letter-sign {
+  margin-top: 0.5rem !important;
+  text-align: right;
+  font-style: italic;
+}
+.gb-letter a,
+.gb-postcard a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+@keyframes gb-letter-out {
+  from {
+    transform: translateY(-0.75rem);
+    opacity: 0;
+  }
+}
+
+/* Postcards: message on the left, stamp and address on the right; stacked when narrow. */
+.gb-postcards {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gb-postcard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 3px;
+  background: var(--gb-paper);
+  color: var(--gb-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 8px 16px -10px rgba(0, 0, 0, 0.3);
+  transform: rotate(-0.8deg);
+}
+.gb-postcard:nth-child(even) {
+  transform: rotate(0.7deg);
+}
+@container (min-width: 26rem) {
+  .gb-postcard {
+    grid-template-columns: 3fr 2fr;
+    min-height: 9rem;
+  }
+  .gb-postcard-side {
+    border-left: 1px solid rgba(43, 38, 32, 0.2);
+    padding-left: 0.85rem;
+  }
+}
+.gb-postcard-message {
+  margin: 0;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gb-postcard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  min-width: 0;
+}
+.gb-postcard-stamp {
+  align-self: flex-end;
+}
+.gb-postcard .gb-postmark {
+  align-self: flex-end;
+  margin-top: -0.2rem;
+}
+.gb-postcard-line {
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid rgba(43, 38, 32, 0.25);
+  overflow-wrap: anywhere;
+}
+.gb-postcard-handle {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gb-envelope,
+  :root:not([data-theme="light"]) .gb-postcard,
+  :root:not([data-theme="light"]) .gb-paper-swatch {
+    filter: brightness(0.9);
+  }
+}
+[data-theme="dark"] .gb-envelope,
+[data-theme="dark"] .gb-postcard,
+[data-theme="dark"] .gb-paper-swatch {
+  filter: brightness(0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gb-envelope,
+  .gb-envelope-flap {
+    transition: none;
+  }
+  .gb-letter {
+    animation: none;
+  }
 }

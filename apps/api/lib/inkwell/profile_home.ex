@@ -86,8 +86,27 @@ defmodule Inkwell.ProfileHome do
         end
 
       _ ->
-        from_legacy(user)
+        fresh_home(user)
     end
+  end
+
+  # A page nobody has arranged yet (new accounts): the classic page, with the
+  # guestbook as envelopes. Pages saved before envelopes existed keep their list.
+  defp fresh_home(user) do
+    home = from_legacy(user)
+
+    sections =
+      for s <- home["sections"] do
+        cols =
+          for c <- s["columns"] do
+            blocks = for b <- c["blocks"], do: if(b["type"] == "guestbook", do: %{b | "config" => %{"look" => "envelopes"}}, else: b)
+            %{c | "blocks" => blocks}
+          end
+
+        %{s | "columns" => cols}
+      end
+
+    %{home | "sections" => sections}
   end
 
   @doc """
@@ -263,60 +282,31 @@ defmodule Inkwell.ProfileHome do
         owner -> if Enum.any?(list, &(is_map(&1) and &1["key"] == "upload")), do: Inkwell.Stickers.library_image_ids(owner), else: MapSet.new()
       end
 
+    # Stickers pen pals gave (Inkwell.StickerGifts) carry "gift_id": saving
+    # takes the sticker itself from the gift (Keepsakes included, whatever
+    # the writer's plan) and allows each gift once. Reading trusts what was saved.
+    gifts =
+      case opts[:owner_id] do
+        nil -> :any
+        owner -> if Enum.any?(list, &(is_map(&1) and is_binary(&1["gift_id"]))), do: Inkwell.StickerGifts.gifts_by_id(owner), else: %{}
+      end
+
     {stickers, _} =
       list
       |> Enum.filter(&is_map/1)
+      |> Enum.map(&from_gift(&1, gifts))
       |> Enum.reduce({[], MapSet.new()}, fn st, {acc, seen} ->
-        anchor_type = Map.get(types, st["anchor"])
+        gift_id = is_map(st) && st["gift_id"]
 
         cond do
           length(acc) >= @max_stickers -> {acc, seen}
-          anchor_type == nil -> {acc, seen}
+          st == :gone -> {acc, seen}
+          not Map.has_key?(types, st["anchor"]) -> {acc, seen}
+          is_binary(gift_id) and MapSet.member?(seen, {:gift, gift_id}) -> {acc, seen}
+          is_binary(gift_id) -> keep_sticker(st, acc, MapSet.put(seen, {:gift, gift_id}))
           st["key"] == "upload" and not own_upload?(st["image_id"], library) -> {acc, seen}
           st["key"] != "upload" and st["key"] not in allowed -> {acc, seen}
-          true ->
-            id =
-              if is_binary(st["id"]) and Regex.match?(@id_format, st["id"]) and not MapSet.member?(seen, st["id"]),
-                do: st["id"],
-                else: unique_id("k", seen)
-
-            edge =
-              cond do
-                st["edge"] == "free" -> "free"
-                st["edge"] == "bottom" -> "bottom"
-                true -> "top"
-              end
-
-            y =
-              case edge do
-                "free" -> num(st["y"], 0, 100, 50)
-                "top" -> num(st["y"], -48, 32, 0)
-                "bottom" -> num(st["y"], -32, 48, 0)
-              end
-
-            sticker = %{
-              "id" => id,
-              "key" => st["key"],
-              "anchor" => st["anchor"],
-              "edge" => edge,
-              "x" => num(st["x"], -10, 110, 90),
-              "y" => y,
-              "rotate" => num(st["rotate"], -180, 180, 0) |> round(),
-              "scale" => num(st["scale"], 0.4, 2.5, 1.0)
-            }
-
-            sticker =
-              if st["key"] == "upload" do
-                Map.merge(sticker, %{
-                  "image_id" => st["image_id"],
-                  "ratio" => ratio(st["ratio"]),
-                  "outline" => st["outline"] != false
-                })
-              else
-                sticker
-              end
-
-            {[sticker | acc], MapSet.put(seen, id)}
+          true -> keep_sticker(st, acc, seen)
         end
       end)
 
@@ -324,6 +314,74 @@ defmodule Inkwell.ProfileHome do
   end
 
   defp normalize_stickers(_list, _sections, _opts), do: []
+
+  # A gifted sticker takes its key (and picture) from the gift; one whose
+  # gift is gone is dropped. `gifts` is :any when reading a saved page.
+  defp from_gift(%{"gift_id" => gift_id} = st, gifts) when is_binary(gift_id) do
+    case gifts do
+      :any ->
+        st
+
+      %{^gift_id => gift} ->
+        base = Map.put(st, "key", gift.key)
+
+        if gift.key == "upload",
+          do: Map.merge(base, %{"image_id" => gift.image_id, "ratio" => gift.ratio, "outline" => st["outline"] != false and gift.outline}),
+          else: Map.drop(base, ["image_id", "ratio", "outline"])
+
+      _ ->
+        :gone
+    end
+  end
+
+  defp from_gift(st, _gifts), do: Map.delete(st, "gift_id")
+
+  defp keep_sticker(st, acc, seen) do
+    id =
+      if is_binary(st["id"]) and Regex.match?(@id_format, st["id"]) and not MapSet.member?(seen, st["id"]),
+        do: st["id"],
+        else: unique_id("k", seen)
+
+    edge =
+      cond do
+        st["edge"] == "free" -> "free"
+        st["edge"] == "bottom" -> "bottom"
+        true -> "top"
+      end
+
+    y =
+      case edge do
+        "free" -> num(st["y"], 0, 100, 50)
+        "top" -> num(st["y"], -48, 32, 0)
+        "bottom" -> num(st["y"], -32, 48, 0)
+      end
+
+    sticker = %{
+      "id" => id,
+      "key" => st["key"],
+      "anchor" => st["anchor"],
+      "edge" => edge,
+      "x" => num(st["x"], -10, 110, 90),
+      "y" => y,
+      "rotate" => num(st["rotate"], -180, 180, 0) |> round(),
+      "scale" => num(st["scale"], 0.4, 2.5, 1.0)
+    }
+
+    sticker =
+      if st["key"] == "upload" do
+        Map.merge(sticker, %{
+          "image_id" => st["image_id"],
+          "ratio" => ratio(st["ratio"]),
+          "outline" => st["outline"] != false
+        })
+      else
+        sticker
+      end
+
+    sticker = if is_binary(st["gift_id"]), do: Map.put(sticker, "gift_id", st["gift_id"]), else: sticker
+
+    {[sticker | acc], MapSet.put(seen, id)}
+  end
 
   # A number clamped to a range and rounded to one decimal (two for scale-sized ranges).
   defp num(v, lo, hi, _default) when is_number(v) do
@@ -453,6 +511,9 @@ defmodule Inkwell.ProfileHome do
   end
 
   defp normalize_config("divider", %{"style" => st}) when st in @divider_styles, do: %{"style" => st}
+
+  # How signatures look: a list (as before), envelopes that open, or postcards.
+  defp normalize_config("guestbook", %{"look" => look}) when look in ~w[list envelopes postcards], do: %{"look" => look}
 
   defp normalize_config("note", %{} = c) do
     %{

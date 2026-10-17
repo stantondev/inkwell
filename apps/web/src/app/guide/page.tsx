@@ -372,6 +372,12 @@ export default function GuidePage() {
             decorate it with stickers (stamps, tape, pressed flowers, or ones you
             make from your own pictures); Undo
             puts anything back. Nothing changes for visitors until you Save.
+            Pen pals can give each other stickers (the gift button on their
+            profile), your guestbook can be envelopes or postcards, and{" "}
+            <Link href="/settings/export#website" className="underline" style={{ color: "var(--accent)" }}>
+              Download as a website
+            </Link>{" "}
+            takes your page with you as plain files.
           </p>
           <p>
             In{" "}

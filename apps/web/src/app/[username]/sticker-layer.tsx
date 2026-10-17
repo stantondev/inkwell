@@ -72,10 +72,13 @@ export function stickerClasses(st: ProfileSticker): string {
   return isUpload(st) && st.outline !== false ? "sticker-outline" : "";
 }
 
-/** The stickers a visitor sees on this page (Plus packs only while the writer has Plus). */
+/**
+ * The stickers a visitor sees on this page: Plus packs only while the writer
+ * has Plus, except Keepsakes a pen pal gave them, which stay.
+ */
 export function visibleStickers(stickers: ProfileSticker[], isPlus: boolean): ProfileSticker[] {
   return stickers.filter((st) =>
-    isUpload(st) ? !!st.image_id : !!stickerDef(st.key) && (isPlus || !isPlusSticker(st.key)),
+    isUpload(st) ? !!st.image_id : !!stickerDef(st.key) && (isPlus || !!st.gift_id || !isPlusSticker(st.key)),
   );
 }
 

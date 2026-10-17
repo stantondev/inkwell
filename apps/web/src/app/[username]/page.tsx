@@ -121,15 +121,18 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
   // links and the Back button land on the same page of entries.
   const query = await searchParams;
   const archive = profileFiltersFromParams(query);
-  const session = await getSession();
-
   // Detect custom domain context (for rendering "Powered by Inkwell" inside theme wrapper)
   const reqHeaders = await headers();
   const isOnCustomDomain = !!reqHeaders.get("x-custom-domain");
+  // Drawn for "Download as a website" (app/api/me/site-export): as a visitor sees it.
+  const exporting = reqHeaders.get("x-inkwell-export") === "1";
+  const session = exporting ? null : await getSession();
 
-  const loaded = await loadProfile(username, session, archive, {
-    journal: query.journal === "1",
+  const loaded = await loadProfile(username, session, exporting ? profileFiltersFromParams({}) : archive, {
+    journal: !exporting && query.journal === "1",
     profileHref: isOnCustomDomain ? "/" : `/${username}`,
+    countView: !exporting,
+    exportView: exporting,
   });
 
   // Handle blocked states — show limited profile
@@ -189,7 +192,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
       <ProfileLayout home={home} ctx={ctx} />
 
       {/* Signup CTA for logged-out visitors (not on custom domain — it's their site) */}
-      {!session && !isOnCustomDomain && (
+      {!session && !isOnCustomDomain && !exporting && (
         <div className="mt-12 mb-4">
           <SignupCta
             heading="Start your own journal"
@@ -198,7 +201,7 @@ export default async function ProfilePage({ params, searchParams }: ProfileParam
         </div>
       )}
 
-      {isOnCustomDomain && <PoweredByInkwell />}
+      {(isOnCustomDomain || exporting) && <PoweredByInkwell />}
     </ProfileFrame>
   );
 }

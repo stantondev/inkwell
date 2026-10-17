@@ -9,6 +9,8 @@ defmodule Inkwell.Guestbook.GuestbookEntry do
     field :body, :string
     field :remote_author, :map
     field :ap_id, :string
+    # The paper the signer chose for envelopes and postcards; nil = cream.
+    field :stationery, :string
 
     belongs_to :profile_user, Inkwell.Accounts.User
     belongs_to :author, Inkwell.Accounts.User
@@ -16,9 +18,13 @@ defmodule Inkwell.Guestbook.GuestbookEntry do
     timestamps(type: :utc_datetime_usec)
   end
 
+  @stationery ~w[cream sky rose sage lilac kraft]
+  def stationery_options, do: @stationery
+
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:body, :profile_user_id, :author_id])
+    |> cast(attrs, [:body, :profile_user_id, :author_id, :stationery])
+    |> validate_inclusion(:stationery, @stationery)
     |> validate_required([:body, :profile_user_id, :author_id])
     |> validate_length(:body, min: 1, max: 500)
     |> foreign_key_constraint(:profile_user_id)

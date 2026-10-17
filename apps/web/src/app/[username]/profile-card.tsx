@@ -5,6 +5,7 @@ import { ShareButton } from "@/components/share-button";
 import { getSite } from "@/lib/site";
 import { FollowButton } from "./follow-button";
 import { WriteLetterButton } from "./write-letter-button";
+import { GiveStickerButton } from "./give-sticker-button";
 import { BlockButton } from "./block-button";
 import { InlineStatusEditor } from "./inline-status-editor";
 import { FediverseHandle } from "./fediverse-handle";
@@ -23,6 +24,11 @@ export interface ProfileCardProps {
   relationshipStatus: string | null;
   incomingRequest: boolean;
   letterAccess: string | null;
+  /** The viewer is a pen pal and may give a sticker; and whether they have Plus (Keepsakes). */
+  canGiveSticker?: boolean;
+  viewerIsPlus?: boolean;
+  /** The page as an exported website: no follow/share buttons (they need Inkwell). */
+  exportView?: boolean;
   entryCount: number;
   followerCount: number;
   followingCount: number;
@@ -42,6 +48,9 @@ export function ProfileCard({
   relationshipStatus,
   incomingRequest,
   letterAccess,
+  canGiveSticker = false,
+  viewerIsPlus = false,
+  exportView = false,
   entryCount,
   followerCount,
   followingCount,
@@ -70,7 +79,7 @@ export function ProfileCard({
           <div className="rounded-full p-1" style={{ background: styles.surface.background }}>
             <AvatarWithFrame url={profile.avatar_url} name={profile.display_name} size={80} frame={profile.avatar_frame} animation={profile.avatar_animation} subscriptionTier={profile.subscription_tier} />
           </div>
-          {isOwnProfile ? (
+          {exportView ? null : isOwnProfile ? (
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {customDomainName && (
                 <a
@@ -104,7 +113,8 @@ export function ProfileCard({
               />
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            // Buttons wrap to a second line on narrow screens rather than squeezing their labels.
+            <div className="flex items-center gap-2 flex-wrap justify-end [&>*]:shrink-0">
               <FollowButton
                 targetUsername={username}
                 isLoggedIn={isLoggedIn}
@@ -118,6 +128,9 @@ export function ProfileCard({
               {/* Write a Letter button — only for accepted pen pals */}
               {(letterAccess === "letter" || letterAccess === "request") && isLoggedIn && (
                 <WriteLetterButton username={username} request={letterAccess === "request"} />
+              )}
+              {canGiveSticker && isLoggedIn && (
+                <GiveStickerButton username={username} displayName={profile.display_name || username} viewerIsPlus={viewerIsPlus} />
               )}
               {isLoggedIn && (
                 <BlockButton targetUsername={username} initialBlocked={false} />

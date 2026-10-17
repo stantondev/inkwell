@@ -1588,6 +1588,8 @@ defmodule Inkwell.Journals do
       |> MapSet.new()
       # Writers' own stickers, placed or still in their library
       |> MapSet.union(MapSet.new(Inkwell.Stickers.all_image_ids()))
+      # …and pictures given away as stickers to pen pals
+      |> MapSet.union(MapSet.new(Inkwell.StickerGifts.all_image_ids()))
 
     referenced_ids =
       entry_referenced

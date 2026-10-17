@@ -145,7 +145,12 @@ defmodule Inkwell.Stickers do
       end
 
       Repo.delete!(sticker)
-      from(i in Inkwell.Journals.EntryImage, where: i.id == ^image_id) |> Repo.delete_all()
+
+      # A picture given to a pen pal stays theirs; cleanup takes it once
+      # every gift of it is put away.
+      unless Inkwell.StickerGifts.image_given?(image_id),
+        do: from(i in Inkwell.Journals.EntryImage, where: i.id == ^image_id) |> Repo.delete_all()
+
       :ok
     end)
   end

@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 import { ProfileMusicWidget } from "@/components/profile-music-widget";
 import { ProfileListening } from "@/components/profile-listening";
 import type { JournalEntry } from "@/components/journal-entry-card";
-import { columnTracks, type ProfileBlock, type ProfileColumn, type ProfileHome, type ProfileSection, type ProfileSticker } from "@/lib/profile-home";
+import { columnTracks, type ProfileBlock, type ProfileColumn, type ProfileHome, type ProfileSection, type ProfileSticker, type StickerGiver } from "@/lib/profile-home";
+import Link from "next/link";
 import { StickerHost, visibleStickers } from "./sticker-layer";
 import type { ProfileFilters } from "./profile-search-bar";
-import { Guestbook } from "./guestbook";
+import { Guestbook, type GuestbookEntry } from "./guestbook";
+import { ExportEntryList } from "./export-entry-list";
 import { ProfileSubscribeWidget } from "./profile-subscribe-widget";
 import { ProfileCorkboard } from "./profile-corkboard";
 import { ProfileEntries } from "./profile-entries";
@@ -53,6 +55,14 @@ export interface ProfileContext {
   viewerUsername?: string;
   card: ProfileCardProps;
   topFriends: TopFriendSlot[];
+  /** Pen pals who gave the stickers on this page. */
+  stickerGivers?: StickerGiver[];
+  /**
+   * Drawing the page for "Download as a website" (app/api/me/site-export):
+   * no buttons that need Inkwell, every entry listed, the guestbook drawn
+   * without scripts.
+   */
+  exportView?: { entries: ProfileEntry[]; guestbook: GuestbookEntry[] };
   seriesList: ProfileSeriesItem[];
   pinnedEntries: ProfileEntry[];
   customHtml: { bodyHtml: string; scopedStyles?: string | null } | null;
@@ -102,11 +112,12 @@ export function blockVisible(block: ProfileBlock, ctx: ProfileContext): boolean 
     case "series":
       return ctx.seriesList.length > 0;
     case "music":
+      if (ctx.exportView) return ctx.isPlus && !!profile.profile_music;
       return (ctx.isPlus && !!profile.profile_music) || !!profile.shows_listening;
     case "support":
       return supportShown(profile);
     case "newsletter":
-      return !!profile.newsletter_enabled;
+      return !!profile.newsletter_enabled && !ctx.exportView;
     case "custom_html":
       return !!ctx.customHtml?.bodyHtml;
     case "note":
@@ -210,7 +221,7 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
     case "profile_card":
       return <ProfileCard {...ctx.card} />;
     case "entries":
-      return <EntriesBlock ctx={ctx} />;
+      return ctx.exportView ? <ExportEntryList entries={ctx.exportView.entries} username={username} styles={styles} /> : <EntriesBlock ctx={ctx} />;
     case "divider":
       return block.config.style && block.config.style !== "line" ? (
         <FancyDivider style={block.config.style} className={className} />
@@ -250,7 +261,7 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
       ) : null;
       // With ListenBrainz connected, what they're listening to comes first;
       // the picked song shows when there's nothing recent.
-      if (profile.shows_listening) {
+      if (profile.shows_listening && !ctx.exportView) {
         return (
           <ProfileListening
             username={profile.username}
@@ -271,6 +282,9 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
           isLoggedIn={ctx.isLoggedIn}
           viewerUsername={ctx.viewerUsername}
           styles={styles}
+          look={block.config.look ?? "list"}
+          initial={ctx.exportView?.guestbook}
+          staticView={!!ctx.exportView}
         />
       );
     case "support":
@@ -383,6 +397,25 @@ export function ProfileLayout({ home, ctx }: { home: ProfileHome; ctx: ProfileCo
           afterCard={i > 0 && home.sections[i - 1].columns.some((c) => c.blocks.some((b) => b.type === "profile_card"))}
         />
       ))}
+      {ctx.stickerGivers && ctx.stickerGivers.length > 0 && <StickerGivers givers={ctx.stickerGivers} />}
     </div>
+  );
+}
+
+/** "Stickers from @marko and @jon": who gave the stickers on this page. */
+function StickerGivers({ givers }: { givers: StickerGiver[] }) {
+  const shown = givers.slice(0, 6);
+  const more = givers.length - shown.length;
+  return (
+    <p className="sticker-givers">
+      Stickers from{" "}
+      {shown.map((g, i) => (
+        <span key={g.username}>
+          {i > 0 && (i === shown.length - 1 && more === 0 ? " and " : ", ")}
+          <Link href={`/${g.username}`}>{g.display_name || `@${g.username}`}</Link>
+        </span>
+      ))}
+      {more > 0 && ` and ${more} more`}
+    </p>
   );
 }
