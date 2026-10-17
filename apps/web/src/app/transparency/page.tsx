@@ -33,15 +33,17 @@ interface TransparencyData {
   lifetime?: {
     started_on: string;
     days: number;
+    costs_since: string;
+    billed_through: string | null;
     cost_cents: number;
-    cost_estimated: boolean;
+    estimated_cents: number;
     paid_cents: number | null;
     behind_cents: number | null;
   };
   users: { total: number; active_writers_30d: number };
 }
 
-// Whole dollars for estimates: cents would claim a precision we don't have.
+// Whole dollars: the totals include an estimate for the month in progress.
 function roundDollars(cents: number) {
   return Math.round(cents / 100) * 100;
 }
@@ -66,9 +68,11 @@ export default async function TransparencyPage() {
   const lifePaid = life?.paid_cents ?? null;
   const lifeShare = life && lifePaid != null && life.cost_cents > 0 ? Math.min(Math.round((lifePaid * 100) / life.cost_cents), 100) : 0;
   const lifeMonths = life ? Math.max(Math.round(life.days / 30.44), 1) : 0;
-  const openedOn = life
-    ? new Date(`${life.started_on}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
-    : "";
+  const day = (iso: string, opts: Intl.DateTimeFormatOptions) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
+  const openedOn = life ? day(life.started_on, { month: "long", day: "numeric", year: "numeric" }) : "";
+  const costsSince = life ? day(life.costs_since, { month: "long", year: "numeric" }) : "";
+  const billedThrough = life?.billed_through ? day(life.billed_through, { month: "long", day: "numeric" }) : null;
   const priceNote = foundingPriceNote(data?.founding);
 
   return (
@@ -139,8 +143,8 @@ export default async function TransparencyPage() {
               </p>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <p className="text-2xl font-semibold" style={serif}>{life.cost_estimated ? "about " : ""}{dollars(roundDollars(life.cost_cents))}</p>
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>What running it has cost{life.cost_estimated ? " (estimated)" : ""}</p>
+                  <p className="text-2xl font-semibold" style={serif}>{dollars(roundDollars(life.cost_cents))}</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>What running it has cost since {costsSince}</p>
                 </div>
                 <div>
                   <p className="text-2xl font-semibold" style={serif}>{lifePaid != null ? dollars(lifePaid) : "—"}</p>
@@ -177,9 +181,9 @@ export default async function TransparencyPage() {
                 </>
               )}
               <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
-                {life.cost_estimated
-                  ? "The cost is estimated from the monthly bills below, carried back to the day Inkwell opened. "
-                  : ""}
+                {billedThrough
+                  ? `The cost is the real Fly and Resend bills through ${billedThrough}${life.estimated_cents > 0 ? `, plus about ${dollars(roundDollars(life.estimated_cents))} estimated for the days since` : ""}. `
+                  : "The cost is estimated from the monthly bills below. "}
                 Member payments are every payment through Square since April 2026, after card fees and refunds,
                 not counting the founder&apos;s own.
               </p>

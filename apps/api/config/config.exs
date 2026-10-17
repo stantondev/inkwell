@@ -32,19 +32,23 @@ config :inkwell, :transparency_costs, [
   {"Email (Resend)", 2000, "Sign-in links, notifications and newsletters"}
 ]
 
-# What running Inkwell has cost since it opened, for /transparency's "Since
-# launch" numbers. Each period's monthly bill (cents) applies from its date
-# until the next period starts. Until real invoice totals are entered these
-# are today's bills carried back, so the page labels the total an estimate.
+# What running Inkwell has cost, for /transparency's "Since Inkwell opened".
+# Real bills, one line per calendar month: the Fly invoice plus Resend ($20).
+# Add a line when each month's Fly invoice arrives (fly.io → Billing). Any
+# month after the last line is estimated from :transparency_costs above, and
+# the page says so.
 config :inkwell, :transparency_started_on, ~D[2026-02-20]
 
-config :inkwell, :transparency_cost_history, [
-  {~D[2026-02-20], 6700},
-  # Database 512 MB -> 1 GB.
-  {~D[2026-09-29], 6951}
+config :inkwell, :transparency_bills, [
+  {~D[2026-02-01], 3878 + 2000},
+  {~D[2026-03-01], 2993 + 2000},
+  {~D[2026-04-01], 4660 + 2000},
+  {~D[2026-05-01], 4747 + 2000},
+  {~D[2026-06-01], 4589 + 2000},
+  {~D[2026-07-01], 4722 + 2000},
+  {~D[2026-08-01], 4719 + 2000},
+  {~D[2026-09-01], 4616 + 2000}
 ]
-
-config :inkwell, :transparency_costs_estimated, true
 
 config :inkwell, Oban,
   repo: Inkwell.Repo,

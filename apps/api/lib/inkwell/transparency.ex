@@ -53,22 +53,44 @@ defmodule Inkwell.Transparency do
   end
 
   @doc """
-  Since launch: what running Inkwell has cost (from the configured monthly
-  bills), what members have paid (every completed Square payment, not
-  counting the admins' own), and the difference. `paid_cents` is nil when
-  Square can't be reached and nothing is cached.
+  Since launch: what running Inkwell has cost (the real monthly bills in
+  `:transparency_bills`, plus an estimate for any month after the last one,
+  from today's `:transparency_costs`), what members have paid (every
+  completed Square payment, not counting the admins' own), and the
+  difference. `paid_cents` is nil when Square can't be reached and nothing
+  is cached.
   """
   def lifetime(today \\ Date.utc_today()) do
     started_on = Application.get_env(:inkwell, :transparency_started_on, ~D[2026-02-20])
-    history = Application.get_env(:inkwell, :transparency_cost_history, [])
-    cost = cost_between(history, started_on, today)
+    bills = Application.get_env(:inkwell, :transparency_bills, []) |> Enum.sort_by(&elem(&1, 0), Date)
+    billed = Enum.reduce(bills, 0, fn {_, cents}, acc -> acc + cents end)
+
+    # Months with no bill yet (the one in progress, or any not entered) are
+    # estimated at today's monthly cost.
+    estimate_from =
+      case List.last(bills) do
+        {month, _} -> month |> Date.end_of_month() |> Date.add(1)
+        nil -> started_on
+      end
+
+    monthly = Enum.reduce(costs(), 0, &(&1.monthly_cents + &2))
+    estimated = cost_between([{estimate_from, monthly}], estimate_from, today)
+    cost = billed + estimated
     paid = lifetime_paid()
 
     %{
       started_on: started_on,
       days: max(Date.diff(today, started_on), 0),
+      costs_since: (case bills do
+        [{first, _} | _] -> first
+        [] -> started_on
+      end),
+      billed_through: (case List.last(bills) do
+        {month, _} -> Date.end_of_month(month)
+        nil -> nil
+      end),
       cost_cents: cost,
-      cost_estimated: Application.get_env(:inkwell, :transparency_costs_estimated, true),
+      estimated_cents: estimated,
       paid_cents: paid,
       behind_cents: if(is_integer(paid), do: max(cost - paid, 0), else: nil)
     }

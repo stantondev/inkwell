@@ -26,15 +26,23 @@ defmodule Inkwell.TransparencyLifetimeTest do
     assert Transparency.net_cents(%{"amount_money" => %{"amount" => 500}, "refunded_money" => %{"amount" => 500}}) == 0
   end
 
-  test "lifetime reports days, an estimated cost, and no paid number without Square" do
+  test "lifetime adds the real bills and estimates only the months after them" do
     Transparency.clear_cache()
-    life = Transparency.lifetime(~D[2026-10-17])
+    previous = Application.get_env(:inkwell, :transparency_bills)
+    on_exit(fn -> Application.put_env(:inkwell, :transparency_bills, previous) end)
+    Application.put_env(:inkwell, :transparency_bills, [{~D[2026-08-01], 6000}, {~D[2026-09-01], 7000}])
 
-    assert life.days == Date.diff(~D[2026-10-17], life.started_on)
-    assert life.cost_cents > 0
-    assert life.cost_estimated
-    assert life.paid_cents == nil
-    assert life.behind_cents == nil
+    life = Transparency.lifetime(~D[2026-10-01])
+    assert life.cost_cents == 13_000
+    assert life.estimated_cents == 0
+    assert life.billed_through == ~D[2026-09-30]
+    assert life.costs_since == ~D[2026-08-01]
+
+    later = Transparency.lifetime(~D[2026-10-17])
+    assert later.estimated_cents > 0
+    assert later.cost_cents == 13_000 + later.estimated_cents
+    assert later.paid_cents == nil
+    assert later.behind_cents == nil
   after
     Transparency.clear_cache()
   end
