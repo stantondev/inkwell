@@ -1,4 +1,5 @@
 import { PLUS_FRAME_IDS, AVATAR_ANIMATION_IDS, avatarFrameUrl } from "@/lib/avatar-frames";
+import { AvatarImage } from "./avatar-image";
 
 interface AvatarWithFrameProps {
   url: string | null;
@@ -67,14 +68,7 @@ export function AvatarWithFrame({
         style={{ width: size, height: size, top: offset, left: offset }}
       >
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={name}
-            className="w-full h-full object-cover"
-            width={size}
-            height={size}
-          />
+          <AvatarImage url={url} name={name} size={size} />
         ) : (
           <div
             className="w-full h-full rounded-full flex items-center justify-center font-semibold select-none"

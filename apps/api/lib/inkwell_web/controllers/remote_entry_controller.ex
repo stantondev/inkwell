@@ -172,6 +172,7 @@ defmodule InkwellWeb.RemoteEntryController do
           |> order_by(asc: :inserted_at)
           |> preload(:user)
           |> Repo.all()
+          |> Inkwell.Federation.RemoteAuthors.with_current_avatars()
 
         json(conn, %{
           data: Enum.map(comments, &render_comment/1),

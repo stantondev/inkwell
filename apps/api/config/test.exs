@@ -19,6 +19,7 @@ config :inkwell, Oban, testing: :inline
 
 # Run federation side work inline instead of in a Task (see Inkwell.Federation.Background).
 config :inkwell, :federation_background, false
+config :inkwell, :refresh_remote_authors, false
 
 # Don't read fediverse posts' counts from real servers (Inkwell.Federation.Engagement).
 config :inkwell, :refresh_fediverse_counts, false

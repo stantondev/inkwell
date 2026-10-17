@@ -19,6 +19,7 @@ defmodule InkwellWeb.GuestbookController do
         # Post-filter guestbook entries from blocked users
         blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
         entries = if blocked_ids != [], do: Enum.reject(entries, fn e -> e.author_id in blocked_ids end), else: entries
+        entries = Inkwell.Federation.RemoteAuthors.with_current_avatars(entries)
 
         json(conn, %{
           data: Enum.map(entries, &render_entry/1),

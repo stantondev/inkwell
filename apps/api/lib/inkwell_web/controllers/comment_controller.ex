@@ -25,6 +25,7 @@ defmodule InkwellWeb.CommentController do
         # Post-filter comments from blocked users
         blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
         comments = if blocked_ids != [], do: Enum.reject(comments, fn c -> c.user_id in blocked_ids end), else: comments
+        comments = Inkwell.Federation.RemoteAuthors.with_current_avatars(comments)
         json(conn, %{data: Enum.map(comments, &render_comment/1)})
       else
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
@@ -52,7 +53,10 @@ defmodule InkwellWeb.CommentController do
         blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
         comments = if blocked_ids != [], do: Enum.reject(comments, fn c -> c.user_id in blocked_ids end), else: comments
         # Apply limit (most recent N)
-        limited = Enum.take(comments, -limit) |> Enum.reverse() |> Enum.reverse()
+        limited =
+          comments
+          |> Enum.take(-limit)
+          |> Inkwell.Federation.RemoteAuthors.with_current_avatars()
         json(conn, %{data: Enum.map(limited, &render_comment/1)})
       else
         conn |> put_status(:not_found) |> json(%{error: "Entry not found"})
