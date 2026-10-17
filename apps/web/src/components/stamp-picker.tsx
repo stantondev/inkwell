@@ -13,14 +13,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FloatingPopup } from "./floating-popup";
 import { StampArt } from "./stamp-art";
+import { StampOutlineIcon, StampSheet } from "./stamp-sheet";
 import {
   STAMP_CONFIG,
   STAMP_NOTE_MAX,
-  STAMP_SHEETS,
   formatStampDay,
   resolveStampType,
   stampInfo,
-  stampsInSheet,
   type StampMark,
 } from "./stamp-config";
 import { emitStampState, findPressedMark, useStampState } from "@/lib/stamp-state";
@@ -49,18 +48,6 @@ interface StampPickerProps {
 }
 
 const PRESS_MS = 560;
-
-function StampOutlineIcon({ size = 16 }: { size?: number }) {
-  // A perforated stamp outline (dashed edge = the perforations) with a little picture.
-  return (
-    <svg width={size} height={Math.round(size * 1.2)} viewBox="0 0 20 24" aria-hidden="true" className="stamp-trigger-icon">
-      <rect x="1" y="1" width="18" height="22" rx="0.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="1.6 2.1" />
-      <rect x="4.5" y="4.5" width="11" height="15" rx="0.5" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.75" />
-      <path d="M7 15.5c1.2-2.4 2.4-3.4 3-3.4s1.6 1.4 3 3.4" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.75" />
-      <circle cx="12.6" cy="8.6" r="1.3" fill="currentColor" opacity="0.75" />
-    </svg>
-  );
-}
 
 function errorText(status: number, body: { error?: string; code?: string } | null): string {
   if (body?.code === "retired") return "That stamp has been retired. Choose another from the sheet.";
@@ -349,58 +336,21 @@ export function StampPicker({
   const sameAsSent = !!myStamp && chosen === myStamp && note.trim() === (myNote ?? "").trim();
 
   const sheet = (
-    <div className="stamp-sheet">
-      <div className="stamp-sheet-head">
-        <p className="stamp-sheet-title">{writerName ? `Send ${writer} a stamp` : "Send a stamp"}</p>
-        {myStamp && (
+    <StampSheet
+      title={writerName ? `Send ${writer} a stamp` : "Send a stamp"}
+      selected={myStamp}
+      isPlus={isPlus}
+      isMobile={isMobile}
+      plusHint={plusHint}
+      onChoose={choose}
+      headerAction={
+        myStamp ? (
           <button type="button" className="stamp-link" onClick={() => setStep("back")}>
             Back to your stamp
           </button>
-        )}
-      </div>
-      {STAMP_SHEETS.map(({ sheet: s, title, blurb }) => {
-        const types = stampsInSheet(s);
-        if (types.length === 0) return null;
-        const locked = s === "keepsake" && !isPlus;
-        const issued = s === "issue" ? STAMP_CONFIG[types[0]]?.issued : null;
-        return (
-          <section key={s} className={`stamp-sheet-section${locked ? " is-locked" : ""}`}>
-            <h3 className="stamp-sheet-section-title">
-              {title}
-              <span className="stamp-sheet-section-blurb">{issued ? `Issued ${issued}` : blurb}</span>
-            </h3>
-            <div className="stamp-sheet-grid">
-              {types.map((t) => {
-                const info = STAMP_CONFIG[t];
-                const isMine = myStamp === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    data-stamp-choice
-                    className={`stamp-choice${isMine ? " is-mine" : ""}`}
-                    aria-label={`${info.label}: ${info.description}${locked ? " (Plus)" : ""}${isMine ? " (your stamp)" : ""}`}
-                    aria-disabled={locked ? "true" : undefined}
-                    onClick={() => choose(t)}
-                  >
-                    <StampArt type={t} width={isMobile ? 52 : 50} />
-                    <span className="stamp-choice-label">{info.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {locked && (
-              <p className={`stamp-sheet-note${plusHint ? " is-flagged" : ""}`}>
-                Keepsakes are a Plus sheet.{" "}
-                <a href="/settings/billing" className="stamp-link">
-                  About Plus
-                </a>
-              </p>
-            )}
-          </section>
-        );
-      })}
-    </div>
+        ) : null
+      }
+    />
   );
 
   const back = chosen && chosenInfo && (

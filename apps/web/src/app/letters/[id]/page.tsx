@@ -19,6 +19,10 @@ export interface LetterMessage {
   sender_profile_url?: string | null;
   is_mine: boolean;
   inserted_at: string;
+  /** The stamp on the envelope; "abroad" for a letter from a fediverse account. */
+  stamp_type?: string | null;
+  /** For "abroad": the sender's server, for the postmark. */
+  stamp_domain?: string | null;
 }
 
 export interface ThreadData {
@@ -80,6 +84,7 @@ export default async function LetterThreadPage({
         initialThread={thread}
         conversationId={id}
         focusLetterId={typeof letter === "string" ? letter : null}
+        isPlus={session.user.subscription_tier === "plus"}
       />
     </div>
   );

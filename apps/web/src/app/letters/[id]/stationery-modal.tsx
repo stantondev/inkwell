@@ -16,6 +16,8 @@ interface StationeryModalProps {
   initialDraftHtml: string;
   onDraftChange: (html: string) => void;
   onSent: (message: LetterMessage) => void;
+  /** The envelope stamp: its value and chooser (members only). */
+  stamp?: { value: string | null; chooser: React.ReactNode };
 }
 
 export function StationeryModal({
@@ -28,6 +30,7 @@ export function StationeryModal({
   initialDraftHtml,
   onDraftChange,
   onSent,
+  stamp,
 }: StationeryModalProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +129,7 @@ export function StationeryModal({
       const res = await fetch(`/api/letters/${conversationId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body_html: html }),
+        body: JSON.stringify({ body_html: html, stamp_type: stamp?.value ?? null }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -183,14 +186,17 @@ export function StationeryModal({
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                className="stationery-close"
-                onClick={attemptClose}
-                aria-label="Close"
-              >
-                ×
-              </button>
+              <div className="stationery-header-end">
+                {stamp?.chooser}
+                <button
+                  type="button"
+                  className="stationery-close"
+                  onClick={attemptClose}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
             </header>
 
             <div className="stationery-paper">

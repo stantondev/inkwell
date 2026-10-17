@@ -231,7 +231,10 @@ export default function GuidePage() {
             </Link>{" "}
             and press <em>New letter</em>. From there you can archive, mute or
             search conversations, and choose whether people who aren&rsquo;t
-            your pen pals yet may send you one letter request.
+            your pen pals yet may send you one letter request. You can put a
+            stamp on each letter&rsquo;s envelope (the button beside the reply
+            box); it shows in the letter&rsquo;s corner, postmarked with the day
+            you sent it.
           </p>
           <p>
             Every profile has a <strong>guestbook</strong> — sign it to leave a

@@ -14,7 +14,10 @@ import {
   loadLetterDraft,
   saveLetterDraft,
 } from "@/lib/letter-drafts";
+import { StampImpression } from "@/components/stamp-impression";
+import { loadLetterStamp, saveLetterStamp, usableLetterStamp } from "@/lib/letter-stamp";
 import { StationeryModal } from "./stationery-modal";
+import { LetterStampChooser } from "./letter-stamp-chooser";
 import type { LetterMessage, ThreadData } from "./page";
 
 // Letters from the same person this close together read as one sitting, so
@@ -173,13 +176,28 @@ function LetterPage({
       id={`letter-${message.id}`}
       className={`letter-page ${message.is_mine ? "letter-page-mine" : "letter-page-theirs"} ${
         continued ? "letter-page-continued" : ""
-      } ${highlighted ? "letter-page-highlight" : ""}`}
+      } ${highlighted ? "letter-page-highlight" : ""} ${message.stamp_type ? "letter-page-stamped" : ""}`}
       initial={prefersReducedMotion || !isNew ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, transition: { duration: 0.15 } }}
       transition={{ duration: 0.25, ease: "easeOut" }}
       aria-label={`Letter from ${name}, ${fullDate(message.inserted_at, timeZone)}`}
     >
+      {message.stamp_type && (
+        // The stamp in the envelope's corner, postmarked the day it was sent.
+        <span className="letter-page-stamp">
+          <StampImpression
+            mark={{
+              id: message.id,
+              type: message.stamp_type,
+              stamped_on: dayKey(message.inserted_at, timeZone),
+              domain: message.stamp_domain ?? null,
+            }}
+            width={38}
+            pressed={isNew && message.is_mine && !prefersReducedMotion}
+          />
+        </span>
+      )}
       {!continued && (
         <header className="letter-page-head">
           <Avatar url={message.sender_avatar_url} name={message.sender_display_name} size={28} />
@@ -253,6 +271,7 @@ function ReplyBar({
   onDraftChange,
   onSent,
   onExpand,
+  stamp,
 }: {
   conversationId: string;
   recipientName: string;
@@ -261,6 +280,8 @@ function ReplyBar({
   onDraftChange: (html: string) => void;
   onSent: (message: LetterMessage) => void;
   onExpand: () => void;
+  /** The envelope stamp: its value and chooser (members only). */
+  stamp?: { value: string | null; chooser: React.ReactNode };
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -284,7 +305,7 @@ function ReplyBar({
       const res = await fetch(`/api/letters/${conversationId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body_html: html }),
+        body: JSON.stringify({ body_html: html, stamp_type: stamp?.value ?? null }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -307,6 +328,7 @@ function ReplyBar({
   return (
     <div className="letter-reply-bar">
       <div className="letter-reply-bar-inner">
+        {stamp?.chooser}
         <div className="letter-reply-bar-field">
           <LetterEditor
             key={editorKey}
@@ -369,11 +391,13 @@ interface Props {
   conversationId: string;
   /** A letter to scroll to, from a Letterbox search result. */
   focusLetterId?: string | null;
+  /** For the Keepsakes sheet of envelope stamps. */
+  isPlus?: boolean;
 }
 
 type ThreadAction = "archive" | "unarchive" | "mute" | "unmute" | "unread" | "delete" | "accept" | "decline";
 
-export function LetterThread({ initialThread, conversationId, focusLetterId = null }: Props) {
+export function LetterThread({ initialThread, conversationId, focusLetterId = null, isPlus = false }: Props) {
   const router = useRouter();
   const [muted, setMuted] = useState(Boolean(initialThread.muted));
   const [archived, setArchived] = useState(Boolean(initialThread.archived));
@@ -403,6 +427,9 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
   const prependAnchorRef = useRef<number | null>(null);
   const other = initialThread.other_user;
   const canWrite = initialThread.can_write !== false && !waiting;
+  // Letters to fediverse accounts go out as plain private messages: no stamp.
+  const stampsOn = !other.remote;
+  const [envelopeStamp, setEnvelopeStamp] = useState<string | null>(null);
 
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
@@ -416,6 +443,29 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
       setReplyKey((k) => k + 1);
     }
   }, [conversationId]);
+
+  // Start with the stamp last chosen here, else the one on your newest
+  // stamped letter (a new browser), else none.
+  useEffect(() => {
+    if (!stampsOn) return;
+    const remembered = loadLetterStamp(conversationId);
+    if (remembered !== undefined) {
+      setEnvelopeStamp(usableLetterStamp(remembered, isPlus));
+      return;
+    }
+    const mine = [...initialThread.messages].reverse().find((m) => m.is_mine && m.stamp_type);
+    setEnvelopeStamp(usableLetterStamp(mine?.stamp_type, isPlus));
+    // Only on arrival: after that the writer's own choice leads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
+  const chooseStamp = useCallback(
+    (type: string | null) => {
+      setEnvelopeStamp(type);
+      saveLetterStamp(conversationId, type);
+    },
+    [conversationId]
+  );
 
   // Save the draft a moment after typing stops.
   useEffect(() => {
@@ -872,6 +922,22 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
             onDraftChange={setDraftHtml}
             onSent={handleSent}
             onExpand={() => setComposeOpen(true)}
+            stamp={
+              stampsOn
+                ? {
+                    value: envelopeStamp,
+                    chooser: (
+                      <LetterStampChooser
+                        variant="bar"
+                        value={envelopeStamp}
+                        onChange={chooseStamp}
+                        isPlus={isPlus}
+                        recipientName={other.display_name}
+                      />
+                    ),
+                  }
+                : undefined
+            }
           />
         ) : waiting ? (
           <div className="letter-reply-closed" role="status">
@@ -897,6 +963,22 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
           initialDraftHtml={draftHtml}
           onDraftChange={setDraftHtml}
           onSent={handleSent}
+          stamp={
+            stampsOn
+              ? {
+                  value: envelopeStamp,
+                  chooser: (
+                    <LetterStampChooser
+                      variant="corner"
+                      value={envelopeStamp}
+                      onChange={chooseStamp}
+                      isPlus={isPlus}
+                      recipientName={other.display_name}
+                    />
+                  ),
+                }
+              : undefined
+          }
         />
       )}
     </div>

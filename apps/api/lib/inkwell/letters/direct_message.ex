@@ -14,6 +14,9 @@ defmodule Inkwell.Letters.DirectMessage do
     field :body, :string
     field :body_html, :string
     field :edited_at, :utc_datetime_usec
+    # The stamp on the envelope, chosen by the writer (a member). Checked
+    # against what can be picked today by `Inkwell.Letters.check_stamp/2`.
+    field :stamp_type, :string
     field :deleted_by_a, :boolean, default: false
     field :deleted_by_b, :boolean, default: false
 
@@ -29,9 +32,10 @@ defmodule Inkwell.Letters.DirectMessage do
 
   def changeset(message, attrs) do
     message
-    |> cast(attrs, [:conversation_id, :sender_id, :body, :body_html])
+    |> cast(attrs, [:conversation_id, :sender_id, :body, :body_html, :stamp_type])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:conversation_id, :sender_id, :body])
+    |> validate_inclusion(:stamp_type, Inkwell.Stamps.Stamp.pickable())
     |> validate_length(:body, min: 1, max: 10_000)
     |> validate_length(:body_html, max: @max_html)
   end

@@ -557,19 +557,44 @@ defmodule Inkwell.Letters do
   In a request, the person who sent it can't add a second letter until it's
   accepted (`{:error, :request_pending}`); the person it was sent to
   accepts it by replying.
+
+  Options: `stamp_type`, the stamp on the envelope (already checked with
+  `check_stamp/2`). Letters to fediverse accounts carry no stamp, so it's
+  dropped there.
   """
-  def send_letter(conversation_id, sender_id, body, body_html \\ nil) do
+  def send_letter(conversation_id, sender_id, body, body_html \\ nil, opts \\ []) do
     with {:ok, conversation_id} <- Ecto.UUID.cast(conversation_id),
          %Conversation{} = conv <- get_participant_conversation(conversation_id, sender_id) do
       if conv.remote_actor_id,
         do: send_remote_letter(conv, sender_id, body, body_html),
-        else: send_local_letter(conv, sender_id, body, body_html)
+        else: send_local_letter(conv, sender_id, body, body_html, opts[:stamp_type])
     else
       _ -> {:error, :not_found}
     end
   end
 
-  defp send_local_letter(conv, sender_id, body, body_html) do
+  @doc """
+  Whether `sender` may put `stamp_type` on a letter: nil or "" means no stamp
+  (`{:ok, nil}`); otherwise a design that can be picked today, and Keepsakes
+  only for Plus members (by effective tier).
+  """
+  def check_stamp(nil, _sender), do: {:ok, nil}
+  def check_stamp("", _sender), do: {:ok, nil}
+
+  def check_stamp(type, sender) when is_binary(type) do
+    alias Inkwell.Stamps.Stamp
+
+    cond do
+      type in Stamp.retired() -> {:error, :retired}
+      type not in Stamp.pickable() -> {:error, :invalid_stamp}
+      type in Stamp.keepsakes() and Inkwell.SelfHosted.effective_tier(sender) != "plus" -> {:error, :plus_required}
+      true -> {:ok, type}
+    end
+  end
+
+  def check_stamp(_type, _sender), do: {:error, :invalid_stamp}
+
+  defp send_local_letter(conv, sender_id, body, body_html, stamp_type) do
     recipient_id = other_participant_id(conv, sender_id)
 
     cond do
@@ -587,7 +612,8 @@ defmodule Inkwell.Letters do
             conversation_id: conv.id,
             sender_id: sender_id,
             body: String.trim(body),
-            body_html: body_html
+            body_html: body_html,
+            stamp_type: stamp_type
           }
 
           case %DirectMessage{} |> DirectMessage.changeset(attrs) |> Repo.insert() do

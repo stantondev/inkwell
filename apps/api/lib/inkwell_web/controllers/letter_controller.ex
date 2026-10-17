@@ -9,10 +9,9 @@ defmodule InkwellWeb.LetterController do
     body_html = sanitize_html(params["body_html"])
     body = derive_plain_text(body_html) || String.trim(params["body"] || "")
 
-    if body == "" do
-      conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing body parameter"})
-    else
-      case Letters.send_letter(conversation_id, user.id, body, body_html) do
+    with {:body, false} <- {:body, body == ""},
+         {:ok, stamp_type} <- Letters.check_stamp(params["stamp_type"], user) do
+      case Letters.send_letter(conversation_id, user.id, body, body_html, stamp_type: stamp_type) do
         {:ok, message} ->
           conn
           |> put_status(:created)
@@ -41,6 +40,22 @@ defmodule InkwellWeb.LetterController do
         {:error, _} ->
           conn |> put_status(:internal_server_error) |> json(%{error: "Failed to send letter"})
       end
+    else
+      {:body, true} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Missing body parameter"})
+
+      {:error, :plus_required} ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{error: "Keepsakes are a Plus sheet. Choose another stamp.", code: "plus_required"})
+
+      {:error, :retired} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "That stamp has been retired. Choose another.", code: "retired"})
+
+      {:error, :invalid_stamp} ->
+        conn |> put_status(:bad_request) |> json(%{error: "That isn't a stamp we know.", code: "invalid_stamp"})
     end
   end
 

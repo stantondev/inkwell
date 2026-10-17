@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-17-letter-stamps",
+    date: "2026-10-17",
+    title: "Stamps on your letters",
+    body: "When you write a letter, you can put a stamp on the envelope, chosen from the same sheet as the stamps you send to entries. Each letter shows its stamp in the corner, postmarked with the day it was sent. Letters remember the last stamp you chose for each person, so you only pick once unless you feel like a change. Letters from the fediverse arrive with an airmail stamp from their server.",
+    howTo: "In any conversation, tap the stamp beside the reply box, or the stamp in the corner of the stationery.",
+    href: "/letters",
+    cta: "Open your letters",
+    tag: "Letters",
+  },
+  {
     id: "2026-10-17-stamps-postage",
     date: "2026-10-17",
     title: "Stamps are postage now",

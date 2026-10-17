@@ -20242,3 +20242,98 @@ body[data-look="classic"] .stamp-picker-popup,
 body[data-look="classic"] .stamp-list-popup { border-radius: 4px; }
 body[data-look="classic"] .stamp-send { border-radius: 4px; }
 body[data-look="classic"] .stamp-album-page { border-radius: 2px; }
+
+/* ── Stamps on letters ─────────────────────────────────────────────────────
+   The envelope stamp: chosen in the reply bar or the stationery's corner,
+   shown in each letter's top-right corner with its postmark. Letter paper is
+   always light, so the postmark keeps its daylight ink in dark mode too. */
+.letter-page-stamp {
+  float: right;
+  margin: -6px -8px 4px 14px;
+  padding: 2px 4px 6px 6px;
+  line-height: 0;
+  --stamp-postmark-ink: rgba(28, 34, 56, 0.6);
+}
+.letter-page-mine .letter-page-stamp { --stamp-postmark-ink: rgba(34, 52, 94, 0.62); }
+.letter-page-stamp .stamp-impression-postmark { mix-blend-mode: multiply; }
+/* Phones: the header has no room beside a floated stamp, so a smaller one
+   sits over the page's corner instead, as if stuck on slightly crooked. */
+@media (max-width: 479px) {
+  .letter-page-stamp {
+    float: none;
+    position: absolute;
+    top: -9px;
+    right: -5px;
+    margin: 0;
+    padding: 0;
+    transform: scale(0.8);
+    transform-origin: top right;
+    z-index: 1;
+  }
+  .letter-page-stamped .letter-page-head { padding-right: 24px; }
+  .letter-page-stamped.letter-page-continued .letter-page-body { padding-right: 20px; }
+  .letter-page-stamped .letter-page-time { white-space: nowrap; }
+}
+
+.letter-stamp-trigger {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.15s, transform 0.15s;
+}
+.letter-stamp-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.letter-stamp-trigger-bar {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.letter-stamp-trigger-bar:hover { color: var(--foreground); }
+.letter-stamp-trigger-bar.is-stamped .stamp-art {
+  transform: rotate(-5deg);
+  filter: drop-shadow(0 1px 1px rgba(40, 28, 8, 0.3));
+}
+.letter-stamp-trigger-corner {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px;
+  border-radius: 6px;
+  background: none;
+  border: 0;
+  color: #8a7a4a;
+}
+.letter-stamp-trigger-corner.is-stamped .stamp-art {
+  transform: rotate(4deg);
+  filter: drop-shadow(0 1px 1px rgba(40, 28, 8, 0.28)) drop-shadow(0 2px 4px rgba(40, 28, 8, 0.12));
+}
+.letter-stamp-trigger-corner:hover { color: #3a2a10; }
+.letter-stamp-trigger-corner.is-stamped:hover .stamp-art { transform: rotate(1deg) translateY(-1px); }
+.letter-stamp-empty {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 38px;
+  height: 46px;
+  border: 1.5px dashed rgba(138, 122, 74, 0.55);
+  border-radius: 3px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 9.5px;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+.stationery-header-end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .letter-stamp-trigger,
+  .letter-stamp-trigger .stamp-art { transition: none; }
+}

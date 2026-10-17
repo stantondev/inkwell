@@ -91,7 +91,16 @@ defmodule InkwellWeb.LetterJSON do
       is_mine: mine?,
       inserted_at: message.inserted_at
     }
+    |> Map.merge(stamp(message))
   end
+
+  # The stamp on the envelope: the design the writer chose, or, for a letter
+  # from a fediverse account, the airmail frame with their server for the
+  # postmark (no emoji: none was chosen).
+  defp stamp(%{sender_remote_actor: %RemoteActorSchema{domain: domain}}),
+    do: %{stamp_type: "abroad", stamp_domain: domain}
+
+  defp stamp(message), do: %{stamp_type: message.stamp_type, stamp_domain: nil}
 
   defp preview(message) do
     %{
