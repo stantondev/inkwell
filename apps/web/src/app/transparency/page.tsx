@@ -167,11 +167,11 @@ export default async function TransparencyPage() {
                   <p className="text-sm mt-3">
                     {(life.behind_cents ?? 0) > 0 ? (
                       <>
-                        <strong>The founder is about {dollars(roundDollars(life.behind_cents ?? 0))} behind.</strong>{" "}
+                        <strong>Members have paid back {lifeShare}% of what Inkwell has cost so far.</strong>{" "}
                         <span style={{ color: "var(--muted)" }}>
                           {gap > 0
-                            ? `Members cover ${data.percent_covered}% of each month right now, so that grows by about ${dollars(gap)} a month until they cover all of it.`
-                            : "Members now cover each month in full, so the gap is shrinking."}
+                            ? `Right now they cover ${data.percent_covered}% of each month.`
+                            : "They now cover each month in full."}
                         </span>
                       </>
                     ) : (
