@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { decodeEntities } from "@/lib/decode-entities";
-import { PenNibIcon, truncate, ogFonts, fetchImageDataUri } from "../../../og-shared";
+import { PenNibIcon, truncate, ogFonts, fetchImageDataUri, cachedCard } from "../../../og-shared";
 import { getSite } from "@/lib/site";
 
 /**
@@ -474,7 +474,11 @@ function PlainCard() {
   );
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ username: string; slug: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ username: string; slug: string }> }) {
+  return cachedCard(req, () => draw(ctx));
+}
+
+async function draw({ params }: { params: Promise<{ username: string; slug: string }> }): Promise<Response> {
   const { username, slug } = await params;
   const fonts = await ogFonts();
 

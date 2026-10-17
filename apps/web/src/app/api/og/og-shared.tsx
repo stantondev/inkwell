@@ -87,3 +87,61 @@ export async function ogFonts() {
     { name: "Lora", data: bold, weight: 700 as const, style: "normal" as const },
   ];
 }
+
+/**
+ * Drawing a preview card costs about a second of CPU, and when a post goes
+ * out to the fediverse every server that receives it fetches the card at
+ * once. Without this, each fetch drew it again and the web machines (one
+ * shared CPU each) stalled for everyone. Cards are kept in memory by URL (the
+ * pages link them with ?v=<stamp>, so an edit gets a new URL), and requests
+ * that arrive while a card is being drawn wait for that one drawing.
+ */
+type CachedCard = { body: ArrayBuffer; status: number; headers: [string, string][]; expires: number };
+const CARD_CACHE_MAX = 150;
+const cardCache = new Map<string, CachedCard>();
+const cardsInFlight = new Map<string, Promise<CachedCard>>();
+
+function maxAgeMs(headers: Headers): number {
+  const m = /max-age=(\d+)/.exec(headers.get("cache-control") ?? "");
+  return Math.min(m ? Number(m[1]) * 1000 : 300_000, 6 * 60 * 60 * 1000);
+}
+
+function toResponse(card: CachedCard): Response {
+  return new Response(card.body.slice(0), { status: card.status, headers: card.headers });
+}
+
+export async function cachedCard(req: Request, render: () => Promise<Response>): Promise<Response> {
+  const url = new URL(req.url);
+  const key = url.pathname + url.search;
+  const hit = cardCache.get(key);
+  if (hit && hit.expires > Date.now()) {
+    cardCache.delete(key);
+    cardCache.set(key, hit);
+    return toResponse(hit);
+  }
+
+  let pending = cardsInFlight.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const res = await render();
+      const body = await res.arrayBuffer();
+      const card: CachedCard = {
+        body,
+        status: res.status,
+        headers: [...res.headers.entries()],
+        expires: Date.now() + (res.ok ? maxAgeMs(res.headers) : 0),
+      };
+      if (res.ok) {
+        cardCache.set(key, card);
+        while (cardCache.size > CARD_CACHE_MAX) {
+          const oldest = cardCache.keys().next().value;
+          if (oldest === undefined) break;
+          cardCache.delete(oldest);
+        }
+      }
+      return card;
+    })().finally(() => cardsInFlight.delete(key));
+    cardsInFlight.set(key, pending);
+  }
+  return toResponse(await pending);
+}

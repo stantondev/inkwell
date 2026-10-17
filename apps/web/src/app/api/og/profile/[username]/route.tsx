@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { SERVER_API } from "@/lib/api";
 import { decodeEntities } from "@/lib/decode-entities";
 import { fediverseHandle } from "@/lib/fediverse";
-import { PenNibIcon, truncate, ogFonts, fetchImageDataUri } from "../../og-shared";
+import { PenNibIcon, truncate, ogFonts, fetchImageDataUri, cachedCard } from "../../og-shared";
 import { getSite } from "@/lib/site";
 
 /**
@@ -124,7 +124,11 @@ function Portrait({ avatar, name, size }: { avatar: string | null; name: string;
   );
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ username: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ username: string }> }) {
+  return cachedCard(req, () => draw(ctx));
+}
+
+async function draw({ params }: { params: Promise<{ username: string }> }): Promise<Response> {
   const { username } = await params;
   const fonts = await ogFonts();
 
