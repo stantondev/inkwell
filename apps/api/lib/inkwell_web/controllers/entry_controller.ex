@@ -1315,7 +1315,8 @@ defmodule InkwellWeb.EntryController do
             avatar_frame: author.avatar_frame,
             avatar_animation: author.avatar_animation,
             subscription_tier: Inkwell.SelfHosted.effective_tier(author),
-            ink_donor_status: author.ink_donor_status
+            ink_donor_status: author.ink_donor_status,
+            founding_member_number: author.founding_member_number
           }
         }
     end

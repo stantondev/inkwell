@@ -17,7 +17,27 @@ defmodule Inkwell.Announcements do
 
   @spacing_seconds 1
 
-  def recipients_query do
+  @doc """
+  Everyone who can get a founder email. With `exclude_paying: true`, people
+  who already pay (Founding Members, paying Plus, Ink Donors) are left out —
+  an email asking for support shouldn't ask them again.
+  """
+  def recipients_query(opts \\ []) do
+    query = base_recipients_query()
+    if opts[:exclude_paying], do: exclude_paying(query), else: query
+  end
+
+  defp exclude_paying(query) do
+    from(u in query,
+      where: is_nil(u.founding_member_number),
+      where: coalesce(u.ink_donor_status, "") != "active",
+      where:
+        not (u.subscription_tier == "plus" and not is_nil(u.square_subscription_id) and
+               u.subscription_status in ["active", "past_due"])
+    )
+  end
+
+  defp base_recipients_query do
     from(u in User,
       where: is_nil(u.blocked_at),
       # Accounts limited by spam moderation don't get founder emails either.
@@ -30,7 +50,7 @@ defmodule Inkwell.Announcements do
     )
   end
 
-  def recipient_count, do: recipients_query() |> select([u], count(u.id)) |> Repo.one()
+  def recipient_count(opts \\ []), do: recipients_query(opts) |> select([u], count(u.id)) |> Repo.one()
 
   def validate(subject, body) do
     cond do
@@ -50,9 +70,9 @@ defmodule Inkwell.Announcements do
   end
 
   @doc "Queue the email for every recipient. Returns {:ok, queued_count}."
-  def enqueue_all(subject, body) do
+  def enqueue_all(subject, body, opts \\ []) do
     with :ok <- validate(subject, body) do
-      ids = recipients_query() |> order_by([u], asc: u.inserted_at) |> select([u], u.id) |> Repo.all()
+      ids = recipients_query(opts) |> order_by([u], asc: u.inserted_at) |> select([u], u.id) |> Repo.all()
 
       jobs =
         ids

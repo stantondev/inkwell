@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { ReadsChart } from "./reads-chart";
+import { ReadersPlusCard } from "./readers-plus-card";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readers" };
@@ -188,20 +189,7 @@ export default async function ReadersPage({ searchParams }: { searchParams: Prom
               </Card>
             </>
           ) : (
-            <Card>
-              <h2 className="text-base font-semibold mb-2" style={serif}>See the whole picture with Plus</h2>
-              <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-                Plus shows reads day by day, which entries people read most, and which sites
-                and searches sent them. You can try it free for 14 days, no card needed.
-              </p>
-              <Link
-                href="/settings/billing"
-                className="inline-flex rounded-full px-5 py-2 text-sm font-medium"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
-                Try Plus free
-              </Link>
-            </Card>
+            <ReadersPlusCard />
           )}
         </div>
       )}

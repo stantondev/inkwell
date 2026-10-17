@@ -96,6 +96,7 @@ export async function AppShell({
           avatarAnimation={user.avatar_animation}
           subscriptionTier={user.subscription_tier}
           inkDonorStatus={user.ink_donor_status}
+          foundingMemberNumber={user.founding_member_number ?? null}
           isAdmin={user.is_admin}
           selfHosted={user.self_hosted}
           unreadNotificationCount={user.unread_notification_count ?? 0}

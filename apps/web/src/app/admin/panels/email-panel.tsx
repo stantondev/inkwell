@@ -1,37 +1,68 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSite } from "@/lib/site";
+import { getSite, siteUrl } from "@/lib/site";
+import { dollars, foundingPriceNote, lastDayAtPrice, type FoundingStatus } from "@/lib/plus-pitch";
 
 // Draft written for the founder to edit before sending. Plain text: blank
-// lines separate paragraphs; https:// links become clickable.
+// lines separate paragraphs; https:// links become clickable. The numbers come
+// from /api/transparency when the panel opens, so the draft never goes stale.
 const DRAFT_SUBJECT = "A note from the person who runs Inkwell";
-const DRAFT_BODY = `Hi,
+
+interface Books {
+  monthly_cost_cents: number;
+  monthly_revenue_cents: number;
+  users: { total: number; active_writers_30d: number };
+  founding: FoundingStatus & { raised_cents?: number };
+}
+
+function draftBody(books: Books | null): string {
+  const site = siteUrl("");
+  const numbers = books
+    ? `Inkwell has grown to ${books.users.total.toLocaleString()} people, and ${books.users.active_writers_30d} of them wrote something this month, without any ads or marketing. It costs about ${dollars(books.monthly_cost_cents)} a month to run. Members cover ${dollars(books.monthly_revenue_cents)} of that each month${books.founding.raised_cents ? `, and Founding Members have paid ${dollars(books.founding.raised_cents)} once` : ""}. The rest comes out of my pocket. You can see the real numbers here: ${site}/transparency`
+    : `Inkwell has grown without any ads or marketing, but it doesn't pay for itself yet. You can see the real numbers here: ${site}/transparency`;
+  const priceNote = foundingPriceNote(books?.founding);
+  const founding =
+    books && books.founding.remaining > 0
+      ? `• Become one of ${books.founding.cap} Founding Members — ${dollars(books.founding.price_cents)} once${priceNote ? ` (it goes up to ${dollars(books.founding.next_price_cents ?? 0)} after ${lastDayAtPrice(books.founding)})` : ""}, and you have Plus for as long as Inkwell runs, with a numbered badge on your profile.\n`
+      : "";
+
+  return `Hi,
 
 I'm Stanton. I build and run Inkwell by myself, around a day job, and I wanted to write to you directly.
 
-Inkwell has grown to more than 200 people without any ads or marketing — just people finding it and telling friends. That still amazes me. But it doesn't pay for itself yet. It costs about $67 a month to run, and right now members cover almost none of that. You can see the real numbers here: https://inkwell.social/transparency
+${numbers}
 
-I don't want to add ads, sell your data, or chase engagement. So I'm asking the people who write here to help keep it going, in whatever way works for you:
+I don't want to add ads, sell your data, or chase engagement. If you'd like to help keep it going, here's how:
 
-• Become one of 50 Founding Members — $99 once, and you have Plus for as long as Inkwell runs, with a numbered badge on your profile.
-• Try Plus free for 14 days, no card needed. If it's worth it to you, keep it for $5 a month or $50 a year.
-• Become an Ink Donor for $1–$3 a month.
-• Or tell one friend who misses LiveJournal. That helps just as much.
+${founding}• Try Plus free for 14 days, no card needed. If it's worth it to you, keep it for $5 a month or $50 a year.
+• Give once, any amount, with nothing to renew.
+• Or tell one friend who'd like a quiet place to write. That helps just as much.
 
-Everything is here: https://inkwell.social/settings/billing
+Everything is here: ${site}/settings/billing
 
-I've also just fixed a few things. If signing up crashed on you, especially if your browser translates pages, that's fixed now. Images in posts show up properly on Mastodon again, too.
-
-Thank you for writing here. If there's something that would make Inkwell better for you, tell me on the roadmap: https://inkwell.social/roadmap
+Thank you for writing here. If there's something that would make Inkwell better for you, tell me on the roadmap: ${site}/roadmap
 
 — Stanton`;
+}
 
 export default function EmailPanel() {
   // The draft is inkwell.social's founder letter; another server starts blank.
   const selfHosted = getSite().selfHosted;
   const [subject, setSubject] = useState(selfHosted ? "" : DRAFT_SUBJECT);
-  const [body, setBody] = useState(selfHosted ? "" : DRAFT_BODY);
+  const [body, setBody] = useState("");
+  // Leave out people who already pay: this email asks for support.
+  const [excludePaying, setExcludePaying] = useState(!selfHosted);
+
+  useEffect(() => {
+    if (selfHosted) return;
+    let alive = true;
+    fetch("/api/transparency")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setBody((b) => b || draftBody(d?.data ?? null)); })
+      .catch(() => { if (alive) setBody((b) => b || draftBody(null)); });
+    return () => { alive = false; };
+  }, [selfHosted]);
   const [count, setCount] = useState<number | null>(null);
   const [previewHtml, setPreviewHtml] = useState("");
   const [busy, setBusy] = useState<"" | "test" | "send">("");
@@ -42,7 +73,7 @@ export default function EmailPanel() {
   useEffect(() => {
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/announcement?body=${encodeURIComponent(body)}`);
+        const res = await fetch(`/api/admin/announcement?body=${encodeURIComponent(body)}&exclude_paying=${excludePaying}`);
         const data = await res.json();
         if (res.ok) {
           setCount(data.recipient_count);
@@ -55,7 +86,7 @@ export default function EmailPanel() {
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [body]);
+  }, [body, excludePaying]);
 
   async function post(path: string, payload: object) {
     const res = await fetch(path, {
@@ -78,7 +109,7 @@ export default function EmailPanel() {
   async function sendAll() {
     if (count == null || confirmText.trim() !== String(count)) return;
     setBusy("send"); setMessage(""); setError("");
-    const { ok, data } = await post("/api/admin/announcement/send", { subject, body, confirm_count: count });
+    const { ok, data } = await post("/api/admin/announcement/send", { subject, body, confirm_count: count, exclude_paying: excludePaying });
     if (ok) {
       setMessage(`Queued for ${data.queued} people. It goes out gradually over the next few minutes.`);
       setConfirmText("");
@@ -99,6 +130,12 @@ export default function EmailPanel() {
         Skips blocked accounts, fediverse sign-ins without a real email, and anyone who unsubscribed.
         Every email has a one-click unsubscribe. Nobody gets the same subject twice.
       </p>
+      {!selfHosted && (
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={excludePaying} onChange={(e) => setExcludePaying(e.target.checked)} />
+          Leave out people who already pay (Founding Members, Plus, Ink Donors)
+        </label>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-3">

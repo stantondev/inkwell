@@ -79,6 +79,7 @@ export interface JournalEntry {
       avatar_animation?: string | null;
       subscription_tier?: string | null;
       ink_donor_status?: string | null;
+    founding_member_number?: number | null;
       domain?: string;
     };
   } | null;
@@ -132,6 +133,7 @@ export interface JournalEntry {
     avatar_animation?: string | null;
     subscription_tier?: string;
     ink_donor_status?: string | null;
+    founding_member_number?: number | null;
   };
 }
 
@@ -357,9 +359,15 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               <div className="flex flex-col leading-tight">
                 <span className="text-sm font-medium group-hover:underline">
                   {entry.author.display_name}
-                  {entry.author.subscription_tier === "plus" && (
+                  {entry.author.founding_member_number ? (
                     <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium align-middle"
-                      style={{ background: "var(--accent)", color: "#fff" }}>
+                      style={{ background: "var(--accent)", color: "var(--background)" }}
+                      title={`Founding Member #${entry.author.founding_member_number}`}>
+                      Founding
+                    </span>
+                  ) : entry.author.subscription_tier === "plus" && (
+                    <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium align-middle"
+                      style={{ background: "var(--accent)", color: "var(--background)" }}>
                       Plus
                     </span>
                   )}

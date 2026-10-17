@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-17-founding-price",
+    date: "2026-10-17",
+    title: "Founding Member goes up to $149 after October 31",
+    body: "Founding Members pay once and have Plus for as long as Inkwell runs, with a numbered badge. There are still only 50, and the price rises from $99 to $149 after October 31. Everyone who already joined keeps their seat and number. The transparency page now shows what Founding Members have paid, too, and you can give a one-time gift of any size if you'd rather not get Plus.",
+    href: "/transparency",
+    cta: "See the open books",
+    tag: "Plus",
+  },
+  {
     id: "2026-10-17-page-as-website",
     date: "2026-10-17",
     title: "Take your page with you, as a website",

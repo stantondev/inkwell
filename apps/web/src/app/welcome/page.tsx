@@ -1,5 +1,6 @@
 "use client";
 
+import { PLUS_POINTS, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
@@ -16,7 +17,7 @@ const AvatarBuilder = dynamic(
   { ssr: false, loading: () => <div style={{ padding: "1rem", color: "var(--muted)", textAlign: "center" }}>Loading builder...</div> }
 );
 const TOTAL_STEPS = 9;
-// "Choose your path" (Free / Plus / Founding / Ink Donor). A self-hosted
+// "Choose your path" (Free / Plus / Founding). A self-hosted
 // server has no payments and everyone has every feature, so it's skipped.
 const TIER_STEP = 5;
 
@@ -144,7 +145,7 @@ export default function WelcomePage() {
     trialDays: number;
     annualAvailable: boolean;
     annualPrice: number;
-    founding: { cap: number; sold: number; remaining: number; price_cents: number } | null;
+    founding: FoundingStatus | null;
     foundingNumber: number | null;
   }>({ trialEligible: false, trialDays: 14, annualAvailable: false, annualPrice: 50, founding: null, foundingNumber: null });
   const [selectedDonorAmount, setSelectedDonorAmount] = useState<number | null>(null);
@@ -1158,7 +1159,7 @@ export default function WelcomePage() {
                         <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>Active</p>
                       )}
                       <ul className="space-y-1.5 text-xs" style={{ color: "var(--muted)" }}>
-                        {["Everything in Free", "Custom colors, fonts & layouts", "Your own domain", "Custom HTML & CSS", "Unlimited newsletter subscribers", "Plus badge"].map((item) => (
+                        {["Everything in Free", ...PLUS_POINTS.map((p) => p.title)].map((item) => (
                           <li key={item} className="flex gap-1.5 items-start">
                             <span style={{ color: "var(--accent)" }}>&#10003;</span>
                             {item}
@@ -1211,6 +1212,11 @@ export default function WelcomePage() {
                             : `$${(billingInfo.founding?.price_cents ?? 9900) / 100} once · ${billingInfo.founding?.remaining} of ${billingInfo.founding?.cap} left`}
                         </span>
                       </div>
+                      {!billingInfo.foundingNumber && foundingPriceNote(billingInfo.founding) && (
+                        <p className="text-xs font-medium mb-1" style={{ color: "var(--accent)" }}>
+                          {foundingPriceNote(billingInfo.founding)}
+                        </p>
+                      )}
                       <p className="text-xs" style={{ color: "var(--muted)" }}>
                         Inkwell is run by one person. Pay once to help fund it and get Plus for as long as Inkwell runs,
                         plus a numbered badge.
@@ -1224,57 +1230,6 @@ export default function WelcomePage() {
                       </a>
                     </p>
                   )}
-
-                  {/* Ink Donor section */}
-                  <div className="flex items-center gap-3 mt-1">
-                    <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                    <span className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>Optional</span>
-                    <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                  </div>
-
-                  <div className="text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1.5">
-                      <svg width="14" height="17" viewBox="0 0 10 12" fill="var(--ink-deep, #2d4a8a)" aria-hidden="true">
-                        <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-                      </svg>
-                      <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                        Become an Ink Donor
-                      </p>
-                    </div>
-                    <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-                      Help keep Inkwell ad-free. No features unlocked — just an ink-blue badge and our gratitude.
-                    </p>
-
-                    {currentDonorStatus === "active" ? (
-                      <p className="text-xs font-medium" style={{ color: "var(--ink-deep, #2d4a8a)" }}>
-                        You&apos;re already an Ink Donor — thank you!
-                      </p>
-                    ) : (
-                      <div className="flex items-center justify-center gap-3">
-                        {[
-                          { cents: 100, label: "$1" },
-                          { cents: 200, label: "$2" },
-                          { cents: 300, label: "$3" },
-                        ].map(({ cents, label }) => (
-                          <button
-                            key={cents}
-                            type="button"
-                            onClick={() => setSelectedDonorAmount(selectedDonorAmount === cents ? null : cents)}
-                            className="onboarding-donor-pill flex flex-col items-center justify-center rounded-full transition-all"
-                            style={{
-                              width: 56,
-                              height: 56,
-                              border: selectedDonorAmount === cents ? "2px solid var(--ink-deep, #2d4a8a)" : "2px solid var(--border)",
-                              background: selectedDonorAmount === cents ? "rgba(45, 74, 138, 0.08)" : "var(--background)",
-                            }}
-                          >
-                            <span className="text-sm font-bold" style={{ color: selectedDonorAmount === cents ? "var(--ink-deep, #2d4a8a)" : "var(--foreground)" }}>{label}</span>
-                            <span className="text-[9px]" style={{ color: "var(--muted)" }}>/mo</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
                   {/* Action buttons */}
                   <div className="flex items-center justify-between gap-4 pt-4 mt-1 border-t" style={{ borderColor: "var(--border)" }}>

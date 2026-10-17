@@ -33,6 +33,7 @@ export interface YouSheetProps {
   avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
+  foundingMemberNumber?: number | null;
   isAdmin?: boolean;
   selfHosted?: boolean;
   unreadLetterCount: number;
@@ -48,6 +49,7 @@ export function YouSheet({
   avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
+  foundingMemberNumber,
   isAdmin,
   selfHosted,
   unreadLetterCount,
@@ -134,7 +136,11 @@ export function YouSheet({
             <span className="you-sheet-profile-text">
               <span className="you-sheet-name">
                 {displayName}
-                {isPlus && <span className="you-sheet-pill">✦ Plus</span>}
+                {foundingMemberNumber ? (
+                  <span className="you-sheet-pill">Founding #{foundingMemberNumber}</span>
+                ) : (
+                  isPlus && <span className="you-sheet-pill">✦ Plus</span>
+                )}
                 {isDonor && <span className="you-sheet-pill you-sheet-pill--muted">Ink Donor</span>}
               </span>
               <span className="you-sheet-handle-text">@{username} · View your journal</span>

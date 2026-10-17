@@ -49,7 +49,7 @@ defmodule Inkwell.Billing.SupportersTest do
     end
 
     test "status reports sold, remaining and money raised" do
-      founding!(create_user())
+      {:ok, _, :granted} = Founding.grant(create_user(), "pay_status", 9900)
       status = Founding.status()
 
       assert status.cap == 50

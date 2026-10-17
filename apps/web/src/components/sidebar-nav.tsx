@@ -1,5 +1,6 @@
 "use client";
 
+import { PLUS_SHORT } from "@/lib/plus-pitch";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLiveNavCounts } from "./live-nav-counts";
@@ -347,7 +348,7 @@ export function SidebarNav({
             <span className="sidebar-plus-star" aria-hidden="true">✦</span>
             <span>
               <span className="sidebar-plus-title">Inkwell Plus</span>
-              <span className="sidebar-plus-sub">Themes, custom domain, reader stats</span>
+              <span className="sidebar-plus-sub">{PLUS_SHORT}</span>
             </span>
           </Link>
         )}
@@ -388,7 +389,7 @@ export function SidebarNav({
           <MenuLink href="/help" icon={<HelpIcon />} label="Help" />
           <MenuLink href="/settings/invite" icon={<InviteIcon />} label="Invite friends" />
           {!supporter && (
-            <MenuLink href="/settings/billing" icon={<DropIcon />} label="Keep the ink flowing" sub="Ink Donor from $1/mo" />
+            <MenuLink href="/transparency" icon={<DropIcon />} label="How Inkwell is paid for" sub="The open books" />
           )}
           {isAdmin && <MenuLink href="/admin" icon={<AdminIcon />} label="Admin" />}
           <div className="account-menu-sep" />

@@ -13,7 +13,7 @@ export const HELP_CATEGORIES = [
   { id: "social", label: "Social & Connections", number: "III", description: "Pen pals, stamps, inks, reprints, letters, circles, and bookmarks." },
   { id: "fediverse", label: "The Fediverse", number: "IV", description: "What ActivityPub is, cross-platform following, and how federation works." },
   { id: "customization", label: "Customization", number: "V", description: "Themes, custom HTML/CSS, custom domains, avatar builder, and profile music." },
-  { id: "billing", label: "Billing & Plus", number: "VI", description: "Plus features, trials, canceling, support links, newsletters, and Ink Donor." },
+  { id: "billing", label: "Billing & Plus", number: "VI", description: "Plus features, trials, Founding Members, gifts, canceling and support links." },
   { id: "safety", label: "Privacy & Safety", number: "VII", description: "Blocking, reporting, redactions, content warnings, and account deletion." },
   { id: "technical", label: "Technical", number: "VIII", description: "API keys, data export and import, RSS feeds, and developer documentation." },
 ];
@@ -70,7 +70,8 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "b-plus", title: "Inkwell Plus features", snippet: "Custom colors, fonts, stamps, domains, and more for $5/mo.", keywords: ["plus", "subscription", "premium", "features", "upgrade"], category: "billing", href: "/help/faq#plus-features" },
   { id: "b-cancel", title: "Canceling your subscription", snippet: "Cancel from Settings → Billing; Plus lasts until the paid period ends.", keywords: ["cancel", "unsubscribe", "stop", "billing"], category: "billing", href: "/help/faq#cancel" },
   { id: "b-support", title: "Support links", snippet: "Add a Ko-fi, Patreon or other payment link to your profile and entries.", keywords: ["support", "tip", "ko-fi", "patreon", "money", "postage"], category: "billing", href: "/help/faq#support-link" },
-  { id: "b-donor", title: "Ink Donor", snippet: "Contribute $1–$3/month to support Inkwell and get a badge.", keywords: ["donor", "donation", "support", "badge"], category: "billing", href: "/help/faq#ink-donor" },
+  { id: "b-donor", title: "Support Inkwell without Plus", snippet: "Give a one-time gift of any amount, with nothing to renew.", keywords: ["donor", "donation", "gift", "support", "give"], category: "billing", href: "/help/faq#ink-donor" },
+  { id: "b-founding", title: "Founding Members", snippet: "Pay once for Plus as long as Inkwell runs. 50 seats.", keywords: ["founding", "lifetime", "once", "badge", "support"], category: "billing", href: "/help/faq#founding" },
 
   // ── Privacy & Safety ──
   { id: "p-block", title: "Blocking users", snippet: "Block users from your profile to prevent all interaction.", keywords: ["block", "ban", "prevent", "hide"], category: "safety", href: "/help/faq#block-user" },

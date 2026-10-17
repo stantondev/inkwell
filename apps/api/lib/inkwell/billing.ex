@@ -1549,6 +1549,7 @@ defmodule Inkwell.Billing do
       # Notify Slack (first-time activation only)
       if is_nil(user.square_subscription_id) do
         Inkwell.Slack.notify_plus_subscription(updated.username)
+        Inkwell.Billing.ThankYou.queue(updated, "plus", sub_id)
       end
 
       {updated, [:plus_activated]}
@@ -1750,6 +1751,7 @@ defmodule Inkwell.Billing do
 
           Logger.info("User #{user.username} upgraded to Plus via Square (sub: #{sub_id})")
           Inkwell.Slack.notify_plus_subscription(user.username)
+          Inkwell.Billing.ThankYou.queue(user, "plus", sub_id)
         end
 
         :ok
@@ -2101,7 +2103,7 @@ defmodule Inkwell.Billing do
 
     cond do
       Inkwell.Billing.Founding.founding_order?(order) ->
-        Inkwell.Billing.Founding.handle_completed_payment(payment_id, user, customer_id)
+        Inkwell.Billing.Founding.handle_completed_payment(payment_id, user, customer_id, amount_cents)
 
       not donation_order?(order) ->
         # Subscription signup/renewal order OR order we can't classify —
@@ -2202,6 +2204,7 @@ defmodule Inkwell.Billing do
       )
 
       Inkwell.Slack.notify_donation(username, amount_cents)
+      if user, do: Inkwell.Billing.ThankYou.queue(user, "gift", payment_id, amount_cents)
       record_event(dedup_key, "donation_notified", "processed")
       :ok
     end

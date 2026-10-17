@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSite } from "@/lib/site";
+import { PLUS_POINTS, PLUS_EXTRAS, dollars, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
 
 // "Inkwell" alone shares its search results with a Rust library, a planner
 // brand and several magazines (Search Console, Jun–Sep 2026: 3,766
@@ -94,7 +95,7 @@ async function getRecentEntries(): Promise<ExploreEntry[]> {
 // Page
 // ---------------------------------------------------------------------------
 interface TransparencySummary {
-  founding: { cap: number; remaining: number } | null;
+  founding: FoundingStatus | null;
 }
 
 async function getTransparency(): Promise<TransparencySummary | null> {
@@ -146,7 +147,7 @@ export default async function LandingPage() {
       {/* ── Pricing — "Choose Your Ink" (inkwell.social only: a self-hosted
           server has no payments and everyone has every feature) ────── */}
       {!selfHosted && (
-      <section className="landing-pricing" aria-label="Pricing">
+      <section id="pricing" className="landing-pricing" aria-label="Pricing">
         <div className="landing-pricing-inner">
           <p className="landing-section-eyebrow">Pricing</p>
           <h2 className="landing-section-title" style={{ marginBottom: "1rem" }}>
@@ -167,6 +168,7 @@ export default async function LandingPage() {
               <ul className="landing-price-list">
                 {[
                   "Unlimited public and private entries",
+                  "25 drafts at a time and 100 MB of images",
                   "Import from LiveJournal, WordPress, Substack & more",
                   "Followable from Mastodon and Bluesky",
                   "Email newsletter up to 500 subscribers",
@@ -190,27 +192,14 @@ export default async function LandingPage() {
               </p>
               <p className="landing-price-note">or $50 a year &middot; 14 days free, no card</p>
               <ul className="landing-price-list landing-price-list-lead">
-                <li>
-                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
-                  <span><strong>Your own domain.</strong> yourname.com, with your journal behind it.</span>
-                </li>
-                <li>
-                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
-                  <span><strong>See who&apos;s reading.</strong> Reads by day, your most-read entries, and where readers came from.</span>
-                </li>
-                <li>
-                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
-                  <span><strong>A bigger newsletter.</strong> Unlimited subscribers, 8 sends a month, scheduling.</span>
-                </li>
-                <li>
-                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
-                  <span><strong>A page that looks like you.</strong> Custom colors, fonts, backgrounds, HTML &amp; CSS.</span>
-                </li>
+                {PLUS_POINTS.map((p) => (
+                  <li key={p.title}>
+                    <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                    <span><strong>{p.title}.</strong> {p.detail}</span>
+                  </li>
+                ))}
               </ul>
-              <p className="landing-price-extras">
-                Also: 1 GB of images (growing 1 GB a year), unlimited drafts and series,
-                cross-posting to Mastodon, Post by Email, and write access to the API.
-              </p>
+              <p className="landing-price-extras">Also: {PLUS_EXTRAS}</p>
               <Link href="/get-started?plan=plus" className="landing-price-cta">
                 Try Plus free for 14 days
               </Link>
@@ -221,13 +210,18 @@ export default async function LandingPage() {
             <div className="landing-price-card">
               <p className="landing-price-name">Founding Member</p>
               <p className="landing-price-amount">
-                $99<span className="landing-price-period"> once</span>
+                {dollars(founding?.price_cents ?? 9900)}<span className="landing-price-period"> once</span>
               </p>
               <p className="landing-price-note">
                 {founding
                   ? `${founding.remaining} of ${founding.cap} left`
                   : "Limited to 50"}
               </p>
+              {foundingPriceNote(founding) && (
+                <p className="landing-price-note" style={{ color: "var(--accent)" }}>
+                  {foundingPriceNote(founding)}
+                </p>
+              )}
               <ul className="landing-price-list">
                 {[
                   "Plus for as long as Inkwell runs",
@@ -250,7 +244,7 @@ export default async function LandingPage() {
             <Link href="/transparency" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
               See where the money goes
             </Link>
-            . Prefer to chip in without Plus? <Link href="/settings/billing" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>Ink Donors</Link> give $1&ndash;$3 a month.
+            . Members can also give a one-time gift from their billing settings, with nothing to renew.
           </p>
         </div>
       </section>

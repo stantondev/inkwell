@@ -1,5 +1,6 @@
 "use client";
 
+import { PLUS_POINTS, PLUS_EXTRAS, MEMBERS_LINE, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -14,7 +15,7 @@ interface BillingStatus {
   needs_resubscribe?: boolean;
   founding_member_number?: number | null;
   founding_member_at?: string | null;
-  founding?: { cap: number; sold: number; remaining: number; price_cents: number };
+  founding?: FoundingStatus;
   trial_eligible?: boolean;
   trial_days?: number;
   plus_annual_available?: boolean;
@@ -111,12 +112,10 @@ export default function BillingPage() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [donorLoading, setDonorLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelDonorLoading, setCancelDonorLoading] = useState(false);
   const [donateLoading, setDonateLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedAmount, setSelectedAmount] = useState(200);
   const [selectedDonation, setSelectedDonation] = useState(500);
   const [customDonation, setCustomDonation] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -219,28 +218,6 @@ export default function BillingPage() {
     } catch {
       setError("Network error. Please try again.");
       setCheckoutLoading(false);
-    }
-  }
-
-  async function handleDonorCheckout(amountCents: number) {
-    setDonorLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/billing/donor-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount_cents: amountCents }),
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        setError(data.error || "Unable to start checkout");
-        setDonorLoading(false);
-      }
-    } catch {
-      setError("Network error. Please try again.");
-      setDonorLoading(false);
     }
   }
 
@@ -864,34 +841,21 @@ export default function BillingPage() {
         ) : (
           <div>
             <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-              Upgrade to Inkwell Plus for <strong style={{ color: "var(--foreground)" }}>$5/month</strong> and
-              unlock premium features while supporting an ad-free, algorithm-free platform.
+              Inkwell Plus is <strong style={{ color: "var(--foreground)" }}>$5 a month</strong>.{" "}
+              {MEMBERS_LINE}{" "}
+              <a href="/transparency" className="underline" style={{ color: "var(--accent)" }}>See where the money goes.</a>
             </p>
-            <ul className="space-y-1.5 mb-4">
-              {[
-                "Custom domain (your-site.com)",
-                "Reader stats: reads by day, top entries, where readers came from",
-                "Unlimited newsletter subscribers, 8 sends/mo",
-                "Custom colors & fonts",
-                "Custom HTML & CSS theming",
-                "Background images & profile music",
-                "Post by Email",
-                "Cross-post to Mastodon",
-                "Unlimited drafts, series & filters",
-                "1 GB image storage, +1 GB every year",
-                "API read + write access",
-                "First Class stamp",
-                "Plus badge",
-                "Priority support",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm" style={{ color: "var(--foreground)" }}>
+            <ul className="space-y-1.5 mb-2">
+              {PLUS_POINTS.map((p) => (
+                <li key={p.title} className="flex items-start gap-2 text-sm" style={{ color: "var(--foreground)" }}>
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
                     <polyline points="2.5 7 5.5 10 11.5 4" />
                   </svg>
-                  {item}
+                  <span><strong>{p.title}.</strong> <span style={{ color: "var(--muted)" }}>{p.detail}</span></span>
                 </li>
               ))}
             </ul>
+            <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>Also: {PLUS_EXTRAS}</p>
             <PlusIntervalPicker
               interval={billingInterval}
               onChange={setBillingInterval}
@@ -941,6 +905,9 @@ export default function BillingPage() {
           </div>
           <p className="text-xs mb-3" style={{ color: "var(--muted)", fontStyle: "italic" }}>
             ${founding.price_cents / 100} once. Plus for as long as Inkwell runs.
+            {founding.remaining > 0 && foundingPriceNote(founding) && (
+              <span style={{ color: "var(--accent)", fontStyle: "normal" }}> {foundingPriceNote(founding)}.</span>
+            )}
           </p>
           <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
             Inkwell is run by one person and doesn&apos;t cover its own costs yet. Founding Members pay once
@@ -969,7 +936,8 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Ink Donor */}
+      {/* Give once. Monthly Ink Donor is retired (nobody ever chose it and badge-only
+          donations fail almost everywhere); an existing donor still sees how to manage it. */}
       <div
         className="rounded-xl border p-5 mt-6"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -979,7 +947,7 @@ export default function BillingPage() {
             <svg width="14" height="17" viewBox="0 0 10 12" fill="var(--accent)" aria-hidden="true">
               <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
             </svg>
-            Ink Donor
+            {isDonor ? "Ink Donor" : "Give once"}
           </h3>
           {isDonor && (
             <span
@@ -992,7 +960,7 @@ export default function BillingPage() {
         </div>
 
         <p className="text-xs mb-3" style={{ color: "var(--muted)", fontStyle: "italic" }}>
-          Keep the ink flowing.
+          {isDonor ? "Keep the ink flowing." : "Any amount, nothing to renew."}
         </p>
 
         {isDonor ? (
@@ -1038,54 +1006,18 @@ export default function BillingPage() {
         ) : (
           <div>
             <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-              A small voluntary donation to help sustain Inkwell. No features unlocked —
-              just the satisfaction of keeping an ad-free platform alive, and an Ink Donor badge on your profile.
+              A gift goes straight to the servers. It doesn&apos;t unlock anything; it just helps keep
+              Inkwell running without ads.
             </p>
 
             {isDonorPastDue && (
               <p className="text-xs mb-2" style={{ color: "var(--danger, #ef4444)" }}>
-                Your last donation payment failed. You can start a new donation below.
+                Your last monthly donation payment failed, so it has stopped. Thank you for giving while it ran.
               </p>
             )}
 
-            {/* Monthly recurring */}
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem", marginTop: "0.75rem" }}>
-              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Monthly recurring
-              </p>
-              <div className="flex gap-2 mb-3">
-                {[100, 200, 300].map((cents) => (
-                  <button
-                    key={cents}
-                    onClick={() => setSelectedAmount(cents)}
-                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-                    style={selectedAmount === cents
-                      ? { background: "var(--accent)", color: "white" }
-                      : { background: "var(--surface-hover, var(--border))", color: "var(--foreground)" }
-                    }
-                  >
-                    ${cents / 100}/mo
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => handleDonorCheckout(selectedAmount)}
-                disabled={donorLoading}
-                className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
-                style={{ background: "var(--accent)", color: "white", opacity: donorLoading ? 0.6 : 1 }}
-              >
-                <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
-                  <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-                </svg>
-                {donorLoading ? "Redirecting..." : "Become an Ink Donor"}
-              </button>
-            </div>
-
             {/* One-time donation */}
-            <div style={{ borderTop: "1px dashed var(--border)", paddingTop: "0.75rem", marginTop: "0.75rem" }}>
-              <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                One-time donation
-              </p>
+            <div id="gift">
               <div className="flex gap-2 flex-wrap mb-3">
                 {[300, 500, 1000].map((cents) => (
                   <button
@@ -1129,11 +1061,11 @@ export default function BillingPage() {
                   opacity: (donateLoading || !donationValid) ? 0.5 : 1,
                 }}
               >
-                {donateLoading ? "Redirecting..." : `Donate${donationValid ? ` $${(donationAmount / 100).toFixed(donationAmount % 100 === 0 ? 0 : 2)}` : ""}`}
+                {donateLoading ? "Redirecting..." : `Give${donationValid ? ` $${(donationAmount / 100).toFixed(donationAmount % 100 === 0 ? 0 : 2)}` : ""}`}
               </button>
               {customDonation && !donationValid && (
                 <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-                  Donations can be between $1 and $500.
+                  Gifts can be between $1 and $500.
                 </p>
               )}
             </div>

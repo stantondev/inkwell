@@ -155,48 +155,16 @@ defmodule InkwellWeb.BillingController do
     |> json(%{error: "The billing portal is no longer available. Use the cancel button in Settings instead."})
   end
 
-  # POST /api/billing/donor-checkout — create a checkout for Ink Donor (recurring)
-  def donor_checkout(conn, %{"amount_cents" => amount_cents}) when amount_cents in [100, 200, 300] do
-    user = conn.assigns.current_user
+  # POST /api/billing/donor-checkout — monthly Ink Donor is retired (2026-10-17):
+  # nobody ever chose it, and badge-only donations fail almost everywhere. People
+  # who already give keep their subscription and can cancel it from billing; a
+  # one-time gift (`donate/2`) replaces it.
+  def donor_checkout(conn, _params), do: donor_retired(conn)
 
-    with :ok <- check_billing_rate(user),
-         :ok <- check_no_active_donor(user) do
-      case Billing.create_donor_checkout_session(user, amount_cents) do
-        {:ok, %{url: url}} ->
-          record_billing_checkout(user, "donor")
-          json(conn, %{url: url})
-
-        {:error, :square_not_configured} ->
-          conn
-          |> put_status(:service_unavailable)
-          |> json(%{error: "Donations are not yet configured. Coming soon!"})
-
-        {:error, :plan_pricing_unsupported} ->
-          checkout_unavailable(conn)
-
-        {:error, reason} ->
-          Logger.error("Donor checkout failed: #{inspect(reason)}")
-          conn
-          |> put_status(:internal_server_error)
-          |> json(%{error: "Unable to start checkout. Please try again."})
-      end
-    else
-      {:error, :rate_limited} ->
-        conn
-        |> put_status(:too_many_requests)
-        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
-
-      {:error, :already_subscribed} ->
-        conn
-        |> put_status(:conflict)
-        |> json(%{error: "You already have an active Ink Donor subscription."})
-    end
-  end
-
-  def donor_checkout(conn, _params) do
+  defp donor_retired(conn) do
     conn
-    |> put_status(:unprocessable_entity)
-    |> json(%{error: "Invalid amount. Choose $1, $2, or $3."})
+    |> put_status(:gone)
+    |> json(%{error: "Monthly Ink Donor has been retired. You can give once from Settings → Billing instead."})
   end
 
   # POST /api/billing/donate — create a one-time donation checkout
@@ -282,43 +250,7 @@ defmodule InkwellWeb.BillingController do
     end
   end
 
-  def onboarding_checkout(conn, %{"type" => "donor", "amount_cents" => amount_cents})
-      when amount_cents in [100, 200, 300] do
-    user = conn.assigns.current_user
-
-    with :ok <- check_billing_rate(user),
-         :ok <- check_no_active_donor(user) do
-      case Billing.create_onboarding_checkout_session(user, "donor", amount_cents) do
-        {:ok, %{url: url}} ->
-          record_billing_checkout(user, "donor")
-          json(conn, %{url: url})
-
-        {:error, :square_not_configured} ->
-          conn
-          |> put_status(:service_unavailable)
-          |> json(%{error: "Donations are not yet configured. Coming soon!"})
-
-        {:error, :plan_pricing_unsupported} ->
-          checkout_unavailable(conn)
-
-        {:error, reason} ->
-          Logger.error("Onboarding checkout (Donor) failed: #{inspect(reason)}")
-          conn
-          |> put_status(:internal_server_error)
-          |> json(%{error: "Unable to start checkout. Please try again."})
-      end
-    else
-      {:error, :rate_limited} ->
-        conn
-        |> put_status(:too_many_requests)
-        |> json(%{error: "We just opened a checkout page for you. If it didn't appear, wait a few seconds and try again — nothing has been charged."})
-
-      {:error, :already_subscribed} ->
-        conn
-        |> put_status(:conflict)
-        |> json(%{error: "You already have an active Ink Donor subscription."})
-    end
-  end
+  def onboarding_checkout(conn, %{"type" => "donor"}), do: donor_retired(conn)
 
   def onboarding_checkout(conn, %{"type" => "founding"}) do
     founding_checkout_response(conn, :onboarding)
@@ -672,14 +604,6 @@ defmodule InkwellWeb.BillingController do
           "for those days. To stay on Plus, choose \"Keep my Plus\" in Settings → Billing.",
       code: "cancel_scheduled"
     })
-  end
-
-  defp check_no_active_donor(user) do
-    if user.square_donor_subscription_id && user.ink_donor_status == "active" do
-      {:error, :already_subscribed}
-    else
-      :ok
-    end
   end
 
   defp ensure_billing_rate_table do

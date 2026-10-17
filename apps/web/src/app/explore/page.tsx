@@ -15,7 +15,6 @@ import { ExploreRibbonProvider, ExploreRibbonTab, ExploreRibbonChip } from "@/co
 import type { SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
-import { isSupporter } from "@/lib/supporter";
 
 // The Fediverse tab is other servers' posts, many by people who haven't opted
 // in to search (Mastodon's "indexable"). A canonical pointing at /explore
@@ -278,36 +277,6 @@ export default async function ExplorePage({ searchParams }: PageProps) {
           } : null}
         />
 
-        {/* Ink Donor CTA — show to logged-in non-donor users */}
-        {session && !isSupporter(session.user) && (
-          <div className="mx-auto max-w-md px-4 pb-8 lg:hidden">
-            <div
-              className="rounded-xl border p-4 text-center"
-              style={{
-                borderColor: "var(--border)",
-                background: "var(--surface)",
-              }}
-            >
-              <p
-                className="text-sm font-medium mb-1"
-                style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
-              >
-                Keep the ink flowing.
-              </p>
-              <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-                Inkwell runs on readers and writers, not ads or algorithms.
-                Ink Donors help keep this space independent. From $1/month.
-              </p>
-              <Link
-                href="/settings/billing"
-                className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
-                Become an Ink Donor
-              </Link>
-            </div>
-          </div>
-        )}
       </ExploreSearchWrapper>
   );
 

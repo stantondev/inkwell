@@ -316,7 +316,7 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     href: "/settings/billing",
     title: "Billing",
     blurb:
-      "Your plan, your renewal date, Ink Donor support, and image storage. Start, pause or cancel here.",
+      "Your plan, your renewal date, one-time gifts, and image storage. Start, pause or cancel here.",
     icon: I.star,
     group: "plan",
     keywords: ["plus", "subscription", "payment", "cancel", "donor", "founding", "storage", "trial"],

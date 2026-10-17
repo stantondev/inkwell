@@ -3,6 +3,8 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSite } from "@/lib/site";
 import { notFound } from "next/navigation";
+import { getSessionSafe } from "@/lib/session";
+import { dollars, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
 
 export const metadata: Metadata = {
   title: "Transparency — What Inkwell Costs to Run",
@@ -26,13 +28,9 @@ interface TransparencyData {
   revenue_source: "square" | "estimate";
   percent_covered: number;
   paying_members: number;
-  founding: { cap: number; sold: number; remaining: number; price_cents: number; raised_cents: number };
+  monthly_paying_members?: number;
+  founding: FoundingStatus & { raised_cents: number };
   users: { total: number; active_writers_30d: number };
-}
-
-function dollars(cents: number) {
-  const d = cents / 100;
-  return `$${d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)}`;
 }
 
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
@@ -41,14 +39,19 @@ export default async function TransparencyPage() {
   // A page about inkwell.social itself; a self-hosted server has no such thing.
   if (getSite().selfHosted) notFound();
   let data: TransparencyData | null = null;
-  try {
-    const res = await apiFetch<{ data: TransparencyData }>("/api/transparency");
-    data = res.data;
-  } catch {
-    data = null;
-  }
+  const [res, { session }] = await Promise.all([
+    apiFetch<{ data: TransparencyData }>("/api/transparency").catch(() => null),
+    getSessionSafe(),
+  ]);
+  data = res?.data ?? null;
+  const signedIn = !!session;
 
   const covered = data ? Math.min(data.percent_covered, 100) : 0;
+  const gap = data ? Math.max(data.monthly_cost_cents - data.monthly_revenue_cents, 0) : 0;
+  const raised = data?.founding.raised_cents ?? 0;
+  // How long the one-time Founding money would cover what monthly members don't.
+  const monthsCovered = gap > 0 ? Math.floor(raised / gap) : 0;
+  const priceNote = foundingPriceNote(data?.founding);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12" style={{ color: "var(--foreground)" }}>
@@ -95,9 +98,20 @@ export default async function TransparencyPage() {
               <span style={{ color: "var(--muted)" }}>
                 {data.percent_covered >= 100
                   ? "Members cover the full monthly bill. Thank you."
-                  : `The other ${dollars(Math.max(data.monthly_cost_cents - data.monthly_revenue_cents, 0))} a month comes out of the founder's pocket.`}
+                  : `The other ${dollars(gap)} a month comes out of the founder's pocket.`}
               </span>
             </p>
+            {raised > 0 && (
+              <p className="text-sm mt-3 pt-3" style={{ borderTop: "1px solid var(--border)", color: "var(--muted)" }}>
+                <strong style={{ color: "var(--foreground)" }}>
+                  On top of that, {data.founding.sold} Founding {data.founding.sold === 1 ? "Member has" : "Members have"} paid{" "}
+                  {dollars(raised)} once.
+                </strong>{" "}
+                {gap > 0 && monthsCovered > 0
+                  ? `That's enough to cover the rest of the bill for about ${monthsCovered} ${monthsCovered === 1 ? "month" : "months"}. It isn't counted in the meter above, which shows only what comes in every month.`
+                  : "It isn't counted in the meter above, which shows only what comes in every month."}
+              </p>
+            )}
           </section>
 
           {/* Numbers */}
@@ -105,12 +119,17 @@ export default async function TransparencyPage() {
             {[
               { label: "People on Inkwell", value: data.users.total.toLocaleString() },
               { label: "Wrote this month", value: data.users.active_writers_30d.toLocaleString() },
-              { label: "Paying members", value: data.paying_members.toLocaleString() },
-              { label: "Founding Members", value: `${data.founding.sold} / ${data.founding.cap}` },
-            ].map((s) => (
+              { label: "Paying members", value: data.paying_members.toLocaleString(), note: "Monthly, yearly and Founding" },
+              {
+                label: "Founding Members",
+                value: `${data.founding.sold} / ${data.founding.cap}`,
+                note: raised > 0 ? `${dollars(raised)} paid once` : undefined,
+              },
+            ].map((s: { label: string; value: string; note?: string }) => (
               <div key={s.label} className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
                 <p className="text-2xl font-semibold" style={serif}>{s.value}</p>
                 <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{s.label}</p>
+                {s.note && <p className="text-xs" style={{ color: "var(--muted)" }}>{s.note}</p>}
               </div>
             ))}
           </section>
@@ -152,25 +171,41 @@ export default async function TransparencyPage() {
                   <strong style={{ color: "var(--foreground)" }}>Become a Founding Member</strong> —{" "}
                   {dollars(data.founding.price_cents)} once for Plus as long as Inkwell runs.{" "}
                   {data.founding.remaining} of {data.founding.cap} left.
+                  {priceNote && <> {priceNote}.</>}
                 </li>
               )}
               <li>
                 <strong style={{ color: "var(--foreground)" }}>Get Plus</strong> — $5 a month, or try it free for 14 days first.
               </li>
               <li>
-                <strong style={{ color: "var(--foreground)" }}>Become an Ink Donor</strong> — $1–$3 a month, or a one-time gift.
+                <strong style={{ color: "var(--foreground)" }}>Give once</strong> — any amount from $1, with nothing to renew.
               </li>
               <li>
-                <strong style={{ color: "var(--foreground)" }}>Tell a friend who misses LiveJournal.</strong> It costs nothing and helps just as much.
+                <strong style={{ color: "var(--foreground)" }}>Tell a friend who&apos;d like a quiet place to write.</strong> It costs nothing and helps just as much.
               </li>
             </ul>
-            <Link
-              href="/settings/billing"
-              className="inline-flex mt-4 rounded-full px-6 py-2.5 text-sm font-medium"
-              style={{ background: "var(--accent)", color: "#fff" }}
-            >
-              Support Inkwell
-            </Link>
+            {signedIn ? (
+              <Link
+                href="/settings/billing"
+                className="inline-flex mt-4 rounded-full px-6 py-2.5 text-sm font-medium"
+                style={{ background: "var(--accent)", color: "var(--background)" }}
+              >
+                Support Inkwell
+              </Link>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <Link
+                  href="/#pricing"
+                  className="inline-flex rounded-full px-6 py-2.5 text-sm font-medium"
+                  style={{ background: "var(--accent)", color: "var(--background)" }}
+                >
+                  See the plans
+                </Link>
+                <Link href="/login?next=/settings/billing" className="text-sm underline underline-offset-2" style={{ color: "var(--accent)" }}>
+                  Already a member? Sign in
+                </Link>
+              </div>
+            )}
           </section>
 
           {/* Honesty */}

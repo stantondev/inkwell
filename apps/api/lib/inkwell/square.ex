@@ -75,11 +75,10 @@ defmodule Inkwell.Square do
   end
 
   @plus_annual_cents 5000
-  @founding_member_cents 9900
   @founding_line_item "Inkwell Founding Member"
 
   def plus_annual_cents, do: @plus_annual_cents
-  def founding_member_cents, do: @founding_member_cents
+  def founding_member_cents, do: Inkwell.Billing.Founding.price_cents()
   def founding_line_item_name, do: @founding_line_item
 
   @doc "True when the yearly Plus plan variation is configured."
@@ -131,14 +130,21 @@ defmodule Inkwell.Square do
   end
 
   @doc """
-  Create a Square Payment Link for a one-time Founding Member purchase ($99).
+  Create a Square Payment Link for a one-time Founding Member purchase, at the
+  price `Inkwell.Billing.Founding.price_cents/0` gives when the link is made.
 
   The line item name is how the payment webhook recognises the purchase (see
   `Inkwell.Billing.founding_order?/1`), so it must stay in sync with
   `founding_line_item_name/0`.
   """
-  def create_founding_member_payment_link(%User{} = user, customer_id, return_to \\ :billing)
+  def create_founding_member_payment_link(
+        %User{} = user,
+        customer_id,
+        return_to \\ :billing,
+        amount_cents \\ nil
+      )
       when is_binary(customer_id) do
+    amount_cents = amount_cents || Inkwell.Billing.Founding.price_cents()
     config = square_config()
     frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
 
@@ -154,9 +160,9 @@ defmodule Inkwell.Square do
       body =
         one_off_payment_link_body(
           idempotency_key:
-            "founding-#{return_to}-#{user.id}-#{div(System.system_time(:second), 3600)}",
+            "founding-#{return_to}-#{user.id}-#{amount_cents}-#{div(System.system_time(:second), 3600)}",
           line_item_name: @founding_line_item,
-          amount_cents: @founding_member_cents,
+          amount_cents: amount_cents,
           user: user,
           customer_id: customer_id,
           redirect_url: redirect_url,

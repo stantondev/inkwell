@@ -42,7 +42,10 @@ defmodule Inkwell.Transparency do
           do: min(round(revenue.monthly_cents * 100 / monthly_cost_cents), 999),
           else: 0
         ),
-      paying_members: revenue.paying_members,
+      # Founding Members paid once and have no subscription, but they are
+      # paying members all the same.
+      paying_members: revenue.paying_members + founding.sold,
+      monthly_paying_members: revenue.paying_members,
       founding: founding,
       users: user_counts()
     }
@@ -59,15 +62,22 @@ defmodule Inkwell.Transparency do
     total =
       from(u in User,
         # The relay actor is a machine account, not a member (matches NodeInfo).
+        # Accounts the spam checker has limited aren't counted either: nearly
+        # all of them are spam, and they'd inflate both numbers.
         where:
           is_nil(u.blocked_at) and u.username != ^Inkwell.Federation.InstanceActor.username(),
+        where: is_nil(u.moderation_state) or u.moderation_state != "limited",
         select: count(u.id)
       )
       |> Repo.one()
 
     writers_30d =
       from(e in Inkwell.Journals.Entry,
+        join: u in User,
+        on: u.id == e.user_id,
         where: e.status == :published and e.published_at >= ^month_ago,
+        where: is_nil(u.blocked_at),
+        where: is_nil(u.moderation_state) or u.moderation_state != "limited",
         select: count(e.user_id, :distinct)
       )
       |> Repo.one()

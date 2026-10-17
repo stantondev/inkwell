@@ -193,7 +193,8 @@ defmodule InkwellWeb.ExploreController do
               display_name: author.display_name,
               avatar_url: Avatars.avatar_url(author),
               subscription_tier: Inkwell.SelfHosted.effective_tier(author),
-              ink_donor_status: author.ink_donor_status
+              ink_donor_status: author.ink_donor_status,
+              founding_member_number: author.founding_member_number
             },
             comment_count: Map.get(local_comment_counts, entry.id, 0),
             stamps: Map.get(stamp_types_map, entry.id, []),
@@ -352,7 +353,8 @@ defmodule InkwellWeb.ExploreController do
           display_name: author.display_name,
           avatar_url: Avatars.avatar_url(author),
           subscription_tier: Inkwell.SelfHosted.effective_tier(author),
-          ink_donor_status: author.ink_donor_status
+          ink_donor_status: author.ink_donor_status,
+          founding_member_number: author.founding_member_number
         },
         comment_count: Map.get(comment_counts, entry.id, 0),
         stamps: Map.get(stamp_types_map, entry.id, []),

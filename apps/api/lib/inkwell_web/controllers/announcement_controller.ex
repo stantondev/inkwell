@@ -11,7 +11,7 @@ defmodule InkwellWeb.AnnouncementController do
     body = params["body"] || ""
 
     json(conn, %{
-      recipient_count: Announcements.recipient_count(),
+      recipient_count: Announcements.recipient_count(opts(params)),
       preview_html: Inkwell.Email.announcement_html(body, "#unsubscribe")
     })
   end
@@ -41,15 +41,15 @@ defmodule InkwellWeb.AnnouncementController do
   # POST /api/admin/announcement/send — queue for everyone.
   # `confirm_count` must equal the current recipient count, so a stray request
   # (or a stale page) can't email the whole community.
-  def send_all(conn, %{"subject" => subject, "body" => body, "confirm_count" => confirm}) do
-    expected = Announcements.recipient_count()
+  def send_all(conn, %{"subject" => subject, "body" => body, "confirm_count" => confirm} = params) do
+    expected = Announcements.recipient_count(opts(params))
 
     if confirm != expected do
       conn
       |> put_status(:conflict)
       |> json(%{error: "Recipient count changed or wasn't confirmed. Expected #{expected}.", recipient_count: expected})
     else
-      case Announcements.enqueue_all(subject, body) do
+      case Announcements.enqueue_all(subject, body, opts(params)) do
         {:ok, queued} ->
           Logger.info("[Announcement] @#{conn.assigns.current_user.username} queued \"#{subject}\" to #{queued} users")
           Inkwell.Slack.notify(":mega: Announcement \"#{subject}\" queued to #{queued} people")
@@ -63,4 +63,7 @@ defmodule InkwellWeb.AnnouncementController do
 
   def send_all(conn, _),
     do: conn |> put_status(:bad_request) |> json(%{error: "Subject, message and confirm_count are required"})
+
+  # `exclude_paying` leaves out people who already pay (true/"true").
+  defp opts(params), do: [exclude_paying: params["exclude_paying"] in [true, "true", "1"]]
 end

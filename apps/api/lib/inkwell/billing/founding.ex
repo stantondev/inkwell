@@ -29,8 +29,43 @@ defmodule Inkwell.Billing.Founding do
 
   @cap 50
 
+  # The price rises in steps. Whoever already bought keeps their seat, number
+  # and Plus, and what they paid is stored on their account
+  # (`founding_member_paid_cents`). Midnight Eastern on Nov 1 2026 = 04:00 UTC.
+  @base_price_cents 9900
+  @default_price_steps [{~U[2026-11-01 04:00:00Z], 14900}]
+
   def cap, do: @cap
-  def price_cents, do: Square.founding_member_cents()
+
+  @doc "The price right now (or at `now`)."
+  def price_cents(now \\ DateTime.utc_now()) do
+    Enum.reduce(price_steps(), @base_price_cents, fn {at, cents}, acc ->
+      if DateTime.compare(now, at) != :lt, do: cents, else: acc
+    end)
+  end
+
+  @doc "The next price rise as `{at, cents}`, or nil if none is planned."
+  def next_price_change(now \\ DateTime.utc_now()) do
+    Enum.find(price_steps(), fn {at, _} -> DateTime.compare(now, at) == :lt end)
+  end
+
+  @doc "Every price Founding has been sold at (a payment for any of them is genuine)."
+  def known_prices, do: [@base_price_cents | Enum.map(price_steps(), &elem(&1, 1))]
+
+  defp price_steps do
+    Application.get_env(:inkwell, :founding_price_steps, @default_price_steps)
+    |> Enum.sort_by(&elem(&1, 0), DateTime)
+  end
+
+  @doc "What Founding Members have paid in total."
+  def raised_cents do
+    from(u in User,
+      where: not is_nil(u.founding_member_number),
+      select: sum(coalesce(u.founding_member_paid_cents, @base_price_cents))
+    )
+    |> Repo.one()
+    |> Kernel.||(0)
+  end
 
   @doc "Number of founding memberships sold so far."
   def count do
@@ -44,13 +79,22 @@ defmodule Inkwell.Billing.Founding do
   @doc "Status map for the UI and the transparency page."
   def status do
     sold = count()
+    now = DateTime.utc_now()
+
+    {rises_at, next_cents} =
+      case next_price_change(now) do
+        {at, cents} -> {at, cents}
+        nil -> {nil, nil}
+      end
 
     %{
       cap: @cap,
       sold: sold,
       remaining: max(@cap - sold, 0),
-      price_cents: price_cents(),
-      raised_cents: sold * price_cents()
+      price_cents: price_cents(now),
+      next_price_cents: next_cents,
+      price_rises_at: rises_at,
+      raised_cents: raised_cents()
     }
   end
 
@@ -69,7 +113,7 @@ defmodule Inkwell.Billing.Founding do
       true ->
         case Inkwell.Billing.ensure_square_customer(user) do
           {:ok, customer_id, user} ->
-            Square.create_founding_member_payment_link(user, customer_id, return_to)
+            Square.create_founding_member_payment_link(user, customer_id, return_to, price_cents())
 
           {:error, reason} ->
             {:error, reason}
@@ -90,7 +134,7 @@ defmodule Inkwell.Billing.Founding do
   Always honours a real payment, even if it lands after the cap was reached
   by a concurrent buyer — nobody who paid is turned away.
   """
-  def grant(%User{} = user, payment_id) when is_binary(payment_id) do
+  def grant(%User{} = user, payment_id, amount_cents \\ nil) when is_binary(payment_id) do
     cond do
       granted_user = Repo.get_by(User, founding_member_payment_id: payment_id) ->
         {:ok, granted_user, :already_granted}
@@ -111,11 +155,11 @@ defmodule Inkwell.Billing.Founding do
         {:ok, user, :duplicate_payment}
 
       true ->
-        do_grant(user, payment_id, 3)
+        do_grant(user, payment_id, amount_cents || price_cents(), 3)
     end
   end
 
-  defp do_grant(user, payment_id, attempts_left) do
+  defp do_grant(user, payment_id, amount_cents, attempts_left) do
     next_number =
       (from(u in User, select: max(u.founding_member_number)) |> Repo.one() || 0) + 1
 
@@ -124,7 +168,8 @@ defmodule Inkwell.Billing.Founding do
       |> User.founding_member_changeset(%{
         founding_member_number: next_number,
         founding_member_at: DateTime.utc_now(),
-        founding_member_payment_id: payment_id
+        founding_member_payment_id: payment_id,
+        founding_member_paid_cents: amount_cents
       })
       |> Repo.update()
 
@@ -132,16 +177,17 @@ defmodule Inkwell.Billing.Founding do
       {:ok, updated} ->
         Logger.info("[Founding] Granted founding member ##{next_number} to @#{updated.username}")
         Inkwell.Slack.notify(
-          ":tada: *New Founding Member ##{next_number}*: @#{updated.username} ($99)"
+          ":tada: *New Founding Member ##{next_number}*: @#{updated.username} (#{dollars(amount_cents)})"
         )
 
         cancel_monthly_plus(updated)
+        Inkwell.Billing.ThankYou.queue(updated, "founding", payment_id)
         {:ok, updated, :granted}
 
       {:error, %Ecto.Changeset{errors: errors} = cs} when attempts_left > 1 ->
         if Keyword.has_key?(errors, :founding_member_number) do
           # Another purchase took this number at the same moment. Try the next.
-          do_grant(user, payment_id, attempts_left - 1)
+          do_grant(user, payment_id, amount_cents, attempts_left - 1)
         else
           {:error, cs}
         end
@@ -182,7 +228,9 @@ defmodule Inkwell.Billing.Founding do
   Called by the payment webhook for a COMPLETED payment whose order is a
   founding purchase.
   """
-  def handle_completed_payment(payment_id, nil, customer_id) do
+  def handle_completed_payment(payment_id, user, customer_id, amount_cents \\ nil)
+
+  def handle_completed_payment(payment_id, nil, customer_id, amount_cents) do
     Logger.error(
       "[Founding] Founding payment #{payment_id} but no Inkwell user resolved " <>
         "(customer #{inspect(customer_id)})"
@@ -190,14 +238,14 @@ defmodule Inkwell.Billing.Founding do
 
     Inkwell.Slack.notify(
       ":rotating_light: *Unmatched Founding Member payment* `#{payment_id}` " <>
-        "(customer `#{customer_id}`). Someone paid $99 and needs their membership granted manually."
+        "(customer `#{customer_id}`). Someone paid #{dollars(amount_cents)} and needs their membership granted manually."
     )
 
     :ok
   end
 
-  def handle_completed_payment(payment_id, %User{} = user, _customer_id) do
-    case grant(user, payment_id) do
+  def handle_completed_payment(payment_id, %User{} = user, _customer_id, amount_cents) do
+    case grant(user, payment_id, amount_cents) do
       {:ok, _, _} -> :ok
       {:error, _} -> {:error, :founding_grant_failed}
     end
@@ -220,13 +268,13 @@ defmodule Inkwell.Billing.Founding do
           payments
           |> Enum.filter(fn p ->
             p["customer_id"] == user.square_customer_id and p["status"] == "COMPLETED" and
-              get_in(p, ["amount_money", "amount"]) == price_cents()
+              get_in(p, ["amount_money", "amount"]) in known_prices()
           end)
           |> Enum.find_value({:ok, user, []}, fn p ->
             with {:ok, order} <- Square.get_order(p["order_id"]),
                  true <- founding_order?(order),
                  true <- order["reference_id"] in [nil, user.id],
-                 {:ok, updated, _} <- grant(user, p["id"]) do
+                 {:ok, updated, _} <- grant(user, p["id"], get_in(p, ["amount_money", "amount"])) do
               {:ok, updated, [:founding_granted]}
             else
               _ -> nil
@@ -235,4 +283,7 @@ defmodule Inkwell.Billing.Founding do
         end
     end
   end
+
+  defp dollars(nil), do: "a Founding Member payment"
+  defp dollars(cents), do: "$#{div(cents, 100)}"
 end

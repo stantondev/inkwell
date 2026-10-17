@@ -83,6 +83,7 @@ defmodule Inkwell.Accounts.User do
     field :founding_member_number, :integer
     field :founding_member_at, :utc_datetime_usec
     field :founding_member_payment_id, :string
+    field :founding_member_paid_cents, :integer
 
     # Free Plus trial (subscription_status "trialing" while active)
     field :plus_trial_started_at, :utc_datetime_usec
@@ -219,7 +220,12 @@ defmodule Inkwell.Accounts.User do
 
   def founding_member_changeset(user, attrs) do
     user
-    |> cast(attrs, [:founding_member_number, :founding_member_at, :founding_member_payment_id])
+    |> cast(attrs, [
+      :founding_member_number,
+      :founding_member_at,
+      :founding_member_payment_id,
+      :founding_member_paid_cents
+    ])
     |> validate_required([:founding_member_number, :founding_member_at])
     |> unique_constraint(:founding_member_number)
     |> unique_constraint(:founding_member_payment_id)

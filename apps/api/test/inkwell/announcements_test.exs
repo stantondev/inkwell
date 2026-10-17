@@ -62,4 +62,29 @@ defmodule Inkwell.AnnouncementsTest do
     assert :ok = perform_job(Inkwell.Workers.AnnouncementWorker, %{"user_id" => user.id, "subject" => "s", "body" => "b"})
     assert %User{} = Repo.reload!(user)
   end
+
+  test "exclude_paying leaves out Founding Members, paying Plus and Ink Donors" do
+    free = create_user()
+
+    create_user()
+    |> Ecto.Changeset.change(founding_member_number: 1, founding_member_at: DateTime.utc_now())
+    |> Repo.update!()
+
+    create_user()
+    |> Ecto.Changeset.change(subscription_tier: "plus", subscription_status: "active", square_subscription_id: "sq_1")
+    |> Repo.update!()
+
+    create_user()
+    |> Ecto.Changeset.change(ink_donor_status: "active")
+    |> Repo.update!()
+
+    trialing =
+      create_user()
+      |> Ecto.Changeset.change(subscription_tier: "plus", subscription_status: "trialing")
+      |> Repo.update!()
+
+    assert Announcements.recipient_count() == 5
+    ids = Announcements.recipients_query(exclude_paying: true) |> Repo.all() |> Enum.map(& &1.id)
+    assert Enum.sort(ids) == Enum.sort([free.id, trialing.id])
+  end
 end

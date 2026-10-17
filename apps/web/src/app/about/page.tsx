@@ -235,7 +235,8 @@ export default function AboutPage() {
             </Link>{" "}
             at{" "}
             <strong style={{ color: "var(--accent)" }}>$5/month</strong>{" "}
-            unlocks custom themes, HTML/CSS, custom domains, the First Class stamp, and more.
+            adds your own domain, detailed reader stats, a page that looks like you (colors, fonts,
+            HTML and CSS), a bigger newsletter, and more. All eight profile themes are free.
           </p>
           <p className="text-base leading-relaxed mb-4">
             Subscriptions align our success with user value. When you pay for
@@ -248,7 +249,7 @@ export default function AboutPage() {
             and entries, and send their writing to readers as an email newsletter.
           </p>
 
-          {/* ── Ink Donor callout ── */}
+          {/* ── Founding Members & gifts ── */}
           <div
             className="rounded-xl border p-6 sm:p-8 mb-8"
             style={{
@@ -256,66 +257,25 @@ export default function AboutPage() {
               background: "var(--accent-light)",
             }}
           >
-            <div className="flex items-center gap-3 mb-3">
-              <svg
-                width="18"
-                height="22"
-                viewBox="0 0 10 12"
-                fill="currentColor"
-                aria-hidden="true"
-                style={{ color: "var(--accent)" }}
-              >
-                <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-              </svg>
-              <h3
-                className="text-lg font-semibold"
-                style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--accent)" }}
-              >
-                Ink Donors — Keep the Ink Flowing
-              </h3>
-            </div>
-            <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
-              Not every reader needs Plus, and we never want cost to be a barrier
-              to writing. Ink Donors are the quiet patrons who help keep Inkwell
-              ad-free, algorithm-free, and open for everyone. There are no extra
-              features — just an ink-blue badge on your profile and the knowledge
-              that you helped keep the presses running.
-            </p>
-            <div className="flex items-center gap-3 mb-4">
-              {["$1", "$2", "$3"].map((amt) => (
-                <span
-                  key={amt}
-                  className="inline-flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold border"
-                  style={{
-                    borderColor: "var(--accent)",
-                    color: "var(--accent)",
-                    background: "var(--background)",
-                  }}
-                >
-                  {amt}
-                </span>
-              ))}
-              <span className="text-xs" style={{ color: "var(--muted)" }}>per month</span>
-            </div>
-            <Link
-              href="/settings/billing"
-              className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium text-white"
-              style={{ background: "var(--accent)" }}
+            <h3
+              className="text-lg font-semibold mb-3"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--accent)" }}
             >
-              <svg
-                width="12"
-                height="15"
-                viewBox="0 0 10 12"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M5 0C5 0 0 5.5 0 8a5 5 0 0 0 10 0C10 5.5 5 0 5 0Z" />
-              </svg>
-              Become an Ink Donor
-            </Link>
-            <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
-              Every drop helps. Cancel anytime.
+              Founding Members and gifts
+            </h3>
+            <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
+              Inkwell is run by one person, and members are the ones who keep the servers on.
+              Up to fifty Founding Members pay once and have Plus for as long as Inkwell runs, with a
+              numbered badge on their profile. Anyone who&apos;d rather not get Plus can give a one-time gift
+              of any size instead. Neither is ever required: writing on Inkwell is free.
             </p>
+            <Link
+              href="/transparency"
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium"
+              style={{ background: "var(--accent)", color: "var(--background)" }}
+            >
+              See the books and how to help
+            </Link>
           </div>
 
           <p

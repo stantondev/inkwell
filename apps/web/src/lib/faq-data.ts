@@ -316,7 +316,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus ($5/month or $50/year, with a free 14-day trial) includes: reader stats (reads by day, most-read entries, where readers came from); custom profile colors, fonts, backgrounds, and music; avatar frames and animations; custom HTML/CSS; custom domain; First Class stamp; unlimited drafts and filters; 1 GB of image storage that grows by 1 GB every year you\'re a member; 8 newsletter sends/month; API write access; and the Plus badge. <a href="/settings/billing">View details</a>.',
+      'Plus is $5/month or $50/year, and you can try it free for 14 days with no card. It gives you your own domain (yourname.com), detailed reader stats (reads by day, most-read entries, where readers came from), a page that looks like you (custom colors, fonts, backgrounds, music and HTML/CSS), and a bigger newsletter (unlimited subscribers, 8 sends a month). It also includes 1 GB of image storage that grows by 1 GB every year you\'re a member, unlimited drafts and series, cross-posting to Mastodon, Post by Email, API write access, Plus stickers and avatar frames, and the First Class stamp. All 8 profile themes are free for everyone. <a href="/settings/billing">View details</a>.',
+    category: "billing",
+  },
+  {
+    id: "founding",
+    question: "What is a Founding Member?",
+    answer:
+      'Founding Members pay once and have Plus for as long as Inkwell runs, with a numbered badge on their profile. There are only 50. The price rises from $99 to $149 after October 31, 2026; anyone who already joined keeps their seat and number. <a href="/settings/billing">Become one</a> or <a href="/transparency">see where the money goes</a>.',
     category: "billing",
   },
   {
@@ -328,9 +335,9 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     id: "ink-donor",
-    question: "What is an Ink Donor?",
+    question: "Can I support Inkwell without getting Plus?",
     answer:
-      'Ink Donors contribute $1, $2, or $3/month to help keep Inkwell running. In return, you get an "Ink Donor" badge on your profile and feed cards. No features are unlocked — it\'s purely voluntary support. You can be both Plus and Ink Donor.',
+      'Yes. Give a one-time gift of any amount from $1 in <a href="/settings/billing#gift">Settings &rarr; Billing</a>, with nothing to renew. (Monthly Ink Donor donations were retired in October 2026; anyone already giving that way can keep it or cancel it from the same page.)',
     category: "billing",
   },
   {

@@ -15,6 +15,7 @@ interface BottomTabBarProps {
   avatarAnimation?: string | null;
   subscriptionTier?: string;
   inkDonorStatus?: string | null;
+  foundingMemberNumber?: number | null;
   isAdmin?: boolean;
   selfHosted?: boolean;
   unreadNotificationCount?: number;
@@ -37,6 +38,7 @@ export function BottomTabBar({
   avatarAnimation,
   subscriptionTier,
   inkDonorStatus,
+  foundingMemberNumber,
   isAdmin,
   selfHosted,
   unreadNotificationCount: initialNotificationCount = 0,
@@ -188,6 +190,7 @@ export function BottomTabBar({
           avatarAnimation={avatarAnimation}
           subscriptionTier={subscriptionTier}
           inkDonorStatus={inkDonorStatus}
+          foundingMemberNumber={foundingMemberNumber}
           isAdmin={isAdmin}
           selfHosted={selfHosted}
           unreadLetterCount={unreadLetterCount}
