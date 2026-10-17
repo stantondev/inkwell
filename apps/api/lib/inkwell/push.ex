@@ -128,7 +128,8 @@ defmodule Inkwell.Push do
   defp build_text("stamp", actor, n) do
     label = stamp_label(get_in_data(n, "stamp_type"))
     who = if get_in_data(n, "remote_actor"), do: "Someone on the fediverse", else: actor
-    body = "#{who} sent you a #{label} stamp"
+    article = if String.match?(label, ~r/^[AEIOU]/i), do: "an", else: "a"
+    body = "#{who} sent you #{article} #{label} stamp"
 
     case get_in_data(n, "note") do
       note when is_binary(note) and note != "" -> {"A stamp for you", "#{body}: “#{note}”"}

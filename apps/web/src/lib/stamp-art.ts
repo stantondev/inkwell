@@ -20,6 +20,9 @@
  * 28px wide) with faint engraved hatching as detail for larger sizes.
  */
 
+/** Bump when a drawing changes: pages load stamps from `/api/stamps/<type>.svg?v=…`. */
+export const STAMP_ART_VERSION = 1;
+
 export const STAMP_VIEWBOX = { w: 80, h: 96 };
 
 export interface StampArtOptions {

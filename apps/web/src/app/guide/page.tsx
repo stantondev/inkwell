@@ -262,15 +262,19 @@ export default function GuidePage() {
         {/* IV. Stamps, Inks, Reprints & Interaction */}
         <Section id="interaction" number="IV" title="Stamps, Inks, Reprints & Interaction">
           <p>
-            <strong>Stamps</strong> are Inkwell&rsquo;s way of reacting to
-            entries — like pressing an ink stamp onto paper. Each entry shows
-            which stamp types have been placed in the top-right corner (like
-            postage on a letter).
+            <strong>Stamps</strong> are postage you send a writer. Choose one
+            from the sheet (&ldquo;I felt this,&rdquo; &ldquo;Rooting for
+            you,&rdquo; &ldquo;Made me laugh&rdquo; and more, plus a seasonal
+            issue) and it lands in the entry&rsquo;s top-right corner with a
+            postmark and the day you sent it, like stamps on an envelope.
           </p>
           <p>
-            You can leave one stamp per entry. Pick the one that fits how the
-            entry made you feel — &ldquo;Felt this,&rdquo; &ldquo;Holding
-            space,&rdquo; &ldquo;Beautifully said,&rdquo; and more.
+            You can send one stamp per entry, and change it or take it back
+            later. On the back you can write one line to the writer, up to 140
+            characters. Readers see the stamps and their dates, never who sent
+            them; the writer sees who sent each one and what they wrote, and
+            keeps them all in their <strong>Stamp album</strong> (Your journal
+            → Stamp album). Plus members also get a sheet of Keepsakes.
           </p>
           <p>
             <strong>Inks</strong> are a way to signal &ldquo;more people should

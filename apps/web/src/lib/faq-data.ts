@@ -47,7 +47,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "what-is-plus",
     question: "What is Inkwell Plus?",
     answer:
-      'Inkwell Plus ($5/month) unlocks custom colors, fonts, background images, profile music, avatar animations, custom HTML/CSS, custom domains, the First Class stamp, unlimited drafts, extended newsletter sends, and API write access. <a href="/settings/billing">Learn more</a>.',
+      'Inkwell Plus ($5/month) unlocks custom colors, fonts, background images, profile music, avatar animations, custom HTML/CSS, custom domains, the Keepsakes sheet of stamps, unlimited drafts, extended newsletter sends, and API write access. <a href="/settings/billing">Learn more</a>.',
     category: "account",
   },
   {
@@ -177,7 +177,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "stamps",
     question: "How do stamps work?",
     answer:
-      'Stamps are Inkwell\'s reactions — like pressing an ink stamp onto paper. You can leave one stamp per entry, choosing from 7 types: Felt this, Holding space, Beautifully said, Rooting for you, Throwback, I can\'t even, and First Class (Plus only). Stamps appear in the top-right corner of entries like postage on a letter.',
+      'A stamp is postage you send a writer. Pick one from the sheet (I felt this, Rooting for you, Beautifully said, Holding space, Thank you, Made me laugh, First Class, and the season\'s commemorative issue) and it lands in the top-right corner of the entry with a postmark and the day you sent it. You can add one line on the back, up to 140 characters, that only the writer sees. Readers see the stamps and their dates but never who sent them. One stamp per entry; you can change it or take it back. Writers keep every stamp they receive in their <a href="/stamp-album">Stamp album</a>. Plus members also get a sheet of Keepsakes.',
     category: "social",
   },
   {
@@ -316,7 +316,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus is $5/month or $50/year, and you can try it free for 14 days with no card. It gives you your own domain (yourname.com), detailed reader stats (reads by day, most-read entries, where readers came from), a page that looks like you (custom colors, fonts, backgrounds, music and HTML/CSS), and a bigger newsletter (unlimited subscribers, 8 sends a month). It also includes 1 GB of image storage that grows by 1 GB every year you\'re a member, unlimited drafts and series, cross-posting to Mastodon, Post by Email, API write access, Plus stickers and avatar frames, and the First Class stamp. All 8 profile themes are free for everyone. <a href="/settings/billing">View details</a>.',
+      'Plus is $5/month or $50/year, and you can try it free for 14 days with no card. It gives you your own domain (yourname.com), detailed reader stats (reads by day, most-read entries, where readers came from), a page that looks like you (custom colors, fonts, backgrounds, music and HTML/CSS), and a bigger newsletter (unlimited subscribers, 8 sends a month). It also includes 1 GB of image storage that grows by 1 GB every year you\'re a member, unlimited drafts and series, cross-posting to Mastodon, Post by Email, API write access, Plus stickers and avatar frames, and the Keepsakes sheet of stamps. All 8 profile themes are free for everyone. <a href="/settings/billing">View details</a>.',
     category: "billing",
   },
   {

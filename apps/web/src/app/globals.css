@@ -133,7 +133,7 @@ img, video, iframe, embed, object {
     min-height: 44px;
   }
 
-  .stamp-picker-grid button {
+  .stamp-choice {
     min-height: 44px;
   }
 }
@@ -1175,213 +1175,7 @@ a.listening-card:hover { border-color: var(--accent); }
   margin: 0;
 }
 
-/* ─── Stamp styles (Postage Stamp Design) ────────────────────────────── */
-
-/* Base stamp frame — ink-pressed-on-paper aesthetic */
-.stamp-frame {
-  position: relative;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  opacity: 0.82;
-  mix-blend-mode: multiply;
-  filter: saturate(0.85) contrast(1.1);
-  transition: opacity 0.2s, transform 0.2s;
-  color: var(--foreground);
-}
-
-.stamp-frame-inner {
-  position: relative;
-  overflow: hidden;
-}
-
-.stamp-frame-border {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.stamp-frame-icon {
-  position: absolute;
-  inset: 8%;
-  width: 84%;
-  height: 84%;
-  object-fit: contain;
-  filter: var(--stamp-filter);
-}
-
-.stamp-frame-label {
-  display: block;
-  margin-top: 2px;
-  font-size: 8px;
-  font-family: var(--font-lora, Georgia, serif);
-  font-variant: small-caps;
-  letter-spacing: 0.5px;
-  opacity: 0.65;
-  text-align: center;
-  line-height: 1.2;
-  white-space: nowrap;
-  color: var(--foreground);
-}
-
-/* Interactive stamps (hover effects) */
-.stamp-frame-interactive {
-  cursor: pointer;
-}
-.stamp-frame-interactive:hover {
-  opacity: 0.95;
-  transform: scale(1.08);
-}
-
-/* Per-stamp tilted rotation — gives hand-placed character */
-.stamp-frame[data-stamp="felt"] { transform: rotate(-2.5deg); }
-.stamp-frame[data-stamp="holding_space"] { transform: rotate(1.8deg); }
-.stamp-frame[data-stamp="beautifully_said"] { transform: rotate(-1.2deg); }
-.stamp-frame[data-stamp="rooting"] { transform: rotate(3deg); }
-.stamp-frame[data-stamp="throwback"] { transform: rotate(-3.5deg); }
-.stamp-frame[data-stamp="i_cannot"] { transform: rotate(2deg); }
-.stamp-frame[data-stamp="first_class"] { transform: rotate(-1.5deg); }
-
-/* Interactive stamps preserve rotation on hover */
-.stamp-frame-interactive[data-stamp="felt"]:hover { transform: rotate(-2.5deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="holding_space"]:hover { transform: rotate(1.8deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="beautifully_said"]:hover { transform: rotate(-1.2deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="rooting"]:hover { transform: rotate(3deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="throwback"]:hover { transform: rotate(-3.5deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="i_cannot"]:hover { transform: rotate(2deg) scale(1.08); }
-.stamp-frame-interactive[data-stamp="first_class"]:hover { transform: rotate(-1.5deg) scale(1.08); }
-
-/* Size variants */
-.stamp-frame-xs { width: 20px; height: 24px; }
-.stamp-frame-xs .stamp-frame-icon { inset: 6%; width: 88%; height: 88%; }
-.stamp-frame-sm { width: 28px; height: 34px; }
-.stamp-frame-sm .stamp-frame-icon { inset: 7%; width: 86%; height: 86%; }
-.stamp-frame-md { width: 36px; height: 44px; }
-.stamp-frame-lg { width: 52px; height: 64px; }
-.stamp-frame-lg .stamp-frame-label { font-size: 9px; }
-.stamp-frame-xl { width: 64px; height: 78px; }
-.stamp-frame-xl .stamp-frame-label { font-size: 10px; letter-spacing: 0.8px; }
-
-/* Stamp row — stamps sit side-by-side, shrinking to fit */
-.stamp-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 3px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.stamp-row .stamp-frame {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  transition: transform 0.2s, opacity 0.2s;
-}
-
-/* Hover popup for stamp detail (shown via FloatingPopup) */
-.stamp-hover-detail {
-  display: flex;
-  gap: 12px;
-  padding: 12px 16px;
-  align-items: flex-start;
-}
-.stamp-hover-detail .stamp-frame {
-  opacity: 0.9;
-}
-
-/* Gold foil shimmer for Plus-exclusive "First Class" stamp */
-.stamp-first-class-shimmer {
-  position: relative;
-  overflow: visible;
-}
-.stamp-first-class-shimmer .stamp-frame-inner {
-  overflow: hidden;
-}
-.stamp-first-class-shimmer .stamp-frame-inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(255, 215, 0, 0.18) 45%,
-    rgba(255, 215, 0, 0.3) 50%,
-    rgba(255, 215, 0, 0.18) 55%,
-    transparent 70%
-  );
-  animation: stamp-shimmer 3s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes stamp-shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-/* Stamp picker grid layout */
-.stamp-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-.stamp-picker-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.stamp-picker-item:hover {
-  background: var(--accent-light);
-}
-.stamp-picker-item[data-active="true"] {
-  border-color: var(--accent);
-  background: var(--accent-light);
-}
-.stamp-picker-item[data-disabled="true"] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.stamp-picker-item-label {
-  font-size: 10px;
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.2;
-  color: var(--foreground);
-}
-.stamp-picker-item-desc {
-  font-size: 9px;
-  text-align: center;
-  color: var(--muted);
-  line-height: 1.2;
-}
-
-/* Dark mode stamp overrides */
-@media (prefers-color-scheme: dark) {
-  .stamp-frame {
-    mix-blend-mode: normal;
-    opacity: 0.8;
-    filter: saturate(0.8);
-  }
-  .stamp-frame-interactive:hover {
-    opacity: 0.95;
-  }
-  .stamp-row .stamp-frame {
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-  }
-}
-
-/* SVG currentColor handling — dark mode needs inversion */
-:root {
-  --stamp-filter: none;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --stamp-filter: invert(0.85);
-  }
-}
+/* ─── Stamps: see the "Stamps (postage)" block at the end of this file ─── */
 
 /* ─── Avatar Animations (Plus Feature) ───────────────────────────────── */
 
@@ -8102,10 +7896,7 @@ body[data-focus-mode] .sidebar-reveal-tab {
   gap: 6px;
 }
 .landing-mockup-stamp {
-  width: 40px;
-  height: 40px;
-  color: var(--accent);
-  opacity: 0.5;
+  filter: drop-shadow(0 1px 2px rgba(40, 28, 8, 0.25));
 }
 
 /* ==========================================================================
@@ -18520,6 +18311,7 @@ body[data-look="classic"] .entry-current-label {
   color: var(--muted);
 }
 .classic-subject { margin-bottom: 4px; }
+.classic-stamps { float: right; margin: 0 0 6px 10px; }
 .classic-subject-label { font-weight: bold; }
 .classic-subject a { font-weight: bold; }
 .classic-current { margin: 2px 0 10px; font-size: 12px; }
@@ -19967,3 +19759,486 @@ body:has(.arrange-shell) .site-footer {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Stamps (postage)
+   The drawings carry their own paper and perforations (lib/stamp-art.ts), so
+   they read on light and dark pages alike: no filters, just a paper shadow.
+   ========================================================================== */
+:root {
+  --stamp-postmark-ink: rgba(28, 34, 56, 0.66);
+  --stamp-shadow: 0 1px 1.5px rgba(60, 40, 10, 0.22), 0 3px 8px rgba(60, 40, 10, 0.12);
+  --stamp-shadow-lifted: 0 10px 22px rgba(40, 28, 8, 0.28), 0 3px 6px rgba(40, 28, 8, 0.18);
+  --stamp-note-ink: #3a3550;
+  --stamp-postcard: #fdf9f0;
+  --stamp-postcard-rule: rgba(80, 100, 150, 0.16);
+  --stamp-album-page: #f5efe1;
+  --stamp-album-strip: rgba(255, 255, 255, 0.55);
+  --stamp-album-strip-edge: rgba(120, 100, 60, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --stamp-postmark-ink: rgba(132, 142, 170, 0.92);
+    --stamp-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.35);
+    --stamp-shadow-lifted: 0 12px 26px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4);
+    --stamp-note-ink: #d9d4ea;
+    --stamp-postcard: #2a2722;
+    --stamp-postcard-rule: rgba(170, 185, 225, 0.12);
+    --stamp-album-page: #221f1a;
+    --stamp-album-strip: rgba(255, 255, 255, 0.05);
+    --stamp-album-strip-edge: rgba(255, 255, 255, 0.08);
+  }
+}
+[data-theme="dark"] {
+  --stamp-postmark-ink: rgba(132, 142, 170, 0.92);
+  --stamp-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.35);
+  --stamp-shadow-lifted: 0 12px 26px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4);
+  --stamp-note-ink: #d9d4ea;
+  --stamp-postcard: #2a2722;
+  --stamp-postcard-rule: rgba(170, 185, 225, 0.12);
+  --stamp-album-page: #221f1a;
+  --stamp-album-strip: rgba(255, 255, 255, 0.05);
+  --stamp-album-strip-edge: rgba(255, 255, 255, 0.08);
+}
+[data-theme="light"] {
+  --stamp-postmark-ink: rgba(28, 34, 56, 0.66);
+  --stamp-note-ink: #3a3550;
+  --stamp-postcard: #fdf9f0;
+  --stamp-album-page: #f5efe1;
+}
+
+/* A drawing */
+.stamp-art {
+  display: inline-block;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 0;
+  vertical-align: middle;
+}
+.stamp-art > svg,
+.stamp-art > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A design at a fixed size, optionally labelled */
+.stamp-frame {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.stamp-frame .stamp-art {
+  filter: drop-shadow(0 1px 1.5px rgba(40, 28, 8, 0.25));
+}
+.stamp-frame-interactive { cursor: pointer; transition: transform 0.15s; }
+.stamp-frame-interactive:hover { transform: translateY(-1px) rotate(-1deg); }
+.stamp-frame-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 10px;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* An impression on a post: tilt, offset, postmark */
+.stamp-impression {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  transform: translateY(var(--stamp-dy, 0)) rotate(var(--stamp-tilt, 0deg));
+}
+.stamp-impression-body {
+  display: block;
+  line-height: 0;
+  filter: drop-shadow(0 1px 1px rgba(40, 28, 8, 0.25)) drop-shadow(0 2px 4px rgba(40, 28, 8, 0.12));
+}
+.stamp-impression-postmark {
+  position: absolute;
+  left: -14%;
+  top: 46%;
+  width: 130%;
+  color: var(--stamp-postmark-ink);
+  transform: rotate(var(--pm-tilt, -6deg));
+  transform-origin: 20% 50%;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.stamp-postmark { display: block; width: 100%; height: auto; overflow: visible; }
+@media (prefers-color-scheme: dark) {
+  .stamp-impression-postmark { mix-blend-mode: normal; }
+}
+[data-theme="dark"] .stamp-impression-postmark { mix-blend-mode: normal; }
+
+/* Pressing: the stamp comes down hard, the ink settles after */
+.stamp-impression.is-pressed .stamp-impression-body,
+.stamp-postcard-press.is-pressed {
+  animation: stamp-press 0.56s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.stamp-impression.is-pressed .stamp-impression-postmark {
+  animation: stamp-ink-in 0.42s 0.26s ease-out both;
+}
+@keyframes stamp-press {
+  0% { transform: scale(1.08) translateY(-6px); filter: drop-shadow(0 12px 14px rgba(40, 28, 8, 0.35)); }
+  45% { transform: scale(0.95) translateY(0); filter: drop-shadow(0 0 1px rgba(40, 28, 8, 0.4)); }
+  72% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+@keyframes stamp-ink-in {
+  from { opacity: 0; transform: rotate(var(--pm-tilt, -6deg)) scale(1.06); }
+  to { opacity: 1; transform: rotate(var(--pm-tilt, -6deg)) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp-impression.is-pressed .stamp-impression-body,
+  .stamp-impression.is-pressed .stamp-impression-postmark,
+  .stamp-postcard-press.is-pressed { animation: none; }
+}
+
+/* The cluster in a post's corner, like stamps on an envelope */
+.stamp-cluster {
+  display: inline-flex;
+  align-items: flex-start;
+  padding: 2px 4px 6px;
+  background: none;
+  border: 0;
+  line-height: 0;
+}
+.stamp-cluster-button { cursor: pointer; border-radius: 6px; }
+.stamp-cluster-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stamp-cluster-button:hover .stamp-impression:last-child { transform: translateY(calc(var(--stamp-dy, 0px) - 1px)) rotate(var(--stamp-tilt, 0deg)); }
+
+.stamp-list-popup { padding: 12px 14px; }
+.stamp-list-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.stamp-list { display: flex; flex-direction: column; gap: 8px; }
+.stamp-list-row { display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1.35; }
+
+/* Entry page */
+.entry-stamps { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; min-width: 0; }
+
+/* Triggers */
+.stamp-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  min-height: 22px;
+  color: var(--muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+}
+.stamp-trigger:hover { color: var(--accent); }
+.stamp-trigger:focus-visible,
+.stamp-trigger-pill:focus-visible,
+.stamp-choice:focus-visible,
+.stamp-send:focus-visible,
+.stamp-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stamp-trigger.is-stamped { transform: rotate(-4deg); }
+.stamp-trigger.is-stamped .stamp-art { filter: drop-shadow(0 1px 1px rgba(40, 28, 8, 0.3)); }
+.stamp-trigger-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.stamp-trigger-pill:hover,
+.stamp-trigger-pill.is-stamped { border-color: var(--accent); color: var(--accent); }
+
+/* The picker */
+.stamp-picker-popup { padding: 0; }
+.stamp-picker-panel { padding: 14px 16px 16px; }
+.stamp-picker-sheet { max-height: 85vh; max-height: 85dvh; }
+.stamp-picker-sheet .stamp-picker-panel { overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+@media (min-width: 640px) {
+  html[data-keyboard] .stamp-picker-sheet { bottom: var(--kb, 0px); }
+}
+html[data-keyboard] .stamp-picker-sheet { max-height: calc(var(--vvh, 85dvh) - 12px); }
+
+.stamp-sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.stamp-sheet-title {
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+.stamp-sheet-section { padding: 10px 0 4px; border-top: 1px dashed var(--border); margin-top: 8px; }
+.stamp-sheet-section:first-of-type { border-top: 0; margin-top: 0; }
+.stamp-sheet-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-size: 12px;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+.stamp-sheet-section-blurb { font-variant: normal; font-style: italic; letter-spacing: 0; color: var(--muted); font-size: 11.5px; }
+.stamp-sheet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 4px; }
+@media (max-width: 380px) { .stamp-sheet-grid { grid-template-columns: repeat(3, 1fr); } }
+.stamp-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 2px 5px;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  background: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stamp-choice .stamp-art { transition: transform 0.18s ease; filter: drop-shadow(0 1px 1.5px rgba(40, 28, 8, 0.25)); }
+.stamp-choice:hover { background: var(--surface-hover); }
+.stamp-choice:hover .stamp-art { transform: translateY(-2px) rotate(-2deg); }
+.stamp-choice.is-mine { border-color: var(--accent); background: var(--accent-light); }
+.stamp-choice[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.stamp-choice[aria-disabled="true"]:hover .stamp-art { transform: none; }
+.stamp-choice-label { font-size: 10.5px; line-height: 1.2; text-align: center; color: var(--foreground); }
+.stamp-sheet-note { font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; }
+.stamp-sheet-note.is-flagged { color: var(--foreground); }
+@media (prefers-reduced-motion: reduce) {
+  .stamp-choice:hover .stamp-art, .stamp-frame-interactive:hover { transform: none; }
+}
+
+.stamp-link {
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The back of the postcard */
+.stamp-postcard { display: flex; gap: 14px; align-items: flex-start; }
+.stamp-postcard-stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 104px;
+  flex-shrink: 0;
+  padding-top: 4px;
+  text-align: center;
+}
+.stamp-postcard-press { display: block; line-height: 0; transform: rotate(-3deg); filter: drop-shadow(0 2px 3px rgba(40, 28, 8, 0.3)); }
+.stamp-postcard-name { font-family: var(--font-lora, Georgia, serif); font-weight: 600; font-size: 13px; margin-top: 6px; }
+.stamp-postcard-desc { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.stamp-postcard-back {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stamp-postcard-sent { font-size: 12.5px; color: var(--muted); }
+.stamp-postcard-label { font-size: 13px; font-weight: 500; }
+.stamp-postcard-label span { color: var(--muted); font-weight: 400; font-style: italic; }
+.stamp-postcard-note {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--stamp-note-ink);
+  background-color: var(--stamp-postcard);
+  background-image: repeating-linear-gradient(transparent 0 23px, var(--stamp-postcard-rule) 23px 24px);
+  background-position: 0 7px;
+}
+@media (min-width: 640px) { .stamp-postcard-note { font-size: 14.5px; } }
+.stamp-postcard-note:focus { outline: none; border-color: var(--accent); }
+.stamp-postcard-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); }
+.stamp-postcard-error { font-size: 12.5px; color: var(--danger); }
+.stamp-postcard-actions { display: flex; align-items: center; gap: 14px; margin-top: 2px; }
+.stamp-send {
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--background);
+  border: 0;
+  cursor: pointer;
+  min-height: 36px;
+}
+.stamp-send:disabled { opacity: 0.55; cursor: default; }
+.stamp-takeback { color: var(--muted); }
+.stamp-sound-toggle {
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.stamp-sound-toggle[aria-pressed="true"] { color: var(--accent); }
+@media (max-width: 420px) {
+  .stamp-postcard { flex-direction: column; align-items: stretch; }
+  .stamp-postcard-stamp { width: auto; flex-direction: row; gap: 12px; text-align: left; align-items: center; }
+  .stamp-postcard-stamp > span:not(.stamp-postcard-press) { margin-top: 0; }
+  .stamp-postcard-back { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; }
+}
+
+/* A reader's note, shown to the writer */
+.stamp-note {
+  margin: 4px 0 0;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--border-strong, var(--border));
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--stamp-note-ink);
+  overflow-wrap: anywhere;
+}
+.stamp-note-small { font-size: 13px; }
+.notification-stamp-art { transform: rotate(-4deg); }
+
+/* The writer's "Your stamps" */
+.stamp-letters { padding: 14px 16px; }
+.stamp-letters-title { font-family: var(--font-lora, Georgia, serif); font-weight: 600; font-size: 15px; margin-bottom: 10px; }
+.stamp-letters-empty { font-size: 13px; color: var(--muted); font-style: italic; }
+.stamp-letters-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
+.stamp-letter { display: flex; gap: 12px; align-items: flex-start; }
+.stamp-letter-body { flex: 1; min-width: 0; }
+.stamp-letter-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stamp-letter-date { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.stamp-letter-kind { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.stamp-letters-album { display: inline-block; margin-top: 4px; }
+.stamp-sender { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; }
+.stamp-sender-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.stamp-sender:hover .stamp-sender-name { text-decoration: underline; }
+.stamp-sender-handle { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The stamp album: a stock book of glassine strips */
+.stamp-album-header { margin-bottom: 18px; }
+.stamp-album-title { font-family: var(--font-lora, Georgia, serif); font-size: 28px; font-weight: 700; }
+.stamp-album-sub { color: var(--muted); font-size: 14px; margin-top: 4px; max-width: 34rem; }
+.stamp-album-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.stamp-album-tabs a {
+  padding: 8px 14px;
+  font-size: 14px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.stamp-album-tabs a.is-active { color: var(--foreground); border-bottom-color: var(--accent); font-weight: 600; }
+.stamp-album-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.stamp-album-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--foreground);
+  background: var(--surface);
+  min-height: 30px;
+}
+.stamp-album-chip span { color: var(--muted); font-size: 11.5px; }
+.stamp-album-chip.is-active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.stamp-album-page {
+  list-style: none;
+  padding: 18px 16px;
+  margin: 0;
+  border-radius: 6px;
+  background: var(--stamp-album-page);
+  box-shadow: inset 0 0 0 1px var(--stamp-album-strip-edge), 0 2px 10px rgba(40, 28, 8, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.stamp-album-row {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 12px 14px 12px 12px;
+  background: linear-gradient(180deg, var(--stamp-album-strip), transparent 70%);
+  border-top: 1px solid var(--stamp-album-strip-edge);
+  border-bottom: 1px solid var(--stamp-album-strip-edge);
+}
+.stamp-album-pocket {
+  flex-shrink: 0;
+  width: 104px;
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 14px;
+}
+.stamp-album-pocket { position: relative; }
+/* The glassine strip that holds the stamp in a stock book */
+.stamp-album-pocket::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  bottom: 6px;
+  height: 56%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.2));
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 -1px 0 rgba(120, 100, 60, 0.12);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .stamp-album-pocket::after { background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)); border-top-color: rgba(255, 255, 255, 0.14); }
+}
+[data-theme="dark"] .stamp-album-pocket::after { background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)); border-top-color: rgba(255, 255, 255, 0.14); }
+.stamp-album-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.stamp-album-kind { font-family: var(--font-lora, Georgia, serif); font-weight: 600; font-size: 15px; }
+.stamp-album-kind span { font-weight: 400; font-style: italic; color: var(--muted); font-size: 13.5px; }
+.stamp-album-person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.stamp-album-prep { font-size: 12px; color: var(--muted); }
+.stamp-album-where { font-size: 12.5px; color: var(--muted); }
+.stamp-album-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 40px 20px;
+  border-radius: 6px;
+  background: var(--stamp-album-page);
+  color: var(--muted);
+  font-size: 14px;
+}
+.stamp-album-empty p { max-width: 28rem; }
+.stamp-album-more { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 18px; }
+@media (max-width: 520px) {
+  .stamp-album-row { gap: 12px; padding: 10px 8px; }
+  .stamp-album-pocket { width: 80px; }
+}
+
+/* Classic view: square paper, no softness */
+body[data-look="classic"] .stamp-picker-popup,
+body[data-look="classic"] .stamp-list-popup { border-radius: 4px; }
+body[data-look="classic"] .stamp-send { border-radius: 4px; }
+body[data-look="classic"] .stamp-album-page { border-radius: 2px; }

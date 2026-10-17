@@ -217,6 +217,10 @@ export default function DevelopersPage() {
             <Endpoint method="PATCH" path="/api/entries/:id" description="Update an entry" auth="required" scope="write" />
             <Endpoint method="DELETE" path="/api/entries/:id" description="Delete an entry" auth="required" scope="write" />
             <Endpoint method="POST" path="/api/entries/:id/publish" description="Publish a draft" auth="required" scope="write" />
+            <Endpoint method="POST" path="/api/entries/:id/stamp" description="Send a stamp: {stamp_type, note?} (note: one plain-text line, up to 140 characters, only the writer sees it). Sending again changes it" auth="required" scope="write" />
+            <Endpoint method="DELETE" path="/api/entries/:id/stamp" description="Take your stamp back" auth="required" scope="write" />
+            <Endpoint method="GET" path="/api/entries/:id/stamps" description="The stamps on an entry (stamp_marks); the writer also gets who sent each and their note" auth="public" />
+            <Endpoint method="GET" path="/api/me/stamps" description="Your stamp album: ?box=received|sent&type=&page=" auth="required" />
           </div>
         </section>
 

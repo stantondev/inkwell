@@ -1,3 +1,4 @@
+import type { StampMark } from "@/components/stamp-config";
 import type { MusicMetadata } from "@/lib/music";
 import type { PollData } from "@/components/poll-widget";
 import type { MarginNote } from "@/lib/marginalia/types";
@@ -44,6 +45,12 @@ export interface EntryData {
   updated_at?: string;
   stamps?: string[];
   my_stamp?: string | null;
+  /** The newest stamps on the entry, as impressions (newest first). */
+  stamp_marks?: StampMark[];
+  stamp_count?: number;
+  /** The viewer's own note and the day they stamped (entry page only). */
+  my_note?: string | null;
+  my_stamped_on?: string | null;
   bookmarked?: boolean;
   word_count?: number;
   /** Owner only: how many times the entry has been read. */

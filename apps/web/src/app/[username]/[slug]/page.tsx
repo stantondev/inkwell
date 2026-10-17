@@ -344,7 +344,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
   const audience = { privacy: entry.privacy, listName, circleName: entry.circle?.name ?? null };
   const justPublished = isOwnEntry && query.published === "1";
   // An owner's own entry with nothing stamped renders no stamp row at all.
-  const showStamps = !isOwnEntry || (entry.stamps?.length ?? 0) > 0;
+  const showStamps = !isOwnEntry || (entry.stamps?.length ?? 0) > 0 || (entry.stamp_marks?.length ?? 0) > 0;
 
   // JSON-LD description: never the words of a post behind a content warning.
   const ldDescription = entry.is_sensitive
@@ -413,6 +413,10 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                 entryId={entry.id}
                 initialStamps={entry.stamps ?? []}
                 initialMyStamp={entry.my_stamp ?? null}
+                initialMarks={entry.stamp_marks ?? null}
+                initialNote={entry.my_note === undefined ? undefined : entry.my_note}
+                initialStampedOn={entry.my_stamped_on ?? null}
+                writerName={entry.author?.display_name || username}
                 isOwnEntry={isOwnEntry ?? false}
                 isLoggedIn={!!session}
                 isPlus={session?.user.subscription_tier === "plus"}
@@ -908,6 +912,11 @@ function StickyPage({
             entryId={entry.id}
             initialStamps={entry.stamps ?? []}
             initialMyStamp={entry.my_stamp ?? null}
+            initialMarks={entry.stamp_marks ?? null}
+            initialNote={entry.my_note === undefined ? undefined : entry.my_note}
+            initialStampedOn={entry.my_stamped_on ?? null}
+            writerName={author.display_name || username}
+            size="md"
             isOwnEntry={isOwnEntry}
             isLoggedIn={!!session}
             isPlus={session?.user.subscription_tier === "plus"}

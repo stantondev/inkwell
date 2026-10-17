@@ -6,6 +6,7 @@ import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import type { MusicMetadata } from "@/lib/music";
 import { StampDisplay } from "@/components/stamp-display";
+import type { StampMark } from "@/components/stamp-config";
 import { JournalPage } from "@/components/journal-page";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { getMusicLabel, songFrom } from "@/lib/music";
@@ -33,6 +34,9 @@ export interface JournalEntry {
   comment_count?: number;
   stamps?: string[];
   my_stamp?: string | null;
+  /** The newest stamps on the entry, as impressions (newest first). */
+  stamp_marks?: StampMark[];
+  stamp_count?: number;
   bookmarked?: boolean;
   published_at: string;
   slug: string;
@@ -225,17 +229,15 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
       {/* Top section */}
       <div className={`${bookMode ? "p-4 sm:p-5 lg:p-6 journal-book-entry-body" : isCompact ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6"} flex flex-col relative${bookMode ? " flex-1 min-h-0" : " flex-1"}`}>
         {/* Stamps — top-right corner like an ink stamp pressed on paper */}
-        {entry.stamps && entry.stamps.length > 0 && (
-          <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
-            <StampDisplay stamps={entry.stamps} size="md" />
-          </div>
-        )}
+        <div className="absolute top-3 right-3 lg:top-5 lg:right-5 z-[2]">
+          <StampDisplay entryId={entry.id} stamps={entry.stamps} marks={entry.stamp_marks} size="md" />
+        </div>
 
         {isNew && isCompact && <span className="feed-new-tag self-start mb-2">New</span>}
 
         {/* Date — compact fediverse posts use inline relative time */}
         {!isCompact && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-14 sm:pr-24">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-20 sm:pr-28">
             {isNew && <span className="feed-new-tag">New</span>}
             {entry.first_entry && (
               <span className="feed-first-tag" title="The first entry this writer has published on Inkwell. Say hello?">
@@ -268,7 +270,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         {/* Title — hidden on feed cards for quote reprints (the quoted post speaks for itself) */}
         {entry.title && !entry.quoted_entry && (
           <h2
-            className="text-2xl font-bold mb-4 leading-snug pr-14 sm:pr-24"
+            className="text-2xl font-bold mb-4 leading-snug pr-20 sm:pr-28"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
             {isRemote ? (

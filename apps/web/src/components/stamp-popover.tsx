@@ -1,142 +1,92 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { STAMP_CONFIG, resolveStampType } from "./stamp-config";
-import { StampFrame } from "./stamp-frame";
+/**
+ * StampLetters — the writer's view of the stamps on their own post: every
+ * stamp with who sent it, when, and the line they wrote on the back.
+ * Only the writer gets this list (GET /api/entries/:id/stamps → letters).
+ */
 
-interface StampUser {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { AvatarWithFrame } from "./avatar-with-frame";
+import { StampImpression } from "./stamp-impression";
+import { formatStampDay, stampInfo, type StampLetter, type StampSender } from "./stamp-config";
+
+export function SenderLink({ sender, size = 22 }: { sender: StampSender; size?: number }) {
+  const name = sender.display_name || sender.username;
+  const inner = (
+    <>
+      <AvatarWithFrame url={sender.avatar_url} name={name} size={size} />
+      <span className="stamp-sender-name">{name}</span>
+      {sender.remote && sender.handle && <span className="stamp-sender-handle">{sender.handle}</span>}
+    </>
+  );
+  if (sender.remote) {
+    return sender.profile_url ? (
+      <a href={sender.profile_url} target="_blank" rel="noopener noreferrer" className="stamp-sender">
+        {inner}
+      </a>
+    ) : (
+      <span className="stamp-sender">{inner}</span>
+    );
+  }
+  return (
+    <Link href={`/${sender.username}`} className="stamp-sender">
+      {inner}
+    </Link>
+  );
 }
 
-interface StampPopoverProps {
-  entryId: string;
-  stamps: string[];
-  isAuthor: boolean;
-}
+export function StampLetters({ entryId, refreshKey = 0 }: { entryId: string; refreshKey?: number }) {
+  const [letters, setLetters] = useState<StampLetter[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
-export function StampPopover({ entryId, stamps, isAuthor }: StampPopoverProps) {
-  const [activeStamp, setActiveStamp] = useState<string | null>(null);
-  const [stampedBy, setStampedBy] = useState<Record<string, StampUser[]> | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  // Load stamp details when author first interacts
   useEffect(() => {
-    if (!isAuthor || loaded || !activeStamp) return;
-
-    async function load() {
+    let live = true;
+    (async () => {
       try {
         const res = await fetch(`/api/entries/${entryId}/stamps`);
-        if (res.ok) {
-          const { data } = await res.json();
-          setStampedBy(data.stamped_by ?? {});
-        }
+        if (!res.ok) throw new Error(String(res.status));
+        const { data } = await res.json();
+        if (live) setLetters(data?.letters ?? []);
       } catch {
-        // silently fail
+        if (live) setFailed(true);
       }
-      setLoaded(true);
-    }
-    load();
-  }, [isAuthor, loaded, activeStamp, entryId]);
-
-  // Close popover on outside click
-  useEffect(() => {
-    if (!activeStamp) return;
-    function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setActiveStamp(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [activeStamp]);
-
-  if (!stamps || stamps.length === 0) return null;
-
-  const resolvedStamps = stamps.map(resolveStampType);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [entryId, refreshKey]);
 
   return (
-    <div ref={popoverRef} className="flex flex-row flex-wrap items-center gap-1.5 relative" aria-label="Stamps on this entry">
-      {resolvedStamps.map((stampType) => {
-        const config = STAMP_CONFIG[stampType];
-        if (!config) return null;
-
-        return (
-          <button
-            key={stampType}
-            onClick={() => isAuthor && setActiveStamp(activeStamp === stampType ? null : stampType)}
-            style={{ cursor: isAuthor ? "pointer" : "default" }}
-            title={isAuthor ? `${config.label} — click to see who` : config.description}
-            className="stamp-popover-stamp"
-          >
-            <StampFrame
-              stampType={stampType}
-              size="lg"
-              showLabel={false}
-              interactive={isAuthor}
-            />
-          </button>
-        );
-      })}
-
-      {/* Author-only popover showing who left the active stamp type */}
-      {activeStamp && isAuthor && (
-        <div
-          className="absolute right-0 top-full mt-2 z-50 rounded-xl border p-3 shadow-lg"
-          style={{
-            background: "var(--surface)",
-            borderColor: "var(--border)",
-            minWidth: 180,
-          }}
-        >
-          <p className="text-xs font-medium mb-2" style={{ color: "var(--muted)" }}>
-            {STAMP_CONFIG[resolveStampType(activeStamp)]?.label}
-          </p>
-          {!stampedBy ? (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>Loading...</p>
-          ) : (stampedBy[activeStamp] ?? stampedBy[resolveStampType(activeStamp)] ?? []).length === 0 ? (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>No stamps yet</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {(stampedBy[activeStamp] ?? stampedBy[resolveStampType(activeStamp)] ?? []).map((user) => (
-                <a
-                  key={user.id}
-                  href={`/${user.username}`}
-                  className="flex items-center gap-2 text-sm hover:underline"
-                >
-                  {user.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.avatar_url}
-                      alt={user.display_name}
-                      width={20}
-                      height={20}
-                      className="rounded-full object-cover"
-                      style={{ width: 20, height: 20 }}
-                    />
-                  ) : (
-                    <div
-                      className="rounded-full flex items-center justify-center text-[8px] font-semibold"
-                      style={{
-                        width: 20,
-                        height: 20,
-                        background: "var(--accent-light)",
-                        color: "var(--accent)",
-                      }}
-                    >
-                      {user.display_name[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-sm">{user.display_name}</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+    <div className="stamp-letters">
+      <p className="stamp-letters-title">Your stamps</p>
+      {failed ? (
+        <p className="stamp-letters-empty">Couldn&rsquo;t open your stamps just now.</p>
+      ) : letters === null ? (
+        <p className="stamp-letters-empty">Opening the envelope…</p>
+      ) : letters.length === 0 ? (
+        <p className="stamp-letters-empty">No stamps on this page yet.</p>
+      ) : (
+        <ul className="stamp-letters-list">
+          {letters.map((l) => (
+            <li key={l.id} className="stamp-letter">
+              <StampImpression mark={l} width={44} postmark="lines" straight />
+              <div className="stamp-letter-body">
+                <div className="stamp-letter-meta">
+                  <SenderLink sender={l.sender} />
+                  <span className="stamp-letter-date">{formatStampDay(l.stamped_on)}</span>
+                </div>
+                <p className="stamp-letter-kind">{stampInfo(l.type)?.label ?? "Stamp"}</p>
+                {l.note && <blockquote className="stamp-note">{l.note}</blockquote>}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
+      <Link href="/stamp-album" className="stamp-link stamp-letters-album">
+        Open your stamp album →
+      </Link>
     </div>
   );
 }

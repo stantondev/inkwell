@@ -14,7 +14,7 @@ import { isSupporter } from "@/lib/supporter";
 import { useWhatsNewUnread } from "./whats-new-state";
 import {
   FeedIcon, ExploreIcon, GazetteIcon, CirclesIcon, NotificationsIcon, LettersIcon,
-  PenPalsIcon, DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PollsIcon, RoadmapIcon,
+  PenPalsIcon, DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, StampAlbumIcon, PollsIcon, RoadmapIcon,
   ProfileIcon, SettingsIcon, HelpIcon, InviteIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
 
@@ -320,6 +320,7 @@ export function SidebarNav({
           <NavItem href="/manage" icon={<PostsIcon />} label="Posts" active={isActive("/manage")} />
           <NavItem href="/saved" icon={<SavedIcon />} label="Bookmarks" active={isActive("/saved")} />
           <NavItem href="/readers" icon={<ReadersIcon />} label="Readers" active={isActive("/readers")} />
+          <NavItem href="/stamp-album" icon={<StampAlbumIcon />} label="Stamp album" active={isActive("/stamp-album")} />
         </Section>
 
         <Section

@@ -44,7 +44,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
 
   // ── Social & Connections ──
   { id: "s-penpals", title: "Pen pals and following", snippet: "Mutual follows create pen pal connections with extra features.", keywords: ["pen pal", "follow", "friend", "mutual"], category: "social", href: "/help/faq#pen-pals" },
-  { id: "s-stamps", title: "Stamps (reactions)", snippet: "Press an ink stamp on entries to share how they made you feel.", keywords: ["stamp", "reaction", "like", "felt", "beautifully said"], category: "social", href: "/help/faq#stamps" },
+  { id: "s-stamps", title: "Stamps (reactions)", snippet: "Send a writer a postage stamp, with an optional private note. Yours are kept in your Stamp album.", keywords: ["stamp", "reaction", "like", "felt", "beautifully said", "album", "postage", "note"], category: "social", href: "/help/faq#stamps" },
   { id: "s-inks", title: "Inks (discovery signal)", snippet: "Ink entries to help surface great writing for the community.", keywords: ["ink", "trending", "discovery", "recommend"], category: "social", href: "/help/faq#stamps-vs-inks" },
   { id: "s-reprints", title: "Reprints (sharing)", snippet: "Share entries with your followers like a repost or boost.", keywords: ["reprint", "boost", "share", "repost", "quote"], category: "social", href: "/help/faq#reprints" },
   { id: "s-letters", title: "Letters (private messages)", snippet: "Private letters with pen pals and fediverse friends; archive, mute, search, requests.", keywords: ["letter", "message", "dm", "private", "letterbox", "archive", "mute", "request"], category: "social", href: "/help/faq#letters" },
@@ -67,7 +67,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "c-avatar", title: "Avatar builder", snippet: "Create a hand-drawn avatar character without uploading a photo.", keywords: ["avatar", "builder", "character", "croodles"], category: "customization", href: "/help/faq#avatar-builder" },
 
   // ── Billing & Plus ──
-  { id: "b-plus", title: "Inkwell Plus features", snippet: "Custom colors, fonts, stamps, domains, and more for $5/mo.", keywords: ["plus", "subscription", "premium", "features", "upgrade"], category: "billing", href: "/help/faq#plus-features" },
+  { id: "b-plus", title: "Inkwell Plus features", snippet: "Your own domain, reader stats, custom colors and fonts, Keepsake stamps, and more for $5/mo.", keywords: ["plus", "subscription", "premium", "features", "upgrade"], category: "billing", href: "/help/faq#plus-features" },
   { id: "b-cancel", title: "Canceling your subscription", snippet: "Cancel from Settings → Billing; Plus lasts until the paid period ends.", keywords: ["cancel", "unsubscribe", "stop", "billing"], category: "billing", href: "/help/faq#cancel" },
   { id: "b-support", title: "Support links", snippet: "Add a Ko-fi, Patreon or other payment link to your profile and entries.", keywords: ["support", "tip", "ko-fi", "patreon", "money", "postage"], category: "billing", href: "/help/faq#support-link" },
   { id: "b-donor", title: "Support Inkwell without Plus", snippet: "Give a one-time gift of any amount, with nothing to renew.", keywords: ["donor", "donation", "gift", "support", "give"], category: "billing", href: "/help/faq#ink-donor" },

@@ -1,5 +1,6 @@
 "use client";
 
+import { setStampSoundPreference } from "@/lib/stamp-sound";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setAppIconBadge } from "@/lib/pwa";
 import { usePathname } from "next/navigation";
@@ -57,6 +58,7 @@ const BACKOFF_MAX_MS = 300_000;
 interface SessionSettings {
   notification_sounds_muted?: boolean;
   notification_popups_disabled?: boolean;
+  stamp_sound?: boolean;
   hide_notification_badges?: boolean;
   eye_comfort_mode?: boolean;
   sidebar_hidden?: boolean;
@@ -443,6 +445,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         // Read preferences from server settings
         soundsMutedRef.current =
           !!session.settings?.notification_sounds_muted;
+        setStampSoundPreference(!!session.settings?.stamp_sound);
         hideBadgesRef.current =
           !!session.settings?.hide_notification_badges;
 

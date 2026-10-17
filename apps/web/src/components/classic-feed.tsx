@@ -12,6 +12,7 @@ import { Fragment, type ReactNode } from "react";
 import type { JournalEntry } from "./journal-entry-card";
 import { CurrentBlock } from "./current-block";
 import { LocalDate } from "./local-date";
+import { StampDisplay } from "./stamp-display";
 import { getMusicLabel, songFrom } from "@/lib/music";
 import { decodeEntities } from "@/lib/decode-entities";
 
@@ -110,6 +111,11 @@ function ClassicEntry({
       <div className="classic-entry-main">
         <Userpic entry={entry} />
         <div className="classic-entry-content">
+          {(entry.stamp_marks?.length || entry.stamps?.length) ? (
+            <div className="classic-stamps">
+              <StampDisplay stamps={entry.stamps ?? []} marks={entry.stamp_marks} entryId={entry.id} size="sm" />
+            </div>
+          ) : null}
           {title && (
             <div className="classic-subject">
               <span className="classic-subject-label">Subject:</span>{" "}

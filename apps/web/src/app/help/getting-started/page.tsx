@@ -177,8 +177,9 @@ export default function GettingStartedPage() {
         {/* ── Section IV ── */}
         <Section id="engagement" number="IV" title="Engaging With Writing">
           <p>
-            <strong>Stamps.</strong> Press an ink stamp on entries to share how they made you feel.
-            There are 7 stamp types — each appears like a real postage stamp on the entry.
+            <strong>Stamps.</strong> Send a writer a postage stamp to say how their entry landed, with
+            an optional line on the back that only they see. Every stamp you receive is kept in your
+            Stamp album.
           </p>
           <p>
             <strong>Inks.</strong> Ink entries to help surface great writing for the community.

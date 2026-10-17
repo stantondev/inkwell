@@ -1,6 +1,6 @@
 // Shared by the Notifications page and the live pop-up toasts, so both
 // describe and link a notification the same way.
-import { STAMP_CONFIG } from "@/components/stamp-config";
+import { stampInfo } from "@/components/stamp-config";
 
 export interface RemoteActor {
   username: string;
@@ -56,11 +56,10 @@ export function notificationText(n: Notification): string {
       return "inked your entry from the fediverse";
     case "stamp": {
       const stampType = n.data?.stamp_type as string | undefined;
-      const stampInfo = stampType ? STAMP_CONFIG[stampType] : null;
-      if (stampInfo) {
-        return `stamped your entry \u2014 \u201C${stampInfo.description}\u201D`;
-      }
-      return "stamped your entry";
+      const info = stampType ? stampInfo(stampType) : null;
+      const what = info ? `${/^[AEIOU]/i.test(info.label) ? "an" : "a"} ${info.label} stamp` : "a stamp";
+      const title = !n.entry && typeof n.data?.entry_title === "string" ? n.data.entry_title : null;
+      return `sent you ${what}${title ? ` on \u201C${decodeEntities(title)}\u201D` : ""}`;
     }
     case "feedback_status_change": {
       const status = n.data?.new_status as string | undefined;

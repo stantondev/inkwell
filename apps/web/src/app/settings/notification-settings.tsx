@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
 import { previewChime } from "@/lib/notification-sound";
+import { playStampThunk, setStampSoundPreference } from "@/lib/stamp-sound";
 
 export function NotificationSettings() {
   const [soundsMuted, setSoundsMuted] = useState(false);
@@ -17,6 +18,7 @@ export function NotificationSettings() {
   const [saving, setSaving] = useState(false);
   // A failed load must not look like "everything is off": the toggles would
   // show the wrong state and the next save would write it back.
+  const [stampSound, setStampSound] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -32,6 +34,7 @@ export function NotificationSettings() {
         }
         const { data } = await res.json();
         setSoundsMuted(!!data.settings?.notification_sounds_muted);
+        setStampSound(!!data.settings?.stamp_sound);
         setAutoMarkRead(!!data.settings?.auto_mark_notifications_read);
         setHideBadges(!!data.settings?.hide_notification_badges);
         setPopupsDisabled(!!data.settings?.notification_popups_disabled);
@@ -312,6 +315,39 @@ export function NotificationSettings() {
                 Play the letter sound
               </button>
             </div>
+          </div>
+        </label>
+
+        <label
+          className="flex items-start gap-3 cursor-pointer mt-4"
+          style={{ opacity: saving ? 0.6 : 1 }}
+        >
+          <input
+            type="checkbox"
+            checked={stampSound}
+            onChange={(e) => {
+              setStampSoundPreference(e.target.checked);
+              toggleSetting("stamp_sound", e.target.checked, (v) => {
+                setStampSound(v);
+                setStampSoundPreference(v);
+              });
+            }}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Play a soft sound when I send a stamp</span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              A quiet thunk as the stamp comes down. Off unless you turn it on.
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); playStampThunk(); }}
+              className="text-xs underline mt-2"
+              style={{ color: "var(--accent)" }}
+            >
+              Play the stamp sound
+            </button>
           </div>
         </label>
 

@@ -34,6 +34,9 @@ function secondaryLine(n: Notification): string | null {
   if (n.type === "fediverse_mention" && n.data?.content_preview) {
     return `“${decodeEntities(String(n.data.content_preview))}”`;
   }
+  if (n.type === "stamp" && typeof n.data?.note === "string" && n.data.note.trim() !== "") {
+    return `“${n.data.note}”`;
+  }
   if (n.entry?.title) return n.entry.title;
   if (n.entry?.excerpt) return n.entry.excerpt;
   if (typeof n.data?.post_title === "string") return n.data.post_title;

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/avatar";
-import { STAMP_CONFIG } from "@/components/stamp-config";
+import { StampArt } from "@/components/stamp-art";
 
 import {
   type Notification,
@@ -78,37 +78,15 @@ export function NotificationIcon({
   data?: Record<string, unknown>;
 }) {
   if (type === "stamp") {
-    const stampType = data?.stamp_type as string | undefined;
-    const stampInfo = stampType ? STAMP_CONFIG[stampType] : null;
-    if (stampInfo) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={stampInfo.icon}
-          alt={stampInfo.label}
-          width={16}
-          height={16}
-          style={{ opacity: 0.85 }}
-        />
-      );
-    }
+    const stampType = (data?.stamp_type as string | undefined) ?? "felt";
     return (
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ color: "var(--accent)" }}
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="6" />
-        <circle cx="12" cy="12" r="2" />
-      </svg>
+      <StampArt
+        type={stampType}
+        width={18}
+        emoji={data?.emoji as string | undefined}
+        emojiUrl={data?.emoji_url as string | undefined}
+        className="notification-stamp-art"
+      />
     );
   }
   if (type === "like") {
@@ -1146,6 +1124,11 @@ export function NotificationList({
                               {String(n.data.post_title)} {"\u2192"}
                             </a>
                           )}
+
+                        {/* A stamp's note: the back of the postcard, for the writer only. */}
+                        {n.type === "stamp" && typeof n.data?.note === "string" && n.data.note.trim() !== "" && (
+                          <blockquote className="stamp-note stamp-note-small">{String(n.data.note)}</blockquote>
+                        )}
 
                         {/* Fediverse mention — show the message itself, since
                             a direct message can't be opened anywhere else. */}

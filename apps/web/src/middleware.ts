@@ -14,7 +14,7 @@ import {
 // on it (a bookmark, the back button after signing out, a shared link) got
 // the whole wizard, filled it in, and only found out at "Finish setup" that
 // nothing could be saved.
-const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings", "/manage", "/welcome", "/readers", "/preview/"];
+const PROTECTED = ["/feed", "/editor", "/drafts", "/admin", "/letters", "/saved", "/settings", "/manage", "/welcome", "/readers", "/preview/", "/stamp-album"];
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
 // ── Custom domain detection ─────────────────────────────────────────────────
@@ -26,7 +26,7 @@ const APP_ROUTES = [
   "/search", "/notifications", "/roadmap", "/polls", "/circles",
   "/pen-pals", "/developers", "/category", "/tag", "/manage", "/fediverse",
   "/help", "/ai", "/gazette", "/switch", "/readers", "/whats-new", "/preview",
-  "/arrange",
+  "/arrange", "/stamp-album",
 ];
 
 // In-memory cache for custom domain resolution.

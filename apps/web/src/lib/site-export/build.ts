@@ -66,7 +66,7 @@ const EXT: Record<string, string> = {
 };
 
 /** Paths on Inkwell whose files go into the export. */
-const ASSET = /\/(?:api\/(?:images|avatars|banners|backgrounds|userpics)\/[^"'\s)&<>,]+(?:\?v=[A-Za-z0-9_.-]+)?|_next\/static\/[^"'\s)&<>,]+|(?:stamps|frames)\/[^"'\s)&<>,]+\.svg|(?:inkwell-logo|favicon)\.svg)/g;
+const ASSET = /\/(?:api\/(?:images|avatars|banners|backgrounds|userpics|stamps)\/[^"'\s)&<>,]+(?:\?v=[A-Za-z0-9_.-]+)?|_next\/static\/[^"'\s)&<>,]+|(?:stamps|frames)\/[^"'\s)&<>,]+\.svg|(?:inkwell-logo|favicon)\.svg)/g;
 
 /** Characters that may come right before an asset path (so it isn't part of a longer URL). */
 const BEFORE = new Set(['"', "'", "(", ";", ",", " ", "\n"]);
@@ -198,6 +198,7 @@ function localName(src: string): string {
   const clean = (s: string) => s.replace(/[^A-Za-z0-9_.-]/g, "_");
   if (path.startsWith("/_next/static/")) return `assets/${clean(path.slice("/_next/static/".length))}`;
   if (path.startsWith("/stamps/") || path.startsWith("/frames/")) return `assets${path}`;
+  if (path.startsWith("/api/stamps/")) return `assets/stamps/${clean(path.slice("/api/stamps/".length))}`;
   if (path === "/inkwell-logo.svg" || path === "/favicon.svg") return `assets${path}`;
   const m = path.match(/^\/api\/(images|avatars|banners|backgrounds|userpics)\/(.+)$/);
   // No extension: static hosts and browsers sniff pictures, and the type isn't known until fetched.

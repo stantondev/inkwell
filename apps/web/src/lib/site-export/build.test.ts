@@ -16,8 +16,8 @@ test("scripts and app-only head links go; the writer's own feed stays", () => {
 });
 
 test("pictures, drawings and fonts are found, not ones inside other URLs", () => {
-  const html = `<img src="/api/images/abc-123"/><div style="background-image:url(&quot;/api/backgrounds/ann?v=9&quot;)"></div><img src="/stamps/felt.svg"/><a href="https://other.site/api/images/nope">x</a> url("/_next/static/media/f.woff2")`;
-  assert.deepEqual(x.assetPaths(html), ["/api/images/abc-123", "/api/backgrounds/ann?v=9", "/stamps/felt.svg", "/_next/static/media/f.woff2"]);
+  const html = `<img src="/api/images/abc-123"/><div style="background-image:url(&quot;/api/backgrounds/ann?v=9&quot;)"></div><img src="/stamps/felt.svg"/><img src="/api/stamps/felt.svg?v=1"/><a href="https://other.site/api/images/nope">x</a> url("/_next/static/media/f.woff2")`;
+  assert.deepEqual(x.assetPaths(html), ["/api/images/abc-123", "/api/backgrounds/ann?v=9", "/stamps/felt.svg", "/api/stamps/felt.svg?v=1", "/_next/static/media/f.woff2"]);
 });
 
 test("files get names and extensions that static hosts serve", () => {

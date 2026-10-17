@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { StampPicker } from "@/components/stamp-picker";
+import type { StampMark } from "@/components/stamp-config";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
@@ -57,6 +58,10 @@ interface FeedCardActionsProps {
   commentCount: number;
   stamps: string[];
   myStamp: string | null;
+  /** The stamps on the post as impressions (newest first). */
+  stampMarks?: StampMark[];
+  /** The writer's display name, for the stamp's note ("A line for …"). */
+  writerName?: string | null;
   bookmarked: boolean;
   inkCount?: number;
   myInk?: boolean;
@@ -324,6 +329,8 @@ export function FeedCardActions({
   commentCount: initialCommentCount,
   stamps: initialStamps,
   myStamp: initialMyStamp,
+  stampMarks,
+  writerName,
   bookmarked,
   isOwnEntry,
   isLoggedIn,
@@ -665,6 +672,8 @@ export function FeedCardActions({
         <StampPicker
           entryId={entryId}
           currentStamp={initialMyStamp}
+          currentMarks={stampMarks}
+          writerName={writerName}
           isOwnEntry={isOwnEntry}
           isLoggedIn={isLoggedIn}
           isPlus={isPlus}

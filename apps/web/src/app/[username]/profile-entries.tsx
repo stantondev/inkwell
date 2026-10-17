@@ -6,6 +6,7 @@ import { LocalDate, FULL_DATE } from "@/components/local-date";
 import { EntryContent } from "@/components/entry-content";
 import { MusicPlayer } from "@/components/music-player";
 import { StampDisplay } from "@/components/stamp-display";
+import type { StampMark } from "@/components/stamp-config";
 import { getMusicLabel, type MusicMetadata } from "@/lib/music";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
 import { decodeEntities } from "@/lib/decode-entities";
@@ -27,6 +28,7 @@ interface ProfileEntry {
   music_metadata?: MusicMetadata | null;
   tags: string[];
   stamps?: string[];
+  stamp_marks?: StampMark[];
   comment_count?: number;
   published_at: string;
   word_count?: number;
@@ -264,7 +266,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
           )}
           {entry.stamps && entry.stamps.length > 0 && (
             <div className="ml-auto">
-              <StampDisplay stamps={entry.stamps} size="sm" showPopup={false} />
+              <StampDisplay entryId={entry.id} stamps={entry.stamps} marks={entry.stamp_marks} size="sm" />
             </div>
           )}
         </div>
@@ -342,7 +344,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         {/* Stamps */}
         {entry.stamps && entry.stamps.length > 0 && (
           <div className="flex justify-end mb-1">
-            <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
+            <StampDisplay entryId={entry.id} stamps={entry.stamps} marks={entry.stamp_marks} size="sm" max={4} />
           </div>
         )}
 
@@ -752,7 +754,7 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
 
       <div className="flex items-center gap-2 shrink-0 text-xs" style={{ color: styles.muted }}>
         {entry.stamps && entry.stamps.length > 0 && (
-          <StampDisplay stamps={entry.stamps} size="xs" showPopup={false} />
+          <StampDisplay entryId={entry.id} stamps={entry.stamps} marks={entry.stamp_marks} size="xs" max={3} showPopup={false} />
         )}
         {isArchive(entry) && (
           <ArchivePostmark

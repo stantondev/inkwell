@@ -67,6 +67,11 @@ export default async function PrivacyPage() {
               including associated metadata such as mood tags, music metadata, and timestamps.
             </li>
             <li>
+              <strong>Stamps:</strong> When you send a stamp, we store which stamp, the day, and any note you write
+              on it. Other readers see the stamp and its date; only the writer you sent it to sees that it was you
+              and what you wrote.
+            </li>
+            <li>
               <strong>Profile information:</strong> Any optional information you add to your profile, including biography
               text, avatar images, and custom CSS/HTML profile themes.
             </li>

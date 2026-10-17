@@ -20,7 +20,7 @@ export const PLUS_POINTS: PlusPoint[] = [
 
 export const PLUS_EXTRAS =
   "1 GB of images (growing 1 GB a year), unlimited drafts and series, cross-posting to Mastodon, " +
-  "Post by Email, write access to the API, Plus stickers and avatar frames, and the First Class stamp.";
+  "Post by Email, write access to the API, Plus stickers and avatar frames, and a sheet of Keepsake stamps.";
 
 /** One line for small spaces (the sidebar card, the Feed card). */
 export const PLUS_SHORT = "Your own domain, reader stats, a page that looks like you";

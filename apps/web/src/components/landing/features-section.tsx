@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ThemeExplorer } from "./theme-explorer";
+import { StampArt } from "@/components/stamp-art";
 
 const CARD_COUNT = 4;
 const ROMAN = ["I", "II", "III", "IV"];
@@ -71,10 +72,8 @@ function JournalMockup() {
       </div>
       {/* Stamps in corner */}
       <div className="landing-mockup-stamps">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/stamps/felt.svg" alt="" className="landing-mockup-stamp" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/stamps/beautifully-said.svg" alt="" className="landing-mockup-stamp" />
+        <StampArt type="felt" width={34} className="landing-mockup-stamp" style={{ transform: "rotate(-5deg)" }} />
+        <StampArt type="beautifully_said" width={34} className="landing-mockup-stamp" style={{ transform: "rotate(4deg)", marginLeft: -12 }} />
       </div>
     </div>
   );
@@ -339,7 +338,7 @@ export function FeaturesSection() {
         <div className="landing-features-grid" ref={containerRef} onScroll={handleScroll}>
           <FeaturePage
             title="Your Journal"
-            description="A rich text editor with moods, music, stamps, inks, cover images, and distraction-free writing mode. Import from WordPress, Medium, or Substack."
+            description="A rich text editor with moods, music, postage stamps from readers, inks, cover images, and distraction-free writing mode. Import from WordPress, Medium, or Substack."
             index={0}
           >
             <JournalMockup />

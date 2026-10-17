@@ -45,6 +45,7 @@ const previewImagePaths = [
   "/api/avatars/",
   "/api/banners/",
   "/api/userpics/",
+  "/api/stamps/",
 ];
 
 const aiRules = aiCrawlers.map((agent) => ({

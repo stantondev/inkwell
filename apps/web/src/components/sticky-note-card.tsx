@@ -70,9 +70,9 @@ export function StickyNoteCard({ entry, actions, translatedBody, isOwn = false, 
       <span className="sticky-note-tape" aria-hidden="true" />
 
       <div className="sticky-note-inner">
-        {variant !== "board" && entry.stamps && entry.stamps.length > 0 && (
+        {variant !== "board" && (
           <div className="sticky-note-stamps">
-            <StampDisplay stamps={entry.stamps} size="sm" />
+            <StampDisplay entryId={entry.id} stamps={entry.stamps} marks={entry.stamp_marks} size="sm" />
           </div>
         )}
 

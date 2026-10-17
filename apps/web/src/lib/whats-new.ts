@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-17-stamps-postage",
+    date: "2026-10-17",
+    title: "Stamps are postage now",
+    body: "Stamps have been redrawn as real postage, in colour. Each one lands on the entry with its own postmark and the day it was sent, a little crooked, the way stamps sit on an envelope. You can write one line on the back, up to 140 characters, that only the writer will see. There are new everyday stamps (Thank You, Made Me Laugh), a seasonal issue (Autumn Leaves), and First Class is now free for everyone; Plus members get a sheet of Keepsakes. Every stamp you receive or send is kept in your new Stamp album.",
+    howTo: "On any entry, choose the stamp beside Ink and Reprint. Your album is under Your journal → Stamp album.",
+    href: "/stamp-album",
+    cta: "Open your stamp album",
+    tag: "Reading",
+  },
+  {
     id: "2026-10-17-founding-price",
     date: "2026-10-17",
     title: "Founding Member goes up to $149 after October 31",

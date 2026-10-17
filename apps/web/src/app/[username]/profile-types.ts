@@ -61,6 +61,7 @@ export interface ProfileEntry {
   music: string | null;
   tags: string[];
   stamps?: string[];
+  stamp_marks?: import("@/components/stamp-config").StampMark[];
   comment_count?: number;
   published_at: string;
   word_count?: number;

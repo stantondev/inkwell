@@ -510,6 +510,8 @@ export function JournalFeed({
         commentCount={entry.comment_count ?? 0}
         stamps={entry.stamps ?? []}
         myStamp={entry.my_stamp ?? null}
+        stampMarks={entry.stamp_marks}
+        writerName={entry.author.display_name || entry.author.username}
         bookmarked={entry.bookmarked ?? false}
         inkCount={entry.ink_count ?? 0}
         myInk={entry.my_ink ?? false}

@@ -13,6 +13,7 @@ import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-
 import { SignupCta } from "@/components/signup-cta";
 import { RefreshOnce } from "./refresh-once";
 import { CommentSection } from "@/app/[username]/[slug]/comment-section";
+import type { StampMark } from "@/components/stamp-config";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
 import type { Comment } from "@/lib/comment-utils";
 import { notFoundOrRethrow } from "@/lib/page-errors";
@@ -44,6 +45,9 @@ interface RemoteEntryData {
   author: RemoteEntryAuthor;
   stamps: string[];
   my_stamp: string | null;
+  stamp_marks?: StampMark[];
+  my_note?: string | null;
+  my_stamped_on?: string | null;
   comment_count: number;
   ink_count: number;
   reprint_count: number;
@@ -156,6 +160,10 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
             entryId={entry.id}
             initialStamps={entry.stamps ?? []}
             initialMyStamp={entry.my_stamp ?? null}
+            initialMarks={entry.stamp_marks ?? null}
+            initialNote={entry.my_note === undefined ? undefined : entry.my_note}
+            initialStampedOn={entry.my_stamped_on ?? null}
+            writerName={entry.author.display_name || entry.author.username}
             isOwnEntry={false}
             isLoggedIn={!!session}
             isPlus={session?.user.subscription_tier === "plus"}

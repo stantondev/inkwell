@@ -9,7 +9,7 @@ import { AvatarWithFrame } from "./avatar-with-frame";
 import { WhatsNewDot } from "./whats-new-state";
 import { usePwaInstall } from "@/lib/pwa";
 import {
-  DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PenPalsIcon, LettersIcon,
+  DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PenPalsIcon, LettersIcon, StampAlbumIcon,
   GazetteIcon, CirclesIcon, PollsIcon, RoadmapIcon,
   SettingsIcon, InviteIcon, HelpIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
@@ -157,6 +157,7 @@ export function YouSheet({
             <Tile href="/pen-pals" label="Pen Pals" icon={<PenPalsIcon size={20} />} />
             <Tile href="/letters" label="Letters" badge={unreadLetterCount} icon={<LettersIcon size={20} />} />
             <Tile href="/readers" label="Readers" icon={<ReadersIcon size={20} />} />
+            <Tile href="/stamp-album" label="Stamp album" icon={<StampAlbumIcon size={20} />} />
           </div>
 
           <div className="you-sheet-label">Community</div>
