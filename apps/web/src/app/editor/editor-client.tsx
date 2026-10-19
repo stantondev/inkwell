@@ -3975,8 +3975,9 @@ export function EditorClient() {
             {isNewAccount && hasOutsideLink && !focusMode && (
               <p className="editor-link-notice" role="note">
                 Links to other sites are marked <em>nofollow</em> on Inkwell, and new accounts&apos; pages
-                aren&apos;t shown to search engines. Posts with outside links from accounts under a week
-                old appear on your journal straight away and in Explore after that first week.
+                aren&apos;t shown to search engines. Posts with outside links from new accounts appear on
+                your journal straight away, and in Explore once you&apos;ve joined in (inked, stamped or
+                commented on someone&apos;s writing, or made a pen pal) or after your first month.
                 Inkwell is for personal writing — accounts made to promote a business or build links are
                 removed.{" "}
                 <a href="/guidelines#not-welcome" target="_blank" rel="noopener">Guidelines</a>

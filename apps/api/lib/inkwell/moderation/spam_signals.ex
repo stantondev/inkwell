@@ -110,6 +110,8 @@ defmodule Inkwell.Moderation.SpamSignals do
     * `:texts` — list of strings (titles, entry bodies, bio, comments, guestbook)
     * `:links` — list of absolute URLs found in the account's public content
     * `:profile_links` — URLs in bio/social links
+    * `:first_post_minutes`, `:first_post_links` — the first public post
+      (not imported): minutes after signup, and the URLs in it
     * `:interactions` — count of comments, inks, stamps and follows *given*
     * `:reports` — list of `%{trusted: boolean}` for distinct reporters on pending reports
     * `:spam_warnings` — spam warnings an admin has issued
@@ -128,6 +130,7 @@ defmodule Inkwell.Moderation.SpamSignals do
       |> phrase_signal(facts)
       |> phone_signal(facts)
       |> speed_signal(facts)
+      |> fast_link_signal(facts)
       |> no_interaction_signal(facts)
       |> report_signal(facts)
       |> warning_signal(facts)
@@ -234,6 +237,28 @@ defmodule Inkwell.Moderation.SpamSignals do
       m when is_number(m) and m >= 0 and m <= 30 -> add(acc, 1, "posted publicly #{round(m)} min after signing up")
       _ -> acc
     end
+  end
+
+  # Opening with an outside link within minutes of signing up, and never
+  # reading anyone since. Every unflagged ad in Oct 2026 (clinics, cleaners,
+  # shops: 13 accounts sitting one point under "limit") did exactly this;
+  # across every account ever, the only real writer close was 6 minutes. It
+  # counts only while they haven't interacted, so a real writer who joins in
+  # drops back under the line and the limit lifts by itself.
+  @fast_link_minutes 5
+
+  defp fast_link_signal(acc, facts) do
+    minutes = facts[:first_post_minutes]
+
+    outside =
+      (facts[:first_post_links] || [])
+      |> Enum.map(&link_domain/1)
+      |> Enum.reject(&(is_nil(&1) or benign?(&1)))
+
+    if is_number(minutes) and minutes >= 0 and minutes <= @fast_link_minutes and outside != [] and
+         (facts[:interactions] || 0) == 0,
+       do: add(acc, 2, "first post linked to #{hd(outside)} #{round(minutes)} min after signing up"),
+       else: acc
   end
 
   defp no_interaction_signal(acc, facts) do

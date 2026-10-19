@@ -1079,8 +1079,10 @@ defmodule Inkwell.Journals do
       back in Google by September. A limit lifts on its own once the account
       scores clean and engages with people (`AutoModeration.evaluate/2`).
   """
+  @new_account_hold_days 30
+
   def showcase_excluded_user_ids do
-    new_link_posters = new_link_poster_user_ids(30)
+    new_link_posters = new_link_poster_user_ids(@new_account_hold_days)
 
     from(u in Inkwell.Accounts.User,
       where: u.moderation_state == "limited" or u.id in subquery(new_link_posters),
@@ -1089,24 +1091,43 @@ defmodule Inkwell.Journals do
   end
 
   @doc """
-  Writers whose posts wait before appearing in Explore: accounts under 7 days
+  Writers whose posts wait before appearing in Explore: accounts under 30 days
   old that link to outside sites and have never commented, inked, stamped or
-  followed anyone (the new-account half of `showcase_excluded_user_ids/0`,
-  with a shorter wait). Nothing is hidden from their journal or their
-  followers, and nobody has to review it: the wait ends by itself after a
-  week, or as soon as they interact with anyone.
+  had a follow accepted (the new-account half of `showcase_excluded_user_ids/0`).
+  Nothing is hidden from their journal or their followers, they see their own
+  posts in Explore, and nobody has to review it: the wait ends as soon as they
+  interact with anyone, once they've written on 3 different days (spam
+  accounts post once; @juliomartinez wrote 46 entries in his first month
+  without inking anyone), or after 30 days.
 
-  Added 2026-09-29 instead of another phrase list. Every round of new spam
-  wording ("management software", "gratis offerte", "sliding gates") only
-  taught the next accounts what not to say, while the accounts themselves
-  kept the same shape: sign up, post an ad with a link within minutes, never
-  read anyone. Spam-limited and suspended accounts are handled separately by
+  Added 2026-09-29 with a one-week wait instead of another phrase list. Every
+  round of new spam wording ("management software", "gratis offerte",
+  "sliding gates") only taught the next accounts what not to say, while the
+  accounts themselves kept the same shape: sign up, post an ad with a link
+  within minutes, never read anyone. In October 2026 they arrived faster
+  (57 signups in a week, most of them ads) and the ones the spam checker
+  missed showed up in Explore on day 7, where members found and reported
+  them; so the wait became 30 days (Stanton: most of these accounts post once
+  and never come back, and a real writer proves it by joining in). Spam-limited
+  and suspended accounts are handled separately by
   `hidden_from_discovery_user_ids/0`.
   """
-  def explore_held_back_user_ids, do: new_link_poster_user_ids(7)
+  def explore_held_back_user_ids do
+    from(u in subquery(new_link_poster_user_ids(@new_account_hold_days)),
+      where:
+        fragment(
+          "(SELECT count(DISTINCT date(e.published_at)) FROM entries e WHERE e.user_id = ? AND e.status = 'published') < 3",
+          u.id
+        ),
+      select: u.id
+    )
+  end
 
-  # Accounts younger than `days` that have a published post linking outside
-  # Inkwell and have never commented, inked, stamped or had a follow accepted.
+  # Accounts younger than `days` that have never commented, inked, stamped or
+  # had a follow accepted, and either have a published post linking outside
+  # Inkwell or have written nothing but link out from their profile.
+  @outside_link_pattern "href=\"https?://(?!(www\\.)?inkwell\\.social)"
+  @outside_url_pattern "https?://(?!(www\\.)?inkwell\\.social)"
   defp new_link_poster_user_ids(days) do
     cutoff = DateTime.utc_now() |> DateTime.add(-days, :day)
 
@@ -1114,12 +1135,22 @@ defmodule Inkwell.Journals do
       as: :u,
       where:
         u.inserted_at > ^cutoff and
-          exists(
-            from(e in Entry,
-              where: e.user_id == parent_as(:u).id and e.status == :published,
-              where: fragment("? ~* ?", e.body_html, "href=\"https?://(?!(www\\.)?inkwell\\.social)")
-            )
-          ) and
+          (exists(
+             from(e in Entry,
+               where: e.user_id == parent_as(:u).id and e.status == :published,
+               where: fragment("? ~* ?", e.body_html, ^@outside_link_pattern)
+             )
+           ) or
+             # A profile that is only an ad: a link out in the bio, social
+             # links or page, and nothing written (Oct 2026: cleaners, visa
+             # agents, medical suppliers who never post).
+             (not exists(
+                from(e in Entry, where: e.user_id == parent_as(:u).id and e.status == :published)
+              ) and
+                (fragment("coalesce(?, '') ~* ?", u.bio, ^@outside_url_pattern) or
+                   fragment("coalesce(?, '') ~* ?", u.bio_html, ^@outside_url_pattern) or
+                   fragment("coalesce(?::text, '') ~* ?", u.social_links, ^@outside_url_pattern) or
+                   fragment("coalesce(?::text, '') ~* ?", u.profile_home, ^@outside_url_pattern)))) and
           not exists(from(i in Inkwell.Inks.Ink, where: i.user_id == parent_as(:u).id)) and
           not exists(from(s in Inkwell.Stamps.Stamp, where: s.user_id == parent_as(:u).id)) and
           not exists(from(c in Comment, where: c.user_id == parent_as(:u).id)) and
@@ -1203,7 +1234,7 @@ defmodule Inkwell.Journals do
     |> Repo.all()
   end
 
-  # New accounts that post outside links wait a week before Explore shows
+  # New accounts that post outside links wait (up to 30 days) before Explore shows
   # them (`explore_held_back_user_ids/0`). A writer always sees their own
   # posts, so a real newcomer never wonders where theirs went.
   @doc false

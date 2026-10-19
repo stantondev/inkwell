@@ -155,6 +155,26 @@ defmodule Inkwell.Moderation.AutoModerationTest do
     assert Repo.all(from a in ModerationAction, where: a.user_id == ^u.id and is_nil(a.reversed_at)) == []
   end
 
+  test "an ad posted in the first minutes is limited, and the limit lifts when they join in" do
+    u = create_user()
+    publish(u, "Best eye hospital", ~s(<p>Visit us <a href="https://www.google.com/maps/place/clinic">here</a></p>))
+
+    Oban.Testing.with_testing_mode(:manual, fn ->
+      AutoModeration.scan_user(u.id)
+      assert Repo.reload!(u).moderation_state == "limited"
+      assert is_nil(Repo.reload!(u).blocked_at)
+
+      for o <- [writer(), writer()] do
+        entry = Repo.one!(from e in Entry, where: e.user_id == ^o.id)
+        {:ok, _} = Inkwell.Inks.toggle_ink(u.id, entry.id)
+      end
+
+      AutoModeration.scan_user(u.id)
+    end)
+
+    assert is_nil(Repo.reload!(u).moderation_state)
+  end
+
   test "an engaged account that still scores as spam stays limited" do
     u = create_user()
     publish(u, "Buy", ~s(<p><a href="https://shop.example.com/a">a</a> <a href="https://shop.example.com/b">b</a> <a href="https://shop.example.com/c">c</a> <a href="https://other.example.org">d</a></p>))

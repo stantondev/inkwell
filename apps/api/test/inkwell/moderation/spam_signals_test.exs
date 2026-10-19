@@ -206,4 +206,48 @@ defmodule Inkwell.Moderation.SpamSignalsTest do
     assert SpamSignals.extract_links(~s(<a href="https://c.com/big.JPG?w=2"><img src="https://c.com/small.jpg"></a>)) == []
     assert SpamSignals.benign?("blogger.googleusercontent.com")
   end
+
+  # Oct 2026: clinic, cleaner and shop ads that link out within a minute of
+  # signing up scored 4, one under "limit".
+  describe "first post linking out within minutes" do
+    defp ad(overrides \\ %{}) do
+      Map.merge(
+        %{
+          email_domain: "gmail.com",
+          texts: ["Best Eye Hospital in Ludhiana", "Visit us for cataract surgery"],
+          links: ["https://www.google.com/maps/place/x"],
+          first_post_links: ["https://www.google.com/maps/place/x"],
+          minutes_to_first_post: 1,
+          first_post_minutes: 1,
+          interactions: 0
+        },
+        overrides
+      )
+    end
+
+    test "is limited, not blocked" do
+      r = SpamSignals.score(ad())
+      assert SpamSignals.decision(r) == :limit
+      assert Enum.any?(r.reasons, &(&1 =~ "first post linked to google.com 1 min after signing up"))
+    end
+
+    test "stops counting once they interact with anyone" do
+      r = SpamSignals.score(ad(%{interactions: 1}))
+      assert SpamSignals.decision(r) == :none
+    end
+
+    test "a writer linking their blog after a few more minutes isn't caught" do
+      r = SpamSignals.score(ad(%{first_post_minutes: 6, minutes_to_first_post: 6}))
+      assert SpamSignals.decision(r) == :none
+    end
+
+    test "links to ordinary sites don't count" do
+      r =
+        SpamSignals.score(
+          ad(%{links: ["https://en.wikipedia.org/wiki/Tea"], first_post_links: ["https://en.wikipedia.org/wiki/Tea"]})
+        )
+
+      refute Enum.any?(r.reasons, &(&1 =~ "first post linked"))
+    end
+  end
 end

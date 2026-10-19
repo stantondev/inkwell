@@ -53,8 +53,8 @@ defmodule InkwellWeb.ExploreShowcaseTest do
 
   # Since 2026-09-29 Explore holds these posts for a week instead of the spam
   # checker growing another phrase list. Nothing is hidden anywhere else.
-  describe "Explore's first week" do
-    test "a new account's post with an outside link waits a week" do
+  describe "Explore's wait for new accounts" do
+    test "a new account's post with an outside link waits" do
       spam = publish(create_user(), ~s(<p>Sliding gates. <a href="https://maps.app.goo.gl/x">Find us</a></p>))
       assert spam.id not in explore_ids()
     end
@@ -66,11 +66,16 @@ defmodule InkwellWeb.ExploreShowcaseTest do
       assert e.id not in explore_ids(log_in_user(build_conn(), create_user()))
     end
 
-    test "after a week it appears in Explore (the homepage and search keep 30 days)" do
+    # Oct 2026: the wait was a week, and the ads the spam checker missed
+    # showed up in Explore on day 7. Now 30 days, or until they join in.
+    test "a week later it still waits; after 30 days it appears" do
       writer = create_user() |> age(8)
       e = publish(writer, ~s(<p>My <a href="https://myblog.example">blog</a></p>))
+      assert e.id not in explore_ids()
+
+      age(writer, 31)
       assert e.id in explore_ids()
-      assert e.id not in showcase_ids()
+      assert e.id in showcase_ids()
     end
 
     test "following, commenting or inking anyone ends the wait" do
@@ -78,6 +83,26 @@ defmodule InkwellWeb.ExploreShowcaseTest do
       e = publish(writer, ~s(<p>My <a href="https://myblog.example">blog</a></p>))
       assert e.id not in explore_ids()
       create_relationship(%{follower_id: writer.id, following_id: create_user().id, status: :accepted})
+      assert e.id in explore_ids()
+    end
+
+    test "writing on three different days ends the wait" do
+      writer = create_user()
+      [e | _] =
+        for d <- 0..2 do
+          {:ok, e} =
+            Journals.create_entry(%{
+              user_id: writer.id,
+              title: "Day #{d}",
+              body_html: ~s(<p>My <a href="https://myblog.example">blog</a></p>),
+              privacy: :public,
+              status: :published,
+              published_at: DateTime.utc_now() |> DateTime.add(-d, :day)
+            })
+
+          e
+        end
+
       assert e.id in explore_ids()
     end
 
@@ -210,6 +235,41 @@ defmodule InkwellWeb.ExploreShowcaseTest do
 
       assert Journals.held_back_from_search?(spammer.id)
       assert post.id not in explore_ids()
+    end
+  end
+
+  describe "profiles that are only an ad" do
+    defp bio(text),
+      do: create_user() |> Ecto.Changeset.change(bio: text) |> Inkwell.Repo.update!()
+
+    test "a new account with a link in its bio and nothing written is kept out of search" do
+      ad = bio("Ed's Cleaning provides professional cleaning services. https://edscleaning.example.com")
+      assert Journals.held_back_from_search?(ad.id)
+    end
+
+    test "website in social links counts too" do
+      ad =
+        create_user()
+        |> Ecto.Changeset.change(social_links: %{"website" => "https://visalogistics.example.com"})
+        |> Inkwell.Repo.update!()
+
+      assert Journals.held_back_from_search?(ad.id)
+    end
+
+    test "a profile link from someone who writes without links isn't held back" do
+      writer = bio("I write about tea. https://mytea.example.com")
+      publish(writer, "<p>A poem about the sea.</p>")
+      refute Journals.held_back_from_search?(writer.id)
+    end
+
+    test "joining in ends it" do
+      ad = bio("Visit https://shop.example.com")
+      create_relationship(%{follower_id: ad.id, following_id: create_user().id, status: :accepted})
+      refute Journals.held_back_from_search?(ad.id)
+    end
+
+    test "an empty new profile with no links is fine" do
+      refute Journals.held_back_from_search?(bio("Hello!").id)
     end
   end
 end

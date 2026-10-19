@@ -209,6 +209,16 @@ defmodule Inkwell.Moderation.AutoModeration do
       from(e in Entry, where: e.user_id == ^user.id and not is_nil(e.published_at), select: min(e.published_at))
       |> Repo.one()
 
+    # The first post written here (imports carry their old dates).
+    first_own_post =
+      from(e in Entry,
+        where: e.user_id == ^user.id and e.status == :published and is_nil(e.imported_from) and not is_nil(e.published_at),
+        order_by: [asc: e.published_at],
+        limit: 1,
+        select: %{published_at: e.published_at, body_html: e.body_html}
+      )
+      |> Repo.one()
+
     {published_days, first_published, last_published} =
       from(e in Entry,
         where: e.user_id == ^user.id and e.status == :published,
@@ -258,6 +268,8 @@ defmodule Inkwell.Moderation.AutoModeration do
       email_domain: email_domain(user.email),
       learned_spam_domains: learned,
       minutes_to_first_post: first_post && DateTime.diff(first_post, user.inserted_at, :second) / 60,
+      first_post_minutes: first_own_post && DateTime.diff(first_own_post.published_at, user.inserted_at, :second) / 60,
+      first_post_links: if(first_own_post, do: SpamSignals.extract_links(first_own_post.body_html), else: []),
       texts:
         Enum.reject(entry_texts ++ Enum.map(comments, &strip/1) ++ guestbook ++ [strip(user.bio_html || user.bio)] ++ home_texts, &(&1 in [nil, ""])),
       links:
