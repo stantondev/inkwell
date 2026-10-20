@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts src/lib/site-export/build.test.ts",
-    "prebuild": "node scripts/fetch-cutout-model.mjs"
+    "prebuild": "node scripts/fetch-cutout-model.mjs",
+    "test:play": "tsx --test src/lib/dead-letter/dead-letter.test.ts",
+    "check:letters": "tsx scripts/dead-letter/check-letters.ts"
   },
   "dependencies": {
     "@apache-annotator/dom": "^0.2.0",
