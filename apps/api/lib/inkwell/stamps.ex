@@ -294,6 +294,19 @@ defmodule Inkwell.Stamps do
     {stamps, total, type_counts}
   end
 
+  @doc """
+  Every stamp the user has received (newest first, up to #{2000}), for laying
+  out the album book. Same visibility as `album(user_id, :received)`.
+  """
+  def all_received(user_id, exclude_user_ids \\ []) do
+    from(s in album_query(user_id, :received, exclude_user_ids),
+      order_by: [desc: s.inserted_at, desc: s.id],
+      limit: 2000,
+      preload: [:user, :remote_actor, entry: :user, remote_entry: :remote_actor]
+    )
+    |> Repo.all()
+  end
+
   defp album_query(user_id, :received, exclude) do
     from(s in Stamp,
       join: e in Entry,

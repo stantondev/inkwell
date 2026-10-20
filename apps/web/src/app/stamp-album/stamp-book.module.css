@@ -1,0 +1,909 @@
+/* The stamp album book.
+   A leather-bound stockbook on the desk: glassine strips the stamps tuck into,
+   a printed catalogue at the front, an envelope of new arrivals beside it.
+   Paper stays paper in dark mode; the desk and the boards get darker. */
+
+.album,
+.loupeRoot {
+  --sb-gold: #c9a35a;
+  --sb-gold-hi: #f1d79a;
+  --sb-gold-lo: #8a6a2c;
+  --sb-ink: #2b2a35;
+  --sb-ink-soft: rgba(43, 42, 53, 0.62);
+  --sb-print: rgba(52, 44, 30, 0.82);
+  --sb-print-faint: rgba(52, 44, 30, 0.42);
+  --sb-cream: #f3ead4;
+  --sb-cream-2: #ece0c3;
+  --sb-black: #1c1c1f;
+  --sb-black-2: #141416;
+  --sb-kraft: #c7a676;
+  --sb-kraft-2: #b8955f;
+  --sb-glassine: rgba(255, 255, 255, 0.2);
+  --sb-glassine-edge: rgba(255, 255, 255, 0.9);
+  --sb-glassine-shadow: rgba(60, 40, 10, 0.16);
+  --sb-baize: #2f5141;
+  --sb-baize-2: #24402f;
+  --sb-desk-shadow: 0 30px 60px -20px rgba(40, 24, 8, 0.45), 0 12px 24px -8px rgba(40, 24, 8, 0.3);
+  --sb-hand: var(--dlo-hand), "Segoe Script", "Bradley Hand", cursive;
+  --sb-fell: var(--dlo-fell), Georgia, "Times New Roman", serif;
+  --sb-focus: #3c63b5;
+}
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-theme="light"])) .album,
+  :global(html:not([data-theme="light"])) .loupeRoot {
+    --sb-desk-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.8), 0 12px 24px -8px rgba(0, 0, 0, 0.6);
+    --sb-baize: #1f392c;
+    --sb-baize-2: #172c22;
+    --sb-focus: #8fb0ff;
+  }
+}
+:global(html[data-theme="dark"]) .album,
+:global(html[data-theme="dark"]) .loupeRoot {
+  --sb-desk-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.8), 0 12px 24px -8px rgba(0, 0, 0, 0.6);
+  --sb-baize: #1f392c;
+  --sb-baize-2: #172c22;
+  --sb-focus: #8fb0ff;
+}
+
+.album {
+  position: relative;
+  color: var(--foreground);
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.toolbarGroup { display: flex; align-items: center; gap: 6px; }
+.spacer { flex: 1; }
+.tbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tbtn:hover:not(:disabled) { border-color: var(--accent); }
+.tbtn:disabled { opacity: 0.4; cursor: default; }
+.tbtn:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 2px; }
+.iconBtn { padding: 0; width: 36px; }
+.leafSelect {
+  min-height: 36px;
+  max-width: 15rem;
+  padding: 0 30px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color: var(--foreground);
+  font-size: 13.5px;
+  appearance: none;
+  text-overflow: ellipsis;
+}
+.saveState { font-size: 12.5px; color: var(--muted); min-width: 4.5rem; text-align: right; }
+.saveError { color: var(--danger); }
+.saveError button { color: inherit; text-decoration: underline; background: none; border: 0; cursor: pointer; font: inherit; padding: 0; }
+
+.highlightChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 13px;
+}
+.highlightChip button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Menus (portaled; site tokens only) */
+.menu {
+  min-width: 15rem;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.menuLabel {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.menuItem:hover:not(:disabled), .menuItem:focus-visible { background: var(--surface-hover, rgba(0, 0, 0, 0.05)); outline: none; }
+.menuItem:disabled { opacity: 0.4; cursor: default; }
+.menuItem small { display: block; color: var(--muted); font-size: 12px; margin-top: 1px; }
+.menuDanger { color: var(--danger); }
+.menuRule { height: 1px; background: var(--border); margin: 6px 4px; }
+.swatches { display: flex; gap: 8px; padding: 6px 10px 10px; }
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.swatch[aria-pressed="true"] { border-color: var(--accent); }
+.swatch:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 2px; }
+
+/* ── The envelope of new arrivals ───────────────────────────────────────── */
+.envelopeRow {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.envelopeRowOver .envelope { transform: rotate(0deg) scale(1.06); }
+.envelopeRowOver .envelopeBack { box-shadow: 0 0 0 3px var(--accent), 0 8px 18px rgba(40, 28, 8, 0.25); }
+.envelope[data-empty] { opacity: 0.85; }
+.envelope {
+  position: relative;
+  flex: 0 0 auto;
+  width: 168px;
+  height: 108px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  transform: rotate(-2deg);
+  transition: transform 0.2s ease;
+}
+.envelope:hover { transform: rotate(-1deg) translateY(-2px); }
+.envelope:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 4px; border-radius: 6px; }
+.envelopeBack,
+.envelopeFront {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+}
+.envelopeBack {
+  background: linear-gradient(160deg, #f6f1e6, #e9e1cf);
+  box-shadow: 0 6px 14px rgba(40, 28, 8, 0.2), 0 1px 2px rgba(40, 28, 8, 0.2);
+}
+.envelopePeek {
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  display: flex;
+}
+.envelopePeek > * { margin-right: -16px; }
+.envelopeFront {
+  /* Glassine: you can see the stamps through it, a little milky. */
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.5) 40%, rgba(255, 255, 255, 0.62)),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.12) 0 2px, transparent 2px 9px);
+  backdrop-filter: blur(1.2px);
+  -webkit-backdrop-filter: blur(1.2px);
+  clip-path: polygon(0 34%, 50% 62%, 100% 34%, 100% 100%, 0 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+}
+.envelopeFlap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(236, 228, 210, 0.75));
+  border-radius: 4px 4px 0 0;
+  filter: drop-shadow(0 1px 0 rgba(120, 100, 60, 0.2));
+}
+.envelopeLabel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  text-align: center;
+  font-family: var(--sb-hand);
+  font-size: 19px;
+  color: #3a3550;
+  line-height: 1;
+}
+.envelopeCount {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 13px;
+  background: #a3301f;
+  color: #fff;
+  font: 600 13px/26px var(--font-inter, system-ui, sans-serif);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+}
+.envelopeText {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+.envelopeText h2 { font-family: var(--font-lora, Georgia, serif); font-size: 17px; font-weight: 600; }
+.envelopeText p { color: var(--muted); font-size: 13.5px; max-width: 30rem; }
+.envelopeActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--background);
+}
+.primary:hover:not(:disabled) { filter: brightness(1.06); }
+
+/* The tray: a baize pad the waiting stamps are spread on. */
+.tray {
+  position: relative;
+  margin: -6px 0 18px;
+  padding: 16px 14px 14px;
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--sb-baize), var(--sb-baize-2));
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+  color: #e9f0ea;
+}
+.trayHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; font-size: 13px; }
+.trayHead strong { font-family: var(--sb-hand); font-weight: 400; font-size: 20px; }
+.trayHead span { opacity: 0.75; }
+.trayStamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  min-height: 60px;
+}
+.trayEmpty { opacity: 0.75; font-size: 13px; padding: 14px 0; }
+.trayOver { box-shadow: inset 0 0 0 3px rgba(241, 215, 154, 0.8), inset 0 2px 8px rgba(0, 0, 0, 0.35); }
+
+/* ── The book ───────────────────────────────────────────────────────────── */
+.bookWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.book {
+  --cover: #5b201c;
+  --cover-hi: #7a2f29;
+  --cover-lo: #3c1310;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 12px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 25% 15%, var(--cover-hi), transparent 60%),
+    linear-gradient(160deg, var(--cover), var(--cover-lo));
+  box-shadow: var(--sb-desk-shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 0 24px rgba(0, 0, 0, 0.35);
+}
+.book[data-cover="forest"] { --cover: #22402d; --cover-hi: #2f5a3f; --cover-lo: #13261a; }
+.book[data-cover="navy"] { --cover: #1f2c4e; --cover-hi: #2c3e6b; --cover-lo: #121a30; }
+.book[data-cover="ink"] { --cover: #1d1c21; --cover-hi: #2c2a32; --cover-lo: #0e0d10; }
+/* Gold tooling along the boards */
+.book::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 163, 90, 0.55);
+  box-shadow: inset 0 0 0 3px transparent, inset 0 0 0 4px rgba(201, 163, 90, 0.25);
+  pointer-events: none;
+}
+.spread {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 4px;
+  perspective: 2200px;
+}
+.single { grid-template-columns: 1fr; }
+/* The gutter where the pages meet */
+.spread:not(.single)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 56px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0.28) 50%, rgba(0, 0, 0, 0.16) 58%, transparent);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.leaf {
+  position: relative;
+  min-width: 0;
+  padding: 22px 22px 16px;
+  color: var(--sb-ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.27 0 0 0 0 0.12 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23p)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, var(--sb-cream), var(--sb-cream-2));
+  display: flex;
+  flex-direction: column;
+}
+.leafLeft { border-radius: 4px 0 0 4px; box-shadow: inset -10px 0 18px -14px rgba(0, 0, 0, 0.35); }
+.leafRight { border-radius: 0 4px 4px 0; box-shadow: inset 10px 0 18px -14px rgba(0, 0, 0, 0.35); }
+.single .leaf { border-radius: 4px; box-shadow: inset 10px 0 18px -14px rgba(0, 0, 0, 0.35); }
+.leaf[data-paper="black"] {
+  --sb-ink: #e9e4d8;
+  --sb-ink-soft: rgba(233, 228, 216, 0.6);
+  --sb-print: rgba(233, 228, 216, 0.82);
+  --sb-print-faint: rgba(233, 228, 216, 0.4);
+  --sb-glassine: rgba(255, 255, 255, 0.09);
+  --sb-glassine-edge: rgba(255, 255, 255, 0.32);
+  --sb-glassine-shadow: rgba(0, 0, 0, 0.4);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23p)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, var(--sb-black), var(--sb-black-2));
+}
+.leaf[data-paper="kraft"] {
+  --sb-ink: #2a2116;
+  --sb-print: rgba(42, 33, 22, 0.85);
+  --sb-print-faint: rgba(42, 33, 22, 0.45);
+  --sb-glassine: rgba(255, 255, 255, 0.22);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.2 0 0 0 0 0.08 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23p)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, var(--sb-kraft), var(--sb-kraft-2));
+}
+
+/* Turning: the new page swings in from the gutter */
+.turnNext .leafRight, .turnNext.single .leaf { animation: swingInRight 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both; transform-origin: left center; }
+.turnNext .leafLeft { animation: fadeIn 0.3s ease both; }
+.turnPrev .leafLeft, .turnPrev.single .leaf { animation: swingInLeft 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both; transform-origin: right center; }
+.turnPrev .leafRight { animation: fadeIn 0.3s ease both; }
+.turnPrev.single .leaf { transform-origin: left center; animation-name: swingInLeftSingle; }
+@keyframes swingInRight {
+  from { transform: rotateY(-70deg); opacity: 0.4; filter: brightness(0.85); }
+  to { transform: none; opacity: 1; filter: none; }
+}
+@keyframes swingInLeft {
+  from { transform: rotateY(70deg); opacity: 0.4; filter: brightness(0.85); }
+  to { transform: none; opacity: 1; filter: none; }
+}
+@keyframes swingInLeftSingle {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+/* ── A stockbook page ───────────────────────────────────────────────────── */
+.pageHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  min-height: 40px;
+}
+.pageTitle {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  color: var(--sb-ink);
+  font-family: var(--sb-hand);
+  font-size: 26px;
+  line-height: 1.2;
+  padding: 2px 2px;
+}
+.pageTitle::placeholder { color: var(--sb-ink-soft); opacity: 0.45; }
+.pageTitle:hover, .pageTitle:focus { border-bottom-color: var(--sb-print-faint); outline: none; }
+.pageMenuBtn {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--sb-print);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.pageMenuBtn:hover { background: rgba(127, 127, 127, 0.14); }
+.pageMenuBtn:focus-visible { outline: 2px solid var(--sb-focus); }
+.strips { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.strip {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-top: 8px;
+}
+/* The glassine pocket: drawn over the lower part of each stamp */
+.strip::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: 0;
+  height: var(--pocket, 54px);
+  background:
+    linear-gradient(100deg, transparent 0 18%, rgba(255, 255, 255, 0.16) 24%, transparent 34% 62%, rgba(255, 255, 255, 0.1) 68%, transparent 76%),
+    linear-gradient(180deg, var(--sb-glassine) 0, transparent 85%, rgba(0, 0, 0, 0.03));
+  border-top: 1px solid var(--sb-glassine-edge);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 2px 3px -1px var(--sb-glassine-shadow);
+  pointer-events: none;
+  z-index: 2;
+}
+/* The strip's backing: a faint line where the pocket is glued */
+.strip::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: -1px;
+  height: 1px;
+  background: var(--sb-glassine-shadow);
+  pointer-events: none;
+}
+.slot {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: var(--slot-h, 92px);
+  padding-bottom: 6px;
+  border-radius: 6px;
+}
+.slotOver { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
+.slotTarget {
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  width: 100%;
+}
+.slotTarget:empty::before,
+.slotTarget .slotHint {
+  content: "";
+  position: absolute;
+  inset: 6px 14% 8px;
+  border: 1.5px dashed var(--sb-print-faint);
+  border-radius: 4px;
+}
+.slotTarget:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.slotTarget:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: -2px; }
+
+.stampBtn {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: grab;
+  touch-action: manipulation;
+  transform: rotate(var(--lean, 0deg));
+  transition: transform 0.15s ease, opacity 0.2s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.stampBtn:hover { transform: rotate(var(--lean, 0deg)) translateY(-3px); }
+.stampBtn:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 3px; border-radius: 3px; }
+.stampBtn.dragging { opacity: 0.15; }
+.stampBtn.dim { opacity: 0.22; }
+.stampBtn.carried { opacity: 0.35; outline: 2px dashed var(--accent); outline-offset: 3px; }
+.stampBtn.justPlaced { animation: tuck 0.38s cubic-bezier(0.3, 0.7, 0.3, 1); }
+@keyframes tuck {
+  0% { transform: rotate(var(--lean, 0deg)) translateY(-14px) scale(1.06); }
+  60% { transform: rotate(var(--lean, 0deg)) translateY(2px) scale(0.99); }
+  100% { transform: rotate(var(--lean, 0deg)); }
+}
+.trayStamps .stampBtn { --lean: 0deg; }
+/* Postmarks a little lighter in the album, so a page of them stays calm */
+.stampBtn :global(.stamp-impression-postmark),
+.overlay :global(.stamp-impression-postmark) { opacity: 0.6; left: -6%; width: 112%; top: 52%; }
+.overlay {
+  transform: rotate(-5deg) scale(1.12);
+  filter: drop-shadow(0 16px 18px rgba(20, 12, 0, 0.4)) drop-shadow(0 4px 6px rgba(20, 12, 0, 0.25));
+  cursor: grabbing;
+}
+
+.pageFoot {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  font-family: var(--sb-fell);
+  font-size: 13px;
+  color: var(--sb-print-faint);
+  letter-spacing: 0.08em;
+}
+.emptyNote {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: min(78%, 20rem);
+  text-align: center;
+  font-family: var(--sb-fell);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--sb-print);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* The blank right-hand page at the end of the book */
+.addLeaf { align-items: center; justify-content: center; gap: 10px; text-align: center; }
+.addLeaf p { font-family: var(--sb-fell); font-style: italic; color: var(--sb-print-faint); font-size: 15px; }
+.addLeafBtn {
+  border: 1.5px dashed var(--sb-print-faint);
+  background: transparent;
+  color: var(--sb-print);
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  font: 14px var(--font-inter, system-ui, sans-serif);
+}
+.addLeafBtn:hover { border-style: solid; }
+
+/* ── The catalogue (first leaf) ─────────────────────────────────────────── */
+.catTitle {
+  font-family: var(--sb-fell);
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--sb-print);
+  text-align: center;
+}
+.catSub {
+  font-family: var(--sb-fell);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--sb-print-faint);
+  text-align: center;
+  margin: 4px 0 6px;
+}
+.catOrnament {
+  text-align: center;
+  color: var(--sb-print-faint);
+  font-size: 13px;
+  letter-spacing: 0.6em;
+  margin-bottom: 8px;
+}
+.catSections { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.catSection { margin-top: 10px; min-width: 0; }
+.catSection h3 {
+  font-family: var(--sb-fell);
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: var(--sb-print);
+  text-align: center;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.catSection h3::before,
+.catSection h3::after { content: ""; flex: 1; height: 1px; background: var(--sb-print-faint); opacity: 0.6; }
+.catGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), 1fr);
+  gap: 8px 6px;
+}
+.catItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+button.catItem { cursor: pointer; }
+button.catItem:hover { background: rgba(127, 127, 127, 0.1); }
+button.catItem:focus-visible { outline: 2px solid var(--sb-focus); }
+.catItem[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.catSpace {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  border: 1px solid var(--sb-print-faint);
+  outline: 1px solid var(--sb-print-faint);
+  outline-offset: 2px;
+}
+/* An empty space: the design printed faintly, the way old albums did */
+.catPrinted { opacity: 0.17; filter: grayscale(1) contrast(1.2); }
+:global(html[data-theme="dark"]) .leaf[data-paper="black"] .catPrinted { opacity: 0.25; }
+.catMounted {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform: rotate(var(--lean, 0deg));
+  filter: drop-shadow(0 1px 1px rgba(40, 28, 8, 0.3)) drop-shadow(0 2px 4px rgba(40, 28, 8, 0.15));
+}
+.catName {
+  font-family: var(--sb-fell);
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--sb-print);
+}
+.catCount {
+  font-family: var(--sb-hand);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--sb-ink);
+  min-height: 15px;
+}
+.catFoot {
+  margin-top: auto;
+  padding-top: 14px;
+  font-family: var(--sb-fell);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--sb-print-faint);
+  text-align: center;
+}
+
+/* ── Arrows beside the book ─────────────────────────────────────────────── */
+.turn {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 20px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.turn:disabled { opacity: 0.3; cursor: default; }
+.turn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.turn:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 2px; }
+.turnOver { border-color: var(--accent); background: var(--accent-light); color: var(--accent); transform: scale(1.12); }
+
+.hint { margin-top: 14px; text-align: center; font-size: 13px; color: var(--muted); }
+
+/* Carrying a stamp by tapping (phones, keyboards) */
+.carryBar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  max-width: calc(100vw - 24px);
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+}
+.carryBar button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  min-height: 36px;
+  background: color-mix(in srgb, var(--background) 16%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.carryText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── The loupe: one stamp up close ──────────────────────────────────────── */
+.loupeRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.loupeBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 12, 8, 0.72);
+  animation: fadeIn 0.18s ease both;
+}
+.loupeCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 22rem);
+  gap: 28px;
+  align-items: center;
+  max-width: 100%;
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 28px;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  animation: loupeIn 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes loupeIn {
+  from { transform: translateY(10px) scale(0.97); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.lens {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.55), transparent 32%),
+    radial-gradient(circle, #f6efdc 0, #eadfc3 70%, #d9caa3 100%);
+  box-shadow:
+    0 0 0 9px #b9bcc3,
+    0 0 0 11px #8b8f98,
+    0 0 0 13px #d5d8de,
+    0 14px 30px rgba(0, 0, 0, 0.35),
+    inset 0 0 26px rgba(0, 0, 0, 0.22);
+  perspective: 900px;
+}
+.lens :global(.stamp-impression-postmark) { opacity: 0.72; }
+.lens::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.4), transparent 26%);
+  pointer-events: none;
+}
+.flipper {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.flipped { transform: rotateY(180deg); }
+.face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 14px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 21px, rgba(80, 100, 150, 0.14) 21px 22px),
+    #f8f2e2;
+  color: #2f2b45;
+  box-shadow: 0 2px 6px rgba(40, 28, 8, 0.3);
+  /* Perforated edge, like the front */
+  -webkit-mask:
+    linear-gradient(#000 0 0) center / calc(100% - 7px) calc(100% - 7px) no-repeat,
+    radial-gradient(circle 3.5px at 50% 50%, transparent 96%, #000) -5px -5px / 10px 10px;
+  mask:
+    linear-gradient(#000 0 0) center / calc(100% - 7px) calc(100% - 7px) no-repeat,
+    radial-gradient(circle 3.5px at 50% 50%, transparent 96%, #000) -5px -5px / 10px 10px;
+}
+.backNote { font-family: var(--sb-hand); font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
+.backFrom { font-family: var(--sb-fell); font-style: italic; font-size: 13px; opacity: 0.8; }
+.backBlank { font-family: var(--sb-fell); font-style: italic; font-size: 14px; opacity: 0.55; text-align: center; }
+
+.details { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.detailsKind { font-family: var(--font-lora, Georgia, serif); font-size: 22px; font-weight: 700; line-height: 1.2; }
+.detailsSays { font-style: italic; color: var(--muted); margin-top: -6px; }
+.detailRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.detailLabel { font-size: 12px; color: var(--muted); min-width: 2.5rem; }
+.readBack {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+}
+.readBack:focus-visible { outline: 2px solid var(--sb-focus); outline-offset: 2px; }
+.loupeActions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 6px; border-top: 1px solid var(--border); margin-top: 4px; }
+.loupeClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+}
+.loupeClose:hover { background: rgba(127, 127, 127, 0.14); }
+.loupeNav { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; }
+
+/* ── Narrow screens ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .book { padding: 10px 10px 10px 16px; border-radius: 10px; }
+  .book::before { inset: 4px; }
+  .leaf { padding: 16px 12px 12px; }
+  .pageTitle { font-size: 22px; }
+  .strips { gap: 8px; }
+  .turn { display: none; }
+  .toolbar { gap: 6px; }
+  .leafSelect { max-width: 9.5rem; min-width: 0; flex: 1 1 7rem; }
+  .highlightChip { order: 5; }
+  .spacer { display: none; }
+  .toolbar .toolbarGroup:last-child { margin-left: auto; }
+  .saveQuiet { display: none; }
+  .envelope { width: 132px; height: 88px; }
+  .envelopeLabel { font-size: 16px; }
+  .envelopeText h2 { font-size: 15.5px; }
+  .envelopeText p { display: none; }
+  .loupeRoot { padding: 0; place-items: end stretch; }
+  .loupeCard {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 18px;
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    padding: 24px 18px calc(18px + env(safe-area-inset-bottom));
+    max-height: 92dvh;
+  }
+  .details { width: 100%; }
+  .lens { width: 240px; height: 240px; }
+  .catTitle { font-size: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turnNext .leaf, .turnPrev .leaf, .stampBtn.justPlaced, .loupeCard, .loupeBackdrop { animation: none !important; }
+  .flipper, .envelope, .stampBtn { transition: none; }
+}

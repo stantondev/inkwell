@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-20-stamp-album-book",
+    date: "2026-10-20",
+    title: "Your stamp album is a real album now",
+    body: "The stamps readers send you are mounted in a leather-bound stockbook, tucked into glassine strips four to a row. Drag them wherever you like, name your pages, choose cream, black or kraft paper and a cover colour, or sort everything by date, design or who sent it. New stamps wait in an envelope until you mount them. Tap a stamp to look at it under a loupe and turn it over to read what the sender wrote on the back. At the front, a catalogue prints a space for every design Inkwell has issued.",
+    howTo: "Open Stamp album under Your journal in the sidebar, or under You on your phone.",
+    href: "/stamp-album",
+    cta: "Open your album",
+    tag: "Profile",
+  },
+  {
     id: "2026-10-20-dead-letter-office",
     date: "2026-10-20",
     title: "The Dead Letter Office: a letter a day",

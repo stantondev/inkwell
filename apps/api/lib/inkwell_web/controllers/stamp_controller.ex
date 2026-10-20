@@ -118,6 +118,30 @@ defmodule InkwellWeb.StampController do
     })
   end
 
+  @doc "GET /api/me/stamp-album — every stamp received, and how they're mounted."
+  def album_book(conn, _params) do
+    user = conn.assigns.current_user
+    stamps = Stamps.all_received(user.id, Social.get_blocked_user_ids(user.id))
+    user = Inkwell.Repo.get!(Inkwell.Accounts.User, user.id)
+
+    json(conn, %{
+      data: %{
+        stamps: Enum.map(stamps, &StampJSON.album_item/1),
+        album: Stamps.Album.for_user(user, Enum.map(stamps, & &1.id))
+      }
+    })
+  end
+
+  @doc "PUT /api/me/stamp-album {album} — saves the arrangement."
+  def save_album_book(conn, %{"album" => album}) when is_map(album) do
+    user = conn.assigns.current_user
+    ids = user.id |> Stamps.all_received(Social.get_blocked_user_ids(user.id)) |> Enum.map(& &1.id)
+    {:ok, saved} = Stamps.Album.save(user, Stamps.Album.normalize(album, ids))
+    json(conn, %{data: %{album: saved}})
+  end
+
+  def save_album_book(conn, _), do: conn |> put_status(400) |> json(%{error: "Send the album as {\"album\": {...}}."})
+
   # ── Shared with RemoteEntryController ───────────────────────────────────
 
   @doc false

@@ -247,6 +247,8 @@ defmodule InkwellWeb.Router do
     patch "/me/profile", UserController, :update_profile
     put "/me/home", ProfileHomeController, :update
     get "/me/stamps", StampController, :album
+    get "/me/stamp-album", StampController, :album_book
+    put "/me/stamp-album", StampController, :save_album_book
     get "/me/stickers", UserStickerController, :index
     post "/me/stickers", UserStickerController, :create
     patch "/me/stickers/:id", UserStickerController, :update

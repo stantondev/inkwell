@@ -285,7 +285,9 @@ export default function GuidePage() {
             characters. Readers see the stamps and their dates, never who sent
             them; the writer sees who sent each one and what they wrote, and
             keeps them all in their <strong>Stamp album</strong> (Your journal
-            → Stamp album). Plus members also get a sheet of Keepsakes.
+            → Stamp album), a stockbook where you can drag them into any
+            order, name the pages and turn a stamp over to read its note. Plus
+            members also get a sheet of Keepsakes.
           </p>
           <p>
             <strong>Inks</strong> are a way to signal &ldquo;more people should

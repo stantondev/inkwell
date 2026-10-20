@@ -14,6 +14,8 @@ defmodule Inkwell.Accounts.User do
     field :pronouns, :string
     field :avatar_url, :string
     field :avatar_config, :map
+    # How the stamps they've received are arranged (Inkwell.Stamps.Album).
+    field :stamp_album, :map
     field :profile_html, :string
     field :profile_css, :string
     field :profile_music, :string

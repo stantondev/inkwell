@@ -22,7 +22,7 @@ export interface AlbumPage {
 
 const DAY: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
 
-function entryLabel(s: AlbumStamp): { href: string; text: string; external?: boolean } | null {
+export function entryLabel(s: AlbumStamp): { href: string; text: string; external?: boolean } | null {
   if (s.entry) {
     const text = s.entry.title ? decodeEntities(s.entry.title) : s.entry.kind === "sticky" ? "a sticky" : "an untitled entry";
     return { href: `/${s.entry.username}/${s.entry.slug || s.entry.id}`, text };
@@ -66,19 +66,12 @@ export function StampAlbum({ box, type, initial }: { box: "received" | "sent"; t
     }
   }
 
-  const base = box === "sent" ? "/stamp-album?box=sent" : "/stamp-album";
-  const withType = (t: string | null) => (t ? `${base}${box === "sent" ? "&" : "?"}type=${t}` : base);
+  const base = box === "sent" ? "/stamp-album?box=sent" : "/stamp-album?view=list";
+  const withType = (t: string | null) => (t ? `${base}&type=${t}` : base);
 
   return (
     <div className="stamp-album">
-      <nav className="stamp-album-tabs" aria-label="Stamp album">
-        <Link href="/stamp-album" className={box === "received" ? "is-active" : ""} aria-current={box === "received" ? "page" : undefined}>
-          Received
-        </Link>
-        <Link href="/stamp-album?box=sent" className={box === "sent" ? "is-active" : ""} aria-current={box === "sent" ? "page" : undefined}>
-          Sent
-        </Link>
-      </nav>
+      <AlbumTabs current={box === "sent" ? "sent" : "received"} />
 
       {typeKeys.length > 1 && (
         <div className="stamp-album-filters" role="group" aria-label="Show one design">
@@ -163,5 +156,23 @@ export function StampAlbum({ box, type, initial }: { box: "received" | "sent"; t
         </div>
       )}
     </div>
+  );
+}
+
+/** Album (the book) · Received (every stamp with its note, newest first) · Sent. */
+export function AlbumTabs({ current }: { current: "album" | "received" | "sent" }) {
+  const tabs = [
+    { id: "album", href: "/stamp-album", label: "Album" },
+    { id: "received", href: "/stamp-album?view=list", label: "Received" },
+    { id: "sent", href: "/stamp-album?box=sent", label: "Sent" },
+  ] as const;
+  return (
+    <nav className="stamp-album-tabs" aria-label="Stamp album">
+      {tabs.map((t) => (
+        <Link key={t.id} href={t.href} className={current === t.id ? "is-active" : ""} aria-current={current === t.id ? "page" : undefined}>
+          {t.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
