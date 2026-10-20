@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/session";
 import { GazettePaper } from "./gazette-paper";
 import { loadEdition, sectionParam } from "./load";
+import { TrackFeature } from "@/components/track-feature";
 
 export const metadata: Metadata = {
   title: "The Gazette",
@@ -24,6 +25,9 @@ export default async function GazettePage({
   const data = await loadEdition(session?.token);
 
   return (
-    <GazettePaper data={data} section={sectionParam(sp.section)} signedIn={!!session?.user} basePath="/gazette" />
+    <>
+      <TrackFeature feature="gazette" />
+      <GazettePaper data={data} section={sectionParam(sp.section)} signedIn={!!session?.user} basePath="/gazette" />
+    </>
   );
 }

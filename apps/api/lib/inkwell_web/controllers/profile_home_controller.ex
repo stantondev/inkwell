@@ -25,6 +25,7 @@ defmodule InkwellWeb.ProfileHomeController do
       if Inkwell.Moderation.RequestGate.new_account?(updated),
         do: Inkwell.Workers.AutoModerationWorker.enqueue_user(updated.id)
 
+      Inkwell.Usage.record_member("arrange", user)
       json(conn, %{data: ProfileHome.for_user(updated)})
     else
       {:error, :too_large} ->

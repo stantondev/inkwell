@@ -26,6 +26,10 @@ defmodule InkwellWeb.Router do
     plug InkwellWeb.Plugs.RateLimit, max_requests: 5, window_seconds: 300
   end
 
+  pipeline :usage_rate_limited do
+    plug InkwellWeb.Plugs.RateLimit, max_requests: 120, window_seconds: 60, bucket: :usage
+  end
+
   pipeline :api_key_rate_limited do
     plug InkwellWeb.Plugs.ApiKeyRateLimit
   end
@@ -124,6 +128,13 @@ defmodule InkwellWeb.Router do
     # Email notification unsubscribe (one-click, token-verified)
     get "/email-notifications/unsubscribe", EmailNotificationController, :unsubscribe
     post "/email-notifications/unsubscribe", EmailNotificationController, :unsubscribe
+  end
+
+  # Which features get used (Inkwell.Usage). Always 204.
+  scope "/api", InkwellWeb do
+    pipe_through [:api, :usage_rate_limited, :optional_auth]
+
+    post "/usage", UsageController, :create
   end
 
   # Public endpoints with optional auth (for personalized data)
@@ -553,6 +564,9 @@ defmodule InkwellWeb.Router do
 
     # Signup sources
     get "/growth", GrowthAdminController, :index
+
+    # Which features get used
+    get "/usage", UsageController, :report
 
     # Automated moderation review
     get "/moderation", ModerationAdminController, :index

@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import { trackFeature } from "@/lib/usage";
 
 export function SiteExportCard() {
   const [state, setState] = useState<"idle" | "packing" | "done">("idle");
@@ -15,6 +16,7 @@ export function SiteExportCard() {
   async function download() {
     setState("packing");
     setError(null);
+    trackFeature("site_export");
     try {
       const res = await fetch("/api/me/site-export");
       if (!res.ok) {

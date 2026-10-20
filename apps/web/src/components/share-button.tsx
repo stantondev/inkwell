@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { FloatingPopup } from "@/components/floating-popup";
+import { trackFeature } from "@/lib/usage";
 
 interface ShareButtonProps {
   url: string;
@@ -88,7 +89,10 @@ export function ShareButton({ url, title, description, size = 15 }: ShareButtonP
     <div>
       <button
         ref={btnRef}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) trackFeature("share");
+          setOpen(!open);
+        }}
         className="flex items-center transition-opacity hover:opacity-80 cursor-pointer"
         style={{ color: "var(--muted)" }}
         title="Share"

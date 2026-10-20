@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { ReadsChart } from "./reads-chart";
 import { ReadersPlusCard } from "./readers-plus-card";
+import { TrackFeature } from "@/components/track-feature";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Readers" };
@@ -74,6 +75,7 @@ export default async function ReadersPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+      <TrackFeature feature="reader_stats" />
       <h1 className="text-2xl font-bold mb-1" style={serif}>Readers</h1>
       <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
         How many people read your entries, and where they came from. A read is ten seconds

@@ -49,7 +49,9 @@ defmodule Inkwell.Application do
           # Gazette "what people are saying" (Inkwell.Gazette.Conversation)
           :gazette_conversation_cache,
           # Reader stats: one-day "already counted" marks (Inkwell.Reads)
-          :entry_read_seen
+          :entry_read_seen,
+          # Feature usage: one-day "already counted" marks (Inkwell.Usage)
+          :feature_use_seen
         ] do
       if :ets.whereis(table) == :undefined do
         :ets.new(table, [:set, :public, :named_table])

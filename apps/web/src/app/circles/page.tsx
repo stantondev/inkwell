@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/api";
 import CircleBrowseClient from "./circle-browse-client";
 import { FetchError } from "@/components/fetch-error";
 import { CIRCLE_CATEGORIES, type Circle, type MyCirclesMeta } from "./circle-types";
+import { TrackFeature } from "@/components/track-feature";
 
 export const metadata: Metadata = {
   title: "Circles",
@@ -50,6 +51,7 @@ export default async function CirclesPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="circle-page">
+      <TrackFeature feature="circles" />
       <div className="circle-hero">
         <h1>Circles</h1>
         <p>Small communities of writers. Post an entry to a circle and everyone in it reads it in their Feed.</p>

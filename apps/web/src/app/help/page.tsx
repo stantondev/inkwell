@@ -3,6 +3,7 @@ import Link from "next/link";
 import { HELP_CATEGORIES } from "@/lib/help-content";
 import { HelpSearch } from "./help-search";
 import { getSite, BILLING_HELP_CATEGORY } from "@/lib/site";
+import { TrackFeature } from "@/components/track-feature";
 
 export const metadata: Metadata = {
   title: "The Reference Desk — Help Center",
@@ -73,6 +74,7 @@ export default function HelpPage() {
       className="mx-auto max-w-3xl px-4 py-12"
       style={{ color: "var(--foreground)" }}
     >
+      <TrackFeature feature="help" />
       {/* Hero */}
       <p
         className="text-xs uppercase tracking-widest mb-1"

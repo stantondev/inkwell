@@ -3,6 +3,7 @@ import { getToken } from "@/lib/session";
 import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { HistoryClient } from "./history-client";
+import { TrackFeature } from "@/components/track-feature";
 
 interface HistoryPageProps {
   searchParams: Promise<{ entry?: string }>;
@@ -66,6 +67,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+      <TrackFeature feature="version_history" />
       <HistoryClient
         entry={entry}
         versions={versions}

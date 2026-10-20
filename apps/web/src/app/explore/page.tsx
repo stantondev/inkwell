@@ -15,6 +15,7 @@ import { ExploreRibbonProvider, ExploreRibbonTab, ExploreRibbonChip } from "@/co
 import type { SuggestedWriter } from "@/components/suggested-writers";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import { CATEGORIES, getCategoryLabel } from "@/lib/categories";
+import { TrackFeature } from "@/components/track-feature";
 
 // The Fediverse tab is other servers' posts, many by people who haven't opted
 // in to search (Mastodon's "indexable"). A canonical pointing at /explore
@@ -285,6 +286,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
+      <TrackFeature feature="explore" />
+      {activeSource === "fediverse" && <TrackFeature feature="explore_fediverse" />}
+      {activeSort === "waiting" && <TrackFeature feature="explore_waiting" />}
       {ribbon ? (
         <ExploreRibbonProvider
           panel={cover}

@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { FetchError } from "@/components/fetch-error";
 import { StampAlbum, type AlbumPage } from "./stamp-album";
+import { TrackFeature } from "@/components/track-feature";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Stamp album", robots: { index: false, follow: false } };
@@ -29,6 +30,7 @@ export default async function StampAlbumPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+      <TrackFeature feature="stamp_album" />
       <div className="mx-auto max-w-3xl px-4 py-8">
         <header className="stamp-album-header">
           <h1 className="stamp-album-title">Stamp album</h1>

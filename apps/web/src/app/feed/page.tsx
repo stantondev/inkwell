@@ -18,6 +18,7 @@ import { SuggestedWriters } from "@/components/suggested-writers";
 import { FeedSeen } from "@/components/feed-seen";
 import { LocalDate } from "@/components/local-date";
 import { isSupporter } from "@/lib/supporter";
+import { TrackFeature } from "@/components/track-feature";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Feed" };
@@ -238,6 +239,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
+      <TrackFeature feature="feed" />
       {/* The top of the Feed is one row (title, date, what's new, and the
           Everyone / Inkwell / Fediverse switch) plus at most one slim notice.
           It used to stack five bands (switch, "new" line, dispatch header, jot

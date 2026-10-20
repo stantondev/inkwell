@@ -17,13 +17,15 @@ defmodule InkwellWeb.Plugs.RateLimit do
   def init(opts) do
     %{
       max_requests: Keyword.get(opts, :max_requests, 5),
-      window_seconds: Keyword.get(opts, :window_seconds, 300)
+      window_seconds: Keyword.get(opts, :window_seconds, 300),
+      # A separate count for this route (default: the shared per-IP count)
+      bucket: Keyword.get(opts, :bucket)
     }
   end
 
-  def call(conn, %{max_requests: max, window_seconds: window}) do
+  def call(conn, %{max_requests: max, window_seconds: window} = opts) do
     ensure_table()
-    key = client_ip(conn)
+    key = if opts[:bucket], do: {opts.bucket, client_ip(conn)}, else: client_ip(conn)
     now = System.system_time(:second)
 
     case check_rate(key, now, max, window) do

@@ -323,6 +323,7 @@ defmodule InkwellWeb.EntryController do
         case Journals.create_draft(attrs) do
           {:ok, entry} ->
             record_entry_creation(user.id)
+            note_scheduled(nil, entry, user)
             conn
             |> put_status(:created)
             |> json(%{data: render_entry_full(entry, user)})
@@ -436,6 +437,7 @@ defmodule InkwellWeb.EntryController do
             if updated.status == :published, do: enqueue_search_index(updated.id)
 
             EntryPublishing.maybe_make_circle_prompt(updated, user, params)
+            note_scheduled(entry, updated, user)
 
             json(conn, %{data: render_entry_full(updated, user) |> put_is_circle_prompt(updated)})
 
@@ -855,6 +857,7 @@ defmodule InkwellWeb.EntryController do
   def bulk_action(conn, %{"action" => action, "entry_ids" => entry_ids} = params)
       when is_list(entry_ids) do
     user = conn.assigns.current_user
+    Inkwell.Usage.record_member("posts_bulk", user)
 
     if length(entry_ids) > @bulk_max_ids do
       conn |> put_status(:bad_request) |> json(%{error: "Maximum #{@bulk_max_ids} entries per request"})
@@ -874,6 +877,16 @@ defmodule InkwellWeb.EntryController do
       end
     end
   end
+
+  # Feature usage (Inkwell.Usage): a draft given a publish time, or moved to
+  # a new one. Scheduled drafts lose `scheduled_at` once published, so this is
+  # the only trace that the feature was used.
+  defp note_scheduled(before, %{status: :draft, scheduled_at: at}, user) when not is_nil(at) do
+    if is_nil(before) or before.scheduled_at != at,
+      do: Inkwell.Usage.record_member("scheduled_posts", user)
+  end
+
+  defp note_scheduled(_, _, _), do: :ok
 
   def bulk_action(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{error: "Missing action or entry_ids"})

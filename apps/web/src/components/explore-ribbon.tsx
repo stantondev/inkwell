@@ -14,6 +14,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { trackFeature } from "@/lib/usage";
 
 const SEEN_KEY = "inkwell-explore-ribbon-seen";
 
@@ -86,7 +87,10 @@ export function ExploreRibbonProvider({
   const toggle = useCallback((from: HTMLElement | null) => {
     openerRef.current = from;
     if (open) close();
-    else setOpen(true);
+    else {
+      setOpen(true);
+      trackFeature("explore_ribbon");
+    }
   }, [open, close]);
 
   // Desktop: hang the insert just left of the ribbon on the book's edge.

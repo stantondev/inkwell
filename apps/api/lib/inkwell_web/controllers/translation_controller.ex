@@ -33,6 +33,7 @@ defmodule InkwellWeb.TranslationController do
     else
       case Translations.translate(type, id, target_lang) do
         {:ok, result} ->
+          Inkwell.Usage.record_member("translate", conn.assigns.current_user)
           json(conn, %{data: result})
 
         {:error, :not_found} ->

@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { DraftsList } from "./drafts-list";
 import { DRAFTS_PER_PAGE, type DraftsResponse } from "./draft-types";
+import { TrackFeature } from "@/components/track-feature";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Drafts" };
@@ -31,6 +32,7 @@ export default async function DraftsPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
+      <TrackFeature feature="drafts_page" />
       <div className="mx-auto max-w-4xl px-4 py-10">
         <div className="flex items-start justify-between gap-4 mb-6">
           <h1

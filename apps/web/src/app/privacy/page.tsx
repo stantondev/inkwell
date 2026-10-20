@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
-        Last Updated: September 22, 2026
+        Last Updated: October 20, 2026
       </p>
 
       <div className="prose-legal flex flex-col gap-8 text-base leading-relaxed">
@@ -119,6 +119,21 @@ export default async function PrivacyPage() {
               random value that is replaced every day and never stored. We save only daily totals per entry and the
               linking site&apos;s name, never your IP address or anything that identifies you, and no cookie is set.
               Writers see these totals for their own entries.
+            </li>
+            <li>
+              <strong>Which features get used:</strong> So we know which parts of Inkwell people use (and can retire the
+              ones nobody does), we count uses of features that don&apos;t otherwise leave a record, like opening the
+              Gazette, the Feed, Explore&apos;s tabs, the stamp album or the game, translating a post, or arranging your
+              page. For each feature we save daily totals (members, signed-out visitors and uses), and for signed-in
+              members the first and last day they used it and on how many days; for the game, also how many letters you
+              started and delivered, how many writers you named and the furthest level you reached. We don&apos;t
+              record what you read,
+              search for or write, or the order you do things in. Signed-out visitors are counted once a day the same way
+              as reader counts: a one-way hash of the IP address and browser type with a daily random value, kept only
+              in memory until the day ends; their IP address is never stored. Your browser remembers which features it
+              has already reported today so it reports each only once. Only Inkwell&apos;s administrators see these
+              numbers, including which members used a feature, so we can ask the people who use something what they
+              think of it. The per-member record is deleted with your account.
             </li>
           </ul>
 

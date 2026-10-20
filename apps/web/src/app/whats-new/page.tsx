@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSessionSafe } from "@/lib/session";
 import { WHATS_NEW, whatsNewHref, type WhatsNewItem } from "@/lib/whats-new";
 import { MarkWhatsNewSeen } from "@/components/whats-new-state";
+import { TrackFeature } from "@/components/track-feature";
 
 export const metadata: Metadata = {
   title: "What's new",
@@ -90,6 +91,7 @@ export default async function WhatsNewPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12" style={{ color: "var(--foreground)" }}>
+      <TrackFeature feature="whats_new" />
       {session && <MarkWhatsNewSeen />}
       <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: serif }}>
         What&rsquo;s new

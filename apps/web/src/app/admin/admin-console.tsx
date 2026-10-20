@@ -45,6 +45,7 @@ const PANELS: Record<string, React.ComponentType> = {
   polls: dynamic(() => import("./panels/polls-panel"), { loading: PanelLoading, ssr: false }),
   billing: dynamic(() => import("./panels/billing-panel"), { loading: PanelLoading, ssr: false }),
   growth: dynamic(() => import("./panels/growth-panel"), { loading: PanelLoading, ssr: false }),
+  usage: dynamic(() => import("./panels/usage-panel"), { loading: PanelLoading, ssr: false }),
   email: dynamic(() => import("./panels/email-panel"), { loading: PanelLoading, ssr: false }),
   federation: dynamic(() => import("./panels/federation-panel"), { loading: PanelLoading, ssr: false }),
   relays: dynamic(() => import("./panels/relays-panel"), { loading: PanelLoading, ssr: false }),

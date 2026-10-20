@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { AvatarWithFrame, Avatar } from "@/components/avatar-with-frame";
+import { trackFeature } from "@/lib/usage";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
     setLoadingUsers(true);
     setLoadingEntries(true);
     setHasSearched(false);
+    trackFeature("search");
 
     const q = encodeURIComponent(query.trim());
 
