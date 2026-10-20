@@ -29,6 +29,7 @@ import { TheFile } from "./the-file";
 import { HowToPlay } from "./how-to-play";
 import { LevelPicker } from "./level-picker";
 import { fell, hand } from "./fonts";
+import { trackFeature } from "@/lib/usage";
 import styles from "./play.module.css";
 
 const STEPS: { phase: Phase; label: string }[] = [
@@ -125,6 +126,18 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
     };
   }, [rank.title]);
 
+  // Who's playing (Admin → Usage): opening the office and each letter's steps,
+  // with the level. Never the score. Draft previews aren't counted.
+  const track = (action: "opened" | "letter_started" | "letter_delivered" | "writer_named", l: Level) => {
+    if (!preview) trackFeature("play", action, l);
+  };
+  const countedOpen = useRef(false);
+  useEffect(() => {
+    if (countedOpen.current) return;
+    countedOpen.current = true;
+    if (!preview) trackFeature("play", "opened", level);
+  }, [preview, level]);
+
   const go = (phase: Phase, extra: Partial<Progress> = {}) => {
     change(selected, (cur) => ({ ...cur, ...extra, phase }));
     toDay();
@@ -137,6 +150,7 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
 
   const guess = (g: string) => {
     const right = namesMystery(week, g);
+    if (right && weekProgress.namedOnDay === null) track("writer_named", level);
     // Named "on" the newest letter that had arrived when they named it.
     updateWeek({
       ...weekProgress,
@@ -293,6 +307,7 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
                       className={styles.primary}
                       onClick={() => {
                         paperLift();
+                        track("letter_started", level);
                         go("mend", { level });
                       }}
                     >
@@ -319,6 +334,7 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
                   onTry={() => change(selected, (cur) => ({ ...cur, deliveryTries: cur.deliveryTries + 1 }))}
                   onEliminate={(id) => change(selected, (cur) => ({ ...cur, eliminated: [...cur.eliminated, id], hints: cur.hints + 1 }))}
                   onDelivered={() => {
+                    track("letter_delivered", p.level ?? level);
                     change(selected, (cur) => ({ ...cur, phase: "delivered", level: cur.level ?? level, deliveredAt: new Date().toISOString() }));
                     setJustDelivered(selected);
                     toDay();
