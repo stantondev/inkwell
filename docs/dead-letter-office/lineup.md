@@ -10,7 +10,7 @@ until a person approves each week.
 | Week starts | Id | Writer | Status | Source |
 |---|---|---|---|---|
 | 19 Oct 2026 | 2026-w43-roosevelt | Theodore Roosevelt | approved (prototype) | Gutenberg #6467 |
-| 26 Oct 2026 | 2026-w44-lincoln | Abraham Lincoln | draft | Gutenberg #3253 |
+| 26 Oct 2026 | 2026-w44-lincoln | Abraham Lincoln | approved | Gutenberg #3253 |
 | 2 Nov 2026 | 2026-w45-darwin | Charles Darwin | draft | Gutenberg #2087, #2088 |
 | 9 Nov 2026 | 2026-w46-keller | Helen Keller | draft | Gutenberg #2397 |
 | 16 Nov 2026 | 2026-w47-twain | Mark Twain | draft | Gutenberg #3193, #3194, #3196, #3197 |

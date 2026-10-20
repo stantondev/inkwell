@@ -62,7 +62,8 @@ function Bundle({ left }: { left: number }) {
 export function DeadLetterOffice({ week, preview = false }: { week: Week; preview?: boolean }) {
   // Rendered only in the browser (see play-client.tsx), so this can read storage straight away.
   const [today] = useState(localDay);
-  const [openAll, setOpenAll] = useState(loadOpenAll);
+  // "Open the whole week now" is a testing tool: ignored in production, so letters arrive one a weekday.
+  const [openAll, setOpenAll] = useState(() => process.env.NODE_ENV !== "production" && loadOpenAll());
   const arrived = lettersArrived(week, today, openAll || preview);
   const [progress, setProgress] = useState<Progress[]>(() => week.letters.map((l) => loadProgress(l.id)));
   const [weekProgress, setWeekProgress] = useState<WeekProgress>(() => loadWeek(week.id));
@@ -361,6 +362,8 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
           </>
         )}
 
+        {/* Testing tools: local development and draft previews only. */}
+        {(preview || process.env.NODE_ENV !== "production") && (
         <footer className={styles.foot}>
           <span className={styles.footLabel}>{preview ? `Preview · ${week.id} · ${week.status}` : "Prototype"}</span>
           <label className={styles.footToggle}>
@@ -389,6 +392,7 @@ export function DeadLetterOffice({ week, preview = false }: { week: Week; previe
             Start the week again
           </button>
         </footer>
+        )}
       </div>
 
       {promoted && (

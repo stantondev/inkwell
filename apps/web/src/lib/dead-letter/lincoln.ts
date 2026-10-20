@@ -1,5 +1,5 @@
-// Week 2: Abraham Lincoln, 1837–1862. DRAFT: drafted by Claude on 2026-10-19,
-// waiting for a person to read it through and approve it.
+// Week 2: Abraham Lincoln, 1837–1862. Drafted by Claude on 2026-10-19,
+// approved by Stanton on 2026-10-20.
 //
 // Text from The Papers and Writings of Abraham Lincoln, Complete, ed. Arthur
 // Brooks Lapsley (Project Gutenberg #3253), public domain. Every quoted line is
@@ -347,8 +347,9 @@ export const LINCOLN_WEEK_LETTERS: DeadLetter[] = [
 export const LINCOLN_WEEK: Week = {
   id: "2026-w44-lincoln",
   number: 2,
-  status: "draft",
+  status: "approved",
   drafted: { by: "claude", on: "2026-10-19" },
+  reviewed: { by: "stanton", on: "2026-10-20" },
   starts: "2026-10-26",
   letters: LINCOLN_WEEK_LETTERS,
   mystery: {
