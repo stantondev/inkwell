@@ -33,6 +33,7 @@ export function InviteIcon({ size }: IconProps = {}) { return <svg {...ip(size)}
 export function PollsIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><rect x="4" y="14" width="4" height="6" rx="1" /><rect x="10" y="8" width="4" height="12" rx="1" /><rect x="16" y="4" width="4" height="16" rx="1" /></svg>; }
 export function CirclesIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>; }
 export function AdminIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>; }
+export function DeadLetterIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><path d="M3 7.5 12 3l9 4.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 7.5 12 13l9-5.5" /><circle cx="12" cy="16.5" r="2" /></svg>; }
 export function LettersIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>; }
 export function SavedIcon({ size }: IconProps = {}) { return <svg {...ip(size)} fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>; }
 export function StampAlbumIcon({ size }: IconProps = {}) { return <svg {...ip(size)}><rect x="5" y="3" width="14" height="18" rx="0.5" strokeDasharray="2 1.6" /><rect x="8" y="6.5" width="8" height="8" rx="0.5" /><path d="M8 18h8" /></svg>; }

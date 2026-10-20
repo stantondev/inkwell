@@ -10,7 +10,7 @@ import { WhatsNewDot } from "./whats-new-state";
 import { usePwaInstall } from "@/lib/pwa";
 import {
   DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PenPalsIcon, LettersIcon, StampAlbumIcon,
-  GazetteIcon, CirclesIcon, PollsIcon, RoadmapIcon,
+  GazetteIcon, CirclesIcon, PollsIcon, RoadmapIcon, DeadLetterIcon,
   SettingsIcon, InviteIcon, HelpIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
 
@@ -162,6 +162,7 @@ export function YouSheet({
 
           <div className="you-sheet-label">Community</div>
           <div className="you-sheet-chips">
+            <Chip href="/play" label="Dead Letter Office" icon={<DeadLetterIcon size={16} />} />
             <Chip href="/gazette" label="Gazette" icon={<GazetteIcon size={16} />} />
             <Chip href="/circles" label="Circles" icon={<CirclesIcon size={16} />} />
             <Chip href="/polls" label="Polls" icon={<PollsIcon size={16} />} />

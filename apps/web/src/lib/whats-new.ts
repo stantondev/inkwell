@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-20-dead-letter-office",
+    date: "2026-10-20",
+    title: "The Dead Letter Office: a letter a day",
+    body: "A new daily game. Each weekday a real letter arrives from the past, torn and water-stained, with its address gone. Piece it back together, fill in the words the water took, and work out who it was for and when it was written. Then read what was going on and what happened next. All five letters in a week come from one famous writer, and every letter adds a clue: name them as early as you can. Pick Easy, Medium or Hard. It takes about five minutes, your score is yours alone, and a day you miss waits for you.",
+    howTo: "Open Dead Letter Office in the sidebar, or under You on your phone.",
+    href: "/play",
+    cta: "Open today’s letter",
+    tag: "Reading",
+  },
+  {
     id: "2026-10-17-letter-stamps",
     date: "2026-10-17",
     title: "Stamps on your letters",

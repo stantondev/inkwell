@@ -43,6 +43,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "w-email", title: "Post by Email", snippet: "Publish entries by sending an email to your unique address.", keywords: ["email", "post", "publish"], category: "writing", href: "/help/faq#post-by-email" },
 
   // ── Social & Connections ──
+  { id: "s-dead-letter-office", title: "The Dead Letter Office (daily game)", snippet: "A real letter from history each weekday: mend it, fill in the lost words, deliver it, name the writer.", keywords: ["game", "play", "puzzle", "daily", "letter", "dead letter office", "history"], category: "social", href: "/help/faq#dead-letter-office" },
   { id: "s-penpals", title: "Pen pals and following", snippet: "Mutual follows create pen pal connections with extra features.", keywords: ["pen pal", "follow", "friend", "mutual"], category: "social", href: "/help/faq#pen-pals" },
   { id: "s-stamps", title: "Stamps (reactions)", snippet: "Send a writer a postage stamp, with an optional private note. Yours are kept in your Stamp album.", keywords: ["stamp", "reaction", "like", "felt", "beautifully said", "album", "postage", "note"], category: "social", href: "/help/faq#stamps" },
   { id: "s-inks", title: "Inks (discovery signal)", snippet: "Ink entries to help surface great writing for the community.", keywords: ["ink", "trending", "discovery", "recommend"], category: "social", href: "/help/faq#stamps-vs-inks" },
