@@ -961,6 +961,45 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @doc """
+  Series anyone can read, matched by title or description, for Explore search.
+  Only series with at least one public published entry, by writers Explore
+  shows (`hidden_from_discovery_user_ids/0`) and not in `:exclude_user_ids`
+  (the viewer's blocks). Most recently added to first. Returns
+  `{series, writer, public_entry_count}` tuples.
+  """
+  def search_series(query, opts \\ []) do
+    q = query |> to_string() |> String.trim()
+    exclude = Keyword.get(opts, :exclude_user_ids, [])
+    limit = Keyword.get(opts, :limit, 10)
+
+    if String.length(q) < 2 do
+      []
+    else
+      pattern = "%" <> escape_like(q) <> "%"
+
+      public_entries =
+        from(e in Entry,
+          where: e.status == :published and e.privacy == :public and not is_nil(e.series_id),
+          group_by: e.series_id,
+          select: %{series_id: e.series_id, count: count(e.id), latest: max(e.published_at)}
+        )
+
+      from(s in Series,
+        join: c in subquery(public_entries),
+        on: c.series_id == s.id,
+        join: u in assoc(s, :user),
+        where: ilike(s.title, ^pattern) or ilike(s.description, ^pattern),
+        where: s.user_id not in subquery(hidden_from_discovery_user_ids()),
+        where: s.user_id not in ^exclude,
+        order_by: [desc: c.latest],
+        limit: ^limit,
+        select: {s, u, c.count}
+      )
+      |> Repo.all()
+    end
+  end
+
   @doc "Auto-assign the next series_order for an entry being added to a series."
   def next_series_order(series_id) do
     max_order =

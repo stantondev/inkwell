@@ -28,7 +28,7 @@ interface ManageEntry {
 
 interface SeriesItem {
   id: string;
-  name: string;
+  title: string;
 }
 
 export default async function ManagePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {

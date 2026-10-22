@@ -36,6 +36,16 @@ interface SearchEntry {
   };
 }
 
+interface SearchSeries {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  status: "ongoing" | "completed";
+  entry_count: number;
+  author: { username: string; display_name: string | null; avatar_url: string | null };
+}
+
 interface FediverseResult {
   id: string;
   username: string;
@@ -204,6 +214,7 @@ interface ExploreSearchResultsProps {
 export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
   const [users, setUsers] = useState<SearchUser[]>([]);
   const [entries, setEntries] = useState<SearchEntry[]>([]);
+  const [series, setSeries] = useState<SearchSeries[]>([]);
   const [fediverseResult, setFediverseResult] = useState<FediverseResult | null>(null);
   const [fediverseError, setFediverseError] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -219,6 +230,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
     if (!query.trim()) {
       setUsers([]);
       setEntries([]);
+      setSeries([]);
       setFediverseResult(null);
       setFediverseError(null);
       setHasSearched(false);
@@ -244,6 +256,12 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
       .then(data => { if (!controller.signal.aborted) setUsers(data.data ?? []); })
       .catch(() => {})
       .finally(() => { if (!controller.signal.aborted) setLoadingUsers(false); });
+
+    // Series (small and quick; shown when there are any, no loading row of its own)
+    fetch(`/api/search?q=${q}&type=series`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(data => { if (!controller.signal.aborted) setSeries(data.data ?? []); })
+      .catch(() => {});
 
     // Entries
     fetch(`/api/search?q=${q}&type=entries`, { signal: controller.signal })
@@ -300,7 +318,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
   if (!query.trim()) return null;
 
   const isLoading = loadingUsers || loadingEntries;
-  const noResults = hasSearched && !isLoading && users.length === 0 && entries.length === 0 && !fediverseResult && !loadingFediverse;
+  const noResults = hasSearched && !isLoading && users.length === 0 && entries.length === 0 && series.length === 0 && !fediverseResult && !loadingFediverse;
 
   return (
     <div className="explore-search-results" aria-live="polite">
@@ -344,6 +362,40 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
                 </div>
                 <div onClick={(e) => e.stopPropagation()}>
                   <FollowButton username={user.username} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Series ─── */}
+      {!loadingUsers && series.length > 0 && (
+        <div className="explore-results-section">
+          <div className="explore-results-section-header">
+            <span className="explore-results-section-title">
+              Series
+              <span className="explore-results-count">({series.length})</span>
+            </span>
+          </div>
+          <div className="explore-results-entries">
+            {series.slice(0, 6).map((s) => (
+              <Link
+                key={s.id}
+                href={`/${s.author.username}/series/${s.slug}`}
+                className="explore-entry-row"
+              >
+                <span className="explore-series-icon" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                  </svg>
+                </span>
+                <div className="explore-entry-info">
+                  <span className="explore-entry-title">{s.title}</span>
+                  <span className="explore-entry-meta">
+                    @{s.author.username} · {s.entry_count} {s.entry_count === 1 ? "entry" : "entries"}
+                    {s.status === "completed" && <> · complete</>}
+                  </span>
                 </div>
               </Link>
             ))}

@@ -54,6 +54,7 @@ defmodule InkwellWeb.EntryController do
       entry_ids = Enum.map(entries, & &1.id)
       stamp_summaries = Stamps.summaries(entry_ids)
       comment_counts = Journals.count_comments_for_entries(entry_ids)
+      series_map = Journals.get_series_for_entries(entry_ids)
 
       # Total count for pagination UI (respects active filters)
       count_opts = Keyword.drop(filter_opts, [:page, :per_page, :sort])
@@ -66,6 +67,7 @@ defmodule InkwellWeb.EntryController do
             |> Map.put(:mood_theme, mood_theme(%{user: user}))
             |> Map.merge(Stamps.fields(stamp_summaries, entry.id))
             |> Map.put(:comment_count, Map.get(comment_counts, entry.id, 0))
+            |> Map.put(:series, Map.get(series_map, entry.id))
           end)
           |> put_sticky_expansions(viewer && viewer.id)
           |> put_circle_labels(),
@@ -810,7 +812,8 @@ defmodule InkwellWeb.EntryController do
           privacy: entry.privacy,
           category: entry.category,
           series_id: entry.series_id,
-          series_name: if(entry.series, do: entry.series.name, else: nil),
+          series_name: if(entry.series, do: entry.series.title, else: nil),
+          series_slug: if(entry.series, do: entry.series.slug, else: nil),
           tags: entry.tags || [],
           word_count: entry.word_count || 0,
           ink_count: entry.ink_count || 0,

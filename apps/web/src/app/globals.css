@@ -13878,6 +13878,18 @@ a, button, [role="tab"], [role="button"] {
   border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
+.explore-series-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .explore-entry-info {
   flex: 1;
   min-width: 0;
@@ -14710,6 +14722,7 @@ a, button, [role="tab"], [role="button"] {
 
 .manage-series-badge {
   display: inline-block;
+  text-decoration: none;
   margin-left: 6px;
   font-size: 11px;
   padding: 1px 6px;

@@ -161,7 +161,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "series",
     question: "Can I organize entries into a series?",
     answer:
-      'Yes. Create a series in <a href="/settings/series">Settings &rarr; Series</a>, then assign entries to it from the editor settings panel. Series entries display navigation links to the previous and next entries.',
+      'Yes. Create a series in <a href="/settings/series">Settings &rarr; Series</a>, then assign entries to it from the editor settings panel. Each series gets its own page with its entries in order. Entries in a series say &ldquo;Part 2 of &hellip;&rdquo; on your journal page and link to it, the Series box on your page lists them all, and readers can find a series by searching its name in Explore. Inside an entry, links take readers to the previous and next parts.',
     category: "writing",
   },
 

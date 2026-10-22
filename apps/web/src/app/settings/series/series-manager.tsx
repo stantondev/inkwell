@@ -327,7 +327,7 @@ function SeriesEntryList({
 
 // ─── Main manager ─────────────────────────────────────────────────────────────
 
-export function SeriesManager({ isPlus }: { isPlus: boolean }) {
+export function SeriesManager({ isPlus, username }: { isPlus: boolean; username: string }) {
   const [seriesList, setSeriesList] = useState<SeriesItem[]>([]);
   const [meta, setMeta] = useState<SeriesMeta>({ count: 0, limit: 5 });
   const [loading, setLoading] = useState(true);
@@ -442,6 +442,11 @@ export function SeriesManager({ isPlus }: { isPlus: boolean }) {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Each series gets its own page with its entries in order. Readers find it from the
+        Series box on your journal page, from &ldquo;Part 2 of&nbsp;&hellip;&rdquo; on each entry,
+        and by searching its name in Explore.
+      </p>
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs" style={{ color: "var(--muted)" }}>
           {meta.limit && (
@@ -560,7 +565,16 @@ export function SeriesManager({ isPlus }: { isPlus: boolean }) {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {series.entry_count > 0 && (
+                        <Link
+                          href={`/${username}/series/${series.slug}`}
+                          className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:border-[var(--accent)]"
+                          style={{ borderColor: "var(--border)", color: "var(--accent)" }}
+                        >
+                          View page
+                        </Link>
+                      )}
                       {series.entry_count > 1 && (
                         <button
                           type="button"

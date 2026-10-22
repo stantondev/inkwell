@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-22-finding-series",
+    date: "2026-10-22",
+    title: "Series are easier to find",
+    body: "Entries in a series now say \u201cPart 2 of Haiku\u201d on your journal page, and it links to the series page where every part is in order. Searching in Explore finds series by name too. Settings \u2192 Series has a View page link for each one. Also fixed: the Posts page showed nothing for writers who had an entry in a series. Thanks to the member who spotted both.",
+    howTo: "Add an entry to a series from the editor\u2019s Entry Settings, or several at once from Posts.",
+    href: "/settings/series",
+    cta: "Your series",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-20-stamp-album-book",
     date: "2026-10-20",
     title: "Your stamp album is a real album now",

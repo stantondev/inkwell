@@ -8,6 +8,36 @@ defmodule InkwellWeb.SearchController do
   # GET /api/search?q=...&type=entries|users&page=1
   # Delegates to Meilisearch via HTTP. Falls back to a simple Postgres ILIKE
   # query if Meilisearch isn't available (great for early dev).
+  # Series are few and only searched by title, so they skip Meilisearch.
+  def search(conn, %{"q" => q, "type" => "series"}) do
+    exclude =
+      case conn.assigns[:current_user] do
+        nil -> []
+        viewer -> Inkwell.Social.get_blocked_user_ids(viewer.id)
+      end
+
+    results =
+      q
+      |> Inkwell.Journals.search_series(exclude_user_ids: exclude)
+      |> Enum.map(fn {series, user, count} ->
+        %{
+          id: series.id,
+          title: series.title,
+          slug: series.slug,
+          description: series.description,
+          status: series.status,
+          entry_count: count,
+          author: %{
+            username: user.username,
+            display_name: user.display_name,
+            avatar_url: Inkwell.Avatars.avatar_url(user)
+          }
+        }
+      end)
+
+    json(conn, %{data: results, query: q, type: "series", page: 1})
+  end
+
   def search(conn, %{"q" => q} = params) do
     type = Map.get(params, "type", "entries")
     page = parse_int(params["page"], 1)

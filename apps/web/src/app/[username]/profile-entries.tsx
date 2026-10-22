@@ -38,6 +38,29 @@ interface ProfileEntry {
   category?: string | null;
   imported_from?: string | null;
   archive_mark?: boolean;
+  series?: { title: string; slug: string; username: string; series_order: number | null } | null;
+}
+
+/** "Part 2 of Haiku": links to the series page, where the whole run is in order. */
+function SeriesChip({ entry, styles, small = false }: { entry: ProfileEntry; styles: ProfileStyles; small?: boolean }) {
+  const s = entry.series;
+  if (!s) return null;
+  return (
+    <Link
+      href={`/${s.username}/series/${s.slug}`}
+      className={`inline-flex items-center gap-1 min-w-0 max-w-full hover:underline ${small ? "text-[10px]" : ""}`}
+      style={{ color: styles.accent }}
+      title={`See every entry in ${s.title}`}
+    >
+      <svg width={small ? 10 : 12} height={small ? 10 : 12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+      </svg>
+      <span className="truncate">
+        {s.series_order ? `Part ${s.series_order} of ` : "In "}
+        <em>{decodeEntities(s.title)}</em>
+      </span>
+    </Link>
+  );
 }
 
 function isArchive(entry: ProfileEntry) {
@@ -246,6 +269,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
         {/* Meta chips */}
         <div className="flex flex-wrap items-center gap-2 mb-6 text-xs" style={{ color: styles.muted }}>
           {rt && <span>{rt}</span>}
+          <SeriesChip entry={entry} styles={styles} />
           {entry.category && (
             <Link
               href={`/category/${getCategorySlug(entry.category)}`}
@@ -371,6 +395,11 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
             </Link>
           )}
         </div>
+        {entry.series && (
+          <div className="mb-2 text-xs">
+            <SeriesChip entry={entry} styles={styles} />
+          </div>
+        )}
 
         {/* Excerpt */}
         <div className="flex-1">
@@ -747,6 +776,9 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
             </Link>
           )}
         </div>
+        {entry.series && (
+          <div className="text-xs mb-0.5"><SeriesChip entry={entry} styles={styles} small /></div>
+        )}
         {oneLineExcerpt && (
           <p className="text-xs truncate" style={{ color: styles.muted }}>{oneLineExcerpt}</p>
         )}

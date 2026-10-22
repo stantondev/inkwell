@@ -17,6 +17,7 @@ interface ManageEntry {
   category: string | null;
   series_id: string | null;
   series_name: string | null;
+  series_slug?: string | null;
   tags: string[];
   word_count: number;
   ink_count: number;
@@ -66,7 +67,7 @@ function EntryLabel({ entry }: { entry: ManageEntry }) {
 
 interface SeriesItem {
   id: string;
-  name: string;
+  title: string;
 }
 
 interface Filters {
@@ -494,7 +495,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
           <option value="">All series</option>
           <option value="none">No series</option>
           {series.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.title}</option>
           ))}
         </select>
 
@@ -613,9 +614,17 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                       >
                         <EntryLabel entry={entry} />
                       </Link>
-                      {entry.series_name && (
+                      {entry.series_name && (entry.series_slug ? (
+                        <Link
+                          href={`/${username}/series/${entry.series_slug}`}
+                          className="manage-series-badge"
+                          title="Open this series' page"
+                        >
+                          {entry.series_name}
+                        </Link>
+                      ) : (
                         <span className="manage-series-badge">{entry.series_name}</span>
-                      )}
+                      ))}
                       {entry.tags.length > 0 && (
                         <span className="manage-tag-count" title={entry.tags.join(", ")}>
                           {entry.tags.length} tag{entry.tags.length !== 1 ? "s" : ""}
@@ -853,7 +862,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
                     </button>
                     {series.map((s) => (
                       <button key={s.id} onClick={() => handleBulkSeries(s.id)} className="manage-bulk-dropdown-item">
-                        {s.name}
+                        {s.title}
                       </button>
                     ))}
                   </div>
