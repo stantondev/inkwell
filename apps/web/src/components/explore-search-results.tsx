@@ -25,7 +25,7 @@ interface SearchEntry {
   title: string | null;
   body_html: string;
   excerpt?: string | null;
-  published_at: string;
+  published_at: string | number;
   category?: string | null;
   word_count?: number | null;
   ink_count?: number;
@@ -34,6 +34,12 @@ interface SearchEntry {
     display_name: string;
     avatar_url: string | null;
   };
+}
+
+interface SearchTag {
+  tag: string;
+  slug: string;
+  entries: number;
 }
 
 interface SearchSeries {
@@ -174,10 +180,12 @@ function FediverseFollowButton({ remoteActorId, initialStatus }: {
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  } catch { return ""; }
+// Meilisearch stores published_at as Unix seconds; the database fallback sends ISO text.
+function formatDate(date: string | number | null | undefined): string {
+  if (date == null || date === "") return "";
+  const d = typeof date === "number" ? new Date(date * 1000) : new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
 function readingTime(wordCount?: number | null): string | null {
@@ -215,6 +223,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
   const [users, setUsers] = useState<SearchUser[]>([]);
   const [entries, setEntries] = useState<SearchEntry[]>([]);
   const [series, setSeries] = useState<SearchSeries[]>([]);
+  const [tags, setTags] = useState<SearchTag[]>([]);
   const [fediverseResult, setFediverseResult] = useState<FediverseResult | null>(null);
   const [fediverseError, setFediverseError] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -231,6 +240,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
       setUsers([]);
       setEntries([]);
       setSeries([]);
+      setTags([]);
       setFediverseResult(null);
       setFediverseError(null);
       setHasSearched(false);
@@ -261,6 +271,12 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
     fetch(`/api/search?q=${q}&type=series`, { signal: controller.signal })
       .then(res => res.ok ? res.json() : { data: [] })
       .then(data => { if (!controller.signal.aborted) setSeries(data.data ?? []); })
+      .catch(() => {});
+
+    // Tags (so "#haiku" leads to the tag page)
+    fetch(`/api/search?q=${q}&type=tags`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(data => { if (!controller.signal.aborted) setTags(data.data ?? []); })
       .catch(() => {});
 
     // Entries
@@ -318,7 +334,7 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
   if (!query.trim()) return null;
 
   const isLoading = loadingUsers || loadingEntries;
-  const noResults = hasSearched && !isLoading && users.length === 0 && entries.length === 0 && series.length === 0 && !fediverseResult && !loadingFediverse;
+  const noResults = hasSearched && !isLoading && users.length === 0 && entries.length === 0 && series.length === 0 && tags.length === 0 && !fediverseResult && !loadingFediverse;
 
   return (
     <div className="explore-search-results" aria-live="polite">
@@ -363,6 +379,32 @@ export function ExploreSearchResults({ query }: ExploreSearchResultsProps) {
                 <div onClick={(e) => e.stopPropagation()}>
                   <FollowButton username={user.username} />
                 </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Tags ─── */}
+      {!loadingUsers && tags.length > 0 && (
+        <div className="explore-results-section">
+          <div className="explore-results-section-header">
+            <span className="explore-results-section-title">
+              Tags
+              <span className="explore-results-count">({tags.length})</span>
+            </span>
+          </div>
+          <div className="explore-results-tags">
+            {tags.map((t) => (
+              <Link
+                key={t.slug}
+                href={`/tag/${encodeURIComponent(t.slug)}`}
+                className="explore-tag-chip"
+              >
+                <span>#{t.tag}</span>
+                <span className="explore-tag-chip-count">
+                  {t.entries} {t.entries === 1 ? "entry" : "entries"}
+                </span>
               </Link>
             ))}
           </div>

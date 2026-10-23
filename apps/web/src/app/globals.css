@@ -13878,6 +13878,39 @@ a, button, [role="tab"], [role="button"] {
   border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
+.explore-results-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 4px 2px;
+}
+
+.explore-tag-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: border-color 0.15s;
+}
+
+.explore-tag-chip:hover {
+  border-color: var(--accent);
+}
+
+.explore-tag-chip-count {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .explore-series-icon {
   display: inline-flex;
   align-items: center;

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-23-search-tags",
+    date: "2026-10-23",
+    title: "Search finds tags",
+    body: "Type a tag into the Explore search, with or without the #, and the results now include the tag itself, with how many entries carry it, plus the entries tagged with it. Before, search only looked at titles and post text, so a tag nobody had written out in a post found nothing.",
+    howTo: "Search for something like #poems on Explore and tap the tag to see every entry with it.",
+    href: "/explore",
+    cta: "Open Explore",
+    tag: "Reading",
+  },
+  {
     id: "2026-10-22-finding-series",
     date: "2026-10-22",
     title: "Series are easier to find",

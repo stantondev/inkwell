@@ -1000,6 +1000,44 @@ defmodule Inkwell.Journals do
     end
   end
 
+  @doc """
+  Tags on public published entries that contain `query` (a leading `#` is
+  ignored), for Explore search: exact match first, then tags starting with
+  it, then the most used. Writers Explore hides are left out, and so are
+  writers in `:exclude_user_ids`. Returns `%{tag, slug, entries}`: `tag` is the
+  most common spelling, `slug` the lowercase form the tag page uses.
+  """
+  def search_tags(query, opts \\ []) do
+    q = query |> to_string() |> String.trim() |> String.trim_leading("#") |> String.trim()
+    exclude = Keyword.get(opts, :exclude_user_ids, [])
+    limit = Keyword.get(opts, :limit, 8)
+
+    if String.length(q) < 2 do
+      []
+    else
+      key = String.downcase(q)
+
+      from(e in Entry,
+        cross_join: t in fragment("unnest(?)", e.tags),
+        where: e.status == :published and e.privacy == :public,
+        where: e.user_id not in subquery(hidden_from_discovery_user_ids()),
+        where: e.user_id not in ^exclude,
+        where: fragment("lower(?) LIKE ?", t, ^("%" <> escape_like(key) <> "%")),
+        group_by: fragment("lower(?)", t),
+        select: {fragment("lower(?)", t), fragment("array_agg(?)", t), count(e.id, :distinct)}
+      )
+      |> Repo.all()
+      |> Enum.map(fn {slug, spellings, count} ->
+        {shown, _} = spellings |> Enum.frequencies() |> Enum.max_by(fn {sp, n} -> {n, sp} end)
+        %{tag: shown, slug: slug, entries: count}
+      end)
+      |> Enum.sort_by(fn %{slug: slug, entries: n} ->
+        {if(slug == key, do: 0, else: if(String.starts_with?(slug, key), do: 1, else: 2)), -n, slug}
+      end)
+      |> Enum.take(limit)
+    end
+  end
+
   @doc "Auto-assign the next series_order for an entry being added to a series."
   def next_series_order(series_id) do
     max_order =

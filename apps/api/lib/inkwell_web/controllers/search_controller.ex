@@ -38,6 +38,18 @@ defmodule InkwellWeb.SearchController do
     json(conn, %{data: results, query: q, type: "series", page: 1})
   end
 
+  # Tags come straight from Postgres too: `#series-short-poems` should find the
+  # tag whatever the search engine is doing.
+  def search(conn, %{"q" => q, "type" => "tags"}) do
+    exclude =
+      case conn.assigns[:current_user] do
+        nil -> []
+        viewer -> Inkwell.Social.get_blocked_user_ids(viewer.id)
+      end
+
+    json(conn, %{data: Inkwell.Journals.search_tags(q, exclude_user_ids: exclude), query: q, type: "tags", page: 1})
+  end
+
   def search(conn, %{"q" => q} = params) do
     type = Map.get(params, "type", "entries")
     page = parse_int(params["page"], 1)
@@ -358,14 +370,21 @@ defmodule InkwellWeb.SearchController do
     end)
   end
 
+  # Also matches tags, and a leading "#" is ignored, so searching
+  # "#series-short-poems" finds the entries tagged with it.
   defp fallback_search(q, _type, _page) do
     import Ecto.Query
 
-    pattern = "%#{q}%"
+    term = q |> String.trim() |> String.trim_leading("#") |> String.replace(~r/([\\%_])/, "\\\\\\1")
+    pattern = "%#{term}%"
 
     Inkwell.Journals.Entry
     |> where([e], e.privacy == :public and e.status == :published)
-    |> where([e], ilike(e.title, ^pattern) or ilike(e.body_html, ^pattern))
+    |> where(
+      [e],
+      ilike(e.title, ^pattern) or ilike(e.body_html, ^pattern) or
+        fragment("EXISTS (SELECT 1 FROM unnest(?) t WHERE t ILIKE ?)", e.tags, ^pattern)
+    )
     |> order_by(desc: :published_at)
     |> limit(20)
     |> preload(:user)
@@ -386,7 +405,7 @@ defmodule InkwellWeb.SearchController do
         author: %{
           username: e.user.username,
           display_name: e.user.display_name,
-          avatar_url: e.user.avatar_url,
+          avatar_url: Inkwell.Avatars.avatar_url(e.user),
           avatar_frame: e.user.avatar_frame,
           avatar_animation: e.user.avatar_animation,
           subscription_tier: Inkwell.SelfHosted.effective_tier(e.user),
