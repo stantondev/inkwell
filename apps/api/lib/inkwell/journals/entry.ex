@@ -187,6 +187,38 @@ defmodule Inkwell.Journals.Entry do
     end
   end
 
+  @doc """
+  Tags as they should be stored: no `#`, no blanks, one of each (ignoring
+  case, first spelling kept). A tag that starts with `#` is read as hashtag
+  text, so `"#teen #tobeteen"` and `"#HomeRenovation#LVT"` become separate
+  tags; anything else is kept as typed ("Music Education", "C#").
+  """
+  def clean_tags(tags) when is_list(tags) do
+    tags
+    |> Enum.filter(&is_binary/1)
+    |> Enum.flat_map(&split_tag/1)
+    |> Enum.uniq_by(&String.downcase/1)
+  end
+
+  def clean_tags(_), do: []
+
+  defp split_tag(tag) do
+    tag = tag |> String.trim() |> String.replace(~r/\s+/u, " ")
+
+    if String.starts_with?(tag, "#") do
+      ~r/#+([^\s#,]+)/u |> Regex.scan(tag, capture: :all_but_first) |> List.flatten()
+    else
+      if tag == "", do: [], else: [tag]
+    end
+  end
+
+  defp put_clean_tags(changeset) do
+    case get_change(changeset, :tags) do
+      nil -> changeset
+      tags -> put_change(changeset, :tags, clean_tags(tags))
+    end
+  end
+
   @doc "Changeset for creating/updating published entries."
   def changeset(entry, attrs) do
     entry
@@ -201,6 +233,7 @@ defmodule Inkwell.Journals.Entry do
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
+    |> put_clean_tags()
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_sticky()
     |> validate_length(:title, max: 500)
@@ -277,6 +310,7 @@ defmodule Inkwell.Journals.Entry do
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
+    |> put_clean_tags()
     |> validate_required([:user_id])
     |> validate_not_future(:published_at)
     |> validate_schedule()
@@ -301,6 +335,7 @@ defmodule Inkwell.Journals.Entry do
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
+    |> put_clean_tags()
     |> validate_required([:body_html, :privacy])
     |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)

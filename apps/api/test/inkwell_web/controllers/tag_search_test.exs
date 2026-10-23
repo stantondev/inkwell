@@ -77,4 +77,29 @@ defmodule InkwellWeb.TagSearchTest do
     assert search("#", "tags") == []
     assert search("%_", "tags") == []
   end
+
+  describe "Entry.clean_tags/1" do
+    test "drops #, splits hashtag runs, keeps ordinary tags, one of each" do
+      assert Entry.clean_tags(["#DailyInk", "DailyInk", "##dailyink"]) == ["DailyInk"]
+      assert Entry.clean_tags(["#teen #tobeteen #teengirl"]) == ["teen", "tobeteen", "teengirl"]
+      assert Entry.clean_tags(["#HomeRenovation#LVT #LVP"]) == ["HomeRenovation", "LVT", "LVP"]
+      assert Entry.clean_tags(["#тест", "  Music   Education ", "C#", "", "  ", "#"]) ==
+               ["тест", "Music Education", "C#"]
+    end
+
+    test "saving an entry stores clean tags" do
+      user = create_user()
+
+      {:ok, entry} =
+        Inkwell.Journals.create_entry(%{
+          user_id: user.id,
+          title: "Tagged",
+          body_html: "<p>hello there</p>",
+          privacy: :public,
+          tags: ["#DailyInk", "#a #b"]
+        })
+
+      assert entry.tags == ["DailyInk", "a", "b"]
+    end
+  end
 end

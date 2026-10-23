@@ -666,6 +666,8 @@ defmodule Inkwell.Journals do
 
   @doc "Bulk add tags to entries."
   def bulk_add_tags(user_id, entry_ids, new_tags) when is_list(entry_ids) and is_list(new_tags) do
+    new_tags = Entry.clean_tags(new_tags)
+
     owned_count =
       Entry
       |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
@@ -693,6 +695,8 @@ defmodule Inkwell.Journals do
 
   @doc "Bulk remove tags from entries."
   def bulk_remove_tags(user_id, entry_ids, tags_to_remove) when is_list(entry_ids) and is_list(tags_to_remove) do
+    tags_to_remove = Entry.clean_tags(tags_to_remove)
+
     owned_count =
       Entry
       |> where([e], e.id in ^entry_ids and e.user_id == ^user_id)
