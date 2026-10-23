@@ -15,12 +15,13 @@ primary_region = "ord"
 [env]
   PORT = "4000"
   PHX_HOST = "inkwell-api.fly.dev"
-  # Bumped 7 -> 12: Oban runs default+federation+search+email queues at
-  # combined concurrency 18, plus telemetry pusher and ad-hoc Repo calls.
-  # With pool_size=7, brief bursts could starve user requests waiting for a
-  # connection. Each Postgres connection is ~10MB on the Fly Postgres side,
-  # well within the shared-cpu-1x:2GB headroom.
-  POOL_SIZE = "12"
+  # The database (inkwell-db) has 1 GB, and each open connection costs it
+  # ~27 MB of private memory (measured 2026-10-23). At 12 connections that was
+  # ~350 MB and free memory kept dipping under the 100 MB alert line; during a
+  # blue-green deploy both pools are open at once. 8 is plenty for Inkwell's
+  # traffic: Oban jobs spend most of their time on HTTP, not holding a
+  # connection, and the connections were all idle when measured.
+  POOL_SIZE = "8"
 
 # Blue-green: boot the new machine(s), wait for health checks, then switch
 # traffic and retire the old ones. No extra standing cost.

@@ -68,6 +68,49 @@ defmodule Inkwell.Federation.RemoteActor do
   """
   def get(id), do: Repo.get(RemoteActorSchema, id)
 
+  @doc """
+  Deletes cached actors nothing on Inkwell refers to and that haven't been
+  refreshed for `days` days. Every account that passes through the inbox or a
+  relay is cached here, so the table grew to 92,000 rows (263 MB) for ~2,000
+  in use. Kept: anyone with a follow, post, ink, reprint, stamp, block or
+  letter (all `ON DELETE CASCADE`, so deleting them would delete those too),
+  fediverse comment and guestbook authors (their avatars come from here), and
+  relays and linked sign-in accounts. A pruned actor is fetched again the next
+  time it's needed. Deletes in batches so no lock is held for long.
+  """
+  def prune_unused(days \\ 30, batch_size \\ 2_000) do
+    do_prune(days, batch_size, 0)
+  end
+
+  defp do_prune(days, batch_size, total) do
+    %{num_rows: n} =
+      Repo.query!(
+        """
+        DELETE FROM remote_actors WHERE id IN (
+          SELECT a.id FROM remote_actors a
+          WHERE a.updated_at < now() - make_interval(days => $1)
+            AND NOT EXISTS (SELECT 1 FROM relationships x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM remote_entries x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM inks x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM reprints x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM stamps x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM blocked_remote_actors x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM conversations x WHERE x.remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM direct_messages x WHERE x.sender_remote_actor_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM comments x WHERE x.remote_author->>'ap_id' = a.ap_id)
+            AND NOT EXISTS (SELECT 1 FROM guestbook_entries x WHERE x.remote_author->>'ap_id' = a.ap_id)
+            AND NOT EXISTS (SELECT 1 FROM relay_subscriptions x WHERE x.relay_url = a.ap_id)
+            AND NOT EXISTS (SELECT 1 FROM fediverse_accounts x WHERE x.remote_actor_uri = a.ap_id)
+          LIMIT $2
+        )
+        """,
+        [days, batch_size],
+        timeout: :timer.minutes(2)
+      )
+
+    if n < batch_size, do: total + n, else: do_prune(days, batch_size, total + n)
+  end
+
   # ── Cache logic ────────────────────────────────────────────────────────
 
   defp get_cached(ap_id) do

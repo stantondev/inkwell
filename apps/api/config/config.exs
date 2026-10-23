@@ -69,8 +69,9 @@ config :inkwell, Oban,
     # reindex) so a slow-but-healthy job is never double-run.
     {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(60)},
     # Keep the oban_jobs table from growing unbounded — trim completed/discarded
-    # jobs older than 7 days.
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    # jobs older than 2 days (was 7: ~40,000 finished jobs, mostly the
+    # every-minute crons, and a 136 MB args index for 20 MB of rows).
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 2},
     {Oban.Plugins.Cron,
      crontab: [
        # Daily cleanups — kept on their original UTC slots (low-traffic hours,
