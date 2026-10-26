@@ -290,7 +290,7 @@ defmodule InkwellWeb.ReprintController do
       author: %{
         username: author.username,
         display_name: author.display_name,
-        avatar_url: author.avatar_url,
+        avatar_url: Inkwell.Avatars.avatar_url(author),
         avatar_frame: author.avatar_frame,
         avatar_animation: author.avatar_animation,
         subscription_tier: Inkwell.SelfHosted.effective_tier(author)

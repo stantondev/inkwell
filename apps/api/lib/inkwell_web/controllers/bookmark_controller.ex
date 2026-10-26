@@ -43,7 +43,7 @@ defmodule InkwellWeb.BookmarkController do
             id: author.id,
             username: author.username,
             display_name: author.display_name,
-            avatar_url: author.avatar_url
+            avatar_url: Inkwell.Avatars.avatar_url(author)
           },
           stamps: Stamps.types(stamp_summaries, entry.id),
           stamp_marks: Stamps.marks(stamp_summaries, entry.id),

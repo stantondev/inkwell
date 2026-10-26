@@ -151,11 +151,17 @@ defmodule Inkwell.Invitations do
           accepted_by: %{
             username: u.username,
             display_name: u.display_name,
-            avatar_url: u.avatar_url
+            avatar_url: u.avatar_url,
+            updated_at: u.updated_at
           }
         }
 
-    Repo.all(query)
+    query
+    |> Repo.all()
+    |> Enum.map(fn inv ->
+      who = inv.accepted_by
+      %{inv | accepted_by: who |> Map.put(:avatar_url, Inkwell.Avatars.avatar_url(who)) |> Map.delete(:updated_at)}
+    end)
   end
 
   @doc "Count invitations sent today by a user."

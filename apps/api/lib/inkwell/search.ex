@@ -207,7 +207,7 @@ defmodule Inkwell.Search do
       author: user && %{
         username: user.username,
         display_name: user.display_name,
-        avatar_url: user.avatar_url,
+        avatar_url: Inkwell.Avatars.avatar_url(user),
         avatar_frame: user.avatar_frame,
         subscription_tier: user.subscription_tier,
         ink_donor_status: user.ink_donor_status
@@ -235,7 +235,7 @@ defmodule Inkwell.Search do
       display_name: user.display_name,
       bio: user.bio,
       profile_status: user.profile_status,
-      avatar_url: user.avatar_url,
+      avatar_url: Inkwell.Avatars.avatar_url(user),
       avatar_frame: user.avatar_frame,
       subscription_tier: user.subscription_tier,
       ink_donor_status: user.ink_donor_status,

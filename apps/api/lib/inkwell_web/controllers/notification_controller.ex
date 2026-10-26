@@ -178,7 +178,7 @@ defmodule InkwellWeb.NotificationController do
     %{
       username: actor.username,
       display_name: actor.display_name,
-      avatar_url: actor.avatar_url
+      avatar_url: Inkwell.Avatars.avatar_url(actor)
     }
   end
 

@@ -464,7 +464,7 @@ defmodule InkwellWeb.FeedbackController do
           id: post.user.id,
           username: post.user.username,
           display_name: post.user.display_name,
-          avatar_url: post.user.avatar_url
+          avatar_url: Inkwell.Avatars.avatar_url(post.user)
         }
       else
         %{id: nil, username: "[deleted]", display_name: "[Deleted User]", avatar_url: nil}
@@ -523,7 +523,7 @@ defmodule InkwellWeb.FeedbackController do
           id: comment.user.id,
           username: comment.user.username,
           display_name: comment.user.display_name,
-          avatar_url: comment.user.avatar_url
+          avatar_url: Inkwell.Avatars.avatar_url(comment.user)
         }
       else
         %{id: nil, username: "[deleted]", display_name: "[Deleted User]", avatar_url: nil}

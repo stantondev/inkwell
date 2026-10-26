@@ -366,7 +366,7 @@ defmodule InkwellWeb.FediverseAuthController do
       id: user.id,
       username: user.username,
       display_name: user.display_name,
-      avatar_url: user.avatar_url,
+      avatar_url: Inkwell.Avatars.avatar_url(user),
       bio: user.bio,
       pronouns: user.pronouns,
       ap_id: user.ap_id,

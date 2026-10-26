@@ -63,7 +63,7 @@ defmodule InkwellWeb.NewsletterController do
             data: %{
               username: writer.username,
               display_name: writer.display_name || writer.username,
-              avatar_url: writer.avatar_url,
+              avatar_url: Inkwell.Avatars.avatar_url(writer),
               avatar_frame: writer.avatar_frame,
               avatar_animation: writer.avatar_animation,
               bio: writer.bio,

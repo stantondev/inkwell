@@ -111,7 +111,7 @@ defmodule InkwellWeb.InvitationController do
         json(conn, %{
           username: user.username,
           display_name: user.display_name || user.username,
-          avatar_url: user.avatar_url,
+          avatar_url: Inkwell.Avatars.avatar_url(user),
           avatar_frame: user.avatar_frame,
           avatar_animation: user.avatar_animation,
           subscription_tier: Inkwell.SelfHosted.effective_tier(user),
@@ -138,7 +138,7 @@ defmodule InkwellWeb.InvitationController do
           json(conn, %{
             username: inviter.username,
             display_name: inviter.display_name || inviter.username,
-            avatar_url: inviter.avatar_url,
+            avatar_url: Inkwell.Avatars.avatar_url(inviter),
             avatar_frame: inviter.avatar_frame,
             avatar_animation: inviter.avatar_animation,
             subscription_tier: Inkwell.SelfHosted.effective_tier(inviter),

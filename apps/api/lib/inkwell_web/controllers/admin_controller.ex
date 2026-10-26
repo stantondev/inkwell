@@ -502,7 +502,7 @@ defmodule InkwellWeb.AdminController do
       id: user.id,
       username: user.username,
       display_name: user.display_name,
-      avatar_url: user.avatar_url,
+      avatar_url: Inkwell.Avatars.avatar_url(user),
       strike_count: Map.get(user, :strike_count, 0),
       blocked_at: Map.get(user, :blocked_at)
     }
@@ -567,7 +567,7 @@ defmodule InkwellWeb.AdminController do
         |> Map.put(:author, %{
           username: entry.user.username,
           display_name: entry.user.display_name,
-          avatar_url: entry.user.avatar_url
+          avatar_url: Inkwell.Avatars.avatar_url(entry.user)
         })
       end),
       pagination: %{page: page, per_page: per_page, total: total}
@@ -628,7 +628,7 @@ defmodule InkwellWeb.AdminController do
       id: user.id,
       username: user.username,
       display_name: user.display_name,
-      avatar_url: user.avatar_url,
+      avatar_url: Inkwell.Avatars.avatar_url(user),
       subscription_tier: Inkwell.SelfHosted.effective_tier(user),
       subscription_status: user.subscription_status,
       subscription_expires_at: user.subscription_expires_at,
@@ -644,7 +644,7 @@ defmodule InkwellWeb.AdminController do
       username: user.username,
       email: user.email,
       display_name: user.display_name,
-      avatar_url: user.avatar_url,
+      avatar_url: Inkwell.Avatars.avatar_url(user),
       bio: user.bio,
       pronouns: user.pronouns,
       role: user.role || "user",

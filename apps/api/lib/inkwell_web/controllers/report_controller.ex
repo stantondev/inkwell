@@ -131,7 +131,7 @@ defmodule InkwellWeb.ReportController do
         id: reporter.id,
         username: reporter.username,
         display_name: reporter.display_name,
-        avatar_url: reporter.avatar_url
+        avatar_url: Inkwell.Avatars.avatar_url(reporter)
       }, else: nil),
       entry: if(entry, do: %{
         id: entry.id,

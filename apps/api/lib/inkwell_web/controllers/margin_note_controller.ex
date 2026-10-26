@@ -248,7 +248,7 @@ defmodule InkwellWeb.MarginNoteController do
           id: note.user.id,
           username: note.user.username,
           display_name: note.user.display_name,
-          avatar_url: note.user.avatar_url,
+          avatar_url: Inkwell.Avatars.avatar_url(note.user),
           avatar_frame: note.user.avatar_frame,
           avatar_animation: note.user.avatar_animation,
           subscription_tier: Inkwell.SelfHosted.effective_tier(note.user)

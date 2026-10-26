@@ -217,6 +217,7 @@ defmodule Inkwell.Reprints do
         username: reprinter.username,
         display_name: reprinter.display_name,
         avatar_url: reprinter.avatar_url,
+        updated_at: reprinter.updated_at,
         avatar_frame: reprinter.avatar_frame,
         subscription_tier: reprinter.subscription_tier
       },
@@ -225,11 +226,13 @@ defmodule Inkwell.Reprints do
         username: author.username,
         display_name: author.display_name,
         avatar_url: author.avatar_url,
+        updated_at: author.updated_at,
         avatar_frame: author.avatar_frame,
         subscription_tier: author.subscription_tier
       }
     })
     |> Repo.all()
+    |> Enum.map(fn r -> %{r | reprinter: avatar_link(r.reprinter), author: avatar_link(r.author)} end)
   end
 
   # ── Federated reprints (inbound ActivityPub Announce) ────────────────
@@ -316,5 +319,12 @@ defmodule Inkwell.Reprints do
     %{action: "index_entry", entry_id: entry_id}
     |> Inkwell.Workers.SearchIndexWorker.new()
     |> Oban.insert()
+  end
+
+  # A link to the stored avatar instead of the image itself (see Inkwell.Avatars).
+  defp avatar_link(person) do
+    person
+    |> Map.put(:avatar_url, Inkwell.Avatars.avatar_url(person))
+    |> Map.delete(:updated_at)
   end
 end

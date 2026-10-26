@@ -112,7 +112,7 @@ defmodule InkwellWeb.TippingController do
       sender: if(sender, do: %{
         username: sender.username,
         display_name: sender.display_name,
-        avatar_url: sender.avatar_url
+        avatar_url: Inkwell.Avatars.avatar_url(sender)
       })
     }
   end
@@ -127,7 +127,7 @@ defmodule InkwellWeb.TippingController do
       recipient: %{
         username: tip.recipient.username,
         display_name: tip.recipient.display_name,
-        avatar_url: tip.recipient.avatar_url
+        avatar_url: Inkwell.Avatars.avatar_url(tip.recipient)
       }
     }
   end

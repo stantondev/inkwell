@@ -494,7 +494,7 @@ defmodule InkwellWeb.PollController do
           id: comment.user.id,
           username: comment.user.username,
           display_name: comment.user.display_name,
-          avatar_url: comment.user.avatar_url
+          avatar_url: Inkwell.Avatars.avatar_url(comment.user)
         }
       else
         %{id: nil, username: "[deleted]", display_name: "[Deleted User]", avatar_url: nil}
@@ -534,7 +534,7 @@ defmodule InkwellWeb.PollController do
           id: poll.creator.id,
           username: poll.creator.username,
           display_name: poll.creator.display_name,
-          avatar_url: poll.creator.avatar_url
+          avatar_url: Inkwell.Avatars.avatar_url(poll.creator)
         }
       else
         %{id: nil, username: "[deleted]", display_name: "[Deleted User]", avatar_url: nil}
