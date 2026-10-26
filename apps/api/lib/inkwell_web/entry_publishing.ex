@@ -153,22 +153,38 @@ defmodule InkwellWeb.EntryPublishing do
   defp maybe_send_newsletter(entry, user, params) do
     send_newsletter = params["send_newsletter"]
 
-    if send_newsletter == true and entry.privacy == :public and (user.newsletter_enabled || false) do
-      scheduled_at = case params["newsletter_scheduled_at"] do
-        nil -> nil
+    cond do
+      not (send_newsletter == true and entry.privacy == :public and (user.newsletter_enabled || false)) ->
+        nil
+
+      Newsletter.Digests.digest_mode?(user) ->
+        {:ok, entry} = Newsletter.Digests.queue(entry)
+        # A count digest goes as soon as enough posts are waiting.
+        Newsletter.Digests.maybe_send(user)
+        {:ok, :queued, entry}
+
+      true ->
+        send_now(entry, user, params)
+    end
+  end
+
+  defp send_now(entry, user, params) do
+    scheduled_at =
+      case params["newsletter_scheduled_at"] do
         dt_string when is_binary(dt_string) ->
           case DateTime.from_iso8601(dt_string) do
             {:ok, dt, _} -> dt
             _ -> nil
           end
-        _ -> nil
+
+        _ ->
+          nil
       end
 
-      Newsletter.create_send(entry, user,
-        subject: params["newsletter_subject"],
-        scheduled_at: scheduled_at
-      )
-    end
+    Newsletter.create_send(entry, user,
+      subject: params["newsletter_subject"],
+      scheduled_at: scheduled_at
+    )
   end
 
   defp maybe_enqueue_crossposts(entry, user, params) do

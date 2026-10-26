@@ -550,6 +550,9 @@ defmodule InkwellWeb.Router do
     get "/newsletter/sends", NewsletterController, :list_sends
     delete "/newsletter/sends/:id", NewsletterController, :cancel_send
     get "/newsletter/stats", NewsletterController, :stats
+    get "/newsletter/digest", NewsletterController, :digest
+    post "/newsletter/digest/send", NewsletterController, :send_digest_now
+    delete "/newsletter/digest/entries/:id", NewsletterController, :remove_from_digest
   end
 
   # Newsletter public parameterized routes — MUST be after the authenticated scope

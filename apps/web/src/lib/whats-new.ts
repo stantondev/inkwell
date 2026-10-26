@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-26-newsletter-digests",
+    date: "2026-10-26",
+    title: "Newsletter digests",
+    body: "If you post often, your subscribers no longer have to get an email for every entry. Choose a weekly digest (your day, your hour, your time zone) or one email every few posts (3 to 10), and the posts you mark for the newsletter are gathered into one calm email with each post\u2019s title, picture and opening lines. You still choose which posts go in, you can take one out or send early, and digests don\u2019t count toward your monthly sends. Thanks to the member who asked for it.",
+    howTo: "Settings \u2192 Newsletter \u2192 How posts go out. Then tick \u201cAdd to my next digest\u201d in the editor when you publish.",
+    href: "/settings/newsletter",
+    cta: "Newsletter settings",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-26-posts-spreadsheet",
     date: "2026-10-26",
     title: "Your posts as a spreadsheet",

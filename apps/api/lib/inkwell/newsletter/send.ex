@@ -15,9 +15,12 @@ defmodule Inkwell.Newsletter.Send do
     field :started_at, :utc_datetime_usec
     field :completed_at, :utc_datetime_usec
     field :error_message, :string
+    # "entry" (one post) or "digest" (every post linked to it by newsletter_send_id)
+    field :kind, :string, default: "entry"
 
     belongs_to :entry, Inkwell.Journals.Entry
     belongs_to :writer, Inkwell.Accounts.User
+    has_many :digest_entries, Inkwell.Journals.Entry, foreign_key: :newsletter_send_id
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -26,8 +29,9 @@ defmodule Inkwell.Newsletter.Send do
     send
     |> cast(attrs, [:subject, :status, :recipient_count, :sent_count, :failed_count,
                      :scheduled_at, :started_at, :completed_at, :error_message,
-                     :entry_id, :writer_id])
+                     :entry_id, :writer_id, :kind])
     |> validate_required([:writer_id, :status])
     |> validate_inclusion(:status, ["queued", "sending", "sent", "failed", "cancelled"])
+    |> validate_inclusion(:kind, ["entry", "digest"])
   end
 end

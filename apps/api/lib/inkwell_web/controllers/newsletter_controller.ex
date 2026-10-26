@@ -137,24 +137,7 @@ defmodule InkwellWeb.NewsletterController do
 
   # GET /api/newsletter/settings
   def get_settings(conn, _params) do
-    user = conn.assigns.current_user
-    subscriber_count = Newsletter.count_subscribers(user.id)
-    pending_count = Newsletter.count_pending_subscribers(user.id)
-    limit = Newsletter.subscriber_limit(user.subscription_tier)
-
-    json(conn, %{
-      data: %{
-        newsletter_enabled: user.newsletter_enabled || false,
-        newsletter_name: user.newsletter_name,
-        newsletter_description: user.newsletter_description,
-        newsletter_reply_to: user.newsletter_reply_to,
-        subscriber_count: subscriber_count,
-        pending_count: pending_count,
-        subscriber_limit: limit,
-        sends_this_month: Newsletter.count_sends_this_month(user.id),
-        send_limit: Newsletter.send_limit(user.subscription_tier)
-      }
-    })
+    json(conn, %{data: settings_payload(conn.assigns.current_user)})
   end
 
   # PATCH /api/newsletter/settings
@@ -162,46 +145,97 @@ defmodule InkwellWeb.NewsletterController do
     user = conn.assigns.current_user
     is_plus = (user.subscription_tier || "free") == "plus"
 
-    allowed_fields = %{
-      "newsletter_enabled" => params["newsletter_enabled"],
-      "newsletter_description" => params["newsletter_description"]
-    }
+    allowed_fields =
+      Map.take(params, [
+        "newsletter_enabled",
+        "newsletter_description",
+        "newsletter_mode",
+        "newsletter_digest_day",
+        "newsletter_digest_hour",
+        "newsletter_digest_timezone",
+        "newsletter_digest_count"
+      ])
 
     # Plus-only fields
-    allowed_fields = if is_plus do
-      allowed_fields
-      |> Map.put("newsletter_name", params["newsletter_name"])
-      |> Map.put("newsletter_reply_to", params["newsletter_reply_to"])
-    else
-      allowed_fields
-    end
+    allowed_fields =
+      if is_plus,
+        do: Map.merge(allowed_fields, Map.take(params, ["newsletter_name", "newsletter_reply_to"])),
+        else: allowed_fields
 
     # Filter out nil values (don't clear fields that weren't sent)
     attrs = allowed_fields |> Enum.reject(fn {_k, v} -> is_nil(v) end) |> Map.new()
 
     case Accounts.update_user_profile(user, attrs) do
       {:ok, updated_user} ->
-        subscriber_count = Newsletter.count_subscribers(updated_user.id)
-        pending_count = Newsletter.count_pending_subscribers(updated_user.id)
-        limit = Newsletter.subscriber_limit(updated_user.subscription_tier)
-
-        json(conn, %{
-          data: %{
-            newsletter_enabled: updated_user.newsletter_enabled || false,
-            newsletter_name: updated_user.newsletter_name,
-            newsletter_description: updated_user.newsletter_description,
-            newsletter_reply_to: updated_user.newsletter_reply_to,
-            subscriber_count: subscriber_count,
-            pending_count: pending_count,
-            subscriber_limit: limit,
-            sends_this_month: Newsletter.count_sends_this_month(updated_user.id),
-            send_limit: Newsletter.send_limit(updated_user.subscription_tier)
-          }
-        })
+        json(conn, %{data: settings_payload(updated_user)})
 
       {:error, changeset} ->
         conn |> put_status(422) |> json(%{errors: format_errors(changeset)})
     end
+  end
+
+  # GET /api/newsletter/digest — what's waiting and when it goes
+  def digest(conn, _params) do
+    json(conn, %{data: Newsletter.Digests.status(conn.assigns.current_user)})
+  end
+
+  # POST /api/newsletter/digest/send — send what's waiting now
+  def send_digest_now(conn, _params) do
+    user = conn.assigns.current_user
+
+    cond do
+      !user.newsletter_enabled ->
+        conn |> put_status(422) |> json(%{error: "Your newsletter is turned off."})
+
+      !Newsletter.Digests.can_send_now?(user) ->
+        conn
+        |> put_status(422)
+        |> json(%{error: "Nothing is waiting, or a digest already went out in the last day."})
+
+      true ->
+        case Newsletter.Digests.send_digest(user) do
+          {:ok, send} ->
+            json(conn, %{data: render_send(send), digest: Newsletter.Digests.status(user)})
+
+          {:error, :no_subscribers} ->
+            conn
+            |> put_status(422)
+            |> json(%{error: "You have no confirmed subscribers, so the waiting posts were let go."})
+
+          {:error, _} ->
+            conn |> put_status(422) |> json(%{error: "Nothing is waiting to be sent."})
+        end
+    end
+  end
+
+  # DELETE /api/newsletter/digest/entries/:id — don't email this post
+  def remove_from_digest(conn, %{"id" => id}) do
+    user = conn.assigns.current_user
+
+    case Newsletter.Digests.remove(user.id, id) do
+      :ok -> json(conn, %{data: Newsletter.Digests.status(user)})
+      {:error, :not_found} -> conn |> put_status(:not_found) |> json(%{error: "That post isn't waiting."})
+    end
+  end
+
+  defp settings_payload(user) do
+    %{
+      newsletter_enabled: user.newsletter_enabled || false,
+      newsletter_name: user.newsletter_name,
+      newsletter_description: user.newsletter_description,
+      newsletter_reply_to: user.newsletter_reply_to,
+      newsletter_mode: user.newsletter_mode || "each",
+      newsletter_digest_day: user.newsletter_digest_day,
+      newsletter_digest_hour: user.newsletter_digest_hour,
+      newsletter_digest_timezone: user.newsletter_digest_timezone,
+      newsletter_digest_count: user.newsletter_digest_count,
+      subscriber_count: Newsletter.count_subscribers(user.id),
+      pending_count: Newsletter.count_pending_subscribers(user.id),
+      subscriber_limit: Newsletter.subscriber_limit(user.subscription_tier),
+      sends_this_month: Newsletter.count_sends_this_month(user.id),
+      send_limit: Newsletter.send_limit(user.subscription_tier),
+      digest: Newsletter.Digests.status(user)
+    }
   end
 
   # GET /api/newsletter/subscribers
@@ -404,7 +438,14 @@ defmodule InkwellWeb.NewsletterController do
       scheduled_at: send.scheduled_at,
       started_at: send.started_at,
       completed_at: send.completed_at,
+      error_message: send.error_message,
       created_at: send.inserted_at,
+      kind: send.kind || "entry",
+      entries:
+        if(Ecto.assoc_loaded?(send.digest_entries) && send.kind == "digest",
+          do: Enum.map(send.digest_entries, &%{id: &1.id, title: &1.title, slug: &1.slug}),
+          else: []
+        ),
       entry: if(Ecto.assoc_loaded?(send.entry) && send.entry, do: %{
         id: send.entry.id,
         title: send.entry.title,

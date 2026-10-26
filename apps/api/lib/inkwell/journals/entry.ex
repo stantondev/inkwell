@@ -41,6 +41,8 @@ defmodule Inkwell.Journals.Entry do
 
     # Newsletter
     field :newsletter_sent_at, :utc_datetime_usec
+    # Held for the writer's next digest (see Inkwell.Newsletter.Digests)
+    field :newsletter_queued_at, :utc_datetime_usec
     belongs_to :newsletter_send, Inkwell.Newsletter.Send
 
     belongs_to :user, Inkwell.Accounts.User

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { siteUrl } from "@/lib/site";
+import { DigestSettings, type DigestForm, type DigestStatus, type NewsletterMode } from "./digest-settings";
 
 interface NewsletterSettings {
   newsletter_enabled: boolean;
@@ -14,6 +15,31 @@ interface NewsletterSettings {
   subscriber_limit: number | null;
   sends_this_month: number;
   send_limit: number;
+  newsletter_mode: NewsletterMode;
+  newsletter_digest_day: number;
+  newsletter_digest_hour: number;
+  newsletter_digest_timezone: string;
+  newsletter_digest_count: number;
+  digest: DigestStatus;
+}
+
+function digestFormOf(s: NewsletterSettings): DigestForm {
+  return {
+    mode: s.newsletter_mode || "each",
+    day: s.newsletter_digest_day ?? 7,
+    hour: s.newsletter_digest_hour ?? 9,
+    timezone: s.newsletter_digest_timezone || "Etc/UTC",
+    count: s.newsletter_digest_count ?? 3,
+  };
+}
+
+function errorText(data: { error?: unknown; errors?: unknown }) {
+  if (typeof data.error === "string") return data.error;
+  if (data.errors && typeof data.errors === "object") {
+    const first = Object.values(data.errors as Record<string, string[]>)[0];
+    if (Array.isArray(first) && first[0]) return String(first[0]);
+  }
+  return "Failed to save";
 }
 
 export default function NewsletterSettingsPage() {
@@ -30,6 +56,7 @@ export default function NewsletterSettingsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [replyTo, setReplyTo] = useState("");
+  const [digestForm, setDigestForm] = useState<DigestForm>({ mode: "each", day: 7, hour: 9, timezone: "Etc/UTC", count: 3 });
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +72,7 @@ export default function NewsletterSettingsPage() {
         setName(s.newsletter_name || "");
         setDescription(s.newsletter_description || "");
         setReplyTo(s.newsletter_reply_to || "");
+        setDigestForm(digestFormOf(s));
       } else {
         setError("Couldn't load your newsletter settings. Reload the page to try again.");
       }
@@ -76,6 +104,11 @@ export default function NewsletterSettingsPage() {
       const body: Record<string, unknown> = {
         newsletter_enabled: enabled,
         newsletter_description: description || null,
+        newsletter_mode: digestForm.mode,
+        newsletter_digest_day: digestForm.day,
+        newsletter_digest_hour: digestForm.hour,
+        newsletter_digest_timezone: digestForm.timezone,
+        newsletter_digest_count: digestForm.count,
       };
       if (isPlus) {
         body.newsletter_name = name || null;
@@ -90,11 +123,12 @@ export default function NewsletterSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setSettings(data.data);
+        setDigestForm(digestFormOf(data.data));
         setSuccess("Newsletter settings saved");
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        const data = await res.json();
-        setError(data.error || data.errors || "Failed to save");
+        const data = await res.json().catch(() => ({}));
+        setError(errorText(data));
       }
     } catch {
       setError("Failed to save settings");
@@ -193,6 +227,9 @@ export default function NewsletterSettingsPage() {
                 <span className="text-sm ml-2" style={{ color: "var(--muted)" }}>
                   / {settings?.send_limit ?? 2} sends this month
                 </span>
+                {digestForm.mode !== "each" && (
+                  <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>Digests don&apos;t count toward this.</span>
+                )}
               </div>
               <Link href="/settings/newsletter/sends"
                 className="text-sm font-medium" style={{ color: "var(--accent)" }}>
@@ -319,6 +356,15 @@ export default function NewsletterSettingsPage() {
               </div>
             </div>
           </div>
+
+          <DigestSettings
+            form={digestForm}
+            onChange={setDigestForm}
+            status={settings?.digest ?? null}
+            savedMode={settings?.newsletter_mode || "each"}
+            username={username}
+            onStatus={(digest) => setSettings((prev) => (prev ? { ...prev, digest } : prev))}
+          />
 
           {/* Import subscribers */}
           <div className="rounded-xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>

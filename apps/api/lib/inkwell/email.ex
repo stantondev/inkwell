@@ -443,6 +443,16 @@ defmodule Inkwell.Email do
           </a>
         </div>
 
+        #{newsletter_footer(writer_name, profile_url)}
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  # Footer shared by newsletter emails: why you got it, unsubscribe, profile.
+  defp newsletter_footer(writer_name, profile_url) do
+    """
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #999; text-align: center; line-height: 1.6;">
           <p style="margin: 0 0 8px;">
             You received this because you subscribed to #{escape_html(writer_name)}'s newsletter on
@@ -456,10 +466,134 @@ defmodule Inkwell.Email do
             <a href="#{profile_url}" style="color: #999; text-decoration: underline;">View profile</a>
           </p>
         </div>
+    """
+  end
+
+  @doc """
+  Build the HTML for a digest: several posts in one email, each with its date,
+  title, cover, opening lines and a link to read the rest on Inkwell. Posts
+  behind a content warning show the warning instead of their opening and cover.
+  Like `build_newsletter_html/2`, it carries an `{{UNSUBSCRIBE_URL}}` placeholder.
+  """
+  def build_digest_html(entries, writer) do
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "http://localhost:3000")
+    api_url = Application.get_env(:inkwell, :api_url, "http://localhost:4000")
+    writer_name = writer.display_name || writer.username
+    newsletter_name = writer.newsletter_name || "#{writer_name}'s Newsletter"
+    avatar_url = if writer.avatar_url, do: "#{api_url}/api/avatars/#{writer.username}", else: nil
+    profile_url = "#{frontend_url}/#{writer.username}"
+    count = length(entries)
+
+    avatar_html =
+      if avatar_url do
+        """
+        <td style="padding-right: 12px; vertical-align: middle;">
+          <img src="#{avatar_url}" width="40" height="40" alt="" style="border-radius: 50%; display: block;" />
+        </td>
+        """
+      else
+        ""
+      end
+
+    intro =
+      if count == 1,
+        do: "A new entry from #{escape_html(writer_name)}.",
+        else: "#{count} new entries from #{escape_html(writer_name)}."
+
+    preheader =
+      entries |> Enum.map(&(&1.title || "")) |> Enum.reject(&(&1 == "")) |> Enum.join(" · ")
+
+    items =
+      entries
+      |> Enum.with_index()
+      |> Enum.map_join("\n", fn {entry, i} -> digest_item_html(entry, writer, i, frontend_url, api_url) end)
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Georgia, 'Times New Roman', serif; background: #faf9f6; color: #333; margin: 0; padding: 0;">
+      <div style="display:none;max-height:0;overflow:hidden;">#{escape_html(preheader)}</div>
+      <div style="max-width: 600px; margin: 0 auto; padding: 32px 20px;">
+        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+          <tr>
+            #{avatar_html}
+            <td style="vertical-align: middle;">
+              <div style="font-weight: 600; color: #1a1a1a; font-size: 15px;">#{escape_html(writer_name)}</div>
+              <div style="font-size: 13px; color: #888;">#{escape_html(newsletter_name)}</div>
+            </td>
+          </tr>
+        </table>
+
+        <p style="font-size: 16px; font-style: italic; color: #555; margin: 0 0 8px;">#{intro}</p>
+
+        #{items}
+
+        #{newsletter_footer(writer_name, profile_url)}
       </div>
     </body>
     </html>
     """
+  end
+
+  defp digest_item_html(entry, writer, index, frontend_url, api_url) do
+    entry_url = "#{frontend_url}/#{writer.username}/#{entry.slug}"
+    date_str = Calendar.strftime(entry.published_at || DateTime.utc_now(), "%B %-d, %Y")
+    reading_time = max(1, round((entry.word_count || 0) / 230))
+    warned = entry.sensitive || entry.admin_sensitive
+    divider = if index > 0, do: "border-top: 1px solid #e5e5e5;", else: ""
+
+    cover_html =
+      if entry.cover_image_id && !warned do
+        """
+        <a href="#{entry_url}"><img src="#{api_url}/api/images/#{entry.cover_image_id}" alt="" style="width: 100%; max-height: 260px; object-fit: cover; border-radius: 8px; margin: 4px 0 14px; display: block;" /></a>
+        """
+      else
+        ""
+      end
+
+    opening_html =
+      if warned do
+        cw = if entry.content_warning in [nil, ""], do: "This entry is marked sensitive.", else: "Content warning: #{entry.content_warning}"
+        ~s(<p style="font-size: 15px; font-style: italic; color: #777; margin: 0 0 12px;">#{escape_html(cw)}</p>)
+      else
+        ~s(<p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 12px;">#{escape_html(digest_opening(entry))}</p>)
+      end
+
+    """
+    <div style="padding: 24px 0; #{divider}">
+      <div style="font-size: 13px; color: #888; margin-bottom: 6px;">#{date_str} &middot; #{reading_time} min read</div>
+      <h2 style="font-size: 22px; line-height: 1.3; margin: 0 0 10px; font-family: Georgia, 'Times New Roman', serif;">
+        <a href="#{entry_url}" style="color: #1a1a1a; text-decoration: none;">#{escape_html(entry.title || "Untitled entry")}</a>
+      </h2>
+      #{cover_html}
+      #{opening_html}
+      <a href="#{entry_url}" style="color: #2d4a8a; font-weight: 600; font-size: 15px; text-decoration: none;">Keep reading &rarr;</a>
+    </div>
+    """
+  end
+
+  # The writer's own excerpt if they wrote one, else the first ~400 characters
+  # of the post, cut at a word.
+  defp digest_opening(%{excerpt_custom: true, excerpt: excerpt}) when is_binary(excerpt) and excerpt != "",
+    do: excerpt
+
+  defp digest_opening(entry) do
+    text = Inkwell.Journals.Entry.plain_text(entry.body_html)
+
+    if String.length(text) <= 420 do
+      text
+    else
+      cut = String.slice(text, 0, 400)
+      cut = case Regex.run(~r/^(.*)\s\S*$/s, cut) do
+        [_, head] -> head
+        _ -> cut
+      end
+      String.trim_trailing(cut, ",;:—-") <> "…"
+    end
   end
 
   # inkwell.social sends support mail from hello@; anywhere else, from the

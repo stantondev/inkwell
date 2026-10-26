@@ -13,9 +13,11 @@ interface Send {
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
-  inserted_at: string;
+  created_at: string;
   error_message: string | null;
   entry_id: string | null;
+  kind?: "entry" | "digest";
+  entries?: { id: string; title: string | null; slug: string | null }[];
 }
 
 export default function SendHistoryPage() {
@@ -105,8 +107,18 @@ export default function SendHistoryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-medium truncate">{send.subject || "Untitled"}</span>
+                      {send.kind === "digest" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                          digest
+                        </span>
+                      )}
                       {statusBadge(send.status)}
                     </div>
+                    {send.kind === "digest" && (send.entries?.length ?? 0) > 0 && (
+                      <p className="text-xs mb-1 truncate" style={{ color: "var(--muted)" }}>
+                        {send.entries!.map((e) => e.title || "Untitled entry").join(" · ")}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs" style={{ color: "var(--muted)" }}>
                       {send.status === "sent" && (
                         <span>
@@ -123,7 +135,7 @@ export default function SendHistoryPage() {
                       {send.status === "sending" && (
                         <span>{send.sent_count} of {send.recipient_count} sent</span>
                       )}
-                      <span>{formatDate(send.completed_at || send.started_at || send.inserted_at)}</span>
+                      <span>{formatDate(send.completed_at || send.started_at || send.created_at)}</span>
                     </div>
                     {send.error_message && (
                       <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{send.error_message}</p>

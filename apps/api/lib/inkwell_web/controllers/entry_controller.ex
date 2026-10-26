@@ -1242,6 +1242,8 @@ defmodule InkwellWeb.EntryController do
       series_id: entry.series_id,
       series_order: entry.series_order,
       newsletter_sent_at: entry.newsletter_sent_at,
+      newsletter_queued_at:
+        if(is_nil(entry.newsletter_send_id), do: entry.newsletter_queued_at),
       sensitive: entry.sensitive || false,
       content_warning: entry.content_warning,
       admin_sensitive: entry.admin_sensitive || false,

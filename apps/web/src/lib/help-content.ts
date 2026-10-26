@@ -87,7 +87,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "t-import", title: "Importing content", snippet: "Import from WordPress, Medium, Substack, LiveJournal and Dreamwidth.", keywords: ["import", "wordpress", "medium", "substack", "livejournal", "dreamwidth", "lj", "migrate"], category: "technical", href: "/switch" },
   { id: "x-whats-new", title: "What's new on Inkwell", snippet: "Recent features in plain words, with where to find them.", keywords: ["new", "changelog", "updates", "features", "release"], category: "getting-started", href: "/whats-new" },
   { id: "t-rss", title: "RSS feeds", snippet: "Subscribe to any profile or tag via RSS.", keywords: ["rss", "feed", "subscribe", "xml"], category: "technical", href: "/guide#feed-explore" },
-  { id: "t-newsletter", title: "Newsletter delivery", snippet: "Send published entries to email subscribers.", keywords: ["newsletter", "email", "subscriber", "send"], category: "technical", href: "/settings/newsletter" },
+  { id: "t-newsletter", title: "Newsletter delivery", snippet: "Send published entries to email subscribers.", keywords: ["newsletter", "email", "subscriber", "send", "digest", "weekly", "batch"], category: "technical", href: "/settings/newsletter" },
 
   // ── Links to existing pages ──
   { id: "x-guide", title: "The Reader's Guide", snippet: "A full walkthrough of Inkwell's features.", keywords: ["guide", "tutorial", "walkthrough", "how"], category: "getting-started", href: "/guide" },

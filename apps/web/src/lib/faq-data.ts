@@ -123,6 +123,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "writing",
   },
   {
+    id: "newsletter-digest",
+    question: "Can my newsletter send one email a week instead of one per post?",
+    answer:
+      'Yes. In <a href="/settings/newsletter">Settings → Newsletter</a>, under <strong>How posts go out</strong>, choose a <strong>weekly digest</strong> (pick the day, hour and time zone) or <strong>every few posts</strong> (send once 3 to 10 are waiting; a post never waits more than 30 days). Then tick <strong>Add to my next digest</strong> in the editor when you publish. The digest shows each post\'s title, picture and opening lines with a link to read the rest. You can see what\'s waiting, take a post out, or send early from the same page, and digests don\'t count toward your monthly sends.',
+    category: "writing",
+  },
+  {
     id: "readers",
     question: "Can I see how many people read my writing?",
     answer:

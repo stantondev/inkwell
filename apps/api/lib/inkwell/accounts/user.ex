@@ -61,6 +61,13 @@ defmodule Inkwell.Accounts.User do
     field :newsletter_name, :string
     field :newsletter_description, :string
     field :newsletter_reply_to, :string
+    # How newsletter posts go out: "each" (as published), "weekly" or "count"
+    # (gathered into a digest; Inkwell.Newsletter.Digests)
+    field :newsletter_mode, :string, default: "each"
+    field :newsletter_digest_day, :integer, default: 7
+    field :newsletter_digest_hour, :integer, default: 9
+    field :newsletter_digest_timezone, :string, default: "Etc/UTC"
+    field :newsletter_digest_count, :integer, default: 3
 
     # Writer support
     field :support_url, :string
@@ -313,6 +320,8 @@ defmodule Inkwell.Accounts.User do
       :profile_widgets, :profile_status, :profile_theme, :profile_entry_display, :avatar_frame,
       :avatar_animation, :profile_effect, :profile_effect_intensity,
       :newsletter_enabled, :newsletter_name, :newsletter_description, :newsletter_reply_to,
+      :newsletter_mode, :newsletter_digest_day, :newsletter_digest_hour,
+      :newsletter_digest_timezone, :newsletter_digest_count,
       :support_url, :support_label,
       :pinned_entry_ids, :social_links,
       :preferred_language, :heard_from, :heard_from_detail
@@ -328,6 +337,13 @@ defmodule Inkwell.Accounts.User do
     |> validate_length(:profile_css, max: 100_000)
     |> validate_length(:newsletter_name, max: 200)
     |> validate_length(:newsletter_description, max: 500)
+    |> validate_inclusion(:newsletter_mode, ~w(each weekly count))
+    |> validate_number(:newsletter_digest_day, greater_than_or_equal_to: 1, less_than_or_equal_to: 7)
+    |> validate_number(:newsletter_digest_hour, greater_than_or_equal_to: 0, less_than_or_equal_to: 23)
+    |> validate_number(:newsletter_digest_count, greater_than_or_equal_to: 3, less_than_or_equal_to: 10)
+    |> validate_change(:newsletter_digest_timezone, fn field, tz ->
+      if Inkwell.Newsletter.Digests.valid_timezone?(tz), do: [], else: [{field, "is not a known time zone"}]
+    end)
     |> validate_length(:support_url, max: 500)
     |> validate_length(:support_label, max: 50)
     |> validate_pinned_entries()

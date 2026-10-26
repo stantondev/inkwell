@@ -438,7 +438,8 @@ export default function GuidePage() {
             </li>
             <li>
               <strong>Newsletter</strong> — build an email subscriber list and
-              send your published entries directly to readers&rsquo; inboxes.
+              send your published entries directly to readers&rsquo; inboxes,
+              one at a time or gathered into a weekly digest.
             </li>
           </ul>
           <p>

@@ -109,6 +109,9 @@ config :inkwell, Oban,
        # to expect a ping every 5 minutes; changing this cadence requires
        # updating the Healthchecks check period to match.
        {"*/5 * * * *", Inkwell.Workers.NewsletterScheduleWorker},
+       # Newsletter digests (weekly ones go out a couple of minutes past the
+       # writer's chosen hour)
+       {"2 * * * *", Inkwell.Workers.NewsletterDigestWorker},
        # Verify remote entries — was every 4h at :30, now every 8h. Deletion
        # detection latency goes from ~4h → ~8h; fine at this scale.
        {"30 1-23/8 * * *", Inkwell.Workers.VerifyRemoteEntriesWorker},

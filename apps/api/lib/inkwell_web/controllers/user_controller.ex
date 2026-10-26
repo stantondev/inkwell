@@ -692,6 +692,8 @@ defmodule InkwellWeb.UserController do
       stripe_connect_onboarded: user.stripe_connect_onboarded || false,
       sends_this_month: Inkwell.Newsletter.count_sends_this_month(user.id),
       send_limit: Inkwell.Newsletter.send_limit(Inkwell.SelfHosted.effective_tier(user)),
+      newsletter_mode: user.newsletter_mode || "each",
+      newsletter_digest_count: user.newsletter_digest_count,
       post_email_available: not is_nil(domain),
       post_email_enabled: post_email_enabled,
       post_email_address: if(post_email_enabled, do: "post+#{user.post_email_token}@#{domain}", else: nil)

@@ -186,6 +186,8 @@ defmodule Inkwell.Usage.Catalog do
       sql: "SELECT id AS uid FROM users WHERE settings->>'bluesky_bridge' = 'on'"},
     %{key: "newsletter_on", label: "Newsletter switched on", group: "tools", how: :state,
       sql: "SELECT id AS uid FROM users WHERE newsletter_enabled"},
+    %{key: "newsletter_digests", label: "Newsletter digests (weekly or every few posts)", group: "tools", how: :state,
+      sql: "SELECT id AS uid FROM users WHERE newsletter_enabled AND newsletter_mode IN ('weekly', 'count')"},
     %{key: "post_by_email_on", label: "Post by Email switched on", group: "tools", how: :state,
       sql: "SELECT id AS uid FROM users WHERE post_email_token IS NOT NULL"},
     %{key: "redactions", label: "Redactions (muted words)", group: "tools", how: :state,
@@ -233,6 +235,7 @@ defmodule Inkwell.Usage.Catalog do
     "explore_waiting" => ~D[2026-09-27],
     "explore_ribbon" => ~D[2026-09-28],
     "play" => ~D[2026-10-20],
+    "newsletter_digests" => ~D[2026-10-26],
     "posts_export" => ~D[2026-10-26]
   }
 

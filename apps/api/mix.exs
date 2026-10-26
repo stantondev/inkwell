@@ -47,7 +47,9 @@ defmodule Inkwell.MixProject do
       {:gen_smtp, "~> 1.2"},
       {:web_push_encryption, "~> 0.3"},
       # Object storage (Tigris, S3-compatible): built-in AWS SigV4 signing
-      {:req, "~> 0.5"}
+      {:req, "~> 0.5"},
+      # IANA time zones (newsletter digests go out at the writer's local hour)
+      {:tz, "~> 0.28"}
     ]
   end
 

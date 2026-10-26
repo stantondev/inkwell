@@ -193,7 +193,10 @@ defmodule Inkwell.Newsletter do
 
   # ── Send Limits ──
 
-  @doc "Count newsletter sends this calendar month for a writer (queued, sending, or sent)."
+  @doc """
+  Count newsletter sends this calendar month for a writer (queued, sending, or
+  sent). Digests don't count: they replace several sends with one.
+  """
   def count_sends_this_month(writer_id) do
     now = DateTime.utc_now()
     month_start = %DateTime{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 6}}
@@ -201,6 +204,7 @@ defmodule Inkwell.Newsletter do
     Send
     |> where([s], s.writer_id == ^writer_id)
     |> where([s], s.status in ["queued", "sending", "sent"])
+    |> where([s], s.kind != "digest")
     |> where([s], s.inserted_at >= ^month_start)
     |> Repo.aggregate(:count)
   end
@@ -289,7 +293,7 @@ defmodule Inkwell.Newsletter do
       query
       |> limit(^per_page)
       |> offset(^((page - 1) * per_page))
-      |> preload(:entry)
+      |> preload([:entry, digest_entries: ^from(e in Inkwell.Journals.Entry, order_by: [asc: e.published_at])])
       |> Repo.all()
 
     {sends, total}
@@ -299,9 +303,10 @@ defmodule Inkwell.Newsletter do
   def cancel_send(send_id, writer_id) do
     case Repo.get(Send, send_id) do
       %{writer_id: ^writer_id, status: "queued"} = send ->
-        send
-        |> Ecto.Changeset.change(%{status: "cancelled"})
-        |> Repo.update()
+        with {:ok, send} <- send |> Ecto.Changeset.change(%{status: "cancelled"}) |> Repo.update() do
+          if send.kind == "digest", do: Inkwell.Newsletter.Digests.release(send)
+          {:ok, send}
+        end
 
       %{writer_id: ^writer_id} ->
         {:error, :cannot_cancel}

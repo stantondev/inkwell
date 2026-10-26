@@ -1688,6 +1688,11 @@ export function EditorClient() {
   const [sendNewsletter, setSendNewsletter] = useState(false);
   const [newsletterSubject, setNewsletterSubject] = useState("");
   const [alreadySent, setAlreadySent] = useState(false);
+  // Waiting for the writer's next newsletter digest
+  const [alreadyQueued, setAlreadyQueued] = useState(false);
+  // "each" (one email per post) or a digest ("weekly" / "count")
+  const [newsletterMode, setNewsletterMode] = useState<"each" | "weekly" | "count">("each");
+  const [digestCount, setDigestCount] = useState(3);
   const [isPlus, setIsPlus] = useState(false);
   const [hasWriterPlan, setHasWriterPlan] = useState(false);
   const [hasStripeConnect, setHasStripeConnect] = useState(false);
@@ -2273,6 +2278,8 @@ export function EditorClient() {
           setHasStripeConnect(!!data?.stripe_connect_enabled);
           setSendsThisMonth(data?.sends_this_month ?? 0);
           setSendLimit(data?.send_limit ?? 2);
+          setNewsletterMode(data?.newsletter_mode ?? "each");
+          setDigestCount(data?.newsletter_digest_count ?? 3);
           setMoodTheme(normalizeMoodTheme(data?.settings?.mood_theme));
           setListenBrainzUser(data?.settings?.listenbrainz_username ?? null);
           setMyAvatarUrl(data?.avatar_url ?? null);
@@ -2439,6 +2446,7 @@ export function EditorClient() {
         setCoverImageId(entry.cover_image_id ?? null);
         setMusicMetadata(entry.music_metadata ?? null);
         setAlreadySent(!!entry.newsletter_sent_at);
+        setAlreadyQueued(!!entry.newsletter_queued_at);
 
         // Load existing poll data
         if (entry.poll) {
@@ -3128,7 +3136,7 @@ export function EditorClient() {
       circle_prompt_id: state.circleId ? state.circlePromptId : null,
     };
     // Newsletter fields — only include when sending
-    if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent) {
+    if (sendNewsletter && state.privacy === "public" && newsletterEnabled && !alreadySent && !alreadyQueued) {
       payload.send_newsletter = true;
       payload.newsletter_subject = newsletterSubject || state.title || "New entry";
       if (isPlus && scheduleSend && scheduledAt) {
@@ -3143,7 +3151,7 @@ export function EditorClient() {
       payload.circle_as_prompt = true;
     }
     return payload;
-  }, [circleAsPrompt, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
+  }, [circleAsPrompt, state, currentMusicMetadata, loadedPublishedAt, isDraft, wasScheduled, htmlMode, htmlSource, editor, coverImageId, sendNewsletter, newsletterEnabled, alreadySent, alreadyQueued, newsletterSubject, isPlus, scheduleSend, scheduledAt, crosspostTo]);
 
   // Save as draft (no redirect)
   // Resolves once no autosave is in flight, with the entry id to save to
@@ -3644,10 +3652,12 @@ export function EditorClient() {
           : <>Starts a thread in <strong>{circleName}</strong>{circleAsPrompt ? ", pinned as its prompt" : ""}.</>,
       });
     }
-    if (newsletterEnabled && state.privacy === "public" && !alreadySent) {
-      lines.push(sendNewsletter
-        ? { icon: "✉", text: <>Emailed to <strong>{subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"}</strong>{isPlus && scheduleSend && scheduledAt ? " at the time you set" : ""}.</> }
-        : { icon: "✉", text: "Not emailed to your newsletter subscribers.", tone: "muted" });
+    if (newsletterEnabled && state.privacy === "public" && !alreadySent && !alreadyQueued) {
+      lines.push(!sendNewsletter
+        ? { icon: "✉", text: "Not emailed to your newsletter subscribers.", tone: "muted" }
+        : newsletterMode !== "each"
+          ? { icon: "✉", text: <>Added to your next <strong>newsletter digest</strong>.</> }
+          : { icon: "✉", text: <>Emailed to <strong>{subscriberCount} {subscriberCount === 1 ? "subscriber" : "subscribers"}</strong>{isPlus && scheduleSend && scheduledAt ? " at the time you set" : ""}.</> });
     }
     if (state.privacy === "public") {
       for (const account of fediverseAccounts.filter((a) => crosspostTo.has(a.id))) {
@@ -4611,6 +4621,29 @@ export function EditorClient() {
                   {alreadySent ? (
                     <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
                       This entry was already sent as a newsletter.
+                    </div>
+                  ) : alreadyQueued ? (
+                    <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>
+                      This entry is waiting for your next digest.{" "}
+                      <NextLink href="/settings/newsletter" className="font-medium" style={{ color: "var(--accent)" }}>See what&apos;s waiting</NextLink>
+                    </div>
+                  ) : newsletterMode !== "each" ? (
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer text-[13px]" style={{ color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={sendNewsletter}
+                          onChange={(e) => setSendNewsletter(e.target.checked)}
+                          className="rounded"
+                        />
+                        Add to my next digest
+                      </label>
+                      <div className="editor-settings-hint">
+                        {newsletterMode === "weekly"
+                          ? "Goes out with your weekly digest."
+                          : `Goes out once ${digestCount} posts are waiting.`}{" "}
+                        <NextLink href="/settings/newsletter" style={{ color: "var(--accent)" }}>Change</NextLink>
+                      </div>
                     </div>
                   ) : sendsThisMonth >= sendLimit ? (
                     <div className="text-xs p-3 rounded-lg" style={{ background: "var(--background)", color: "var(--muted)" }}>

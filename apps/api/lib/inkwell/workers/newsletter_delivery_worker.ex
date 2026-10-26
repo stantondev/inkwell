@@ -1,10 +1,12 @@
 defmodule Inkwell.Workers.NewsletterDeliveryWorker do
   @moduledoc """
   Oban worker that sends newsletter emails in batches via Resend's batch API.
-  Enqueued when a writer publishes an entry with "Send to subscribers" enabled.
+  Enqueued when a writer publishes an entry with "Send to subscribers" enabled,
+  or when a digest of several entries is ready (`Inkwell.Newsletter.Digests`).
   """
   use Oban.Worker, queue: :email, max_attempts: 3, priority: 1
 
+  import Ecto.Query, only: [from: 2]
   alias Inkwell.{Newsletter, Accounts, Journals, Email, Repo}
 
   @batch_size 100
@@ -22,6 +24,40 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
       else
         do_deliver(send)
       end
+    end
+  end
+
+  defp do_deliver(%{kind: "digest"} = send) do
+    {:ok, send} = Newsletter.update_send(send, %{status: "sending", started_at: DateTime.utc_now()})
+    writer = Accounts.get_user!(send.writer_id)
+    entries = Newsletter.Digests.entries_for(send)
+
+    if entries == [] do
+      Newsletter.update_send(send, %{
+        status: "failed",
+        error_message: "No posts left to send",
+        completed_at: DateTime.utc_now()
+      })
+
+      :ok
+    else
+      template = Email.build_digest_html(entries, writer)
+      {total_sent, total_failed} = deliver_all(send, writer, template)
+      now = DateTime.utc_now()
+
+      Newsletter.update_send(send, %{
+        status: "sent",
+        sent_count: total_sent,
+        failed_count: total_failed,
+        recipient_count: Newsletter.count_confirmed_subscribers(writer.id),
+        completed_at: now
+      })
+
+      ids = Enum.map(entries, & &1.id)
+      from(e in Inkwell.Journals.Entry, where: e.id in ^ids)
+      |> Repo.update_all(set: [newsletter_sent_at: now])
+
+      :ok
     end
   end
 
@@ -49,20 +85,7 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
       # Count subscribers for the final record
       recipient_count = Newsletter.count_confirmed_subscribers(writer.id)
 
-      # Stream subscribers in batches (memory-safe — never loads all at once)
-      {total_sent, total_failed} =
-        Newsletter.stream_confirmed_subscribers(writer.id, @batch_size)
-        |> Enum.reduce({0, 0}, fn batch, {sent_acc, failed_acc} ->
-          case send_batch(batch, send, writer, template) do
-            {:ok, count} ->
-              Process.sleep(@batch_delay_ms)
-              {sent_acc + count, failed_acc}
-
-            {:error, sent, failed} ->
-              Process.sleep(@batch_delay_ms)
-              {sent_acc + sent, failed_acc + failed}
-          end
-        end)
+      {total_sent, total_failed} = deliver_all(send, writer, template)
 
       # Mark complete
       Newsletter.update_send(send, %{
@@ -80,6 +103,22 @@ defmodule Inkwell.Workers.NewsletterDeliveryWorker do
 
       :ok
     end
+  end
+
+  # Stream subscribers in batches (memory-safe — never loads all at once)
+  defp deliver_all(send, writer, template) do
+    Newsletter.stream_confirmed_subscribers(writer.id, @batch_size)
+    |> Enum.reduce({0, 0}, fn batch, {sent_acc, failed_acc} ->
+      case send_batch(batch, send, writer, template) do
+        {:ok, count} ->
+          Process.sleep(@batch_delay_ms)
+          {sent_acc + count, failed_acc}
+
+        {:error, sent, failed} ->
+          Process.sleep(@batch_delay_ms)
+          {sent_acc + sent, failed_acc + failed}
+      end
+    end)
   end
 
   defp send_batch(subscribers, send, writer, template) do
