@@ -14661,6 +14661,21 @@ a, button, [role="tab"], [role="button"] {
   border-bottom: 1px solid var(--border);
 }
 
+.manage-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 7px 14px;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  background: var(--surface);
+  transition: border-color 0.15s, color 0.15s;
+}
+.manage-export-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.manage-export-btn:disabled { opacity: 0.6; cursor: wait; }
+
 .manage-filter-pill {
   padding: 5px 12px;
   border-radius: 9999px;

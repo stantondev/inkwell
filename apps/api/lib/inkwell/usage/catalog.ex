@@ -70,6 +70,7 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "scheduled_posts", label: "Scheduled posts", group: "writing", how: :tracked},
     %{key: "drafts_page", label: "Drafts page", group: "writing", how: :tracked},
     %{key: "posts_bulk", label: "Posts page bulk tools", group: "writing", how: :tracked},
+    %{key: "posts_export", label: "Posts page spreadsheet download", group: "writing", how: :tracked},
     %{key: "version_history", label: "Version history", group: "writing", how: :tracked},
     %{key: "imports", label: "Imports", group: "writing", how: :db,
       sql: "SELECT user_id AS uid, inserted_at AS at FROM data_imports"},
@@ -231,7 +232,8 @@ defmodule Inkwell.Usage.Catalog do
     "letter_stamps" => ~D[2026-10-17],
     "explore_waiting" => ~D[2026-09-27],
     "explore_ribbon" => ~D[2026-09-28],
-    "play" => ~D[2026-10-20]
+    "play" => ~D[2026-10-20],
+    "posts_export" => ~D[2026-10-26]
   }
 
   # Tracked features start counting when tracking ships; until then they

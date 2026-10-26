@@ -483,6 +483,12 @@ defmodule Inkwell.Journals do
     |> Repo.all()
   end
 
+  @doc "The Posts page query (filters and order, no paging), for exports."
+  def own_entries_query(user_id, opts \\ []) do
+    build_own_entries_query(user_id, opts)
+    |> apply_own_entries_sort(Keyword.get(opts, :sort, "newest"))
+  end
+
   @doc "Count own entries matching filters (for pagination)."
   def count_own_entries(user_id, opts \\ []) do
     build_own_entries_query(user_id, opts)

@@ -854,6 +854,32 @@ defmodule InkwellWeb.EntryController do
     json(conn, %{data: ids})
   end
 
+  # GET /api/me/entries/export — the Posts table as a spreadsheet (CSV), with
+  # the page's filters and order.
+  def export_own(conn, params) do
+    user = conn.assigns.current_user
+    Inkwell.Usage.record_member("posts_export", user)
+
+    {csv, _count} =
+      Inkwell.Journals.PostsExport.build(user,
+        status: params["status"],
+        privacy: params["privacy"],
+        category: params["category"],
+        series_id: params["series_id"],
+        tag: params["tag"],
+        search: params["q"],
+        sort: params["sort"] || "newest"
+      )
+
+    filename = "inkwell-posts-#{user.username}-#{Date.to_iso8601(Date.utc_today())}.csv"
+
+    conn
+    |> put_resp_content_type("text/csv")
+    |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename}"))
+    |> put_resp_header("cache-control", "private, no-store")
+    |> send_resp(200, csv)
+  end
+
   @bulk_max_ids 100
 
   # POST /api/me/entries/bulk — bulk operations

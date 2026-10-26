@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-26-posts-spreadsheet",
+    date: "2026-10-26",
+    title: "Your posts as a spreadsheet",
+    body: "The Posts page can now download your list of entries as a spreadsheet: title, status, who can read it, dates, category, series and part, tags, words, reads, inks, stamps, footnotes and the link to each one. It\u2019s a CSV file, so it opens in Excel, Numbers, Google Sheets or LibreOffice. Filter or search the page first to download just those entries. Thanks to the member who asked for it.",
+    howTo: "Open Posts and choose Download as a spreadsheet, next to New entry.",
+    href: "/manage",
+    cta: "Open Posts",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-23-search-tags",
     date: "2026-10-23",
     title: "Search finds tags",

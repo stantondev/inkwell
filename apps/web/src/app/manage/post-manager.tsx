@@ -170,6 +170,7 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [showBulkTags, setShowBulkTags] = useState(false);
   const [showBulkArchive, setShowBulkArchive] = useState(false);
+  const [exporting, setExporting] = useState(false);
   // Dates are formatted in the reader's time zone, which the server can't know,
   // so they're filled in after the first render.
   const [mounted, setMounted] = useState(false);
@@ -422,12 +423,45 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
           ? formatDate(entry.published_at)
           : "No date";
 
+  // ── Spreadsheet download ───────────────────────────────────────────────────
+
+  const filtered = Boolean(filters.status || filters.privacy || filters.category || filters.series_id || filters.search);
+
+  // Fetched rather than a plain link, so a failure shows here instead of
+  // downloading an error page.
+  const downloadSpreadsheet = async () => {
+    setExporting(true);
+    setBulkError("");
+    try {
+      const res = await fetch(`/api/me/entries/export?${filterParams(filters)}`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error || "Couldn't make the spreadsheet. Please try again.");
+      }
+      const blob = await res.blob();
+      const name =
+        res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "inkwell-posts.csv";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Couldn't make the spreadsheet. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         <div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
             Posts
@@ -436,13 +470,42 @@ export function PostManager({ initialEntries, initialTotal, series, username, in
             {total} {total === 1 ? "entry" : "entries"} total
           </p>
         </div>
-        <Link
-          href="/editor"
-          className="rounded-full px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-          style={{ background: "var(--accent)", color: "#fff" }}
-        >
-          + New entry
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={downloadSpreadsheet}
+              disabled={exporting}
+              className="manage-export-btn"
+              title={
+                filtered
+                  ? `Download the ${total} ${total === 1 ? "entry" : "entries"} that match as a CSV file for Excel, Numbers, Google Sheets or LibreOffice`
+                  : "Download every entry as a CSV file for Excel, Numbers, Google Sheets or LibreOffice"
+              }
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+              {exporting ? (
+                "Preparing…"
+              ) : (
+                <>
+                  <span className="hidden sm:inline">{filtered ? "Download these as a spreadsheet" : "Download as a spreadsheet"}</span>
+                  <span className="sm:hidden">Spreadsheet</span>
+                </>
+              )}
+            </button>
+          )}
+          <Link
+            href="/editor"
+            className="rounded-full px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            + New entry
+          </Link>
+        </div>
       </div>
 
       {/* Filter bar */}

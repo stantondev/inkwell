@@ -137,6 +137,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "writing",
   },
   {
+    id: "posts-spreadsheet",
+    question: "Can I get a list of my posts as a spreadsheet?",
+    answer:
+      'Yes. On <a href="/manage">Posts</a>, choose &ldquo;Download as a spreadsheet&rdquo;. You get a CSV file that opens in Excel, Numbers, Google Sheets or LibreOffice, with each entry&rsquo;s title, status, who can read it, dates, category, series, tags, word count, reads, inks, stamps, footnotes and link. If you&rsquo;ve filtered or searched the page first, only the entries that match are included. For a full backup with the text of every entry, use <a href="/settings/export">Settings &rarr; Data export</a>.',
+    category: "writing",
+  },
+  {
     id: "cover-image",
     question: "How do I add a cover image?",
     answer:

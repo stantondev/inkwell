@@ -17,6 +17,7 @@ export const FEATURES = [
   "scheduled_posts",
   "drafts_page",
   "posts_bulk",
+  "posts_export",
   "version_history",
   "translate",
   "stamp_album",
