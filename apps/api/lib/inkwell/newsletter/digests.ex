@@ -278,7 +278,19 @@ defmodule Inkwell.Newsletter.Digests do
 
         "count" when queued != [] ->
           oldest = queued |> Enum.map(& &1.newsletter_queued_at) |> Enum.min(DateTime)
-          DateTime.add(oldest, @max_wait_days * 86_400, :second)
+          latest = DateTime.add(oldest, @max_wait_days * 86_400, :second)
+
+          cond do
+            # Enough waiting: now, or once 3 days have passed since the last digest.
+            length(queued) >= user.newsletter_digest_count and within?(last, now, @count_spacing_days * 86_400) ->
+              Enum.min([DateTime.add(last, @count_spacing_days * 86_400, :second), latest], DateTime)
+
+            length(queued) >= user.newsletter_digest_count ->
+              now
+
+            true ->
+              latest
+          end
 
         _ ->
           nil
@@ -289,7 +301,7 @@ defmodule Inkwell.Newsletter.Digests do
         Enum.map(queued, fn e ->
           %{id: e.id, title: e.title, slug: e.slug, published_at: e.published_at, queued_at: e.newsletter_queued_at}
         end),
-      # weekly: when it goes; count: the latest it will go (sooner once enough posts are waiting)
+      # weekly: when it goes; count: when it goes once enough are waiting, else the latest it will go
       next_send_at: next,
       posts_needed:
         if(user.newsletter_mode == "count", do: max(user.newsletter_digest_count - length(queued), 0)),

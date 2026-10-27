@@ -150,6 +150,32 @@ defmodule InkwellWeb.EntryPublishing do
     :ok
   end
 
+  @doc """
+  The newsletter box ticked on an entry that's already published, then saved:
+  queue it for the next digest, or send it now in one-email-per-post mode.
+  Posts already sent or waiting are left alone. Returns `nil` when nothing was
+  asked for, else `"queued"`, `"sent"`, or why it couldn't go
+  (`"no_subscribers"`, `"send_limit"`, `"already"`).
+  """
+  def newsletter_for_saved_entry(entry, user, params) do
+    cond do
+      params["send_newsletter"] != true or entry.status != :published ->
+        nil
+
+      entry.newsletter_send_id || entry.newsletter_sent_at || entry.newsletter_queued_at ->
+        "already"
+
+      true ->
+        case maybe_send_newsletter(entry, user, params) do
+          {:ok, :queued, _entry} -> "queued"
+          {:ok, _send} -> "sent"
+          {:error, :no_subscribers} -> "no_subscribers"
+          {:error, :send_limit_exceeded} -> "send_limit"
+          _ -> nil
+        end
+    end
+  end
+
   defp maybe_send_newsletter(entry, user, params) do
     send_newsletter = params["send_newsletter"]
 

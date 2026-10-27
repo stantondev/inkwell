@@ -441,7 +441,15 @@ defmodule InkwellWeb.EntryController do
             EntryPublishing.maybe_make_circle_prompt(updated, user, params)
             note_scheduled(entry, updated, user)
 
-            json(conn, %{data: render_entry_full(updated, user) |> put_is_circle_prompt(updated)})
+            # Ticking the newsletter box on a post that's already published.
+            # This used to be ignored, so the post was never sent or queued.
+            newsletter = EntryPublishing.newsletter_for_saved_entry(updated, user, params)
+            updated = if newsletter, do: with_newsletter_fields(updated), else: updated
+
+            json(conn, %{
+              data: render_entry_full(updated, user) |> put_is_circle_prompt(updated),
+              newsletter: newsletter
+            })
 
           {:error, changeset} ->
             conn
@@ -463,6 +471,15 @@ defmodule InkwellWeb.EntryController do
       {:error, :sticky} ->
         conn |> put_status(:unprocessable_entity) |> json(%{error: "Stickies are edited from the sticky itself"})
     end
+  end
+
+  defp with_newsletter_fields(entry) do
+    fresh = Repo.get!(Inkwell.Journals.Entry, entry.id)
+
+    %{entry |
+      newsletter_send_id: fresh.newsletter_send_id,
+      newsletter_sent_at: fresh.newsletter_sent_at,
+      newsletter_queued_at: fresh.newsletter_queued_at}
   end
 
   # The sticky an entry was expanded from, when the viewer may see it.

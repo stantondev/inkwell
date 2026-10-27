@@ -127,6 +127,11 @@ defmodule Inkwell.NewsletterDigestsTest do
       for _ <- 1..3, do: publish(user)
       assert length(sends(user)) == 1
 
+      # The settings page says when the next one can go.
+      [last] = sends(user)
+      expected = DateTime.add(last.inserted_at, 3 * 86_400, :second)
+      assert DateTime.diff(Digests.status(reload(user)).next_send_at, expected) |> abs() < 2
+
       Repo.update_all(from(s in Send, where: s.writer_id == ^user.id), set: [inserted_at: days_ago(4)])
       perform_job(NewsletterDigestWorker, %{})
       assert length(sends(user)) == 2
@@ -143,6 +148,59 @@ defmodule Inkwell.NewsletterDigestsTest do
       queued_at!(id, days_ago(31))
       perform_job(NewsletterDigestWorker, %{})
       assert [%{kind: "digest"}] = sends(user)
+    end
+  end
+
+  describe "ticking the box on a post that's already published (@stoicalgeezer's test)" do
+    defp save(user, id, attrs) do
+      build_conn()
+      |> log_in_user(user)
+      |> patch("/api/entries/#{id}", Map.merge(%{title: "Edited"}, attrs))
+      |> json_response(200)
+    end
+
+    test "saving queues it, and the third one sends the digest" do
+      user = writer(%{"newsletter_mode" => "count", "newsletter_digest_count" => 3})
+      subscribe!(user)
+      ids = for _ <- 1..3, do: publish(user, %{send_newsletter: false})
+
+      [a, b, c] = ids
+      body = save(user, a, %{send_newsletter: true})
+      assert body["newsletter"] == "queued"
+      assert body["data"]["newsletter_queued_at"]
+
+      assert save(user, b, %{send_newsletter: true})["newsletter"] == "queued"
+      assert sends(user) == []
+
+      save(user, c, %{send_newsletter: true})
+      assert [send] = sends(user)
+      assert send.kind == "digest" and send.status == "sent"
+      assert Enum.sort(Enum.map(Digests.entries_for(send), & &1.id)) == Enum.sort(ids)
+    end
+
+    test "saving again doesn't queue it twice, and an unticked box does nothing" do
+      user = writer(%{"newsletter_mode" => "weekly"})
+      subscribe!(user)
+      id = publish(user, %{send_newsletter: false})
+
+      assert save(user, id, %{})["newsletter"] == nil
+      assert is_nil(Repo.get!(Entry, id).newsletter_queued_at)
+
+      assert save(user, id, %{send_newsletter: true})["newsletter"] == "queued"
+      assert save(user, id, %{send_newsletter: true})["newsletter"] == "already"
+      assert length(Digests.queued_entries(user.id)) == 1
+    end
+
+    test "one email per post: saving sends it, and says so when nobody's subscribed" do
+      user = writer()
+      subscribe!(user)
+      id = publish(user, %{send_newsletter: false})
+      assert save(user, id, %{send_newsletter: true})["newsletter"] == "sent"
+      assert [%{kind: "entry", entry_id: ^id}] = sends(user)
+
+      lonely = writer()
+      id = publish(lonely, %{send_newsletter: false})
+      assert save(lonely, id, %{send_newsletter: true})["newsletter"] == "no_subscribers"
     end
   end
 

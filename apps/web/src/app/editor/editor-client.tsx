@@ -2743,6 +2743,16 @@ export function EditorClient() {
     scheduleLocalSave();
   }, [scheduleLocalSave]);
 
+  // On a published post the box only acts when the post is saved, so ticking
+  // it counts as a change: "Unsaved changes" shows and ⌘S saves it.
+  const newsletterBoxChanged = (checked: boolean) => {
+    setSendNewsletter(checked);
+    if (!isDraft && savedEntryId) {
+      hasUnsavedChanges.current = true;
+      setDirty(true);
+    }
+  };
+
   // clearAutosaveTimers helper
   const clearAutosaveTimers = useCallback(() => {
     if (autosaveDebounceRef.current) { clearTimeout(autosaveDebounceRef.current); autosaveDebounceRef.current = null; }
@@ -3284,6 +3294,8 @@ export function EditorClient() {
           throw new Error(apiErrorMessage(err, "Save failed"));
         }
         data = await res.json();
+        const problem = newsletterProblem(data?.newsletter);
+        if (problem) alert(problem);
       } else {
         // New entry, publish directly: POST /api/entries (no status = defaults to published)
         const res = await fetch("/api/entries", {
@@ -3369,8 +3381,15 @@ export function EditorClient() {
     }
   }, [myCircles, state.circleId, state.circlePromptId, editor, isPublishing, isDraft, state.publishedAt, waitForAutosave, buildPayload, router, entryAuthor, entrySlug, myUsername, pollEnabled, isPlus, pollQuestion, pollOptions, pollClosesAt, existingPollId, pollLocked, clearAutosaveTimers, clearLocalRecovery]);
 
-  // Save a published entry's edits without leaving the editor (⌘S). The
-  // publish-time choices (newsletter, cross-posts) only happen on the button.
+  // What to tell the writer when the newsletter box on a saved post couldn't act.
+  function newsletterProblem(result: unknown): string | null {
+    if (result === "no_subscribers") return "Saved, but your newsletter has no confirmed subscribers yet, so nothing was emailed.";
+    if (result === "send_limit") return "Saved, but you've used this month's newsletter sends, so this post wasn't emailed.";
+    return null;
+  }
+
+  // Save a published entry's edits without leaving the editor (⌘S). Cross-posts
+  // only happen on the button; a ticked newsletter box is acted on either way.
   const savingInPlaceRef = useRef(false);
   const saveInPlace = useCallback(async () => {
     if (!editor || isPublishing || !savedEntryId || isDraft || savingInPlaceRef.current) return;
@@ -3383,7 +3402,7 @@ export function EditorClient() {
     setSaveStatus("saving");
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { send_newsletter, newsletter_subject, newsletter_scheduled_at, crosspost_to, ...payload } = buildPayload();
+      const { crosspost_to, ...payload } = buildPayload();
       const res = await fetch(`/api/entries/${savedEntryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -3392,6 +3411,14 @@ export function EditorClient() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(apiErrorMessage(err, "Save failed"));
+      }
+      const saved = await res.json().catch(() => null);
+      if (saved?.newsletter) {
+        setSendNewsletter(false);
+        setAlreadyQueued(!!saved.data?.newsletter_queued_at);
+        setAlreadySent(!!saved.data?.newsletter_sent_at || !!saved.data?.newsletter_send_id);
+        const problem = newsletterProblem(saved.newsletter);
+        if (problem) alert(problem);
       }
       setLoadedPublishedAt(state.publishedAt);
       if (editRevisionRef.current === revisionAtStart) {
@@ -4633,7 +4660,7 @@ export function EditorClient() {
                         <input
                           type="checkbox"
                           checked={sendNewsletter}
-                          onChange={(e) => setSendNewsletter(e.target.checked)}
+                          onChange={(e) => newsletterBoxChanged(e.target.checked)}
                           className="rounded"
                         />
                         Add to my next digest
@@ -4660,7 +4687,7 @@ export function EditorClient() {
                         <input
                           type="checkbox"
                           checked={sendNewsletter}
-                          onChange={(e) => setSendNewsletter(e.target.checked)}
+                          onChange={(e) => newsletterBoxChanged(e.target.checked)}
                           className="rounded"
                         />
                         Send to email subscribers

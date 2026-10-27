@@ -242,7 +242,7 @@ export function DigestSettings({
                   <>
                     {status.posts_needed
                       ? `${status.posts_needed} more ${status.posts_needed === 1 ? "post" : "posts"}, or by ${nice(status.next_send_at, false)}`
-                      : `Goes out soon (by ${nice(status.next_send_at, false)} at the latest)`}
+                      : `Goes out ${nice(status.next_send_at)} (at most one of these every three days)`}
                   </>
                 )}
               </span>
