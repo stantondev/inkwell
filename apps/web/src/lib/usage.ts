@@ -35,20 +35,16 @@ export const FEATURES = [
   "search",
   "help",
   "whats_new",
-  "play",
 ] as const;
 
 export type Feature = (typeof FEATURES)[number];
 
 /** Steps a feature may report, beyond "used it". Only these are counted. */
-export type FeatureAction = {
-  play: "opened" | "letter_started" | "letter_delivered" | "writer_named";
-};
+// None today: the Dead Letter Office game used them and was retired on 2026-10-28.
+export type FeatureAction = Record<never, string>;
 
-/** Details a feature may add to a step (the game: its level). */
-export type FeatureDetail = {
-  play: "easy" | "medium" | "hard";
-};
+/** Details a feature may add to a step. */
+export type FeatureDetail = Record<never, string>;
 
 const STORAGE_KEY = "inkwell-usage-sent";
 
@@ -80,9 +76,8 @@ const sentThisPage = new Set<string>();
 
 /**
  * Record that this feature was used (once a day per browser), or that a step
- * happened (every call: the game's `trackFeature("play", "letter_delivered",
- * "hard")`, so call it once per letter, not on every render). Never throws,
- * never blocks.
+ * happened (every call, so call it once per event, not on every render).
+ * Never throws, never blocks.
  */
 export function trackFeature<F extends Feature>(
   feature: F,
@@ -91,9 +86,9 @@ export function trackFeature<F extends Feature>(
 ): void {
   if (typeof window === "undefined") return;
 
-  // Plain "used it" is sent once a day per browser. Steps (the game's
-  // letters) are sent every time: each one is something that happened, and
-  // the server counts them per member ("delivered 14 letters").
+  // Plain "used it" is sent once a day per browser. Steps are sent every
+  // time: each one is something that happened, and the server counts them
+  // per member.
   if (!action) {
     if (sentThisPage.has(feature)) return;
     sentThisPage.add(feature);

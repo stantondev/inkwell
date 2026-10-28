@@ -14,7 +14,7 @@ import { isSupporter } from "@/lib/supporter";
 import { useWhatsNewUnread } from "./whats-new-state";
 import {
   FeedIcon, ExploreIcon, GazetteIcon, CirclesIcon, NotificationsIcon, LettersIcon,
-  PenPalsIcon, DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, StampAlbumIcon, PollsIcon, RoadmapIcon, DeadLetterIcon,
+  PenPalsIcon, DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, StampAlbumIcon, PollsIcon, RoadmapIcon,
   ProfileIcon, SettingsIcon, HelpIcon, InviteIcon, AdminIcon, SignOutIcon,
 } from "./nav-icons";
 
@@ -300,7 +300,6 @@ export function SidebarNav({
           <NavItem href="/explore" icon={<ExploreIcon />} label="Explore" active={isActive("/explore")} />
           <NavItem href="/gazette" icon={<GazetteIcon />} label="Gazette" active={isActive("/gazette")} />
           <NavItem href="/circles" icon={<CirclesIcon />} label="Circles" active={isActive("/circles")} />
-          <NavItem href="/play" icon={<DeadLetterIcon />} label="Dead Letter Office" active={isActive("/play")} />
         </Section>
 
         <Section

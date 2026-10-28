@@ -188,13 +188,6 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "social",
   },
   {
-    id: "dead-letter-office",
-    question: "What is the Dead Letter Office?",
-    answer:
-      'A daily game at <a href="/play">/play</a>. Each weekday a real letter from history arrives torn, with some words washed away and the address gone: mend it, fill in the missing words, and work out who it was for and when. All five letters in a week are by one famous writer, and each one you deliver adds a clue to the file, so you can try to name them. Easy, Medium and Hard change how many pieces there are and how many letters of each lost word survive. Your score and rank are private (there is no leaderboard), and a day you miss waits for you. The letters are real and quoted exactly from public-domain editions; the history after each one was researched with AI help and checked by a person before it went live.',
-    category: "social",
-  },
-  {
     id: "stamps",
     question: "How do stamps work?",
     answer:

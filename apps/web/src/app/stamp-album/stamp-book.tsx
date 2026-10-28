@@ -56,7 +56,7 @@ import {
   type Paper,
   type SortKey,
 } from "@/lib/stamp-book";
-import { hand, fell } from "../play/fonts";
+import { hand, fell } from "./fonts";
 import { BookCatalogue } from "./book-catalogue";
 import { BookLoupe } from "./book-loupe";
 import type { AlbumStamp } from "./stamp-album";

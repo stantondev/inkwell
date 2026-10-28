@@ -73,44 +73,10 @@ defmodule Inkwell.UsageTest do
     # Counted from the database already
     assert :skipped = Usage.record("stamps", user, "1.2.3.4", @ua)
     assert :skipped = Usage.record("gazette", user, "1.2.3.4", @ua, action: "opened")
-    assert :skipped = Usage.record("play", user, "1.2.3.4", @ua, action: "hacked")
-    assert :skipped = Usage.record("play", user, "1.2.3.4", @ua, action: "opened", detail: "impossible")
-    assert :skipped = Usage.record("play", user, "1.2.3.4", @ua, action: %{"x" => 1})
+    assert :skipped = Usage.record("gazette", user, "1.2.3.4", @ua, detail: "impossible")
+    assert :skipped = Usage.record("gazette", user, "1.2.3.4", @ua, action: %{"x" => 1})
 
     assert %{rows: [[0]]} = Repo.query!("SELECT count(*) FROM feature_use_days")
-  end
-
-  test "the game's steps are counted per step and level, and as a use of the game" do
-    user = create_user()
-
-    Usage.record("play", user, "1.2.3.4", @ua, action: "opened")
-    Usage.record("play", user, "1.2.3.4", @ua, action: "letter_delivered", detail: "hard")
-    Usage.record("play", nil, "4.4.4.4", @ua, action: "letter_delivered", detail: "hard")
-
-    assert [
-             ["", "", 1, 1, 3],
-             ["letter_delivered", "hard", 1, 1, 2],
-             ["opened", "", 1, 0, 1]
-           ] = day_rows("play")
-  end
-
-  test "the game keeps each player's steps per level, and admins can see who plays" do
-    player = create_user()
-    Usage.record("play", player, "1.2.3.4", @ua, action: "opened")
-    Usage.record("play", player, "1.2.3.4", @ua, action: "letter_delivered", detail: "easy")
-    Usage.record("play", player, "1.2.3.4", @ua, action: "letter_delivered", detail: "hard")
-    Usage.record("play", player, "1.2.3.4", @ua, action: "letter_delivered", detail: "hard")
-
-    assert [%{username: username, days_used: 1, progress: progress}] = Usage.members_of("play")
-    assert username == player.username
-    assert progress == %{
-             "opened" => 1,
-             "letter_delivered" => 3,
-             "letter_delivered:easy" => 1,
-             "letter_delivered:hard" => 2
-           }
-
-    assert [%{username: ^username}] = feature(Usage.report(), "play").members
   end
 
   test "admins aren't counted" do
@@ -176,17 +142,15 @@ defmodule Inkwell.UsageTest do
       assert length(f.trend) == 12
     end
 
-    test "tracked features report members, visitor-days and steps" do
+    test "tracked features report members and visitor-days" do
       user = create_user()
-      Usage.record("play", user, "1.2.3.4", @ua, action: "opened")
-      Usage.record("play", nil, "2.2.2.2", @ua, action: "opened")
+      Usage.record("gazette", user, "1.2.3.4", @ua)
+      Usage.record("gazette", nil, "2.2.2.2", @ua)
 
-      f = feature(Usage.report(), "play")
+      f = feature(Usage.report(), "gazette")
       assert f.people_30 == 1
       assert f.visitor_days_30 == 1
-      assert [%{action: "opened", detail: "", people: 2}] = f.actions
-      # Arrived today: too soon to judge.
-      assert f.status == "new"
+      assert [%{username: _}] = f.members
     end
 
     test "status: almost nobody for 90 days is a retirement candidate; new features aren't judged" do

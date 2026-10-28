@@ -121,14 +121,6 @@ export default function GuidePage() {
             </Link>
             .
           </p>
-          <p>
-            Each weekday there&rsquo;s also a letter waiting in the{" "}
-            <Link href="/play" className="underline" style={{ color: "var(--accent)" }}>
-              Dead Letter Office
-            </Link>
-            : a real letter from history, torn and missing a few words. Mend it, deliver
-            it, and by Friday see if you can name who wrote the week&rsquo;s letters.
-          </p>
         </Section>
 
         {/* II. Writing & Publishing */}

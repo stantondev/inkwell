@@ -304,7 +304,6 @@ export default function UsagePanel() {
   }, [data]);
 
   const candidates = sorted.filter((f) => f.status === "retire");
-  const game = data?.features.find((f) => f.key === "play");
 
   if (loading && !data) return <p className="text-sm" style={{ color: "var(--muted)" }}>Counting…</p>;
   if (error && !data) {
@@ -347,14 +346,6 @@ export default function UsagePanel() {
         </p>
       </Card>
 
-      {game && (
-        <Card
-          title="Who's playing the Dead Letter Office"
-          hint={`Members who've played, most days first, with what they did on each level. Signed-out players can't be listed, since we don't know who they are (${plural(game.visitor_days_30 ?? 0, "signed-out visit")} in the last 30 days).`}
-        >
-          <MemberList members={game.members ?? []} />
-        </Card>
-      )}
 
       {candidates.length > 0 && (
         <Card title="Retirement candidates" hint="Two people or fewer in the last 90 days, and no busier in the 90 before. Retiring is your call: this only says nobody's using them.">

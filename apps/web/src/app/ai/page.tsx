@@ -70,16 +70,6 @@ export default function AIPage() {
               processes text for translation only &mdash; it does not store or
               train on your content.
             </li>
-            <li id="dead-letter-office" className="scroll-mt-24">
-              <strong>The Dead Letter Office (the daily letter game).</strong>{" "}
-              Each month Claude helps us research which historical writers to
-              feature and drafts the puzzles and the history notes for their
-              letters. The letters themselves are real, quoted word for word
-              from public-domain editions, and a script checks every line
-              against the original. A person reads and approves each week
-              before anyone can play it. Inkwell itself never calls an AI model
-              for the game, and nothing about how you play is sent to one.
-            </li>
             <li id="subject-finder" className="scroll-mt-24">
               <strong>Cutting out stickers (optional, on your own device).</strong>{" "}
               When you make a sticker from one of your pictures, you can choose

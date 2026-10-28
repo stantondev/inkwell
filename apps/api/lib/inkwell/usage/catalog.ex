@@ -26,8 +26,7 @@ defmodule Inkwell.Usage.Catalog do
     {"community", "Community"},
     {"page", "Your page"},
     {"discovery", "Finding things to read"},
-    {"tools", "Tools and settings"},
-    {"play", "Play"}
+    {"tools", "Tools and settings"}
   ]
 
   # Published, written here (not imported).
@@ -195,11 +194,7 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "data_exports", label: "Data export", group: "tools", how: :db, core: true,
       sql: "SELECT user_id AS uid, inserted_at AS at FROM data_exports"},
     %{key: "help", label: "Help pages", group: "tools", how: :tracked},
-    %{key: "whats_new", label: "What's new", group: "tools", how: :tracked},
-
-    # ── Play ──────────────────────────────────────────────────────────────
-    %{key: "play", label: "Dead Letter Office (/play)", group: "play", how: :tracked,
-      actions: ~w(opened letter_started letter_delivered writer_named), details: ~w(easy medium hard)}
+    %{key: "whats_new", label: "What's new", group: "tools", how: :tracked}
   ]
 
   # `core: true` = never called a retirement candidate: the basics, and the
@@ -234,7 +229,6 @@ defmodule Inkwell.Usage.Catalog do
     "letter_stamps" => ~D[2026-10-17],
     "explore_waiting" => ~D[2026-09-27],
     "explore_ribbon" => ~D[2026-09-28],
-    "play" => ~D[2026-10-20],
     "newsletter_digests" => ~D[2026-10-26],
     "posts_export" => ~D[2026-10-26]
   }
@@ -274,7 +268,7 @@ defmodule Inkwell.Usage.Catalog do
   def valid_action?(%{actions: actions}, action) when is_binary(action), do: action in actions
   def valid_action?(_, _), do: false
 
-  @doc "A detail is only allowed where the feature lists them (play: the level)."
+  @doc "A detail is only allowed where the feature lists them."
   def valid_detail?(_feature, nil), do: true
   def valid_detail?(_feature, ""), do: true
   def valid_detail?(%{details: details}, detail) when is_binary(detail), do: detail in details

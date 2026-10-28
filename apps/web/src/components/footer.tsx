@@ -11,7 +11,6 @@ const SECTIONS: { title: string; links: { href: string; label: string }[] }[] = 
     links: [
       { href: "/about", label: "About" },
       { href: "/transparency", label: "Transparency" },
-      { href: "/play", label: "Dead Letter Office" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/roadmap/new", label: "Submit Feedback" },
     ],

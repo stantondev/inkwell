@@ -93,7 +93,6 @@ function mainSitemap(data: SitemapData): MetadataRoute.Sitemap {
     { url: BASE, changeFrequency: "daily", priority: 1.0, lastModified: now },
     { url: `${BASE}/explore`, changeFrequency: "hourly", priority: 0.9, lastModified: now },
     { url: `${BASE}/gazette`, changeFrequency: "daily", priority: 0.7, lastModified: now },
-    { url: `${BASE}/play`, changeFrequency: "daily", priority: 0.7, lastModified: now },
     { url: `${BASE}/for-writers`, changeFrequency: "monthly", priority: 0.8, lastModified: "2026-09-17" },
     { url: `${BASE}/switch`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
     { url: `${BASE}/switch/wordpress`, changeFrequency: "monthly", priority: 0.6, lastModified: "2026-09-17" },
