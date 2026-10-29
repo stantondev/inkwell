@@ -20554,6 +20554,30 @@ body[data-season="halloween"] ::selection {
 .site-logo-overlay * {
   transform-box: fill-box;
 }
+/* Halloween repaints the logo itself: the image keeps the layout and the
+   alt text, and the same drawing, used as a mask, is filled with candlelight. */
+.site-logo-halloween img { opacity: 0; }
+.site-logo-ink {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: url("/inkwell-logo.svg") center / 100% 100% no-repeat;
+  mask: url("/inkwell-logo.svg") center / 100% 100% no-repeat;
+  background: linear-gradient(180deg, #e2701f 0%, #b9481a 55%, #7c2d12 100%);
+}
+@media (prefers-color-scheme: dark) {
+  .site-logo-ink {
+    background: linear-gradient(180deg, #ffe08a 0%, #ffa94d 40%, #f2711c 100%);
+    filter: drop-shadow(0 0 3px rgba(255, 140, 40, 0.55));
+    animation: hl-candle 4s ease-in-out infinite;
+  }
+}
+@keyframes hl-candle {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 140, 40, 0.55)); }
+  45% { filter: drop-shadow(0 0 6px rgba(255, 150, 50, 0.75)); }
+  52% { filter: drop-shadow(0 0 2px rgba(255, 140, 40, 0.4)); }
+}
+.hl-pumpkin { overflow: visible; }
+.hl-pumpkin .tot-rib { stroke-width: 0.7; }
 .hl-glow {
   fill: var(--season-glow, #ffb347);
   opacity: 0.55;
@@ -20579,22 +20603,11 @@ body[data-season="halloween"] ::selection {
   transform-origin: center;
   animation: hl-bat-drift 6s ease-in-out infinite;
 }
-.hl-spider { animation: hl-spider 4.5s ease-in-out infinite; }
-.hl-thread { stroke: #9a918a; stroke-width: 3; }
-.hl-spider-legs { fill: none; stroke: var(--season-ink, #2a1838); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-.hl-spider-body { fill: var(--season-ink, #2a1838); }
-.hl-spider-eye { fill: #ff9a4a; }
-@media (prefers-color-scheme: dark) {
-  .hl-thread { stroke: #6f6578; }
-  .hl-spider-legs { stroke: #9a80c0; }
-  .hl-spider-body { fill: #9a80c0; }
-}
 @keyframes hl-glow { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.25); } }
 @keyframes hl-flicker { 0%, 100% { opacity: 1; } 37% { opacity: 0.72; } 41% { opacity: 1; } 68% { opacity: 0.85; } 72% { opacity: 1; } }
 @keyframes hl-hat { 0%, 70%, 100% { transform: rotate(0deg); } 78% { transform: rotate(-6deg); } 86% { transform: rotate(4deg); } 93% { transform: rotate(-2deg); } }
 @keyframes hl-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
 @keyframes hl-bat-drift { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(40px, 14px); } 50% { transform: translate(-20px, 26px); } 75% { transform: translate(-46px, 6px); } }
-@keyframes hl-spider { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-28px); } }
 
 /* ── The trick-or-treat pumpkin ── */
 .tot-button {
@@ -20985,6 +20998,7 @@ body[data-season="halloween"] .journal-book-spread::after { right: 0; transform:
 
 @media (prefers-reduced-motion: reduce) {
   .site-logo-overlay *,
+  .site-logo-ink,
   .tot-button > span,
   .tot-face,
   .tot-wrapper,

@@ -2,12 +2,13 @@
 
 import { useSeason } from "./season-context";
 import { Bat } from "./bat";
+import { Pumpkin } from "./pumpkin";
 
 /**
- * The Inkwell logo, dressed for the season. The base image stays
- * /inkwell-logo.svg (dark mode inverts it to white); the season's
- * decorations are an SVG laid over it in the logo's own coordinates
- * (viewBox 0 45 1860 470), drawn in their own colours so they read on both.
+ * The Inkwell logo, dressed for the season. The image stays for its size
+ * and alt text; for Halloween it's hidden and the logo is repainted through
+ * it as a mask (`.site-logo-ink`, candlelit orange), with decorations laid
+ * over it in the logo's own coordinates (viewBox 0 45 1860 470).
  */
 export function SiteLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const season = useSeason();
@@ -15,7 +16,12 @@ export function SiteLogo({ className, style }: { className?: string; style?: Rea
     <span className={`site-logo${season ? ` site-logo-${season}` : ""}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/inkwell-logo.svg" alt="Inkwell" className={className} style={style} />
-      {season === "halloween" && <HalloweenLogo />}
+      {season === "halloween" && (
+        <>
+          <span className="site-logo-ink" aria-hidden="true" />
+          <HalloweenLogo />
+        </>
+      )}
     </span>
   );
 }
@@ -45,19 +51,8 @@ function HalloweenLogo() {
         <Bat x={920} y={48} width={300} height={150} flap={0.34} />
       </g>
 
-      {/* A spider on a thread from the nib's tip. */}
-      <g className="hl-spider">
-        <path className="hl-thread" d="M1452 452V560" />
-        <g transform="translate(1452 566)">
-          <path
-            className="hl-spider-legs"
-            d="M-8 -4L-26 -18L-34 -6M-8 0L-30 -2L-38 10M-8 4L-26 14L-30 28M8 -4L26 -18L34 -6M8 0L30 -2L38 10M8 4L26 14L30 28"
-          />
-          <ellipse className="hl-spider-body" cx="0" cy="0" rx="13" ry="15" />
-          <circle className="hl-spider-eye" cx="-4" cy="-4" r="2.6" />
-          <circle className="hl-spider-eye" cx="4" cy="-4" r="2.6" />
-        </g>
-      </g>
+      {/* A jack-o'-lantern for the full stop (it covers the dot at 1390–1418, 465–493). */}
+      <Pumpkin x={1322} y={362} size={150} className="hl-pumpkin" />
     </svg>
   );
 }
