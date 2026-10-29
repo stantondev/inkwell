@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-29-new-writers",
+    date: "2026-10-29",
+    title: "New writers in your Feed",
+    body: "When someone new to Inkwell publishes their first entry, it now appears in everyone\u2019s Feed for a week, marked \u201cNew to Inkwell\u201d, even before anyone follows them. Until now a newcomer\u2019s first post reached nobody unless they happened to be found on Explore. If you like welcoming people, you can also ask for a notice whenever a new writer posts their first entry. Thanks to the member who suggested it.",
+    howTo: "Notices: Settings \u2192 Notifications \u2192 \u201cTell me when a new writer posts their first entry\u201d. To leave newcomers out of your Feed: Settings \u2192 Content safety \u2192 \u201cShow new writers\u2019 first entries in my Feed\u201d.",
+    href: "/settings/notifications",
+    cta: "Notification settings",
+    tag: "Reading",
+  },
+  {
     id: "2026-10-29-whole-cover",
     date: "2026-10-29",
     title: "Cover pictures shown whole",

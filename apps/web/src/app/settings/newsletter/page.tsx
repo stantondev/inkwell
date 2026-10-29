@@ -26,8 +26,8 @@ interface NewsletterSettings {
 function digestFormOf(s: NewsletterSettings): DigestForm {
   return {
     mode: s.newsletter_mode || "each",
-    day: s.newsletter_digest_day ?? 7,
-    hour: s.newsletter_digest_hour ?? 9,
+    day: s.newsletter_digest_day ?? 4,
+    hour: s.newsletter_digest_hour ?? 14,
     timezone: s.newsletter_digest_timezone || "Etc/UTC",
     count: s.newsletter_digest_count ?? 3,
   };

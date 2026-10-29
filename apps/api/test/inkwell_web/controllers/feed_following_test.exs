@@ -56,7 +56,10 @@ defmodule InkwellWeb.FeedFollowingTest do
 
   test "someone who hasn't been asked doesn't appear", %{conn: conn} do
     reader = create_user()
+    # Not new to Inkwell: a newcomer's first entry is in everyone's Feed
+    # (InkwellWeb.NewcomerFeedTest).
     stranger = create_user()
+    _earlier = publish(stranger, :public, 60 * 24 * 10)
     e = publish(stranger, :public, 1)
     refute e.id in feed_ids(conn, reader)
   end

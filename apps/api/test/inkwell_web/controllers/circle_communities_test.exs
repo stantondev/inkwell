@@ -89,7 +89,12 @@ defmodule InkwellWeb.CircleCommunitiesTest do
     test "members post entries; they show on the circle page and in other members' Feeds" do
       owner = established()
       member = established()
-      stranger = established()
+      # Opted out of new writers' first entries, which reach everyone's Feed.
+      stranger =
+        established()
+        |> Ecto.Changeset.change(settings: %{"new_writers_in_feed_disabled" => true})
+        |> Inkwell.Repo.update!()
+
       circle = make_circle(owner)
       join(member, circle)
 

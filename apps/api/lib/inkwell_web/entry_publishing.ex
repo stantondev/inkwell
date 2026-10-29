@@ -132,6 +132,7 @@ defmodule InkwellWeb.EntryPublishing do
     if user.blocked_at == nil and user.moderation_state != "limited" and
          Inkwell.Journals.first_entry?(entry) do
       Task.start(fn -> Inkwell.Slack.notify_first_entry(user, entry) end)
+      Inkwell.FirstEntryNotices.queue(entry)
     end
 
     :ok

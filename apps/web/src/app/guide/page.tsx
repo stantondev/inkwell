@@ -91,6 +91,14 @@ export default function GuidePage() {
             narrows it to one or the other.
           </p>
           <p>
+            When someone new to Inkwell publishes their <strong>first entry</strong>,
+            it also appears in everyone&rsquo;s Feed for a week, marked{" "}
+            <strong>New to Inkwell</strong>, so newcomers aren&rsquo;t writing to an
+            empty room. You can leave them out in Settings &rarr; Content safety. If
+            you like welcoming people, Settings &rarr; Notifications can tell you
+            whenever a new writer posts their first entry.
+          </p>
+          <p>
             <strong>Explore</strong> is public: writing from everyone on
             Inkwell, whether you follow them or not. Think of it as a bookshop.
             It opens on the newest writing. The <strong>ribbon bookmark</strong>{" "}

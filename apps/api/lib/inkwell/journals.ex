@@ -1412,6 +1412,74 @@ defmodule Inkwell.Journals do
     |> MapSet.new()
   end
 
+  # ── New writers' first entries ─────────────────────────────────────────────
+
+  @newcomer_days 7
+  @newcomer_account_days 60
+
+  @doc """
+  First entries from new writers, newest first: shown in everyone's Feed for a
+  week ("New to Inkwell") and the subject of opt-in first-entry notices
+  (`Inkwell.FirstEntryNotices`). Asked for by @stoicalgeezer (2026-10-29): a
+  newcomer's post reached nobody's Feed, because nobody followed them yet, and
+  Explore's "Waiting for a reply" was used by three people in two weeks.
+
+  Only a public, non-imported entry (not a sticky or a quote reprint) that is
+  the writer's first, published in the last 7 days, by an account under 60
+  days old that isn't suspended or held back from the homepage
+  (`showcase_excluded_user_ids/0`: spam-limited accounts and new accounts
+  that post outside links without talking to anyone). Checked against
+  production before shipping: in the two weeks to 2026-10-29 that rule kept
+  every ad out and let all 14 real newcomers through.
+
+  Options: `:exclude_user_ids`, `:exclude_circle_ids` (posts the viewer
+  already sees through a circle), `:offset`, `:limit`.
+  """
+  def list_newcomer_first_entries(opts \\ []) do
+    exclude_users = Keyword.get(opts, :exclude_user_ids, [])
+    exclude_circles = Keyword.get(opts, :exclude_circle_ids, [])
+
+    newcomer_first_entries_query()
+    |> where([e], e.user_id not in ^exclude_users)
+    |> where([e], is_nil(e.circle_id) or e.circle_id not in ^exclude_circles)
+    |> order_by([e], desc: e.published_at)
+    |> offset(^Keyword.get(opts, :offset, 0))
+    |> limit(^Keyword.get(opts, :limit, 20))
+    |> preload([:user, :user_icon])
+    |> Repo.all()
+  end
+
+  @doc "True when `entry_id` currently qualifies for `list_newcomer_first_entries/1`."
+  def newcomer_first_entry?(entry_id) do
+    newcomer_first_entries_query() |> where([e], e.id == ^entry_id) |> Repo.exists?()
+  end
+
+  defp newcomer_first_entries_query do
+    now = DateTime.utc_now()
+    since = DateTime.add(now, -@newcomer_days, :day)
+    joined_after = DateTime.add(now, -@newcomer_account_days, :day)
+
+    from(e in Entry,
+      as: :entry,
+      join: u in assoc(e, :user),
+      where: e.status == :published and e.privacy == :public and e.kind == "entry",
+      where: is_nil(e.imported_from) and coalesce(e.source, "") != "import",
+      where: is_nil(e.quoted_entry_id) and is_nil(e.quoted_remote_entry_id),
+      where: e.published_at >= ^since and e.published_at <= ^now,
+      where: u.inserted_at >= ^joined_after and is_nil(u.blocked_at),
+      where: e.user_id not in subquery(showcase_excluded_user_ids()),
+      where:
+        not exists(
+          from(p in Entry,
+            where:
+              p.user_id == parent_as(:entry).user_id and p.id != parent_as(:entry).id and
+                p.status == :published and p.kind == "entry" and is_nil(p.imported_from) and
+                p.published_at <= parent_as(:entry).published_at
+          )
+        )
+    )
+  end
+
   @doc """
   True when `entry` is its writer's first published entry (stickies and
   imported posts don't count).

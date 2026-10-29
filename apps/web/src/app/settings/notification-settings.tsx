@@ -11,6 +11,7 @@ export function NotificationSettings() {
   const [hideBadges, setHideBadges] = useState(false);
   const [popupsDisabled, setPopupsDisabled] = useState(false);
   const [newEntryNoticesDisabled, setNewEntryNoticesDisabled] = useState(false);
+  const [firstEntryNotices, setFirstEntryNotices] = useState(false);
   const [pushDisabled, setPushDisabled] = useState(false);
   const [emailDisabled, setEmailDisabled] = useState(false);
   const [letterEmailsDisabled, setLetterEmailsDisabled] = useState(false);
@@ -39,6 +40,7 @@ export function NotificationSettings() {
         setHideBadges(!!data.settings?.hide_notification_badges);
         setPopupsDisabled(!!data.settings?.notification_popups_disabled);
         setNewEntryNoticesDisabled(!!data.settings?.new_entry_notices_disabled);
+        setFirstEntryNotices(!!data.settings?.first_entry_notices);
         setPushDisabled(!!data.settings?.push_notifications_disabled);
         setEmailDisabled(!!data.settings?.email_notifications_disabled);
         setLetterEmailsDisabled(!!data.settings?.letter_emails_disabled);
@@ -277,6 +279,25 @@ export function NotificationSettings() {
             <span className="text-sm font-medium">Tell me when someone I follow publishes</span>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
               A notice here on Inkwell when a writer you follow publishes a new entry (never by email or push). If they publish more than one in a day, it&apos;s still one notice.
+            </p>
+          </div>
+        </label>
+
+        <label
+          className="flex items-start gap-3 cursor-pointer mb-4"
+          style={{ opacity: saving ? 0.6 : 1 }}
+        >
+          <input
+            type="checkbox"
+            checked={firstEntryNotices}
+            onChange={(e) => toggleSetting("first_entry_notices", e.target.checked, setFirstEntryNotices)}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-medium">Tell me when a new writer posts their first entry</span>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              For people who like to welcome newcomers. A notice here (and a push notification, if you&apos;ve turned those on) when someone new to Inkwell publishes their first entry.
             </p>
           </div>
         </label>

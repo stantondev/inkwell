@@ -362,6 +362,10 @@ defmodule InkwellWeb.SearchController do
     Inkwell.Accounts.User
     |> where([u], ilike(u.username, ^pattern) or ilike(u.display_name, ^pattern))
     |> where([u], is_nil(u.blocked_at))
+    # Spam-limited accounts and new ones posting outside links without talking
+    # to anyone, as on the homepage. Until 2026-10-29 search was the one place
+    # they still showed up, and members welcomed ad accounts found through it.
+    |> where([u], u.id not in subquery(Inkwell.Journals.showcase_excluded_user_ids()))
     |> limit(20)
     |> Inkwell.Repo.all()
     |> Enum.map(fn u ->
@@ -380,6 +384,7 @@ defmodule InkwellWeb.SearchController do
 
     Inkwell.Journals.Entry
     |> where([e], e.privacy == :public and e.status == :published)
+    |> where([e], e.user_id not in subquery(Inkwell.Journals.showcase_excluded_user_ids()))
     |> where(
       [e],
       ilike(e.title, ^pattern) or ilike(e.body_html, ^pattern) or

@@ -207,6 +207,9 @@ export default async function FeedPage({ searchParams }: PageProps) {
     ? entries.filter((e) => e.author.id !== session.user.id && Date.parse(arrivedAt(e)) > Date.parse(seenAt)).length
     : 0;
   const nowIso = new Date().toISOString();
+  // Only new writers' first entries (no one followed yet): keep the writer
+  // suggestions the empty Feed would have shown, at the end of the book.
+  const onlyNewcomers = !feedError && page === 1 && !activeSource && entries.length > 0 && entries.every((e) => e.newcomer);
 
   // Fetch featured entries for the empty feed state
   let featuredEntries: JournalEntry[] = [];
@@ -303,8 +306,8 @@ export default async function FeedPage({ searchParams }: PageProps) {
             learnMoreHref="/guide#feed-explore"
             serverDismissed={false}
           >
-            Everyone you follow, newest first. Follow a writer and their public
-            entries arrive here right away.
+            Everyone you follow, newest first, plus the first entry of anyone new
+            to Inkwell. Follow a writer and their public entries arrive here right away.
           </EducationCard>
         )}
       </header>
@@ -322,12 +325,18 @@ export default async function FeedPage({ searchParams }: PageProps) {
           loadMorePath={`/api/feed${activeSource ? `?source=${activeSource}` : ""}`}
           extraParams={sourceParam}
           newSince={seenAt}
-          endNote={
+          endNote={onlyNewcomers ? (
+            <>
+              <p className="feed-end-title">Those are new writers&apos; first entries. Follow a few writers and their entries arrive here too.</p>
+              <SuggestedWriters limit={4} />
+              <Link href="/explore" className="feed-end-link">Find more writers on Explore →</Link>
+            </>
+          ) : (
             <>
               <p className="feed-end-title">That&apos;s everything from the people you follow.</p>
               <Link href="/explore" className="feed-end-link">Find more writers on Explore →</Link>
             </>
-          }
+          )}
           emptyState={feedError ? (
             <div
               className="rounded-2xl border p-12 text-center"

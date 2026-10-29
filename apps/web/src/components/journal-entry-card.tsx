@@ -124,6 +124,8 @@ export interface JournalEntry {
   circle?: { id: string; name: string; slug: string } | null;
   /** The writer's first entry (published in the last 30 days) */
   first_entry?: boolean;
+  /** In the Feed because it's a new writer's first entry, not because you follow them */
+  newcomer?: boolean;
   author: {
     id?: string;
     username: string;
@@ -239,7 +241,11 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
         {!isCompact && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 pr-20 sm:pr-28">
             {isNew && <span className="feed-new-tag">New</span>}
-            {entry.first_entry && (
+            {entry.newcomer ? (
+              <span className="feed-first-tag" title="This writer is new to Inkwell. Their first entry shows in everyone's Feed for a week.">
+                New to Inkwell
+              </span>
+            ) : entry.first_entry && (
               <span className="feed-first-tag" title="The first entry this writer has published on Inkwell. Say hello?">
                 First entry
               </span>

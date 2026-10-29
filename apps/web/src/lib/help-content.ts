@@ -23,7 +23,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "gs-account", title: "Creating your account", snippet: "Sign up with a magic link — no password needed.", keywords: ["signup", "register", "magic link", "email", "login"], category: "getting-started", href: "/help/getting-started#first-entry" },
   { id: "gs-onboarding", title: "The onboarding wizard", snippet: "Set your username, avatar, bio, theme, and read the community guidelines.", keywords: ["onboarding", "setup", "wizard", "welcome"], category: "getting-started", href: "/help/getting-started#first-entry" },
   { id: "gs-first-entry", title: "Writing your first entry", snippet: "Open the editor, write something, set visibility, and hit Publish.", keywords: ["first", "write", "publish", "editor", "entry"], category: "getting-started", href: "/help/getting-started#first-entry" },
-  { id: "gs-feed", title: "Understanding Feed vs Explore", snippet: "Feed shows entries from people you follow. Explore shows everything.", keywords: ["feed", "explore", "discover", "timeline"], category: "getting-started", href: "/help/getting-started#finding-people" },
+  { id: "gs-feed", title: "Understanding Feed vs Explore", snippet: "Feed shows entries from people you follow, plus new writers' first entries. Explore shows everything.", keywords: ["feed", "explore", "discover", "timeline"], category: "getting-started", href: "/help/getting-started#finding-people" },
   { id: "gs-follow", title: "Following writers", snippet: "Visit a profile and click Follow to add them as a pen pal.", keywords: ["follow", "pen pal", "friend", "connection"], category: "getting-started", href: "/help/getting-started#finding-people" },
 
   // ── Writing & Publishing ──

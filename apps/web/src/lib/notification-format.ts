@@ -99,6 +99,9 @@ export function notificationText(n: Notification): string {
       const count = Number(n.data?.count ?? 1);
       return count > 1 ? `published ${count} new entries` : "published a new entry";
     }
+    case "first_entry":
+      // Opt-in (Settings → Notifications): a new writer's first entry.
+      return "posted their first entry on Inkwell";
     case "reprint":
       return "reprinted your entry";
     case "margin_note": {

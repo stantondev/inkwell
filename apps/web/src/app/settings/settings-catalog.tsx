@@ -129,7 +129,7 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
       "Email, push and in-app alerts. Mute the chimes, hide the badges, or pause everything at once.",
     icon: I.bell,
     group: "account",
-    keywords: ["push", "email", "sound", "badge", "alerts", "popups"],
+    keywords: ["push", "email", "sound", "badge", "alerts", "popups", "new writers", "welcome", "first entry"],
   },
 
   // ── Your space ───────────────────────────────────────────────────────
@@ -295,10 +295,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     id: "content-safety",
     href: "/settings/content-safety",
     title: "Content safety",
-    blurb: "Whether sensitive entries and Stickies appear in your feeds, plus eye-comfort mode.",
+    blurb: "Whether sensitive entries, Stickies and new writers' first entries appear in your feeds, plus eye-comfort mode.",
     icon: I.shield,
     group: "privacy",
-    keywords: ["sensitive", "content warning", "stickies", "eye comfort"],
+    keywords: ["sensitive", "content warning", "stickies", "eye comfort", "new writers", "newcomers"],
   },
   {
     id: "blocked",

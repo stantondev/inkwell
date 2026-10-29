@@ -57,6 +57,24 @@ defmodule InkwellWeb.FeedController do
         end, not_redacted, needed)
       end
 
+    # First entries from new writers nobody follows yet ("New to Inkwell"),
+    # for a week, unless the reader turned them off. Same spam rules as the
+    # homepage (see Journals.list_newcomer_first_entries/1).
+    newcomer_source =
+      if source_filter == "fediverse" or (is_binary(category_filter) and category_filter != "") or
+           not shows_newcomers?(user) do
+        {[], true}
+      else
+        exclude = Enum.uniq([user.id | followed_ids ++ blocked_ids ++ subscribed_writer_ids])
+        circle_ids = Inkwell.Circles.member_circle_ids(user.id)
+
+        Timeline.take(fn offset, limit ->
+          Journals.list_newcomer_first_entries(
+            exclude_user_ids: exclude, exclude_circle_ids: circle_ids, offset: offset, limit: limit)
+          |> Enum.map(&%{type: :local, newcomer: true, entry: &1, published_at: &1.published_at, ink_count: &1.ink_count || 0})
+        end, not_redacted, needed)
+      end
+
     remote_source =
       cond do
         source_filter == "inkwell" -> {[], true}
@@ -105,7 +123,7 @@ defmodule InkwellWeb.FeedController do
     end
 
     {all_items, has_more} =
-      Timeline.page([local_source, remote_source, reprint_source], sorter, page, per_page)
+      Timeline.page([local_source, newcomer_source, remote_source, reprint_source], &(&1 |> drop_repeated_newcomers() |> sorter.()), page, per_page)
 
     # Build stamp/comment maps for local entries
     local_entry_ids =
@@ -137,7 +155,7 @@ defmodule InkwellWeb.FeedController do
     Engagement.refresh_stale(remote_entries)
 
     data = Enum.map(all_items, fn
-      %{type: :local, entry: entry} ->
+      %{type: :local, entry: entry} = item ->
         author = entry.user || Accounts.get_user!(entry.user_id)
 
         entry
@@ -167,6 +185,7 @@ defmodule InkwellWeb.FeedController do
           my_reprint: MapSet.member?(reprints_set, entry.id),
           series: Map.get(series_map, entry.id),
           first_entry: MapSet.member?(first_entry_ids, entry.id),
+          newcomer: Map.get(item, :newcomer, false),
           is_paid: entry.privacy == :paid
         })
 
@@ -259,6 +278,17 @@ defmodule InkwellWeb.FeedController do
       pagination: %{page: page, per_page: per_page, has_more: has_more}
     })
   end
+
+  # A newcomer's first entry already in the Feed another way (someone you
+  # follow reprinted it) shows once, as that.
+  defp drop_repeated_newcomers(items) do
+    shown = for %{entry: e} = i <- items, not Map.get(i, :newcomer, false), into: MapSet.new(), do: e.id
+    Enum.reject(items, &(Map.get(&1, :newcomer, false) and MapSet.member?(shown, &1.entry.id)))
+  end
+
+  @doc "Whether `user` sees new writers' first entries in the Feed (on unless turned off)."
+  def shows_newcomers?(%{settings: %{"new_writers_in_feed_disabled" => true}}), do: false
+  def shows_newcomers?(_user), do: true
 
   # GET /api/explore/feed.xml — global RSS feed of latest public entries
   def explore_feed(conn, _params) do

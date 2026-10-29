@@ -168,6 +168,8 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "explore_fediverse", label: "Explore: Fediverse tab", group: "discovery", how: :tracked},
     %{key: "explore_waiting", label: "Explore: Waiting for a reply", group: "discovery", how: :tracked},
     %{key: "explore_ribbon", label: "Explore: This month (ribbon)", group: "discovery", how: :tracked},
+    %{key: "first_entry_notices", label: "First-entry notices (welcomers)", group: "discovery", how: :state,
+      sql: "SELECT id AS uid FROM users WHERE coalesce((settings->>'first_entry_notices')::boolean, false)"},
     %{key: "search", label: "Search", group: "discovery", how: :tracked},
     %{key: "fediverse_follows", label: "Following fediverse accounts", group: "discovery", how: :db,
       sql: "SELECT follower_id AS uid, inserted_at AS at FROM relationships WHERE remote_actor_id IS NOT NULL AND follower_id IS NOT NULL"},
@@ -230,7 +232,8 @@ defmodule Inkwell.Usage.Catalog do
     "explore_waiting" => ~D[2026-09-27],
     "explore_ribbon" => ~D[2026-09-28],
     "newsletter_digests" => ~D[2026-10-26],
-    "posts_export" => ~D[2026-10-26]
+    "posts_export" => ~D[2026-10-26],
+    "first_entry_notices" => ~D[2026-10-29]
   }
 
   # Tracked features start counting when tracking ships; until then they

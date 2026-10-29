@@ -102,7 +102,9 @@ function ClassicEntry({
           )}
         </span>
         {isNew && <span className="feed-new-tag">New</span>}
-        {entry.first_entry && <span className="feed-first-tag">First entry</span>}
+        {entry.newcomer ? (
+          <span className="feed-first-tag">New to Inkwell</span>
+        ) : entry.first_entry && <span className="feed-first-tag">First entry</span>}
         <Link href={href} className="classic-entry-date">
           <LocalDate iso={entry.published_at} options={DATE} /> | <LocalDate iso={entry.published_at} options={TIME} />
         </Link>

@@ -239,7 +239,7 @@ export function NotificationIcon({
       </svg>
     );
   }
-  if (type === "new_entry") {
+  if (type === "new_entry" || type === "first_entry") {
     return (
       <svg
         width="14"

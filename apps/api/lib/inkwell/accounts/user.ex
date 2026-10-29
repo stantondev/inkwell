@@ -64,8 +64,8 @@ defmodule Inkwell.Accounts.User do
     # How newsletter posts go out: "each" (as published), "weekly" or "count"
     # (gathered into a digest; Inkwell.Newsletter.Digests)
     field :newsletter_mode, :string, default: "each"
-    field :newsletter_digest_day, :integer, default: 7
-    field :newsletter_digest_hour, :integer, default: 9
+    field :newsletter_digest_day, :integer, default: 4
+    field :newsletter_digest_hour, :integer, default: 14
     field :newsletter_digest_timezone, :string, default: "Etc/UTC"
     field :newsletter_digest_count, :integer, default: 3
 
