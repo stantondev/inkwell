@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SiteLogo } from "./seasonal/site-logo";
+import { TrickOrTreat } from "./seasonal/trick-or-treat";
 import { useLiveNavCounts } from "./live-nav-counts";
 
 // Pages reached from the tab bar or the You sheet: no back button, the logo sits alone.
@@ -94,12 +96,12 @@ export function MobileTopBar({
               </svg>
             </button>
           )}
+          {!isDeepPage && <TrickOrTreat signedIn className="mobile-top-bar-btn" />}
         </div>
 
         <div className="mobile-top-bar-center">
           <Link href="/feed" aria-label="Inkwell home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/inkwell-logo.svg" alt="Inkwell" className="mobile-top-bar-logo dark:brightness-0 dark:invert" />
+            <SiteLogo className="mobile-top-bar-logo dark:brightness-0 dark:invert" />
           </Link>
         </div>
 

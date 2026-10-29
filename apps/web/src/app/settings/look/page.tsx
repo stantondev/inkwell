@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { saveSiteLook, siteLookOf, type SiteLook } from "@/lib/site-look";
+import { SEASON_COOKIE } from "@/lib/seasons";
 
 const OPTIONS: { id: SiteLook; title: string; blurb: string }[] = [
   {
@@ -45,6 +46,8 @@ export default function LookPage() {
   const [current, setCurrent] = useState<SiteLook | null>(null);
   const [saving, setSaving] = useState<SiteLook | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [seasonal, setSeasonal] = useState<boolean | null>(null);
+  const [seasonalSaving, setSeasonalSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -53,6 +56,7 @@ export default function LookPage() {
         if (!res.ok) throw new Error();
         const { data } = await res.json();
         setCurrent(siteLookOf(data?.settings));
+        setSeasonal(data?.settings?.seasonal_decorations !== false);
       } catch {
         setError("Couldn't load your setting. Refresh to try again.");
       }
@@ -65,6 +69,29 @@ export default function LookPage() {
     setError(null);
     if (!(await saveSiteLook(look))) {
       setSaving(null);
+      setError("That didn't save. Try again in a moment.");
+    }
+  }
+
+  async function toggleSeasonal(on: boolean) {
+    if (seasonalSaving) return;
+    setSeasonalSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { seasonal_decorations: on } }),
+      });
+      if (!res.ok) throw new Error();
+      // The cookie covers this browser when signed out; keep it in step.
+      document.cookie = on
+        ? `${SEASON_COOKIE}=; path=/; max-age=0; samesite=lax`
+        : `${SEASON_COOKIE}=off; path=/; max-age=${60 * 60 * 24 * 60}; samesite=lax`;
+      // The server draws the decorations, so reload to show the change.
+      window.location.reload();
+    } catch {
+      setSeasonalSaving(false);
       setError("That didn't save. Try again in a moment.");
     }
   }
@@ -104,6 +131,31 @@ export default function LookPage() {
             </button>
           );
         })}
+      </div>
+      <div
+        className="rounded-xl border p-4 flex items-start justify-between gap-4"
+        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      >
+        <div>
+          <p className="font-semibold">Holiday decorations</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            Inkwell dresses up for the holidays for a few days around them: colours, a decorated logo,
+            and a few surprises (for Hallowe&rsquo;en, bats and a trick-or-treat pumpkin). Turn this
+            off to keep Inkwell as it always looks.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-5 w-5"
+            style={{ accentColor: "var(--accent)" }}
+            checked={!!seasonal}
+            disabled={seasonal === null || seasonalSaving}
+            onChange={(e) => toggleSeasonal(e.target.checked)}
+            aria-label="Holiday decorations"
+          />
+          <span className="text-sm">{seasonalSaving ? "Saving…" : seasonal ? "On" : "Off"}</span>
+        </label>
       </div>
       {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
     </div>

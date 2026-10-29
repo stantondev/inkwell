@@ -35,13 +35,15 @@ export const FEATURES = [
   "search",
   "help",
   "whats_new",
+  "trick_or_treat",
 ] as const;
 
 export type Feature = (typeof FEATURES)[number];
 
 /** Steps a feature may report, beyond "used it". Only these are counted. */
-// None today: the Dead Letter Office game used them and was retired on 2026-10-28.
-export type FeatureAction = Record<never, string>;
+export type FeatureAction = {
+  trick_or_treat: "treat" | "trick";
+};
 
 /** Details a feature may add to a step. */
 export type FeatureDetail = Record<never, string>;

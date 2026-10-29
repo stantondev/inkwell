@@ -59,7 +59,8 @@ export function StampSheet({
         const types = stampsInSheet(s);
         if (types.length === 0) return null;
         const locked = s === "keepsake" && !isPlus;
-        const issued = s === "issue" ? STAMP_CONFIG[types[0]]?.issued : null;
+        // One issue on the sheet: say when it was issued. Several: the plain blurb.
+        const issued = s === "issue" && types.length === 1 ? STAMP_CONFIG[types[0]]?.issued : null;
         return (
           <section key={s} className={`stamp-sheet-section${locked ? " is-locked" : ""}`}>
             <h3 className="stamp-sheet-section-title">

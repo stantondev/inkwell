@@ -116,10 +116,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     id: "look",
     href: "/settings/look",
     title: "Look & feel",
-    blurb: "Modern, or Classic (2004): Feed and Explore as one long column of entries, with the early-web look everywhere else.",
+    blurb: "Modern, or Classic (2004): Feed and Explore as one long column of entries, with the early-web look everywhere else. Holiday decorations live here too.",
     icon: I.look,
     group: "account",
-    keywords: ["classic", "2004", "retro", "old", "theme", "view", "layout", "nostalgia", "early web"],
+    keywords: ["classic", "2004", "retro", "old", "theme", "view", "layout", "nostalgia", "early web", "halloween", "holiday", "seasonal", "decorations", "bats", "pumpkin"],
   },
   {
     id: "notifications",

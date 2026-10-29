@@ -7,6 +7,8 @@ import { getSessionSafe } from "@/lib/session";
 import { siteLookOf } from "@/lib/site-look";
 import { splashStartupImages } from "@/lib/splash-screens";
 import { getSite, siteScript } from "@/lib/site";
+import { cookies, headers } from "next/headers";
+import { decorationsOff, SEASON_COOKIE, siteSeason, type SeasonId } from "@/lib/seasons";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const lora = Lora({ variable: "--font-lora", subsets: ["latin"], display: "swap" });
@@ -27,8 +29,13 @@ export const viewport: Viewport = {
 
 // A function, not a constant, so the address and name are read on the running
 // server (a self-hosted image is built once and serves any domain).
-export function generateMetadata(): Metadata {
+export async function generateMetadata(): Promise<Metadata> {
   const site = getSite();
+  // The season's own favicon (by date), but not on a writer's own domain or
+  // for someone who turned decorations off (the cookie is set either way).
+  const h = await headers();
+  const off = (await cookies()).get(SEASON_COOKIE)?.value === "off";
+  const season = off || h.get("x-custom-domain") || h.get("x-inkwell-export") === "1" ? null : siteSeason();
 
   return {
     title: { default: site.name, template: `%s · ${site.name}` },
@@ -45,7 +52,7 @@ export function generateMetadata(): Metadata {
       images: ["/api/og"],
     },
     icons: {
-      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+      icon: [{ url: season ? `/favicon-${season}.svg` : "/favicon.svg", type: "image/svg+xml" }],
       apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
     },
     appleWebApp: {
@@ -62,6 +69,7 @@ export function generateMetadata(): Metadata {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { session, unavailable } = await getSessionSafe();
   const site = getSite();
+  const season = await currentSeason(session?.user.settings);
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -113,6 +121,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body
         className={`${inter.variable} ${lora.variable} antialiased`}
         data-look={siteLookOf(session?.user.settings) === "classic" ? "classic" : undefined}
+        data-season={season ?? undefined}
         suppressHydrationWarning
       >
         {/*
@@ -135,11 +144,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `try{var o=localStorage.getItem("inkwell-sidebar-collapsed");if(o==="true"){localStorage.removeItem("inkwell-sidebar-collapsed");localStorage.setItem("inkwell-sidebar-hidden","true")}if(localStorage.getItem("inkwell-sidebar-hidden")==="true")document.body.setAttribute("data-sidebar-hidden","");if(localStorage.getItem("inkwell-eye-comfort")==="true")document.body.classList.add("eye-comfort")}catch(e){}`,
           }}
         />
-        <AppShell user={session?.user ?? null} sessionUnavailable={unavailable}>
+        <AppShell user={session?.user ?? null} sessionUnavailable={unavailable} season={season}>
           {children}
         </AppShell>
         <ServiceWorkerRegister />
       </body>
     </html>
   );
+}
+
+/**
+ * The season this page is dressed for (lib/seasons.ts): none on a writer's
+ * custom domain or a downloaded site, or for a reader who turned it off.
+ */
+async function currentSeason(settings: Record<string, unknown> | undefined): Promise<SeasonId | null> {
+  const season = siteSeason();
+  if (!season) return null;
+  const h = await headers();
+  if (h.get("x-custom-domain") || h.get("x-inkwell-export") === "1") return null;
+  const c = await cookies();
+  return decorationsOff(settings, c.get(SEASON_COOKIE)?.value) ? null : season;
 }

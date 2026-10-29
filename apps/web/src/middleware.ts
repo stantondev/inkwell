@@ -122,6 +122,7 @@ export async function middleware(request: NextRequest) {
       pathname === "/robots.txt" ||
       pathname === "/sitemap.xml" ||
       pathname === "/favicon.svg" ||
+      /^\/favicon-[a-z]+\.svg$/.test(pathname) ||
       pathname === "/favicon.ico" ||
       pathname === "/inkwell-logo.svg" ||
       pathname === "/sw.js" ||

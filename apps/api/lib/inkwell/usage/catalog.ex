@@ -196,7 +196,11 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "data_exports", label: "Data export", group: "tools", how: :db, core: true,
       sql: "SELECT user_id AS uid, inserted_at AS at FROM data_exports"},
     %{key: "help", label: "Help pages", group: "tools", how: :tracked},
-    %{key: "whats_new", label: "What's new", group: "tools", how: :tracked}
+    %{key: "whats_new", label: "What's new", group: "tools", how: :tracked},
+    %{key: "trick_or_treat", label: "Trick or treat (Hallowe'en pumpkin)", group: "tools", how: :tracked,
+      actions: ["treat", "trick"]},
+    %{key: "seasonal_off", label: "Holiday decorations turned off", group: "tools", how: :state,
+      sql: "SELECT id AS uid FROM users WHERE settings->>'seasonal_decorations' = 'false'"}
   ]
 
   # `core: true` = never called a retirement candidate: the basics, and the
@@ -233,7 +237,9 @@ defmodule Inkwell.Usage.Catalog do
     "explore_ribbon" => ~D[2026-09-28],
     "newsletter_digests" => ~D[2026-10-26],
     "posts_export" => ~D[2026-10-26],
-    "first_entry_notices" => ~D[2026-10-29]
+    "first_entry_notices" => ~D[2026-10-29],
+    "trick_or_treat" => ~D[2026-10-29],
+    "seasonal_off" => ~D[2026-10-29]
   }
 
   # Tracked features start counting when tracking ships; until then they

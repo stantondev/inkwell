@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-29-halloween",
+    date: "2026-10-29",
+    title: "Inkwell dresses up for Hallowe\u2019en",
+    body: "Until the 31st, Inkwell is in costume: pumpkin colours by day and a moonlit night in dark mode, a witch\u2019s hat on the logo, the odd bat crossing the page and a spider in the corner. Knock on the pumpkin beside the logo for a trick or a treat: a treat is a spooky writing prompt you can start an entry from, a trick is\u2026 a trick. There\u2019s also a Hallowe\u2019en 2026 stamp to send, issued once and kept forever. Inkwell will dress up for other holidays too. Thanks to the person who suggested it.",
+    howTo: "Not for you? Settings \u2192 Look & feel \u2192 Holiday decorations, or \u201cTurn off seasonal decorations\u201d under the pumpkin.",
+    href: "/settings/look",
+    cta: "Look & feel",
+  },
+  {
     id: "2026-10-29-reply-to-mentions",
     date: "2026-10-29",
     title: "Reply to fediverse mentions",

@@ -111,6 +111,10 @@ defmodule InkwellWeb.StampsTest do
 
     res = build_conn() |> log_in_user(r) |> stamp(e, %{stamp_type: "autumn_2026"})
     assert json_response(res, 200)["data"]["stamp_type"] == "autumn_2026"
+
+    # Free for everyone, like every issue.
+    res = build_conn() |> log_in_user(r) |> stamp(e, %{stamp_type: "halloween_2026"})
+    assert json_response(res, 200)["data"]["stamp_type"] == "halloween_2026"
   end
 
   test "Keepsakes are for Plus members", %{entry: e} do

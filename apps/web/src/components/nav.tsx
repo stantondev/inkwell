@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { SessionUser } from "@/lib/session";
 import { BackButton } from "./back-button";
 import { PublicNavLinks } from "./public-nav-links";
+import { SiteLogo } from "./seasonal/site-logo";
+import { TrickOrTreat } from "./seasonal/trick-or-treat";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -9,12 +11,7 @@ import { PublicNavLinks } from "./public-nav-links";
 function InkwellLogo() {
   return (
     <Link href="/" className="flex items-center group" aria-label="Inkwell home">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/inkwell-logo.svg"
-        alt="Inkwell"
-        className="h-10 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert"
-      />
+      <SiteLogo className="h-10 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert" />
     </Link>
   );
 }
@@ -35,6 +32,7 @@ export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null;
         <div className="flex items-center gap-1">
           {user && <BackButton />}
           <InkwellLogo />
+          <TrickOrTreat signedIn={!!user} className="nav-tot" />
         </div>
 
         {/* Right: where to look + Sign in / Get started (signed-out only;

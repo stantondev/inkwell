@@ -9,6 +9,9 @@ import { SearchCommand } from "./search-command";
 import { JotComposer } from "./jot-composer";
 import { NotificationToaster } from "./notification-toaster";
 import { MobileViewport } from "./mobile-viewport";
+import { SeasonProvider } from "./seasonal/season-context";
+import { HalloweenAtmosphere } from "./seasonal/halloween-atmosphere";
+import type { SeasonId } from "@/lib/seasons";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -21,11 +24,14 @@ import { MobileViewport } from "./mobile-viewport";
 export async function AppShell({
   user,
   sessionUnavailable = false,
+  season = null,
   children,
 }: {
   user: SessionUser | null;
   /** The API couldn't be reached — don't offer "Sign in" to someone who may be signed in. */
   sessionUnavailable?: boolean;
+  /** The holiday the site is dressed for (lib/seasons.ts), already off for readers who turned it off. */
+  season?: SeasonId | null;
   children: React.ReactNode;
 }) {
   const headersList = await headers();
@@ -44,7 +50,7 @@ export async function AppShell({
 
   // Standard mode
   return (
-    <>
+    <SeasonProvider season={season}>
       {/* Logged-in mobile: MobileTopBar (<lg only) */}
       {user && (
         // Sticky on this wrapper, not on the header inside it: a sticky element
@@ -104,6 +110,9 @@ export async function AppShell({
           draftCount={user.draft_count ?? 0}
         />
       )}
-    </>
+
+      {/* Holiday decorations: bats, a spider, the pumpkin's tricks */}
+      <HalloweenAtmosphere />
+    </SeasonProvider>
   );
 }

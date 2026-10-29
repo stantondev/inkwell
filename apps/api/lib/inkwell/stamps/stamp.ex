@@ -18,7 +18,7 @@ defmodule Inkwell.Stamps.Stamp do
   # Free for everyone, always offered.
   @everyday [:felt, :rooting, :beautifully_said, :holding_space, :thank_you, :made_me_laugh, :first_class]
   # Dated commemorative issues: free, never withdrawn.
-  @issues [:autumn_2026]
+  @issues [:autumn_2026, :halloween_2026]
   # The Plus members' sheet.
   @keepsakes [:wax_seal, :gilded, :pressed_flower]
   # No longer offered; stamps already given still show.

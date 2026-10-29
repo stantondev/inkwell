@@ -3,6 +3,8 @@
 import { PLUS_SHORT } from "@/lib/plus-pitch";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SiteLogo } from "./seasonal/site-logo";
+import { TrickOrTreat } from "./seasonal/trick-or-treat";
 import { useLiveNavCounts } from "./live-nav-counts";
 import { AvatarWithFrame } from "./avatar-with-frame";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -269,9 +271,9 @@ export function SidebarNav({
       {/* ─── Top: logo + hide ─── */}
       <div className="sidebar-top">
         <Link href="/feed" aria-label="Inkwell — your feed" className="sidebar-logo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/inkwell-logo.svg" alt="Inkwell" className="dark:brightness-0 dark:invert" style={{ height: 34, width: "auto" }} />
+          <SiteLogo className="dark:brightness-0 dark:invert" style={{ height: 34, width: "auto" }} />
         </Link>
+        <TrickOrTreat signedIn className="sidebar-tot" />
         <button
           type="button"
           className="sidebar-icon-btn"

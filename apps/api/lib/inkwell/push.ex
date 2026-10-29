@@ -115,7 +115,7 @@ defmodule Inkwell.Push do
   @stamp_labels %{
     "felt" => "Felt", "rooting" => "Rooting For You", "beautifully_said" => "Beautifully Said",
     "holding_space" => "Holding Space", "thank_you" => "Thank You", "made_me_laugh" => "Made Me Laugh",
-    "first_class" => "First Class", "autumn_2026" => "Autumn Leaves", "wax_seal" => "Sealed With Care",
+    "first_class" => "First Class", "autumn_2026" => "Autumn Leaves", "halloween_2026" => "Hallowe'en", "wax_seal" => "Sealed With Care",
     "gilded" => "Gilded", "pressed_flower" => "Pressed Flower", "throwback" => "Throwback",
     "i_cannot" => "I Cannot", "abroad" => "From Abroad"
   }

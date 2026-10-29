@@ -38,6 +38,8 @@ export interface StampArtOptions {
   rasterSafe?: boolean;
 }
 
+import { BAT_D } from "@/components/seasonal/halloween-art";
+
 const PAPER = "#fbf6ea";
 const FONT = "Georgia, serif";
 
@@ -564,6 +566,49 @@ const DESIGNS: Record<string, Design> = {
       `<path d="${leafD(20, 22, 5, 0.6)}" transform="rotate(-35 20 22)" fill="#c97b2a"/>` +
       `<path d="M20 17V27" stroke="#8a4a14" stroke-width="0.4" transform="rotate(-35 20 22)"/>` +
       `<text x="12" y="70.5" font-family="${FONT}" font-weight="bold" font-size="8.4" letter-spacing="0.4" fill="#7a2a13">2026</text>`,
+  },
+
+  // Hallowe'en 2026 commemorative: a jack-o'-lantern under a full moon, its
+  // stem an Inkwell nib, bats crossing the moon. Denomination 31, for the night.
+  halloween_2026: {
+    bg: "#1c1233",
+    band: "#241530",
+    bandInk: "#ffb36b",
+    frame: "#f07a24",
+    top: "#f3e2c0",
+    denom: "31",
+    badge: "#f07a24",
+    badgeInk: "#241530",
+    name: "Hallowe'en",
+    art: () =>
+      bands([
+        [7, "#1c1233"],
+        [22, "#261640"],
+        [38, "#33194a"],
+        [52, "#46204f"],
+        [62, "#5a2950"],
+      ]) +
+      hatch(ART, 1.8, "#ffffff", 0.05) +
+      sparkle(16, 24, 1.6, "#f6e7b8", 0.85) +
+      sparkle(27, 13, 1.1, "#f6e7b8", 0.7) +
+      sparkle(66, 50, 1.2, "#f6e7b8", 0.7) +
+      sparkle(31, 36, 0.9, "#f6e7b8", 0.6) +
+      `<circle cx="50" cy="33" r="18" fill="#f4e4b0" opacity="0.12"/>` +
+      `<circle cx="50" cy="33" r="13" fill="#f4e4b0"/>` +
+      `<circle cx="45.5" cy="29" r="2.2" fill="#e3cf92"/><circle cx="54" cy="37" r="3" fill="#e3cf92"/><circle cx="53" cy="27" r="1.3" fill="#e3cf92"/>` +
+      `<path d="${BAT_D}" transform="translate(36 25) scale(0.17)" fill="#140b1f"/>` +
+      `<path d="${BAT_D}" transform="translate(55 42) scale(0.11)" fill="#140b1f"/>` +
+      `<path d="${BAT_D}" transform="translate(17 31) scale(0.09)" fill="#140b1f"/>` +
+      `<path d="M7 60Q24 52 40 58Q56 64 73 56V74H7Z" fill="#170c22"/>` +
+      `<path d="M12 74C13 64 12 56 9 48M11.4 57C15 53 18 51 22 46M9.8 50.5C8.6 47 7.6 44.5 7 42.5M18.4 49.6C20 47 21.4 44.6 24.5 43.4M21 47C22.5 47.4 24 48.6 25 50" fill="none" stroke="#170c22" stroke-width="1.7" stroke-linecap="round"/>` +
+      `<ellipse cx="44" cy="69.5" rx="13" ry="3" fill="#ffb347" opacity="0.25"/>` +
+      `<ellipse cx="40" cy="64.4" rx="6" ry="5.4" fill="#d9601a"/>` +
+      `<ellipse cx="48" cy="64.4" rx="6" ry="5.4" fill="#d9601a"/>` +
+      `<ellipse cx="44" cy="64.2" rx="6.4" ry="5.8" fill="#f07a24"/>` +
+      `<path d="M41.6 58.8C40 61 40 67.4 41.6 69.6M46.4 58.8C48 61 48 67.4 46.4 69.6" fill="none" stroke="#c4521a" stroke-width="0.5"/>` +
+      `<path d="M39.6 62.6L41.5 60.8L42.3 63.4ZM48.4 62.6L46.5 60.8L45.7 63.4ZM43.2 63.8H44.8L44 65.3ZM39.4 65.6C40.8 68.4 47.2 68.4 48.6 65.6L47.4 66.3L46.6 65.7L45.4 66.8L44.4 65.9L44 66.9L43.6 65.9L42.6 66.8L41.4 65.7L40.6 66.3Z" fill="#ffd34d"/>` +
+      nib(44, 56.2, 0.2, "#4c6a22", "#170c22") +
+      `<text x="61" y="71.4" text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="6.2" letter-spacing="0.3" fill="#f07a24">2026</text>`,
   },
 
   // Keepsake: a red wax seal, pressed with the Inkwell nib, on an envelope.

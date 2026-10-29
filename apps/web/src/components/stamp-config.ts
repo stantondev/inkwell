@@ -32,6 +32,12 @@ export const STAMP_CONFIG: Record<string, StampInfo> = {
   made_me_laugh: { label: "Made Me Laugh", description: "This made me laugh", sheet: "everyday" },
   first_class: { label: "First Class", description: "First-class writing", sheet: "everyday" },
 
+  halloween_2026: {
+    label: "Hallowe'en",
+    description: "A treat from the dark",
+    sheet: "issue",
+    issued: "Hallowe'en 2026",
+  },
   autumn_2026: {
     label: "Autumn Leaves",
     description: "A leaf from this autumn",
@@ -57,7 +63,7 @@ export const STAMP_TYPES = Object.keys(STAMP_CONFIG).filter((k) => {
 
 export const STAMP_SHEETS: { sheet: StampSheet; title: string; blurb: string }[] = [
   { sheet: "everyday", title: "Everyday stamps", blurb: "For any page that moved you" },
-  { sheet: "issue", title: "This season's issue", blurb: "Issued once, kept forever" },
+  { sheet: "issue", title: "Seasonal issues", blurb: "Issued once, kept forever" },
   { sheet: "keepsake", title: "Keepsakes", blurb: "A sheet for Plus members" },
 ];
 

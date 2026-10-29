@@ -50,6 +50,7 @@ import { UserpicPicker } from "@/components/userpic-picker";
 import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
 import { readingMinutes } from "@/lib/reading-time";
 import { DeleteDialog } from "@/app/editor/delete-dialog";
+import { halloweenPrompt } from "@/lib/halloween-prompts";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
 
@@ -2593,14 +2594,27 @@ export function EditorClient() {
   // Apply writing prompt for first-time users from onboarding
   const promptApplied = useRef(false);
   useEffect(() => {
-    if (promptParam !== "welcome" || editId || !editor || promptApplied.current) return;
+    if (editId || !editor || promptApplied.current) return;
+    if (promptParam === "halloween") {
+      // A treat from the trick-or-treat pumpkin (components/seasonal).
+      const treat = halloweenPrompt(Number(searchParams.get("n")));
+      if (!treat) return;
+      promptApplied.current = true;
+      setState((s) => ({ ...s, title: treat.title, tags: s.tags || "halloween" }));
+      editor.commands.setContent(`<p data-spacing="tight"><em>${treat.body}</em></p><p data-spacing="tight"></p>`, { emitUpdate: false });
+      editor.commands.focus("end");
+      setHasContent(!!editor.getText().trim());
+      setWordCount(editor.storage.characterCount.words());
+      return;
+    }
+    if (promptParam !== "welcome") return;
     promptApplied.current = true;
     const prompt = WELCOME_PROMPTS[Math.floor(Math.random() * WELCOME_PROMPTS.length)];
     setState((s) => ({ ...s, title: prompt.title }));
     editor.commands.setContent(prompt.body, { emitUpdate: false });
     setHasContent(!!editor.getText().trim());
     setWordCount(editor.storage.characterCount.words());
-  }, [promptParam, editId, editor]);
+  }, [promptParam, editId, editor, searchParams]);
 
   const update = (patch: Partial<EditorState>) => {
     setState((s) => ({ ...s, ...patch }));

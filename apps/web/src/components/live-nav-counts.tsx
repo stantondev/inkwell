@@ -241,7 +241,15 @@ function announceNotifications(increase: number, showPopups: boolean) {
 
 // --- Favicon badge helpers ---
 
-const ORIGINAL_FAVICON = "/favicon.svg";
+// The page's own favicon (a season swaps it, see lib/seasons.ts), read once
+// before the badge ever replaces it with a data URL.
+let originalFavicon: string | null = null;
+function originalFaviconHref(): string {
+  if (originalFavicon) return originalFavicon;
+  const href = document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.getAttribute("href");
+  originalFavicon = href && !href.startsWith("data:") ? href : "/favicon.svg";
+  return originalFavicon;
+}
 
 /** Draw the original favicon SVG with a red notification dot overlay */
 function createBadgeFavicon(
@@ -331,7 +339,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
 
   // Load original favicon SVG text once (needed for badge overlay)
   useEffect(() => {
-    fetch(ORIGINAL_FAVICON)
+    fetch(originalFaviconHref())
       .then((r) => (r.ok ? r.text() : null))
       .then((text) => {
         if (text) originalFaviconSvgRef.current = text;
@@ -365,7 +373,7 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
     hasBadgeRef.current = show;
 
     if (!show) {
-      setFavicon(ORIGINAL_FAVICON);
+      setFavicon(originalFaviconHref());
       return;
     }
 
