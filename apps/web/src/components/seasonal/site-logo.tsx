@@ -1,7 +1,7 @@
 "use client";
 
 import { useSeason } from "./season-context";
-import { BAT_D } from "./halloween-art";
+import { Bat } from "./bat";
 
 /**
  * The Inkwell logo, dressed for the season. The base image stays
@@ -41,13 +41,8 @@ function HalloweenLogo() {
       </g>
 
       {/* A bat over the wordmark. */}
-      <g transform="translate(930 66)">
-        <g className="hl-bat">
-          {/* Scaled on its own group: a CSS animation's transform replaces an element's transform attribute. */}
-          <g transform="scale(2.7)">
-            <path className="hl-bat-body" d={BAT_D} />
-          </g>
-        </g>
+      <g className="hl-bat">
+        <Bat x={920} y={48} width={300} height={150} flap={0.34} />
       </g>
 
       {/* A spider on a thread from the nib's tip. */}

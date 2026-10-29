@@ -20576,16 +20576,9 @@ body[data-season="halloween"] ::selection {
   .hl-hat-cone, .hl-hat-brim { stroke: #8a6cb0; stroke-width: 5; }
 }
 .hl-bat {
-  fill: var(--season-bat, #241530);
   transform-origin: center;
   animation: hl-bat-drift 6s ease-in-out infinite;
 }
-.hl-bat-body {
-  transform-box: fill-box;
-  transform-origin: 50% 40%;
-  animation: hl-logo-flap 0.3s ease-in-out infinite alternate;
-}
-@keyframes hl-logo-flap { from { transform: scaleY(1); } to { transform: scaleY(0.6); } }
 .hl-spider { animation: hl-spider 4.5s ease-in-out infinite; }
 .hl-thread { stroke: #9a918a; stroke-width: 3; }
 .hl-spider-legs { fill: none; stroke: var(--season-ink, #2a1838); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
@@ -20852,10 +20845,27 @@ body[data-season="halloween"] ::selection {
 .season-bat-svg {
   display: block;
   width: 100%;
-  fill: var(--season-bat);
-  transform-origin: 50% 45%;
-  animation: hl-logo-flap 0.18s ease-in-out infinite alternate;
+  height: auto;
 }
+
+/* A bat (components/seasonal/bat.tsx): the wings turn about the shoulders,
+   the body lifts on the downstroke. */
+.bat { fill: var(--season-bat, #241530); overflow: visible; }
+.bat .bat-wing,
+.bat .bat-bodyset {
+  transform-box: view-box;
+  animation-duration: var(--flap, 0.24s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+.bat .bat-wing-r { transform-origin: 53px 21px; animation-name: bat-wing-r; }
+.bat .bat-wing-l { transform-origin: 47px 21px; animation-name: bat-wing-l; }
+.bat .bat-bodyset { animation-name: bat-body; }
+.bat .bat-eye { fill: #ffb347; }
+@keyframes bat-wing-r { from { transform: rotate(-26deg) scaleX(0.94); } to { transform: rotate(20deg) scaleX(0.84); } }
+@keyframes bat-wing-l { from { transform: rotate(26deg) scaleX(0.94); } to { transform: rotate(-20deg) scaleX(0.84); } }
+@keyframes bat-body { from { transform: translateY(1.6px); } to { transform: translateY(-1.4px); } }
 @keyframes season-bat-fly { from { transform: translateX(-80px); } to { transform: translateX(calc(100vw + 80px)); } }
 @keyframes season-bat-fly-rtl { from { transform: translateX(calc(100vw + 80px)); } to { transform: translateX(-80px); } }
 @keyframes season-bat-bob { from { transform: translateY(0); } to { transform: translateY(var(--bat-bob, 16px)); } }

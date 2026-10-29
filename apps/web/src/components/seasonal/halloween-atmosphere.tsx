@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSeason } from "./season-context";
-import { BAT_D, GHOST_D } from "./halloween-art";
+import { GHOST_D } from "./halloween-art";
+import { Bat } from "./bat";
 
 /** Fired by the trick-or-treat pumpkin. */
 export const TRICK_EVENT = "inkwell-halloween-trick";
@@ -142,9 +143,7 @@ function Atmosphere() {
           }
         >
           <span className="season-bat-bob" style={{ animationDelay: `${b.delay}s` }}>
-            <svg viewBox="0 0 100 40" className="season-bat-svg">
-              <path d={BAT_D} />
-            </svg>
+            <Bat className="season-bat-svg" flap={0.16 + (b.id % 5) * 0.015} />
           </span>
         </span>
       ))}
