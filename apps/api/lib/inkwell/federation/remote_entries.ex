@@ -142,6 +142,9 @@ defmodule Inkwell.Federation.RemoteEntries do
     query =
       RemoteEntry
       |> where([e], not is_nil(e.published_at))
+      # Posts saved so a member could answer a mention (MentionPosts) were
+      # never meant for discovery.
+      |> where([e], is_nil(e.source) or e.source != "mention")
       |> order_by(desc: :published_at)
       |> limit(^per_page)
       |> offset(^Keyword.get(opts, :offset, (page - 1) * per_page))

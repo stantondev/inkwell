@@ -398,6 +398,7 @@ defmodule InkwellWeb.Router do
     # Notifications
     get "/notifications", NotificationController, :index
     post "/notifications/read", NotificationController, :mark_read
+    post "/notifications/:id/reply", NotificationController, :reply_target
 
     # Feedback / Roadmap
     post "/feedback", FeedbackController, :create

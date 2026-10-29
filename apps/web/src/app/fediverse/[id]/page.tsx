@@ -21,7 +21,7 @@ import { siteUrl } from "@/lib/site";
 
 interface FediverseEntryParams {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; reply?: string }>;
 }
 
 interface RemoteEntryAuthor {
@@ -112,13 +112,14 @@ export async function generateMetadata({ params }: FediverseEntryParams): Promis
 
 export default async function FediverseEntryPage({ params, searchParams }: FediverseEntryParams) {
   const { id } = await params;
-  const { from } = await searchParams;
+  const { from, reply } = await searchParams;
   const token = await getToken();
   const session = await getSession();
 
   const cameFromGazette = from === "gazette";
-  const backHref = cameFromGazette ? "/gazette" : "/explore?source=fediverse";
-  const backLabel = cameFromGazette ? "The Gazette" : "Explore";
+  const cameFromMention = from === "mention";
+  const backHref = cameFromGazette ? "/gazette" : cameFromMention ? "/notifications" : "/explore?source=fediverse";
+  const backLabel = cameFromGazette ? "The Gazette" : cameFromMention ? "Notifications" : "Explore";
 
   let entry: RemoteEntryData;
   let enrichingPreview = false;
@@ -329,6 +330,7 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
           comments={comments}
           session={session ? { user: { id: session.user.id, username: session.user.username, is_admin: session.user.is_admin } } : null}
           commentApiPath={`/api/remote-entries/${entry.id}/comments`}
+          autoFocus={reply === "1" && !!session}
         />
 
         {/* Signup CTA for logged-out users */}

@@ -267,6 +267,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "fediverse",
   },
   {
+    id: "fediverse-reply-mentions",
+    question: "Someone on Mastodon mentioned me. How do I answer?",
+    answer:
+      "Open <strong>Notifications</strong> and press <strong>Reply</strong> on their mention. Their post opens on Inkwell with the footnote box ready, and your footnote goes back to their server as a reply under their post, from your Inkwell account. If they mentioned you privately, there's no Reply button: a private post can only be answered on their server.",
+    category: "fediverse",
+  },
+  {
     id: "fediverse-posts",
     question: "Why do I see posts from other platforms on Explore?",
     answer:

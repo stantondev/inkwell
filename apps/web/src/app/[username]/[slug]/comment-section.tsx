@@ -21,9 +21,11 @@ interface CommentSectionProps {
   } | null;
   /** Override API path for remote entries (e.g., /api/remote-entries/:id/comments) */
   commentApiPath?: string;
+  /** Put the cursor in the footnote box on load (arriving to reply). */
+  autoFocus?: boolean;
 }
 
-export function CommentSection({ comments, entryId, session, commentApiPath }: CommentSectionProps) {
+export function CommentSection({ comments, entryId, session, commentApiPath, autoFocus = false }: CommentSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [postError, setPostError] = useState<string | null>(null);
@@ -181,6 +183,7 @@ export function CommentSection({ comments, entryId, session, commentApiPath }: C
             onSubmit={(html) => handleSubmitComment(html)}
             placeholder="Add a footnote…"
             disabled={submitting}
+            autoFocus={autoFocus}
           />
         </div>
       ) : (

@@ -174,6 +174,7 @@ Comments written on Inkwell go out as `Note`s with `inReplyTo`:
 - A comment on an **Inkwell entry** is sent to the entry author's followers' servers so it threads under the entry.
 - A reply to another comment points `inReplyTo` at that comment (our `/comments/{id}` or the fediverse comment's own id) and mentions its author.
 - Comment ids are `https://inkwell.social/comments/{id}` and dereference to the `Note` (browsers are redirected to the conversation).
+- **Answering a mention.** A public post that mentions a member can be answered from their notification: Inkwell fetches the post from its server (signed with the instance actor if the server requires it), checks it is still public and `attributedTo` the account that sent the mention, saves it as a fediverse post (not shown on Explore), and the member's comment on it is sent as above. Followers-only and direct mentions can't be answered this way.
 
 Editing a comment sends `Update{Note}` (same id, with `updated`). A comment that stops being visible gets `Delete{Tombstone}`, signed by its writer, to every server the comment reached plus the writer's followers: when it's deleted (by its writer or an admin), when the entry under it is deleted, made non-public or hidden by moderation, and when its writer is suspended as spam.
 

@@ -2215,6 +2215,9 @@ defmodule InkwellWeb.FederationController do
         content_preview: content_preview,
         content_html: Inkwell.HtmlSanitizer.sanitize(raw_content) |> String.slice(0, 5000),
         post_url: post_url,
+        # The object id, for fetching the post when the member replies
+        # (MentionPosts); post_url is usually the human-readable page.
+        post_id: if(is_binary(object["id"]), do: object["id"]),
         public: public?
       }
     })

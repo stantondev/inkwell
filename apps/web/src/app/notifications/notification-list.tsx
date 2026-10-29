@@ -667,6 +667,60 @@ function AcceptRejectInline({
   );
 }
 
+// ─── Reply to a fediverse mention ──────────────────────────────
+// A mention leaves only a notification behind, so Reply first saves the post
+// on Inkwell, then opens it with the footnote box ready. A footnote there goes
+// back to their server as a reply in the thread.
+function MentionReplyButton({
+  notificationId,
+  onOpen,
+}: {
+  notificationId: string;
+  onOpen: () => void;
+}) {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "loading">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleReply(e: React.MouseEvent) {
+    e.stopPropagation();
+    setState("loading");
+    setError(null);
+    try {
+      const res = await fetch(`/api/notifications/${notificationId}/reply`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      const id = data?.data?.remote_entry_id;
+      if (res.ok && id) {
+        onOpen();
+        router.push(`/fediverse/${id}?from=mention&reply=1#comments`);
+        return;
+      }
+      setError(data?.error || "Couldn't open that post. Try again in a moment.");
+    } catch {
+      setError("Couldn't open that post. Try again in a moment.");
+    }
+    setState("idle");
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={handleReply}
+        disabled={state === "loading"}
+        className="text-xs px-4 py-1.5 rounded-full font-medium border transition-colors disabled:opacity-50"
+        style={{ borderColor: "var(--accent)", color: "var(--accent)" }}
+      >
+        {state === "loading" ? "Opening\u2026" : "Reply"}
+      </button>
+      {error && (
+        <p className="text-xs mt-1" role="alert" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Fediverse Follow Back ─────────────────────────────────────
 function FediverseFollowBackButton({
   apId,
@@ -1149,6 +1203,13 @@ export function NotificationList({
                               )}
                             </>
                           )}
+
+                        {/* Answer a public mention here, as a footnote that
+                            threads under their post. Private ones can only be
+                            answered on their server. */}
+                        {n.type === "fediverse_mention" && n.data?.public === true && !!n.data?.post_url && (
+                          <MentionReplyButton notificationId={n.id} onOpen={() => markOneRead(n.id)} />
+                        )}
 
                         <p
                           className="text-xs mt-0.5"

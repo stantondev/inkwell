@@ -50,6 +50,32 @@ defmodule InkwellWeb.NotificationController do
     json(conn, %{ok: true})
   end
 
+  # POST /api/notifications/:id/reply
+  # For a fediverse mention: saves the post it's about on Inkwell (if it isn't
+  # already) and returns its id, so the member can answer it with a footnote.
+  def reply_target(conn, %{"id" => id}) do
+    case Inkwell.Federation.MentionPosts.for_notification(conn.assigns.current_user, id) do
+      {:ok, entry} ->
+        json(conn, %{data: %{remote_entry_id: entry.id}})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Notification not found"})
+
+      {:error, :not_public} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "This was sent privately, so it can only be answered on their server.", code: "not_public"})
+
+      {:error, :blocked} ->
+        conn |> put_status(:forbidden) |> json(%{error: "You've blocked this account or its server.", code: "blocked"})
+
+      {:error, :unavailable} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "Their server didn't give us the post. It may have been deleted, or the server is down.", code: "unavailable"})
+    end
+  end
+
   # Build a MapSet of remote_actor ap_ids that the user is already following back
   defp build_follow_back_set(user_id, notifications) do
     import Ecto.Query

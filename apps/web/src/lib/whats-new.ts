@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-29-reply-to-mentions",
+    date: "2026-10-29",
+    title: "Reply to fediverse mentions",
+    body: "When someone on Mastodon or elsewhere on the fediverse mentions you in a public post, the notification now has a Reply button. It opens their post here with the footnote box ready, and your footnote goes back to their server as a reply in the thread, from your Inkwell account. Before, the only way to answer was a new post that didn\u2019t sit under theirs. Mentions sent privately still have to be answered on their server.",
+    href: "/notifications",
+    cta: "Notifications",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-10-29-new-writers",
     date: "2026-10-29",
     title: "New writers in your Feed",
