@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-10-29-whole-cover",
+    date: "2026-10-29",
+    title: "Cover pictures shown whole",
+    body: "On an entry\u2019s own page the cover picture is no longer cut down to a short banner. Square and tall covers now show in full, centred on a soft blurred copy of themselves, and every cover lines up with the text below it. The editor shows the cover the same way, so what you see while writing is what readers get. Feed and profile cards still show a trimmed preview. Thanks to the member who asked.",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-26-newsletter-digests",
     date: "2026-10-26",
     title: "Newsletter digests",

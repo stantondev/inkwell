@@ -2580,6 +2580,52 @@ a.listening-card:hover { border-color: var(--accent); }
   }
 }
 
+/* The entry's cover photo (entry page, draft preview, editor). Shown
+   whole: a picture that doesn't fill the frame sits centred on a blurred
+   copy of itself, so square and tall covers keep their top and bottom. */
+.entry-cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 1.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--border) 40%, var(--surface));
+}
+.entry-cover-backdrop {
+  position: absolute;
+  inset: -32px;
+  width: calc(100% + 64px);
+  height: calc(100% + 64px);
+  object-fit: cover;
+  filter: blur(28px) saturate(1.1);
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+}
+.entry-cover-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(600px, 75vh);
+}
+.entry-cover-editor {
+  border-radius: 0.75rem;
+}
+.entry-cover-editor .entry-cover-image {
+  max-height: 320px;
+}
+/* With the margin-notes column on, the text is narrower than the article;
+   keep the cover the same width as the text under it. */
+@media (min-width: 1280px) {
+  .entry-wide:has(.entry-marginalia-wrapper--with-aside) .entry-cover {
+    margin-right: 282px;
+  }
+}
+
 /* DEPRECATED — page navigation arrows removed in masonry grid redesign */
 .journal-nav-arrow {
   position: absolute;

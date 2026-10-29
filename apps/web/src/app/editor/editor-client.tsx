@@ -3935,14 +3935,16 @@ export function EditorClient() {
             {/* ── Cover image ──────────────────────────── */}
             <div className={focusMode ? "hidden" : ""}>
               {coverImageId ? (
-                <div className="relative group rounded-xl overflow-hidden border mb-6"
-                  style={{ borderColor: "var(--border)", maxHeight: 280 }}>
+                <figure className="entry-cover entry-cover-editor group border mb-6"
+                  style={{ borderColor: "var(--border)" }}>
+                  {/* Same look as the entry page: the whole picture, never cropped */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/images/${coverImageId}`} alt="" aria-hidden className="entry-cover-backdrop" />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/images/${coverImageId}`}
                     alt="Cover"
-                    className="w-full object-cover"
-                    style={{ maxHeight: 280 }}
+                    className="entry-cover-image"
                   />
                   <button
                     type="button"
@@ -3951,7 +3953,7 @@ export function EditorClient() {
                     style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
                     aria-label="Remove cover image"
                   >×</button>
-                </div>
+                </figure>
               ) : (
                 <button
                   type="button"

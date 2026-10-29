@@ -176,19 +176,18 @@ export function EntryMusicEmbed({ embed, music }: { embed: MusicEmbed; music: st
   );
 }
 
-/** The cover photo, full width of the entry column. */
+/** The cover photo, the width of the entry text. Shown whole, never
+ *  cropped: a square or tall picture sits centred on a soft, blurred copy
+ *  of itself instead of losing its top and bottom. */
 export function EntryCover({ imageId, alt }: { imageId: string; alt: string }) {
+  const src = `/api/images/${imageId}`;
   return (
-    <div className="w-full overflow-hidden rounded-lg" style={{ maxHeight: "min(420px, 55vw)" }}>
+    <figure className="entry-cover">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/images/${imageId}`}
-        alt={alt}
-        className="w-full object-cover"
-        style={{ maxHeight: "min(420px, 55vw)" }}
-        loading="eager"
-      />
-    </div>
+      <img src={src} alt="" aria-hidden className="entry-cover-backdrop" loading="eager" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} className="entry-cover-image" loading="eager" />
+    </figure>
   );
 }
 
