@@ -33,16 +33,19 @@ function HalloweenLogo() {
       <circle className="hl-glow" cx="1648.6" cy="259.3" r="23" />
       <circle className="hl-flame" cx="1648.6" cy="259.3" r="13" />
 
-      {/* A witch's hat perched on the end of the nib. */}
-      <g transform="translate(1800 120) rotate(46) scale(1.4)">
+      {/* A witch's hat seated on the nib's end cap. The cap (the ink arc at
+          the top right) runs from (1736, 78) to (1830, 133), measured from the
+          logo file: it's cut at about 30°, not square to the nib's 45° body,
+          so the hat is turned to sit flush on the cap, centred on its middle. */}
+      <g transform="translate(1797 106) rotate(31) scale(1.4)">
         <g className="hl-hat">
           <path
             className="hl-hat-cone"
-            d="M-44 -6C-34 -40-22 -78-14 -108C-8 -132 8 -150 40 -158C20 -140 12 -122 10 -100C14 -70 26 -36 38 -6Z"
+            d="M-38 -4C-30 -40-16 -86-6 -122C-2 -136 10 -146 22 -150C12 -138 8 -126 8 -110C14 -72 26 -36 38 -4Z"
           />
-          <path className="hl-hat-band" d="M-41 -12L35 -12L30 -32L-36 -32Z" />
-          <rect className="hl-hat-buckle" x="-10" y="-31" width="16" height="18" rx="2" />
-          <ellipse className="hl-hat-brim" cx="-3" cy="-4" rx="78" ry="15" />
+          <path className="hl-hat-band" d="M-36 -10L36 -10L32 -28L-32 -28Z" />
+          <rect className="hl-hat-buckle" x="-8" y="-27" width="16" height="16" rx="2" />
+          <ellipse className="hl-hat-brim" cx="0" cy="-2" rx="70" ry="13" />
         </g>
       </g>
 
