@@ -59,7 +59,7 @@ defmodule Inkwell.Federation.StampReactions do
 
   # `:inkwell_felt:` from another Inkwell server is our own stamp.
   defp inkwell_stamp("inkwell_" <> type) do
-    if type in Stamp.pickable() or type in Stamp.retired(), do: type
+    if type in Stamp.printed() or type in Stamp.retired(), do: type
   end
 
   defp inkwell_stamp(_), do: nil

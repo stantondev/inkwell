@@ -210,7 +210,7 @@ export default async function LandingPage() {
             <div className="landing-price-card">
               <p className="landing-price-name">Founding Member</p>
               <p className="landing-price-amount">
-                {dollars(founding?.price_cents ?? 9900)}<span className="landing-price-period"> once</span>
+                {dollars(founding?.price_cents ?? 14900)}<span className="landing-price-period"> once</span>
               </p>
               <p className="landing-price-note">
                 {founding

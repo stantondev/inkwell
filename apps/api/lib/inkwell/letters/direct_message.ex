@@ -35,7 +35,7 @@ defmodule Inkwell.Letters.DirectMessage do
     |> cast(attrs, [:conversation_id, :sender_id, :body, :body_html, :stamp_type])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> validate_required([:conversation_id, :sender_id, :body])
-    |> validate_inclusion(:stamp_type, Inkwell.Stamps.Stamp.pickable())
+    |> validate_inclusion(:stamp_type, Inkwell.Stamps.Stamp.printed())
     |> validate_length(:body, min: 1, max: 10_000)
     |> validate_length(:body_html, max: @max_html)
   end

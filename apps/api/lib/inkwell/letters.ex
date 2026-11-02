@@ -586,6 +586,7 @@ defmodule Inkwell.Letters do
 
     cond do
       type in Stamp.retired() -> {:error, :retired}
+      type in Stamp.out_of_season() -> {:error, :out_of_season}
       type not in Stamp.pickable() -> {:error, :invalid_stamp}
       type in Stamp.keepsakes() and Inkwell.SelfHosted.effective_tier(sender) != "plus" -> {:error, :plus_required}
       true -> {:ok, type}

@@ -19,6 +19,11 @@ defmodule Inkwell.Stamps.Stamp do
   @everyday [:felt, :rooting, :beautifully_said, :holding_space, :thank_you, :made_me_laugh, :first_class]
   # Dated commemorative issues: free, never withdrawn.
   @issues [:autumn_2026, :halloween_2026]
+  # Seasonal issues are on sale only during their season, every year (UTC
+  # {month, day, hour}, start inclusive, end exclusive; the same windows as
+  # the site's decorations in apps/web/src/lib/seasons.ts). Out of season they
+  # can't be picked, but stamps already sent keep showing.
+  @seasons %{halloween_2026: {{10, 24, 0}, {11, 1, 12}}}
   # The Plus members' sheet.
   @keepsakes [:wax_seal, :gilded, :pressed_flower]
   # No longer offered; stamps already given still show.
@@ -48,10 +53,34 @@ defmodule Inkwell.Stamps.Stamp do
   def stamp_types, do: @stamp_types
   def note_max, do: @note_max
 
-  @doc "Designs a member can choose today (strings)."
-  def pickable, do: Enum.map(@everyday ++ @issues ++ @keepsakes, &Atom.to_string/1)
+  @doc "Designs a member can choose right now (strings)."
+  def pickable(now \\ DateTime.utc_now()),
+    do: Enum.map(@everyday ++ Enum.filter(@issues, &on_sale?(&1, now)) ++ @keepsakes, &Atom.to_string/1)
+
+  @doc "Seasonal issues waiting for their season to come round again."
+  def out_of_season(now \\ DateTime.utc_now()),
+    do: @issues |> Enum.reject(&on_sale?(&1, now)) |> Enum.map(&Atom.to_string/1)
+
+  @doc "Every design still printed, in season or not (strings)."
+  def printed, do: Enum.map(@everyday ++ @issues ++ @keepsakes, &Atom.to_string/1)
+
   def keepsakes, do: Enum.map(@keepsakes, &Atom.to_string/1)
   def retired, do: Enum.map(@retired, &Atom.to_string/1)
+
+  defp on_sale?(type, now) do
+    case Map.fetch(@seasons, type) do
+      :error -> true
+      {:ok, {from, to}} -> Enum.any?([now.year, now.year - 1], &in_window?(now, &1, from, to))
+    end
+  end
+
+  # A window may cross New Year, so it's tried as starting this year and last.
+  defp in_window?(now, year, {fm, fd, fh} = from, {tm, td, th} = to) do
+    starts = DateTime.new!(Date.new!(year, fm, fd), Time.new!(fh, 0, 0))
+    end_year = if to <= from, do: year + 1, else: year
+    ends = DateTime.new!(Date.new!(end_year, tm, td), Time.new!(th, 0, 0))
+    DateTime.compare(now, starts) != :lt and DateTime.compare(now, ends) == :lt
+  end
 
   def changeset(stamp, attrs) do
     stamp

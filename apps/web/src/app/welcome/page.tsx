@@ -1209,7 +1209,7 @@ export default function WelcomePage() {
                         <span className="text-xs whitespace-nowrap" style={{ color: "var(--accent)" }}>
                           {billingInfo.foundingNumber
                             ? "Thank you"
-                            : `$${(billingInfo.founding?.price_cents ?? 9900) / 100} once · ${billingInfo.founding?.remaining} of ${billingInfo.founding?.cap} left`}
+                            : `$${(billingInfo.founding?.price_cents ?? 14900) / 100} once · ${billingInfo.founding?.remaining} of ${billingInfo.founding?.cap} left`}
                         </span>
                       </div>
                       {!billingInfo.foundingNumber && foundingPriceNote(billingInfo.founding) && (

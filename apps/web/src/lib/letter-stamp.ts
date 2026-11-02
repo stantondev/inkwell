@@ -3,13 +3,13 @@
 // new device), the thread falls back to the writer's newest stamped letter.
 // "none" records that they chose no stamp, so the fallback doesn't override it.
 
-import { STAMP_CONFIG, STAMP_TYPES } from "@/components/stamp-config";
+import { STAMP_CONFIG, offeredStampTypes } from "@/components/stamp-config";
 
 const key = (conversationId: string) => `inkwell-letter-stamp:${conversationId}`;
 
 /** A stamp the picker can offer this writer, else null. */
 export function usableLetterStamp(type: string | null | undefined, isPlus: boolean): string | null {
-  if (!type || !STAMP_TYPES.includes(type)) return null;
+  if (!type || !offeredStampTypes().includes(type)) return null;
   if (STAMP_CONFIG[type]?.plusOnly && !isPlus) return null;
   return type;
 }

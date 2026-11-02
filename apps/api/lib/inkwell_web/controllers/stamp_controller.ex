@@ -160,6 +160,7 @@ defmodule InkwellWeb.StampController do
   def validate_stamp_type(type) when is_binary(type) do
     cond do
       type in Stamp.pickable() -> :ok
+      type in Stamp.out_of_season() -> {:error, :out_of_season}
       type in Stamp.retired() -> {:error, :retired}
       true -> {:error, :invalid_stamp_type}
     end
@@ -183,6 +184,15 @@ defmodule InkwellWeb.StampController do
       conn
       |> put_status(:bad_request)
       |> json(%{error: "That stamp has been retired. Stamps already sent keep showing.", code: "retired"})
+
+  def render_error(conn, {:error, :out_of_season}),
+    do:
+      conn
+      |> put_status(:bad_request)
+      |> json(%{
+        error: "That's a seasonal stamp, back on sale when its season comes round. Stamps already sent keep showing.",
+        code: "out_of_season"
+      })
 
   def render_error(conn, {:error, :plus_required}),
     do:

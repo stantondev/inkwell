@@ -54,6 +54,11 @@ defmodule InkwellWeb.LetterController do
         |> put_status(:bad_request)
         |> json(%{error: "That stamp has been retired. Choose another.", code: "retired"})
 
+      {:error, :out_of_season} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "That seasonal stamp is off sale until its season comes round. Choose another.", code: "out_of_season"})
+
       {:error, :invalid_stamp} ->
         conn |> put_status(:bad_request) |> json(%{error: "That isn't a stamp we know.", code: "invalid_stamp"})
     end

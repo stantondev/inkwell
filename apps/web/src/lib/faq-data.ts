@@ -344,7 +344,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "founding",
     question: "What is a Founding Member?",
     answer:
-      'Founding Members pay once and have Plus for as long as Inkwell runs, with a numbered badge on their profile. There are only 50. The price rises from $99 to $149 after October 31, 2026; anyone who already joined keeps their seat and number. <a href="/settings/billing">Become one</a> or <a href="/transparency">see where the money goes</a>.',
+      'Founding Members pay once and have Plus for as long as Inkwell runs, with a numbered badge on their profile. There are only 50, at $149 (it was $99 until October 31, 2026); everyone who joined keeps their seat and number. <a href="/settings/billing">Become one</a> or <a href="/transparency">see where the money goes</a>.',
     category: "billing",
   },
   {

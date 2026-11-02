@@ -5,11 +5,15 @@
  *
  * Sheets:
  *  - everyday: free for everyone, always in the picker
- *  - issue: dated commemorative issues; free, and never withdrawn
+ *  - issue: dated commemorative issues; free, and never withdrawn. A seasonal
+ *    one (`season`) is on sale only during that season each year, matching
+ *    `@seasons` in the API; stamps already sent keep showing all year
  *  - keepsake: Plus members' sheet
  *  - retired: no longer offered, but stamps already given still show
  *  - abroad: a reaction from a fediverse account (its own emoji in our frame)
  */
+
+import { seasonAt, type SeasonId } from "@/lib/seasons";
 
 export type StampSheet = "everyday" | "issue" | "keepsake" | "retired" | "abroad";
 
@@ -21,6 +25,8 @@ export interface StampInfo {
   /** Commemorative issues: when it was issued, shown on the stamp's card. */
   issued?: string;
   plusOnly?: boolean;
+  /** Seasonal issues: offered only while this season is running. */
+  season?: SeasonId;
 }
 
 export const STAMP_CONFIG: Record<string, StampInfo> = {
@@ -37,6 +43,7 @@ export const STAMP_CONFIG: Record<string, StampInfo> = {
     description: "A treat from the dark",
     sheet: "issue",
     issued: "Hallowe'en 2026",
+    season: "halloween",
   },
   autumn_2026: {
     label: "Autumn Leaves",
@@ -55,20 +62,29 @@ export const STAMP_CONFIG: Record<string, StampInfo> = {
   abroad: { label: "From Abroad", description: "Postage from the fediverse", sheet: "abroad" },
 };
 
-/** Stamps offered in the picker, in sheet order. */
+/** Every design still printed, in sheet order (seasonal ones in or out of season). */
 export const STAMP_TYPES = Object.keys(STAMP_CONFIG).filter((k) => {
   const s = STAMP_CONFIG[k].sheet;
   return s === "everyday" || s === "issue" || s === "keepsake";
 });
 
+/** The stamps on sale at this moment: seasonal issues only in their season. */
+export function offeredStampTypes(date: Date = new Date()): string[] {
+  const season = seasonAt(date);
+  return STAMP_TYPES.filter((k) => {
+    const s = STAMP_CONFIG[k].season;
+    return !s || s === season;
+  });
+}
+
 export const STAMP_SHEETS: { sheet: StampSheet; title: string; blurb: string }[] = [
   { sheet: "everyday", title: "Everyday stamps", blurb: "For any page that moved you" },
-  { sheet: "issue", title: "Seasonal issues", blurb: "Issued once, kept forever" },
+  { sheet: "issue", title: "Seasonal issues", blurb: "Issued for a season, kept forever" },
   { sheet: "keepsake", title: "Keepsakes", blurb: "A sheet for Plus members" },
 ];
 
-export function stampsInSheet(sheet: StampSheet): string[] {
-  return STAMP_TYPES.filter((k) => STAMP_CONFIG[k].sheet === sheet);
+export function stampsInSheet(sheet: StampSheet, date: Date = new Date()): string[] {
+  return offeredStampTypes(date).filter((k) => STAMP_CONFIG[k].sheet === sheet);
 }
 
 /** Backward-compat mapping for renamed stamp types */

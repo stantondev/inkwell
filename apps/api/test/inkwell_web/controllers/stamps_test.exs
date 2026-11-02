@@ -112,9 +112,28 @@ defmodule InkwellWeb.StampsTest do
     res = build_conn() |> log_in_user(r) |> stamp(e, %{stamp_type: "autumn_2026"})
     assert json_response(res, 200)["data"]["stamp_type"] == "autumn_2026"
 
-    # Free for everyone, like every issue.
+    # Free for everyone, like every issue, but only in its season.
     res = build_conn() |> log_in_user(r) |> stamp(e, %{stamp_type: "halloween_2026"})
-    assert json_response(res, 200)["data"]["stamp_type"] == "halloween_2026"
+
+    if "halloween_2026" in Inkwell.Stamps.Stamp.pickable(),
+      do: assert(json_response(res, 200)["data"]["stamp_type"] == "halloween_2026"),
+      else: assert(json_response(res, 400)["code"] == "out_of_season")
+  end
+
+  test "the Hallowe'en issue is on sale only around Hallowe'en, every year" do
+    alias Inkwell.Stamps.Stamp
+    on? = fn iso -> "halloween_2026" in Stamp.pickable(elem(DateTime.from_iso8601(iso), 1)) end
+
+    refute on?.("2026-10-23T23:59:59Z")
+    assert on?.("2026-10-24T00:00:00Z")
+    assert on?.("2026-11-01T11:59:59Z")
+    refute on?.("2026-11-01T12:00:00Z")
+    refute on?.("2026-12-25T00:00:00Z")
+    assert on?.("2027-10-31T20:00:00Z")
+    assert "halloween_2026" in Stamp.out_of_season(elem(DateTime.from_iso8601("2027-03-01T00:00:00Z"), 1))
+    # Other issues and everyday designs are always on sale.
+    assert "autumn_2026" in Stamp.pickable(elem(DateTime.from_iso8601("2027-03-01T00:00:00Z"), 1))
+    assert "felt" in Stamp.pickable(elem(DateTime.from_iso8601("2027-03-01T00:00:00Z"), 1))
   end
 
   test "Keepsakes are for Plus members", %{entry: e} do
