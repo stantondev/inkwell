@@ -297,7 +297,7 @@ export function ProfileBlockView({ block, ctx, className }: { block: ProfileBloc
           newsletterDescription={profile.newsletter_description ?? null}
           subscriberCount={profile.subscriber_count ?? 0}
           styles={styles}
-          preview={ctx.isOwnProfile}
+          isOwner={ctx.isOwnProfile}
         />
       );
     case "custom_html":

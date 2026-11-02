@@ -15,7 +15,8 @@ interface ProfileSubscribeWidgetProps {
     foreground: string;
     borderRadius: string;
   };
-  preview?: boolean;
+  /** The writer looking at their own page: the box still works, so they can subscribe themselves. */
+  isOwner?: boolean;
 }
 
 export function ProfileSubscribeWidget({
@@ -24,12 +25,13 @@ export function ProfileSubscribeWidget({
   newsletterDescription,
   subscriberCount,
   styles,
-  preview = false,
+  isOwner = false,
 }: ProfileSubscribeWidgetProps) {
   const [email, setEmail] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   const [error, setError] = useState("");
   const submitRef = useRef(false);
 
@@ -48,6 +50,7 @@ export function ProfileSubscribeWidget({
       });
       const data = await res.json();
       if (res.ok) {
+        setAlreadySubscribed(!!data.already_confirmed);
         setSuccess(true);
       } else {
         setError(data.error || "Something went wrong.");
@@ -80,30 +83,15 @@ export function ProfileSubscribeWidget({
         <p className="text-xs mb-3" style={{ color: styles.muted }}>{newsletterDescription}</p>
       )}
 
-      {preview ? (
-        <div className="flex gap-1.5 opacity-60">
-          <input
-            type="email"
-            disabled
-            placeholder="your@email.com"
-            className="flex-1 min-w-0 rounded-lg border px-2.5 py-1.5 text-xs"
-            style={{
-              borderColor: styles.border,
-              background: "var(--background)",
-              color: styles.foreground,
-            }}
-          />
-          <button
-            disabled
-            className="rounded-lg px-3 py-1.5 text-xs font-medium shrink-0"
-            style={{ background: styles.accent, color: "#fff" }}
-          >
-            Subscribe
-          </button>
-        </div>
-      ) : success ? (
+      {isOwner && !success && (
+        <p className="text-xs mb-2" style={{ color: styles.muted }}>
+          Your readers sign up here. Add your own address to get a copy of each email.
+        </p>
+      )}
+
+      {success ? (
         <div className="text-sm py-2" style={{ color: styles.accent }}>
-          Check your email to confirm!
+          {alreadySubscribed ? "That address is already subscribed." : "Check your email to confirm!"}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="relative">
