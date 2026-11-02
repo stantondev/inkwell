@@ -57,6 +57,7 @@ export interface EntryData {
   read_count?: number;
   excerpt?: string | null;
   cover_image_id?: string | null;
+  cover_image_alt?: string | null;
   category?: string | null;
   series_id?: string | null;
   series_order?: number | null;

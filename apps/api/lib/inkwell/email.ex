@@ -387,7 +387,7 @@ defmodule Inkwell.Email do
 
     cover_image_html = if entry.cover_image_id do
       """
-      <img src="#{api_url}/api/images/#{entry.cover_image_id}" alt="" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 24px;" />
+      <img src="#{api_url}/api/images/#{entry.cover_image_id}" alt="#{escape_html(entry.cover_image_alt || "")}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 24px;" />
       """
     else
       ""
@@ -549,7 +549,7 @@ defmodule Inkwell.Email do
     cover_html =
       if entry.cover_image_id && !warned do
         """
-        <a href="#{entry_url}"><img src="#{api_url}/api/images/#{entry.cover_image_id}" alt="" style="width: 100%; max-height: 260px; object-fit: cover; border-radius: 8px; margin: 4px 0 14px; display: block;" /></a>
+        <a href="#{entry_url}"><img src="#{api_url}/api/images/#{entry.cover_image_id}" alt="#{escape_html(entry.cover_image_alt || "")}" style="width: 100%; max-height: 260px; object-fit: cover; border-radius: 8px; margin: 4px 0 14px; display: block;" /></a>
         """
       else
         ""

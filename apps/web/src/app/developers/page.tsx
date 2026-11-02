@@ -361,6 +361,7 @@ export default function DevelopersPage() {
                   ["music_metadata", "object", "From GET /api/me/listenbrainz, sent with the music it came with (dropped if music differs)"],
                   ["excerpt", "string", "Max 300 chars (auto-generated if blank)"],
                   ["cover_image_id", "UUID", "ID from POST /api/images"],
+                  ["cover_image_alt", "string", "Alt text for the cover picture (max 1500 chars). Sent to the fediverse as its description. \"\" or null removes it"],
                   ["sensitive", "boolean", "Mark as sensitive content"],
                   ["content_warning", "string", "Warning text (max 200 chars)"],
                   ["series_id", "UUID", "Add to a series"],

@@ -136,7 +136,7 @@ defmodule Inkwell.Workers.CrosspostWorker do
         image ->
           case Inkwell.Images.fetch(image) |> as_jpeg_if_avif(image) do
             {:ok, content_type, binary} ->
-              MastodonClient.upload_media(account.domain, account.access_token, binary, content_type)
+              MastodonClient.upload_media(account.domain, account.access_token, binary, content_type, entry.cover_image_alt)
 
             _ ->
               {:error, :invalid_data_uri}

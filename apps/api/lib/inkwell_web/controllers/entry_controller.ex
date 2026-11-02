@@ -307,7 +307,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category", "series_id",
+                      "excerpt", "cover_image_id", "cover_image_alt", "category", "series_id",
                       "sensitive", "content_warning", "published_at",
                       "scheduled_at", "scheduled_options", "source_sticky_id",
                       "gazette_story_id"])
@@ -344,7 +344,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                       "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                      "excerpt", "cover_image_id", "category", "series_id",
+                      "excerpt", "cover_image_id", "cover_image_alt", "category", "series_id",
                       "sensitive", "content_warning", "source_sticky_id",
                       "gazette_story_id"])
         |> put_source_sticky(user.id)
@@ -405,7 +405,7 @@ defmodule InkwellWeb.EntryController do
         params
         |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                        "privacy", "user_icon_id", "tags", "published_at", "custom_filter_id",
-                       "excerpt", "cover_image_id", "category", "series_id",
+                       "excerpt", "cover_image_id", "cover_image_alt", "category", "series_id",
                        "sensitive", "content_warning",
                        # Drafts only; published entries ignore these.
                        "scheduled_at", "scheduled_options"])
@@ -659,7 +659,7 @@ defmodule InkwellWeb.EntryController do
           params
           |> Map.take(["title", "body_html", "body_raw", "mood", "mood_key", "location", "music", "music_metadata",
                         "privacy", "user_icon_id", "tags", "custom_filter_id",
-                        "excerpt", "cover_image_id", "category", "series_id",
+                        "excerpt", "cover_image_id", "cover_image_alt", "category", "series_id",
                         "sensitive", "content_warning",
                         # Lets an author backdate on publish. Omitted here, the
                         # draft's own published_at (e.g. an imported post's
@@ -838,6 +838,7 @@ defmodule InkwellWeb.EntryController do
           comment_count: Map.get(comment_counts, entry.id, 0),
           sensitive: entry.sensitive || false,
           cover_image_id: entry.cover_image_id,
+          cover_image_alt: entry.cover_image_alt,
           published_at: entry.published_at,
           scheduled_at: entry.scheduled_at,
           updated_at: entry.updated_at,
@@ -1255,6 +1256,7 @@ defmodule InkwellWeb.EntryController do
       excerpt: entry.excerpt,
       excerpt_custom: entry.excerpt_custom,
       cover_image_id: entry.cover_image_id,
+      cover_image_alt: entry.cover_image_alt,
       category: entry.category,
       series_id: entry.series_id,
       series_order: entry.series_order,
@@ -1361,6 +1363,7 @@ defmodule InkwellWeb.EntryController do
           excerpt: qe.excerpt || truncate_text(qe.body_html, 300),
           slug: qe.slug,
           cover_image_id: qe.cover_image_id,
+          cover_image_alt: qe.cover_image_alt,
           published_at: qe.published_at,
           word_count: qe.word_count,
           ink_count: qe.ink_count || 0,

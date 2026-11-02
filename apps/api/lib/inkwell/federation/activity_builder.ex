@@ -165,11 +165,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     # so Mastodon/fediverse preview cards aren't empty
     article =
       if entry.cover_image_id do
-        Map.put(article, "image", %{
-          "type" => "Image",
-          "url" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
-          "mediaType" => "image/jpeg"
-        })
+        Map.put(article, "image", cover_image(entry, instance_host))
       else
         og_params =
           URI.encode_query(%{
@@ -1092,6 +1088,21 @@ defmodule Inkwell.Federation.ActivityBuilder do
 
   # Builds a Note-type preview for microblogging consumers (FEP-b2b8 §preview).
   # Content: bold title + excerpt (or stripped/truncated body). No "Read more" link.
+  # The cover as an Image object. `name` is its description (what Mastodon
+  # shows as alt text), present only when the writer wrote one.
+  defp cover_image(entry, instance_host) do
+    image = %{
+      "type" => "Image",
+      "url" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
+      "mediaType" => "image/jpeg"
+    }
+
+    case entry.cover_image_alt do
+      alt when is_binary(alt) and alt != "" -> Map.put(image, "name", alt)
+      _ -> image
+    end
+  end
+
   defp build_preview_note(entry, actor_url, instance_host) do
     preview = %{
       "type" => "Note",
@@ -1101,11 +1112,7 @@ defmodule Inkwell.Federation.ActivityBuilder do
     }
 
     if entry.cover_image_id do
-      Map.put(preview, "attachment", %{
-        "type" => "Image",
-        "url" => "https://#{instance_host}/api/images/#{entry.cover_image_id}",
-        "mediaType" => "image/jpeg"
-      })
+      Map.put(preview, "attachment", cover_image(entry, instance_host))
     else
       preview
     end

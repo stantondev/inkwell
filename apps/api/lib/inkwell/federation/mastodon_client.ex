@@ -60,7 +60,19 @@ defmodule Inkwell.Federation.MastodonClient do
 
   Returns `{:ok, media_id}` or `{:error, reason}`.
   """
-  def upload_media(domain, access_token, image_binary, content_type) do
+  defp description_part(_boundary, nil), do: ""
+  defp description_part(_boundary, ""), do: ""
+
+  defp description_part(boundary, description) do
+    "--#{boundary}\r\n" <>
+      "Content-Disposition: form-data; name=\"description\"\r\n" <>
+      "Content-Type: text/plain; charset=utf-8\r\n" <>
+      "\r\n" <>
+      description <>
+      "\r\n"
+  end
+
+  def upload_media(domain, access_token, image_binary, content_type, description \\ nil) do
     url = "https://#{domain}/api/v2/media"
 
     boundary = "inkwell-#{:crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)}"
@@ -72,6 +84,7 @@ defmodule Inkwell.Federation.MastodonClient do
         "\r\n" <>
         image_binary <>
         "\r\n" <>
+        description_part(boundary, description) <>
         "--#{boundary}--\r\n"
 
     headers = [

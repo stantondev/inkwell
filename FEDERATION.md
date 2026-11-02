@@ -124,7 +124,7 @@ Entries are `Article`s following FEP-b2b8.
   "updated": "2026-03-13T14:30:00Z",
   "to": ["https://www.w3.org/ns/activitystreams#Public"],
   "cc": ["https://inkwell.social/users/alice/followers"],
-  "image": { "type": "Link", "href": "https://inkwell.social/api/images/…", "mediaType": "image/jpeg" },
+  "image": { "type": "Image", "url": "https://inkwell.social/api/images/…", "mediaType": "image/jpeg", "name": "A heron in a grey river at dawn" },
   "tag": [{ "type": "Hashtag", "name": "#journaling", "href": "https://inkwell.social/tag/journaling" }],
   "generator": { "type": "Application", "name": "Inkwell", "url": "https://inkwell.social" },
   "preview": { "type": "Note", "content": "Excerpt, at most 280 characters" }
@@ -135,6 +135,7 @@ Entries are `Article`s following FEP-b2b8.
 - `content` starts with a short readable lead (title, excerpt, link, hashtags) and then the full body after an `<hr>`. Mastodon cuts `Article` content short, so the lead is what Mastodon readers see. Clients that render the whole Article get the full text.
 - `summary` is the excerpt, always present (generated from the body when the writer didn't write one). For sensitive entries it is the content warning instead; see [Sensitive content](#sensitive-content).
 - `preview` is the excerpt alone, cut at a word boundary to at most 280 characters. Bridgy Fed uses it as the Bluesky post text.
+- `image` is the cover picture. Its `name` is the alt text the writer wrote for it (what Mastodon shows as the image description), left out when there is none. The `preview` Note carries the same picture as its `attachment`. Entries without a cover get a drawn preview card as `image` instead.
 - Relative links and images in the body are made absolute.
 - Entries fetched by their page URL (`/alice/entry-slug` with an ActivityPub `Accept` header) return the same `Article`.
 - Entries imported from another platform and marked as archive posts start their content with a line such as "From my LiveJournal archive, first written March 23, 2004."

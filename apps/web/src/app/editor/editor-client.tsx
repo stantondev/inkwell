@@ -82,6 +82,8 @@ interface EditorState {
   seriesId: string | null;
   sensitive: boolean;
   contentWarning: string;
+  /** The writer's description of the cover picture (alt text). */
+  coverImageAlt: string;
   /** Entry date as a datetime-local value (local time), or "" for none. */
   publishedAt: string;
   /** The circle this entry is posted in, and the circle prompt it answers. */
@@ -1241,6 +1243,7 @@ interface RecoveryData {
   sensitive: boolean;
   contentWarning: string;
   coverImageId: string | null;
+  coverImageAlt?: string;
   htmlMode: boolean;
   htmlSource: string;
   timestamp: number;
@@ -1610,7 +1613,7 @@ export function EditorClient() {
   const fromCirclePromptId = editId ? null : searchParams.get("circle_prompt");
 
   const [state, setState] = useState<EditorState>({
-    title: "", mood: "", moodKey: null, location: "", userpicId: null, music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", publishedAt: "",
+    title: "", mood: "", moodKey: null, location: "", userpicId: null, music: "", privacy: "public", customFilterId: null, tags: "", excerpt: "", category: null, seriesId: null, sensitive: false, contentWarning: "", coverImageAlt: "", publishedAt: "",
     circleId: fromCircleId, circlePromptId: fromCircleId ? fromCirclePromptId : null,
   });
   const [myCircles, setMyCircles] = useState<MyCircle[] | null>(null);
@@ -1682,6 +1685,7 @@ export function EditorClient() {
   }, []);
   const [coverImageId, setCoverImageId] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverAltOpen, setCoverAltOpen] = useState(false);
 
   // Newsletter state
   const [newsletterEnabled, setNewsletterEnabled] = useState(false);
@@ -2173,6 +2177,8 @@ export function EditorClient() {
         throw new Error(code ?? "Upload failed");
       }
       const { data } = await res.json();
+      // A new picture needs its own description.
+      setState((st) => ({ ...st, coverImageAlt: "" }));
       setCoverImageId(data.id);
     } catch (err) {
       alert(`Cover upload failed: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -2435,6 +2441,7 @@ export function EditorClient() {
           seriesId: entry.series_id ?? null,
           sensitive: entry.sensitive ?? false,
           contentWarning: entry.content_warning ?? "",
+          coverImageAlt: entry.cover_image_alt ?? "",
           publishedAt: toLocalInput(entry.scheduled_at || entry.published_at),
           circleId: entry.circle_id ?? null,
           circlePromptId: entry.circle_prompt_id ?? null,
@@ -2716,6 +2723,7 @@ export function EditorClient() {
         sensitive: state.sensitive,
         contentWarning: state.contentWarning,
         coverImageId,
+        coverImageAlt: state.coverImageAlt,
         htmlMode,
         htmlSource,
         timestamp: Date.now(),
@@ -2812,6 +2820,7 @@ export function EditorClient() {
         tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
         excerpt: state.excerpt || null,
         cover_image_id: coverImageId || null,
+        cover_image_alt: coverImageId ? (state.coverImageAlt.trim() || null) : null,
         category: state.category || null,
         series_id: state.seriesId || null,
         sensitive: state.sensitive,
@@ -3149,6 +3158,7 @@ export function EditorClient() {
       tags: state.tags ? state.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
       excerpt: state.excerpt || null,
       cover_image_id: coverImageId || null,
+      cover_image_alt: coverImageId ? (state.coverImageAlt.trim() || null) : null,
       category: state.category || null,
       series_id: state.seriesId || null,
       sensitive: state.sensitive,
@@ -3705,6 +3715,9 @@ export function EditorClient() {
         lines.push({ icon: "↗", text: <>Also posted to <strong>@{account.remote_acct}</strong>.</> });
       }
     }
+    if (coverImageId && !state.coverImageAlt.trim()) {
+      lines.push({ icon: "▢", text: "The cover picture has no alt text.", tone: "muted" });
+    }
     if (state.sensitive) {
       lines.push({ icon: "⚠", text: state.contentWarning ? <>Behind a content warning: &ldquo;{state.contentWarning}&rdquo;.</> : "Behind a content warning." });
     }
@@ -3882,6 +3895,7 @@ export function EditorClient() {
                   seriesId: d.seriesId,
                   sensitive: d.sensitive,
                   contentWarning: d.contentWarning,
+                  coverImageAlt: d.coverImageAlt ?? "",
                 }));
                 setCoverImageId(d.coverImageId);
                 if (d.htmlMode) {
@@ -3949,7 +3963,7 @@ export function EditorClient() {
             {/* ── Cover image ──────────────────────────── */}
             <div className={focusMode ? "hidden" : ""}>
               {coverImageId ? (
-                <figure className="entry-cover entry-cover-editor group border mb-6"
+                <figure className="entry-cover entry-cover-editor group border mb-2"
                   style={{ borderColor: "var(--border)" }}>
                   {/* Same look as the entry page: the whole picture, never cropped */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3957,17 +3971,45 @@ export function EditorClient() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/images/${coverImageId}`}
-                    alt="Cover"
+                    alt={state.coverImageAlt || "Cover"}
                     className="entry-cover-image"
                   />
                   <button
                     type="button"
-                    onClick={() => setCoverImageId(null)}
+                    onClick={() => { setCoverImageId(null); update({ coverImageAlt: "" }); setCoverAltOpen(false); }}
                     className="editor-cover-remove absolute top-2 right-2 rounded-full flex items-center justify-center transition-opacity"
                     style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
                     aria-label="Remove cover image"
                   >×</button>
                 </figure>
+              ) : null}
+              {coverImageId ? (
+                coverAltOpen || state.coverImageAlt ? (
+                  <div className="editor-cover-alt">
+                    <label htmlFor="cover-alt">Alt text</label>
+                    <textarea
+                      id="cover-alt"
+                      rows={2}
+                      value={state.coverImageAlt}
+                      autoFocus={coverAltOpen && !state.coverImageAlt}
+                      onChange={(e) => update({ coverImageAlt: e.target.value.replace(/\n/g, " ") })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); titleRef.current?.focus(); }
+                        if (e.key === "Escape" && !state.coverImageAlt) { e.preventDefault(); setCoverAltOpen(false); }
+                      }}
+                      onBlur={() => { if (!state.coverImageAlt.trim()) setCoverAltOpen(false); }}
+                      maxLength={1500}
+                      placeholder="Describe the picture, e.g. “A heron standing in a grey river at dawn”"
+                    />
+                    <span className="editor-cover-alt-hint">
+                      Read aloud by screen readers, and shown as the picture&rsquo;s description on the fediverse.
+                    </span>
+                  </div>
+                ) : (
+                  <button type="button" className="editor-cover-alt-add" onClick={() => setCoverAltOpen(true)}>
+                    + Add alt text
+                  </button>
+                )
               ) : (
                 <button
                   type="button"

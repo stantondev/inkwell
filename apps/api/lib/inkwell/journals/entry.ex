@@ -32,6 +32,9 @@ defmodule Inkwell.Journals.Entry do
     # the body and regenerated whenever the body changes.
     field :excerpt_custom, :boolean, default: false
     field :cover_image_id, :binary_id
+    # The writer's description of the cover for screen readers and the
+    # fediverse. Plain text; nil means none was written.
+    field :cover_image_alt, :string
     field :category, Ecto.Enum, values: [
       :personal, :creative_writing, :poetry, :fiction, :travel, :tech,
       :music, :film_tv, :food, :health, :career, :education,
@@ -164,6 +167,28 @@ defmodule Inkwell.Journals.Entry do
 
   def count_words(_), do: 0
 
+  @cover_alt_max 1500
+
+  # Trimmed plain text, blank → nil. 1500 characters is Mastodon's limit for
+  # a media description, so what's written here always fits there.
+  defp put_cover_alt(changeset) do
+    cond do
+      # The cover was removed; its description goes with it.
+      Map.has_key?(changeset.changes, :cover_image_id) and is_nil(changeset.changes.cover_image_id) ->
+        put_change(changeset, :cover_image_alt, nil)
+
+      is_binary(alt = get_change(changeset, :cover_image_alt)) ->
+        case String.trim(alt) do
+          "" -> put_change(changeset, :cover_image_alt, nil)
+          trimmed -> put_change(changeset, :cover_image_alt, trimmed)
+        end
+        |> validate_length(:cover_image_alt, max: @cover_alt_max)
+
+      true ->
+        changeset
+    end
+  end
+
   defp validate_sticky(changeset) do
     case get_field(changeset, :kind) do
       "sticky" ->
@@ -227,7 +252,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :slug, :tags, :published_at, :user_id, :custom_filter_id,
-      :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
+      :user_icon_id, :status, :word_count, :excerpt, :excerpt_custom, :cover_image_id, :cover_image_alt, :category,
       :series_id, :series_order, :sensitive, :content_warning, :source,
       :quoted_entry_id, :quoted_remote_entry_id,
       :kind, :sticky_color, :source_sticky_id, :gazette_story_id,
@@ -236,6 +261,7 @@ defmodule Inkwell.Journals.Entry do
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
     |> put_clean_tags()
+    |> put_cover_alt()
     |> validate_required([:body_html, :privacy, :user_id])
     |> validate_sticky()
     |> validate_length(:title, max: 500)
@@ -295,7 +321,7 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :tags, :user_id, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
+      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :cover_image_alt, :category,
       :series_id, :series_order, :sensitive, :content_warning,
       # Imports carry the post's original date. This wasn't cast, so the date
       # was silently dropped the moment an imported post landed in drafts —
@@ -313,6 +339,7 @@ defmodule Inkwell.Journals.Entry do
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
     |> put_clean_tags()
+    |> put_cover_alt()
     |> validate_required([:user_id])
     |> validate_not_future(:published_at)
     |> validate_schedule()
@@ -331,13 +358,14 @@ defmodule Inkwell.Journals.Entry do
     |> cast(attrs, [
       :title, :body_html, :body_raw, :mood, :mood_key, :location, :music, :music_metadata,
       :privacy, :tags, :custom_filter_id, :user_icon_id,
-      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :category,
+      :word_count, :excerpt, :excerpt_custom, :cover_image_id, :cover_image_alt, :category,
       :series_id, :series_order, :sensitive, :content_warning,
       :published_at, :circle_id, :circle_prompt_id
     ])
     |> Inkwell.HtmlSanitizer.sanitize_change(:body_html)
     |> put_word_count()
     |> put_clean_tags()
+    |> put_cover_alt()
     |> validate_required([:body_html, :privacy])
     |> validate_not_future(:published_at)
     |> validate_length(:title, max: 500)

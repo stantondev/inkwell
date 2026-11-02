@@ -35,6 +35,7 @@ interface ProfileEntry {
   excerpt?: string | null;
   excerpt_custom?: boolean;
   cover_image_id?: string | null;
+  cover_image_alt?: string | null;
   category?: string | null;
   imported_from?: string | null;
   archive_mark?: boolean;
@@ -237,7 +238,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/images/${entry.cover_image_id}`}
-            alt={entry.title ?? "Entry cover"}
+            alt={entry.cover_image_alt ?? ""}
             className="w-full object-cover"
             style={{ maxHeight: 420 }}
             loading="lazy"
@@ -356,7 +357,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/images/${entry.cover_image_id}`}
-            alt={entry.title ?? "Entry cover"}
+            alt={entry.cover_image_alt ?? ""}
             className="w-full object-cover"
             style={{ maxHeight: 200 }}
             loading="lazy"

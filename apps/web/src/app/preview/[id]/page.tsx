@@ -256,7 +256,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
           {entry.cover_image_id && (
-            <EntryCover imageId={entry.cover_image_id} alt={entry.title ?? "Entry cover"} />
+            <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
           )}
 
           <JournalPage corner className="p-6 lg:p-10">

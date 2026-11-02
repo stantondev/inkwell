@@ -639,7 +639,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
         <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
           {entry.cover_image_id && (
-            <EntryCover imageId={entry.cover_image_id} alt={entry.title ?? "Entry cover"} />
+            <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
           )}
 
           {entry.series && entry.series_order && (

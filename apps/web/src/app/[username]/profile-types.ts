@@ -67,6 +67,7 @@ export interface ProfileEntry {
   word_count?: number;
   excerpt?: string | null;
   cover_image_id?: string | null;
+  cover_image_alt?: string | null;
   category?: string | null;
 }
 

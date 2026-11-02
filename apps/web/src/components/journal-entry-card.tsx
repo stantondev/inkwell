@@ -43,6 +43,7 @@ export interface JournalEntry {
   word_count?: number;
   excerpt?: string | null;
   cover_image_id?: string | null;
+  cover_image_alt?: string | null;
   category?: string | null;
   series?: {
     id: string;
@@ -414,7 +415,7 @@ export function JournalEntryCard({ entry, actions, translatedBody, translatedTit
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`/api/images/${entry.cover_image_id}`}
-                alt={entry.title ?? "Entry cover"}
+                alt={entry.cover_image_alt ?? ""}
                 className="w-full object-cover"
                 style={{ maxHeight: bookMode ? "min(500px, 50vh)" : "min(280px, 45vw)" }}
                 loading="lazy"

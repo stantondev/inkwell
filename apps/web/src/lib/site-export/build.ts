@@ -249,7 +249,7 @@ function entryPage(
   const body = warning
     ? `<details class="export-cw"><summary>Content warning: ${esc(warning)}</summary><div class="prose-entry">${e.body_html}</div></details>`
     : `<div class="prose-entry">${e.body_html}</div>`;
-  const cover = e.cover_image_id && !warning ? `<img class="export-cover" src="/api/images/${e.cover_image_id}" alt=""/>` : "";
+  const cover = e.cover_image_id && !warning ? `<img class="export-cover" src="/api/images/${e.cover_image_id}" alt="${esc((e as ExportEntry & { cover_image_alt?: string | null }).cover_image_alt ?? "")}"/>` : "";
   const tags = (e.tags ?? []).length
     ? `<p class="export-tags">${e.tags.map((t) => `<span>#${esc(t)}</span>`).join(" ")}</p>`
     : "";

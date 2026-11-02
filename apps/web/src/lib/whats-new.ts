@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-02-cover-alt-text",
+    date: "2026-11-02",
+    title: "Alt text for cover pictures",
+    body: "You can now describe your entry\u2019s cover picture for people who can\u2019t see it. Screen readers read it aloud on Inkwell, and it goes with the picture to Mastodon and the rest of the fediverse as its description. Pictures inside an entry already had alt text; the cover was the one picture that didn\u2019t. Thanks to the Founding Member who asked.",
+    howTo: "In the editor, add a cover, then press \u201c+ Add alt text\u201d under it. Older entries can be opened and described the same way.",
+    href: "/editor",
+    cta: "Write an entry",
+    tag: "Writing",
+  },
+  {
     id: "2026-10-29-halloween",
     date: "2026-10-29",
     title: "Inkwell dresses up for Hallowe\u2019en",
