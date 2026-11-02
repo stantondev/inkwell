@@ -15,6 +15,8 @@ interface ReprintButtonProps {
   size?: number;
   /** Show count (default true) */
   showCount?: boolean;
+  /** A word beside the icon (the entry page's desk) */
+  label?: string;
   /** Whether this is a remote/fediverse entry */
   isRemote?: boolean;
   /** Override API path for remote entry reprints */
@@ -29,6 +31,7 @@ export function ReprintButton({
   isLoggedIn,
   size = 15,
   showCount = true,
+  label,
   isRemote = false,
   apiPath,
 }: ReprintButtonProps) {
@@ -49,6 +52,7 @@ export function ReprintButton({
         title={`${count} ${count === 1 ? "reprint" : "reprints"}`}
       >
         <ReprintIcon size={size} filled={false} />
+        {label && <span>{label}</span>}
         {count}
       </span>
     ) : null;
@@ -124,6 +128,7 @@ export function ReprintButton({
           }}
         >
           <ReprintIcon size={size} filled={reprinted} />
+          {label && <span>{label}</span>}
           {showCount && <span>{count}</span>}
         </button>
 

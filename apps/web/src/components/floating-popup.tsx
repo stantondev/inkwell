@@ -11,6 +11,8 @@ interface FloatingPopupProps {
   children: React.ReactNode;
   /** Where to show relative to anchor — "top" opens upward, "bottom" opens downward */
   placement?: "top" | "bottom";
+  /** "end" lines the popup's right edge up with the anchor's (default); "start" its left edge. */
+  align?: "start" | "end";
   className?: string;
   style?: React.CSSProperties;
 }
@@ -21,6 +23,7 @@ export function FloatingPopup({
   onClose,
   children,
   placement = "top",
+  align = "end",
   className = "",
   style,
 }: FloatingPopupProps) {
@@ -46,9 +49,16 @@ export function FloatingPopup({
     const maxX = (vv ? vv.offsetLeft + vv.width : window.innerWidth) - 8;
     const maxY = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 8;
 
-    // Horizontal: try to right-align to anchor, fall back to left-align, clamp
-    let left = ar.right - pr.width;
-    if (left < minX) left = ar.left;
+    // Horizontal: line up with the anchor's chosen edge, fall back to the
+    // other edge, then clamp
+    let left: number;
+    if (align === "start") {
+      left = ar.left;
+      if (left + pr.width > maxX) left = ar.right - pr.width;
+    } else {
+      left = ar.right - pr.width;
+      if (left < minX) left = ar.left;
+    }
     left = Math.max(minX, Math.min(left, maxX - pr.width));
 
     // Vertical
@@ -69,7 +79,7 @@ export function FloatingPopup({
 
     setPos({ top, left, maxHeight: computedMaxHeight });
     setVisible(true);
-  }, [anchorRef, placement]);
+  }, [anchorRef, placement, align]);
 
   // Position on open + update on scroll/resize
   useEffect(() => {

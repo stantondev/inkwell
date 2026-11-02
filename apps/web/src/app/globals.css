@@ -2618,13 +2618,8 @@ a.listening-card:hover { border-color: var(--accent); }
 .entry-cover-editor .entry-cover-image {
   max-height: 320px;
 }
-/* With the margin-notes column on, the text is narrower than the article;
-   keep the cover the same width as the text under it. */
-@media (min-width: 1280px) {
-  .entry-wide:has(.entry-marginalia-wrapper--with-aside) .entry-cover {
-    margin-right: 282px;
-  }
-}
+/* On the entry page the cover sits inside the margin-notes wrapper, so it is
+   already the width of the text when the notes column is on. */
 
 /* DEPRECATED — page navigation arrows removed in masonry grid redesign */
 .journal-nav-arrow {
@@ -21072,3 +21067,216 @@ body[data-season="halloween"] .journal-book-spread::after { right: 0; transform:
   .season-spider-inner { animation: none !important; }
   .season-ghost { bottom: 40vh; }
 }
+
+/* ─── The entry page as a letter (2026-11-02) ─────────────────────────── */
+/* Date and stamps across the top like an envelope, the title, "from" the
+   writer, the Current rows, a rule; at the end a flourish and the writer's
+   name in a hand. The desk under the page holds ink, stamps, footnotes and
+   reprints in one labelled row. */
+
+.entry-letter {
+  box-shadow: 0 22px 44px -34px rgb(26 39 68 / 0.45);
+}
+@media (prefers-color-scheme: dark) {
+  .entry-letter { box-shadow: 0 22px 44px -30px rgb(0 0 0 / 0.7); }
+}
+
+.entry-letterhead { margin-bottom: 1.75rem; }
+
+.entry-letterhead-top {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1.1rem;
+}
+.entry-dateline {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 0.3rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+/* The stamps hug the page's top-right corner, where postage goes. */
+.entry-postage {
+  flex: none;
+  margin-left: auto;
+  margin-top: -0.35rem;
+  margin-right: -0.35rem;
+}
+.entry-postage:empty { display: none; }
+/* On a phone the date takes two lines before the stamps drop below it. */
+@media (max-width: 639px) {
+  .entry-postage { transform: scale(0.82); transform-origin: top right; margin-bottom: -0.75rem; }
+}
+@media (min-width: 1024px) {
+  .entry-postage { margin-top: -1rem; margin-right: -1rem; }
+}
+
+.entry-letter-title {
+  margin: 0 0 1rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(1.65rem, 1.15rem + 2.2vw, 2.6rem);
+  line-height: 1.15;
+  color: var(--foreground);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.entry-from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.entry-from-label {
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+}
+.entry-from-writer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--foreground);
+  text-decoration: none;
+}
+.entry-from-writer:hover > span:last-child { text-decoration: underline; }
+.entry-from-sep { color: var(--border); }
+.entry-from-category {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: var(--accent-light);
+  color: var(--accent);
+  text-decoration: none;
+}
+.entry-from-category:hover { opacity: 0.8; }
+
+/* The Current rows read as one line of the letterhead, not a box. */
+.entry-current.entry-current--letter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.45rem;
+  row-gap: 0.3rem;
+  margin-top: 0.8rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  max-width: none;
+  font-size: 0.85rem;
+}
+.entry-current--letter .entry-current-label:not(:first-child) { margin-left: 0.9rem; }
+
+.entry-letterhead-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.65rem;
+  color: color-mix(in srgb, var(--accent) 45%, var(--muted));
+}
+.entry-letterhead-rule::before,
+.entry-letterhead-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border) 30%, var(--border));
+}
+.entry-letterhead-rule::after {
+  background: linear-gradient(to left, transparent, var(--border) 30%, var(--border));
+}
+
+.entry-letter .entry-cover { margin-bottom: 1.75rem; }
+
+.entry-signoff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 2.5rem;
+}
+.entry-endmark {
+  display: block;
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted));
+}
+.entry-signature {
+  align-self: flex-end;
+  max-width: 85%;
+  margin: 0.6rem 1.25rem 0 0;
+  font-family: var(--sb-font-hand), "Segoe Script", cursive;
+  font-size: 1.7rem;
+  line-height: 1.25;
+  text-align: right;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  opacity: 0.85;
+  transform: rotate(-3deg);
+}
+
+.entry-letter .entry-tags {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--border);
+}
+
+.entry-desk {
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+.entry-desk-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.entry-desk-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.entry-desk-tool:empty { display: none; }
+.entry-desk-tool:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.entry-desk-link:hover { color: var(--foreground); }
+.entry-desk-tool > button,
+.entry-desk-tool > span > button { min-height: 38px; }
+/* The stamp picker brings its own pill. */
+.entry-desk-tool.entry-desk-tool--stamp {
+  padding: 0;
+  border: 0;
+  background: none;
+  min-height: 0;
+}
+.entry-desk-tool--stamp .stamp-trigger-pill {
+  min-height: 40px;
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+.entry-desk-fedi {
+  margin: 0.75rem 0.25rem 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.entry-desk-fedi > button { margin-top: 0; vertical-align: baseline; }

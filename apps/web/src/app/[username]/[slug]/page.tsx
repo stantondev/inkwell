@@ -20,7 +20,8 @@ import { EntryStamps } from "./entry-stamps";
 import { OwnerStrip } from "./owner-strip";
 import { PublishedNote } from "./published-note";
 import { audienceLabel, audienceSentence } from "./audience";
-import { EntryCover, EntryMusicEmbed, EntryTags, getMoodHue } from "./entry-parts";
+import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "./entry-parts";
+import { EntryDesk } from "./entry-desk";
 import type { EntryData } from "./entry-types";
 import { ArchiveCoverLetter } from "@/components/archive-cover-letter";
 import { BookmarkButton } from "@/components/bookmark-button";
@@ -401,60 +402,22 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
 
       <ReadingProgress color={progressColor} />
 
-      {/* ── Ambient hero header ─────────────────────────────────────── */}
+      {/* ── Above the page: the way back, the writer's own tools, where it came from ── */}
       <div className={moodHue !== null ? "entry-ambient" : ""}>
-
-        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12 relative">
-
-          {/* Stamps — horizontal row inline on mobile, absolute top-right on desktop */}
-          {showStamps && (
-            <div className="flex justify-end mb-3 sm:mb-0 sm:absolute sm:top-8 sm:right-6 md:right-8 lg:right-12 z-10">
-              <EntryStamps
-                entryId={entry.id}
-                initialStamps={entry.stamps ?? []}
-                initialMyStamp={entry.my_stamp ?? null}
-                initialMarks={entry.stamp_marks ?? null}
-                initialNote={entry.my_note === undefined ? undefined : entry.my_note}
-                initialStampedOn={entry.my_stamped_on ?? null}
-                writerName={entry.author?.display_name || username}
-                isOwnEntry={isOwnEntry ?? false}
-                isLoggedIn={!!session}
-                isPlus={session?.user.subscription_tier === "plus"}
-              />
-            </div>
-          )}
-
-          {/* Nav row */}
-          <div className="flex flex-col gap-3 mb-6">
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-5">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <Link
               href={`/${username}`}
-              className="text-sm transition-colors hover:underline flex items-center gap-1.5"
+              className="text-sm transition-colors hover:underline flex items-center gap-1.5 min-w-0"
               style={{ color: "var(--muted)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M19 12H5M12 5l-7 7 7 7"/>
               </svg>
-              @{username}
+              <span className="truncate">@{username}</span>
             </Link>
-            <div className="flex flex-wrap items-center gap-3">
-              <InkButton
-                entryId={entry.id}
-                initialInked={entry.my_ink ?? false}
-                initialCount={entry.ink_count ?? 0}
-                isOwnEntry={isOwnEntry ?? false}
-                isLoggedIn={!!session}
-                size={18}
-              />
-              <ReprintButton
-                entryId={entry.id}
-                initialReprinted={entry.my_reprint ?? false}
-                initialCount={entry.reprint_count ?? 0}
-                isOwnEntry={isOwnEntry ?? false}
-                isLoggedIn={!!session}
-                isRemote={false}
-                size={18}
-              />
+            <div className="flex items-center gap-3 flex-shrink-0">
               {session && (
                 <BookmarkButton
                   entryId={entry.id}
@@ -476,32 +439,24 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                 <EntryActions entryId={entry.id} username={username} showEdit={false} />
               )}
             </div>
-            {isOwnEntry && (
-              // Clear of the stamps, which sit top-right on wider screens.
-              <div className={showStamps ? "sm:pr-28" : undefined}>
-                <OwnerStrip
-                  entryId={entry.id}
-                  username={username}
-                  audience={audienceLabel(audience)}
-                  readCount={entry.read_count}
-                  initialPinned={pinnedEntryIds.includes(entry.id)}
-                  pinnedCount={pinnedEntryIds.length}
-                />
-              </div>
-            )}
           </div>
+
+          {isOwnEntry && (
+            <div className="mb-4">
+              <OwnerStrip
+                entryId={entry.id}
+                username={username}
+                audience={audienceLabel(audience)}
+                readCount={entry.read_count}
+                initialPinned={pinnedEntryIds.includes(entry.id)}
+                pinnedCount={pinnedEntryIds.length}
+              />
+            </div>
+          )}
 
           {isOwnEntry && (
             <PublishedNote show={justPublished} sentence={audienceSentence(audience)} url={shareUrl} />
           )}
-
-          {/* Date */}
-          <LocalDate
-            iso={entry.published_at}
-            options={FULL_DATE}
-            className="block text-sm mb-5"
-            style={{ color: "var(--muted)", letterSpacing: "0.01em" }}
-          />
 
           {entry.source_sticky && (
             <Link
@@ -544,79 +499,6 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
             </div>
           )}
 
-          {/* Title */}
-          {entry.title && (
-            <h1
-              className="text-2xl sm:text-4xl font-bold leading-tight mb-7 pr-20 sm:pr-28"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-            >
-              <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle>
-            </h1>
-          )}
-
-          {/* Meta chips */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link href={`/${username}`} className="flex items-center gap-2 hover:underline">
-              {entry.userpic ? (
-                // A chosen userpic is shown bigger than the default avatar, as on LiveJournal.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={entry.userpic.url} alt="" title={entry.userpic.keyword}
-                  width={48} height={48} className="entry-userpic" />
-              ) : (
-                <AvatarWithFrame
-                  url={author.avatar_url}
-                  name={author.display_name}
-                  size={26}
-                  frame={author.avatar_frame}
-                  animation={author.avatar_animation}
-                  subscriptionTier={author.subscription_tier ?? undefined}
-                />
-              )}
-              <span className="text-sm font-medium">{author.display_name}</span>
-            </Link>
-
-            <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
-
-            <span className="text-sm" style={{ color: "var(--muted)" }}>
-              {mins} min read
-            </span>
-
-            {POSTAGE_ENABLED && isOwnEntry && entry.tip_total_cents != null && entry.tip_total_cents > 0 && (
-              <>
-                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
-                <span className="text-sm" style={{ color: "var(--accent)" }}>
-                  ${(entry.tip_total_cents / 100).toFixed(2)} in postage
-                </span>
-              </>
-            )}
-
-            {entry.category && (
-              <>
-                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
-                <Link
-                  href={`/category/${getCategorySlug(entry.category)}`}
-                  className="text-sm px-2.5 py-1 rounded-full transition-colors hover:opacity-80"
-                  style={{
-                    background: "var(--accent-light)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  {getCategoryLabel(entry.category)}
-                </Link>
-              </>
-            )}
-
-          </div>
-
-          <CurrentBlock
-            mood={entry.mood}
-            moodKey={entry.mood_key}
-            moodTheme={entry.mood_theme}
-            music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
-            location={entry.location}
-            song={listened}
-          />
-
           {/* ── Archive cover letter (posts brought over from LiveJournal etc.) ── */}
           {entry.archive_mark && entry.imported_from && (
             <ArchiveCoverLetter
@@ -632,48 +514,123 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
         </div>
       </div>
 
-      {/* ── The entry: cover, series, body, player, tags ─────────────
-          One content-warning gate for all of it, so a warned entry with a
-          cover needs one "Show content", and the player waits too. Title,
-          byline and stamps stay outside, as on the feed cards. */}
+      {/* ── The page itself, set like a letter ───────────────────────
+          Letterhead (date, stamps, title, who it's from, Current) stays
+          outside the content warning, as on the feed cards. One gate covers
+          everything else on the page, so a warned entry with a cover needs
+          one "Show content" and the player waits too. */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
-          {entry.cover_image_id && (
-            <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
-          )}
+        <JournalPage corner className="entry-letter p-6 lg:p-10">
+          <EntryLetterhead
+            date={<LocalDate iso={entry.published_at} options={FULL_DATE} />}
+            corner={showStamps ? (
+              <EntryStamps
+                entryId={entry.id}
+                initialStamps={entry.stamps ?? []}
+                initialMyStamp={entry.my_stamp ?? null}
+                initialMarks={entry.stamp_marks ?? null}
+                initialNote={entry.my_note === undefined ? undefined : entry.my_note}
+                initialStampedOn={entry.my_stamped_on ?? null}
+                writerName={entry.author?.display_name || username}
+                isOwnEntry={isOwnEntry ?? false}
+                isLoggedIn={!!session}
+                isPlus={session?.user.subscription_tier === "plus"}
+                showPicker={false}
+              />
+            ) : undefined}
+            title={entry.title ? <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle> : undefined}
+            from={
+              <Link href={`/${username}`} className="entry-from-writer">
+                {entry.userpic ? (
+                  // A chosen userpic is shown bigger than the default avatar.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entry.userpic.url} alt="" title={entry.userpic.keyword}
+                    width={48} height={48} className="entry-userpic" />
+                ) : (
+                  <AvatarWithFrame
+                    url={author.avatar_url}
+                    name={author.display_name}
+                    size={26}
+                    frame={author.avatar_frame}
+                    animation={author.avatar_animation}
+                    subscriptionTier={author.subscription_tier ?? undefined}
+                  />
+                )}
+                <span>{author.display_name}</span>
+              </Link>
+            }
+            details={
+              <>
+                <span aria-hidden="true" className="entry-from-sep">·</span>
+                <span className="entry-from-detail">{mins === 1 ? "a minute's read" : `${mins} minutes' read`}</span>
+                {POSTAGE_ENABLED && isOwnEntry && entry.tip_total_cents != null && entry.tip_total_cents > 0 && (
+                  <>
+                    <span aria-hidden="true" className="entry-from-sep">·</span>
+                    <span className="entry-from-detail" style={{ color: "var(--accent)" }}>
+                      ${(entry.tip_total_cents / 100).toFixed(2)} in postage
+                    </span>
+                  </>
+                )}
+                {entry.category && (
+                  <>
+                    <span aria-hidden="true" className="entry-from-sep">·</span>
+                    <Link href={`/category/${getCategorySlug(entry.category)}`} className="entry-from-category">
+                      {getCategoryLabel(entry.category)}
+                    </Link>
+                  </>
+                )}
+              </>
+            }
+            current={
+              <CurrentBlock
+                className="entry-current--letter"
+                mood={entry.mood}
+                moodKey={entry.mood_key}
+                moodTheme={entry.mood_theme}
+                music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
+                location={entry.location}
+                song={listened}
+              />
+            }
+          />
 
-          {entry.series && entry.series_order && (
-            <SeriesNav series={entry.series} currentOrder={entry.series_order} />
-          )}
-
-          {entry.is_paywalled && entry.writer_plan ? (
-            <div>
-              {entry.excerpt && (
-                <JournalPage corner className="p-6 lg:p-10">
+          <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
+            {entry.is_paywalled && entry.writer_plan ? (
+              <div>
+                {entry.cover_image_id && (
+                  <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
+                )}
+                {entry.excerpt && (
                   <div className="prose-entry" style={{ color: "var(--foreground)" }}>
                     <p>{entry.excerpt}</p>
                   </div>
-                </JournalPage>
-              )}
-              <PaywallCard
-                writerPlan={entry.writer_plan}
-                author={entry.author}
-                isLoggedIn={!!session}
-              />
-            </div>
-          ) : (
-            <>
-              <MarginaliaReader
-                entryId={entry.id}
-                entryUserId={entry.author.id}
-                initialNotes={entry.marginalia ?? []}
-                initialOrphaned={entry.orphaned_marginalia ?? []}
-                viewer={{
-                  id: session?.user.id ?? "",
-                  isLoggedIn: !!session,
-                }}
-              >
-                <JournalPage corner className="p-6 lg:p-10">
+                )}
+                <PaywallCard
+                  writerPlan={entry.writer_plan}
+                  author={entry.author}
+                  isLoggedIn={!!session}
+                />
+              </div>
+            ) : (
+              <>
+                <MarginaliaReader
+                  entryId={entry.id}
+                  entryUserId={entry.author.id}
+                  initialNotes={entry.marginalia ?? []}
+                  initialOrphaned={entry.orphaned_marginalia ?? []}
+                  viewer={{
+                    id: session?.user.id ?? "",
+                    isLoggedIn: !!session,
+                  }}
+                >
+                  {entry.cover_image_id && (
+                    <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
+                  )}
+
+                  {entry.series && entry.series_order && (
+                    <SeriesNav series={entry.series} currentOrder={entry.series_order} />
+                  )}
+
                   <TranslatableEntry
                     type="entry"
                     id={entry.id}
@@ -689,24 +646,45 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                     />
                     <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
                   </TranslatableEntry>
-                </JournalPage>
-              </MarginaliaReader>
+                </MarginaliaReader>
 
-              {/* Quoted / Reprinted entry — full original post embedded */}
-              {entry.quoted_entry && (
-                <QuotedPostEmbed quoted={entry.quoted_entry} />
-              )}
-            </>
-          )}
+                {/* Quoted / Reprinted entry — full original post embedded */}
+                {entry.quoted_entry && (
+                  <QuotedPostEmbed quoted={entry.quoted_entry} />
+                )}
+              </>
+            )}
 
-          {/* The player comes after the writing, so the first lines of the
-              entry are on the first screen. "Current music" stays at the top. */}
-          {musicEmbed && (
-            <EntryMusicEmbed embed={musicEmbed} music={entry.music!} />
-          )}
+            {/* The player comes after the writing, so the first lines of the
+                entry are on the first screen. "Current music" stays at the top. */}
+            {musicEmbed && (
+              <EntryMusicEmbed embed={musicEmbed} music={entry.music!} />
+            )}
 
-          {!entry.is_paywalled && <EntryTags tags={entry.tags} />}
-        </ContentWarning>
+            <EntrySignoff name={author.display_name || `@${username}`} />
+
+            {!entry.is_paywalled && <EntryTags tags={entry.tags} />}
+          </ContentWarning>
+        </JournalPage>
+
+        <EntryDesk
+          entryId={entry.id}
+          username={username}
+          writerName={author.display_name || username}
+          isOwnEntry={isOwnEntry ?? false}
+          isLoggedIn={!!session}
+          isPlus={session?.user.subscription_tier === "plus"}
+          isPublic={entry.privacy === "public"}
+          footnoteCount={comments.length}
+          inked={entry.my_ink ?? false}
+          inkCount={entry.ink_count ?? 0}
+          reprinted={entry.my_reprint ?? false}
+          reprintCount={entry.reprint_count ?? 0}
+          myStamp={entry.my_stamp ?? null}
+          myNote={entry.my_note === undefined ? undefined : entry.my_note}
+          myStampedOn={entry.my_stamped_on ?? null}
+          stampMarks={entry.stamp_marks ?? null}
+        />
 
         {/* Reader stats: counts this visit once it's actually been read */}
         {!isOwnEntry && <ReadBeacon entryId={entry.id} />}

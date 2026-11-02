@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-02-entry-letter",
+    date: "2026-11-02",
+    title: "Entries read like letters now",
+    body: "An entry\u2019s page has been redone to feel like a page of a journal instead of a web page. The date, title and who it\u2019s from now sit on the paper itself, with any stamps it\u2019s been sent in the top corner where postage goes, and your mood, music and place written underneath. The page ends with a small flourish and your name in a handwritten signature. Below it, ink, stamps, footnotes and reprints sit together in one row, each with its name, and public entries say how someone on Mastodon can reply or follow you.",
+    tag: "Reading",
+  },
+  {
     id: "2026-11-02-cover-alt-text",
     date: "2026-11-02",
     title: "Alt text for cover pictures",

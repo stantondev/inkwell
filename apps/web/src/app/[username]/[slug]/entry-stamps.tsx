@@ -22,6 +22,8 @@ interface EntryStampsProps {
   stampApiPath?: string;
   /** Smaller cluster (sticky pages). */
   size?: "md" | "lg";
+  /** False on the entry page's letterhead: the picker lives on the desk below the entry. */
+  showPicker?: boolean;
 }
 
 /**
@@ -42,6 +44,7 @@ export function EntryStamps({
   isPlus,
   stampApiPath,
   size = "lg",
+  showPicker = true,
 }: EntryStampsProps) {
   const [lettersOpen, setLettersOpen] = useState(false);
   const [version, setVersion] = useState(0);
@@ -60,7 +63,7 @@ export function EntryStamps({
         openLabel={isOwnEntry ? "Your stamps: see who sent them and what they wrote" : undefined}
       />
 
-      <StampPicker
+      {showPicker && <StampPicker
         entryId={entryId}
         currentStamp={initialMyStamp}
         currentNote={initialNote}
@@ -71,7 +74,7 @@ export function EntryStamps({
         isLoggedIn={isLoggedIn}
         isPlus={isPlus}
         stampApiPath={stampApiPath}
-      />
+      />}
 
       {isOwnEntry && (
         <FloatingPopup

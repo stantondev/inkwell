@@ -14,6 +14,8 @@ interface InkButtonProps {
   size?: number;
   /** Show count (default true) */
   showCount?: boolean;
+  /** A word beside the icon (the entry page's desk) */
+  label?: string;
   /** Override API path for remote entries */
   apiPath?: string;
 }
@@ -26,6 +28,7 @@ export function InkButton({
   isLoggedIn,
   size = 15,
   showCount = true,
+  label,
   apiPath,
 }: InkButtonProps) {
   const [inked, setInked] = useState(initialInked);
@@ -51,6 +54,7 @@ export function InkButton({
         title={`${count} ${count === 1 ? "ink" : "inks"}`}
       >
         <InkDropIcon size={size} filled={false} />
+        {label && <span>{label}</span>}
         {count}
       </span>
     ) : null;
@@ -105,6 +109,7 @@ export function InkButton({
       }}
     >
       <InkDropIcon size={size} filled={inked} />
+      {label && <span>{label}</span>}
       {showCount && <span>{count}</span>}
     </button>
   );

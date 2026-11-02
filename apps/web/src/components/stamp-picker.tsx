@@ -45,6 +45,8 @@ interface StampPickerProps {
   /** Marks currently on the post (to tell which one a send added). */
   currentMarks?: StampMark[] | null;
   onStampChange?: (stamps: string[], myStamp: string | null) => void;
+  /** Which edge of the button the desktop popup lines up with (default "end"). */
+  popupAlign?: "start" | "end";
 }
 
 const PRESS_MS = 560;
@@ -73,6 +75,7 @@ export function StampPicker({
   currentStampedOn,
   currentMarks,
   onStampChange,
+  popupAlign = "end",
 }: StampPickerProps) {
   const apiPath = stampApiPath ?? `/api/entries/${entryId}/stamp`;
   const infoPath = stampInfoPath ?? `${apiPath}s`;
@@ -475,6 +478,7 @@ export function StampPicker({
               open={open}
               onClose={close}
               placement={compact ? "top" : "bottom"}
+              align={popupAlign}
               className="stamp-picker-popup rounded-xl border shadow-lg"
               style={{ background: "var(--surface)", borderColor: "var(--border)", width: "min(400px, calc(100vw - 24px))" }}
             >

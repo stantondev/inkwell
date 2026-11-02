@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MusicEmbed, MusicService } from "@/lib/music";
 import { resolveMood, familyHue } from "@/lib/moods";
+import { hand } from "@/app/stamp-album/fonts";
 
 /**
  * The mood family's hue, for the --mood-hue CSS custom property.
@@ -195,7 +196,7 @@ export function EntryCover({ imageId, alt }: { imageId: string; alt: string }) {
 export function EntryTags({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+    <div className="entry-tags flex flex-wrap gap-2">
       {tags.map((tag) => (
         <Link
           key={tag}
@@ -207,5 +208,57 @@ export function EntryTags({ tags }: { tags: string[] }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+/** The top of the page, set like a letter: the date with any stamps in the
+ *  corner where postage goes, the title, who it's from, then the Current
+ *  rows and a rule before the writing starts. */
+export function EntryLetterhead({
+  date,
+  corner,
+  title,
+  from,
+  details,
+  current,
+}: {
+  date: React.ReactNode;
+  corner?: React.ReactNode;
+  title?: React.ReactNode;
+  from: React.ReactNode;
+  details?: React.ReactNode;
+  current?: React.ReactNode;
+}) {
+  return (
+    <header className="entry-letterhead">
+      <div className="entry-letterhead-top">
+        <div className="entry-dateline">{date}</div>
+        {corner && <div className="entry-postage">{corner}</div>}
+      </div>
+      {title && <h1 className="entry-letter-title">{title}</h1>}
+      <div className="entry-from">
+        <span className="entry-from-label">from</span>
+        {from}
+        {details}
+      </div>
+      {current}
+      <div className="entry-letterhead-rule" aria-hidden="true">
+        <span>✦</span>
+      </div>
+    </header>
+  );
+}
+
+/** The end of the page: a flourish around an ink drop, and the writer's name in a hand. */
+export function EntrySignoff({ name }: { name: string }) {
+  return (
+    <footer className="entry-signoff">
+      <svg className="entry-endmark" width="132" height="22" viewBox="0 0 132 22" fill="none" aria-hidden="true">
+        <path d="M4 13c14 0 22-6 34-6 10 0 14 5 20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M128 13c-14 0-22-6-34-6-10 0-14 5-20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M66 2s-5.6 6-5.6 9.2a5.6 5.6 0 0 0 11.2 0C71.6 8 66 2 66 2Z" fill="currentColor" />
+      </svg>
+      <p className={`entry-signature ${hand.variable}`}>{name}</p>
+    </footer>
   );
 }

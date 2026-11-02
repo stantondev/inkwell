@@ -20,7 +20,7 @@ import { StickyNoteCard } from "@/components/sticky-note-card";
 import type { JournalEntry } from "@/components/journal-entry-card";
 import type { EntryData } from "@/app/[username]/[slug]/entry-types";
 import { audienceSentence } from "@/app/[username]/[slug]/audience";
-import { EntryCover, EntryMusicEmbed, EntryTags, getMoodHue } from "@/app/[username]/[slug]/entry-parts";
+import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "@/app/[username]/[slug]/entry-parts";
 import styles from "@/app/[username]/[slug]/entry-page.module.css";
 
 interface PreviewParams {
@@ -182,105 +182,88 @@ export default async function PreviewPage({ params }: PreviewParams) {
       {banner}
 
       <div className={moodHue !== null ? "entry-ambient" : ""}>
-        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12 relative">
-          {/* Date */}
-          {entry.published_at ? (
-            <LocalDate
-              iso={entry.published_at}
-              options={FULL_DATE}
-              className="block text-sm mb-5"
-              style={{ color: "var(--muted)", letterSpacing: "0.01em" }}
-            />
-          ) : (
-            <span className="block text-sm mb-5 italic" style={{ color: "var(--muted)", letterSpacing: "0.01em" }}>
-              Not published yet
-            </span>
-          )}
-
-          {entry.title && (
-            <h1
-              className="text-2xl sm:text-4xl font-bold leading-tight mb-7"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-            >
-              {entry.title}
-            </h1>
-          )}
-
-          {/* Byline */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="flex items-center gap-2">
-              {entry.userpic ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={entry.userpic.url} alt="" title={entry.userpic.keyword}
-                  width={48} height={48} className="entry-userpic" />
-              ) : (
-                <AvatarWithFrame
-                  url={author.avatar_url}
-                  name={author.display_name}
-                  size={26}
-                  frame={frame}
-                  animation={animation}
-                  subscriptionTier={tier ?? undefined}
-                />
-              )}
-              <span className="text-sm font-medium">{author.display_name}</span>
-            </span>
-            <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
-            <span className="text-sm" style={{ color: "var(--muted)" }}>
-              {readingMinutes(wordCount)} min read
-            </span>
-            {entry.category && (
-              <>
-                <span aria-hidden="true" style={{ color: "var(--border)" }}>·</span>
-                <span
-                  className="text-sm px-2.5 py-1 rounded-full"
-                  style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-                >
-                  {getCategoryLabel(entry.category)}
+        <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-16">
+          <JournalPage corner className="entry-letter p-6 lg:p-10">
+            <EntryLetterhead
+              date={entry.published_at
+                ? <LocalDate iso={entry.published_at} options={FULL_DATE} />
+                : <span>Not published yet</span>}
+              title={entry.title || undefined}
+              from={
+                <span className="entry-from-writer">
+                  {entry.userpic ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={entry.userpic.url} alt="" title={entry.userpic.keyword}
+                      width={48} height={48} className="entry-userpic" />
+                  ) : (
+                    <AvatarWithFrame
+                      url={author.avatar_url}
+                      name={author.display_name}
+                      size={26}
+                      frame={frame}
+                      animation={animation}
+                      subscriptionTier={tier ?? undefined}
+                    />
+                  )}
+                  <span>{author.display_name}</span>
                 </span>
-              </>
-            )}
-          </div>
-
-          <CurrentBlock
-            mood={entry.mood}
-            moodKey={entry.mood_key}
-            moodTheme={entry.mood_theme}
-            music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
-            location={entry.location}
-            song={listened}
-          />
-        </div>
-      </div>
-
-      <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
-          {entry.cover_image_id && (
-            <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
-          )}
-
-          <JournalPage corner className="p-6 lg:p-10">
-            {bodyHtml.trim() ? (
-              <>
-                <EntryContent
-                  html={bodyHtml}
-                  entryId={entry.id}
-                  className={`prose-entry entry-body${entry.title ? " drop-cap" : ""}`}
+              }
+              details={
+                <>
+                  <span aria-hidden="true" className="entry-from-sep">·</span>
+                  <span className="entry-from-detail">
+                    {readingMinutes(wordCount) === 1 ? "a minute's read" : `${readingMinutes(wordCount)} minutes' read`}
+                  </span>
+                  {entry.category && (
+                    <>
+                      <span aria-hidden="true" className="entry-from-sep">·</span>
+                      <span className="entry-from-category">{getCategoryLabel(entry.category)}</span>
+                    </>
+                  )}
+                </>
+              }
+              current={
+                <CurrentBlock
+                  className="entry-current--letter"
+                  mood={entry.mood}
+                  moodKey={entry.mood_key}
+                  moodTheme={entry.mood_theme}
+                  music={entry.music ? (listened ? songLabel(listened) : musicEmbed ? musicEmbed.title || musicEmbed.label : entry.music) : null}
+                  location={entry.location}
+                  song={listened}
                 />
-                <GalleryHydrator authorIsPlus={tier === "plus"} />
-              </>
-            ) : (
-              <p className="italic" style={{ color: "var(--muted)" }}>
-                Nothing written yet.
-              </p>
-            )}
+              }
+            />
+
+            <ContentWarning isSensitive={!!entry.is_sensitive} contentWarning={entry.content_warning}>
+              {entry.cover_image_id && (
+                <EntryCover imageId={entry.cover_image_id} alt={entry.cover_image_alt ?? ""} />
+              )}
+
+              {bodyHtml.trim() ? (
+                <>
+                  <EntryContent
+                    html={bodyHtml}
+                    entryId={entry.id}
+                    className={`prose-entry entry-body${entry.title ? " drop-cap" : ""}`}
+                  />
+                  <GalleryHydrator authorIsPlus={tier === "plus"} />
+                </>
+              ) : (
+                <p className="italic" style={{ color: "var(--muted)" }}>
+                  Nothing written yet.
+                </p>
+              )}
+
+              {musicEmbed && entry.music && <EntryMusicEmbed embed={musicEmbed} music={entry.music} />}
+
+              <EntrySignoff name={author.display_name || "You"} />
+
+              <EntryTags tags={entry.tags ?? []} />
+            </ContentWarning>
           </JournalPage>
-
-          {musicEmbed && entry.music && <EntryMusicEmbed embed={musicEmbed} music={entry.music} />}
-
-          <EntryTags tags={entry.tags ?? []} />
-        </ContentWarning>
-      </article>
+        </article>
+      </div>
     </div>
   );
 }
