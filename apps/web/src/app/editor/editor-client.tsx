@@ -3809,6 +3809,18 @@ export function EditorClient() {
             <SaveStatus status={saveStatus} lastSavedAt={lastSavedAt} unsavedEdits={!isDraft && !!savedEntryId && dirty} draftsLink={isDraft && !!savedEntryId} />
           </div>
           <div className="flex items-center gap-2">
+            {savedEntryId && (
+              <button type="button" onClick={requestDelete}
+                className="editor-delete-btn"
+                title={deleteLabel}
+                aria-label={deleteLabel}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>
+                </svg>
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
             {/* Settings panel toggle */}
             <button type="button" onClick={toggleSettings}
               className="editor-settings-toggle"
@@ -4931,24 +4943,6 @@ export function EditorClient() {
                         </span>
                       </span>
                     </label>
-                  )}
-                </div>
-              )}
-
-              {/* Also in the toolbar's ⋯ menu; here too, at the end of the
-                  settings, because that's where writers look for it. */}
-              {savedEntryId && (
-                <div className="editor-settings-section">
-                  <button
-                    type="button"
-                    onClick={requestDelete}
-                    className="text-sm min-h-[44px] sm:min-h-0 hover:underline"
-                    style={{ color: "var(--danger, #dc2626)" }}
-                  >
-                    {deleteLabel}…
-                  </button>
-                  {isDraft && (
-                    <span className="editor-settings-hint">Drafts are kept until you delete them.</span>
                   )}
                 </div>
               )}

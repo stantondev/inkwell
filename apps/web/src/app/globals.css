@@ -2839,6 +2839,25 @@ body:has(.editor-shell) .site-footer {
   border-color: var(--accent);
 }
 
+.editor-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.editor-delete-btn:hover {
+  border-color: var(--danger, #dc2626);
+  color: var(--danger, #dc2626);
+}
+
 .editor-history-link {
   display: flex;
   align-items: center;
@@ -3528,7 +3547,15 @@ button.editor-inline-margins-link:hover svg {
 .editor-save-status {
   display: inline-flex;
   min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
+}
+
+/* On a narrow phone the buttons on the right win; the status shortens. */
+.editor-save-status > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Pictures in the editor ─────────────────────────────────────────── */
@@ -18655,6 +18682,7 @@ body[data-look="classic"] .entry-current-label {
   /* Primary buttons that were 22-34px on phones */
   .editor-back-link { width: 44px; height: 44px; }
   .editor-save-draft-btn,
+  .editor-delete-btn,
   .editor-settings-toggle { min-height: 40px; }
   .comment-editor-submit { min-height: 38px; padding-left: 18px; padding-right: 18px; }
   .letter-editor-btn { min-width: 36px; min-height: 36px; }
