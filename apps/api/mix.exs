@@ -34,7 +34,6 @@ defmodule Inkwell.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:bandit, "~> 1.0"},
-      {:plug_cowboy, "~> 2.7"},
       {:cors_plug, "~> 3.0"},
       {:oban, "~> 2.18"},
       {:atomex, "~> 0.5"},
