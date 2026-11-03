@@ -175,6 +175,8 @@ defmodule Inkwell.Usage.Catalog do
       sql: "SELECT follower_id AS uid, inserted_at AS at FROM relationships WHERE remote_actor_id IS NOT NULL AND follower_id IS NOT NULL"},
 
     # ── Tools and settings ────────────────────────────────────────────────
+    %{key: "entry_page_style", label: "Entry page style chosen", group: "page", how: :state,
+      sql: "SELECT id AS uid FROM users WHERE settings ? 'entry_page' AND settings->'entry_page' <> '{}'::jsonb"},
     %{key: "classic_view", label: "Classic view (2004)", group: "tools", how: :state,
       sql: "SELECT id AS uid FROM users WHERE settings->>'site_look' = 'classic'"},
     %{key: "push", label: "Push notifications", group: "tools", how: :state,
@@ -239,7 +241,8 @@ defmodule Inkwell.Usage.Catalog do
     "posts_export" => ~D[2026-10-26],
     "first_entry_notices" => ~D[2026-10-29],
     "trick_or_treat" => ~D[2026-10-29],
-    "seasonal_off" => ~D[2026-10-29]
+    "seasonal_off" => ~D[2026-10-29],
+    "entry_page_style" => ~D[2026-11-03]
   }
 
   # Tracked features start counting when tracking ships; until then they

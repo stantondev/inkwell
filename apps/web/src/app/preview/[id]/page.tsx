@@ -22,6 +22,8 @@ import type { EntryData } from "@/app/[username]/[slug]/entry-types";
 import { audienceSentence } from "@/app/[username]/[slug]/audience";
 import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "@/app/[username]/[slug]/entry-parts";
 import styles from "@/app/[username]/[slug]/entry-page.module.css";
+import { blackletter } from "@/app/[username]/[slug]/initial-fonts";
+import { entryPageClasses, entryPageStyle, initialFor, inkVars, writerAccent } from "@/lib/entry-page-style";
 
 interface PreviewParams {
   params: Promise<{ id: string }>;
@@ -92,6 +94,14 @@ export default async function PreviewPage({ params }: PreviewParams) {
   const frame = entry.author?.avatar_frame ?? user.avatar_frame;
   const animation = entry.author?.avatar_animation ?? user.avatar_animation;
   const tier = entry.author?.subscription_tier ?? user.subscription_tier;
+
+  // The writer's entry-page style: first letter, its ink, paper, ending.
+  const pageStyle = entryPageStyle(entry.entry_page);
+  const pageClasses = entryPageClasses(
+    pageStyle,
+    entry.title ? initialFor(pageStyle.initial, entry.body_html ?? "") : "none",
+  );
+  const pageInk = inkVars(pageStyle.ink, writerAccent(author)) as React.CSSProperties;
 
   const banner = (
     <div className={styles.previewBanner} role="region" aria-label="Preview">
@@ -183,7 +193,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
 
       <div className={moodHue !== null ? "entry-ambient" : ""}>
         <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-16">
-          <JournalPage corner className="entry-letter p-6 lg:p-10">
+          <JournalPage corner className={`${pageClasses.page} ${blackletter.variable} p-6 lg:p-10`} style={pageInk}>
             <EntryLetterhead
               date={entry.published_at
                 ? <LocalDate iso={entry.published_at} options={FULL_DATE} />
@@ -245,7 +255,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
                   <EntryContent
                     html={bodyHtml}
                     entryId={entry.id}
-                    className={`prose-entry entry-body${entry.title ? " drop-cap" : ""}`}
+                    className={`prose-entry entry-body ${pageClasses.body}`}
                   />
                   <GalleryHydrator authorIsPlus={tier === "plus"} />
                 </>
@@ -257,7 +267,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
 
               {musicEmbed && entry.music && <EntryMusicEmbed embed={musicEmbed} music={entry.music} />}
 
-              <EntrySignoff name={author.display_name || "You"} />
+              <EntrySignoff name={author.display_name || "You"} ending={pageStyle.ending} signature={pageStyle.signature} />
 
               <EntryTags tags={entry.tags ?? []} />
             </ContentWarning>

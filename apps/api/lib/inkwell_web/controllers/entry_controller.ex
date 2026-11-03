@@ -1429,6 +1429,7 @@ defmodule InkwellWeb.EntryController do
     |> render_entry()
     |> Map.put(:author, UserController.render_user(author))
     |> Map.put(:mood_theme, mood_theme(%{user: author}))
+    |> Map.put(:entry_page, Inkwell.EntryPage.for_author(author))
     |> Map.put(:archive_note, archive_note(entry, author))
   end
 

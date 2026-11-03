@@ -21348,3 +21348,173 @@ body[data-season="halloween"] .journal-book-spread::after { right: 0; transform:
 }
 .entry-desk-out { color: var(--accent); text-decoration: none; white-space: nowrap; }
 .entry-desk-out:hover { text-decoration: underline; }
+
+/* ─── The writer's entry page: first letter, ink, paper (2026-11-03) ───────
+   Chosen in Settings → Entry pages (lib/entry-page-style.ts). The page gets
+   page-initial-* and page-paper-* classes and --initial-ink/-tile/-on
+   variables. Classic view (the reader's 2004 look) keeps its plain opening. */
+
+:root {
+  --initial-blue: #2d4a8a;
+  --initial-black: #1d1a17;
+  --initial-red: #9e2a22;
+  --initial-gold: #9a7120;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --initial-blue: #93acea;
+    --initial-black: #ece4d4;
+    --initial-red: #e66f62;
+    --initial-gold: #dcb862;
+  }
+}
+:root[data-theme="dark"] {
+  --initial-blue: #93acea;
+  --initial-black: #ece4d4;
+  --initial-red: #e66f62;
+  --initial-gold: #dcb862;
+}
+
+body:not([data-look="classic"]) .page-initial-classic .prose-entry.drop-cap > p:first-child::first-letter {
+  color: var(--initial-ink, var(--accent));
+}
+
+body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap > p:first-child::first-letter {
+  font-family: var(--font-blackletter), "UnifrakturMaguntia", var(--serif);
+  font-weight: 400;
+  font-size: 4.7em;
+  line-height: 0.8;
+  margin: 0.04em 0.1em 0 0;
+  color: var(--initial-ink, var(--accent));
+}
+
+/* Inkwell Illuminated: a gothic capital on an inked tile, a double gold rule,
+   vines in the corners and a pen nib at the foot. */
+body:not([data-look="classic"]) .page-initial-illuminated .prose-entry.drop-cap > p:first-child::first-letter {
+  font-family: var(--font-blackletter), "UnifrakturMaguntia", var(--serif);
+  font-weight: 400;
+  font-size: 3.3em;
+  line-height: 1;
+  padding: 0.2em 0.26em 0.3em;
+  margin: 0.1em 0.2em 0.04em 0;
+  color: var(--initial-on, #f6e9c4);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
+  border-radius: 3px;
+  background-color: var(--initial-tile, #2d4a8a);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23d9b45f'%3E%3Crect x='3' y='3' width='94' height='94' stroke-width='2.4'/%3E%3Crect x='8' y='8' width='84' height='84' stroke-width='.9'/%3E%3Cpath d='M8 22c5 0 8-3 8-8 0-3 2-6 6-6M92 22c-5 0-8-3-8-8 0-3-2-6-6-6M8 78c5 0 8 3 8 8 0 3 2 6 6 6M92 78c-5 0-8 3-8 8 0 3-2 6-6 6' stroke-width='1.2'/%3E%3C/g%3E%3Cg fill='%23d9b45f'%3E%3Ccircle cx='17' cy='17' r='1.6'/%3E%3Ccircle cx='83' cy='17' r='1.6'/%3E%3Ccircle cx='17' cy='83' r='1.6'/%3E%3Ccircle cx='83' cy='83' r='1.6'/%3E%3Cpath d='M50 99.5 45.5 92 50 85 54.5 92Z'/%3E%3C/g%3E%3Cpath d='M50 98 50 90' stroke='%23271c0a' stroke-width='.9'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+}
+
+/* Ink blot: the letter written over a spill of ink. */
+body:not([data-look="classic"]) .page-initial-inkblot .prose-entry.drop-cap > p:first-child::first-letter {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 3.1em;
+  line-height: 1;
+  padding: 0.22em 0.34em 0.26em 0.32em;
+  margin: 0.02em 0.14em 0 -0.1em;
+  color: var(--initial-on, #f6e9c4);
+  background:
+    radial-gradient(circle 0.6em at 50% 54%, var(--initial-tile, #2d4a8a) 96%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.36em at 24% 30%, var(--initial-tile, #2d4a8a) 96%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.34em at 78% 76%, var(--initial-tile, #2d4a8a) 96%, transparent 100%) no-repeat,
+    radial-gradient(ellipse 0.3em 0.22em at 80% 24%, var(--initial-tile, #2d4a8a) 96%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.26em at 22% 80%, var(--initial-tile, #2d4a8a) 96%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.07em at 97% 6%, var(--initial-tile, #2d4a8a) 90%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.05em at 3% 96%, var(--initial-tile, #2d4a8a) 90%, transparent 100%) no-repeat,
+    radial-gradient(circle 0.045em at 100% 96%, var(--initial-tile, #2d4a8a) 90%, transparent 100%) no-repeat;
+}
+
+/* The ornament at the end takes the same ink as the first letter. */
+.entry-letter[class*="page-initial-"] .entry-endmark {
+  color: color-mix(in srgb, var(--initial-ink, var(--accent)) 70%, var(--muted));
+}
+
+/* Papers */
+.journal-page.entry-letter.page-paper-notebook {
+  padding-left: 3.6rem;
+  background:
+    linear-gradient(to right,
+      transparent 0 2.4rem,
+      var(--paper-margin) 2.4rem calc(2.4rem + 1px),
+      transparent calc(2.4rem + 1px) calc(2.4rem + 4px),
+      var(--paper-margin) calc(2.4rem + 4px) calc(2.4rem + 5px),
+      transparent calc(2.4rem + 5px)),
+    radial-gradient(circle at 1.1rem 3.5rem, var(--background) 0 0.4rem, var(--border) 0.4rem 0.46rem, transparent 0.48rem) 0 0 / 2.4rem 9rem repeat-y,
+    var(--surface);
+  --paper-margin: #e3a19c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .journal-page.entry-letter.page-paper-notebook { --paper-margin: #7e4642; }
+}
+:root[data-theme="dark"] .journal-page.entry-letter.page-paper-notebook { --paper-margin: #7e4642; }
+@media (min-width: 1024px) {
+  .journal-page.entry-letter.page-paper-notebook { padding-left: 4.4rem; }
+}
+
+.journal-page.entry-letter.page-paper-parchment {
+  background: radial-gradient(ellipse at 50% 40%, #f8eed6 0%, #f2e3bf 62%, #e3c993 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .journal-page.entry-letter.page-paper-parchment {
+    background: radial-gradient(ellipse at 50% 40%, #2e271b 0%, #272016 62%, #1b150e 100%);
+  }
+}
+:root[data-theme="dark"] .journal-page.entry-letter.page-paper-parchment {
+  background: radial-gradient(ellipse at 50% 40%, #2e271b 0%, #272016 62%, #1b150e 100%);
+}
+
+.journal-page.entry-letter.page-paper-kraft { background: #e3cda8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .journal-page.entry-letter.page-paper-kraft { background: #3a2f22; }
+}
+:root[data-theme="dark"] .journal-page.entry-letter.page-paper-kraft { background: #3a2f22; }
+.page-paper-kraft, .page-paper-parchment { --border: color-mix(in srgb, #7a5a2a 30%, transparent); }
+
+/* Settings → Entry pages */
+.ep-shell { display: grid; gap: 2rem; }
+@media (min-width: 1100px) { .ep-shell { grid-template-columns: minmax(0, 1fr) minmax(0, 26rem); align-items: start; } }
+.ep-section { margin-bottom: 2rem; }
+.ep-heading { font-family: var(--font-lora, Georgia, serif); font-size: 1.15rem; font-weight: 600; margin: 0 0 0.3rem; }
+.ep-hint { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.8rem; }
+.ep-hint a { color: var(--accent); }
+.ep-grid { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
+.ep-grid--endings { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); margin-bottom: 0.8rem; }
+.ep-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem;
+  padding: 0.7rem; text-align: left; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--foreground); cursor: pointer;
+}
+.ep-card:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.ep-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.ep-card:disabled { opacity: 0.55; cursor: not-allowed; }
+.ep-card-label { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.875rem; }
+.ep-card-blurb { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+.ep-plus { font-size: 0.65rem; font-weight: 600; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--accent-light); color: var(--accent); }
+.ep-mini { width: 100%; height: 4.6rem; overflow: hidden; font-size: 0.8rem; }
+.ep-mini .prose-entry { font-size: 0.8rem; line-height: 1.5; }
+.ep-mini .prose-entry p { margin: 0; color: var(--muted); }
+.ep-paper { display: block; width: 100%; height: 3.4rem; border-radius: 8px; border: 1px solid var(--border); padding: 0 !important; box-shadow: none; }
+.ep-ending { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 2.4rem; }
+.ep-ending .entry-signoff { margin-top: 0; }
+.ep-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ep-swatch {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 40px; padding: 0 0.8rem;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground);
+  font-size: 0.85rem; cursor: pointer;
+}
+.ep-swatch[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.ep-swatch-dot { width: 1rem; height: 1rem; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
+.ep-check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+.ep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.ep-save { min-height: 40px; padding: 0 1.2rem; border-radius: 999px; background: var(--accent); color: var(--background); font-weight: 600; font-size: 0.9rem; border: 0; cursor: pointer; }
+.ep-save:disabled { opacity: 0.5; cursor: default; }
+.ep-reset { background: none; border: 0; color: var(--muted); font-size: 0.85rem; text-decoration: underline; cursor: pointer; }
+.ep-status { font-size: 0.85rem; color: var(--muted); }
+.ep-preview-wrap { order: -1; }
+@media (min-width: 1100px) { .ep-preview-wrap { order: 0; position: sticky; top: 1.5rem; } }
+.ep-preview-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 0.5rem; }
+.ep-preview { padding: 1.5rem; }
+.ep-preview .prose-entry { font-size: 1rem; }
+.ep-preview-title { font-size: 1.5rem; margin: 0.6rem 0 1rem; }

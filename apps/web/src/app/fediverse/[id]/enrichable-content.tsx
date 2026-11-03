@@ -7,6 +7,8 @@ interface EnrichableContentProps {
   entryId: string;
   initialHtml: string;
   enriching: boolean;
+  /** Extra classes for the text (the drop cap). */
+  className?: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface EnrichableContentProps {
  * when the backend signals it's enriching the content with a link preview.
  * Same pattern as the fediverse reply thread re-fetch.
  */
-export function EnrichableContent({ entryId, initialHtml, enriching }: EnrichableContentProps) {
+export function EnrichableContent({ entryId, initialHtml, enriching, className = "" }: EnrichableContentProps) {
   const [html, setHtml] = useState(initialHtml);
   const fetched = useRef(false);
 
@@ -44,7 +46,7 @@ export function EnrichableContent({ entryId, initialHtml, enriching }: Enrichabl
     <EntryContent
       html={html}
       entryId={entryId}
-      className="prose-entry"
+      className={`prose-entry ${className}`.trim()}
     />
   );
 }

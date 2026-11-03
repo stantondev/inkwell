@@ -21,6 +21,8 @@ export interface EntryAuthor {
   subscription_tier?: string | null;
   newsletter_enabled?: boolean;
   newsletter_name?: string | null;
+  profile_accent_color?: string | null;
+  profile_theme?: string | null;
 }
 
 export interface EntryData {
@@ -30,6 +32,8 @@ export interface EntryData {
   mood: string | null;
   mood_key?: string | null;
   mood_theme?: string | null;
+  /** The writer's entry-page style (Settings → Entry pages). */
+  entry_page?: unknown;
   location?: string | null;
   userpic?: { id: string; keyword: string; url: string } | null;
   music: string | null;

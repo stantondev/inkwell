@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { MusicEmbed, MusicService } from "@/lib/music";
 import { resolveMood, familyHue } from "@/lib/moods";
 import { hand } from "@/app/stamp-album/fonts";
+import type { PageEnding } from "@/lib/entry-page-style";
 
 /**
  * The mood family's hue, for the --mood-hue CSS custom property.
@@ -249,17 +250,63 @@ export function EntryLetterhead({
   );
 }
 
-/** The end of the page: a flourish around an ink drop, and the writer's name in a hand. */
-export function EntrySignoff({ name, from }: { name: string; from?: string }) {
+/** The ornament drawn at the end of an entry. */
+function EndOrnament({ ending }: { ending: PageEnding }) {
+  if (ending === "none") return null;
+  const swashes = (
+    <>
+      <path d="M4 13c14 0 22-6 34-6 10 0 14 5 20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M128 13c-14 0-22-6-34-6-10 0-14 5-20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </>
+  );
+  return (
+    <svg className="entry-endmark" width="132" height="22" viewBox="0 0 132 22" fill="none" aria-hidden="true">
+      {ending === "inkdrop" && (
+        <>
+          {swashes}
+          <path d="M66 2s-5.6 6-5.6 9.2a5.6 5.6 0 0 0 11.2 0C71.6 8 66 2 66 2Z" fill="currentColor" />
+        </>
+      )}
+      {ending === "fleuron" && (
+        <>
+          {swashes}
+          <path d="M66 19c-1.2-3.4-6.6-4.4-6.6-9.2 0-2.6 2-4.4 4.2-4.4 1.2 0 2 .6 2.4 1.4.4-.8 1.2-1.4 2.4-1.4 2.2 0 4.2 1.8 4.2 4.4 0 4.8-5.4 5.8-6.6 9.2Z" fill="currentColor" />
+          <path d="M66 19c.6 1.6 2.4 2 3.6 1.2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+        </>
+      )}
+      {ending === "quill" && (
+        <>
+          {swashes}
+          <path d="M60 19 74 3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+          <path d="M74 3c-7 1.2-11.6 5.6-12.8 12.4 3.4-1 6.6-3.4 8.6-6.4l-3.2.6c2.6-1.8 5-3.8 7.4-6.6Z" fill="currentColor" />
+        </>
+      )}
+      {ending === "rule" &&
+        [50, 66, 82].map((x) => (
+          <path key={x} d={`M${x} 6l1.5 3.5L${x + 5} 11l-3.5 1.5L${x} 16l-1.5-3.5L${x - 5} 11l3.5-1.5Z`} fill="currentColor" />
+        ))}
+    </svg>
+  );
+}
+
+/** The end of the page: an ornament, and the writer's name in a hand. */
+export function EntrySignoff({
+  name,
+  from,
+  ending = "inkdrop",
+  signature = true,
+}: {
+  name: string;
+  from?: string;
+  ending?: PageEnding;
+  signature?: boolean;
+}) {
+  if (ending === "none" && !signature) return null;
   return (
     <footer className="entry-signoff">
-      <svg className="entry-endmark" width="132" height="22" viewBox="0 0 132 22" fill="none" aria-hidden="true">
-        <path d="M4 13c14 0 22-6 34-6 10 0 14 5 20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M128 13c-14 0-22-6-34-6-10 0-14 5-20 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M66 2s-5.6 6-5.6 9.2a5.6 5.6 0 0 0 11.2 0C71.6 8 66 2 66 2Z" fill="currentColor" />
-      </svg>
-      <p className={`entry-signature ${hand.variable}`}>{name}</p>
-      {from && <p className="entry-signature-from">{from}</p>}
+      <EndOrnament ending={ending} />
+      {signature && <p className={`entry-signature ${hand.variable}`}>{name}</p>}
+      {signature && from && <p className="entry-signature-from">{from}</p>}
     </footer>
   );
 }

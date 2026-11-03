@@ -23,6 +23,8 @@ import { audienceLabel, audienceSentence } from "./audience";
 import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "./entry-parts";
 import { EntryDesk } from "./entry-desk";
 import type { EntryData } from "./entry-types";
+import { blackletter } from "./initial-fonts";
+import { entryPageClasses, entryPageStyle, initialFor, inkVars, writerAccent } from "@/lib/entry-page-style";
 import { ArchiveCoverLetter } from "@/components/archive-cover-letter";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
@@ -340,6 +342,14 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
     : "var(--accent)";
 
   const musicEmbed = resolveMusicEmbed(entry.music, entry.music_metadata);
+
+  // The writer's entry-page style: first letter, its ink, paper, ending.
+  const pageStyle = entryPageStyle(entry.entry_page);
+  const pageClasses = entryPageClasses(
+    pageStyle,
+    entry.title ? initialFor(pageStyle.initial, entry.body_html ?? "") : "none",
+  );
+  const pageInk = inkVars(pageStyle.ink, writerAccent(author)) as React.CSSProperties;
   const listened = songFrom(entry.music, entry.music_metadata);
 
   const audience = { privacy: entry.privacy, listName, circleName: entry.circle?.name ?? null };
@@ -520,7 +530,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
           everything else on the page, so a warned entry with a cover needs
           one "Show content" and the player waits too. */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <JournalPage corner className="entry-letter p-6 lg:p-10">
+        <JournalPage corner className={`${pageClasses.page} ${blackletter.variable} p-6 lg:p-10`} style={pageInk}>
           <EntryLetterhead
             date={<LocalDate iso={entry.published_at} options={FULL_DATE} />}
             corner={showStamps ? (
@@ -642,7 +652,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                     <EntryContent
                       html={entry.body_html}
                       entryId={entry.id}
-                      className={`prose-entry entry-body${entry.title ? " drop-cap" : ""}`}
+                      className={`prose-entry entry-body ${pageClasses.body}`}
                     />
                     <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
                   </TranslatableEntry>
@@ -661,7 +671,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
               <EntryMusicEmbed embed={musicEmbed} music={entry.music!} />
             )}
 
-            <EntrySignoff name={author.display_name || `@${username}`} />
+            <EntrySignoff name={author.display_name || `@${username}`} ending={pageStyle.ending} signature={pageStyle.signature} />
 
             {!entry.is_paywalled && <EntryTags tags={entry.tags} />}
           </ContentWarning>

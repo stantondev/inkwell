@@ -19,6 +19,7 @@ import { JournalPage } from "@/components/journal-page";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { LocalDate, FULL_DATE } from "@/components/local-date";
 import { readingMinutes } from "@/lib/reading-time";
+import { DEFAULT_ENTRY_PAGE, entryPageClasses, initialFor, inkVars } from "@/lib/entry-page-style";
 import type { Comment } from "@/lib/comment-utils";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 import { siteUrl } from "@/lib/site";
@@ -148,6 +149,13 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
   const originalUrl = entry.url || entry.ap_id;
   const handle = `@${author.username}@${domain}`;
   const authorName = author.display_name || author.username;
+  // Fediverse writers have no Inkwell settings, so their posts get the
+  // default page; the large first letter only on posts long enough to carry it.
+  const words = entry.body_html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  const pageClasses = entryPageClasses(
+    DEFAULT_ENTRY_PAGE,
+    words >= 60 ? initialFor(DEFAULT_ENTRY_PAGE.initial, entry.body_html) : "none",
+  );
 
   return (
     <div
@@ -179,7 +187,11 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
       {/* ── The post, set like a letter that came from abroad: airmail
           edge, the writer's server as the return address, a link home. ── */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <JournalPage corner className="entry-letter entry-letter--abroad p-6 lg:p-10">
+        <JournalPage
+          corner
+          className={`${pageClasses.page} entry-letter--abroad p-6 lg:p-10`}
+          style={inkVars(DEFAULT_ENTRY_PAGE.ink) as React.CSSProperties}
+        >
           <EntryLetterhead
             date={<LocalDate iso={entry.published_at} options={FULL_DATE} />}
             corner={
@@ -236,6 +248,7 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
                 entryId={entry.id}
                 initialHtml={entry.body_html}
                 enriching={enrichingPreview}
+                className={pageClasses.body}
               />
             </TranslatableEntry>
 

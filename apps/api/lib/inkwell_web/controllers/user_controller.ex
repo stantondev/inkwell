@@ -182,7 +182,7 @@ defmodule InkwellWeb.UserController do
         nil -> allowed
         new_settings when is_map(new_settings) ->
           merged = Map.merge(user.settings || %{}, new_settings)
-          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at() |> sanitize_listenbrainz_username() |> sanitize_listenbrainz_on_profile() |> sanitize_seasonal_decorations()
+          merged = merged |> sanitize_redacted_words() |> sanitize_pinned_settings() |> sanitize_mood_theme() |> sanitize_site_look() |> sanitize_feed_seen_at() |> sanitize_listenbrainz_username() |> sanitize_listenbrainz_on_profile() |> sanitize_seasonal_decorations() |> sanitize_entry_page()
           Map.put(allowed, "settings", merged)
         _ -> allowed
       end
@@ -772,6 +772,12 @@ defmodule InkwellWeb.UserController do
   # the default by being dropped.
   defp sanitize_mood_theme(%{"mood_theme" => theme} = settings) when theme in ["classic", "ink"], do: settings
   defp sanitize_mood_theme(settings), do: Map.delete(settings, "mood_theme")
+
+  # How the writer's entry pages look (first letter, ink, paper, ending).
+  defp sanitize_entry_page(%{"entry_page" => page} = settings) when is_map(page),
+    do: Map.put(settings, "entry_page", Inkwell.EntryPage.clean(page))
+
+  defp sanitize_entry_page(settings), do: Map.delete(settings, "entry_page")
 
   # The writer's ListenBrainz account, for "Listening to" (Inkwell.ListenBrainz).
   defp sanitize_listenbrainz_username(%{"listenbrainz_username" => name} = settings) do
