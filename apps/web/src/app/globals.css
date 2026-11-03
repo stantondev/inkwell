@@ -21287,7 +21287,8 @@ body[data-season="halloween"] .journal-book-spread::after { right: 0; transform:
 .entry-desk-tool:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .entry-desk-link:hover { color: var(--foreground); }
 .entry-desk-tool > button,
-.entry-desk-tool > span > button { min-height: 38px; }
+.entry-desk-tool > span > button,
+.entry-desk-tool > div > button { min-height: 38px; }
 /* The stamp picker brings its own pill. */
 .entry-desk-tool.entry-desk-tool--stamp {
   padding: 0;

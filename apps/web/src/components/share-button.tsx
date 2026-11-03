@@ -9,9 +9,13 @@ interface ShareButtonProps {
   title: string;
   description?: string;
   size?: number;
+  /** Text beside the icon (the entry page's row of labelled tools). */
+  label?: string;
+  /** Which edge of the button the menu lines up with. */
+  popupAlign?: "start" | "end";
 }
 
-export function ShareButton({ url, title, description, size = 15 }: ShareButtonProps) {
+export function ShareButton({ url, title, description, size = 15, label, popupAlign = "end" }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
@@ -93,10 +97,11 @@ export function ShareButton({ url, title, description, size = 15 }: ShareButtonP
           if (!open) trackFeature("share");
           setOpen(!open);
         }}
-        className="flex items-center transition-opacity hover:opacity-80 cursor-pointer"
+        className="flex items-center gap-1.5 transition-opacity hover:opacity-80 cursor-pointer"
         style={{ color: "var(--muted)" }}
         title="Share"
-        aria-label="Share"
+        aria-label={label ? undefined : "Share"}
+        aria-expanded={open}
       >
         <svg
           width={size}
@@ -113,6 +118,7 @@ export function ShareButton({ url, title, description, size = 15 }: ShareButtonP
           <polyline points="16 6 12 2 8 6" />
           <line x1="12" y1="2" x2="12" y2="15" />
         </svg>
+        {label && <span>{label}</span>}
       </button>
 
       <FloatingPopup
@@ -120,6 +126,7 @@ export function ShareButton({ url, title, description, size = 15 }: ShareButtonP
         open={open}
         onClose={() => setOpen(false)}
         placement="bottom"
+        align={popupAlign}
         className="rounded-xl border shadow-lg overflow-hidden"
         style={{
           background: "var(--surface)",

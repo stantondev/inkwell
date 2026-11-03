@@ -1,10 +1,11 @@
 // Under the entry page: the things a reader can send back, side by side
-// (ink, a stamp, a footnote, a reprint), and for a public entry how to
+// (ink, a stamp, a footnote, a reprint, sharing it elsewhere), and for a public entry how to
 // answer it from Mastodon. Labelled tools in the muted colour, no prompts:
 // see "Pulled back 2026-09-28" in CLAUDE.md.
 import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
 import { StampPicker } from "@/components/stamp-picker";
+import { ShareButton } from "@/components/share-button";
 import type { StampMark } from "@/components/stamp-config";
 import { FediverseHandle } from "../fediverse-handle";
 
@@ -25,6 +26,7 @@ export function EntryDesk({
   myNote,
   myStampedOn,
   stampMarks,
+  share,
 }: {
   entryId: string;
   username: string;
@@ -42,12 +44,14 @@ export function EntryDesk({
   myNote?: string | null;
   myStampedOn?: string | null;
   stampMarks?: StampMark[] | null;
+  /** Shown as a labelled Share tool. Writers look for it beside the others. */
+  share: { url: string; title: string; description: string };
 }) {
   const footnoteLabel =
     footnoteCount === 0 ? "Footnotes" : footnoteCount === 1 ? "1 footnote" : `${footnoteCount} footnotes`;
 
   return (
-    <section className="entry-desk" aria-label="Ink, stamps, footnotes and reprints">
+    <section className="entry-desk" aria-label="Ink, stamps, footnotes, reprints and sharing">
       <div className="entry-desk-tools">
         <span className="entry-desk-tool">
           <InkButton
@@ -94,6 +98,16 @@ export function EntryDesk({
             isRemote={false}
             size={16}
             label="Reprint"
+          />
+        </span>
+        <span className="entry-desk-tool">
+          <ShareButton
+            url={share.url}
+            title={share.title}
+            description={share.description}
+            size={16}
+            label="Share"
+            popupAlign="start"
           />
         </span>
       </div>

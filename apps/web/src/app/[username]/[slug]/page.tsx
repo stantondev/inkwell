@@ -684,6 +684,11 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
           myNote={entry.my_note === undefined ? undefined : entry.my_note}
           myStampedOn={entry.my_stamped_on ?? null}
           stampMarks={entry.stamp_marks ?? null}
+          share={{
+            url: shareUrl,
+            title: entry.title || "Entry",
+            description: entry.is_sensitive ? "" : entry.excerpt || entry.title || "",
+          }}
         />
 
         {/* Reader stats: counts this visit once it's actually been read */}
