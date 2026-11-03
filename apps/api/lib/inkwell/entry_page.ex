@@ -6,7 +6,8 @@ defmodule Inkwell.EntryPage do
 
   The Illuminated initial is a Plus extra. It is saved for anyone, like the
   Plus avatar frames, but shown only while the writer has Plus; otherwise
-  the page falls back to the Classic initial.
+  the page falls back to the Classic initial. `illumination` is the motif
+  drawn around an Illuminated letter (vines, night sky, garden, quill).
   """
 
   @initials ~w(classic illuminated blackletter inkblot none)
@@ -14,13 +15,15 @@ defmodule Inkwell.EntryPage do
   @inks ~w(blue accent black red gold)
   @papers ~w(cream notebook parchment kraft)
   @endings ~w(inkdrop fleuron quill rule none)
+  @illuminations ~w(vine stars garden quill)
 
   @defaults %{
     "initial" => "classic",
     "ink" => "blue",
     "paper" => "cream",
     "ending" => "inkdrop",
-    "signature" => true
+    "signature" => true,
+    "illumination" => "vine"
   }
 
   def defaults, do: @defaults
@@ -32,6 +35,7 @@ defmodule Inkwell.EntryPage do
     |> pick(page, "ink", @inks)
     |> pick(page, "paper", @papers)
     |> pick(page, "ending", @endings)
+    |> pick(page, "illumination", @illuminations)
     |> then(fn acc ->
       case page["signature"] do
         flag when is_boolean(flag) -> Map.put(acc, "signature", flag)

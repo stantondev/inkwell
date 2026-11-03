@@ -10,10 +10,12 @@ import {
   INITIALS,
   INKS,
   PAPERS,
+  entryOpening,
   entryPageClasses,
   inkVars,
   type EntryPageStyle,
 } from "@/lib/entry-page-style";
+import { ILLUMINATIONS, illuminateHtml, type Illumination } from "@/lib/illuminated-initial";
 
 // Settings → Entry pages: how an entry looks once a reader opens it.
 // Every choice previews on the page at the side; Save stores it.
@@ -22,14 +24,23 @@ const SAMPLE =
   "Once in a while a day goes exactly the way you hoped. The light came in sideways this morning and I sat with my coffee longer than I meant to, writing the first lines of something I've been putting off for weeks.";
 
 function MiniInitial({ style, initial }: { style: EntryPageStyle; initial: EntryPageStyle["initial"] }) {
-  const classes = entryPageClasses(style, initial);
+  const text = "<p>Inkwell keeps</p>";
+  const opening = entryOpening({ ...style, initial }, true, text);
+  const classes = entryPageClasses(style, opening.initial);
   return (
     <div className={`ep-mini ${classes.page}`} style={inkVars(style.ink) as React.CSSProperties} aria-hidden="true">
-      <div className={`prose-entry ${classes.body}`}>
-        <p>Inkwell keeps</p>
-      </div>
+      <div
+        className={`prose-entry ${classes.body}`}
+        dangerouslySetInnerHTML={{ __html: (opening.illuminatedHtml ?? text).replace('class="illum ', 'class="illum illum--still ') }}
+      />
     </div>
   );
+}
+
+/** One illumination, drawn on its own tile with the writer's initial. */
+function IlluminationTile({ motif, letter, ink }: { motif: Illumination; letter: string; ink: EntryPageStyle["ink"] }) {
+  const html = illuminateHtml(`<p>${letter}</p>`, motif, { onGold: ink === "gold" }) ?? "";
+  return <span className="ep-illum-tile" aria-hidden="true" dangerouslySetInnerHTML={{ __html: html.replace('class="illum ', 'class="illum illum--still ') }} />;
 }
 
 export function EntryPageEditor({
@@ -69,8 +80,11 @@ export function EntryPageEditor({
     }
   }
 
-  const classes = entryPageClasses(style, style.initial);
+  const previewText = `<p>${SAMPLE}</p><p>Some days ask for nothing more than that.</p>`;
+  const opening = entryOpening(style, true, previewText);
+  const classes = entryPageClasses(style, opening.initial);
   const vars = inkVars(style.ink, accent) as React.CSSProperties;
+  const nameLetter = /^[A-Za-z]/.test(name) ? name.charAt(0).toUpperCase() : "A";
 
   return (
     <div className={`ep-shell ${blackletter.variable}`}>
@@ -80,14 +94,12 @@ export function EntryPageEditor({
           <p className="ep-hint">The large capital your entries open with. Readers see it when they open an entry with a title.</p>
           <div className="ep-grid">
             {INITIALS.map((o) => {
-              const locked = !!o.plus && !isPlus;
               return (
                 <button
                   key={o.id}
                   type="button"
                   className="ep-card"
                   aria-pressed={style.initial === o.id}
-                  disabled={locked}
                   onClick={() => set("initial", o.id)}
                 >
                   <MiniInitial style={style} initial={o.id} />
@@ -101,11 +113,41 @@ export function EntryPageEditor({
             })}
           </div>
           {!isPlus && (
-            <p className="ep-hint">
-              Inkwell Illuminated comes with Plus. <Link href="/settings/billing">About Plus</Link>
+            <p className={style.initial === "illuminated" ? "ep-hint ep-hint--plus" : "ep-hint"}>
+              {style.initial === "illuminated"
+                ? "Inkwell Illuminated comes with Plus. Try it here; readers see the Classic letter until you have Plus. "
+                : "Inkwell Illuminated comes with Plus. "}
+              <Link href="/settings/billing">About Plus</Link>
             </p>
           )}
         </section>
+
+        {style.initial === "illuminated" && (
+          <section className="ep-section">
+            <h2 className="ep-heading">Illumination</h2>
+            <p className="ep-hint">
+              What&rsquo;s drawn on the gold tile around your first letter. It draws itself in when someone opens your
+              entry, and catches the light again when they point at it.
+            </p>
+            <div className="ep-grid ep-grid--illum">
+              {ILLUMINATIONS.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  className="ep-card"
+                  aria-pressed={style.illumination === o.id}
+                  onClick={() => set("illumination", o.id)}
+                >
+                  <span className="ep-illum-wrap" style={inkVars(style.ink, accent) as React.CSSProperties}>
+                    <IlluminationTile motif={o.id} letter={nameLetter} ink={style.ink} />
+                  </span>
+                  <span className="ep-card-label">{o.label}</span>
+                  <span className="ep-card-blurb">{o.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="ep-section">
           <h2 className="ep-heading">Ink</h2>
@@ -187,10 +229,11 @@ export function EntryPageEditor({
         <div className={`ep-preview journal-page rounded-2xl border ${classes.page}`} style={{ borderColor: "var(--border)", ...vars }}>
           <p className="entry-dateline">Tuesday, November 3, 2026</p>
           <h3 className="entry-letter-title ep-preview-title">A slow morning</h3>
-          <div className={`prose-entry ${classes.body}`}>
-            <p>{SAMPLE}</p>
-            <p>Some days ask for nothing more than that.</p>
-          </div>
+          <div
+            key={`${style.initial}-${style.illumination}-${style.ink}`}
+            className={`prose-entry ${classes.body}`}
+            dangerouslySetInnerHTML={{ __html: opening.illuminatedHtml ?? previewText }}
+          />
           <EntrySignoff name={name} ending={style.ending} signature={style.signature} />
         </div>
       </div>

@@ -33,7 +33,14 @@ defmodule InkwellWeb.EntryPageStyleTest do
 
   test "a writer's choices come back with their entries" do
     user = create_user()
-    save_style(user, %{initial: "blackletter", ink: "red", paper: "parchment", ending: "fleuron", signature: false})
+    save_style(user, %{
+      initial: "blackletter",
+      ink: "red",
+      paper: "parchment",
+      ending: "fleuron",
+      signature: false,
+      illumination: "stars"
+    })
 
     page = entry_page_seen_by_reader(user, publish(user))
 
@@ -42,13 +49,14 @@ defmodule InkwellWeb.EntryPageStyleTest do
              "ink" => "red",
              "paper" => "parchment",
              "ending" => "fleuron",
-             "signature" => false
+             "signature" => false,
+             "illumination" => "stars"
            }
   end
 
   test "unknown values are dropped and the defaults fill in" do
     user = create_user()
-    save_style(user, %{initial: "<script>", ink: "neon", paper: "kraft", ending: 5, signature: "yes", extra: "x"})
+    save_style(user, %{initial: "<script>", ink: "neon", paper: "kraft", ending: 5, signature: "yes", illumination: "lasers", extra: "x"})
 
     stored = Repo.reload!(user).settings["entry_page"]
     assert stored == %{"paper" => "kraft"}

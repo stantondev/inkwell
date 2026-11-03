@@ -24,7 +24,7 @@ import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, 
 import { EntryDesk } from "./entry-desk";
 import type { EntryData } from "./entry-types";
 import { blackletter } from "./initial-fonts";
-import { entryPageClasses, entryPageStyle, initialFor, inkVars, writerAccent } from "@/lib/entry-page-style";
+import { entryOpening, entryPageClasses, entryPageStyle, inkVars, writerAccent } from "@/lib/entry-page-style";
 import { ArchiveCoverLetter } from "@/components/archive-cover-letter";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { getCategoryLabel, getCategorySlug } from "@/lib/categories";
@@ -345,10 +345,8 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
 
   // The writer's entry-page style: first letter, its ink, paper, ending.
   const pageStyle = entryPageStyle(entry.entry_page);
-  const pageClasses = entryPageClasses(
-    pageStyle,
-    entry.title ? initialFor(pageStyle.initial, entry.body_html ?? "") : "none",
-  );
+  const opening = entryOpening(pageStyle, !!entry.title, entry.body_html ?? "");
+  const pageClasses = entryPageClasses(pageStyle, opening.initial);
   const pageInk = inkVars(pageStyle.ink, writerAccent(author)) as React.CSSProperties;
   const listened = songFrom(entry.music, entry.music_metadata);
 
@@ -653,6 +651,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                       html={entry.body_html}
                       entryId={entry.id}
                       className={`prose-entry entry-body ${pageClasses.body}`}
+                      illumination={opening.illumination}
                     />
                     <GalleryHydrator authorIsPlus={entry.author.subscription_tier === "plus"} />
                   </TranslatableEntry>

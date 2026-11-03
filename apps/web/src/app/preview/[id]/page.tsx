@@ -23,7 +23,7 @@ import { audienceSentence } from "@/app/[username]/[slug]/audience";
 import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "@/app/[username]/[slug]/entry-parts";
 import styles from "@/app/[username]/[slug]/entry-page.module.css";
 import { blackletter } from "@/app/[username]/[slug]/initial-fonts";
-import { entryPageClasses, entryPageStyle, initialFor, inkVars, writerAccent } from "@/lib/entry-page-style";
+import { entryOpening, entryPageClasses, entryPageStyle, inkVars, writerAccent } from "@/lib/entry-page-style";
 
 interface PreviewParams {
   params: Promise<{ id: string }>;
@@ -97,10 +97,8 @@ export default async function PreviewPage({ params }: PreviewParams) {
 
   // The writer's entry-page style: first letter, its ink, paper, ending.
   const pageStyle = entryPageStyle(entry.entry_page);
-  const pageClasses = entryPageClasses(
-    pageStyle,
-    entry.title ? initialFor(pageStyle.initial, entry.body_html ?? "") : "none",
-  );
+  const opening = entryOpening(pageStyle, !!entry.title, entry.body_html ?? "");
+  const pageClasses = entryPageClasses(pageStyle, opening.initial);
   const pageInk = inkVars(pageStyle.ink, writerAccent(author)) as React.CSSProperties;
 
   const banner = (
@@ -256,6 +254,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
                     html={bodyHtml}
                     entryId={entry.id}
                     className={`prose-entry entry-body ${pageClasses.body}`}
+                    illumination={opening.illumination}
                   />
                   <GalleryHydrator authorIsPlus={tier === "plus"} />
                 </>

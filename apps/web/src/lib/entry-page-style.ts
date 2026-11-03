@@ -3,6 +3,7 @@
 // API, which keeps the same lists). Posts from the fediverse use the defaults.
 
 import { LEGACY_THEME_MAP, PROFILE_THEMES } from "./profile-themes";
+import { DEFAULT_ILLUMINATION, illuminateHtml, illumination, type Illumination } from "./illuminated-initial";
 
 export type InitialStyle = "classic" | "illuminated" | "blackletter" | "inkblot" | "none";
 export type InitialInk = "blue" | "accent" | "black" | "red" | "gold";
@@ -15,6 +16,8 @@ export interface EntryPageStyle {
   paper: PagePaper;
   ending: PageEnding;
   signature: boolean;
+  /** The motif on an Illuminated first letter (Plus). */
+  illumination: Illumination;
 }
 
 export const DEFAULT_ENTRY_PAGE: EntryPageStyle = {
@@ -23,6 +26,7 @@ export const DEFAULT_ENTRY_PAGE: EntryPageStyle = {
   paper: "cream",
   ending: "inkdrop",
   signature: true,
+  illumination: DEFAULT_ILLUMINATION,
 };
 
 export const INITIALS: { id: InitialStyle; label: string; blurb: string; plus?: boolean }[] = [
@@ -30,7 +34,7 @@ export const INITIALS: { id: InitialStyle; label: string; blurb: string; plus?: 
   {
     id: "illuminated",
     label: "Inkwell Illuminated",
-    blurb: "A blackletter capital on an inked tile, framed in gold with vines and a pen nib.",
+    blurb: "A gilded manuscript capital that catches the light when the entry opens, in one of four illuminations.",
     plus: true,
   },
   { id: "blackletter", label: "Blackletter", blurb: "An old-style gothic capital, the way old books began." },
@@ -74,6 +78,7 @@ export function entryPageStyle(raw: unknown): EntryPageStyle {
     paper: oneOf(s.paper, PAPERS, DEFAULT_ENTRY_PAGE.paper),
     ending: oneOf(s.ending, ENDINGS, DEFAULT_ENTRY_PAGE.ending),
     signature: typeof s.signature === "boolean" ? s.signature : DEFAULT_ENTRY_PAGE.signature,
+    illumination: illumination(s.illumination),
   };
 }
 
@@ -124,8 +129,32 @@ export function initialFor(style: InitialStyle, html: string): InitialStyle {
 export function entryPageClasses(style: EntryPageStyle, initial: InitialStyle) {
   return {
     page: `entry-letter page-paper-${style.paper} page-initial-${initial}`,
-    body: initial === "none" ? "" : "drop-cap",
+    body: initial === "none" ? "" : initial === "illuminated" ? "illum-cap" : "drop-cap",
   };
+}
+
+/** How to set an entry's first letter on an Illuminated tile. */
+export interface IlluminationOpts {
+  motif: Illumination;
+  onGold: boolean;
+}
+
+/**
+ * The first letter an entry actually opens with. For Illuminated it also
+ * gives the tile to put around that letter (`illumination`) and the HTML with
+ * the tile in place (`illuminatedHtml`). Pages that show the writer's HTML
+ * through EntryContent pass `illumination` to it, because its cleaning step
+ * removes SVG; the tile is added after that. Entries without a title (or
+ * whose text can't take a tile) fall back.
+ */
+export function entryOpening(style: EntryPageStyle, hasTitle: boolean, html: string) {
+  const initial = hasTitle ? initialFor(style.initial, html) : "none";
+  if (initial !== "illuminated") return { initial, illumination: null, illuminatedHtml: null };
+  const opts: IlluminationOpts = { motif: style.illumination, onGold: style.ink === "gold" };
+  const lit = illuminateHtml(html, opts.motif, opts);
+  return lit
+    ? { initial, illumination: opts, illuminatedHtml: lit }
+    : { initial: "classic" as InitialStyle, illumination: null, illuminatedHtml: null };
 }
 
 const TILES: Record<InitialInk, string> = {

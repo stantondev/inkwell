@@ -18,10 +18,20 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-03-illuminated",
+    date: "2026-11-03",
+    title: "Inkwell Illuminated, redrawn",
+    body: "The Plus first letter is now a gilded manuscript capital. When someone opens your entry its vine-work draws itself in, the ornaments appear, and light runs across the gold; it catches the light again when they point at it. Choose one of four illuminations: Vines, Night sky, Garden or Quill. Anyone can try it in the Entry pages preview.",
+    howTo: "Settings \u2192 Entry pages \u2192 Inkwell Illuminated, then pick an illumination.",
+    href: "/settings/entry-page",
+    cta: "Try it",
+    tag: "Writing",
+  },
+  {
     id: "2026-11-03-entry-page-style",
     date: "2026-11-03",
     title: "Choose how your entries open and close",
-    body: "Your entries can now start with a first letter of your choosing: Classic, an old-style Blackletter capital, a letter written over an ink blot, or Inkwell Illuminated, a gothic capital on an inked tile framed in gold with vines and a pen nib (Plus). Pick its ink, the paper your entries sit on (plain, notebook, parchment or kraft), and how each one ends: an ink drop, a fleuron, a quill or three stars, with or without your handwritten signature. Readers see it when they open one of your entries.",
+    body: "Your entries can now start with a first letter of your choosing: Classic, an old-style Blackletter capital, a letter written over an ink blot, or Inkwell Illuminated, a gilded manuscript capital (Plus). Pick its ink, the paper your entries sit on (plain, notebook, parchment or kraft), and how each one ends: an ink drop, a fleuron, a quill or three stars, with or without your handwritten signature. Readers see it when they open one of your entries.",
     howTo: "Settings \u2192 Entry pages. Everything previews as you choose.",
     href: "/settings/entry-page",
     cta: "Choose a style",

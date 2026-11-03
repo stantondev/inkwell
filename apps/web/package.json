@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts src/lib/site-export/build.test.ts",
+    "test:arrange": "tsx --test src/lib/home-edit.test.ts src/lib/sticker-cutout.test.ts src/lib/site-export/build.test.ts src/lib/illuminated-initial.test.ts",
     "prebuild": "node scripts/fetch-cutout-model.mjs",
     "test:stamps": "tsx --test src/lib/stamp-book.test.ts"
   },

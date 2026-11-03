@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { scopeEntryHtml } from "@/lib/scope-styles";
+import { illuminateHtml } from "@/lib/illuminated-initial";
+import type { IlluminationOpts } from "@/lib/entry-page-style";
 
 /**
  * Renders entry HTML with scoped styles and sanitized content.
@@ -23,13 +25,18 @@ export function EntryContent({
   html,
   entryId,
   className,
+  illumination,
 }: {
   html: string;
   entryId: string;
   className?: string;
+  /** Set the first letter on an Illuminated tile (added after cleaning, which removes SVG). */
+  illumination?: IlluminationOpts | null;
 }) {
   const scopeId = `entry-${entryId}`;
-  const { bodyHtml, scopedStyles } = scopeEntryHtml(html, scopeId);
+  const scoped = scopeEntryHtml(html, scopeId);
+  const { scopedStyles } = scoped;
+  const bodyHtml = (illumination && illuminateHtml(scoped.bodyHtml, illumination.motif, illumination)) || scoped.bodyHtml;
   const ref = useRef<HTMLDivElement>(null);
   const lastSetRef = useRef<string>(bodyHtml);
 
