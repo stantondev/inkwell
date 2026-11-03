@@ -27,8 +27,9 @@ config :inkwell, :auto_moderation_mode, :dry_run
 # Monthly running costs shown on the public /transparency page, in cents.
 # {label, monthly_cents, note}. Update these when a bill changes.
 config :inkwell, :transparency_costs, [
-  # Fly: +$2.51 on 2026-09-29 when the database went from 512 MB to 1 GB.
-  {"Hosting (Fly.io)", 4951,"Website, API, database and search servers"},
+  # Fly: the October 2026 invoice ($59.76), the first full month with the
+  # database at 1 GB.
+  {"Hosting (Fly.io)", 5976, "Website, API, database and search servers"},
   {"Email (Resend)", 2000, "Sign-in links, notifications and newsletters"}
 ]
 
@@ -47,7 +48,8 @@ config :inkwell, :transparency_bills, [
   {~D[2026-06-01], 4589 + 2000},
   {~D[2026-07-01], 4722 + 2000},
   {~D[2026-08-01], 4719 + 2000},
-  {~D[2026-09-01], 4616 + 2000}
+  {~D[2026-09-01], 4616 + 2000},
+  {~D[2026-10-01], 5976 + 2000}
 ]
 
 config :inkwell, Oban,
