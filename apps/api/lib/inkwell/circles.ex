@@ -46,7 +46,7 @@ defmodule Inkwell.Circles do
     reason =
       cond do
         Inkwell.Accounts.is_admin?(user) -> nil
-        age_days < @min_account_age_days -> :too_new
+        age_days < @min_account_age_days and is_nil(user.vouched_at) -> :too_new
         user.moderation_state == "limited" -> :limited
         owned >= limit -> :limit_reached
         true -> nil

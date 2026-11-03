@@ -217,6 +217,9 @@ defmodule Inkwell.Growth do
       u.signup_referrer_host ->
         src("other", "site:" <> u.signup_referrer_host, u.signup_referrer_host)
 
+      bluesky_login?(u) ->
+        src("social", "bluesky_login", "Signed in with Bluesky")
+
       fediverse_login?(u) ->
         src("social", "fediverse_login", "Signed in with Mastodon")
 
@@ -248,6 +251,7 @@ defmodule Inkwell.Growth do
   defp src(family, key, label), do: %{family: family, key: key, label: label}
 
   defp fediverse_login?(u), do: String.ends_with?(u.email || "", ".fediverse.inkwell.social")
+  defp bluesky_login?(u), do: String.ends_with?(u.email || "", "@bluesky.fediverse.inkwell.social")
 
   defp writer_page?(path), do: String.starts_with?(landing_key(path) || "", "@")
 

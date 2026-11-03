@@ -682,6 +682,7 @@ defmodule InkwellWeb.UserController do
     |> render_user()
     |> Map.merge(%{
       email: user.email,
+      vouched: user.vouched_at != nil,
       profile_home: user |> Inkwell.ProfileHome.for_user() |> Inkwell.StickerGifts.for_page(user.id) |> elem(0),
       profile_html: user.profile_html,
       profile_css: user.profile_css,

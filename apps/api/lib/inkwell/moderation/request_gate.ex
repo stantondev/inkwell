@@ -59,6 +59,8 @@ defmodule Inkwell.Moderation.RequestGate do
   end
 
   def new_account?(%User{inserted_at: nil}), do: false
+  # Arrived with an older Bluesky/Mastodon account with real history.
+  def new_account?(%User{vouched_at: %DateTime{}}), do: false
 
   def new_account?(%User{inserted_at: inserted_at}) do
     DateTime.diff(DateTime.utc_now(), to_datetime(inserted_at), :day) < @new_account_days

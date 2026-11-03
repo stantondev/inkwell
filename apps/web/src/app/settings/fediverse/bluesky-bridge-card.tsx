@@ -90,11 +90,12 @@ export function BlueskyBridgeCard() {
             className="text-lg font-semibold"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            Share on Bluesky
+            Bluesky bridge
           </h2>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Your public entries and stickies also appear on Bluesky, where people can follow you,
-            like, repost and reply. Their replies show up here as comments.
+            Gives your journal its own Bluesky account: your public entries and stickies appear
+            there by themselves, and people can follow you, like, repost and reply. Their replies
+            show up here as comments.
           </p>
         </div>
       </div>
@@ -216,7 +217,7 @@ export function BlueskyBridgeCard() {
   );
 }
 
-function ButterflyIcon() {
+export function ButterflyIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }}>
       <path

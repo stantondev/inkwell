@@ -1774,6 +1774,7 @@ export function EditorClient() {
     remote_display_name: string | null;
     remote_avatar_url: string | null;
     token_scope: string | null;
+    kind?: "mastodon" | "bluesky";
   }
   const [fediverseAccounts, setFediverseAccounts] = useState<FediverseAccountForCrosspost[]>([]);
   const [crosspostTo, setCrosspostTo] = useState<Set<string>>(new Set());
@@ -2255,6 +2256,7 @@ export function EditorClient() {
   // (nofollow, not indexed, promotional accounts removed) — said at the moment
   // it matters, which is what actually deters SEO spam.
   const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
+  const [accountVouched, setAccountVouched] = useState(false);
   const [hasOutsideLink, setHasOutsideLink] = useState(false);
   useEffect(() => {
     if (!editor) return;
@@ -2268,6 +2270,7 @@ export function EditorClient() {
     };
   }, [editor]);
   const isNewAccount =
+    !accountVouched &&
     !!accountCreatedAt && Date.now() - new Date(accountCreatedAt).getTime() < 30 * 24 * 60 * 60 * 1000;
 
   // Fetch newsletter + user info eagerly on mount
@@ -2279,6 +2282,7 @@ export function EditorClient() {
           const { data } = await res.json();
           setNewsletterEnabled(!!data?.newsletter_enabled);
           setAccountCreatedAt(data?.created_at ?? null);
+          setAccountVouched(!!data?.vouched);
           setSubscriberCount(data?.subscriber_count ?? 0);
           setIsPlus((data?.subscription_tier ?? "free") === "plus");
           setHasWriterPlan(!!data?.has_writer_plan);
@@ -4849,11 +4853,14 @@ export function EditorClient() {
                                 <img src={account.remote_avatar_url} alt="" className="w-4 h-4 rounded-full flex-shrink-0" />
                               )}
                               <span className="truncate">@{account.remote_acct}</span>
+                              {account.kind === "bluesky" && (
+                                <span className="flex-shrink-0" style={{ color: "var(--muted)" }}>· Bluesky</span>
+                              )}
                             </span>
                           </label>
                         ))}
                         <div className="editor-settings-hint">
-                          A preview with link will be posted to your Mastodon timeline
+                          A short preview with a link back here is posted from each account you tick
                         </div>
                       </div>
                     ) : (

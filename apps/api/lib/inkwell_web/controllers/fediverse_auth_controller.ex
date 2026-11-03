@@ -122,6 +122,8 @@ defmodule InkwellWeb.FediverseAuthController do
 
       case result do
         {:ok, user, _fediverse_account, is_new} ->
+          # An older account with real history skips the new-account holds.
+          user = Inkwell.Moderation.Vouch.maybe_vouch(user, credentials, "mastodon")
           api_token = Auth.create_api_session_token(user.id)
           destination = if is_new, do: "/welcome", else: oauth_state.redirect_after || "/feed"
 
@@ -185,10 +187,34 @@ defmodule InkwellWeb.FediverseAuthController do
             remote_display_name: a.remote_display_name,
             remote_avatar_url: a.remote_avatar_url,
             token_scope: a.token_scope,
+            kind: "mastodon",
             linked_at: a.inserted_at
           }
-        end)
+        end) ++ bluesky_for_crosspost(user)
     })
+  end
+
+  # The linked Bluesky account, shaped like a Mastodon one so the editor's
+  # Cross-post list shows it beside them.
+  defp bluesky_for_crosspost(user) do
+    with true <- Inkwell.Bluesky.enabled_for?(user),
+         %Inkwell.Bluesky.Account{} = a <- Inkwell.Bluesky.get_for_user(user.id) do
+      [
+        %{
+          id: a.id,
+          domain: "bsky.app",
+          remote_username: a.handle,
+          remote_acct: a.handle || a.did,
+          remote_display_name: a.display_name,
+          remote_avatar_url: a.avatar_url,
+          token_scope: if(Inkwell.Bluesky.Account.can_post?(a), do: "write", else: "read"),
+          kind: "bluesky",
+          linked_at: a.inserted_at
+        }
+      ]
+    else
+      _ -> []
+    end
   end
 
   # ── DELETE /api/auth/fediverse/accounts/:id ───────────────────────
@@ -345,21 +371,7 @@ defmodule InkwellWeb.FediverseAuthController do
     end
   end
 
-  defp derive_unique_username(remote_username) do
-    base =
-      remote_username
-      |> String.replace(~r/[^a-zA-Z0-9_]/, "_")
-      |> String.slice(0, 25)
-
-    # Ensure minimum length
-    base = if String.length(base) < 3, do: base <> "_user", else: base
-
-    if Accounts.get_user_by_username(base) do
-      "#{base}_#{:rand.uniform(9999)}"
-    else
-      base
-    end
-  end
+  defp derive_unique_username(remote_username), do: Accounts.available_username(remote_username)
 
   defp render_user(user) do
     %{

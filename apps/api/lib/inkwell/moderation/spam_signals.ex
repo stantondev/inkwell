@@ -135,6 +135,7 @@ defmodule Inkwell.Moderation.SpamSignals do
       |> report_signal(facts)
       |> warning_signal(facts)
       |> established_signal(facts)
+      |> vouched_signal(facts)
 
     %{score: max(score, 0), strong: strong_signal?(facts), reasons: Enum.reverse(reasons)}
   end
@@ -292,6 +293,15 @@ defmodule Inkwell.Moderation.SpamSignals do
   defp established_signal(acc, facts) do
     if established?(facts),
       do: add(acc, -4, "established account (#{facts[:account_age_days]} days old, wrote on #{facts[:published_entry_days]} days#{if long_running_writer?(facts), do: " over #{facts[:writing_span_days]} days", else: ", interacts with others"})"),
+      else: acc
+  end
+
+  # Arrived with an older Bluesky/Mastodon account with posts and followers
+  # (Inkwell.Moderation.Vouch). Not enough to protect anyone from reports or
+  # admin warnings, but it outweighs posting fast and not interacting yet.
+  defp vouched_signal(acc, facts) do
+    if facts[:vouched],
+      do: add(acc, -3, "came with an established #{facts[:vouched_via] || "fediverse"} account"),
       else: acc
   end
 

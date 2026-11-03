@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { Avatar } from "@/components/avatar";
 import { BlueskyBridgeCard } from "./bluesky-bridge-card";
+import { BlueskyAccountCard } from "./bluesky-account-card";
 
 interface FediverseAccount {
   id: string;
@@ -34,7 +35,8 @@ export default function FediverseSettingsPage() {
       const res = await fetch("/api/auth/fediverse/accounts");
       if (res.ok) {
         const data = await res.json();
-        setAccounts(data.data || []);
+        // The linked Bluesky account has its own card.
+        setAccounts((data.data || []).filter((a: { kind?: string }) => a.kind !== "bluesky"));
       }
     } catch {
       // silently fail
@@ -128,6 +130,9 @@ export default function FediverseSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Suspense fallback={null}>
+        <BlueskyAccountCard />
+      </Suspense>
       <BlueskyBridgeCard />
 
       <div>

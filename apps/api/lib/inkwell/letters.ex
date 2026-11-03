@@ -204,7 +204,8 @@ defmodule Inkwell.Letters do
 
   defp request_eligible?(user) do
     user.moderation_state != "limited" and
-      DateTime.diff(DateTime.utc_now(), user.inserted_at, :day) >= @request_min_account_age_days
+      (user.vouched_at != nil or
+         DateTime.diff(DateTime.utc_now(), user.inserted_at, :day) >= @request_min_account_age_days)
   end
 
   defp accepted_request_between?(a, b) do

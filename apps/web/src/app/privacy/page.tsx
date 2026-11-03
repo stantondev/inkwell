@@ -91,6 +91,15 @@ export default async function PrivacyPage() {
               permissions you selected. The full API key is shown only once at creation and is not stored by Inkwell.
             </li>
             <li>
+              <strong>Linked Mastodon and Bluesky accounts:</strong> If you sign in with, or link, a Mastodon, other
+              fediverse or Bluesky account, we store that account&apos;s address, display name and picture, and the access
+              token its server gives us (for Bluesky, also a signing key for that sign-in, kept encrypted). We use them only
+              to sign you in and, if you turn it on, to post the entries you choose to share. We also read the
+              account&apos;s public age and post and follower counts when you connect it, to help tell real people from
+              spam accounts. Unlinking the account or deleting your Inkwell account deletes all of this, and for
+              Bluesky we ask its server to end the sign-in too.
+            </li>
+            <li>
               <strong>Custom domain configuration:</strong> If you connect a custom domain to your profile (Plus
               feature), we store the domain name you provide, its verification status, and timestamps related to DNS
               verification and TLS certificate provisioning.

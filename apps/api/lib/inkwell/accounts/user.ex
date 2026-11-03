@@ -102,6 +102,11 @@ defmodule Inkwell.Accounts.User do
     # moderation_cleared_at is set when an admin undoes an automated action.
     field :moderation_state, :string
     field :moderation_cleared_at, :utc_datetime_usec
+    # Signed in with (or linked) an older Bluesky/Mastodon account with real
+    # history, so the new-account holds don't apply (Inkwell.Moderation.Vouch).
+    # Set only by Vouch, never from params.
+    field :vouched_at, :utc_datetime_usec
+    field :vouched_via, :string
 
     # Profile improvements
     field :pinned_entry_ids, {:array, :string}, default: []

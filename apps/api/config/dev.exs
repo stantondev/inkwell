@@ -36,6 +36,9 @@ config :inkwell, :federation,
 # against a server you control.
 config :inkwell, :deliver_federation, false
 
+# Bluesky sign-in uses the spec's http://localhost development client here.
+config :inkwell, :bluesky_signin, "on"
+
 # Web Push (VAPID keys for local dev)
 # Generate your own: mix run -e "IO.inspect(WebPushEncryption.generate_vapid_key())"
 # Then set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables, or

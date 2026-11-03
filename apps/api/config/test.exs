@@ -35,3 +35,7 @@ config :inkwell, :frontend_url, "https://inkwell.test"
 
 # MusicBrainz lookups never reach the network in tests (Inkwell.MusicBrainz).
 config :inkwell, :musicbrainz_network, false
+
+# Bluesky: no network in tests (Req.Test stubs; DNS stubbed per test).
+config :inkwell, :bluesky_req_options, plug: {Req.Test, Inkwell.Bluesky}
+config :inkwell, :bluesky_dns_lookup, &Inkwell.BlueskyTestDNS.lookup/1

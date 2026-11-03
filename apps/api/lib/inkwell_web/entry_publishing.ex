@@ -221,11 +221,22 @@ defmodule InkwellWeb.EntryPublishing do
       accounts = OAuth.list_fediverse_accounts(user.id)
       account_ids = Enum.map(accounts, & &1.id) |> MapSet.new()
 
+      bluesky = Inkwell.Bluesky.get_for_user(user.id)
+
       Enum.each(crosspost_to, fn account_id ->
-        if MapSet.member?(account_ids, account_id) do
-          %{entry_id: entry.id, fediverse_account_id: account_id}
-          |> CrosspostWorker.new()
-          |> Oban.insert()
+        cond do
+          MapSet.member?(account_ids, account_id) ->
+            %{entry_id: entry.id, fediverse_account_id: account_id}
+            |> CrosspostWorker.new()
+            |> Oban.insert()
+
+          bluesky && bluesky.id == account_id ->
+            %{entry_id: entry.id, bluesky_account_id: account_id}
+            |> Inkwell.Workers.BlueskyPostWorker.new()
+            |> Oban.insert()
+
+          true ->
+            :ok
         end
       end)
     end

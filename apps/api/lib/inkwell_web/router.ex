@@ -53,6 +53,7 @@ defmodule InkwellWeb.Router do
 
     post "/auth/magic-link", AuthController, :send_magic_link
     post "/auth/fediverse/initiate", FediverseAuthController, :initiate
+    post "/auth/bluesky/initiate", BlueskyAuthController, :initiate
   end
 
   # Support contact form — tight rate limit (3 req / 5 min per IP)
@@ -72,6 +73,8 @@ defmodule InkwellWeb.Router do
     get "/auth/claim-session", AuthController, :claim_session
     delete "/auth/session", AuthController, :sign_out
     post "/auth/fediverse/callback", FediverseAuthController, :callback
+    post "/auth/bluesky/callback", BlueskyAuthController, :callback
+    get "/auth/bluesky/client-metadata", BlueskyAuthController, :client_metadata
 
     # Public profiles and entries (index/show moved to optional_auth for privacy)
 
@@ -140,6 +143,8 @@ defmodule InkwellWeb.Router do
   # Public endpoints with optional auth (for personalized data)
   scope "/api", InkwellWeb do
     pipe_through [:api, :optional_auth]
+
+    get "/auth/bluesky/status", BlueskyAuthController, :status
 
     # Footnotes on an entry. Needs the viewer: it was in the public scope,
     # so footnotes on friends-only, private, circle and custom-list entries
@@ -237,6 +242,9 @@ defmodule InkwellWeb.Router do
     get "/auth/fediverse/accounts", FediverseAuthController, :list_accounts
     delete "/auth/fediverse/accounts/:id", FediverseAuthController, :unlink
     post "/auth/fediverse/link", FediverseAuthController, :initiate_link
+    get "/auth/bluesky/account", BlueskyAuthController, :show
+    delete "/auth/bluesky/account", BlueskyAuthController, :delete
+    post "/auth/bluesky/link", BlueskyAuthController, :link
 
     # Discovery
     get "/discover/writers", UserController, :suggested

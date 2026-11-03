@@ -304,4 +304,10 @@ if config_env() == :prod do
 
   # DeepL API (for content translation — free tier: 500K chars/mo)
   config :inkwell, :deepl_api_key, env.("DEEPL_API_KEY")
+
+  # Sign in with Bluesky (Inkwell.Bluesky): ATPROTO_CLIENT_KEY is a private
+  # ES256 JWK with a "kid" (Inkwell.Bluesky.Keys.generate_client_key/0).
+  # BLUESKY_SIGNIN = "on" for everyone, "admins" while testing, else off.
+  config :inkwell, :atproto_client_key, env.("ATPROTO_CLIENT_KEY")
+  config :inkwell, :bluesky_signin, env.("BLUESKY_SIGNIN") || "off"
 end

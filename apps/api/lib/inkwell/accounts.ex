@@ -125,6 +125,27 @@ defmodule Inkwell.Accounts do
       not Repo.exists?(from u in User, where: u.username == ^username)
   end
 
+  @doc """
+  A free username made from `base` (an email local part, a fediverse or
+  Bluesky handle): invalid characters become "_", then digits are added
+  until it's free and not reserved, falling back to a generated name.
+  """
+  def available_username(base) when is_binary(base) do
+    base = base |> String.replace(~r/[^a-zA-Z0-9_]/, "_") |> String.slice(0, 25)
+    base = if String.length(base) < 3, do: base <> "_user", else: base
+    pick_username(base, 0)
+  end
+
+  defp pick_username(_base, attempts) when attempts >= 5, do: "user_#{:rand.uniform(999_999)}"
+
+  defp pick_username(base, attempts) do
+    candidate = if attempts == 0, do: base, else: "#{base}_#{:rand.uniform(9999)}"
+
+    if String.match?(candidate, ~r/^[a-zA-Z0-9_]{3,30}$/) and username_available?(candidate),
+      do: candidate,
+      else: pick_username(base, attempts + 1)
+  end
+
   @doc "Search users by username prefix for @mention autocomplete. Returns up to `limit` users."
   # @mention autocomplete. Matches the start of a username or of any word in the
   # display name. Deliberately no activity filter: someone who hasn't signed in
@@ -742,6 +763,10 @@ defmodule Inkwell.Accounts do
     # Cancel writer plan subscriptions (both as writer and subscriber)
     Inkwell.WriterSubscriptions.cancel_all_for_writer(user.id)
     Inkwell.WriterSubscriptions.cancel_all_for_subscriber(user.id)
+
+    # Ask Bluesky to end a linked account's sign-in (the row itself goes with
+    # the cascade either way).
+    if bluesky = Inkwell.Bluesky.get_for_user(user.id), do: Inkwell.Bluesky.unlink(bluesky)
 
     # Clean up Fly certificate for custom domain (if any) before DB cascade
     if domain = Inkwell.CustomDomains.get_domain_by_user(user.id) do

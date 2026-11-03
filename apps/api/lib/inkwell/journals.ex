@@ -1221,7 +1221,7 @@ defmodule Inkwell.Journals do
     from(u in Inkwell.Accounts.User,
       as: :u,
       where:
-        u.inserted_at > ^cutoff and
+        u.inserted_at > ^cutoff and is_nil(u.vouched_at) and
           (exists(
              from(e in Entry,
                where: e.user_id == parent_as(:u).id and e.status == :published,

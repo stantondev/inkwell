@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
+import BlueskyLogin from "@/components/bluesky-login";
 import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
 import { HandoffCodeNote } from "@/components/handoff-code-note";
 
@@ -315,6 +316,18 @@ export default function GetStartedPage() {
             </div>
 
             <FediverseLogin
+              disabled={!ageConfirmed || !termsAccepted}
+              disabledReason={
+                !ageConfirmed && !termsAccepted
+                  ? "Please confirm your age and accept the terms above to continue."
+                  : !ageConfirmed
+                    ? "Please confirm you are 16 years of age or older."
+                    : !termsAccepted
+                      ? "Please accept the Terms of Service and Privacy Policy."
+                      : undefined
+              }
+            />
+            <BlueskyLogin
               disabled={!ageConfirmed || !termsAccepted}
               disabledReason={
                 !ageConfirmed && !termsAccepted

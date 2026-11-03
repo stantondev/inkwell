@@ -282,6 +282,8 @@ defmodule Inkwell.Moderation.AutoModeration do
       reports: reports,
       spam_warnings: spam_warnings,
       account_age_days: DateTime.diff(now, user.inserted_at, :day),
+      vouched: user.vouched_at != nil,
+      vouched_via: user.vouched_via,
       published_entry_days: published_days,
       writing_span_days: if(first_published, do: DateTime.diff(last_published, first_published, :day), else: 0)
     }

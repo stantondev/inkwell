@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import FediverseLogin from "@/components/fediverse-login";
+import BlueskyLogin from "@/components/bluesky-login";
 import { useSessionPoll, useIsPwa } from "@/hooks/use-session-poll";
 import { HandoffCodeNote } from "@/components/handoff-code-note";
 import { rememberReturnTo } from "@/lib/return-to";
@@ -417,6 +418,7 @@ export default function LoginPage() {
             </div>
 
             <FediverseLogin />
+            <BlueskyLogin next={nextParam} />
           </>
         )}
 

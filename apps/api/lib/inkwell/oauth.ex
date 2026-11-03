@@ -248,7 +248,11 @@ defmodule Inkwell.OAuth do
                avatar_url: data["avatar"],
                bio: strip_html(data["note"]),
                url: data["url"],
-               remote_id: data["id"]
+               remote_id: data["id"],
+               # For Inkwell.Moderation.Vouch
+               created_at: data["created_at"],
+               posts: data["statuses_count"],
+               followers: data["followers_count"]
              }}
 
           _ ->

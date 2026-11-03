@@ -51,7 +51,9 @@ defmodule Inkwell.Application do
           # Reader stats: one-day "already counted" marks (Inkwell.Reads)
           :entry_read_seen,
           # Feature usage: one-day "already counted" marks (Inkwell.Usage)
-          :feature_use_seen
+          :feature_use_seen,
+          # Bluesky sign-in: latest DPoP nonce per server (Inkwell.Bluesky.OAuth)
+          :bluesky_dpop_nonces
         ] do
       if :ets.whereis(table) == :undefined do
         :ets.new(table, [:set, :public, :named_table])

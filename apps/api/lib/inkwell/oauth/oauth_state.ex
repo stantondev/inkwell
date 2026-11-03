@@ -10,6 +10,8 @@ defmodule Inkwell.OAuth.OAuthState do
     field :domain, :string
     field :redirect_after, :string
     field :expires_at, :utc_datetime_usec
+    # Bluesky only: PKCE verifier, DPoP key, issuer (encrypted, Inkwell.Bluesky.Keys)
+    field :data, :string
 
     belongs_to :linking_user, Inkwell.Accounts.User, foreign_key: :linking_user_id
 
@@ -18,7 +20,7 @@ defmodule Inkwell.OAuth.OAuthState do
 
   def changeset(oauth_state, attrs) do
     oauth_state
-    |> cast(attrs, [:state, :domain, :redirect_after, :linking_user_id, :expires_at])
+    |> cast(attrs, [:state, :domain, :redirect_after, :linking_user_id, :expires_at, :data])
     |> validate_required([:state, :domain, :expires_at])
     |> unique_constraint(:state)
   end
