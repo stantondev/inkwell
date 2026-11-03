@@ -579,7 +579,7 @@ export function FeedCardActions({
           createPortal(
             <>
               {/* A light dim that lets touches through to the page */}
-              <div className="comment-sheet-backdrop" aria-hidden="true" />
+              <div className="comment-sheet-backdrop comment-sheet-backdrop--passthrough" aria-hidden="true" />
               {/* Sheet */}
               <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
                 {/* Drag handle: pull down to see behind, tap to bring back up */}

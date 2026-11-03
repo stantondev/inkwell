@@ -5439,11 +5439,34 @@ body:has(.letter-page-wrapper) .site-footer {
 .stationery-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(25, 15, 5, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  /* A light dim that never takes the pointer: the letters behind keep
+     scrolling, and a click outside closes the sheet (useCloseOnOutsideClick). */
+  background: rgba(25, 15, 5, 0.22);
+  pointer-events: none;
   z-index: 80;
   animation: stationery-backdrop-in 140ms ease-out;
+}
+
+/* Pick the sheet up by its header or footer (stationery-modal.tsx). */
+.stationery-modal .stationery-modal-header,
+.stationery-modal .stationery-modal-footer { cursor: grab; touch-action: none; user-select: none; }
+.stationery-modal.is-dragging .stationery-modal-header,
+.stationery-modal.is-dragging .stationery-modal-footer { cursor: grabbing; }
+.stationery-drag-bar { display: none; }
+@media (max-width: 640px) {
+  /* A handle on the phone sheet, like the other bottom sheets. */
+  .stationery-drag-bar {
+    display: block;
+    position: absolute;
+    top: calc(5px + env(safe-area-inset-top));
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: 2px;
+    background: rgba(120, 95, 50, 0.3);
+  }
+  .stationery-modal.is-moved { border-radius: 14px 14px 0 0; }
 }
 
 .stationery-modal-wrap {
@@ -12615,12 +12638,17 @@ a.comment-author-name:hover {
 .comment-sheet-backdrop {
   position: fixed;
   inset: 0;
-  /* Lets touches through: the feed above the sheet keeps scrolling, and a
-     tap outside closes the sheet (useCloseOnOutsideClick). */
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.15);
+  overscroll-behavior: none;
+  touch-action: none;
+  background: rgba(0, 0, 0, 0.4);
   z-index: 999;
   animation: comment-sheet-fade-in 0.2s ease;
+}
+/* The footnotes sheet lets touches through: the feed above it keeps
+   scrolling, and a tap outside closes it (useCloseOnOutsideClick). */
+.comment-sheet-backdrop.comment-sheet-backdrop--passthrough {
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.15);
 }
 
 /* The reply popup can be picked up by its header and moved. */
@@ -12683,11 +12711,17 @@ a.comment-author-name:hover {
 
 @media (prefers-color-scheme: dark) {
   .comment-sheet-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .comment-sheet-backdrop.comment-sheet-backdrop--passthrough {
     background: rgba(0, 0, 0, 0.3);
   }
 }
 
 [data-theme="dark"] .comment-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+[data-theme="dark"] .comment-sheet-backdrop.comment-sheet-backdrop--passthrough {
   background: rgba(0, 0, 0, 0.3);
 }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useCloseOnOutsideClick, useMovableBox } from "@/hooks/use-movable-box";
 import { Avatar } from "@/components/avatar";
 import { LetterEditor } from "@/components/letter-editor";
 import type { LetterMessage } from "./page";
@@ -55,7 +56,9 @@ export function StationeryModal({
     initialDraftRef.current = initialDraftHtml;
   }, [initialDraftHtml]);
 
-  // Sync the draft into the editor + lock body scroll ONLY when the modal opens.
+  // Sync the draft into the editor ONLY when the modal opens. The thread
+  // behind isn't locked: it keeps scrolling, so earlier letters can be read
+  // while writing, and the sheet can be moved off them.
   // Must not depend on `initialDraftHtml` — parent re-renders on each keystroke
   // would otherwise bump `editorKeyRef` and remount the LetterEditor mid-type.
   useEffect(() => {
@@ -64,12 +67,6 @@ export function StationeryModal({
     htmlRef.current = initialDraftRef.current;
     editorKeyRef.current += 1;
     setError(null);
-
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
   }, [open]);
 
   // Closing keeps the draft: it's shared with the reply bar and saved in the
@@ -78,6 +75,25 @@ export function StationeryModal({
     setError(null);
     onClose();
   }, [onClose]);
+
+  // Pick the sheet up by its header or footer and move it. On a phone, where
+  // it fills the screen, it only slides down (to show the letters above) and a
+  // tap on the header brings it back up.
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const move = useMovableBox(open, {
+    handle: ".stationery-modal-header, .stationery-modal-footer",
+    axis: isPhone ? "y" : "both",
+    tapToReset: isPhone,
+    keepVisible: isPhone ? 110 : 64,
+  });
+  useCloseOnOutsideClick([dialogRef], open, attemptClose);
 
   // Esc to close
   useEffect(() => {
@@ -156,20 +172,19 @@ export function StationeryModal({
 
   const content = (
     <>
-      <div
-        className="stationery-backdrop"
-        onClick={attemptClose}
-        aria-hidden="true"
-      />
+      <div className="stationery-backdrop" aria-hidden="true" />
       <div className="stationery-modal-wrap">
         <div
           ref={dialogRef}
-          className="stationery-modal"
+          className={`stationery-modal${move.dragging ? " is-dragging" : ""}${move.moved ? " is-moved" : ""}`}
+          style={{ translate: `${move.offset.x}px ${move.offset.y}px` }}
+          onPointerDown={move.onPointerDown}
           role="dialog"
           aria-modal="true"
           aria-label="Write a letter"
         >
-            <header className="stationery-modal-header">
+            <header className="stationery-modal-header" title={isPhone ? undefined : "Drag to move"}>
+              <span className="stationery-drag-bar" aria-hidden="true" />
               <div className="stationery-salutation">
                 <span className="stationery-label">To</span>
                 <Avatar

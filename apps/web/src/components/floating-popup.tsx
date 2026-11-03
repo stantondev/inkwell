@@ -165,6 +165,7 @@ export function FloatingPopup({
   return createPortal(
     <div
       ref={popupRef}
+      data-floating-layer=""
       className={`${className}${move.dragging ? " is-dragging" : ""}`}
       onPointerDown={moveHandle ? move.onPointerDown : undefined}
       style={{
