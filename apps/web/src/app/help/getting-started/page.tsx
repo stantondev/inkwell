@@ -220,7 +220,7 @@ export default function GettingStartedPage() {
           <p>
             <strong>Cross-posting.</strong> If you link a Mastodon account in{" "}
             <Link href="/settings/fediverse" className="underline" style={{ color: "var(--accent)" }}>
-              Settings → Fediverse
+              Settings → Mastodon &amp; Bluesky
             </Link>
             , you can cross-post a preview of your entries to your Mastodon timeline when you publish.
           </p>

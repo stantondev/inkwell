@@ -17,7 +17,7 @@ interface BlueskyAccount {
 }
 
 /**
- * Settings → Fediverse & Bluesky → Your Bluesky account.
+ * Settings → Mastodon & Bluesky → Bluesky (your own account).
  * Link a Bluesky account (sign in with it, share entries from it). Sharing
  * asks Bluesky for posting permission separately, so linking alone only
  * proves who you are.
@@ -96,16 +96,15 @@ export function BlueskyAccountCard() {
       <div className="flex items-start gap-3">
         <ButterflyIcon />
         <div className="flex-1 min-w-0">
-          <h2
+          <h3
             id="bluesky-account-heading"
-            className="text-lg font-semibold"
+            className="text-base font-semibold"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            Your Bluesky account
-          </h2>
+            Bluesky
+          </h3>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Sign in with Bluesky, and share your entries from your own Bluesky account as a short
-            post with a link back here.
+            Your own Bluesky account. Entries you share appear there as posts from you.
           </p>
         </div>
       </div>
@@ -166,8 +165,8 @@ export function BlueskyAccountCard() {
                   you publish.
                 </p>
                 <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                  If you also use the Bluesky bridge below, people following both will see your
-                  entries twice, so use one or the other.
+                  If you also give your journal its own Bluesky account (below), people following
+                  both will see your entries twice, so use one or the other.
                 </p>
               </div>
             ) : (
@@ -220,7 +219,8 @@ export function BlueskyAccountCard() {
               </button>
             </div>
             <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Leave the handle empty to choose your account on Bluesky.
+              Leave it empty to pick your account on Bluesky. Bluesky asks you to approve, and you can
+              then sign in to Inkwell with it.
             </p>
           </form>
         )}

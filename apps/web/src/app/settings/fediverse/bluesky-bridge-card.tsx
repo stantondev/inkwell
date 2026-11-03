@@ -55,7 +55,7 @@ export function BlueskyBridgeCard() {
     if (
       method === "DELETE" &&
       !confirm(
-        "Stop sharing on Bluesky? New posts won't appear there, and people following you on Bluesky will stop seeing you. You can switch it back on any time."
+        "Switch off your journal's Bluesky account? New posts won't appear there, and people following it on Bluesky will stop seeing you. You can switch it back on any time."
       )
     )
       return;
@@ -85,17 +85,17 @@ export function BlueskyBridgeCard() {
       <div className="flex items-start gap-3">
         <ButterflyIcon />
         <div className="flex-1 min-w-0">
-          <h2
+          <h3
             id="bluesky-bridge-heading"
-            className="text-lg font-semibold"
+            className="text-base font-semibold"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
           >
-            Bluesky bridge
-          </h2>
+            From Bluesky
+          </h3>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Gives your journal its own Bluesky account: your public entries and stickies appear
-            there by themselves, and people can follow you, like, repost and reply. Their replies
-            show up here as comments.
+            Gives your journal its own Bluesky account, separate from yours. Your public entries and
+            stickies appear there by themselves, and people on Bluesky can follow, like, repost and
+            reply; their replies come back here as footnotes.
           </p>
         </div>
       </div>
@@ -141,7 +141,7 @@ export function BlueskyBridgeCard() {
                 className="text-sm underline underline-offset-2 disabled:opacity-60"
                 style={{ color: "var(--muted)" }}
               >
-                {busy ? "Stopping…" : "Stop sharing on Bluesky"}
+                {busy ? "Stopping…" : "Switch it off"}
               </button>
             </div>
           </div>
@@ -183,7 +183,7 @@ export function BlueskyBridgeCard() {
                   className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-60"
                   style={{ background: "var(--accent)", color: "#fff" }}
                 >
-                  {busy ? "Switching on…" : "Share my journal on Bluesky"}
+                  {busy ? "Switching on…" : "Give my journal a Bluesky account"}
                 </button>
               </div>
             )}

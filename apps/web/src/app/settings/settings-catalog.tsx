@@ -254,12 +254,12 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
   {
     id: "fediverse",
     href: "/settings/fediverse",
-    title: "Fediverse & Bluesky",
+    title: "Mastodon & Bluesky",
     blurb:
-      "Link a Mastodon account, cross-post your entries, and bridge your writing to Bluesky.",
+      "Sign in with your Mastodon or Bluesky account, share entries there, and choose how people on those sites can follow your journal.",
     icon: I.globe,
     group: "audience",
-    keywords: ["mastodon", "activitypub", "bluesky", "bridge", "crosspost", "federation"],
+    keywords: ["fediverse", "mastodon", "activitypub", "bluesky", "bridge", "crosspost", "federation", "handle", "share"],
   },
   {
     id: "support",

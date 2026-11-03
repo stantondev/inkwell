@@ -291,7 +291,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "cross-post",
     question: "Can I cross-post to Mastodon?",
     answer:
-      'Yes. Link your Mastodon account in <a href="/settings/fediverse">Settings &rarr; Fediverse</a>, then enable cross-posting when publishing. A preview of your entry (title, excerpt, and link) will be posted to your Mastodon timeline.',
+      'Yes. Link your Mastodon account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a>, then enable cross-posting when publishing. A preview of your entry (title, excerpt, and link) will be posted to your Mastodon timeline.',
     category: "fediverse",
   },
 
