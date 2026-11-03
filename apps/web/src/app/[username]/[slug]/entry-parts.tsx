@@ -250,7 +250,7 @@ export function EntryLetterhead({
 }
 
 /** The end of the page: a flourish around an ink drop, and the writer's name in a hand. */
-export function EntrySignoff({ name }: { name: string }) {
+export function EntrySignoff({ name, from }: { name: string; from?: string }) {
   return (
     <footer className="entry-signoff">
       <svg className="entry-endmark" width="132" height="22" viewBox="0 0 132 22" fill="none" aria-hidden="true">
@@ -259,6 +259,7 @@ export function EntrySignoff({ name }: { name: string }) {
         <path d="M66 2s-5.6 6-5.6 9.2a5.6 5.6 0 0 0 11.2 0C71.6 8 66 2 66 2Z" fill="currentColor" />
       </svg>
       <p className={`entry-signature ${hand.variable}`}>{name}</p>
+      {from && <p className="entry-signature-from">{from}</p>}
     </footer>
   );
 }

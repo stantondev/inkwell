@@ -6,8 +6,6 @@ import { getRemoteEntry } from "@/lib/queries";
 import { getSession, getToken } from "@/lib/session";
 import { ContentWarning } from "@/components/content-warning";
 import { EnrichableContent } from "./enrichable-content";
-import { InkButton } from "@/components/ink-button";
-import { ReprintButton } from "@/components/reprint-button";
 import { ShareButton } from "@/components/share-button";
 import { TranslatableEntry, TranslatableTitle } from "@/components/translatable-entry";
 import { SignupCta } from "@/components/signup-cta";
@@ -15,6 +13,12 @@ import { RefreshOnce } from "./refresh-once";
 import { CommentSection } from "@/app/[username]/[slug]/comment-section";
 import type { StampMark } from "@/components/stamp-config";
 import { EntryStamps } from "@/app/[username]/[slug]/entry-stamps";
+import { EntryDesk } from "@/app/[username]/[slug]/entry-desk";
+import { EntryLetterhead, EntrySignoff } from "@/app/[username]/[slug]/entry-parts";
+import { JournalPage } from "@/components/journal-page";
+import { AvatarWithFrame } from "@/components/avatar-with-frame";
+import { LocalDate, FULL_DATE } from "@/components/local-date";
+import { readingMinutes } from "@/lib/reading-time";
 import type { Comment } from "@/lib/comment-utils";
 import { notFoundOrRethrow } from "@/lib/page-errors";
 import { siteUrl } from "@/lib/site";
@@ -59,15 +63,9 @@ interface RemoteEntryData {
   is_sensitive: boolean;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
-}
-
+/** Words in the post's text, for the reading time (fediverse posts carry no word count). */
 function readingTime(html: string): number {
-  const words = html.replace(/<[^>]+>/g, "").trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+  return readingMinutes(html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length);
 }
 
 export async function generateMetadata({ params }: FediverseEntryParams): Promise<Metadata> {
@@ -147,33 +145,18 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
   const author = entry.author;
   const mins = readingTime(entry.body_html);
   const domain = author.domain || new URL(entry.url || entry.ap_id).hostname;
+  const originalUrl = entry.url || entry.ap_id;
+  const handle = `@${author.username}@${domain}`;
+  const authorName = author.display_name || author.username;
 
   return (
     <div
       className="min-h-screen"
       style={{ background: "var(--background)", color: "var(--foreground)" }}
     >
-      <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-10 pb-12 relative">
-
-        {/* Stamps — top-right */}
-        <div className="flex justify-end mb-3 sm:mb-0 sm:absolute sm:top-8 sm:right-6 md:right-8 lg:right-12 z-10">
-          <EntryStamps
-            entryId={entry.id}
-            initialStamps={entry.stamps ?? []}
-            initialMyStamp={entry.my_stamp ?? null}
-            initialMarks={entry.stamp_marks ?? null}
-            initialNote={entry.my_note === undefined ? undefined : entry.my_note}
-            initialStampedOn={entry.my_stamped_on ?? null}
-            writerName={entry.author.display_name || entry.author.username}
-            isOwnEntry={false}
-            isLoggedIn={!!session}
-            isPlus={session?.user.subscription_tier === "plus"}
-            stampApiPath={`/api/remote-entries/${entry.id}/stamp`}
-          />
-        </div>
-
-        {/* Nav row — context-aware back link */}
-        <div className="flex flex-col gap-3 mb-6">
+      {/* ── Above the page: the way back, and sharing ── */}
+      <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-5">
+        <div className="flex items-center justify-between gap-3">
           <Link
             href={backHref}
             className="text-sm transition-colors hover:underline flex items-center gap-1.5"
@@ -185,157 +168,150 @@ export default async function FediverseEntryPage({ params, searchParams }: Fediv
             </svg>
             {backLabel}
           </Link>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-3">
-            <InkButton
-              entryId={entry.id}
-              initialInked={entry.my_ink ?? false}
-              initialCount={entry.ink_count ?? 0}
-              isOwnEntry={false}
-              isLoggedIn={!!session}
-              size={18}
-              apiPath={`/api/remote-entries/${entry.id}/ink`}
-            />
-            <ReprintButton
-              entryId={entry.id}
-              initialReprinted={entry.my_reprint ?? false}
-              initialCount={entry.reprint_count ?? 0}
-              isOwnEntry={false}
-              isLoggedIn={!!session}
-              isRemote={true}
-              size={18}
-              apiPath={`/api/remote-entries/${entry.id}/reprint/toggle`}
-            />
-            <ShareButton
-              url={siteUrl(`/fediverse/${entry.id}`)}
-              title={entry.title || `Post by ${author.display_name}`}
-              size={15}
-            />
-          </div>
+          <ShareButton
+            url={siteUrl(`/fediverse/${entry.id}`)}
+            title={entry.title || `Post by ${authorName}`}
+            size={18}
+          />
         </div>
+      </div>
 
-        {/* Author row */}
-        <div className="flex items-center gap-3 mb-6">
-          <a href={author.profile_url} target="_blank" rel="noopener noreferrer">
-            {author.avatar_url ? (
-              <img
-                src={author.avatar_url}
-                alt={author.display_name}
-                width={48}
-                height={48}
-                className="rounded-full object-cover"
-                style={{ width: 48, height: 48 }}
+      {/* ── The post, set like a letter that came from abroad: airmail
+          edge, the writer's server as the return address, a link home. ── */}
+      <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
+        <JournalPage corner className="entry-letter entry-letter--abroad p-6 lg:p-10">
+          <EntryLetterhead
+            date={<LocalDate iso={entry.published_at} options={FULL_DATE} />}
+            corner={
+              <EntryStamps
+                entryId={entry.id}
+                initialStamps={entry.stamps ?? []}
+                initialMyStamp={entry.my_stamp ?? null}
+                initialMarks={entry.stamp_marks ?? null}
+                initialNote={entry.my_note === undefined ? undefined : entry.my_note}
+                initialStampedOn={entry.my_stamped_on ?? null}
+                writerName={authorName}
+                isOwnEntry={false}
+                isLoggedIn={!!session}
+                isPlus={session?.user.subscription_tier === "plus"}
+                stampApiPath={`/api/remote-entries/${entry.id}/stamp`}
+                showPicker={false}
               />
-            ) : (
-              <div
-                className="rounded-full flex items-center justify-center text-lg font-bold"
-                style={{ width: 48, height: 48, background: "var(--surface)", color: "var(--muted)" }}
-              >
-                {(author.display_name || author.username)[0]?.toUpperCase()}
+            }
+            title={entry.title ? <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle> : undefined}
+            from={
+              <a href={author.profile_url} target="_blank" rel="noopener noreferrer" className="entry-from-writer">
+                <AvatarWithFrame url={author.avatar_url} name={authorName} size={26} />
+                <span>{authorName}</span>
+              </a>
+            }
+            details={
+              <>
+                <span aria-hidden="true" className="entry-from-sep">·</span>
+                <span className="entry-from-detail">{mins === 1 ? "a minute's read" : `${mins} minutes' read`}</span>
+                <span aria-hidden="true" className="entry-from-sep">·</span>
+                <a href={originalUrl} target="_blank" rel="noopener noreferrer"
+                  className="entry-from-abroad" title={`Posted on ${domain}. Opens there.`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                  </svg>
+                  {domain}
+                </a>
+              </>
+            }
+          />
+
+          <ContentWarning isSensitive={entry.is_sensitive} contentWarning={entry.content_warning}>
+            <TranslatableEntry
+              type="remote_entry"
+              id={entry.id}
+              originalBodyHtml={entry.body_html}
+              preferredLanguage={session?.user.preferred_language}
+              isLoggedIn={!!session}
+              loginHref={`/login?next=${encodeURIComponent(`/fediverse/${entry.id}`)}`}
+            >
+              <EnrichableContent
+                entryId={entry.id}
+                initialHtml={entry.body_html}
+                enriching={enrichingPreview}
+              />
+            </TranslatableEntry>
+
+            <EntrySignoff name={authorName} from={handle} />
+
+            {entry.tags.length > 0 && (
+              <div className="entry-tags flex flex-wrap gap-2">
+                {entry.tags.map((tag) => (
+                  <Link
+                    key={tag}
+                    href={`/tag/${encodeURIComponent(tag)}`}
+                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                  >
+                    #{tag}
+                  </Link>
+                ))}
               </div>
             )}
-          </a>
-          <div>
-            <a
-              href={author.profile_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold hover:underline"
-              style={{ color: "var(--foreground)" }}
-            >
-              {author.display_name}
-            </a>
-            <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--muted)" }}>
-              <span>🌐</span>
-              <span>@{author.username}@{domain}</span>
-              <span>·</span>
-              <time dateTime={entry.published_at} className="italic" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                {formatDate(entry.published_at)}
-              </time>
-            </div>
-          </div>
-        </div>
+          </ContentWarning>
+        </JournalPage>
 
-        {/* Reading time */}
-        <div className="mb-6 text-sm italic" style={{ color: "var(--muted)", fontFamily: "var(--font-lora, Georgia, serif)" }}>
-          {mins} min read
-        </div>
-
-        {/* Title */}
-        {entry.title && (
-          <h1
-            className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 leading-tight"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            <TranslatableTitle id={entry.id}>{entry.title}</TranslatableTitle>
-          </h1>
-        )}
-
-        {/* Content */}
-        <ContentWarning isSensitive={entry.is_sensitive} contentWarning={entry.content_warning}>
-          <TranslatableEntry
-            type="remote_entry"
-            id={entry.id}
-            originalBodyHtml={entry.body_html}
-            preferredLanguage={session?.user.preferred_language}
-            isLoggedIn={!!session}
-            loginHref={`/login?next=${encodeURIComponent(`/fediverse/${entry.id}`)}`}
-          >
-            <EnrichableContent
-              entryId={entry.id}
-              initialHtml={entry.body_html}
-              enriching={enrichingPreview}
-            />
-          </TranslatableEntry>
-
-          {/* Tags */}
-          {entry.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
-              {entry.tags.map((tag) => (
-                <Link
-                  key={tag}
-                  href={`/tag/${encodeURIComponent(tag)}`}
-                  className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                  style={{ borderColor: "var(--border)", color: "var(--muted)" }}
-                >
-                  #{tag}
-                </Link>
-              ))}
-            </div>
-          )}
-        </ContentWarning>
-
-        {/* View on original source */}
-        <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--border)" }}>
-          <a
-            href={entry.url || entry.ap_id}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
-            style={{ background: "var(--surface)", color: "var(--accent)", border: "1px solid var(--border)" }}
-          >
-            <span>🌐</span>
-            View on {domain} →
-          </a>
-        </div>
-
-        {/* Divider before comments */}
-        <hr className="my-10" style={{ borderColor: "var(--border)" }} />
-
-        {/* Comments (Marginalia) */}
-        {repliesFetching && <RefreshOnce />}
-        <CommentSection
+        <EntryDesk
           entryId={entry.id}
-          comments={comments}
-          session={session ? { user: { id: session.user.id, username: session.user.username, is_admin: session.user.is_admin } } : null}
-          commentApiPath={`/api/remote-entries/${entry.id}/comments`}
-          autoFocus={reply === "1" && !!session}
+          username={author.username}
+          writerName={authorName}
+          isOwnEntry={false}
+          isLoggedIn={!!session}
+          isPlus={session?.user.subscription_tier === "plus"}
+          isPublic={true}
+          footnoteCount={comments.length}
+          inked={entry.my_ink ?? false}
+          inkCount={entry.ink_count ?? 0}
+          reprinted={entry.my_reprint ?? false}
+          reprintCount={entry.reprint_count ?? 0}
+          myStamp={entry.my_stamp ?? null}
+          myNote={entry.my_note === undefined ? undefined : entry.my_note}
+          myStampedOn={entry.my_stamped_on ?? null}
+          stampMarks={entry.stamp_marks ?? null}
+          share={{
+            url: siteUrl(`/fediverse/${entry.id}`),
+            title: entry.title || `Post by ${authorName}`,
+            description: "",
+          }}
+          remote={{
+            inkApiPath: `/api/remote-entries/${entry.id}/ink`,
+            reprintApiPath: `/api/remote-entries/${entry.id}/reprint/toggle`,
+            stampApiPath: `/api/remote-entries/${entry.id}/stamp`,
+            note: (
+              <>
+                This post lives on {domain}. Footnotes you leave here go to {authorName} there as replies.{" "}
+                <a href={originalUrl} target="_blank" rel="noopener noreferrer" className="entry-desk-out">
+                  Read it on {domain} &rarr;
+                </a>
+              </>
+            ),
+          }}
         />
+      </article>
 
-        {/* Signup CTA for logged-out users */}
-        {!session && <SignupCta />}
-      </div>
+      {/* Footnotes: replies from the post's home server and from Inkwell */}
+      {repliesFetching && <RefreshOnce />}
+      <CommentSection
+        entryId={entry.id}
+        comments={comments}
+        session={session ? { user: { id: session.user.id, username: session.user.username, is_admin: session.user.is_admin } } : null}
+        commentApiPath={`/api/remote-entries/${entry.id}/comments`}
+        autoFocus={reply === "1" && !!session}
+      />
+
+      {/* Signup CTA for logged-out users */}
+      {!session && (
+        <div className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
+          <SignupCta />
+        </div>
+      )}
     </div>
   );
 }

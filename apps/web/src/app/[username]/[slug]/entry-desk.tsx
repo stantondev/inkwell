@@ -27,6 +27,7 @@ export function EntryDesk({
   myStampedOn,
   stampMarks,
   share,
+  remote,
 }: {
   entryId: string;
   username: string;
@@ -46,6 +47,9 @@ export function EntryDesk({
   stampMarks?: StampMark[] | null;
   /** Shown as a labelled Share tool. Writers look for it beside the others. */
   share: { url: string; title: string; description: string };
+  /** A post from another fediverse server: its own endpoints, and a line
+   *  saying where it lives in place of the follow-this-journal line. */
+  remote?: { inkApiPath: string; reprintApiPath: string; stampApiPath: string; note: React.ReactNode };
 }) {
   const footnoteLabel =
     footnoteCount === 0 ? "Footnotes" : footnoteCount === 1 ? "1 footnote" : `${footnoteCount} footnotes`;
@@ -62,6 +66,7 @@ export function EntryDesk({
             isLoggedIn={isLoggedIn}
             size={16}
             label="Ink"
+            apiPath={remote?.inkApiPath}
           />
         </span>
         {!isOwnEntry && (
@@ -77,6 +82,7 @@ export function EntryDesk({
               isLoggedIn={isLoggedIn}
               isPlus={isPlus}
               popupAlign="start"
+              stampApiPath={remote?.stampApiPath}
             />
           </span>
         )}
@@ -95,9 +101,10 @@ export function EntryDesk({
             initialCount={reprintCount}
             isOwnEntry={isOwnEntry}
             isLoggedIn={isLoggedIn}
-            isRemote={false}
+            isRemote={!!remote}
             size={16}
             label="Reprint"
+            apiPath={remote?.reprintApiPath}
           />
         </span>
         <span className="entry-desk-tool">
@@ -112,7 +119,9 @@ export function EntryDesk({
         </span>
       </div>
 
-      {isPublic && (
+      {remote ? (
+        <p className="entry-desk-fedi">{remote.note}</p>
+      ) : isPublic && (
         <p className="entry-desk-fedi">
           {isOwnEntry ? (
             <>Readers on Mastodon and elsewhere see your entries from </>

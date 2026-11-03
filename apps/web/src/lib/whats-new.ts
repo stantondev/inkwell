@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-03-fediverse-letter",
+    date: "2026-11-03",
+    title: "Posts from the fediverse read like letters too",
+    body: "When you open a post from Mastodon or elsewhere in the fediverse, it now looks like the entries on Inkwell: a letter with an airmail edge, the date and any stamps at the top, the writer\u2019s server as the return address, and their name signed at the end. Ink, stamps, footnotes, reprints and sharing sit together underneath, with a line saying where the post lives and that footnotes you leave reach the writer there as replies.",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-11-03-bluesky",
     date: "2026-11-03",
     title: "Sign in with Bluesky, and share your entries there",

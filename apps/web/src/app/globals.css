@@ -21309,3 +21309,42 @@ body[data-season="halloween"] .journal-book-spread::after { right: 0; transform:
   color: var(--muted);
 }
 .entry-desk-fedi > button { margin-top: 0; vertical-align: baseline; }
+
+/* A post from another fediverse server: the same letter, with an airmail
+   edge along the top and the writer's server as the return address. */
+.journal-page.entry-letter--abroad {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      #b8423a 0 10px,
+      var(--surface) 10px 14px,
+      var(--accent) 14px 24px,
+      var(--surface) 24px 28px
+    ) top / 100% 5px no-repeat,
+    var(--surface);
+}
+.entry-from-abroad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.entry-from-abroad:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.entry-signature-from {
+  align-self: flex-end;
+  margin: 0.15rem 1.25rem 0 0;
+  max-width: 85%;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.entry-desk-out { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.entry-desk-out:hover { text-decoration: underline; }
