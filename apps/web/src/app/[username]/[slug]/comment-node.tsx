@@ -54,6 +54,7 @@ export function CommentNode({
       : comment.remote_author?.source === "dreamwidth"
         ? "Dreamwidth"
         : null;
+  const fromBluesky = comment.remote_author?.source === "bluesky";
   const displayName = isLocal
     ? comment.author!.display_name || comment.author!.username
     : isRemote
@@ -162,7 +163,9 @@ export function CommentNode({
             )}
             {isRemote && comment.remote_author && !importedFrom && (
               <span className="comment-fediverse-badge">
-                @{comment.remote_author.username}@{comment.remote_author.domain}
+                {fromBluesky
+                  ? `@${comment.remote_author.username} · Bluesky`
+                  : `@${comment.remote_author.username}@${comment.remote_author.domain}`}
               </span>
             )}
             <span className="comment-timestamp">{timeAgo(comment.created_at)}</span>
@@ -180,9 +183,9 @@ export function CommentNode({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="comment-fediverse-source"
-                title={`View original on ${comment.remote_author.domain}`}
+                title={`View original on ${fromBluesky ? "Bluesky" : comment.remote_author.domain}`}
               >
-                View on {comment.remote_author.domain} ↗
+                View on {fromBluesky ? "Bluesky" : comment.remote_author.domain} ↗
               </a>
             )}
           </div>

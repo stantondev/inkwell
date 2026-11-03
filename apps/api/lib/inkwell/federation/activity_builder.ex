@@ -891,7 +891,8 @@ defmodule Inkwell.Federation.ActivityBuilder do
   """
   def comment_reply_target(comment) do
     # No local author means it arrived from the fediverse with its own id.
-    if is_nil(comment.user_id) and is_binary(comment.ap_id),
+    # Bluesky footnotes carry an at:// id no fediverse server can look up.
+    if is_nil(comment.user_id) and is_binary(comment.ap_id) and not String.starts_with?(comment.ap_id, "at://"),
       do: comment.ap_id,
       else: comment_ap_url(comment)
   end

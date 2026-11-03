@@ -120,6 +120,8 @@ config :inkwell, Oban,
        # Fediverse posts' replies/boosts/favourites from followed accounts, by
        # the post's age (Inkwell.Federation.Engagement.ttl_seconds/2).
        {"*/15 * * * *", Inkwell.Workers.RefreshEngagementWorker},
+       # Replies, likes and reposts on entries shared to Bluesky
+       {"7-59/15 * * * *", Inkwell.Workers.BlueskyEngagementWorker},
        # Custom-domain DNS/cert polling — was every 5m, now every 15m at :03.
        # Means a user adding a domain waits up to 15min for the first check
        # instead of 5min; acceptable since they're already waiting on DNS TTLs.

@@ -16,7 +16,8 @@ export interface CommentRemoteAuthor {
   profile_url: string | null;
   ap_id: string;
   /** Set for comments imported from another journal site */
-  source?: "livejournal" | "dreamwidth" | null;
+  /** Or "bluesky" for replies to the entry's Bluesky share */
+  source?: "livejournal" | "dreamwidth" | "bluesky" | null;
 }
 
 export interface Comment {

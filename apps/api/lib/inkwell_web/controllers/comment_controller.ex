@@ -21,6 +21,8 @@ defmodule InkwellWeb.CommentController do
       accessible? = Journals.viewable_by?(entry, viewer)
 
       if accessible? do
+        # Replies to the entry's Bluesky share come back as footnotes.
+        Inkwell.Workers.BlueskyEngagementWorker.maybe_enqueue(entry)
         comments = Journals.list_comments(entry.id)
         # Post-filter comments from blocked users
         blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []
@@ -48,6 +50,8 @@ defmodule InkwellWeb.CommentController do
       accessible? = Journals.viewable_by?(entry, viewer)
 
       if accessible? do
+        # Replies to the entry's Bluesky share come back as footnotes.
+        Inkwell.Workers.BlueskyEngagementWorker.maybe_enqueue(entry)
         comments = Journals.list_comments(entry.id)
         # Post-filter comments from blocked users
         blocked_ids = if viewer, do: Social.get_blocked_user_ids(viewer.id), else: []

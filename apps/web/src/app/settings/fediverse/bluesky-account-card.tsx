@@ -104,7 +104,8 @@ export function BlueskyAccountCard() {
             Bluesky
           </h3>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Your own Bluesky account. Entries you share appear there as posts from you.
+            Your own Bluesky account. Entries you share appear there as posts from you, and what
+            people do there comes back: replies as footnotes, likes as inks, reposts as reprints.
           </p>
         </div>
       </div>

@@ -9,6 +9,8 @@ export interface RemoteActor {
   avatar_url: string | null;
   profile_url: string | null;
   ap_id: string | null;
+  /** "bluesky" for replies to an entry shared on Bluesky */
+  source?: string | null;
   is_following_back?: boolean;
 }
 
@@ -47,7 +49,7 @@ export function notificationText(n: Notification): string {
       return "is now your pen pal!";
     case "comment_added":
     case "comment":
-      return "commented on your entry";
+      return n.remote_actor?.source === "bluesky" ? "replied to your entry on Bluesky" : "commented on your entry";
     case "reply":
       return "replied to your comment";
     case "mention":
@@ -222,7 +224,10 @@ export function getActorInfo(n: Notification) {
       avatarUrl: n.remote_actor.avatar_url,
       href: n.remote_actor.profile_url,
       isRemote: true,
-      handle: `@${n.remote_actor.username}@${n.remote_actor.domain}`,
+      handle:
+        n.remote_actor.source === "bluesky"
+          ? `@${n.remote_actor.username}`
+          : `@${n.remote_actor.username}@${n.remote_actor.domain}`,
     };
   }
   return {

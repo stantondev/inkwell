@@ -152,6 +152,8 @@ defmodule InkwellWeb.NotificationController do
             avatar_url: ra["avatar_url"],
             profile_url: ra["profile_url"],
             ap_id: ap_id,
+            # "bluesky" for replies that came back from a Bluesky share
+            source: ra["source"],
             is_following_back: MapSet.member?(follow_back_set, ap_id)
           }
         _ -> nil
