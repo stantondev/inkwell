@@ -11,7 +11,7 @@ defmodule Inkwell.Push do
     comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
     circle_prompt circle_prompt_response circle_owner
-    feedback_mention poll_mention writer_plan_subscribe guestbook margin_note sticker_gift first_entry
+    feedback_mention feedback_status_change feedback_comment poll_mention writer_plan_subscribe guestbook margin_note sticker_gift first_entry
   )a
 
   @doc "Returns true if VAPID keys are configured."
@@ -122,6 +122,11 @@ defmodule Inkwell.Push do
 
   defp stamp_label(type), do: Map.get(@stamp_labels, type, "postage")
 
+  defp roadmap_status_label("under_review"), do: "under review"
+  defp roadmap_status_label("in_progress"), do: "in progress"
+  defp roadmap_status_label(status) when is_binary(status), do: status
+  defp roadmap_status_label(_), do: "updated"
+
   defp build_text("comment", actor, _), do: {"New comment", "#{actor} commented on your entry"}
   defp build_text("reply", actor, _), do: {"New reply", "#{actor} replied to your comment"}
   defp build_text("mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a comment"}
@@ -153,6 +158,16 @@ defmodule Inkwell.Push do
   defp build_text("circle_prompt_response", actor, n), do: {"New answer in #{get_circle_name(n)}", "#{actor} answered “#{get_in_data(n, "prompt_title") || "your post"}”"}
   defp build_text("circle_owner", actor, n), do: {"You own a circle now", "#{actor} made you the owner of #{get_circle_name(n)}"}
   defp build_text("feedback_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you on the roadmap"}
+  defp build_text("feedback_status_change", actor, n) do
+    title = get_in_data(n, "post_title") || "your roadmap post"
+
+    case get_in_data(n, "new_status") do
+      "done" -> {"Shipped", "#{actor} marked “#{title}” as done"}
+      status -> {"Roadmap update", "#{actor} marked “#{title}” as #{roadmap_status_label(status)}"}
+    end
+  end
+  defp build_text("feedback_comment", actor, n),
+    do: {"New comment", "#{actor} commented on “#{get_in_data(n, "post_title") || "your roadmap post"}”"}
   defp build_text("poll_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a poll comment"}
   defp build_text("writer_plan_subscribe", actor, _), do: {"New subscriber", "#{actor} subscribed to your writer plan"}
   defp build_text("margin_note", actor, _), do: {"New marginalia", "#{actor} annotated your entry"}
@@ -166,7 +181,8 @@ defmodule Inkwell.Push do
   defp build_url("fediverse_mention", _), do: "/notifications"
   defp build_url("first_entry", n), do: get_in_data(n, "entry_path") || "/notifications"
   defp build_url("guestbook", n), do: "/#{get_in_data(n, "profile_username") || "notifications"}"
-  defp build_url("feedback_mention", n), do: "/roadmap/#{get_target_id(n)}"
+  defp build_url(type, n) when type in ["feedback_mention", "feedback_status_change", "feedback_comment"],
+    do: "/roadmap/#{get_target_id(n)}"
   defp build_url("poll_mention", n), do: "/polls/#{get_target_id(n)}"
 
   defp build_url("circle_response", n) do

@@ -445,8 +445,8 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 ### Web Push Notifications (VAPID)
 - **Self-hosted VAPID** — no third-party services (OneSignal, etc.). Works in both PWA and regular browser
 - **Opt-in only** — users enable push from Settings → Notifications. No auto-prompt. Browser permission prompt triggered only when user clicks "Enable"
-- **Curated notification types** (high-signal only): `comment`, `reply`, `mention`, `follow_request`, `follow_accepted`, `fediverse_follow`, `letter`, `stamp`, `ink`, `circle_response`, `circle_mention`, `feedback_mention`, `poll_mention`, `writer_plan_subscribe`
-- **Excluded** (low-signal): `feedback_vote`, `feedback_comment`, `feedback_status_change`, `circle_new_member`, `invite_accepted`, `report`, `tip`, `poll_comment`
+- **Curated notification types** (high-signal only): `comment`, `reply`, `mention`, `follow_request`, `follow_accepted`, `fediverse_follow`, `letter`, `stamp`, `ink`, `circle_response`, `circle_mention`, `feedback_mention`, `feedback_status_change`, `feedback_comment` (since 2026-11-03), `poll_mention`, `writer_plan_subscribe`
+- **Excluded** (low-signal): `feedback_vote`, `circle_new_member`, `invite_accepted`, `report`, `tip`, `poll_comment`
 - **Server-side pause** — `push_notifications_disabled` in user `settings` JSONB stops all push across all devices without unsubscribing (no migration needed)
 - **Stale subscription cleanup** — subscriptions not updated in 90 days deleted by `CleanupExpiredTokensWorker`
 - **Backend**:
@@ -1980,6 +1980,7 @@ Score is computed server-side in `render_post/2` and sortable via `?sort=priorit
 | 60 | **Fediverse Entry Detail Page** | Medium | 5 | 3–4 days | Done |
 
 ### Recently Completed
+- **2026-11-03** — Roadmap updates reach phones. @stoicalgeezer asked Stanton whether he'd seen a roadmap item Stanton had already resolved: status changes and comments on roadmap posts made only an in-app notification (checked: it is created), never a push or an email, so a member who doesn't open the bell never hears. `feedback_status_change` ("Shipped" / "marked … as in progress") and `feedback_comment` are now push types linking to `/roadmap/:id`. Still not emailed (`@emailable_types` is mentions/comments/replies only). Tests: `feedback_status_notice_test.exs` (2).
 - **2026-11-03** — Replies, likes and reposts on entries shared to Bluesky come back to Inkwell (footnotes, inks, reprints). See "Coming back from Bluesky" under Sign in with Bluesky.
 - **2026-11-03** — Settings → Mastodon & Bluesky regrouped (Stanton: the page didn't make sense, "fediverse accounts" meaning Mastodon): your linked accounts in one section, how people elsewhere follow your journal in another. Frontend only.
 - **2026-11-03** — Sign in with Bluesky, sharing entries from your own Bluesky account, and vouching (older Bluesky/Mastodon accounts with real history skip new-account holds). Shipped with `BLUESKY_SIGNIN=admins`; Stanton linked his account and shared a test entry (the reply came back as a footnote), then it opened to everyone the same day. See "Sign in with Bluesky". Also: Mastodon sign-up could pick a reserved username (now `Accounts.available_username/1`).
