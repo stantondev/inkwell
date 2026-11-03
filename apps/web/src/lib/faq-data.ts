@@ -23,6 +23,13 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
 export const FAQ_ITEMS: FaqItem[] = [
   // ── Account & Getting Started ──
   {
+    id: "bluesky-sign-in",
+    question: "Can I sign in with Bluesky or Mastodon?",
+    answer:
+      'Yes. On the <a href="/login">sign-in</a> page choose <strong>Sign in with Bluesky</strong> or <strong>Sign in with Fediverse</strong> (Mastodon and similar sites) and approve it on that site. The first time, this makes a new Inkwell account with your name, picture and bio from there. Already on Inkwell with an email? Sign in as usual and link the account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a> instead, so you don&rsquo;t end up with two accounts.',
+    category: "account",
+  },
+  {
     id: "create-account",
     question: "How do I create an account?",
     answer:
@@ -289,9 +296,16 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     id: "cross-post",
-    question: "Can I cross-post to Mastodon?",
+    question: "Can I share my entries to Mastodon or Bluesky?",
     answer:
-      'Yes. Link your Mastodon account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a>, then enable cross-posting when publishing. A preview of your entry (title, excerpt, and link) will be posted to your Mastodon timeline.',
+      'Yes. Link your account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a> and turn on sharing there. Then, when you publish a public entry, tick the account under <strong>Cross-post</strong> in the editor&rsquo;s settings: a short post with the title, the opening lines and a link back here goes out from your own account. Nothing is posted unless you tick it.',
+    category: "fediverse",
+  },
+  {
+    id: "bluesky-replies",
+    question: "Do replies on Bluesky come back to Inkwell?",
+    answer:
+      "Yes, for entries you share from your own Bluesky account. Replies come back as footnotes on the entry (you get a notification for each), likes add to its ink count and reposts to its reprint count. Replies you hid on Bluesky, and posts from people who&rsquo;ve asked Bluesky not to show them to logged-out visitors, are left out. If you&rsquo;d rather your journal had its own Bluesky account that people can follow, use <strong>From Bluesky</strong> on the same settings page instead; use one or the other, or people following both will see your entries twice.",
     category: "fediverse",
   },
 

@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-03-bluesky",
+    date: "2026-11-03",
+    title: "Sign in with Bluesky, and share your entries there",
+    body: "You can now sign in to Inkwell with your Bluesky account, or link it to the account you already have. Turn on sharing and, when you publish, tick Bluesky to post a short preview of the entry from your own Bluesky account, with a link back here. What people do there comes back: replies arrive as footnotes on the entry, likes add to its ink count and reposts to its reprints. You could already share to Mastodon; the settings page for both has been tidied up so it\u2019s clear what each part does.",
+    howTo: "Go to Settings \u2192 Mastodon & Bluesky, link your Bluesky account and choose \u201cShare my entries on Bluesky\u201d. Then tick it under Cross-post in the editor\u2019s settings when you publish.",
+    href: "/settings/fediverse",
+    cta: "Link Bluesky",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-11-02-entry-letter",
     date: "2026-11-02",
     title: "Entries read like letters now",

@@ -56,7 +56,9 @@ export const HELP_ENTRIES: HelpEntry[] = [
   // ── The Fediverse ──
   { id: "f-what", title: "What is the fediverse?", snippet: "A network of independent platforms connected through ActivityPub.", keywords: ["fediverse", "activitypub", "federation", "decentralized"], category: "fediverse", href: "/help/faq#what-is-fediverse" },
   { id: "f-mastodon", title: "Following from Mastodon", snippet: "Mastodon users can follow you at @username@inkwell.social.", keywords: ["mastodon", "follow", "handle", "fediverse"], category: "fediverse", href: "/help/faq#mastodon-follow" },
-  { id: "f-crosspost", title: "Cross-posting to Mastodon", snippet: "Post a preview to your Mastodon timeline when you publish.", keywords: ["crosspost", "mastodon", "share"], category: "fediverse", href: "/help/faq#cross-post" },
+  { id: "f-crosspost", title: "Sharing entries to Mastodon or Bluesky", snippet: "Post a short preview from your own account when you publish.", keywords: ["crosspost", "mastodon", "bluesky", "share"], category: "fediverse", href: "/help/faq#cross-post" },
+  { id: "f-bluesky-replies", title: "Bluesky replies as footnotes", snippet: "Replies, likes and reposts on your shared posts come back to Inkwell.", keywords: ["bluesky", "replies", "likes", "reposts", "footnotes"], category: "fediverse", href: "/help/faq#bluesky-replies" },
+  { id: "f-bluesky-signin", title: "Sign in with Bluesky", snippet: "Use your Bluesky or Mastodon account to sign in.", keywords: ["bluesky", "sign in", "login", "mastodon", "account"], category: "fediverse", href: "/help/faq#bluesky-sign-in" },
   { id: "f-handle", title: "Your fediverse handle", snippet: "Your handle is @username@inkwell.social — share it anywhere.", keywords: ["handle", "address", "identity", "fediverse"], category: "fediverse", href: "/help/faq#fediverse-handle" },
 
   // ── Customization ──
