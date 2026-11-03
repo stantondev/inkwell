@@ -12615,12 +12615,26 @@ a.comment-author-name:hover {
 .comment-sheet-backdrop {
   position: fixed;
   inset: 0;
-  overscroll-behavior: none;
-  touch-action: none;
-  background: rgba(0, 0, 0, 0.4);
+  /* Lets touches through: the feed above the sheet keeps scrolling, and a
+     tap outside closes the sheet (useCloseOnOutsideClick). */
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.15);
   z-index: 999;
   animation: comment-sheet-fade-in 0.2s ease;
 }
+
+/* The reply popup can be picked up by its header and moved. */
+.comment-popup .comment-popup-header { cursor: grab; touch-action: none; user-select: none; }
+.comment-popup.is-dragging .comment-popup-header { cursor: grabbing; }
+.comment-popup.is-dragging { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22); }
+.comment-popup-grip {
+  display: inline-flex;
+  vertical-align: -1px;
+  margin-right: 0.45rem;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.comment-sheet .comment-popup-grip { display: none; }
 
 .comment-sheet {
   position: fixed;
@@ -12669,12 +12683,12 @@ a.comment-author-name:hover {
 
 @media (prefers-color-scheme: dark) {
   .comment-sheet-backdrop {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.3);
   }
 }
 
 [data-theme="dark"] .comment-sheet-backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* ==========================================================================
@@ -16494,7 +16508,10 @@ a, button, [role="tab"], [role="button"] {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(20, 16, 10, 0.45);
+  /* A light dim that never takes the pointer: the page behind keeps
+     scrolling, and the note can be dragged off what you want to see. */
+  background: rgba(20, 16, 10, 0.18);
+  pointer-events: none;
   animation: jot-fade-in 140ms ease-out;
 }
 .jot-wrap {
@@ -16517,6 +16534,14 @@ a, button, [role="tab"], [role="button"] {
   margin: 0;
   max-width: none;
   transform: rotate(-0.6deg);
+}
+/* Pick the note up by its paper (not the text, buttons or menus). */
+.jot-dialog .sticky-note { cursor: grab; touch-action: none; }
+.jot-dialog .jot-textarea { touch-action: auto; }
+.jot-dialog.is-dragging .sticky-note {
+  cursor: grabbing;
+  box-shadow: 0 18px 40px rgba(20, 16, 10, 0.28);
+  transform: rotate(-1.4deg) scale(1.01);
 }
 .jot-textarea {
   display: block;

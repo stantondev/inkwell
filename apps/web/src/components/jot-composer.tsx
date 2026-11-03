@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
 import { MentionDropdown } from "@/components/mention-dropdown";
+import { useCloseOnOutsideClick, useMovableBox } from "@/hooks/use-movable-box";
 import { OPEN_JOT_EVENT, STICKY_COLORS, STICKY_MAX_CHARS, type StickyColor } from "@/lib/stickies";
 
 /** Sent with OPEN_JOT_EVENT to edit an existing sticky instead of writing a new one. */
@@ -100,7 +101,8 @@ export function JotComposer() {
     return () => window.removeEventListener(OPEN_JOT_EVENT, onOpen);
   }, [editing]);
 
-  // Focus the textarea, lock page scroll while open
+  // Focus the textarea when it opens. The page behind stays scrollable, and
+  // the note can be picked up and moved, so you can see what you're writing about.
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => {
@@ -110,12 +112,7 @@ export function JotComposer() {
         el.setSelectionRange(el.value.length, el.value.length);
       }
     }, 30);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      clearTimeout(t);
-      document.body.style.overflow = prev;
-    };
+    return () => clearTimeout(t);
   }, [open]);
 
   // Grow the note with the text (up to half the screen, then scroll)
@@ -137,6 +134,9 @@ export function JotComposer() {
     setOpen(false);
     setError("");
   }, []);
+
+  const move = useMovableBox(open);
+  useCloseOnOutsideClick([dialogRef], open, close);
 
   const length = text.trim().length;
   const over = length > STICKY_MAX_CHARS;
@@ -209,11 +209,13 @@ export function JotComposer() {
     <>
       {open && (
         <>
-          <div className="jot-backdrop" onClick={close} aria-hidden="true" />
+          <div className="jot-backdrop" aria-hidden="true" />
           <div className="jot-wrap">
             <div
               ref={dialogRef}
-              className="jot-dialog"
+              className={`jot-dialog${move.dragging ? " is-dragging" : ""}`}
+              style={{ translate: `${move.offset.x}px ${move.offset.y}px` }}
+              onPointerDown={move.onPointerDown}
               role="dialog"
               aria-modal="true"
               aria-label={editing ? "Edit sticky" : "Jot a sticky"}

@@ -11,6 +11,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { InkButton } from "@/components/ink-button";
 import { ReprintButton } from "@/components/reprint-button";
 import { FloatingPopup } from "@/components/floating-popup";
+import { useCloseOnOutsideClick } from "@/hooks/use-movable-box";
 import { ReportModal } from "@/components/report-modal";
 import { ShareButton } from "@/components/share-button";
 import { TranslateButton } from "@/components/translate-button";
@@ -172,6 +173,7 @@ function CommentPopupContent({
       <div
         className="comment-popup-header flex items-center justify-between px-4 py-2.5 border-b"
         style={{ borderColor: "var(--border)" }}
+        title="Drag to move"
       >
         <span
           className="text-xs"
@@ -182,6 +184,13 @@ function CommentPopupContent({
             fontWeight: 600,
           }}
         >
+          <span className="comment-popup-grip" aria-hidden="true">
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
+              <circle cx="2" cy="2" r="1.1" /><circle cx="6" cy="2" r="1.1" />
+              <circle cx="2" cy="6" r="1.1" /><circle cx="6" cy="6" r="1.1" />
+              <circle cx="2" cy="10" r="1.1" /><circle cx="6" cy="10" r="1.1" />
+            </svg>
+          </span>
           Footnotes
           {isRemote && (
             <span
@@ -375,46 +384,62 @@ export function FeedCardActions({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // While the mobile comment sheet is open, the page behind it stays put
-  // (dragging the backdrop used to scroll the feed) and Escape closes it.
+  // The mobile comment sheet doesn't lock the page: the feed above it keeps
+  // scrolling, a tap outside closes it, and Escape closes it.
   const sheetOpen = commentPopupOpen && isMobile;
+  const sheetRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!sheetOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCommentPopupOpen(false); };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [sheetOpen]);
+  useCloseOnOutsideClick([sheetRef, commentBtnRef], sheetOpen, () => setCommentPopupOpen(false));
 
-  // Drag the handle down to close the sheet.
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startY: number; dy: number } | null>(null);
+  // Drag the handle down to lower the sheet and see the post behind it; it
+  // stays where you leave it. Tap the handle to bring it back up, or drag it
+  // nearly off the screen to close it.
+  const dropRef = useRef(0);
+  const dragRef = useRef<{ startY: number; base: number; moved: boolean } | null>(null);
+  useEffect(() => {
+    if (sheetOpen) dropRef.current = 0;
+  }, [sheetOpen]);
+  const setDrop = (px: number, animate: boolean) => {
+    const el = sheetRef.current;
+    if (!el) return;
+    dropRef.current = px;
+    el.style.transition = animate ? "transform 0.2s ease" : "none";
+    el.style.transform = px ? `translateY(${px}px)` : "";
+  };
   const onHandleDown = (e: React.PointerEvent) => {
-    dragRef.current = { startY: e.clientY, dy: 0 };
+    dragRef.current = { startY: e.clientY, base: dropRef.current, moved: false };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onHandleMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d || !sheetRef.current) return;
-    d.dy = Math.max(0, e.clientY - d.startY);
-    sheetRef.current.style.transition = "none";
-    sheetRef.current.style.transform = `translateY(${d.dy}px)`;
+    const el = sheetRef.current;
+    if (!d || !el) return;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.abs(dy) < 4) return;
+    d.moved = true;
+    setDrop(Math.max(0, Math.min(d.base + dy, el.offsetHeight - 24)), false);
   };
   const onHandleUp = () => {
     const d = dragRef.current;
     dragRef.current = null;
     const el = sheetRef.current;
     if (!d || !el) return;
-    if (d.dy > 90) {
+    if (!d.moved) {
+      // A tap on the handle brings a lowered sheet back up.
+      if (dropRef.current > 0) setDrop(0, true);
+      return;
+    }
+    if (dropRef.current > el.offsetHeight - 72) {
       setCommentPopupOpen(false);
       return;
     }
-    el.style.transition = "transform 0.2s ease";
-    el.style.transform = "";
+    // Always leave the handle and the header in view.
+    setDrop(Math.min(dropRef.current, el.offsetHeight - 96), true);
   };
 
   // Clean up refetch timer on unmount
@@ -553,14 +578,11 @@ export function FeedCardActions({
         ? /* Mobile: bottom sheet via portal */
           createPortal(
             <>
-              {/* Backdrop */}
-              <div
-                className="comment-sheet-backdrop"
-                onClick={() => setCommentPopupOpen(false)}
-              />
+              {/* A light dim that lets touches through to the page */}
+              <div className="comment-sheet-backdrop" aria-hidden="true" />
               {/* Sheet */}
               <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
-                {/* Drag handle: pull down to close */}
+                {/* Drag handle: pull down to see behind, tap to bring back up */}
                 <div
                   className="comment-sheet-handle"
                   onPointerDown={onHandleDown}
@@ -595,6 +617,7 @@ export function FeedCardActions({
             open={commentPopupOpen}
             onClose={() => setCommentPopupOpen(false)}
             placement="top"
+            moveHandle=".comment-popup-header"
             className="comment-popup rounded-xl border shadow-lg overflow-hidden"
             style={{
               background: "var(--surface)",

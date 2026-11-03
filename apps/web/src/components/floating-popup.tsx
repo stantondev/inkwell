@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useCloseOnOutsideClick, useMovableBox } from "@/hooks/use-movable-box";
 
 interface FloatingPopupProps {
   /** Ref to the element the popup anchors to */
@@ -15,6 +16,12 @@ interface FloatingPopupProps {
   align?: "start" | "end";
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * The popup can be picked up by the element matching this selector and
+   * moved off what it covers. Once moved it stays put while the page scrolls,
+   * and only a click elsewhere (not a scroll) closes it.
+   */
+  moveHandle?: string;
 }
 
 export function FloatingPopup({
@@ -26,17 +33,23 @@ export function FloatingPopup({
   align = "end",
   className = "",
   style,
+  moveHandle,
 }: FloatingPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: -9999, left: -9999, maxHeight: 9999 });
   const [visible, setVisible] = useState(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const move = useMovableBox(open && !!moveHandle, { handle: moveHandle });
+  const movedRef = useRef(false);
+  movedRef.current = move.moved;
 
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     const popup = popupRef.current;
     if (!anchor || !popup) return;
+    // Moved by hand: it stays where it was put.
+    if (movedRef.current) return;
 
     const ar = anchor.getBoundingClientRect();
     const pr = popup.getBoundingClientRect();
@@ -117,9 +130,13 @@ export function FloatingPopup({
     };
   }, [open, updatePosition]);
 
+  // A movable popup closes only on a real click elsewhere, so scrolling the
+  // page behind it (a finger on a tablet, a scrollbar) leaves it open.
+  useCloseOnOutsideClick([popupRef, anchorRef], open && !!moveHandle, onClose);
+
   // Close on outside click
   useEffect(() => {
-    if (!open) return;
+    if (!open || moveHandle) return;
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
       if (
@@ -133,7 +150,7 @@ export function FloatingPopup({
     }
     document.addEventListener("pointerdown", handleClick);
     return () => document.removeEventListener("pointerdown", handleClick);
-  }, [open, onClose, anchorRef]);
+  }, [open, onClose, anchorRef, moveHandle]);
 
   if (!open) return null;
 
@@ -148,7 +165,8 @@ export function FloatingPopup({
   return createPortal(
     <div
       ref={popupRef}
-      className={className}
+      className={`${className}${move.dragging ? " is-dragging" : ""}`}
+      onPointerDown={moveHandle ? move.onPointerDown : undefined}
       style={{
         position: "fixed",
         top: pos.top,
@@ -159,6 +177,7 @@ export function FloatingPopup({
         maxWidth: "calc(100vw - 16px)",
         ...restStyle,
         maxHeight: clampedMaxHeight,
+        translate: moveHandle ? `${move.offset.x}px ${move.offset.y}px` : undefined,
       }}
     >
       {children}

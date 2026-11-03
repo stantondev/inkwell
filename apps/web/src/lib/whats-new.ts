@@ -18,6 +18,13 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-03-move-boxes",
+    date: "2026-11-03",
+    title: "Move the sticky and reply boxes out of the way",
+    body: "When you jot a sticky or open the footnotes on a post, the page behind stays scrollable, so you can keep reading what you're answering. Pick the sticky up by its paper, or the footnotes box by its top edge, and drag it wherever it's not in the way. On a phone, pull the footnotes sheet down to see the post above it and tap its handle to bring it back. A tap anywhere else closes them, and your unfinished sticky is kept.",
+    tag: "Reading",
+  },
+  {
     id: "2026-11-03-entry-page-style",
     date: "2026-11-03",
     title: "Choose how your entries open and close",
