@@ -18,16 +18,6 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
-    id: "2026-11-03-illuminated",
-    date: "2026-11-03",
-    title: "Inkwell Illuminated, redrawn",
-    body: "The Plus first letter is now a gilded manuscript capital. When someone opens your entry its vine-work draws itself in, the ornaments appear, and light runs across the gold; it catches the light again when they point at it. Choose one of four illuminations: Vines, Night sky, Garden or Quill. Anyone can try it in the Entry pages preview.",
-    howTo: "Settings \u2192 Entry pages \u2192 Inkwell Illuminated, then pick an illumination.",
-    href: "/settings/entry-page",
-    cta: "Try it",
-    tag: "Writing",
-  },
-  {
     id: "2026-11-03-entry-page-style",
     date: "2026-11-03",
     title: "Choose how your entries open and close",
