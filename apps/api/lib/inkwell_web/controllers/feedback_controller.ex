@@ -74,7 +74,7 @@ defmodule InkwellWeb.FeedbackController do
         do: params["status"]
 
     sort =
-      if params["sort"] in ~w(newest most_voted recently_updated priority_score),
+      if params["sort"] in ~w(newest most_voted recently_updated priority_score recently_shipped),
         do: params["sort"],
         else: "newest"
 
@@ -84,7 +84,8 @@ defmodule InkwellWeb.FeedbackController do
         per_page: per_page,
         category: category,
         status: status,
-        sort: sort
+        sort: sort,
+        q: params["q"]
       )
 
     viewer = conn.assigns[:current_user]
@@ -106,6 +107,31 @@ defmodule InkwellWeb.FeedbackController do
     })
   end
 
+  # GET /api/feedback/outline — every post in a group, in page order, with
+  # just enough to flip through them (prev/next on an item page) and the
+  # numbers for the roadmap masthead.
+  def outline(conn, params) do
+    group = if params["group"] in ~w(open shipped declined all), do: params["group"], else: "all"
+
+    category =
+      if params["category"] in ~w(bug feature idea question), do: params["category"]
+
+    sort =
+      if params["sort"] in ~w(newest most_voted recently_updated priority_score),
+        do: params["sort"],
+        else: "most_voted"
+
+    items =
+      Feedback.list_outline(group, category: category, sort: sort, q: params["q"])
+      |> Enum.map(fn item ->
+        item
+        |> Map.put(:username, item.username || "[deleted]")
+        |> Map.delete(:user_id)
+      end)
+
+    json(conn, %{data: items, meta: Feedback.roadmap_summary()})
+  end
+
   # GET /api/feedback/:id — single post with comments
   def show(conn, %{"id" => id}) do
     case Feedback.get_post(id) do
@@ -121,6 +147,7 @@ defmodule InkwellWeb.FeedbackController do
         json(conn, %{
           data:
             render_post(post, voted)
+            |> Map.put(:number, Feedback.post_number(post))
             |> Map.put(:comments, Enum.map(comments, &render_feedback_comment/1))
         })
     end

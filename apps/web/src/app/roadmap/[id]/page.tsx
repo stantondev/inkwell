@@ -4,48 +4,31 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { Avatar } from "@/components/avatar";
-import { StatusBadge, CategoryBadge, ScoreBadge } from "../badges";
+import { ScoreBadge } from "../badges";
 import { UpvoteButton } from "../upvote-button";
 import { AdminStatusForm } from "./admin-status-form";
 import { FeedbackCommentForm } from "./feedback-comment-form";
 import { FeedbackCommentItem, type FeedbackComment } from "./feedback-comment-item";
 import { EditPostForm } from "./edit-post-form";
+import { PagerBar, PeekLink, SwipeSheet } from "./item-pager";
+import { CategoryLabel, ProgressRail, StatusMark } from "../roadmap-card";
 import { notFoundOrRethrow } from "@/lib/page-errors";
+import s from "../roadmap.module.css";
+import {
+  CATEGORY_LABELS,
+  excerpt,
+  groupOf,
+  itemHref,
+  readContext,
+  roadmapHref,
+  shortDate,
+  type FeedbackPost,
+  type OutlineItem,
+  type RoadmapContext,
+  type RoadmapGroup,
+} from "../roadmap-shared";
 
-interface FeedbackPost {
-  id: string;
-  title: string;
-  body: string;
-  category: string;
-  status: string;
-  admin_response: string | null;
-  release_note: string | null;
-  completed_at: string | null;
-  vote_count: number;
-  comment_count: number;
-  priority: string | null;
-  value_score: number | null;
-  weighted_score: number | null;
-  attachment_ids: string[];
-  voted: boolean;
-  author: {
-    id: string | null;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-  created_at: string;
-  updated_at: string;
-  comments: FeedbackComment[];
-}
-
-function formatDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+type Post = FeedbackPost & { comments: FeedbackComment[] };
 
 function timeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -57,6 +40,19 @@ function timeAgo(isoString: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+const RAIL_CAPTIONS: Record<string, string> = {
+  new: "Received. It's waiting to be looked at.",
+  under_review: "Being looked at, to see whether and how it fits.",
+  planned: "Planned: it's on the list to build.",
+  in_progress: "Being built right now.",
+};
+
+const GROUP_WORDS: Record<RoadmapGroup, string> = {
+  open: "open",
+  shipped: "shipped",
+  declined: "declined",
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -65,7 +61,14 @@ export async function generateMetadata({
   const { id } = await params;
   try {
     const data = await apiFetch<{ data: FeedbackPost }>(`/api/feedback/${id}`);
-    return { title: `${data.data.title} · Roadmap` };
+    const post = data.data;
+    const description = excerpt(post.status === "done" && post.release_note ? post.release_note : post.body, 160);
+    return {
+      title: `${post.title} · Roadmap`,
+      description,
+      alternates: { canonical: `/roadmap/${post.id}` },
+      openGraph: { title: `${post.title} · Inkwell Roadmap`, description, url: `/roadmap/${post.id}` },
+    };
   } catch {
     return { title: "Roadmap" };
   }
@@ -73,107 +76,99 @@ export async function generateMetadata({
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
-export default async function RoadmapDetailPage({ params }: PageProps) {
+async function loadOutline(group: RoadmapGroup, ctx: RoadmapContext, token?: string) {
+  const p = new URLSearchParams({ group });
+  if (ctx.category) p.set("category", ctx.category);
+  if (ctx.sort) p.set("sort", ctx.sort);
+  if (ctx.q) p.set("q", ctx.q);
+  try {
+    const res = await apiFetch<{ data: OutlineItem[] }>(`/api/feedback/outline?${p}`, {}, token);
+    return res.data ?? [];
+  } catch {
+    return null;
+  }
+}
+
+export default async function RoadmapDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const sp = await searchParams;
   const session = await getSession();
   const isLoggedIn = !!session;
   const isAdmin = session?.user.is_admin ?? false;
+  const asked = readContext(sp);
 
-  let post: FeedbackPost;
-  try {
-    const data = await apiFetch<{ data: FeedbackPost }>(
-      `/api/feedback/${id}`,
-      {},
-      session?.token
-    );
-    post = data.data;
-  } catch (err) {
-    notFoundOrRethrow(err);
+  // The list we flip through: the one the reader came from, else the item's own group.
+  const [postResult, askedOutline] = await Promise.all([
+    apiFetch<{ data: Post }>(`/api/feedback/${id}`, {}, session?.token).then(
+      (r) => ({ ok: true as const, post: r.data }),
+      (err) => ({ ok: false as const, err }),
+    ),
+    asked.group ? loadOutline(asked.group, asked, session?.token) : Promise.resolve(null),
+  ]);
+  if (!postResult.ok) notFoundOrRethrow(postResult.err);
+  const post = postResult.post;
+
+  let ctx: RoadmapContext = asked;
+  let list = askedOutline;
+  if (!asked.group || !list || !list.some((o) => o.id === post.id)) {
+    // Arrived without a list, or the filters no longer include this card.
+    ctx = { group: groupOf(post.status) };
+    list = await loadOutline(ctx.group!, ctx, session?.token);
   }
+  const items = list ?? [];
+  const at = items.findIndex((o) => o.id === post.id);
+  const prev = at > 0 ? items[at - 1] : null;
+  const next = at >= 0 && at < items.length - 1 ? items[at + 1] : null;
+  const prevHref = prev ? itemHref(prev.id, ctx) : null;
+  const nextHref = next ? itemHref(next.id, ctx) : null;
+
+  const groupWord = GROUP_WORDS[ctx.group ?? "open"];
+  const filterWord = ctx.category ? ` ${CATEGORY_LABELS[ctx.category].toLowerCase()}s` : "";
+  const position = at >= 0 ? `${at + 1} of ${items.length} ${groupWord}${filterWord}` : null;
+  const backLabel = ctx.group === "shipped" ? "Shipped" : ctx.group === "declined" ? "Declined" : "The Roadmap";
 
   const isAuthor = !!session && post.author.id === session.user.id;
+  const deleted = post.author.username === "[deleted]";
+  const shipped = post.status === "done";
+  const open = !shipped && post.status !== "declined";
+
+  const author = deleted ? (
+    <span>@{post.author.username}</span>
+  ) : (
+    <Link href={`/${post.author.username}`}>@{post.author.username}</Link>
+  );
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)", color: "var(--foreground)" }}>
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Back link */}
-        <Link
-          href="/roadmap"
-          className="inline-flex items-center gap-1 text-sm mb-6 transition-colors hover:underline"
-          style={{ color: "var(--muted)" }}
-        >
-          ← Back to Roadmap
-        </Link>
+    <div className={s.root} style={{ background: "var(--background)", minHeight: "100vh" }}>
+      <div className={s.itemWrap}>
+        <PagerBar
+          backHref={roadmapHref(ctx)}
+          backLabel={backLabel}
+          position={position}
+          prevHref={prevHref}
+          nextHref={nextHref}
+          prevTitle={prev?.title ?? null}
+          nextTitle={next?.title ?? null}
+        />
 
-        {/* Post header */}
-        <div className="rounded-xl border p-4 sm:p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <div className="flex items-start gap-3 sm:gap-4">
-            {/* Upvote */}
-            <UpvoteButton
-              postId={post.id}
-              initialVoted={post.voted}
-              initialCount={post.vote_count}
-              isLoggedIn={isLoggedIn}
-            />
+        <SwipeSheet key={post.id} prevHref={prevHref} nextHref={nextHref}>
+          <div className={s.sheetHead}>
+            <CategoryLabel category={post.category} />
+            <span className={s.num}>
+              {post.number ? `No. ${post.number} · ` : ""}filed {shortDate(post.created_at)}
+            </span>
+          </div>
 
-            <div className="flex-1 min-w-0">
-              {/* Title */}
-              <h1
-                className="text-xl font-semibold mb-2 leading-snug"
-                style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-              >
-                {post.title}
-              </h1>
-
-              {/* Badges */}
-              <div className="flex flex-wrap items-center gap-2 mb-4">
-                <CategoryBadge category={post.category} />
-                <StatusBadge status={post.status} />
-                <ScoreBadge score={post.weighted_score} priority={post.priority} />
-              </div>
-
-              {/* Body */}
-              <div className="text-sm leading-relaxed whitespace-pre-wrap mb-4">
-                {post.body}
-              </div>
-
-              {/* Attachments */}
-              {post.attachment_ids && post.attachment_ids.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {post.attachment_ids.map((id) => (
-                    <a key={id} href={`/api/images/${id}`} target="_blank" rel="noopener noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/images/${id}`}
-                        alt="Screenshot"
-                        className="rounded-lg border object-cover"
-                        style={{ maxHeight: 200, maxWidth: "100%", borderColor: "var(--border)" }}
-                      />
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {/* Author + time + edit */}
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
-                {post.author.avatar_url || post.author.display_name ? (
-                  <Avatar
-                    url={post.author.avatar_url}
-                    name={post.author.display_name}
-                    size={20}
-                  />
-                ) : null}
-                {post.author.username !== "[deleted]" ? (
-                  <Link href={`/${post.author.username}`} className="hover:underline">
-                    @{post.author.username}
-                  </Link>
-                ) : (
-                  <span>@{post.author.username}</span>
-                )}
-                <span>·</span>
-                <span>{formatDate(post.created_at)}</span>
+          <div className={s.sheetTop}>
+            <div className={s.sheetMain}>
+              <h1 className={s.sheetTitle}>{post.title}</h1>
+              <div className={s.sheetMeta}>
+                {!deleted && <Avatar url={post.author.avatar_url} name={post.author.display_name} size={22} />}
+                <span>{shipped ? "Asked for by " : "From "}{author}</span>
+                {shipped && post.completed_at && <span>· shipped {shortDate(post.completed_at)}</span>}
                 {isAuthor && (
                   <>
                     <span>·</span>
@@ -187,75 +182,71 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
                 )}
               </div>
             </div>
+            <div className={s.sheetMark}>
+              <StatusMark status={post.status} completedAt={post.completed_at} big />
+            </div>
           </div>
 
-          {/* Shipped attribution card */}
-          {post.status === "done" && post.release_note && (
-            <div
-              className="mt-4 rounded-lg border-l-4 p-4"
-              style={{
-                borderLeftColor: "#6EE7B7",
-                background: "#ECFDF5",
-              }}
-            >
-              <p className="text-xs font-semibold mb-1 flex items-center gap-1.5" style={{ color: "#047857" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M20 6 9 17l-5-5"/>
-                </svg>
-                Shipped
-              </p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">
-                {post.release_note}
-              </p>
-              <div className="flex items-center gap-2 text-xs" style={{ color: "#047857" }}>
-                <span>Suggested by</span>
-                {post.author.avatar_url || post.author.display_name ? (
-                  <Avatar
-                    url={post.author.avatar_url}
-                    name={post.author.display_name}
-                    size={16}
-                  />
-                ) : null}
-                {post.author.username !== "[deleted]" ? (
-                  <Link href={`/${post.author.username}`} className="font-medium hover:underline">
-                    @{post.author.username}
-                  </Link>
-                ) : (
-                  <span>@{post.author.username}</span>
-                )}
-                {post.completed_at && (
-                  <>
-                    <span>·</span>
-                    <span>{formatDate(post.completed_at)}</span>
-                  </>
-                )}
-              </div>
+          {open && (
+            <div className={s.railBox}>
+              <ProgressRail status={post.status} />
+              <p className={s.railCaption}>{RAIL_CAPTIONS[post.status]}</p>
             </div>
           )}
 
-          {/* Admin response */}
-          {post.admin_response && (
-            <div
-              className="mt-4 rounded-lg border-l-4 p-4"
-              style={{
-                borderColor: "var(--accent)",
-                background: "var(--accent-light)",
-              }}
-            >
-              <p className="text-xs font-semibold mb-1" style={{ color: "var(--accent)" }}>
-                Admin Response
-              </p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {post.admin_response}
-              </p>
+          <div className={s.sheetBody}>{post.body}</div>
+
+          {post.attachment_ids && post.attachment_ids.length > 0 && (
+            <div className={s.attachments}>
+              {post.attachment_ids.map((imageId) => (
+                <a key={imageId} href={`/api/images/${imageId}`} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/images/${imageId}`} alt="Screenshot attached to this post" />
+                </a>
+              ))}
             </div>
           )}
-        </div>
 
-        {/* Admin controls */}
+          <div className={s.actions}>
+            <UpvoteButton
+              postId={post.id}
+              initialVoted={post.voted}
+              initialCount={post.vote_count}
+              isLoggedIn={isLoggedIn}
+              variant="pill"
+            />
+            <span style={{ fontSize: 13, color: "var(--rm-ink-soft)" }}>
+              {open ? "Vote if you'd use this" : post.vote_count === 1 ? "vote" : "votes"}
+            </span>
+            {isAdmin && <ScoreBadge score={post.weighted_score} priority={post.priority} />}
+            <a href="#comments" className={s.sectionLink} style={{ marginLeft: "auto", fontSize: 13 }}>
+              {post.comments?.length ?? 0} {(post.comments?.length ?? 0) === 1 ? "comment" : "comments"}
+            </a>
+          </div>
+        </SwipeSheet>
+
+        {shipped && post.release_note && (
+          <div className={s.note}>
+            <div className={s.noteLabel}>What shipped</div>
+            <div className={s.noteText}>{post.release_note}</div>
+            <div className={s.noteFoot}>
+              <span>Thanks to</span>
+              {!deleted && <Avatar url={post.author.avatar_url} name={post.author.display_name} size={16} />}
+              {author}
+              <span>for asking.</span>
+            </div>
+          </div>
+        )}
+
+        {post.admin_response && (
+          <div className={s.note} data-kind="reply">
+            <div className={s.noteLabel}>From Inkwell</div>
+            <div className={s.noteText}>{post.admin_response}</div>
+          </div>
+        )}
+
         {isAdmin && (
-          <div className="mt-4">
+          <div className={s.admin}>
             <AdminStatusForm
               postId={post.id}
               currentStatus={post.status}
@@ -267,13 +258,18 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Comments section */}
-        <div className="mt-8" id="comments">
-          <h2 className="text-sm font-semibold mb-4">
-            Comments ({post.comments?.length ?? 0})
+        {(prevHref || nextHref) && (
+          <div className={s.peeks}>
+            <PeekLink href={prevHref} dir="prev" label="Previous" title={prev?.title ?? null} />
+            <PeekLink href={nextHref} dir="next" label="Next" title={next?.title ?? null} />
+          </div>
+        )}
+
+        <section className={s.comments} id="comments">
+          <h2 className={s.commentsTitle}>
+            Comments <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 15 }}>({post.comments?.length ?? 0})</span>
           </h2>
 
-          {/* Comments list */}
           {post.comments && post.comments.length > 0 ? (
             <div className="flex flex-col gap-3 mb-6">
               {post.comments.map((comment) => (
@@ -288,11 +284,10 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
             </div>
           ) : (
             <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-              No comments yet. Be the first to share your thoughts.
+              No comments yet.
             </p>
           )}
 
-          {/* Comment form, below the comments, where the new one will appear */}
           {isLoggedIn ? (
             <FeedbackCommentForm postId={post.id} />
           ) : (
@@ -301,14 +296,18 @@ export default async function RoadmapDetailPage({ params }: PageProps) {
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             >
               <p className="text-sm" style={{ color: "var(--muted)" }}>
-                <Link href="/login" className="font-medium hover:underline" style={{ color: "var(--accent)" }}>
+                <Link
+                  href={`/login?next=${encodeURIComponent(`/roadmap/${post.id}`)}`}
+                  className="font-medium hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
                   Sign in
                 </Link>{" "}
                 to leave a comment.
               </p>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

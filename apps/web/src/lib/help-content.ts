@@ -95,5 +95,5 @@ export const HELP_ENTRIES: HelpEntry[] = [
   { id: "x-guide", title: "The Reader's Guide", snippet: "A full walkthrough of Inkwell's features.", keywords: ["guide", "tutorial", "walkthrough", "how"], category: "getting-started", href: "/guide" },
   { id: "x-guidelines", title: "Community Guidelines", snippet: "Inkwell's rules for respectful, creative community participation.", keywords: ["guidelines", "rules", "policy", "community", "behavior"], category: "safety", href: "/guidelines" },
   { id: "x-about", title: "About Inkwell", snippet: "Our mission, values, and what we believe in.", keywords: ["about", "mission", "values", "inkwell"], category: "getting-started", href: "/about" },
-  { id: "x-roadmap", title: "Roadmap & Feedback", snippet: "See what's planned and submit ideas or bug reports.", keywords: ["roadmap", "feedback", "feature", "bug", "request", "planned"], category: "getting-started", href: "/roadmap" },
+  { id: "x-roadmap", title: "Roadmap & Feedback", snippet: "See what's being built and what's shipped, vote, search, and flip through every idea with the arrow keys.", keywords: ["roadmap", "feedback", "feature", "bug", "request", "planned", "shipped", "vote"], category: "getting-started", href: "/roadmap" },
 ];

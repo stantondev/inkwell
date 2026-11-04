@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-04-roadmap-cards",
+    date: "2026-11-04",
+    title: "The roadmap, as a board of index cards",
+    body: "Every idea, bug and question sent in is now a numbered index card. Open ones are taped to a workbench with a rubber stamp and a track showing how far along they are; shipped ones are postmarked with the day they went out. Open any card and flip to the next with the arrow buttons, the \u2190 \u2192 keys, or a sideways swipe on your phone. You can also search the whole roadmap, filter by kind, and see how much shipped each month.",
+    href: "/roadmap",
+    cta: "Open the roadmap",
+  },
+  {
     id: "2026-11-04-older-notifications",
     date: "2026-11-04",
     title: "Older notifications are within reach",

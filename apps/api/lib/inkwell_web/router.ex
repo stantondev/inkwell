@@ -178,6 +178,7 @@ defmodule InkwellWeb.Router do
     get "/feedback", FeedbackController, :index
     get "/feedback/roadmap", FeedbackController, :roadmap
     get "/feedback/releases", FeedbackController, :releases
+    get "/feedback/outline", FeedbackController, :outline
     get "/feedback/:id", FeedbackController, :show
 
     # Circles (optional auth for browse + detail with is_member)
