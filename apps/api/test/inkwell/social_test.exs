@@ -297,4 +297,43 @@ defmodule Inkwell.SocialTest do
       ) == []
     end
   end
+
+  describe "count_followers/1 and count_following/1" do
+    test "a follow request counts on both sides" do
+      reader = create_user()
+      writer = create_user()
+      {:ok, _} = Social.follow(reader.id, writer.id)
+
+      assert Social.count_followers(writer.id) == 1
+      assert Social.count_following(reader.id) == 1
+      assert Social.count_pen_pals(writer.id) == 0
+    end
+
+    test "an accepted follow still counts once each way" do
+      a = create_user()
+      b = create_user()
+      {:ok, _} = Social.follow(a.id, b.id)
+      {:ok, _} = Social.accept_follow(a.id, b.id)
+
+      assert Social.count_followers(b.id) == 1
+      assert Social.count_following(a.id) == 1
+    end
+
+    test "blocks and suspended accounts don't count" do
+      writer = create_user()
+      blocker = create_user()
+      suspended = create_user()
+      {:ok, _} = Social.follow(suspended.id, writer.id)
+      {:ok, _} = Social.block(blocker.id, writer.id)
+
+      Inkwell.Repo.update_all(
+        from(u in Inkwell.Accounts.User, where: u.id == ^suspended.id),
+        set: [blocked_at: DateTime.utc_now()]
+      )
+
+      assert Social.count_followers(writer.id) == 0
+      assert Social.count_following(suspended.id) == 1
+      assert Social.count_following(blocker.id) == 0
+    end
+  end
 end

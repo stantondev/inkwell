@@ -317,15 +317,25 @@ defmodule Inkwell.Social do
     |> Repo.all()
   end
 
+  # Followers and following count requests too. Following someone means
+  # reading their public entries straight away (since 2026-09-25); accepting
+  # only makes you pen pals. Counting accepted follows alone left writers who
+  # never answer requests at "0 followers" while people read them
+  # (@stoicalgeezer following @juliomartinez, 2026-11-04). Suspended
+  # accounts are left out. Fediverse rows have no local user on that side.
   def count_followers(user_id) do
     Relationship
-    |> where([r], r.following_id == ^user_id and r.status == :accepted)
+    |> where([r], r.following_id == ^user_id and r.status in [:pending, :accepted])
+    |> join(:left, [r], u in Inkwell.Accounts.User, on: u.id == r.follower_id)
+    |> where([r, u], is_nil(r.follower_id) or is_nil(u.blocked_at))
     |> Repo.aggregate(:count)
   end
 
   def count_following(user_id) do
     Relationship
-    |> where([r], r.follower_id == ^user_id and r.status == :accepted)
+    |> where([r], r.follower_id == ^user_id and r.status in [:pending, :accepted])
+    |> join(:left, [r], u in Inkwell.Accounts.User, on: u.id == r.following_id)
+    |> where([r, u], is_nil(r.following_id) or is_nil(u.blocked_at))
     |> Repo.aggregate(:count)
   end
 

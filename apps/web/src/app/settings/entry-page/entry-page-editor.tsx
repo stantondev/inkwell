@@ -85,6 +85,8 @@ export function EntryPageEditor({
   const classes = entryPageClasses(style, opening.initial);
   const vars = inkVars(style.ink, accent) as React.CSSProperties;
   const nameLetter = /^[A-Za-z]/.test(name) ? name.charAt(0).toUpperCase() : "A";
+  // Ink only colours the first letter and the ending ornament.
+  const inkHasNothing = style.initial === "none" && style.ending === "none";
 
   return (
     <div className={`ep-shell ${blackletter.variable}`}>
@@ -151,7 +153,18 @@ export function EntryPageEditor({
 
         <section className="ep-section">
           <h2 className="ep-heading">Ink</h2>
-          <div className="ep-swatches" role="radiogroup" aria-label="Ink for the first letter">
+          <p className={inkHasNothing ? "ep-hint ep-hint--plus" : "ep-hint"}>
+            {inkHasNothing
+              ? "The ink colours your first letter and the ornament at the end. With neither chosen, it has nothing to colour. Your writing itself stays in the page's own ink."
+              : style.initial === "none"
+                ? "With no first letter, the ink colours only the ornament at the end. Your writing itself stays in the page's own ink."
+                : "Colours your first letter and the ornament at the end. Your writing itself stays in the page's own ink."}
+          </p>
+          <div
+            className={inkHasNothing ? "ep-swatches ep-swatches--idle" : "ep-swatches"}
+            role="radiogroup"
+            aria-label="Ink for the first letter and the ending"
+          >
             {INKS.map((o) => (
               <button
                 key={o.id}

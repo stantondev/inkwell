@@ -21694,6 +21694,7 @@ body:not([data-look="classic"]) .page-initial-inkblot .prose-entry.drop-cap > p:
   font-size: 0.85rem; cursor: pointer;
 }
 .ep-swatch[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.ep-swatches--idle { opacity: 0.55; }
 .ep-swatch-dot { width: 1rem; height: 1rem; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
 .ep-check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
 .ep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
