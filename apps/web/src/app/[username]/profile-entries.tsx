@@ -282,7 +282,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
           )}
           {entry.mood && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border" style={{ borderColor: styles.border }}>
-              <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={16} />
+              <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={18} />
               {entry.mood}
             </span>
           )}

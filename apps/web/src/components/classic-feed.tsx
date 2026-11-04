@@ -129,7 +129,8 @@ function ClassicEntry({
             className="classic-current"
             mood={entry.mood}
             moodKey={entry.mood_key}
-            moodTheme={entry.mood_theme}
+            // The 2004 look always gets the pixel faces, whatever the writer picked.
+            moodTheme="classic"
             music={entry.music ? getMusicLabel(entry.music, entry.music_metadata) : null}
             location={entry.location}
             song={entry.music ? songFrom(entry.music, entry.music_metadata) : null}

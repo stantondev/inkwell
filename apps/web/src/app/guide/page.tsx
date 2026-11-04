@@ -175,7 +175,7 @@ export default function GuidePage() {
           <p>
             Not ready to publish? Save your work as a <strong>draft</strong> and
             come back to it later. You can also add a category, tags, a mood
-            (with a little face, in Classic pixel or Ink style), what you&rsquo;re
+            (shown as a little ink drop with feelings, or pixel smileys if you prefer), what you&rsquo;re
             listening to, where you are, a cover image, and an excerpt to give
             readers context. To publish later,
             press the clock next to <strong>Publish</strong> and pick a time;

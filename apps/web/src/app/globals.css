@@ -926,6 +926,7 @@ a.mention:hover,
   --mood-water: #5aa8f0;
   --mood-gold: #f2c230;
   --mood-glyph: #3b2a17;
+  --mood-drop-edge: 0;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -935,6 +936,7 @@ a.mention:hover,
     --mood-ink-green: #2c3a22;
     --mood-ink-blue: #1f3048;
     --mood-glyph: #eadfc4;
+    --mood-drop-edge: 0.4;
   }
 }
 [data-theme="dark"] {
@@ -944,6 +946,7 @@ a.mention:hover,
   --mood-ink-green: #2c3a22;
   --mood-ink-blue: #1f3048;
   --mood-glyph: #eadfc4;
+  --mood-drop-edge: 0.4;
 }
 
 .mood-icon {
@@ -1018,6 +1021,8 @@ a.mention:hover,
   color: var(--muted);
   white-space: nowrap;
 }
+/* The mood face is drawn larger than the text but mustn't make the line taller. */
+.entry-current-value .mood-icon { margin: -5px 0; }
 .entry-current-value {
   display: inline-flex;
   align-items: center;

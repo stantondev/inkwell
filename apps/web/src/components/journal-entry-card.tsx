@@ -766,7 +766,7 @@ function MetaStrip({
   if (entry.mood) {
     items.push(
       <span key="mood" className="entry-meta-item inline-flex items-center gap-1">
-        <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={16} />
+        <MoodIcon moodKey={entry.mood_key} mood={entry.mood} theme={entry.mood_theme} size={18} />
         {entry.mood}
       </span>
     );

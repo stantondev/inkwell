@@ -112,7 +112,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "moods",
     question: "How do moods work?",
     answer:
-      "Next to <strong>feeling</strong> in the editor, click <strong>your mood…</strong> and pick one of about 130 moods; each has a little face. You can then change the words and keep the face (the “tired” face with “up way too late”), or click the face to change only the face. At the bottom of the list, choose <strong>Classic</strong> (pixel smileys) or <strong>Ink</strong> (hand-drawn) for your whole journal; readers see your choice. Your mood, music and location appear under the title as <em>Current mood</em>, <em>Current music</em> and <em>Current location</em>.",
+      "Next to <strong>feeling</strong> in the editor, click <strong>your mood…</strong> and pick one of about 130 moods; each has a little face. You can then change the words and keep the face (the “tired” face with “up way too late”), or click the face to change only the face. Each mood is a little drop of ink whose shape and props say how it feels (it puddles when tired, its tip flops over when sad). At the bottom of the list you can switch your whole journal to <strong>Pixel</strong> smileys instead; readers see your choice. Readers using the Classic (2004) look always see the pixel faces. Your mood, music and location appear under the title as <em>Current mood</em>, <em>Current music</em> and <em>Current location</em>.",
     category: "writing",
   },
   {

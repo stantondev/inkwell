@@ -202,11 +202,14 @@ export function resolveMood(
 
 export type MoodTheme = "classic" | "ink";
 
+// "ink" is the ink drops (it was thin hand-drawn faces until November 2026;
+// the id stays so writers' saved choice carries over). Writers who never
+// picked a style get the drops; only an explicit "classic" gets the pixels.
 export const MOOD_THEMES: { id: MoodTheme; label: string; description: string }[] = [
-  { id: "classic", label: "Classic", description: "Pixel smileys, straight out of 2004" },
-  { id: "ink", label: "Ink", description: "Hand-drawn faces in Inkwell ink" },
+  { id: "ink", label: "Ink drops", description: "Little drops of Inkwell ink with feelings" },
+  { id: "classic", label: "Pixel", description: "Pixel smileys, straight out of 2004" },
 ];
 
 export function normalizeMoodTheme(v: unknown): MoodTheme {
-  return v === "ink" ? "ink" : "classic";
+  return v === "classic" ? "classic" : "ink";
 }

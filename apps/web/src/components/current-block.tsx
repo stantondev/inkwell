@@ -32,7 +32,7 @@ export function CurrentBlock({
         <>
           <dt className="entry-current-label">Current mood:</dt>
           <dd className="entry-current-value">
-            <MoodIcon moodKey={moodKey} mood={mood} theme={moodTheme} size={22} />
+            <MoodIcon moodKey={moodKey} mood={mood} theme={moodTheme} size={28} />
             <span>{mood}</span>
           </dd>
         </>

@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-04-ink-drop-moods",
+    date: "2026-11-04",
+    title: "Moods are little ink drops now",
+    body: "Every mood has a new picture: a drop of Inkwell ink with a face. Its shape tells you as much as the face does: it stands tall when it's happy, its tip flops over when it's sad, and it spreads into a puddle when it's tired. Some dress for the occasion: a nightcap for sleepy, a scarf for cozy, a beret for artistic, a rain cloud for gloomy. Posts that already have a mood show the new drop automatically. If you liked the pixel smileys, you can keep them.",
+    howTo: "In the editor, click “your mood…” next to “feeling”. To switch back to pixel smileys, pick Pixel at the bottom of the list.",
+    tag: "Writing",
+  },
+  {
     id: "2026-11-03-move-boxes",
     date: "2026-11-03",
     title: "Move the sticky and reply boxes out of the way",
