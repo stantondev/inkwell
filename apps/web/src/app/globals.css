@@ -21615,6 +21615,48 @@ body:not([data-look="classic"]) .page-initial-inkblot .prose-entry.drop-cap > p:
     radial-gradient(circle 0.045em at 100% 96%, var(--initial-tile, #2d4a8a) 90%, transparent 100%) no-repeat;
 }
 
+/* Writing ink (Plus, 2026-11-04): the colour of the words themselves and
+   the title. Each ink has a dark-mode version; all were checked at 6.3:1 or
+   better on every paper. Classic view keeps its own text colour. */
+:root {
+  --text-ink-blueblack: #1f2d4f;
+  --text-ink-irongall: #3a2a1e;
+  --text-ink-sepia: #5a3b22;
+  --text-ink-green: #1f4430;
+  --text-ink-oxblood: #5e1f1f;
+  --text-ink-violet: #3b2a5c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text-ink-blueblack: #c3d0ef;
+    --text-ink-irongall: #e6d6bf;
+    --text-ink-sepia: #dcc2a2;
+    --text-ink-green: #b8d8c2;
+    --text-ink-oxblood: #eab6ae;
+    --text-ink-violet: #d2c4ef;
+  }
+}
+:root[data-theme="dark"] {
+  --text-ink-blueblack: #c3d0ef;
+  --text-ink-irongall: #e6d6bf;
+  --text-ink-sepia: #dcc2a2;
+  --text-ink-green: #b8d8c2;
+  --text-ink-oxblood: #eab6ae;
+  --text-ink-violet: #d2c4ef;
+}
+.entry-letter.page-text-blueblack { --text-ink: var(--text-ink-blueblack); }
+.entry-letter.page-text-irongall { --text-ink: var(--text-ink-irongall); }
+.entry-letter.page-text-sepia { --text-ink: var(--text-ink-sepia); }
+.entry-letter.page-text-green { --text-ink: var(--text-ink-green); }
+.entry-letter.page-text-oxblood { --text-ink: var(--text-ink-oxblood); }
+.entry-letter.page-text-violet { --text-ink: var(--text-ink-violet); }
+body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .prose-entry,
+body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter-title {
+  --ink: var(--text-ink);
+  --foreground: var(--text-ink);
+  color: var(--text-ink);
+}
+
 /* The ornament at the end takes the same ink as the first letter. */
 .entry-letter[class*="page-initial-"] .entry-endmark {
   color: color-mix(in srgb, var(--initial-ink, var(--accent)) 70%, var(--muted));
@@ -21695,6 +21737,7 @@ body:not([data-look="classic"]) .page-initial-inkblot .prose-entry.drop-cap > p:
 }
 .ep-swatch[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .ep-swatches--idle { opacity: 0.55; }
+.ep-swatch-dot--page { background: linear-gradient(135deg, var(--ink) 50%, var(--surface) 50%); }
 .ep-swatch-dot { width: 1rem; height: 1rem; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
 .ep-check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
 .ep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }

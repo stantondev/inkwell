@@ -9,6 +9,7 @@ import {
   ENDINGS,
   INITIALS,
   INKS,
+  TEXT_INKS,
   PAPERS,
   entryOpening,
   entryPageClasses,
@@ -152,13 +153,13 @@ export function EntryPageEditor({
         )}
 
         <section className="ep-section">
-          <h2 className="ep-heading">Ink</h2>
+          <h2 className="ep-heading">First letter ink</h2>
           <p className={inkHasNothing ? "ep-hint ep-hint--plus" : "ep-hint"}>
             {inkHasNothing
-              ? "The ink colours your first letter and the ornament at the end. With neither chosen, it has nothing to colour. Your writing itself stays in the page's own ink."
+              ? "The ink colours your first letter and the ornament at the end. With neither chosen, it has nothing to colour. Writing ink, below, sets the colour of the words."
               : style.initial === "none"
-                ? "With no first letter, the ink colours only the ornament at the end. Your writing itself stays in the page's own ink."
-                : "Colours your first letter and the ornament at the end. Your writing itself stays in the page's own ink."}
+                ? "With no first letter, the ink colours only the ornament at the end. Writing ink, below, sets the colour of the words."
+                : "Colours your first letter and the ornament at the end. Writing ink, below, sets the colour of the words."}
           </p>
           <div
             className={inkHasNothing ? "ep-swatches ep-swatches--idle" : "ep-swatches"}
@@ -175,6 +176,38 @@ export function EntryPageEditor({
                 onClick={() => set("ink", o.id)}
               >
                 <span className="ep-swatch-dot" style={{ background: inkVars(o.id, accent)["--initial-tile"] }} />
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="ep-section">
+          <h2 className="ep-heading">
+            Writing ink <span className="ep-plus">Plus</span>
+          </h2>
+          <p className={!isPlus && style.text_ink !== "page" ? "ep-hint ep-hint--plus" : "ep-hint"}>
+            {isPlus
+              ? "The colour of your words and your title. Each ink has a lighter version for readers in dark mode."
+              : style.text_ink !== "page"
+                ? "Writing ink comes with Plus. Try it here; readers see the page's own ink until you have Plus. "
+                : "The colour of your words and your title. Writing ink comes with Plus. "}
+            {!isPlus && <Link href="/settings/billing">About Plus</Link>}
+          </p>
+          <div className="ep-swatches" role="radiogroup" aria-label="Ink for your writing">
+            {TEXT_INKS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="radio"
+                aria-checked={style.text_ink === o.id}
+                className="ep-swatch"
+                onClick={() => set("text_ink", o.id)}
+              >
+                <span
+                  className={o.swatch ? "ep-swatch-dot" : "ep-swatch-dot ep-swatch-dot--page"}
+                  style={o.swatch ? { background: `var(--text-ink-${o.id})` } : undefined}
+                />
                 {o.label}
               </button>
             ))}

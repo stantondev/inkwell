@@ -8,6 +8,9 @@ defmodule Inkwell.EntryPage do
   Plus avatar frames, but shown only while the writer has Plus; otherwise
   the page falls back to the Classic initial. `illumination` is the motif
   drawn around an Illuminated letter (vines, night sky, garden, quill).
+
+  `text_ink` is the colour of the writing itself (Plus, same rule as
+  Illuminated): "page" keeps the page's own text colour.
   """
 
   @initials ~w(classic illuminated blackletter inkblot none)
@@ -16,6 +19,7 @@ defmodule Inkwell.EntryPage do
   @papers ~w(cream notebook parchment kraft)
   @endings ~w(inkdrop fleuron quill rule none)
   @illuminations ~w(vine stars garden quill)
+  @text_inks ~w(page blueblack irongall sepia green oxblood violet)
 
   @defaults %{
     "initial" => "classic",
@@ -23,7 +27,8 @@ defmodule Inkwell.EntryPage do
     "paper" => "cream",
     "ending" => "inkdrop",
     "signature" => true,
-    "illumination" => "vine"
+    "illumination" => "vine",
+    "text_ink" => "page"
   }
 
   def defaults, do: @defaults
@@ -36,6 +41,7 @@ defmodule Inkwell.EntryPage do
     |> pick(page, "paper", @papers)
     |> pick(page, "ending", @endings)
     |> pick(page, "illumination", @illuminations)
+    |> pick(page, "text_ink", @text_inks)
     |> then(fn acc ->
       case page["signature"] do
         flag when is_boolean(flag) -> Map.put(acc, "signature", flag)
@@ -50,10 +56,12 @@ defmodule Inkwell.EntryPage do
   def for_author(%{settings: settings} = user) do
     page = Map.merge(@defaults, clean((settings || %{})["entry_page"]))
 
-    if page["initial"] in @plus_initials and Inkwell.SelfHosted.effective_tier(user) != "plus" do
-      Map.put(page, "initial", "classic")
+    if Inkwell.SelfHosted.effective_tier(user) == "plus" do
+      page
     else
       page
+      |> then(&if(&1["initial"] in @plus_initials, do: Map.put(&1, "initial", "classic"), else: &1))
+      |> Map.put("text_ink", "page")
     end
   end
 

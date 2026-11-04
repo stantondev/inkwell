@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-04-writing-ink",
+    date: "2026-11-04",
+    title: "Write in your own ink",
+    body: "Plus members can choose the colour of the words in their entries, not just the first letter: blue-black, iron gall, sepia, forest green, oxblood or violet. Your title takes the same ink. Each ink has a lighter version for readers in dark mode, and every one stays easy to read on every paper.",
+    howTo: "Settings \u2192 Entry pages \u2192 Writing ink.",
+    href: "/settings/entry-page",
+    cta: "Choose your ink",
+    tag: "Plus",
+  },
+  {
     id: "2026-11-04-ink-drop-moods",
     date: "2026-11-04",
     title: "Moods are little ink drops now",

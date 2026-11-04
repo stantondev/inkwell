@@ -39,7 +39,8 @@ defmodule InkwellWeb.EntryPageStyleTest do
       paper: "parchment",
       ending: "fleuron",
       signature: false,
-      illumination: "stars"
+      illumination: "stars",
+      text_ink: "sepia"
     })
 
     page = entry_page_seen_by_reader(user, publish(user))
@@ -50,13 +51,14 @@ defmodule InkwellWeb.EntryPageStyleTest do
              "paper" => "parchment",
              "ending" => "fleuron",
              "signature" => false,
-             "illumination" => "stars"
+             "illumination" => "stars",
+             "text_ink" => "page"
            }
   end
 
   test "unknown values are dropped and the defaults fill in" do
     user = create_user()
-    save_style(user, %{initial: "<script>", ink: "neon", paper: "kraft", ending: 5, signature: "yes", illumination: "lasers", extra: "x"})
+    save_style(user, %{initial: "<script>", ink: "neon", paper: "kraft", ending: 5, signature: "yes", illumination: "lasers", text_ink: "#ff0", extra: "x"})
 
     stored = Repo.reload!(user).settings["entry_page"]
     assert stored == %{"paper" => "kraft"}
@@ -74,6 +76,18 @@ defmodule InkwellWeb.EntryPageStyleTest do
 
     plus(user)
     assert %{"initial" => "illuminated"} = entry_page_seen_by_reader(user, entry)
+  end
+
+  test "writing ink shows only while the writer has Plus" do
+    user = create_user()
+    save_style(user, %{text_ink: "oxblood"})
+    entry = publish(user)
+
+    assert Repo.reload!(user).settings["entry_page"]["text_ink"] == "oxblood"
+    assert %{"text_ink" => "page"} = entry_page_seen_by_reader(user, entry)
+
+    plus(user)
+    assert %{"text_ink" => "oxblood"} = entry_page_seen_by_reader(user, entry)
   end
 
   test "writers who never chose get the defaults" do

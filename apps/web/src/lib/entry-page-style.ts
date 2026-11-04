@@ -9,6 +9,7 @@ export type InitialStyle = "classic" | "illuminated" | "blackletter" | "inkblot"
 export type InitialInk = "blue" | "accent" | "black" | "red" | "gold";
 export type PagePaper = "cream" | "notebook" | "parchment" | "kraft";
 export type PageEnding = "inkdrop" | "fleuron" | "quill" | "rule" | "none";
+export type TextInk = "page" | "blueblack" | "irongall" | "sepia" | "green" | "oxblood" | "violet";
 
 export interface EntryPageStyle {
   initial: InitialStyle;
@@ -18,6 +19,8 @@ export interface EntryPageStyle {
   signature: boolean;
   /** The motif on an Illuminated first letter (Plus). */
   illumination: Illumination;
+  /** The colour of the writing itself (Plus). "page" keeps the page's own. */
+  text_ink: TextInk;
 }
 
 export const DEFAULT_ENTRY_PAGE: EntryPageStyle = {
@@ -27,6 +30,7 @@ export const DEFAULT_ENTRY_PAGE: EntryPageStyle = {
   ending: "inkdrop",
   signature: true,
   illumination: DEFAULT_ILLUMINATION,
+  text_ink: "page",
 };
 
 export const INITIALS: { id: InitialStyle; label: string; blurb: string; plus?: boolean }[] = [
@@ -48,6 +52,21 @@ export const INKS: { id: InitialInk; label: string }[] = [
   { id: "black", label: "Black ink" },
   { id: "red", label: "Red ink" },
   { id: "gold", label: "Gold" },
+];
+
+/**
+ * Inks for the writing itself. Each has a lighter dark-mode version
+ * (--text-ink-* in globals.css); every pair was checked at 6.3:1 or better
+ * against every paper in both modes. `swatch` is the light-mode colour.
+ */
+export const TEXT_INKS: { id: TextInk; label: string; swatch: string | null }[] = [
+  { id: "page", label: "The page's own", swatch: null },
+  { id: "blueblack", label: "Blue-black", swatch: "#1f2d4f" },
+  { id: "irongall", label: "Iron gall", swatch: "#3a2a1e" },
+  { id: "sepia", label: "Sepia", swatch: "#5a3b22" },
+  { id: "green", label: "Forest green", swatch: "#1f4430" },
+  { id: "oxblood", label: "Oxblood", swatch: "#5e1f1f" },
+  { id: "violet", label: "Violet", swatch: "#3b2a5c" },
 ];
 
 export const PAPERS: { id: PagePaper; label: string; blurb: string }[] = [
@@ -79,6 +98,7 @@ export function entryPageStyle(raw: unknown): EntryPageStyle {
     ending: oneOf(s.ending, ENDINGS, DEFAULT_ENTRY_PAGE.ending),
     signature: typeof s.signature === "boolean" ? s.signature : DEFAULT_ENTRY_PAGE.signature,
     illumination: illumination(s.illumination),
+    text_ink: oneOf(s.text_ink, TEXT_INKS, DEFAULT_ENTRY_PAGE.text_ink),
   };
 }
 
@@ -128,7 +148,9 @@ export function initialFor(style: InitialStyle, html: string): InitialStyle {
 /** Classes for the page and the body text. */
 export function entryPageClasses(style: EntryPageStyle, initial: InitialStyle) {
   return {
-    page: `entry-letter page-paper-${style.paper} page-initial-${initial}`,
+    page: `entry-letter page-paper-${style.paper} page-initial-${initial}${
+      style.text_ink === "page" ? "" : ` page-text-${style.text_ink}`
+    }`,
     body: initial === "none" ? "" : initial === "illuminated" ? "illum-cap" : "drop-cap",
   };
 }
