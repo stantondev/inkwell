@@ -383,7 +383,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
 
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs" style={{ color: styles.muted }}>
-          <span suppressHydrationWarning>{timeAgo(entry.published_at)}</span>
+          <Link href={href} className="hover:underline" suppressHydrationWarning>{timeAgo(entry.published_at)}</Link>
           {rt && <><span>·</span><span>{rt}</span></>}
           {isArchive(entry) && <Seal entry={entry} where="card" />}
           {entry.category && (
@@ -404,7 +404,12 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
 
         {/* Excerpt */}
         <div className="flex-1">
-          {entry.excerpt ? (
+          {entry.excerpt && !hasTitle ? (
+            // No title to click: the opening itself opens the entry.
+            <Link href={href} className={`block text-sm leading-relaxed hover:underline ${excerptClamp}`} style={{ opacity: 0.85 }}>
+              {decodeEntities(entry.excerpt)}
+            </Link>
+          ) : entry.excerpt ? (
             <p className={`text-sm leading-relaxed ${excerptClamp}`} style={{ opacity: 0.85 }}>
               {decodeEntities(entry.excerpt)}
             </p>
@@ -428,6 +433,11 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
               <span className="text-[10px]" style={{ color: styles.muted }}>+{entry.tags.length - 3}</span>
             )}
           </div>
+          {!hasTitle && (
+            <Link href={href} className="ml-auto mr-3 text-xs font-medium hover:underline whitespace-nowrap" style={{ color: styles.accent }}>
+              Read →
+            </Link>
+          )}
           <Link href={`${href}#comments`} className="flex items-center gap-1 text-xs" style={{ color: styles.muted }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>

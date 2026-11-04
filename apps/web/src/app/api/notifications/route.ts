@@ -3,11 +3,19 @@ import { getToken } from "@/lib/session";
 import { SERVER_API } from "@/lib/api";
 import { proxyJson, upstreamFetch } from "@/lib/proxy";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const token = await getToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-  const res = await upstreamFetch(`${SERVER_API}/api/notifications`, {
+  // Only the paging options pass through.
+  const incoming = request.nextUrl.searchParams;
+  const qs = new URLSearchParams();
+  const page = incoming.get("page");
+  if (page && /^\d+$/.test(page)) qs.set("page", page);
+  if (incoming.get("unread") === "1") qs.set("unread", "1");
+  const query = qs.toString();
+
+  const res = await upstreamFetch(`${SERVER_API}/api/notifications${query ? `?${query}` : ""}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

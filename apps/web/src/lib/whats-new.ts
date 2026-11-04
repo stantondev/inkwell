@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-04-older-notifications",
+    date: "2026-11-04",
+    title: "Older notifications are within reach",
+    body: "The Notifications page used to show only your newest 20, so an unread one further back could light the badge with no way to find it. Now it says when unread ones are further back and brings them in with one click, and Load older notifications at the bottom goes back as far as you like. Also fixed: posts without a title can be opened from your journal page again.",
+    href: "/notifications",
+    cta: "Open notifications",
+    tag: "Reading",
+  },
+  {
     id: "2026-11-04-writing-ink",
     date: "2026-11-04",
     title: "Write in your own ink",

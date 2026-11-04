@@ -6,9 +6,21 @@ defmodule InkwellWeb.NotificationController do
   # GET /api/notifications
   def index(conn, params) do
     user = conn.assigns.current_user
-    page = parse_int(params["page"], 1)
+    page = parse_int(params["page"], 1) |> max(1)
+    unread_only = params["unread"] in ["1", "true"]
+    per_page = 20
 
-    notifications = Accounts.list_notifications(user.id, page: page, per_page: 20)
+    # One extra row tells the page whether there is anything older to load.
+    fetched =
+      Accounts.list_notifications(user.id,
+        page: page,
+        per_page: per_page,
+        peek: true,
+        unread_only: unread_only
+      )
+
+    has_more = length(fetched) > per_page
+    notifications = Enum.take(fetched, per_page)
 
     # Batch load entries referenced by notifications (for stamp, comment, like)
     entry_ids =
@@ -28,7 +40,10 @@ defmodule InkwellWeb.NotificationController do
     # Batch check which follow_request notifications have already been accepted
     follow_states = build_follow_request_states(user.id, notifications)
 
-    json(conn, %{data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set, follow_states) end)})
+    json(conn, %{
+      data: Enum.map(notifications, fn n -> render_notification(n, entries_map, follow_back_set, follow_states) end),
+      meta: %{page: page, has_more: has_more}
+    })
   end
 
   # POST /api/notifications/read

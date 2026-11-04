@@ -87,7 +87,15 @@ export function PinnedEntries({ entries, username, styles }: { entries: ProfileE
                   </h3>
                 )}
                 {entry.excerpt && (
-                  <p className="text-xs line-clamp-2" style={{ color: styles.muted }}>{decodeEntities(entry.excerpt)}</p>
+                  entry.title ? (
+                    <p className="text-xs line-clamp-2" style={{ color: styles.muted }}>{decodeEntities(entry.excerpt)}</p>
+                  ) : (
+                    // No title to click: the opening itself opens the entry.
+                    <Link href={href} className="text-xs line-clamp-2 hover:underline" style={{ color: styles.muted }}>{decodeEntities(entry.excerpt)}</Link>
+                  )
+                )}
+                {!entry.title && !entry.excerpt && (
+                  <Link href={href} className="text-xs font-medium hover:underline" style={{ color: styles.accent }}>Read →</Link>
                 )}
               </div>
             </article>

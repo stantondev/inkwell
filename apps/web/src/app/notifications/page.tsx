@@ -38,10 +38,16 @@ export default async function NotificationsPage() {
   const session = await requireSession("/notifications");
 
   let notifications: Notification[] = [];
+  let hasMore = false;
   let fetchFailed = false;
   try {
-    const data = await apiFetch<{ data: Notification[] }>("/api/notifications", {}, session.token);
+    const data = await apiFetch<{ data: Notification[]; meta?: { has_more?: boolean } }>(
+      "/api/notifications",
+      {},
+      session.token
+    );
     notifications = data.data ?? [];
+    hasMore = !!data.meta?.has_more;
   } catch {
     fetchFailed = true;
   }
@@ -56,6 +62,7 @@ export default async function NotificationsPage() {
         ) : (
           <NotificationList
             initialNotifications={notifications}
+            initialHasMore={hasMore}
             autoMarkRead={autoMarkRead}
             // The list only loads the first page (20). The badge counts every
             // unread notification, so without the true total the UI can't tell

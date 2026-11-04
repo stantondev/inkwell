@@ -820,15 +820,23 @@ function FediverseFollowBackButton({
 // ─── Main component ────────────────────────────────────────────
 export function NotificationList({
   initialNotifications,
+  initialHasMore = false,
   autoMarkRead = false,
   serverUnreadCount = 0,
 }: {
   initialNotifications: Notification[];
+  initialHasMore?: boolean;
   autoMarkRead?: boolean;
   serverUnreadCount?: number;
 }) {
   const router = useRouter();
   const [notifications, setNotifications] = useState(initialNotifications);
+  // Older pages, loaded on request. `page` is the last page of the full list
+  // fetched so far.
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState<"older" | "unread" | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const autoMarkDoneRef = useRef(false);
 
@@ -886,6 +894,40 @@ export function NotificationList({
     window.addEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived);
     return () => window.removeEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived);
   }, []);
+
+  // Merge fetched notifications into the list, newest first, no repeats.
+  const mergeIn = useCallback((more: Notification[]) => {
+    setNotifications((prev) => {
+      const known = new Set(prev.map((n) => n.id));
+      const added = more.filter((n) => !known.has(n.id));
+      if (added.length === 0) return prev;
+      return [...prev, ...added].sort(
+        (a, b) => new Date(b.inserted_at).getTime() - new Date(a.inserted_at).getTime()
+      );
+    });
+  }, []);
+
+  async function loadMore(kind: "older" | "unread") {
+    setLoadingMore(kind);
+    setLoadError(false);
+    try {
+      const res = await fetch(
+        kind === "older" ? `/api/notifications?page=${page + 1}` : "/api/notifications?unread=1",
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error();
+      const json = (await res.json()) as { data?: Notification[]; meta?: { has_more?: boolean } };
+      mergeIn(json.data ?? []);
+      if (kind === "older") {
+        setPage((p) => p + 1);
+        setHasMore(!!json.meta?.has_more);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoadingMore(null);
+    }
+  }
 
   const markOneRead = useCallback((id: string) => {
     setNotifications((prev) =>
@@ -973,6 +1015,30 @@ export function NotificationList({
           </button>
         )}
       </div>
+
+      {/* The badge counts every unread notification, but only the newest
+          page is loaded: say so and offer to bring the older ones in. */}
+      {serverUnread > loadedUnread && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 mb-6 text-sm"
+          style={{ borderColor: "var(--border)", background: "var(--accent-light)" }}
+        >
+          <span>
+            {serverUnread - loadedUnread === 1
+              ? "1 unread notification is further back."
+              : `${serverUnread - loadedUnread} unread notifications are further back.`}
+          </span>
+          <button
+            type="button"
+            onClick={() => loadMore("unread")}
+            disabled={loadingMore !== null}
+            className="font-medium hover:underline disabled:opacity-50"
+            style={{ color: "var(--accent)" }}
+          >
+            {loadingMore === "unread" ? "Finding…" : serverUnread - loadedUnread === 1 ? "Show it" : "Show them"}
+          </button>
+        </div>
+      )}
 
       {/* Empty state */}
       {notifications.length === 0 ? (
@@ -1270,6 +1336,26 @@ export function NotificationList({
               </div>
             </div>
           ))}
+          {(hasMore || loadError) && (
+            <div className="text-center pt-2">
+              {loadError && (
+                <p className="text-sm mb-2" style={{ color: "var(--danger)" }}>
+                  Couldn&rsquo;t load them. Try again.
+                </p>
+              )}
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={() => loadMore("older")}
+                  disabled={loadingMore !== null}
+                  className="text-sm font-medium px-4 py-2 rounded-full border hover:underline disabled:opacity-50"
+                  style={{ borderColor: "var(--border)", color: "var(--accent)" }}
+                >
+                  {loadingMore === "older" ? "Loading…" : "Load older notifications"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </>

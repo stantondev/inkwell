@@ -399,8 +399,10 @@ defmodule Inkwell.Accounts do
 
     Notification
     |> where(user_id: ^user_id)
+    |> then(fn q -> if Keyword.get(opts, :unread_only), do: where(q, read: false), else: q end)
     |> order_by(desc: :inserted_at)
-    |> limit(^per_page)
+    # :peek fetches one extra row so a caller can tell whether more exist.
+    |> limit(^(per_page + if(Keyword.get(opts, :peek), do: 1, else: 0)))
     |> offset(^((page - 1) * per_page))
     |> preload(:actor)
     |> Repo.all()
