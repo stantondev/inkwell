@@ -3,71 +3,35 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { Avatar } from "@/components/avatar";
-import { CategoryBadge } from "../badges";
+import s from "../roadmap.module.css";
+import { CategoryLabel, StatusMark } from "../roadmap-card";
+import { EMPTY_SUMMARY, RoadmapLedger } from "../roadmap-ledger";
+import { UpvoteButton } from "../upvote-button";
+import {
+  itemHref,
+  monthKey,
+  monthLabel,
+  shortDate,
+  tiltOf,
+  type FeedbackPost,
+  type OutlineItem,
+  type RoadmapSummary,
+} from "../roadmap-shared";
 
 export const metadata: Metadata = {
   title: "Release Notes",
-  description: "What's new at Inkwell — a changelog of shipped features, fixes, and improvements.",
+  description:
+    "Everything that's shipped on Inkwell because a member asked for it, newest first, in the words it went out with.",
   openGraph: {
-    title: "Release Notes — Inkwell",
-    description: "A changelog of shipped features, fixes, and improvements.",
+    title: "Release Notes · Inkwell",
+    description: "Everything that's shipped on Inkwell because a member asked for it.",
     url: "/roadmap/releases",
   },
   alternates: { canonical: "/roadmap/releases" },
 };
 
-interface ReleaseItem {
-  id: string;
-  title: string;
-  category: string;
-  release_note: string;
-  completed_at: string | null;
-  vote_count: number;
-  author: {
-    id: string | null;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-  };
-}
-
-interface ReleasesResponse {
-  data: ReleaseItem[];
-  pagination: { page: number; per_page: number; total: number };
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-function formatMonthYear(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-  });
-}
-
-function groupByMonth(items: ReleaseItem[]): { month: string; items: ReleaseItem[] }[] {
-  const groups: { month: string; items: ReleaseItem[] }[] = [];
-  let currentMonth: string | null = null;
-
-  for (const item of items) {
-    const dateStr = item.completed_at || item.completed_at;
-    if (!dateStr) continue;
-    const month = formatMonthYear(dateStr);
-    if (month !== currentMonth) {
-      groups.push({ month, items: [] });
-      currentMonth = month;
-    }
-    groups[groups.length - 1].items.push(item);
-  }
-
-  return groups;
-}
+const PER_PAGE = 20;
+const SHIPPED_CTX = { group: "shipped" as const };
 
 interface PageProps {
   searchParams: Promise<{ page?: string }>;
@@ -76,215 +40,151 @@ interface PageProps {
 export default async function ReleasesPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page || "1", 10) || 1);
-  const perPage = 20;
   const session = await getSession();
+  const token = session?.token;
 
-  let data: ReleasesResponse;
-  try {
-    data = await apiFetch<ReleasesResponse>(
-      `/api/feedback/releases?page=${page}&per_page=${perPage}`,
+  const [releasesR, outlineR] = await Promise.allSettled([
+    apiFetch<{ data: FeedbackPost[]; pagination: { total: number } }>(
+      `/api/feedback/releases?page=${page}&per_page=${PER_PAGE}`,
       {},
-      session?.token
-    );
-  } catch {
-    data = { data: [], pagination: { page: 1, per_page: perPage, total: 0 } };
+      token,
+    ),
+    apiFetch<{ data: OutlineItem[]; meta: RoadmapSummary }>(`/api/feedback/outline?group=shipped`, {}, token),
+  ]);
+
+  const releases = releasesR.status === "fulfilled" ? releasesR.value.data ?? [] : [];
+  const total = releasesR.status === "fulfilled" ? releasesR.value.pagination?.total ?? 0 : 0;
+  const summary = outlineR.status === "fulfilled" ? outlineR.value.meta ?? EMPTY_SUMMARY : EMPTY_SUMMARY;
+  const numbers = new Map(
+    (outlineR.status === "fulfilled" ? outlineR.value.data ?? [] : []).map((o) => [o.id, o.number]),
+  );
+  const monthCounts = new Map(summary.shipped_by_month.map((m) => [m.month, m.count]));
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+
+  const groups: { key: string; items: FeedbackPost[] }[] = [];
+  for (const item of releases) {
+    const key = item.completed_at ? monthKey(item.completed_at) : "earlier";
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else groups.push({ key, items: [item] });
   }
 
-  const totalPages = Math.max(1, Math.ceil((data.pagination.total || 0) / perPage));
-  const groups = groupByMonth(data.data);
+  const pageHref = (n: number) => (n <= 1 ? "/roadmap/releases" : `/roadmap/releases?page=${n}`);
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--background)", color: "var(--foreground)" }}
-    >
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
-        {/* Back link */}
-        <Link
-          href="/roadmap"
-          className="inline-flex items-center gap-1 text-sm mb-8 transition-colors hover:underline"
-          style={{ color: "var(--muted)" }}
-        >
-          ← Back to Roadmap
-        </Link>
-
-        {/* Header */}
-        <header className="text-center mb-10">
-          <h1
-            className="text-3xl sm:text-4xl font-semibold italic tracking-tight mb-2"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            Release Notes
-          </h1>
-          <div
-            className="flex items-center justify-center gap-3 text-sm mb-3"
-            style={{ color: "var(--muted)" }}
-          >
-            <span>·</span>
-            <span>·</span>
-            <span>·</span>
+    <div className={s.root} style={{ background: "var(--background)", minHeight: "100vh" }}>
+      <div className={s.wrap}>
+        <header className={s.masthead}>
+          <div>
+            <p className={s.eyebrow}>Built in the open</p>
+            <h1 className={s.title}>
+              Release <em>notes</em>
+            </h1>
+            <p className={s.lede}>
+              Everything that&rsquo;s shipped because someone asked for it, newest first, in the words it went out
+              with. Open a card to read the conversation behind it and flip on to the next.
+            </p>
+            <div className={s.mastActions}>
+              <Link href="/roadmap" className={s.btnGhost}>
+                ← The Roadmap
+              </Link>
+              <Link href="/roadmap/new" className={s.btnPrimary}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Suggest something
+              </Link>
+            </div>
           </div>
-          <p
-            className="text-sm italic"
-            style={{ color: "var(--muted)", fontFamily: "var(--font-lora, Georgia, serif)" }}
-          >
-            What&rsquo;s new at Inkwell
-          </p>
+          <RoadmapLedger summary={summary} />
         </header>
 
-        {/* Content */}
-        {data.data.length === 0 ? (
-          <div
-            className="release-notes-empty rounded-2xl border p-16 text-center relative overflow-hidden"
-            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-          >
-            <div className="release-notes-paper-texture" />
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="mx-auto mb-4 relative"
-              style={{ color: "var(--muted)", opacity: 0.3 }}
-              aria-hidden="true"
-            >
-              <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34" />
-              <polygon points="18 2 22 6 12 16 8 16 8 12 18 2" />
-            </svg>
-            <p
-              className="text-lg font-semibold mb-2 relative"
-              style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-            >
-              No release notes yet
+        <div className={s.releases}>
+          {releasesR.status === "rejected" ? (
+            <p className={s.empty} role="status">
+              The release notes didn&rsquo;t load. Try again in a moment.
             </p>
-            <p
-              className="text-sm max-w-xs mx-auto relative"
-              style={{ color: "var(--muted)" }}
-            >
-              Stay tuned &mdash; shipped features and improvements will appear here.
+          ) : releases.length === 0 ? (
+            <p className={s.empty}>
+              Nothing here yet. <Link href="/roadmap">See what&rsquo;s on the roadmap</Link>
             </p>
-          </div>
-        ) : (
-          <div className="release-notes-timeline">
-            {groups.map((group) => (
-              <div key={group.month} className="release-notes-month">
-                {/* Month header */}
-                <h2 className="release-notes-month-header">
-                  {group.month}
+          ) : (
+            groups.map((group) => (
+              <section key={group.key} aria-label={group.key === "earlier" ? "Earlier" : monthLabel(group.key, true)}>
+                <h2 className={s.monthHead}>
+                  {group.key === "earlier" ? "Earlier" : monthLabel(group.key, true)}
+                  {monthCounts.get(group.key) ? <b>{monthCounts.get(group.key)} shipped</b> : null}
                 </h2>
-
-                {/* Items */}
-                <div className="release-notes-items">
-                  {group.items.map((item) => (
+                {group.items.map((item) => {
+                  const deleted = item.author.username === "[deleted]";
+                  const number = numbers.get(item.id);
+                  return (
                     <article
                       key={item.id}
-                      className="release-notes-card"
+                      className={s.release}
+                      style={{ ["--tilt" as string]: `${tiltOf(item.id, 0.45)}deg` }}
                     >
-                      <div className="release-notes-card-inner">
-                        {/* Date */}
-                        <time
-                          className="release-notes-date"
-                          dateTime={item.completed_at || ""}
-                        >
-                          {item.completed_at ? formatDate(item.completed_at) : ""}
-                        </time>
+                      <div className={s.cardHead}>
+                        <CategoryLabel category={item.category} />
+                        {number ? <span className={s.num}>No. {number}</span> : null}
+                        {item.completed_at && (
+                          <time className={s.releaseDate} dateTime={item.completed_at}>
+                            {shortDate(item.completed_at)}
+                          </time>
+                        )}
+                      </div>
+                      <StatusMark status="done" completedAt={item.completed_at} />
 
-                        {/* Category + Title */}
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <CategoryBadge category={item.category} />
-                          <Link
-                            href={`/roadmap/${item.id}`}
-                            className="font-semibold hover:underline"
-                            style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
-                          >
-                            {item.title}
-                          </Link>
-                        </div>
+                      <h3 className={s.releaseTitle}>
+                        <Link href={itemHref(item.id, SHIPPED_CTX)}>{item.title}</Link>
+                      </h3>
 
-                        {/* Release note body */}
-                        <p className="release-notes-body">
-                          {item.release_note}
-                        </p>
+                      <p className={s.releaseNote}>{item.release_note}</p>
 
-                        {/* Attribution */}
-                        <div className="release-notes-attribution">
-                          {item.author.username !== "[deleted]" ? (
-                            <>
-                              <span style={{ color: "var(--muted)" }}>Suggested by</span>
-                              <Avatar
-                                url={item.author.avatar_url}
-                                name={item.author.display_name}
-                                size={16}
-                              />
-                              <Link
-                                href={`/${item.author.username}`}
-                                className="font-medium hover:underline"
-                                style={{ color: "var(--accent)" }}
-                              >
-                                @{item.author.username}
-                              </Link>
-                            </>
-                          ) : (
-                            <span style={{ color: "var(--muted)" }}>Community suggestion</span>
-                          )}
-                          {item.vote_count > 0 && (
-                            <span className="release-notes-votes">
-                              <svg
-                                width="10"
-                                height="10"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <path d="M12 19V5M5 12l7-7 7 7" />
-                              </svg>
-                              {item.vote_count}
-                            </span>
-                          )}
-                        </div>
+                      <div className={s.releaseFoot}>
+                        {deleted ? (
+                          <span>A member&rsquo;s suggestion</span>
+                        ) : (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            Asked for by
+                            <Avatar url={item.author.avatar_url} name={item.author.display_name} size={18} />
+                            <Link href={`/${item.author.username}`}>@{item.author.username}</Link>
+                          </span>
+                        )}
+                        <UpvoteButton
+                          postId={item.id}
+                          initialVoted={item.voted}
+                          initialCount={item.vote_count}
+                          isLoggedIn={!!session}
+                          variant="pill"
+                        />
+                        {item.comment_count > 0 && (
+                          <span>
+                            {item.comment_count} {item.comment_count === 1 ? "comment" : "comments"}
+                          </span>
+                        )}
+                        <Link href={itemHref(item.id, SHIPPED_CTX)} className={s.releaseOpen}>
+                          Open the card →
+                        </Link>
                       </div>
                     </article>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                  );
+                })}
+              </section>
+            ))
+          )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <nav className="release-notes-pagination">
-            {page > 1 && (
-              <Link
-                href={`/roadmap/releases?page=${page - 1}`}
-                className="hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                ← Prev
-              </Link>
-            )}
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            {page < totalPages && (
-              <Link
-                href={`/roadmap/releases?page=${page + 1}`}
-                className="hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                Next →
-              </Link>
-            )}
-          </nav>
-        )}
+          {totalPages > 1 && (
+            <nav className={s.pager} aria-label="Pages">
+              {page > 1 ? <Link href={pageHref(page - 1)}>← Newer</Link> : <span />}
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              {page < totalPages ? <Link href={pageHref(page + 1)}>Older →</Link> : <span />}
+            </nav>
+          )}
+        </div>
       </div>
     </div>
   );
