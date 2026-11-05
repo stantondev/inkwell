@@ -610,6 +610,8 @@ defmodule InkwellWeb.Router do
 
     # User management
     get "/users", AdminController, :list_users
+    get "/users-overview", AdminController, :users_overview
+    get "/users-overview/members", AdminController, :users_overview_members
     get "/users/:id", AdminController, :show_user
     patch "/users/:id/role", AdminController, :set_role
     patch "/users/:id/rename", AdminController, :rename_user

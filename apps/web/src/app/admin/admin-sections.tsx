@@ -71,7 +71,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     id: "users",
     label: "Users",
-    blurb: "Search every account. Promote admins, block, unblock, or delete.",
+    blurb: "Who is on Inkwell: how many are spam, who comes back, who writes and who responds. Search, block or delete any account.",
     icon: I.users,
     group: "people",
   },

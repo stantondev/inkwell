@@ -940,7 +940,7 @@ defmodule Inkwell.Accounts do
 
   # Accounts that have Plus right now: tier plus, minus anyone whose paid or
   # granted time has run out (the SQL twin of `User.plus_time_ran_out?/1`).
-  defp where_plus_now(query) do
+  def where_plus_now(query) do
     now = DateTime.utc_now()
 
     where(

@@ -301,6 +301,24 @@ defmodule InkwellWeb.AdminController do
     })
   end
 
+  # GET /api/admin/users-overview — the people dashboard (Admin → Users)
+  def users_overview(conn, _params) do
+    json(conn, %{data: Inkwell.Accounts.PeopleReport.report()})
+  end
+
+  # GET /api/admin/users-overview/members?bucket=posted_only&page=1
+  def users_overview_members(conn, %{"bucket" => bucket} = params) do
+    if bucket in Inkwell.Accounts.PeopleReport.bucket_keys() do
+      json(conn, Inkwell.Accounts.PeopleReport.members(bucket, parse_int(params["page"], 1)))
+    else
+      conn |> put_status(:bad_request) |> json(%{error: "Unknown group"})
+    end
+  end
+
+  def users_overview_members(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{error: "Unknown group"})
+  end
+
   # GET /api/admin/users/:id
   def show_user(conn, %{"id" => id}) do
     case Accounts.get_user_admin(id) do

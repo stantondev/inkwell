@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { AdminSkeletonTable, AdminSkeletonCards } from "../admin-skeleton";
 
@@ -81,7 +82,9 @@ function SubStatusBadge({ status, expiresAt }: { status: string; expiresAt: stri
 export function UserManagement({ currentUserId }: { currentUserId: string }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, per_page: 50, total: 0 });
-  const [search, setSearch] = useState("");
+  // Moderation links here with ?q=<username>.
+  const initialQ = useSearchParams().get("q") ?? "";
+  const [search, setSearch] = useState(initialQ);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);

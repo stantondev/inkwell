@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface ModAction {
   id: string;
@@ -88,14 +89,26 @@ export default function ModerationPanel() {
     }
   }
 
-  async function runCheck(e: React.FormEvent) {
-    e.preventDefault();
+  const checkUser = useCallback(async (name: string) => {
     setCheck(null);
-    const res = await fetch(`/api/admin/moderation/check?username=${encodeURIComponent(checkName.replace(/^@/, ""))}`);
+    const res = await fetch(`/api/admin/moderation/check?username=${encodeURIComponent(name.replace(/^@/, ""))}`);
     const data = await res.json();
     if (res.ok) setCheck(data);
     else setError(data.error || "Check failed");
+  }, []);
+
+  async function runCheck(e: React.FormEvent) {
+    e.preventDefault();
+    checkUser(checkName);
   }
+
+  // Admin → Users links here with ?check=<username> to check one account.
+  const wanted = useSearchParams().get("check");
+  useEffect(() => {
+    if (!wanted) return;
+    setCheckName(wanted);
+    checkUser(wanted);
+  }, [wanted, checkUser]);
 
   async function scanNow() {
     setScanMsg("Scanning…");
@@ -168,7 +181,7 @@ export default function ModerationPanel() {
                     style={{ background: r.note ? "var(--surface-hover, var(--border))" : r.action === "block" ? "var(--danger, #dc2626)" : "var(--accent)", color: r.note ? "var(--foreground)" : "#fff" }}>
                     {r.note ? "Flagged" : LABEL[r.action] ?? r.action}{r.reversed_at && !r.note ? " · undone" : ""}
                   </span>
-                  <a href={`/admin/users?q=${encodeURIComponent(r.user.username)}`} className="font-medium hover:underline">@{r.user.username}</a>
+                  <a href={`/admin?s=users&q=${encodeURIComponent(r.user.username)}`} className="font-medium hover:underline">@{r.user.username}</a>
                   {r.score != null && <span style={{ color: "var(--muted)" }}>score {r.score}</span>}
                   <span style={{ color: "var(--muted)" }}>· {r.user.email_domain} · joined {ago(r.user.joined)} · {ago(r.inserted_at)}</span>
                 </div>
