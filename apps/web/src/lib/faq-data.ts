@@ -30,6 +30,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "account",
   },
   {
+    id: "search",
+    question: "How do I search for a writer, post or tag?",
+    answer:
+      'Click the magnifying glass beside the logo in the sidebar (on a phone, at the top right of the screen), or press <strong>/</strong> or <strong>&#8984;K</strong> (Ctrl+K on Windows) anywhere. Type a name, @username, a word from a post or a #tag, and pick a result with the arrow keys and Enter, or click it. It also finds Inkwell&rsquo;s own pages, so typing &ldquo;letters&rdquo; or &ldquo;drafts&rdquo; takes you there. To find someone on Mastodon or another fediverse site, paste their full handle, like @name@mastodon.social. For every result, including fediverse posts, choose <strong>See everything</strong> to open the search on Explore.',
+    category: "account",
+  },
+  {
     id: "create-account",
     question: "How do I create an account?",
     answer:

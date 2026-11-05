@@ -111,7 +111,9 @@ export default function GuidePage() {
             written back to yet (first entries come first), and the{" "}
             <strong>Fediverse</strong> tab for public posts from Mastodon and
             other servers. The search box finds writers, entries, and
-            fediverse accounts by their @handle.
+            fediverse accounts by their @handle. From any other page, the
+            magnifying glass beside the logo (or <strong>/</strong> and{" "}
+            <strong>⌘K</strong>) opens a quick search over the page you&rsquo;re on.
           </p>
           <p>
             <strong>Turning pages.</strong> On a computer, Feed and Explore read

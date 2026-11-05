@@ -99,9 +99,6 @@ defmodule InkwellWeb.Router do
     get "/banners/:username", UserController, :serve_banner
     get "/backgrounds/:username", UserController, :serve_background
 
-    # Search
-    get "/search", SearchController, :search
-
     # Username availability check (public)
     get "/username-available", UserController, :username_available
 
@@ -151,6 +148,9 @@ defmodule InkwellWeb.Router do
     # never loaded for anyone, the writer included.
     get "/users/:username/entries/:slug/comments", CommentController, :index
 
+    # Search (optional auth, so a signed-in reader's blocks are left out;
+    # it sat in the public scope until 2026-11-05 and never saw who asked)
+    get "/search", SearchController, :search
     # Fediverse search (optional auth for relationship status)
     get "/search/fediverse", SearchController, :fediverse
 

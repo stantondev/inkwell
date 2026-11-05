@@ -102,4 +102,22 @@ defmodule InkwellWeb.TagSearchTest do
       assert entry.tags == ["DailyInk", "a", "b"]
     end
   end
+
+  test "signed in, search leaves out writers you've blocked (2026-11-05: the route never saw who asked)" do
+    viewer = create_user()
+    blocked = create_user()
+    entry(blocked, %{tags: ["quietpoems"]})
+    {:ok, _} = Inkwell.Social.block(viewer.id, blocked.id)
+
+    assert [_] = search("quietpoems", "tags")
+
+    signed_in =
+      build_conn()
+      |> log_in_user(viewer)
+      |> get("/api/search", %{q: "quietpoems", type: "tags"})
+      |> json_response(200)
+      |> Map.get("data")
+
+    assert signed_in == []
+  end
 end

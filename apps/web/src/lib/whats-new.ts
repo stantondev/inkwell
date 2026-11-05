@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-05-quick-search",
+    date: "2026-11-05",
+    title: "Search is back in the menu",
+    body: "There's a magnifying glass beside the logo in the sidebar, and at the top of the screen on your phone. It opens a search box right over the page you're on: type a name, @username, a word from a post or a #tag and jump straight to writers, posts, tags, series or any page on Inkwell. Paste @name@server to find someone on the fediverse. Press / or \u2318K (Ctrl+K) anywhere to open it from the keyboard.",
+    howTo: "Click the magnifying glass, or press / anywhere.",
+    tag: "Reading",
+  },
+  {
     id: "2026-11-04-roadmap-cards",
     date: "2026-11-04",
     title: "The roadmap, as a board of index cards",

@@ -1,7 +1,7 @@
 "use client";
 
 import { PLUS_SHORT } from "@/lib/plus-pitch";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { SiteLogo } from "./seasonal/site-logo";
 import { TrickOrTreat } from "./seasonal/trick-or-treat";
@@ -13,6 +13,7 @@ import { PollWidget } from "./poll-widget";
 import { LookSwitch } from "./look-switch";
 import { openJot } from "@/lib/stickies";
 import { isSupporter } from "@/lib/supporter";
+import { QuickSearchButton } from "./quick-search";
 import { useWhatsNewUnread } from "./whats-new-state";
 import {
   FeedIcon, ExploreIcon, GazetteIcon, CirclesIcon, NotificationsIcon, LettersIcon,
@@ -118,7 +119,6 @@ export function SidebarNav({
   initialDraftCount, activePoll, serverSidebarHidden, serverWhatsNewSeen,
 }: SidebarNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { draftCount, unreadNotificationCount, unreadLetterCount } = useLiveNavCounts({
     draftCount: initialDraftCount,
     unreadNotificationCount: initialNotificationCount,
@@ -189,24 +189,6 @@ export function SidebarNav({
     return () => window.removeEventListener("keydown", handler);
   }, [toggleHidden]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        // Settings has its own ⌘K jump palette, and in the editor ⌘K adds a
-        // link. (It used to jump to Explore mid-sentence, unsaved work and all.)
-        if (pathname === "/settings" || pathname.startsWith("/settings/")) return;
-        if (pathname === "/editor" || pathname.startsWith("/editor/")) return;
-        // Rich text boxes (comments, letters, stickies) treat ⌘K as "link".
-        if ((e.target as HTMLElement | null)?.isContentEditable) return;
-        e.preventDefault();
-        if (pathname === "/explore") window.dispatchEvent(new Event("inkwell-search-focus"));
-        else router.push("/explore");
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [pathname, router]);
-
   const isActive = (href: string) => {
     if (["/feed", "/explore", "/roadmap"].includes(href)) return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
@@ -274,6 +256,8 @@ export function SidebarNav({
           <SiteLogo className="dark:brightness-0 dark:invert" style={{ height: 34, width: "auto" }} />
         </Link>
         <TrickOrTreat signedIn className="sidebar-tot" />
+        <div className="sidebar-top-actions">
+        <QuickSearchButton className="sidebar-icon-btn sidebar-search-btn" size={19} />
         <button
           type="button"
           className="sidebar-icon-btn"
@@ -283,6 +267,7 @@ export function SidebarNav({
         >
           <SidebarIcon />
         </button>
+        </div>
       </div>
 
       {/* ─── Write ─── */}

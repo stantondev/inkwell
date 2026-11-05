@@ -4,6 +4,7 @@ import { BackButton } from "./back-button";
 import { PublicNavLinks } from "./public-nav-links";
 import { SiteLogo } from "./seasonal/site-logo";
 import { TrickOrTreat } from "./seasonal/trick-or-treat";
+import { QuickSearchButton } from "./quick-search";
 
 // ---------------------------------------------------------------------------
 // InkwellLogo
@@ -39,6 +40,7 @@ export function Nav({ user, hideAuthLinks = false }: { user: SessionUser | null;
             signed-in phones use the tab bar) */}
         {!user && (
           <div className="flex items-center gap-2 sm:gap-4">
+            <QuickSearchButton className="public-nav-search" size={18} />
             <PublicNavLinks />
             {!hideAuthLinks && (
               <>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SiteLogo } from "./seasonal/site-logo";
 import { TrickOrTreat } from "./seasonal/trick-or-treat";
 import { useLiveNavCounts } from "./live-nav-counts";
+import { QuickSearchButton } from "./quick-search";
 
 // Pages reached from the tab bar or the You sheet: no back button, the logo sits alone.
 const TOP_LEVEL_PATHS = new Set([
@@ -38,7 +39,8 @@ interface MobileTopBarProps {
 }
 
 /**
- * Mobile header: back (on inner pages) · logo · Letters · Search.
+ * Mobile header: back (on inner pages) · logo · Letters · Search (opens the
+ * quick-search box, components/quick-search.tsx).
  *
  * The hamburger and its drawer are gone (2026-09-22); the rest of the app is
  * one tap away under the You tab. So is the left-edge swipe that opened the
@@ -117,12 +119,7 @@ export function MobileTopBar({
               </span>
             )}
           </Link>
-          <Link href="/explore?focus=search" className="mobile-top-bar-btn" aria-label="Search">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </Link>
+          <QuickSearchButton className="mobile-top-bar-btn" />
         </div>
       </header>
 

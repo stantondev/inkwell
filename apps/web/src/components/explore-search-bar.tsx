@@ -94,26 +94,14 @@ export function ExploreSearchBar({ initialQuery = "", onQueryChange }: ExploreSe
     router.replace(`/explore${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [wantsFocus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Global Cmd+K / Ctrl+K to focus
+  // ⌘K and "/" on Explore come here from QuickSearch (components/quick-search.tsx).
   useEffect(() => {
-    function handleGlobalKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    }
-    // Also listen for the custom event from other pages
     function handleFocusEvent() {
       inputRef.current?.focus();
       inputRef.current?.select();
     }
-    window.addEventListener("keydown", handleGlobalKey);
     window.addEventListener("inkwell-search-focus", handleFocusEvent);
-    return () => {
-      window.removeEventListener("keydown", handleGlobalKey);
-      window.removeEventListener("inkwell-search-focus", handleFocusEvent);
-    };
+    return () => window.removeEventListener("inkwell-search-focus", handleFocusEvent);
   }, []);
 
   // Cleanup debounce on unmount

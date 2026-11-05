@@ -150,6 +150,23 @@ defmodule Inkwell.ObjectStorageTest do
     assert Repo.reload!(b).data == @png_uri
   end
 
+  test "the daily run clears Postgres copies that have been in the bucket long enough" do
+    user = create_user()
+    parsed = %{content_type: "image/png", binary: @png, data_uri: @png_uri}
+    {:ok, old} = Images.insert(Images.entry_image_attrs(user.id, parsed))
+    Images.move_to_object_store()
+    long_ago = DateTime.add(DateTime.utc_now(), -20 * 86_400, :second)
+    Repo.update_all(EntryImage, set: [updated_at: long_ago])
+
+    {:ok, fresh} = Images.insert(Images.entry_image_attrs(user.id, parsed))
+
+    assert :ok = MoveImagesToObjectStoreWorker.perform(%Oban.Job{args: %{}})
+
+    assert Repo.reload!(old).data == nil
+    assert Repo.reload!(fresh).storage_key
+    assert Repo.reload!(fresh).data == @png_uri
+  end
+
   test "deleting rows queues their objects, and the worker deletes them" do
     user = create_user()
     {:ok, one} = Images.store(user.id, @png)

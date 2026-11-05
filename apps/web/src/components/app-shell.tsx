@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 import { Footer } from "./footer";
 import { BottomTabBar } from "./bottom-tab-bar";
 import { MobileTopBar } from "./mobile-top-bar";
-import { SearchCommand } from "./search-command";
+import { QuickSearch } from "./quick-search";
 import { JotComposer } from "./jot-composer";
 import { NotificationToaster } from "./notification-toaster";
 import { MobileViewport } from "./mobile-viewport";
@@ -72,8 +72,8 @@ export async function AppShell({
       {/* Sidebar — desktop only, logged-in only */}
       {user && <Sidebar user={user} />}
 
-      {/* Global Cmd/Ctrl+K search shortcut — logged-in only */}
-      {user && <SearchCommand />}
+      {/* Quick search: the magnifying glass in the sidebar / top bars, ⌘K and "/" */}
+      <QuickSearch signedIn={!!user} username={user?.username ?? null} />
 
       {/* Jot composer for Stickies — opened from the sidebar, feed and profile */}
       {user && <JotComposer />}
