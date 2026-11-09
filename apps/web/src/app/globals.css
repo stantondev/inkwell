@@ -220,6 +220,17 @@ img, video, iframe, embed, object {
   min-height: 1lh;
 }
 
+/* On the entry page a blank line reads as a paragraph break, not a full empty
+   row. It's also what keeps a short opening paragraph from leaving a hole
+   beside the first letter. */
+.entry-body p:empty,
+.entry-body p:has(> br:only-child) {
+  min-height: 1em;
+}
+:is(.drop-cap, .illum-cap) > p {
+  text-wrap: pretty;
+}
+
 /* Lists */
 .prose-entry ul {
   list-style: disc;
@@ -21282,7 +21293,7 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
   clear: left;
 }
 .illum {
-  --illum-size: 6.4em;
+  --illum-size: 4.75em; /* three lines of text: top of the first to the foot of the third */
   --illum-ground: var(--initial-tile, #2d4a8a);
   --illum-vellum: var(--initial-on, #f6e9c4);
   --illum-gold: #d6ad4c;
@@ -21292,7 +21303,7 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
   position: relative;
   width: var(--illum-size);
   height: var(--illum-size);
-  margin: 0.3em 0.6em 0.1em 0;
+  margin: 0.45em 0.42em 0.1em 0;
   border-radius: 4px;
   background:
     radial-gradient(circle at 50% 44%, rgb(255 255 255 / 0.17), transparent 66%),
@@ -21338,7 +21349,8 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
   align-items: center;
   justify-content: center;
   padding-top: 0.06em;
-  font-family: var(--font-blackletter), "UnifrakturMaguntia", var(--serif);
+  font-family: var(--font-illuminated), "Grenze Gotisch", var(--serif);
+  font-weight: 700;
   font-size: calc(var(--illum-size) * 0.68);
   line-height: 1;
   color: var(--illum-gold);
@@ -21403,7 +21415,7 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
 @keyframes illum-glint-again { from { background-position: 100% 0; } to { background-position: 0% 0; } }
 
 @media (max-width: 640px) {
-  .illum { --illum-size: 5.2em; margin-right: 0.5em; }
+  .illum { --illum-size: 4.4em; margin-right: 0.38em; }
 }
 
 /* Classic view (the reader's 2004 look) keeps a plain opening. */

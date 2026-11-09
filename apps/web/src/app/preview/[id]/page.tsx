@@ -22,7 +22,7 @@ import type { EntryData } from "@/app/[username]/[slug]/entry-types";
 import { audienceSentence } from "@/app/[username]/[slug]/audience";
 import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "@/app/[username]/[slug]/entry-parts";
 import styles from "@/app/[username]/[slug]/entry-page.module.css";
-import { blackletter } from "@/app/[username]/[slug]/initial-fonts";
+import { initialFontVars } from "@/app/[username]/[slug]/initial-fonts";
 import { entryOpening, entryPageClasses, entryPageStyle, inkVars, writerAccent } from "@/lib/entry-page-style";
 
 interface PreviewParams {
@@ -191,7 +191,7 @@ export default async function PreviewPage({ params }: PreviewParams) {
 
       <div className={moodHue !== null ? "entry-ambient" : ""}>
         <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-16">
-          <JournalPage corner className={`${pageClasses.page} ${blackletter.variable} p-6 lg:p-10`} style={pageInk}>
+          <JournalPage corner className={`${pageClasses.page} ${initialFontVars} p-6 lg:p-10`} style={pageInk}>
             <EntryLetterhead
               date={entry.published_at
                 ? <LocalDate iso={entry.published_at} options={FULL_DATE} />

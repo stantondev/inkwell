@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { blackletter } from "@/app/[username]/[slug]/initial-fonts";
+import { initialFontVars } from "@/app/[username]/[slug]/initial-fonts";
 import { EntrySignoff } from "@/app/[username]/[slug]/entry-parts";
 import {
   DEFAULT_ENTRY_PAGE,
@@ -90,7 +90,7 @@ export function EntryPageEditor({
   const inkHasNothing = style.initial === "none" && style.ending === "none";
 
   return (
-    <div className={`ep-shell ${blackletter.variable}`}>
+    <div className={`ep-shell ${initialFontVars}`}>
       <div className="ep-options">
         <section className="ep-section">
           <h2 className="ep-heading">First letter</h2>

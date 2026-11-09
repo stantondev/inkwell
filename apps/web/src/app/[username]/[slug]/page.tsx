@@ -23,7 +23,7 @@ import { audienceLabel, audienceSentence } from "./audience";
 import { EntryCover, EntryLetterhead, EntryMusicEmbed, EntrySignoff, EntryTags, getMoodHue } from "./entry-parts";
 import { EntryDesk } from "./entry-desk";
 import type { EntryData } from "./entry-types";
-import { blackletter } from "./initial-fonts";
+import { initialFontVars } from "./initial-fonts";
 import { entryOpening, entryPageClasses, entryPageStyle, inkVars, writerAccent } from "@/lib/entry-page-style";
 import { ArchiveCoverLetter } from "@/components/archive-cover-letter";
 import { BookmarkButton } from "@/components/bookmark-button";
@@ -528,7 +528,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
           everything else on the page, so a warned entry with a cover needs
           one "Show content" and the player waits too. */}
       <article className="entry-wide px-4 sm:px-6 md:px-8 lg:px-12 pb-16">
-        <JournalPage corner className={`${pageClasses.page} ${blackletter.variable} p-6 lg:p-10`} style={pageInk}>
+        <JournalPage corner className={`${pageClasses.page} ${initialFontVars} p-6 lg:p-10`} style={pageInk}>
           <EntryLetterhead
             date={<LocalDate iso={entry.published_at} options={FULL_DATE} />}
             corner={showStamps ? (
