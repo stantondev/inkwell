@@ -408,12 +408,12 @@ a.mention:hover,
 }
 
 /* Drop cap — only when .drop-cap class is present, and only when the entry
-   opens with a paragraph. A list, quote or picture right after that opening
-   starts below the capital rather than being pushed sideways (a list after a
-   short first line used to have its first item indented by it). */
-.prose-entry.drop-cap > p:first-child + :not(p),
-.prose-entry.drop-cap > p:first-child + p + :not(p) {
-  clear: left;
+   opens with a paragraph. The opening paragraph keeps its first letter to
+   itself: whatever comes next (another paragraph, a list, a picture) starts
+   below the letter rather than wrapping around it. */
+.prose-entry.drop-cap > p:first-child,
+.illum-cap > p:first-child {
+  display: flow-root;
 }
 
 .prose-entry.drop-cap > p:first-child::first-letter {
@@ -21288,10 +21288,6 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
    itself in, the ornaments appear, and light runs across the gold; hovering
    catches the light again. Still under reduced motion and in the settings
    thumbnails (.illum--still). */
-.illum-cap > p:first-child + :not(p),
-.illum-cap > p:first-child + p + :not(p) {
-  clear: left;
-}
 .illum {
   --illum-size: 4.75em; /* three lines of text: top of the first to the foot of the third */
   --illum-ground: var(--initial-tile, #2d4a8a);
