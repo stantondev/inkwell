@@ -32,8 +32,13 @@ defmodule Inkwell.Accounts.PeopleReport do
   alias Inkwell.{Accounts, Journals, Repo}
   alias Inkwell.Accounts.User
   alias Inkwell.Federation.InstanceActor
+  alias Inkwell.Guestbook.GuestbookEntry
+  alias Inkwell.Inks.Ink
+  alias Inkwell.Journals.Comment
+  alias Inkwell.Stamps.Stamp
 
   @per_page 50
+  @new_writer_days 14
 
   # bucket key => {group, label}
   @buckets [
@@ -95,7 +100,8 @@ defmodule Inkwell.Accounts.PeopleReport do
         writers: Enum.count(members, &(&1.published > 0))
       },
       recent: recent(rows, now),
-      weeks: weeks(rows, now)
+      weeks: weeks(rows, now),
+      new_writers: new_writers(rows, now)
     }
   end
 
@@ -320,6 +326,90 @@ defmodule Inkwell.Accounts.PeopleReport do
         spam: Enum.count(list, &(not &1.member))
       }
     end)
+  end
+
+  # ── New writers ─────────────────────────────────────────────────────────
+
+  # Everyone whose first entry went up in the last two weeks and who doesn't
+  # look like spam, and whether anyone has answered yet. Same rule as the Slack
+  # note and the Feed's "New to Inkwell".
+  defp new_writers(rows, now) do
+    entries = Journals.list_recent_real_first_entries(@new_writer_days, exclude_user_ids: admin_ids())
+    entry_ids = Enum.map(entries, & &1.id)
+    replies = replies_by_entry(entry_ids)
+    inks = count_by_entry(Ink, entry_ids)
+    stamps = count_by_entry(Stamp, entry_ids)
+    guestbook = guestbook_by_writer(Enum.map(entries, & &1.user_id))
+    since = DateTime.add(now, -@new_writer_days, :day)
+
+    %{
+      days: @new_writer_days,
+      not_posted:
+        Enum.count(rows, fn r ->
+          r.member and not r.held_back and r.signed_in and r.published == 0 and
+            DateTime.compare(r.inserted_at, since) != :lt
+        end),
+      items:
+        Enum.map(entries, fn e ->
+          entry_replies = Map.get(replies, e.id, [])
+
+          %{
+            username: e.user.username,
+            display_name: e.user.display_name,
+            avatar_url: Inkwell.Avatars.avatar_url(e.user),
+            joined_at: e.user.inserted_at,
+            title: e.title,
+            path: "/#{e.user.username}/#{e.slug}",
+            published_at: e.published_at,
+            word_count: e.word_count || 0,
+            replies: length(entry_replies),
+            first_reply: first_reply(entry_replies),
+            inks: Map.get(inks, e.id, 0),
+            stamps: Map.get(stamps, e.id, 0),
+            guestbook: Map.get(guestbook, e.user_id, 0)
+          }
+        end)
+    }
+  end
+
+  # Replies from anyone but the writer, oldest first. Fediverse replies count;
+  # suspended accounts don't.
+  defp replies_by_entry(entry_ids) do
+    from(c in Comment,
+      join: e in assoc(c, :entry),
+      left_join: u in assoc(c, :user),
+      where: c.entry_id in ^entry_ids,
+      where: is_nil(c.user_id) or (c.user_id != e.user_id and is_nil(u.blocked_at)),
+      order_by: c.inserted_at,
+      preload: [user: u]
+    )
+    |> Repo.all()
+    |> Enum.group_by(& &1.entry_id)
+  end
+
+  defp first_reply([]), do: nil
+  defp first_reply([c | _]), do: %{name: reply_name(c), at: c.inserted_at}
+
+  defp reply_name(%{user: %{username: username}}), do: "@#{username}"
+  defp reply_name(%{remote_author: %{"display_name" => name}}) when is_binary(name) and name != "", do: name
+  defp reply_name(%{remote_author: %{"username" => name}}) when is_binary(name) and name != "", do: "@#{name}"
+  defp reply_name(_), do: "someone on the fediverse"
+
+  defp count_by_entry(schema, entry_ids) do
+    from(x in schema, where: x.entry_id in ^entry_ids, group_by: x.entry_id, select: {x.entry_id, count(x.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  defp guestbook_by_writer(user_ids) do
+    from(g in GuestbookEntry,
+      where: g.profile_user_id in ^user_ids,
+      where: is_nil(g.author_id) or g.author_id != g.profile_user_id,
+      group_by: g.profile_user_id,
+      select: {g.profile_user_id, count(g.id)}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 
   # ── One account, for the list ───────────────────────────────────────────

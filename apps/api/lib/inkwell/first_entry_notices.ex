@@ -10,6 +10,10 @@ defmodule Inkwell.FirstEntryNotices do
   accounts has had its turn, and only if the entry still qualifies for the
   Feed's "New to Inkwell" (`Journals.newcomer_first_entry?/1`), so the same
   rule keeps ads out of both. Opt-in on purpose: nobody is asked to reply.
+
+  The Slack note for admins goes out from here too, for the same reason: sent
+  at publish time, about 120 of them in 60 days were for spam. It isn't limited
+  to new accounts, so an older member's first entry still gets a hello.
   """
 
   import Ecto.Query
@@ -32,10 +36,19 @@ defmodule Inkwell.FirstEntryNotices do
     :ok
   end
 
-  @doc "Notify everyone who asked, if `entry_id` is still a new writer's first entry."
+  @doc """
+  Tell everyone who asked if `entry_id` is still a new writer's first entry,
+  and tell Slack if it's a first entry by anyone who doesn't look like spam.
+  The Slack note goes last, so a retry after a failed notice can't repeat it.
+  """
   def notify(entry_id) do
-    with true <- Journals.newcomer_first_entry?(entry_id),
-         %{} = entry <- Journals.get_entry(entry_id) |> Repo.preload(:user) do
+    if Journals.newcomer_first_entry?(entry_id), do: notify_members(entry_id)
+    if Journals.real_first_entry?(entry_id), do: notify_admins(entry_id)
+    :ok
+  end
+
+  defp notify_members(entry_id) do
+    with %{} = entry <- Journals.get_entry(entry_id) |> Repo.preload(:user) do
       for reader <- recipients(entry.user_id), not already_told?(reader.id, entry.id) do
         Accounts.create_notification(%{
           type: :first_entry,
@@ -50,8 +63,12 @@ defmodule Inkwell.FirstEntryNotices do
         })
       end
     end
+  end
 
-    :ok
+  defp notify_admins(entry_id) do
+    with %{} = entry <- Journals.get_entry(entry_id) |> Repo.preload(:user) do
+      Inkwell.Slack.notify_first_entry(entry.user, entry)
+    end
   end
 
   defp recipients(writer_id) do

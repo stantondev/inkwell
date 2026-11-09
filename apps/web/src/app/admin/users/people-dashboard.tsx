@@ -22,6 +22,23 @@ interface Report {
   notes: { posted_only_held_back: number; neither_never_signed_in: number; writers: number };
   recent: { signups: number; suspended: number; limited: number; held_back: number; members: number; posted: number };
   weeks: { week: string; members: number; held_back: number; spam: number }[];
+  new_writers: { days: number; not_posted: number; items: NewWriter[] };
+}
+
+interface NewWriter {
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  joined_at: string;
+  title: string | null;
+  path: string;
+  published_at: string;
+  word_count: number;
+  replies: number;
+  first_reply: { name: string; at: string } | null;
+  inks: number;
+  stamps: number;
+  guestbook: number;
 }
 
 interface Parts {
@@ -206,6 +223,76 @@ function Summary({ r }: { r: Report }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Real people's first entries, so they aren't lost among the spam. */
+function NewWriters({ data }: { data: Report["new_writers"] }) {
+  const [all, setAll] = useState(false);
+  const FIRST = 8;
+  const waiting = data.items.filter((w) => w.replies === 0).length;
+  const shown = all ? data.items : data.items.slice(0, FIRST);
+
+  return (
+    <section className="rounded-xl border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+      <h2 className="font-semibold text-base" style={serif}>New writers</h2>
+      <p className="text-xs mt-0.5 mb-3" style={{ color: "var(--muted)" }}>
+        {data.items.length === 0 ? (
+          <>Nobody has published a first entry in the last {data.days} days.</>
+        ) : (
+          <>
+            {plural(data.items.length, "first entry", "first entries")} in the last {data.days} days, spam left out.{" "}
+            {waiting === 0 ? "Every one has a reply." : <><strong>{waiting}</strong> {waiting === 1 ? "has" : "have"} no reply yet.</>}
+          </>
+        )}
+        {data.not_posted > 0 && <> {plural(data.not_posted, "more person", "more people")} signed in but {data.not_posted === 1 ? "hasn’t" : "haven’t"} published yet.</>}
+      </p>
+
+      {shown.length > 0 && (
+        <ul className="pd-new-list">
+          {shown.map((w) => {
+            const others = [
+              w.inks > 0 && plural(w.inks, "ink"),
+              w.stamps > 0 && plural(w.stamps, "stamp"),
+              w.guestbook > 0 && plural(w.guestbook, "guestbook note"),
+            ].filter(Boolean);
+            return (
+              <li key={w.path} className="pd-new">
+                <Link href={`/${w.username}`} className="pd-new-who">
+                  <Avatar url={w.avatar_url} name={w.display_name || w.username} size={32} />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-sm truncate">{w.display_name || w.username}</span>
+                    <span className="block text-xs truncate" style={{ color: "var(--muted)" }}>@{w.username}</span>
+                  </span>
+                </Link>
+                <div className="pd-new-entry min-w-0">
+                  <Link href={w.path} className="pd-new-title" style={serif}>{w.title?.trim() || "Untitled entry"}</Link>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>
+                    Posted {ago(w.published_at)} · joined {ago(w.joined_at)} · {plural(w.word_count, "word")}
+                  </div>
+                </div>
+                <div className="pd-new-status text-xs">
+                  {w.first_reply ? (
+                    <span className="pd-chip pd-chip--answered">
+                      {w.first_reply.name}{w.replies > 1 ? ` +${w.replies - 1}` : ""} replied
+                    </span>
+                  ) : (
+                    <span className="pd-chip">No reply yet</span>
+                  )}
+                  {others.length > 0 && <span style={{ color: "var(--muted)" }}>{others.join(" · ")}</span>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {data.items.length > FIRST && (
+        <button type="button" className="text-xs underline mt-2" style={{ color: "var(--muted)" }} onClick={() => setAll((v) => !v)}>
+          {all ? "Show fewer" : `Show all ${data.items.length}`}
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -529,6 +616,8 @@ export function PeopleDashboard() {
   return (
     <div className="pd-root space-y-5 mb-10">
       <Summary r={report} />
+
+      <NewWriters data={report.new_writers} />
 
       <div className="adm-stats" style={{ marginBottom: 0 }}>
         <Stat value={c.members} label="members" onClick={() => pick("members")} on={selected === "members"} />

@@ -21849,6 +21849,25 @@ body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter
 .pd-chip--suspended, .pd-chip--limited { border-color: var(--danger, #dc2626); color: var(--danger, #dc2626); }
 .pd-chip--held_back { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); color: var(--accent); }
 .pd-chip--founding, .pd-chip--plus, .pd-chip--donor { border-color: var(--accent); color: var(--accent); }
+.pd-chip--answered { border-color: var(--accent); color: var(--accent); white-space: normal; }
+.pd-new-list { container-type: inline-size; }
+.pd-new {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.pd-new:first-child { border-top: 0; }
+.pd-new-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pd-new-who:hover { opacity: .85; }
+.pd-new-title { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-new-title:hover { text-decoration: underline; }
+.pd-new-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+@container (min-width: 620px) {
+  .pd-new { grid-template-columns: minmax(0, 190px) minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; }
+  .pd-new-status { flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
+}
 @container (max-width: 560px) {
   .pd-member { grid-template-columns: 1fr; grid-template-areas: "who" "facts" "end"; }
   .pd-member-facts { padding-left: 0; }

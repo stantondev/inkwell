@@ -1454,11 +1454,44 @@ defmodule Inkwell.Journals do
     newcomer_first_entries_query() |> where([e], e.id == ^entry_id) |> Repo.exists?()
   end
 
+  @doc """
+  True when `entry_id` is a first entry by a writer who doesn't look like spam,
+  whatever the account's age: what earns the Slack note. Same rule as the
+  Feed's "New to Inkwell" otherwise.
+  """
+  def real_first_entry?(entry_id) do
+    now = DateTime.utc_now()
+
+    real_first_entries_query(DateTime.add(now, -@newcomer_days, :day), now)
+    |> where([e], e.id == ^entry_id)
+    |> Repo.exists?()
+  end
+
+  @doc """
+  First entries from the last `days` days by writers who don't look like spam,
+  newest first, for Admin → Users. Options: `:exclude_user_ids`, `:limit`.
+  """
+  def list_recent_real_first_entries(days, opts \\ []) do
+    now = DateTime.utc_now()
+    exclude_users = Keyword.get(opts, :exclude_user_ids, [])
+
+    real_first_entries_query(DateTime.add(now, -days, :day), now)
+    |> where([e], e.user_id not in ^exclude_users)
+    |> order_by([e], desc: e.published_at)
+    |> limit(^Keyword.get(opts, :limit, 50))
+    |> preload(:user)
+    |> Repo.all()
+  end
+
   defp newcomer_first_entries_query do
     now = DateTime.utc_now()
-    since = DateTime.add(now, -@newcomer_days, :day)
     joined_after = DateTime.add(now, -@newcomer_account_days, :day)
 
+    real_first_entries_query(DateTime.add(now, -@newcomer_days, :day), now)
+    |> where([e, u], u.inserted_at >= ^joined_after)
+  end
+
+  defp real_first_entries_query(since, now) do
     from(e in Entry,
       as: :entry,
       join: u in assoc(e, :user),
@@ -1466,7 +1499,7 @@ defmodule Inkwell.Journals do
       where: is_nil(e.imported_from) and coalesce(e.source, "") != "import",
       where: is_nil(e.quoted_entry_id) and is_nil(e.quoted_remote_entry_id),
       where: e.published_at >= ^since and e.published_at <= ^now,
-      where: u.inserted_at >= ^joined_after and is_nil(u.blocked_at),
+      where: is_nil(u.blocked_at),
       where: e.user_id not in subquery(showcase_excluded_user_ids()),
       where:
         not exists(

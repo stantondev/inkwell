@@ -125,13 +125,12 @@ defmodule InkwellWeb.EntryPublishing do
 
   defp maybe_queue_spam_check(_, _), do: :ok
 
-  # A Slack note when someone publishes their first public entry, so they can
-  # get a hello instead of silence (newcomers who hear back tend to stay).
-  # Accounts the spam checker has limited or blocked are left out.
+  # First public entry: a little later, once the spam check has had its turn,
+  # the writer's Slack note and the opt-in notices go out (FirstEntryNotices).
+  # Accounts the spam checker has already limited or blocked are left out.
   defp maybe_announce_first_entry(%{privacy: :public} = entry, user) do
     if user.blocked_at == nil and user.moderation_state != "limited" and
          Inkwell.Journals.first_entry?(entry) do
-      Task.start(fn -> Inkwell.Slack.notify_first_entry(user, entry) end)
       Inkwell.FirstEntryNotices.queue(entry)
     end
 

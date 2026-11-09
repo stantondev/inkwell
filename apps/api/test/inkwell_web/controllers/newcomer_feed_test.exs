@@ -152,6 +152,40 @@ defmodule InkwellWeb.NewcomerFeedTest do
     end
   end
 
+  describe "the Slack note for a first entry" do
+    # Slack messages are logged at :info when no webhook is configured, so
+    # counting the logged lines counts the notes sent.
+    setup do
+      previous = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: previous) end)
+      :ok
+    end
+
+    defp slack_notes(entry) do
+      ExUnit.CaptureLog.capture_log(fn -> FirstEntryNotices.notify(entry.id) end)
+      |> String.split("\n")
+      |> Enum.count(&(&1 =~ "First entry!"))
+    end
+
+    test "a real writer's first entry gets one, even from an older account" do
+      assert slack_notes(publish(create_user())) == 1
+      assert slack_notes(publish(create_user() |> ago(:inserted_at, 90))) == 1
+    end
+
+    test "not for spam or a second entry" do
+      limited = create_user() |> Ecto.Changeset.change(moderation_state: "limited") |> Repo.update!()
+      assert slack_notes(publish(limited)) == 0
+
+      link_poster = create_user()
+      assert slack_notes(publish(link_poster, %{body_html: ~s(<p>#{@words}<a href="https://buy-things.example">shop</a></p>)})) == 0
+
+      writer = create_user()
+      publish(writer)
+      assert slack_notes(publish(writer)) == 0
+    end
+  end
+
   test "search leaves out spam-limited writers and their entries" do
     limited =
       create_user(%{username: "clinicnew#{System.unique_integer([:positive])}"})

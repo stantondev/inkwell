@@ -141,4 +141,42 @@ defmodule Inkwell.PeopleReportTest do
 
     assert conn |> log_in_user(ctx.admin) |> get("/api/admin/users-overview/members?bucket=nope") |> json_response(400)
   end
+
+  describe "new writers" do
+    defp new_writer_item(user), do: Enum.find(PeopleReport.report().new_writers.items, &(&1.username == user.username))
+
+    test "a real writer's first entry is listed, and only the first", ctx do
+      second = post!(ctx.writer)
+
+      item = new_writer_item(ctx.writer)
+      assert item.path == "/#{ctx.writer.username}/#{ctx.entry.slug}"
+      refute item.path =~ second.slug
+      assert item.replies == 0
+      assert item.first_reply == nil
+      assert item.inks == 1
+      refute String.starts_with?(item.avatar_url || "", "data:")
+    end
+
+    test "a reply from someone else counts; the writer's own doesn't", ctx do
+      {:ok, _} = Journals.create_comment(%{"user_id" => ctx.writer.id, "entry_id" => ctx.entry.id, "body_html" => "<p>Thanks for reading</p>"})
+      assert new_writer_item(ctx.writer).replies == 0
+
+      {:ok, _} = Journals.create_comment(%{"user_id" => ctx.reader.id, "entry_id" => ctx.entry.id, "body_html" => "<p>I loved this</p>"})
+      item = new_writer_item(ctx.writer)
+      assert item.replies == 1
+      assert item.first_reply.name == "@#{ctx.reader.username}"
+    end
+
+    test "spam, admins and old first entries are left out", ctx do
+      post!(ctx.spam)
+      post!(ctx.limited)
+      old = create_user()
+      post!(old, %{published_at: DateTime.add(DateTime.utc_now(), -15, :day)})
+
+      refute new_writer_item(ctx.spam)
+      refute new_writer_item(ctx.limited)
+      refute new_writer_item(ctx.admin)
+      refute new_writer_item(old)
+    end
+  end
 end
