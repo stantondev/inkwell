@@ -1,4 +1,4 @@
-import { Grenze_Gotisch, UnifrakturMaguntia } from "next/font/google";
+import { Cinzel_Decorative, UnifrakturMaguntia } from "next/font/google";
 
 /** The gothic capital for the Blackletter initial. */
 const blackletter = UnifrakturMaguntia({
@@ -9,12 +9,12 @@ const blackletter = UnifrakturMaguntia({
 });
 
 /**
- * The capital on an Illuminated tile. Still gothic, but plain enough to read
- * at a glance: in UnifrakturMaguntia an H looks like an S, and the tile holds
- * the first letter of the entry's first word.
+ * The capital on an Illuminated tile: slim engraved capitals that read at a
+ * glance. In UnifrakturMaguntia an H looks like an S, and the tile holds the
+ * first letter of the entry's first word.
  */
-const illuminated = Grenze_Gotisch({
-  weight: "700",
+const illuminated = Cinzel_Decorative({
+  weight: "400",
   subsets: ["latin"],
   variable: "--font-illuminated",
   display: "swap",

@@ -21349,9 +21349,9 @@ body:not([data-look="classic"]) .page-initial-blackletter .prose-entry.drop-cap 
   align-items: center;
   justify-content: center;
   padding-top: 0.06em;
-  font-family: var(--font-illuminated), "Grenze Gotisch", var(--serif);
-  font-weight: 700;
-  font-size: calc(var(--illum-size) * 0.68);
+  font-family: var(--font-illuminated), "Cinzel Decorative", var(--serif);
+  font-weight: 400;
+  font-size: calc(var(--illum-size) * 0.56);
   line-height: 1;
   color: var(--illum-gold);
   background-image: linear-gradient(118deg,
