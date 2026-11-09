@@ -23,6 +23,9 @@ defmodule Inkwell.Accounts.PeopleReport do
       accepted, sent a letter, or signed someone else's guestbook.
     * **Got a response**: someone else commented on, inked, stamped or
       reprinted one of their published posts (fediverse accounts included).
+    * **Never got a response**: has a public post, isn't held back, and nobody
+      has responded. Writers with only private posts couldn't have been
+      answered, and held-back accounts are nearly all ads.
     * **Signed in**: has ever made a signed-in request (`last_active_at`) or
       holds a sign-in session.
   """
@@ -150,7 +153,11 @@ defmodule Inkwell.Accounts.PeopleReport do
 
   def in_bucket?(r, "writers", _now), do: r.member and r.published > 0
   def in_bucket?(r, "answered", _now), do: r.member and r.published > 0 and r.received > 0
-  def in_bucket?(r, "unanswered", _now), do: r.member and r.published > 0 and r.received == 0
+
+  # Only writers someone could actually have answered: not held back as a
+  # likely ad, and with at least one post anyone can read.
+  def in_bucket?(r, "unanswered", _now),
+    do: r.member and not r.held_back and r.public_published > 0 and r.received == 0
 
   def in_bucket?(r, "plus", _now), do: r.member and r.plus
   def in_bucket?(r, "founding", _now), do: r.member and r.founding
@@ -180,13 +187,15 @@ defmodule Inkwell.Accounts.PeopleReport do
          CASE WHEN u.avatar_url LIKE 'data:%' THEN 'data:' ELSE u.avatar_url END,
          coalesce(u.settings->>'onboarded', '') = 'true',
          u.subscription_status, u.founding_member_number, u.square_subscription_id, u.ink_donor_status,
-         coalesce(e.published, 0), coalesce(e.all_entries, 0),
+         coalesce(e.published, 0), coalesce(e.public_published, 0), coalesce(e.all_entries, 0),
          EXISTS (SELECT 1 FROM auth_tokens t WHERE t.user_id = u.id AND t.type = 'api_session'),
          coalesce(cg.n, 0), coalesce(ig.n, 0), coalesce(sg.n, 0), coalesce(rg.n, 0),
          coalesce(fg.n, 0), coalesce(lg.n, 0), coalesce(gg.n, 0),
          coalesce(cr.n, 0), coalesce(ir.n, 0), coalesce(sr.n, 0), coalesce(rr.n, 0)
   FROM users u
-  LEFT JOIN (SELECT user_id, count(*) FILTER (WHERE status = 'published') AS published, count(*) AS all_entries
+  LEFT JOIN (SELECT user_id, count(*) FILTER (WHERE status = 'published') AS published,
+                    count(*) FILTER (WHERE status = 'published' AND privacy = 'public') AS public_published,
+                    count(*) AS all_entries
              FROM entries GROUP BY user_id) e ON e.user_id = u.id
   LEFT JOIN (SELECT c.user_id, count(*) AS n FROM comments c LEFT JOIN entries en ON en.id = c.entry_id
              WHERE c.user_id IS NOT NULL AND (c.remote_entry_id IS NOT NULL OR en.user_id <> c.user_id)
@@ -227,7 +236,8 @@ defmodule Inkwell.Accounts.PeopleReport do
 
   defp to_row(
          [id, username, display_name, email, inserted_at, updated_at, last_active_at, blocked_at, mod_state, cleared_at,
-          vouched_at, avatar, onboarded, sub_status, founding_no, square_sub, donor_status, published, all_entries,
+          vouched_at, avatar, onboarded, sub_status, founding_no, square_sub, donor_status, published, public_published,
+          all_entries,
           has_session, cg, ig, sg, rg, fg, lg, gg, cr, ir, sr, rr],
          held,
          plus,
@@ -263,6 +273,7 @@ defmodule Inkwell.Accounts.PeopleReport do
       donor: donor_status == "active",
       sign_up: sign_up(email),
       published: published,
+      public_published: public_published,
       entries: all_entries,
       given_parts: %{comments: cg, inks: ig, stamps: sg, reprints: rg, follows: fg, letters: lg, guestbook: gg},
       given: cg + ig + sg + rg + fg + lg + gg,

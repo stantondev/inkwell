@@ -142,6 +142,33 @@ defmodule Inkwell.PeopleReportTest do
     assert conn |> log_in_user(ctx.admin) |> get("/api/admin/users-overview/members?bucket=nope") |> json_response(400)
   end
 
+  describe "writers who never got a response" do
+    test "counts a public post nobody answered" do
+      writer = create_user()
+      post!(writer)
+      assert in?("unanswered", writer)
+    end
+
+    test "leaves out writers with only private posts, who still count as writers" do
+      writer = create_user()
+      post!(writer, %{privacy: :private})
+      refute in?("unanswered", writer)
+      assert in?("writers", writer)
+    end
+
+    test "leaves out new accounts held back as likely ads" do
+      writer = create_user()
+      post!(writer, %{body_html: ~s(<p>Buy our things today <a href="https://buy-things.example">shop</a></p>)})
+      assert in?("held_back", writer)
+      refute in?("unanswered", writer)
+    end
+
+    test "leaves out a writer someone has answered", ctx do
+      refute in?("unanswered", ctx.writer)
+      assert in?("answered", ctx.writer)
+    end
+  end
+
   describe "new writers" do
     defp new_writer_item(user), do: Enum.find(PeopleReport.report().new_writers.items, &(&1.username == user.username))
 

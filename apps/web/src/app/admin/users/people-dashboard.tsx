@@ -97,7 +97,7 @@ const GROUPS: { id: Group; title: string; hint: string; of: (r: Report) => numbe
   {
     id: "responses",
     title: "Did anyone answer?",
-    hint: "Among members who have posted: did anyone else comment on, ink, stamp or reprint something they published (fediverse accounts count).",
+    hint: "Among members who have posted: did anyone else comment on, ink, stamp or reprint something they published (fediverse accounts count). \u201cNever got a response\u201d only counts writers with a public post, and leaves out accounts held back as likely ads.",
     of: (r) => r.notes.writers,
   },
   {
