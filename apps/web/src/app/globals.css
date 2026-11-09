@@ -15687,8 +15687,8 @@ a, button, [role="tab"], [role="button"] {
     color: var(--foreground);
   }
 
-  /* Desktop ≥1280px: reserve 280px of padding on the right of the
-     marginalia wrapper so the aside fits INSIDE the existing entry-wide
+  /* Desktop ≥1280px, entries that have margin notes: reserve 280px of padding
+     on the right of the marginalia wrapper so the aside fits INSIDE the existing entry-wide
      container alongside the prose column. This works on a 13" laptop
      (1280–1440px CSS viewports) without needing room outside the page.
 

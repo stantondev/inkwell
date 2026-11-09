@@ -461,10 +461,11 @@ export function MarginaliaReader({
     [notes],
   );
 
-  // Apply .has-marginalia class to the wrapper when we have notes or are
-  // logged in (so the grid layout engages)
+  // The right-hand column only exists when there are notes to put in it.
+  // Writing a new note doesn't need it: that happens in a popover. Reserving
+  // it for every signed-in reader left a blank strip beside most entries.
   const wrapperClass =
-    layoutMode === "desktop" && (visibleNotes.length > 0 || viewer.isLoggedIn)
+    layoutMode === "desktop" && visibleNotes.length > 0
       ? "entry-marginalia-wrapper entry-marginalia-wrapper--with-aside"
       : "entry-marginalia-wrapper";
 
