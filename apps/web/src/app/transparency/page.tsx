@@ -9,7 +9,7 @@ import { dollars, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitc
 export const metadata: Metadata = {
   title: "Transparency — What Inkwell Costs to Run",
   description:
-    "Inkwell's real monthly costs, what members contribute, and how much of the bill is covered. Updated automatically.",
+    "Inkwell's real monthly costs, what members contribute, how much of the bill is covered, and who's writing here. Updated automatically.",
   openGraph: {
     title: "Transparency — What Inkwell Costs to Run",
     description: "Real monthly costs, member revenue, and how much of the bill is covered.",
@@ -41,6 +41,20 @@ interface TransparencyData {
     behind_cents: number | null;
   };
   users: { total: number; active_writers_30d: number };
+  participation?: ParticipationMonth[];
+}
+
+interface ParticipationMonth {
+  month: string;
+  writers: number;
+  returning_writers: number;
+  posts: number;
+  posts_with_footnote: number;
+  posts_with_response: number;
+  people_responding: number;
+  first_time_writers: number;
+  came_back: number | null;
+  came_back_final_on: string;
 }
 
 // Whole dollars: the totals include an estimate for the month in progress.
@@ -49,6 +63,88 @@ function roundDollars(cents: number) {
 }
 
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
+
+function monthName(iso: string, year = true) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "long",
+    ...(year ? { year: "numeric" as const } : {}),
+    timeZone: "UTC",
+  });
+}
+
+function shortDay(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/** Month-by-month participation. Counts, no targets, nothing about one person. */
+function WhosWriting({ months }: { months: ParticipationMonth[] }) {
+  const settled = months.find((m) => m.came_back !== null && m.first_time_writers > 0);
+
+  return (
+    <section className="rounded-xl border p-6 mb-8" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+      <h2 className="text-lg font-semibold mb-1" style={serif}>Who&apos;s writing here</h2>
+      <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+        Come for the writing, stay for the people. Signups don&apos;t show whether that&apos;s true, so these do.
+      </p>
+      {settled && (
+        <p className="text-sm mb-4">
+          <strong>
+            Of the {settled.first_time_writers} {settled.first_time_writers === 1 ? "person" : "people"} who published for the first time in{" "}
+            {monthName(settled.month, false)}, {settled.came_back} came back within 30 days.
+          </strong>
+        </p>
+      )}
+      <table className="tp-people">
+        <thead>
+          <tr>
+            <th scope="col">Month</th>
+            <th scope="col">People who wrote</th>
+            <th scope="col">Posts that got a response</th>
+            <th scope="col">People who responded to someone</th>
+            <th scope="col">First-time writers who came back</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m) => (
+            <tr key={m.month}>
+              <td>{monthName(m.month)}</td>
+              <td data-label="People who wrote">
+                <span>
+                  {m.writers}
+                  <span className="tp-people-sub">{m.returning_writers} had written before</span>
+                </span>
+              </td>
+              <td data-label="Posts that got a response">
+                <span>
+                  {m.posts_with_response} of {m.posts}
+                  <span className="tp-people-sub">{m.posts_with_footnote} with a footnote</span>
+                </span>
+              </td>
+              <td data-label="People who responded to someone">{m.people_responding}</td>
+              <td data-label="First-time writers who came back">
+                {m.first_time_writers === 0 ? (
+                  <span style={{ color: "var(--muted)" }}>None that month</span>
+                ) : m.came_back === null ? (
+                  <span>
+                    {m.first_time_writers} new
+                    <span className="tp-people-sub">Known {shortDay(m.came_back_final_on)}</span>
+                  </span>
+                ) : (
+                  <>{m.came_back} of {m.first_time_writers}</>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
+        Finished months only. A response is a footnote, ink or stamp from someone else within a week. Came back means they published again,
+        or left a footnote on someone else&apos;s post, on a later day within 30 days. Private and imported posts and the founder&apos;s own
+        aren&apos;t counted. Nor are accounts caught as spam, so a past month can go down a little when one is caught late.
+      </p>
+    </section>
+  );
+}
 
 export default async function TransparencyPage() {
   // A page about inkwell.social itself; a self-hosted server has no such thing.
@@ -209,6 +305,8 @@ export default async function TransparencyPage() {
               </div>
             ))}
           </section>
+
+          {data.participation && data.participation.length > 0 && <WhosWriting months={data.participation} />}
 
           {/* Costs */}
           <section className="mb-8">

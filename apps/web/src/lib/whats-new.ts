@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-09-whos-writing",
+    date: "2026-11-09",
+    title: "See who's writing here",
+    body: "The Transparency page now shows, month by month, how many people wrote, how many posts got a response, how many people responded to someone, and how many first-time writers came back within 30 days. It's there because a community is measured by whether people feel heard, not by how many sign up. Thanks to @stoicalgeezer for the idea.",
+    href: "/transparency",
+    cta: "See the numbers",
+  },
+  {
     id: "2026-11-05-quick-search",
     date: "2026-11-05",
     title: "Search is back in the menu",

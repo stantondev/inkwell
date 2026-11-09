@@ -48,7 +48,8 @@ defmodule Inkwell.Transparency do
       monthly_paying_members: revenue.paying_members,
       founding: founding,
       lifetime: lifetime(),
-      users: user_counts()
+      users: user_counts(),
+      participation: Inkwell.Transparency.Participation.months()
     }
   end
 
@@ -244,6 +245,7 @@ defmodule Inkwell.Transparency do
   def clear_cache do
     :persistent_term.erase(@cache_key)
     :persistent_term.erase(@paid_cache_key)
+    Inkwell.Transparency.Participation.clear_cache()
   end
 
   defp compute_revenue do

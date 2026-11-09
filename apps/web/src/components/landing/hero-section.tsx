@@ -155,6 +155,19 @@ export function HeroSection() {
           })}
         </h1>
 
+        <motion.p
+          className="landing-motto"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.5,
+            ease: "easeOut",
+            delay: prefersReducedMotion ? 0 : 1.6,
+          }}
+        >
+          Come for the writing. Stay for the people.
+        </motion.p>
+
         {/* Subtitle */}
         <motion.p
           className="landing-subtitle"

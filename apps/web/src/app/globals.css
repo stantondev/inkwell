@@ -7747,6 +7747,17 @@ body[data-focus-mode] .sidebar-reveal-tab {
 .landing-tagline-word { display: inline-block; margin-right: 0.22em; }
 .landing-tagline-accent { color: var(--accent); }
 
+/* ---- Motto ---- */
+.landing-motto {
+  margin: 0 auto 1rem;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  font-size: 1.125rem;
+  color: var(--accent);
+  text-wrap: balance;
+}
+@media (min-width: 640px) { .landing-motto { font-size: 1.375rem; } }
+
 /* ---- Subtitle ---- */
 .landing-subtitle {
   max-width: 36rem;
@@ -21850,6 +21861,22 @@ body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter
 .pd-chip--held_back { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); color: var(--accent); }
 .pd-chip--founding, .pd-chip--plus, .pd-chip--donor { border-color: var(--accent); color: var(--accent); }
 .pd-chip--answered { border-color: var(--accent); color: var(--accent); white-space: normal; }
+/* Transparency: who's writing here. A table on wide screens, one card per month on phones. */
+.tp-people { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tp-people th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 12px 8px 0; vertical-align: bottom; }
+.tp-people td { padding: 10px 12px 10px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.tp-people th:last-child, .tp-people td:last-child { padding-right: 0; }
+.tp-people-sub { display: block; font-size: 12px; color: var(--muted); }
+@media (max-width: 640px) {
+  .tp-people thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tp-people, .tp-people tbody, .tp-people tr, .tp-people td { display: block; width: 100%; }
+  .tp-people tr { border-top: 1px solid var(--border); padding: 10px 0; }
+  .tp-people td { border-top: 0; padding: 3px 0; display: flex; justify-content: space-between; gap: 16px; text-align: right; }
+  .tp-people td::before { content: attr(data-label); color: var(--muted); font-size: 12px; text-align: left; flex: 0 1 45%; }
+  .tp-people td:first-child { font-weight: 600; padding-bottom: 6px; }
+  .tp-people td:first-child::before { content: none; }
+}
+
 .pd-new-list { container-type: inline-size; }
 .pd-new {
   display: grid;
