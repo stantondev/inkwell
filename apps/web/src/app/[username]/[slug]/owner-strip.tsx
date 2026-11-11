@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { FloatingPopup } from "@/components/floating-popup";
 import { DeleteEntryDialog } from "./delete-entry-dialog";
+import { EntryReaders } from "./entry-readers";
+import type { EntryReadDetail } from "./entry-types";
+import { trackFeature } from "@/lib/usage";
 import styles from "./entry-page.module.css";
 
 const PIN_LIMIT = 3;
@@ -18,6 +21,8 @@ export function OwnerStrip({
   username,
   audience,
   readCount,
+  readDetail,
+  selfHosted,
   initialPinned,
   pinnedCount,
 }: {
@@ -26,10 +31,15 @@ export function OwnerStrip({
   /** "Public", "Pen pals only", … */
   audience: string;
   readCount?: number | null;
+  /** Plus writers: this entry's reads by day and by source. Null on the free plan. */
+  readDetail?: EntryReadDetail | null;
+  selfHosted?: boolean;
   initialPinned: boolean;
   pinnedCount: number;
 }) {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const readsButtonRef = useRef<HTMLButtonElement>(null);
+  const [readsOpen, setReadsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pinned, setPinned] = useState(initialPinned);
@@ -98,9 +108,24 @@ export function OwnerStrip({
         {typeof readCount === "number" && (
           <>
             <span aria-hidden="true" className={styles.factSep}>·</span>
-            <Link href="/readers" className={styles.factLink} title="Your readers">
+            <button
+              ref={readsButtonRef}
+              type="button"
+              className={styles.factButton}
+              onClick={() => {
+                if (!readsOpen) trackFeature("entry_readers");
+                setReadsOpen((o) => !o);
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={readsOpen}
+              title="Who has read this entry"
+            >
               {readCount === 1 ? "1 read" : `${readCount.toLocaleString("en-US")} reads`}
-            </Link>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
           </>
         )}
         {pinned && (
@@ -142,6 +167,18 @@ export function OwnerStrip({
         <p className={styles.ownerError} role="alert">
           {error}
         </p>
+      )}
+
+      {typeof readCount === "number" && (
+        <FloatingPopup
+          anchorRef={readsButtonRef}
+          open={readsOpen}
+          onClose={() => setReadsOpen(false)}
+          placement="bottom"
+          align="start"
+        >
+          <EntryReaders total={readCount} detail={readDetail ?? null} selfHosted={!!selfHosted} />
+        </FloatingPopup>
       )}
 
       <FloatingPopup anchorRef={menuButtonRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom">

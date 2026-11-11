@@ -94,6 +94,7 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "translate", label: "Translate", group: "responding", how: :tracked},
     %{key: "stamp_album", label: "Stamp album", group: "responding", how: :tracked},
     %{key: "reader_stats", label: "Readers page (reader stats)", group: "responding", how: :tracked},
+    %{key: "entry_readers", label: "Readers of one entry (opened on the entry)", group: "responding", how: :tracked},
     %{key: "share", label: "Share button", group: "responding", how: :tracked},
 
     # ── Letters and pen pals ──────────────────────────────────────────────
@@ -242,7 +243,8 @@ defmodule Inkwell.Usage.Catalog do
     "first_entry_notices" => ~D[2026-10-29],
     "trick_or_treat" => ~D[2026-10-29],
     "seasonal_off" => ~D[2026-10-29],
-    "entry_page_style" => ~D[2026-11-03]
+    "entry_page_style" => ~D[2026-11-03],
+    "entry_readers" => ~D[2026-11-11]
   }
 
   # Tracked features start counting when tracking ships; until then they

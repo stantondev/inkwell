@@ -154,6 +154,35 @@ defmodule Inkwell.Reads do
   end
 
   @doc """
+  One entry's readers, for its writer: reads per day over the last `days`
+  days (ending today, UTC), the total for that stretch, and where readers
+  came from since counting began.
+  """
+  def entry_detail(entry_id, days \\ 30) do
+    today = Date.utc_today()
+    from_day = Date.add(today, -(days - 1))
+
+    base = from(r in "entry_read_days", where: r.entry_id == type(^entry_id, :binary_id))
+    daily = daily_series(base, from_day, today)
+
+    sources =
+      base
+      |> group_by([r], r.referrer)
+      |> select([r], %{source: r.referrer, reads: sum(r.count)})
+      |> order_by([r], desc: sum(r.count), asc: r.referrer)
+      |> limit(6)
+      |> Repo.all()
+      |> Enum.map(&Map.update!(&1, :reads, fn n -> to_int(n) end))
+
+    %{
+      days: days,
+      recent: daily |> Enum.map(& &1.reads) |> Enum.sum(),
+      daily: daily,
+      sources: sources
+    }
+  end
+
+  @doc """
   A writer's reader stats over the last `days` days (ending today, UTC).
   `detail: false` returns only the headline totals.
   """

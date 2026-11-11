@@ -161,7 +161,7 @@ defmodule InkwellWeb.EntryController do
           result
           |> Map.put(:tip_total_cents, tip_stats.total_cents)
           |> Map.put(:tip_count, tip_stats.count)
-          |> put_owner_facts(entry)
+          |> put_owner_facts(entry, user)
         else
           result
         end
@@ -259,7 +259,7 @@ defmodule InkwellWeb.EntryController do
           render_entry_full(entry, user)
           |> Map.put(:poll, poll_data)
           |> put_is_circle_prompt(entry)
-          |> put_owner_facts(entry)
+          |> put_owner_facts(entry, user)
         json(conn, %{data: result})
 
       {:error, :not_found} ->
@@ -1101,7 +1101,7 @@ defmodule InkwellWeb.EntryController do
   # What only the writer sees about their own entry: how many reads it has
   # had, the name of the custom list it's shared with, and whether it's their
   # first entry.
-  defp put_owner_facts(result, entry) do
+  defp put_owner_facts(result, entry, owner) do
     filter_name =
       if entry.custom_filter_id do
         case Repo.preload(entry, :custom_filter).custom_filter do
@@ -1112,6 +1112,11 @@ defmodule InkwellWeb.EntryController do
 
     result
     |> Map.put(:read_count, Map.get(Inkwell.Reads.counts_for_entries([entry.id]), entry.id, 0))
+    # Day by day and where readers came from are part of Plus (as on /readers)
+    |> Map.put(
+      :read_detail,
+      if(Inkwell.SelfHosted.effective_tier(owner) == "plus", do: Inkwell.Reads.entry_detail(entry.id))
+    )
     |> Map.put(:custom_filter_name, filter_name)
     # The writer's first published entry (for the note after publishing it)
     |> Map.put(:first_entry, MapSet.member?(Journals.recent_first_entry_ids([entry.id]), entry.id))

@@ -18,6 +18,7 @@ export const FEATURES = [
   "drafts_page",
   "posts_bulk",
   "posts_export",
+  "entry_readers",
   "version_history",
   "translate",
   "stamp_album",

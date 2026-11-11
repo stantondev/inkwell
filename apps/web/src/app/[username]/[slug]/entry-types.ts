@@ -59,6 +59,8 @@ export interface EntryData {
   word_count?: number;
   /** Owner only: how many times the entry has been read. */
   read_count?: number;
+  /** Owner only, Plus only: this entry's reads by day and where readers came from. */
+  read_detail?: EntryReadDetail | null;
   /** Owner only: this is the writer's first published entry. */
   first_entry?: boolean;
   excerpt?: string | null;
@@ -145,4 +147,14 @@ export interface EntryData {
   circle?: { id: string; name: string; slug: string; is_prompt: boolean; viewer_role: string | null } | null;
   circle_prompt?: { id: string; title: string | null; slug: string; username: string } | null;
   author: EntryAuthor;
+}
+
+export interface EntryReadDetail {
+  /** How many days `daily` covers, ending today (UTC). */
+  days: number;
+  /** Reads in those days. */
+  recent: number;
+  daily: { day: string; reads: number }[];
+  /** Where readers came from, all time, most first. */
+  sources: { source: string; reads: number }[];
 }

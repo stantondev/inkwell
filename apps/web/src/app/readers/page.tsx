@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
+import { sourceLabel } from "@/lib/read-sources";
 import { ReadsChart } from "./reads-chart";
 import { ReadersPlusCard } from "./readers-plus-card";
 import { TrackFeature } from "@/components/track-feature";
@@ -30,15 +31,6 @@ interface ReadsSummary {
 const RANGES = [7, 30, 90, 365];
 const serif = { fontFamily: "var(--font-lora, Georgia, serif)" };
 
-function sourceLabel(source: string): string {
-  if (source === "") return "Direct, email or apps";
-  if (source === "inkwell") return "Inkwell";
-  if (source.startsWith("search:")) {
-    const name = source.slice(7);
-    return `${name.charAt(0).toUpperCase()}${name.slice(1)} search`;
-  }
-  return source;
-}
 
 function change(total: number, previous: number): string | null {
   if (previous === 0) return total > 0 ? "new this period" : null;

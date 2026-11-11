@@ -456,6 +456,8 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
                 username={username}
                 audience={audienceLabel(audience)}
                 readCount={entry.read_count}
+                readDetail={entry.read_detail ?? null}
+                selfHosted={getSite().selfHosted}
                 initialPinned={pinnedEntryIds.includes(entry.id)}
                 pinnedCount={pinnedEntryIds.length}
               />

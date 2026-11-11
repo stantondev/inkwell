@@ -122,4 +122,52 @@ defmodule InkwellWeb.ReadControllerTest do
       assert data["total"] == 0
     end
   end
+
+  describe "reader detail on the writer's own entry" do
+    defp make_plus(user) do
+      user
+      |> Ecto.Changeset.change(subscription_tier: "plus", subscription_status: "active")
+      |> Repo.update!()
+    end
+
+    defp own_entry(user, entry) do
+      build_conn() |> log_in_user(user) |> get("/api/users/#{user.username}/entries/#{entry.slug}") |> json_response(200)
+    end
+
+    test "a Plus writer gets the last 30 days and where readers came from" do
+      writer = make_plus(create_user())
+      entry = publish(writer)
+      read(build_conn(), entry, "203.0.113.20", referrer: "https://www.google.com/search?q=x")
+      read(build_conn(), entry, "203.0.113.21", referrer: "https://www.google.com/")
+      read(build_conn(), entry, "203.0.113.22")
+
+      data = own_entry(writer, entry)["data"]
+      assert data["read_count"] == 3
+      detail = data["read_detail"]
+      assert detail["days"] == 30
+      assert detail["recent"] == 3
+      assert length(detail["daily"]) == 30
+      assert List.last(detail["daily"]) == %{"day" => Date.to_iso8601(Date.utc_today()), "reads" => 3}
+      assert detail["sources"] == [%{"source" => "search:google", "reads" => 2}, %{"source" => "", "reads" => 1}]
+    end
+
+    test "a free writer gets the total only, and readers get neither" do
+      writer = create_user()
+      entry = publish(writer)
+      read(build_conn(), entry, "203.0.113.30")
+
+      data = own_entry(writer, entry)["data"]
+      assert data["read_count"] == 1
+      assert data["read_detail"] == nil
+
+      reader = make_plus(create_user())
+      seen = own_entry_as(reader, writer, entry)
+      refute Map.has_key?(seen, "read_count")
+      refute Map.has_key?(seen, "read_detail")
+    end
+
+    defp own_entry_as(viewer, writer, entry) do
+      build_conn() |> log_in_user(viewer) |> get("/api/users/#{writer.username}/entries/#{entry.slug}") |> json_response(200) |> Map.fetch!("data")
+    end
+  end
 end

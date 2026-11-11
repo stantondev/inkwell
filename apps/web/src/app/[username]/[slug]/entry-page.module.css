@@ -58,6 +58,134 @@
   text-decoration: underline;
 }
 
+.factButton {
+  composes: fact;
+  gap: 0.2rem;
+  padding: 0.15rem 0.1rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.factButton:hover,
+.factButton[aria-expanded="true"] {
+  color: var(--accent);
+}
+
+.readers {
+  width: min(19rem, calc(100vw - 2rem));
+  padding: 0.875rem 1rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+.readersTitle {
+  margin: 0;
+  font-family: var(--font-lora, Georgia, serif);
+  font-style: italic;
+  color: var(--muted);
+}
+.readersTotal {
+  margin: 0.15rem 0 0;
+  font-size: 0.9375rem;
+}
+.readersNote {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.readersNote a {
+  color: var(--accent);
+  white-space: nowrap;
+}
+.readersChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 3.25rem;
+  margin-top: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.readersDay {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  outline: none;
+}
+.readersBar {
+  width: 100%;
+  border-radius: 1px 1px 0 0;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.readersBarActive {
+  composes: readersBar;
+  background: var(--accent);
+}
+.readersDay:focus-visible .readersBar {
+  background: var(--accent);
+}
+.readersCaption {
+  margin: 0.3rem 0 0;
+  min-height: 1.1em;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.readersHeading {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.readersSources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.readersSourceRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.readersSourceName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.readersTrack {
+  display: block;
+  height: 3px;
+  margin-top: 0.15rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+}
+.readersTrack span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.readersAll {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.readersAll:hover {
+  text-decoration: underline;
+}
+
 .ownerButtons {
   display: flex;
   align-items: center;

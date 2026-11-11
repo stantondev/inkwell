@@ -18,6 +18,14 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-11-entry-readers",
+    date: "2026-11-11",
+    title: "See who read an entry, right on the entry",
+    body: "On your own entries, the read count beside “Your entry” now opens a small panel. Everyone sees the total. With Plus it also shows the last 30 days, day by day, and where those readers came from: Inkwell, a search engine, Mastodon, or a link someone shared. It's the same counting as the Readers page (no cookies, nobody is identified), just for the one entry you're looking at.",
+    howTo: "Open one of your entries and click the number of reads at the top.",
+    tag: "Plus",
+  },
+  {
     id: "2026-11-11-rel-me",
     date: "2026-11-11",
     title: "A green check on your Mastodon profile",
