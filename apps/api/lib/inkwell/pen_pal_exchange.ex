@@ -209,16 +209,27 @@ defmodule Inkwell.PenPalExchange do
   end
 
   # Two people can be introduced when the other is still in good standing,
-  # neither has blocked the other, and they don't already know each other
-  # (introduced before, or letters already between them).
+  # neither has blocked the other, and they don't already know each other:
+  # introduced before, letters already between them, or one follows the
+  # other (the point is someone new).
   defp compatible?(%User{} = user, %User{} = other) do
     in_good_standing?(other) and
       not Social.is_blocked_between?(user.id, other.id) and
       not introduced_before?(user.id, other.id) and
+      not connected?(user.id, other.id) and
       not Letters.letters_between?(user.id, other.id)
   end
 
   defp compatible?(_user, _other), do: false
+
+  defp connected?(a, b) do
+    Repo.exists?(
+      from r in Inkwell.Social.Relationship,
+        where:
+          r.status == :accepted and
+            ((r.follower_id == ^a and r.following_id == ^b) or (r.follower_id == ^b and r.following_id == ^a))
+    )
+  end
 
   defp introduced_before?(a, b) do
     Repo.exists?(

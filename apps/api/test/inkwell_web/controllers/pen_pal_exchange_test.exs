@@ -153,6 +153,20 @@ defmodule InkwellWeb.PenPalExchangeTest do
     assert (join(ben) |> json_response(200))["matched"] == false
   end
 
+  test "people who already follow each other aren't introduced" do
+    ada = writer()
+    ben = writer()
+    create_relationship(%{follower_id: ada.id, following_id: ben.id, status: :accepted})
+
+    join(ada)
+    assert (join(ben) |> json_response(200))["matched"] == false
+
+    # Someone neither of them knows is matched with whoever waited longest.
+    cy = writer()
+    assert (join(cy) |> json_response(200))["matched"] == true
+    assert status(cy)["introduction"]["other_user"]["username"] == ada.username
+  end
+
   test "asking again: after you've written, or after a quiet week" do
     ada = writer()
     ben = writer()
