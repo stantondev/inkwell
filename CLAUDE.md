@@ -731,7 +731,7 @@ Magic link email auth, fully backed by Postgres (NOT Redis):
 - Custom CSS and Custom HTML — Plus-only ($5/mo), server-side HTML sanitization, CSS scoped via `scope-styles.ts`. Two modes: **widget mode** (renders as sidebar card) and **full-page mode** (replaces entire profile layout with template tags for embedding widgets)
 - 3 entry display modes: Cards (masonry grid, default), Full Post (one entry per page), Timeline (compact list)
 - Pinned entries — highlight up to 3 entries at the top of profile, search-to-select in Settings
-- Social links — X/Twitter, Bluesky, Mastodon, GitHub, Website URLs displayed as icon pills below bio
+- Social links — X/Twitter, Bluesky, Mastodon, GitHub, Website URLs displayed as icon pills below bio. Rendered `rel="me noopener noreferrer"` (since 2026-11-11), so Mastodon shows a green verified check when the writer adds their Inkwell profile to a Mastodon profile field; typed handles (`@name@server`, `@you.bsky.social`, `@x`) become profile links (`socialHref` in `app/[username]/profile-widgets.tsx`). Mastodon only counts a rel=me link whose href is exactly the account's own profile URL
 - Tag cloud widget — size-weighted display of top 20 tags in sidebar
 - Profile search & filtering — debounced text search, category/year dropdowns, tag pills, sort toggle (shown when >3 entries)
 - Header stats — entry count, pen pal count, reader count, join date

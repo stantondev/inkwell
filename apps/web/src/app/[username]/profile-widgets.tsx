@@ -29,6 +29,26 @@ function ensureUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
+// Writers often type a handle instead of a link. Turn the usual handle shapes
+// into the profile address, so the link works and Mastodon can verify it
+// (it only counts a rel="me" link whose address is the profile's own).
+function socialHref(platform: string, value: string): string {
+  const v = value.trim();
+  if (platform === "mastodon") {
+    const m = v.match(/^@?([A-Za-z0-9_.-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,})$/);
+    if (m) return `https://${m[2].toLowerCase()}/@${m[1]}`;
+  }
+  if (platform === "bluesky") {
+    const m = v.match(/^@?([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)$/);
+    if (m && !v.includes("/")) return `https://bsky.app/profile/${m[1].toLowerCase()}`;
+  }
+  if (platform === "twitter") {
+    const m = v.match(/^@([A-Za-z0-9_]{1,15})$/);
+    if (m) return `https://x.com/${m[1]}`;
+  }
+  return ensureUrl(v);
+}
+
 export function SocialLinks({ links, styles }: { links: Record<string, string>; styles: ProfileStyles }) {
   const entries = Object.entries(links).filter(([, url]) => url && url.trim());
   if (entries.length === 0) return null;
@@ -41,9 +61,11 @@ export function SocialLinks({ links, styles }: { links: Record<string, string>; 
         return (
           <a
             key={platform}
-            href={ensureUrl(url)}
+            href={socialHref(platform, url)}
             target="_blank"
-            rel="noopener noreferrer"
+            // "me" says this is the writer's own account elsewhere (Mastodon
+            // shows a verified check for it; IndieWeb sites use it too).
+            rel="me noopener noreferrer"
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80"
             style={{ borderColor: styles.border, color: styles.muted }}
             title={info.label}

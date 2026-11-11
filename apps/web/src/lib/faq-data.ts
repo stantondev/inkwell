@@ -274,6 +274,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "fediverse",
   },
   {
+    id: "mastodon-verified-link",
+    question: "How do I get the green verified check on Mastodon?",
+    answer:
+      'In <a href="/settings/profile">Settings &rarr; Profile</a>, put your Mastodon profile link in the Mastodon field (like <strong>https://mastodon.social/@name</strong>, or just your handle). Then on Mastodon, edit your profile, add the address of your Inkwell profile (open your profile and copy it from the address bar) as one of the extra fields, and save. Mastodon checks the page when you save and shows the green check once it finds the link back. If it doesn\'t appear, save your Mastodon profile again.',
+    category: "fediverse",
+  },
+  {
     id: "fediverse-mentions",
     question: "Can I mention someone on Mastodon in an entry?",
     answer:

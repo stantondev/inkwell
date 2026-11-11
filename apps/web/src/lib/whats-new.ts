@@ -18,6 +18,15 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-11-rel-me",
+    date: "2026-11-11",
+    title: "A green check on your Mastodon profile",
+    body: "The links on your Inkwell profile now tell other sites they're your own accounts, so Mastodon can verify your Inkwell page and show it with a green check. Put your Mastodon link in Settings → Profile, then add the address of your Inkwell profile to a field on your Mastodon profile and save. Typing your handle (@name@server) instead of a link works too.",
+    href: "/settings/profile",
+    cta: "Add your links",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-11-09-whos-writing",
     date: "2026-11-09",
     title: "See who's writing here",

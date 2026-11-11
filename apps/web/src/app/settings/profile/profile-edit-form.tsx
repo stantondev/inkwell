@@ -6,6 +6,7 @@ import { resizeImage } from "@/lib/image-utils";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { detectService, getServiceIconSvg } from "@/lib/support-services";
 import { BioEditor } from "@/components/bio-editor";
+import { getSite } from "@/lib/site";
 
 interface FullUser {
   id: string;
@@ -470,6 +471,12 @@ export function ProfileEditForm({ user }: { user: FullUser }) {
                 className={inputClass}
                 style={inputStyle}
               />
+              {platform.key === "mastodon" && (
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                  For the green check on Mastodon, add your Inkwell page (
+                  <span style={{ whiteSpace: "nowrap" }}>{getSite().host}/{user.username}</span>) to a field on your Mastodon profile and save it there.
+                </p>
+              )}
             </div>
           ))}
         </div>
