@@ -9,6 +9,7 @@ import { PROFILE_THEMES } from "@/lib/profile-themes";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import { GuidelinesBook } from "@/components/guidelines-book";
 import { BioEditor } from "@/components/bio-editor";
+import { FIRST_ENTRY_PROMPTS } from "@/lib/first-entry-prompts";
 import dynamic from "next/dynamic";
 import type { AvatarConfig } from "@/lib/avatar-builder-config";
 
@@ -16,7 +17,7 @@ const AvatarBuilder = dynamic(
   () => import("@/components/avatar-builder").then((m) => m.AvatarBuilder),
   { ssr: false, loading: () => <div style={{ padding: "1rem", color: "var(--muted)", textAlign: "center" }}>Loading builder...</div> }
 );
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 8;
 // "Choose your path" (Free / Plus / Founding). A self-hosted
 // server has no payments and everyone has every feature, so it's skipped.
 const TIER_STEP = 5;
@@ -29,8 +30,7 @@ const STEP_SUBTITLES = [
   "Our community standards",
   "Every writer’s journey is different",
   "Find some writers",
-  "Bring your friends along",
-  "You’re all set!",
+  "Now, your first page",
 ];
 
 type SuggestedUser = {
@@ -128,14 +128,6 @@ export default function WelcomePage() {
   const [loadingSuggested, setLoadingSuggested] = useState(false);
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-
-  // Step 6: Invite friends
-  const [inviteUrl, setInviteUrl] = useState("");
-  const [inviteEmails, setInviteEmails] = useState([""]);
-  const [inviteMessage, setInviteMessage] = useState("");
-  const [inviteSending, setInviteSending] = useState(false);
-  const [inviteSent, setInviteSent] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState(false);
 
   // Step 5: Choose your path (tier selection)
   const [selectedTier, setSelectedTier] = useState<"free" | "plus" | "founding">("free");
@@ -312,15 +304,6 @@ export default function WelcomePage() {
       .finally(() => setLoadingSuggested(false));
   }, [step]);
 
-  // Fetch invite code when entering step 7 (was step 6)
-  useEffect(() => {
-    if (step !== 7) return;
-    fetch("/api/invite-code")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.url) setInviteUrl(data.url); })
-      .catch(() => {});
-  }, [step]);
-
   // Username availability check
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -410,63 +393,6 @@ export default function WelcomePage() {
         next.delete(user.id);
         return next;
       });
-    }
-  }
-
-  async function handleInviteCopy() {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
-    } catch {
-      // Fallback: select the input
-    }
-  }
-
-  function handleInviteShareX() {
-    if (!inviteUrl) return;
-    const text = encodeURIComponent(`I've been writing on @inkwellsocial -- a social journal with no algorithms and no ads. Join me: ${inviteUrl}`);
-    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
-  }
-  function handleInviteShareBluesky() {
-    if (!inviteUrl) return;
-    const text = encodeURIComponent(`I've been writing on Inkwell — a social journal with no algorithms and no ads. Join me: ${inviteUrl}`);
-    window.open(`https://bsky.app/intent/compose?text=${text}`, "_blank");
-  }
-  function handleInviteShareMastodon() {
-    if (!inviteUrl) return;
-    const text = encodeURIComponent(`I've been writing on #Inkwell — a social journal on the open web, no algorithms and no ads. Join me: ${inviteUrl}`);
-    window.open(`https://mastodonshare.com/?text=${text}`, "_blank");
-  }
-  function handleInviteShareFacebook() {
-    if (!inviteUrl) return;
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteUrl)}`, "_blank");
-  }
-
-  async function handleSendInvites() {
-    const validEmails = inviteEmails.filter((em) => em.trim() && em.includes("@"));
-    if (validEmails.length === 0) return;
-    setInviteSending(true);
-    try {
-      const res = await fetch("/api/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emails: validEmails,
-          message: inviteMessage.trim() || undefined,
-        }),
-      });
-      if (res.ok) {
-        setInviteSent(true);
-        setInviteEmails([""]);
-        setInviteMessage("");
-        setTimeout(() => setInviteSent(false), 3000);
-      }
-    } catch {
-      // Non-fatal
-    } finally {
-      setInviteSending(false);
     }
   }
 
@@ -690,7 +616,7 @@ export default function WelcomePage() {
   async function handleFinishAndProceed() {
     const saved = await saveProfile();
     if (saved) {
-      setStep(TOTAL_STEPS - 1); // go to "What's next?" step
+      setStep(TOTAL_STEPS - 1); // the first-page screen
     }
   }
 
@@ -1393,227 +1319,53 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Step 7: Invite friends (was step 6) */}
-          {step === 7 && (
-            <div className="flex flex-col gap-5">
-              {/* Share invite link */}
-              <div>
-                <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: "var(--muted)" }}>
-                  Share your invite link
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={inviteUrl}
-                    className={`flex-1 ${inputClass}`}
-                    style={inputStyle}
-                    onFocus={(e) => e.target.select()}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleInviteCopy}
-                    className="rounded-lg border px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap"
-                    style={{ borderColor: "var(--border)", background: inviteCopied ? "var(--accent)" : "var(--surface)", color: inviteCopied ? "#fff" : "var(--foreground)" }}
-                  >
-                    {inviteCopied ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <button type="button" onClick={handleInviteShareBluesky}
-                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    style={{ borderColor: "var(--border)" }}>Bluesky</button>
-                  <button type="button" onClick={handleInviteShareMastodon}
-                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    style={{ borderColor: "var(--border)" }}>Mastodon</button>
-                  <button type="button" onClick={handleInviteShareX}
-                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    style={{ borderColor: "var(--border)" }}>X</button>
-                  <button type="button" onClick={handleInviteShareFacebook}
-                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                    style={{ borderColor: "var(--border)" }}>Facebook</button>
-                </div>
-                <p className="text-xs mt-1.5" style={{ color: "var(--muted)" }}>
-                  Anyone who signs up through this link is connected to you.
-                </p>
-              </div>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                <span className="text-xs" style={{ color: "var(--muted)" }}>or send a sealed letter</span>
-                <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-              </div>
-
-              {/* Email invites */}
-              <div>
-                {inviteEmails.map((em, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="email"
-                      value={em}
-                      onChange={(e) => {
-                        const updated = [...inviteEmails];
-                        updated[i] = e.target.value;
-                        setInviteEmails(updated);
-                      }}
-                      placeholder="friend@example.com"
-                      className={inputClass}
-                      style={inputStyle}
-                    />
-                    {inviteEmails.length > 1 && (
-                      <button type="button" onClick={() => setInviteEmails(inviteEmails.filter((_, j) => j !== i))}
-                        className="text-xs" style={{ color: "var(--muted)" }}>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {inviteEmails.length < 3 && (
-                  <button type="button" onClick={() => setInviteEmails([...inviteEmails, ""])}
-                    className="text-sm" style={{ color: "var(--accent)" }}>
-                    + Add another
-                  </button>
-                )}
-                <textarea
-                  value={inviteMessage}
-                  onChange={(e) => setInviteMessage(e.target.value.slice(0, 500))}
-                  placeholder="Write something personal... (optional)"
-                  rows={2}
-                  maxLength={500}
-                  className={`${inputClass} resize-none mt-3`}
-                  style={inputStyle}
-                />
-                {inviteSent && (
-                  <p className="text-sm font-medium mt-2" style={{ color: "var(--accent)" }}>
-                    Invitations sent!
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={handleSendInvites}
-                  disabled={inviteSending || inviteEmails.every((e) => !e.trim())}
-                  className="rounded-full px-5 py-2 text-sm font-medium mt-3 transition-opacity disabled:opacity-50"
-                  style={{ background: "var(--accent)", color: "#fff" }}
-                >
-                  {inviteSending ? "Sending..." : "Seal & send"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 9: What's next? (was step 7) */}
-          {step === 8 && (
+          {/* Last step: a first page to start on. Setup used to end on a menu
+              that put Explore first and writing second, and most people who
+              finished it never wrote anything (2026-11 production check: of
+              148 who finished in five months, 94 never published, and 52 of
+              the 54 who did published within a week). */}
+          {step === TOTAL_STEPS - 1 && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
-                Your profile is ready. What would you like to do first?
+                Your journal is ready. The only thing missing is something in it.
               </p>
-              <div className="flex flex-col gap-3">
+              <div className="welcome-first-page">
                 <button
                   type="button"
-                  onClick={() => router.push("/explore")}
-                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
+                  onClick={() => router.push("/editor")}
+                  className="w-full rounded-full px-6 py-2.5 text-sm font-medium"
+                  style={{ background: "var(--accent)", color: "#fff" }}
                 >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8"/>
-                      <path d="M21 21l-4.35-4.35"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">Explore the community</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      Browse public entries from Inkwell writers and the fediverse
-                    </p>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
+                  Start with a blank page
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push("/editor?prompt=welcome")}
-                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">Write your first entry</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      Start with a writing prompt to break the ice
-                    </p>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push(`/${username || "feed"}`)}
-                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">View your profile</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      See how your page looks and customize it further
-                    </p>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push("/guide")}
-                  className="flex items-center gap-4 rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)]"
-                  style={{ borderColor: "var(--border)", background: "var(--background)" }}
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">Learn how Inkwell works</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      A quick guide to feeds, pen pals, stamps, and the fediverse
-                    </p>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--muted)", flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
+                <p className="text-xs text-center mt-2 mb-4" style={{ color: "var(--muted)" }}>
+                  A few lines is plenty. Only you can see it until you press Publish,
+                  and you choose who can read it.
+                </p>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--accent)" }}>
+                  Or start from a prompt
+                </p>
+                <div className="flex flex-col gap-2">
+                  {FIRST_ENTRY_PROMPTS.slice(0, 3).map((p, i) => (
+                    <button
+                      key={p.title}
+                      type="button"
+                      className="welcome-prompt"
+                      onClick={() => router.push(`/editor?prompt=welcome&n=${i}`)}
+                    >
+                      <span className="welcome-prompt-title">{p.title}</span>
+                      <span className="welcome-prompt-text">{p.prompt}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-center mt-3" style={{ color: "var(--muted)" }}>
-                You can always find these options in the sidebar.
+              <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+                Not now?{" "}
+                <button type="button" onClick={() => router.push("/explore")} className="underline">Look around Explore</button>
+                {" · "}
+                <button type="button" onClick={() => router.push(`/${username || "feed"}`)} className="underline">See your page</button>
+                {" · "}
+                <button type="button" onClick={() => router.push("/guide")} className="underline">How Inkwell works</button>
               </p>
             </div>
           )}
@@ -1622,8 +1374,8 @@ export default function WelcomePage() {
             <p className="text-sm mt-4" style={{ color: "var(--danger)" }}>{error}</p>
           )}
 
-          {/* Navigation — hidden on guidelines step (step 4) and "What's next?" step (step 8) */}
-          {step !== 4 && step !== 5 && step !== 8 && (
+          {/* Navigation — hidden on the guidelines, the tier step and the first-page screen */}
+          {step !== 4 && step !== 5 && step !== TOTAL_STEPS - 1 && (
             <div className="flex items-center justify-between gap-4 pt-5 mt-5 border-t" style={{ borderColor: "var(--border)" }}>
               <div>
                 {step === 0 ? (

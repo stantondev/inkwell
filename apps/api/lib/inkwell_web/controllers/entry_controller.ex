@@ -1099,7 +1099,8 @@ defmodule InkwellWeb.EntryController do
   # ── Helpers ───────────────────────────────────────────────────────────────
 
   # What only the writer sees about their own entry: how many reads it has
-  # had, and the name of the custom list it's shared with.
+  # had, the name of the custom list it's shared with, and whether it's their
+  # first entry.
   defp put_owner_facts(result, entry) do
     filter_name =
       if entry.custom_filter_id do
@@ -1112,6 +1113,8 @@ defmodule InkwellWeb.EntryController do
     result
     |> Map.put(:read_count, Map.get(Inkwell.Reads.counts_for_entries([entry.id]), entry.id, 0))
     |> Map.put(:custom_filter_name, filter_name)
+    # The writer's first published entry (for the note after publishing it)
+    |> Map.put(:first_entry, MapSet.member?(Journals.recent_first_entry_ids([entry.id]), entry.id))
   end
 
   defp viewer_in_custom_filter?(entry, viewer_id) do

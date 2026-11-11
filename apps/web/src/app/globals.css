@@ -10706,6 +10706,37 @@ textarea.circle-manage-input { resize: vertical; }
 .editor-answering-excerpt { margin-top: 0.25rem; font-size: 0.875rem; line-height: 1.5; color: var(--muted); }
 .editor-answering-actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; font-size: 0.8125rem; }
 .editor-answering-actions a, .editor-answering-actions button { color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: none; }
+/* A new writer's draft: who can see it so far */
+.editor-private-note {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--muted);
+}
+/* The last screen of onboarding: a first page to start on */
+.welcome-first-page {
+  border-radius: 0.875rem;
+  border: 1px solid var(--border);
+  padding: 1.25rem 1.25rem 1rem;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.75rem - 1px), color-mix(in srgb, var(--accent) 14%, transparent) calc(1.75rem - 1px), color-mix(in srgb, var(--accent) 14%, transparent) 1.75rem),
+    var(--background);
+  background-position: 0 2.75rem;
+}
+.welcome-prompt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--foreground);
+  transition: border-color 0.15s ease;
+}
+.welcome-prompt:hover, .welcome-prompt:focus-visible { border-color: var(--accent); }
+.welcome-prompt-title { display: block; font-family: var(--font-lora, Georgia, serif); font-weight: 600; font-size: 0.9375rem; }
+.welcome-prompt-text { display: block; margin-top: 0.125rem; font-size: 0.8125rem; line-height: 1.45; color: var(--muted); }
 /* "in Writing Workshop" on feed/explore cards and the entry page */
 .entry-circle-label {
   display: inline-flex;

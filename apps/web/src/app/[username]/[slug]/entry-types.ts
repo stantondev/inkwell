@@ -59,6 +59,8 @@ export interface EntryData {
   word_count?: number;
   /** Owner only: how many times the entry has been read. */
   read_count?: number;
+  /** Owner only: this is the writer's first published entry. */
+  first_entry?: boolean;
   excerpt?: string | null;
   cover_image_id?: string | null;
   cover_image_alt?: string | null;

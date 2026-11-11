@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./entry-page.module.css";
 
@@ -9,7 +10,13 @@ import styles from "./entry-page.module.css";
  * quietly, with who can read it and a way to copy the link, then drop the
  * parameter so a reload or a shared link doesn't repeat it.
  */
-export function PublishedNote({ show, sentence, url }: { show: boolean; sentence: string; url: string }) {
+export function PublishedNote({ show, sentence, url, firstEntry = false }: {
+  show: boolean;
+  sentence: string;
+  url: string;
+  /** The writer's first entry: the place to mention inviting people (onboarding no longer asks). */
+  firstEntry?: boolean;
+}) {
   const router = useRouter();
   // Captured once: the server re-renders without the parameter after the
   // replace below, and the note should stay until it's dismissed.
@@ -37,7 +44,10 @@ export function PublishedNote({ show, sentence, url }: { show: boolean; sentence
   return (
     <div className={styles.publishedNote} role="status">
       <p className={styles.publishedText}>
-        <strong>Published.</strong> <span>{sentence}</span>
+        <strong>{firstEntry ? "Your first entry is out." : "Published."}</strong> <span>{sentence}</span>
+        {firstEntry && (
+          <span> Know someone who&rsquo;d like to read it? <Link href="/settings/invite" className="underline">Invite them</Link>.</span>
+        )}
         {copied === "failed" && <span> Couldn&rsquo;t copy &mdash; the link is {url}</span>}
       </p>
       <button type="button" className={styles.ownerButton} onClick={copy}>

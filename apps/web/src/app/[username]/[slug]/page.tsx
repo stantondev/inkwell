@@ -463,7 +463,7 @@ export default async function EntryPage({ params, searchParams }: EntryParams) {
           )}
 
           {isOwnEntry && (
-            <PublishedNote show={justPublished} sentence={audienceSentence(audience)} url={shareUrl} />
+            <PublishedNote show={justPublished} sentence={audienceSentence(audience)} url={shareUrl} firstEntry={!!entry.first_entry} />
           )}
 
           {entry.source_sticky && (

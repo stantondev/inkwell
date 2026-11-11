@@ -51,6 +51,7 @@ import { normalizeMoodTheme, type MoodTheme } from "@/lib/moods";
 import { readingMinutes } from "@/lib/reading-time";
 import { DeleteDialog } from "@/app/editor/delete-dialog";
 import { halloweenPrompt } from "@/lib/halloween-prompts";
+import { FIRST_ENTRY_PROMPTS, firstEntryPrompt } from "@/lib/first-entry-prompts";
 
 type Privacy = "public" | "friends_only" | "private" | "custom" | "paid" | "circle";
 
@@ -1576,25 +1577,6 @@ function CirclePickerModal({ onSelect, onClose }: {
 
 // ─── Main editor ──────────────────────────────────────────────────────────────
 
-const WELCOME_PROMPTS = [
-  {
-    title: "Hello, Inkwell",
-    body: "<p data-spacing=\"tight\">This is your first entry — introduce yourself! What brings you here? What do you hope to write about?</p>",
-  },
-  {
-    title: "What I\u2019m reading right now",
-    body: "<p data-spacing=\"tight\">Share what\u2019s on your nightstand, your screen, or stuck in your head. What are you reading, and why does it matter to you?</p>",
-  },
-  {
-    title: "A letter to my future self",
-    body: "<p data-spacing=\"tight\">Write to the person you\u2019ll be in a year. What do you want to remember about today? What do you hope will be different?</p>",
-  },
-  {
-    title: "The story behind my username",
-    body: "<p data-spacing=\"tight\">Every name has a story. What made you pick yours? Is there a memory, an inside joke, or a meaning behind it?</p>",
-  },
-];
-
 export function EditorClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2603,6 +2585,9 @@ export function EditorClient() {
   }, [editor, sharedUrl, sharedTitle, sharedText]);
 
   // Apply writing prompt for first-time users from onboarding
+  // A first-entry prompt (from the last screen of onboarding) is shown as a
+  // card above the page; the page itself starts empty.
+  const [firstPrompt, setFirstPrompt] = useState<number | null>(null);
   const promptApplied = useRef(false);
   useEffect(() => {
     if (editId || !editor || promptApplied.current) return;
@@ -2620,11 +2605,8 @@ export function EditorClient() {
     }
     if (promptParam !== "welcome") return;
     promptApplied.current = true;
-    const prompt = WELCOME_PROMPTS[Math.floor(Math.random() * WELCOME_PROMPTS.length)];
-    setState((s) => ({ ...s, title: prompt.title }));
-    editor.commands.setContent(prompt.body, { emitUpdate: false });
-    setHasContent(!!editor.getText().trim());
-    setWordCount(editor.storage.characterCount.words());
+    const n = searchParams.get("n");
+    setFirstPrompt(firstEntryPrompt(n === null ? null : Number(n)).index);
   }, [promptParam, editId, editor, searchParams]);
 
   const update = (patch: Partial<EditorState>) => {
@@ -3950,6 +3932,11 @@ export function EditorClient() {
             <div className={`editor-dateline${focusMode ? " hidden" : ""}`}>
               <span>{today}</span>
             </div>
+            {isDraft && isNewAccount && !focusMode && (
+              <p className="editor-private-note">
+                Only you can see this until you press Publish. It&rsquo;s kept as a draft while you write.
+              </p>
+            )}
             {state.circleId && !focusMode && (
               <div className="editor-circle-note">
                 ◎ Posting in{" "}
@@ -3971,6 +3958,27 @@ export function EditorClient() {
                   )}
                   <button type="button" onClick={() => update({ circlePromptId: null })}>
                     Post it as a new thread instead
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {firstPrompt !== null && !state.circlePromptId && !focusMode && (
+              <div className="editor-answering editor-first-prompt">
+                <div className="editor-answering-label">A place to start</div>
+                <span className="editor-answering-title">{FIRST_ENTRY_PROMPTS[firstPrompt].title}</span>
+                <p className="editor-answering-excerpt">{FIRST_ENTRY_PROMPTS[firstPrompt].prompt}</p>
+                <div className="editor-answering-actions">
+                  {!state.title.trim() && (
+                    <button type="button" onClick={() => update({ title: FIRST_ENTRY_PROMPTS[firstPrompt].title })}>
+                      Use this title
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setFirstPrompt((firstPrompt + 1) % FIRST_ENTRY_PROMPTS.length)}>
+                    Another prompt
+                  </button>
+                  <button type="button" onClick={() => setFirstPrompt(null)}>
+                    Hide
                   </button>
                 </div>
               </div>
