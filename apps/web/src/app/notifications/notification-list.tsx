@@ -200,7 +200,7 @@ export function NotificationIcon({
       </svg>
     );
   }
-  if (type === "letter") {
+  if (type === "letter" || type === "pen_pal_match") {
     return (
       <svg
         width="14"

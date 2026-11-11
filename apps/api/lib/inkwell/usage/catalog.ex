@@ -106,6 +106,8 @@ defmodule Inkwell.Usage.Catalog do
       sql: "SELECT sender_id AS uid, inserted_at AS at FROM direct_messages WHERE sender_id IS NOT NULL AND stamp_type IS NOT NULL"},
     %{key: "guestbook", label: "Signing guestbooks", group: "letters", how: :db,
       sql: "SELECT author_id AS uid, inserted_at AS at FROM guestbook_entries WHERE author_id IS NOT NULL"},
+    %{key: "pen_pal_exchange", label: "Pen pal exchange (asked for an introduction)", group: "letters", how: :db,
+      sql: "SELECT user_id AS uid, inserted_at AS at FROM pen_pal_exchange_requests"},
     %{key: "sticker_gifts", label: "Sticker gifts", group: "letters", how: :db,
       sql: "SELECT sender_id AS uid, inserted_at AS at FROM sticker_gifts WHERE sender_id IS NOT NULL"},
     %{key: "top_friends", label: "Top 6 pen pals", group: "letters", how: :db,
@@ -244,7 +246,8 @@ defmodule Inkwell.Usage.Catalog do
     "trick_or_treat" => ~D[2026-10-29],
     "seasonal_off" => ~D[2026-10-29],
     "entry_page_style" => ~D[2026-11-03],
-    "entry_readers" => ~D[2026-11-11]
+    "entry_readers" => ~D[2026-11-11],
+    "pen_pal_exchange" => ~D[2026-11-11]
   }
 
   # Tracked features start counting when tracking ships; until then they

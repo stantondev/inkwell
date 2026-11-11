@@ -1,5 +1,6 @@
 "use client";
 
+import { PenPalExchange } from "@/components/pen-pal-exchange";
 import { useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
@@ -126,6 +127,10 @@ export function PenPalsClient({
               Find people
             </Link>
           </div>
+        </div>
+
+        <div className="mb-5">
+          <PenPalExchange variant="strip" />
         </div>
 
         {/* Source filter tabs */}

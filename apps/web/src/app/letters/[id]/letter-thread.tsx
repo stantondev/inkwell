@@ -1,5 +1,6 @@
 "use client";
 
+import { IntroductionCard } from "./introduction-card";
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -826,7 +827,16 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
               </div>
             )}
 
-            {!hasMore && messages.length > 0 && (
+            {!hasMore && initialThread.introduction && (
+              <IntroductionCard
+                introduction={initialThread.introduction}
+                otherName={other.display_name}
+                otherUsername={other.username}
+                empty={messages.length === 0}
+              />
+            )}
+
+            {!hasMore && messages.length > 0 && !initialThread.introduction && (
               <p className="letter-thread-start">
                 The beginning of your letters with {other.display_name}
               </p>
@@ -858,7 +868,7 @@ export function LetterThread({ initialThread, conversationId, focusLetterId = nu
               ))}
             </AnimatePresence>
 
-            {messages.length === 0 && (
+            {messages.length === 0 && !initialThread.introduction && (
               <div className="letter-empty-state">
                 <div className="letter-empty-icon" aria-hidden="true">
                   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

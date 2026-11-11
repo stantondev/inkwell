@@ -194,6 +194,7 @@ defmodule Inkwell.Letters do
       follows?(viewer.id, target.id) -> :letter
       Accounts.is_admin?(viewer) -> :letter
       accepted_request_between?(viewer.id, target.id) -> :letter
+      introduced?(viewer.id, target.id) -> :letter
       takes_requests?(target) and request_eligible?(viewer) -> :request
       true -> nil
     end
@@ -206,6 +207,16 @@ defmodule Inkwell.Letters do
     user.moderation_state != "limited" and
       (user.vouched_at != nil or
          DateTime.diff(DateTime.utc_now(), user.inserted_at, :day) >= @request_min_account_age_days)
+  end
+
+  # The pen pal exchange introduced these two.
+  defp introduced?(a, b) do
+    {pa, pb} = canonical_order(a, b)
+
+    Repo.exists?(
+      from c in Conversation,
+        where: c.participant_a == ^pa and c.participant_b == ^pb and not is_nil(c.introduced_at)
+    )
   end
 
   defp accepted_request_between?(a, b) do
@@ -247,6 +258,9 @@ defmodule Inkwell.Letters do
           # Reopening a request you already sent (or one that was accepted,
           # declined, or became a pen-pal conversation) never makes another.
           existing && existing.request_status in ["pending", "accepted", "declined"] ->
+            {:ok, existing}
+
+          existing && existing.introduced_at ->
             {:ok, existing}
 
           follows?(user_id, target.id) or Accounts.is_admin?(viewer) ->
@@ -944,7 +958,7 @@ defmodule Inkwell.Letters do
   # Whether `sender_id` may write in `conv` right now (blocks and waiting
   # requests are checked separately). See the moduledoc.
   def can_write?(conv, sender_id, recipient_id) do
-    conv.request_status == "accepted" or
+    not is_nil(conv.introduced_at) or conv.request_status == "accepted" or
       (conv.request_status in ["pending", "declined"] and
          (conv.requested_by_id == sender_id or conv.requested_by_id == recipient_id)) or
       follows?(sender_id, recipient_id) or follows?(recipient_id, sender_id) or
@@ -1061,6 +1075,31 @@ defmodule Inkwell.Letters do
 
   @doc false
   def preloads, do: {@conv_preloads, @message_preloads}
+
+  @doc """
+  The conversation between two members the pen pal exchange has just
+  introduced: found or created, and marked so both may write without
+  following each other. A letter request left over between them is settled.
+  """
+  def introduce(user_id, other_id) do
+    with {:ok, conv} <- find_or_create(user_id, other_id) do
+      changes = [introduced_at: DateTime.utc_now()]
+      changes = if conv.request_status, do: [{:request_status, "accepted"} | changes], else: changes
+      conv |> Ecto.Changeset.change(changes) |> Repo.update()
+    end
+  end
+
+  @doc "Whether any letter has ever passed between two members."
+  def letters_between?(a, b) do
+    {first, second} = canonical_order(a, b)
+
+    Repo.exists?(
+      from m in DirectMessage,
+        join: c in Conversation,
+        on: c.id == m.conversation_id,
+        where: c.participant_a == ^first and c.participant_b == ^second
+    )
+  end
 
   defp find_or_create(user_id, target_id) do
     case conversation_between(user_id, target_id) do

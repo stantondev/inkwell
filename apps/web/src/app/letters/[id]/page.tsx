@@ -7,6 +7,8 @@ import { notFoundOrRethrow } from "@/lib/page-errors";
 
 export const metadata: Metadata = { title: "Letters" };
 
+import type { ThreadIntroduction } from "@/lib/pen-pal-exchange";
+
 export interface LetterMessage {
   id: string;
   body: string;
@@ -48,6 +50,8 @@ export interface ThreadData {
   request?: string | null;
   /** You sent a request and it hasn't been accepted yet. */
   request_waiting?: boolean;
+  /** Set when the pen pal exchange introduced the two of you. */
+  introduction?: ThreadIntroduction | null;
 }
 
 export default async function LetterThreadPage({

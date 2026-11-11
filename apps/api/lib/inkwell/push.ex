@@ -11,7 +11,7 @@ defmodule Inkwell.Push do
     comment reply mention stamp ink reprint follow_request follow_accepted
     fediverse_follow fediverse_mention letter circle_response circle_mention
     circle_prompt circle_prompt_response circle_owner
-    feedback_mention feedback_status_change feedback_comment poll_mention writer_plan_subscribe guestbook margin_note sticker_gift first_entry
+    feedback_mention feedback_status_change feedback_comment poll_mention writer_plan_subscribe guestbook margin_note sticker_gift first_entry pen_pal_match
   )a
 
   @doc "Returns true if VAPID keys are configured."
@@ -171,10 +171,12 @@ defmodule Inkwell.Push do
   defp build_text("poll_mention", actor, _), do: {"Mentioned", "#{actor} mentioned you in a poll comment"}
   defp build_text("writer_plan_subscribe", actor, _), do: {"New subscriber", "#{actor} subscribed to your writer plan"}
   defp build_text("margin_note", actor, _), do: {"New marginalia", "#{actor} annotated your entry"}
+  defp build_text("pen_pal_match", actor, _), do: {"Your pen pal is here", "Inkwell introduced you to #{actor}"}
   defp build_text("first_entry", actor, _), do: {"New on Inkwell", "#{actor} posted their first entry"}
   defp build_text(_, actor, _), do: {"Inkwell", "#{actor} interacted with your content"}
 
   defp build_url("letter", _), do: "/letters"
+  defp build_url("pen_pal_match", n), do: "/letters/#{get_target_id(n)}"
   defp build_url("follow_request", _), do: "/notifications"
   defp build_url("follow_accepted", _), do: "/notifications"
   defp build_url("fediverse_follow", _), do: "/notifications"

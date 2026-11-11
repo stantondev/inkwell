@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-11-pen-pal-exchange",
+    date: "2026-11-11",
+    title: "The pen pal exchange: let Inkwell introduce you to someone",
+    body: "Put your name in and Inkwell introduces you to one other member who did the same. You each get a letter of introduction (what the other said about themselves, and something of theirs to read) and a sheet of paper between you; either of you can write first. Letters are private, nobody is matched who didn't ask, and there are no reminders. If the next person hasn't asked yet, you're introduced as soon as they do, and we tell you here and by email. Once you've written, you can ask to meet someone else.",
+    howTo: "Open Letters (or Pen Pals) and press Find me a pen pal. You need one published entry first.",
+    href: "/letters",
+    cta: "Find me a pen pal",
+    tag: "Letters",
+  },
+  {
     id: "2026-11-11-entry-readers",
     date: "2026-11-11",
     title: "See who read an entry, right on the entry",

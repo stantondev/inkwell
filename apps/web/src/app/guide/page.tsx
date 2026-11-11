@@ -220,6 +220,12 @@ export default function GuidePage() {
             when they accept, you both are.
           </p>
           <p>
+            Don&rsquo;t know anyone yet? On <strong>Letters</strong>, press{" "}
+            <strong>Find me a pen pal</strong>. Inkwell introduces you to one
+            other member who asked too, and the two of you can write to each
+            other straight away.
+          </p>
+          <p>
             To follow a writer, press <strong>Follow</strong> on their profile,
             on Explore, or in your Feed&rsquo;s suggestions. The button reads{" "}
             <strong>Following</strong> while you wait, and their public entries

@@ -87,6 +87,8 @@ export function notificationText(n: Notification): string {
       return "upvoted your feedback post";
     case "letter":
       return "sent you a letter";
+    case "pen_pal_match":
+      return "is your new pen pal. Inkwell introduced you: there's a sheet of paper waiting";
     case "tip": {
       const amountCents = n.data?.amount_cents as number | undefined;
       const amt = amountCents ? `$${(amountCents / 100).toFixed(2)}` : "";
@@ -249,6 +251,9 @@ export function getNotificationHref(n: Notification): string | null {
     return "/settings/support/postage";
   }
   // Letter notifications link to the conversation thread
+  if (n.type === "pen_pal_match" && n.target_id) {
+    return `/letters/${n.target_id}`;
+  }
   if (n.type === "letter" && n.data?.conversation_id) {
     return `/letters/${n.data.conversation_id}`;
   }

@@ -138,7 +138,8 @@ defmodule InkwellWeb.ConversationController do
             muted: view.muted,
             archived: view.archived,
             request: LetterJSON.request(view.request),
-            request_waiting: view.request_waiting
+            request_waiting: view.request_waiting,
+            introduction: Inkwell.PenPalExchange.introduction_for(conv, user.id)
           }
         })
 

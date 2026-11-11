@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/require-session";
 import { apiFetch } from "@/lib/api";
 import { Letterbox, type LetterboxFolder } from "./letterbox";
 import { FetchError } from "@/components/fetch-error";
+import type { ExchangeStatus } from "@/lib/pen-pal-exchange";
 
 export const metadata: Metadata = { title: "Letterbox" };
 
@@ -48,6 +49,12 @@ export default async function LettersPage({
   let conversations: ConversationPreview[] = [];
   let meta: LetterboxMeta | null = null;
   let fetchFailed = false;
+  let exchange: ExchangeStatus | null = null;
+  try {
+    exchange = (await apiFetch<{ data: ExchangeStatus }>("/api/pen-pal-exchange", {}, session.token)).data ?? null;
+  } catch {
+    // The card loads it again in the browser.
+  }
   try {
     const data = await apiFetch<{ data: ConversationPreview[]; meta?: LetterboxMeta }>(
       `/api/conversations?folder=${folder}`,
@@ -80,6 +87,7 @@ export default async function LettersPage({
           <Letterbox
             initialConversations={conversations}
             initialFolder={folder}
+            initialExchange={exchange}
             initialMeta={
               meta ?? {
                 folder,

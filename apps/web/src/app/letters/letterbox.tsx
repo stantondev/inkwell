@@ -1,5 +1,7 @@
 "use client";
 
+import { PenPalExchange } from "@/components/pen-pal-exchange";
+import type { ExchangeStatus } from "@/lib/pen-pal-exchange";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
@@ -15,6 +17,8 @@ interface Props {
   initialConversations: ConversationPreview[];
   initialFolder: LetterboxFolder;
   initialMeta: LetterboxMeta;
+  /** Where the member stands in the pen pal exchange (null = load it here). */
+  initialExchange?: ExchangeStatus | null;
 }
 
 interface SearchHit {
@@ -289,7 +293,7 @@ const FOLDER_LABELS: Record<LetterboxFolder, string> = {
   archived: "Archived",
 };
 
-export function Letterbox({ initialConversations, initialFolder, initialMeta }: Props) {
+export function Letterbox({ initialConversations, initialFolder, initialMeta, initialExchange }: Props) {
   const [folder, setFolder] = useState<LetterboxFolder>(initialFolder);
   const [conversations, setConversations] = useState(initialConversations);
   const [meta, setMeta] = useState(initialMeta);
@@ -466,6 +470,14 @@ export function Letterbox({ initialConversations, initialFolder, initialMeta }: 
 
       <NewLetterPicker open={pickerOpen} onClose={closePicker} />
 
+      {folder === "inbox" && !q && (
+        <PenPalExchange
+          key={initialConversations.length > 0 ? "strip" : "card"}
+          initial={initialExchange}
+          variant={initialConversations.length > 0 ? "strip" : "card"}
+        />
+      )}
+
       {hits && hits.length > 0 && (
         <section className="letterbox-hits" aria-label="Letters that mention your search">
           <h2 className="letterbox-hits-title">In your letters</h2>
@@ -536,7 +548,8 @@ export function Letterbox({ initialConversations, initialFolder, initialMeta }: 
                 Your letterbox is empty
               </h2>
               <p style={{ fontSize: "14px", color: "var(--envelope-text-muted)", marginBottom: "24px" }}>
-                Letters are private notes between pen pals. Write to one to get started.
+                Letters are private notes between pen pals. Write to one to get started, or ask Inkwell above to
+                introduce you to someone.
               </p>
               <button
                 onClick={() => setPickerOpen(true)}

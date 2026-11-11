@@ -11,6 +11,8 @@ defmodule Inkwell.Letters.Conversation do
     field :request_status, :string
     belongs_to :requested_by, Inkwell.Accounts.User, foreign_key: :requested_by_id
     field :requested_at, :utc_datetime_usec
+    # Set when the pen pal exchange introduced these two (Inkwell.PenPalExchange).
+    field :introduced_at, :utc_datetime_usec
 
     belongs_to :participant_a_user, Inkwell.Accounts.User, foreign_key: :participant_a
     # nil in a conversation with a fediverse account, which uses remote_actor.

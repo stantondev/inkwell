@@ -452,6 +452,9 @@ defmodule InkwellWeb.Router do
     delete "/guestbook/:id", GuestbookController, :delete
 
     # Letters (private messaging between pen pals)
+    get    "/pen-pal-exchange",                         PenPalExchangeController, :show
+    post   "/pen-pal-exchange",                         PenPalExchangeController, :create
+    delete "/pen-pal-exchange",                         PenPalExchangeController, :delete
     get  "/conversations",                              ConversationController, :index
     get  "/conversations/search",                       ConversationController, :search
     post "/conversations/:id/actions",                  ConversationController, :update_view
