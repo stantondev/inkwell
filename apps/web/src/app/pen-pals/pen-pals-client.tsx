@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { AcceptDeclineButtons, CancelRequestButton } from "./pending-request-actions";
 import { FediverseFollowBackButton } from "./fediverse-follow-back-button";
 import { RemoveConnectionButton } from "./remove-connection-button";
+import { FediverseFollowerMenu } from "./fediverse-follower-menu";
 
 interface PenPal {
   id: string;
@@ -23,6 +24,7 @@ interface FediverseConnection {
   avatar_url: string | null;
   ap_id: string;
   profile_url: string;
+  bot?: boolean;
   relationship: "mutual" | "follower" | "follower_following_pending" | "following" | "following_pending";
 }
 
@@ -94,6 +96,8 @@ export function PenPalsClient({
   fediverseConnections: FediverseConnection[];
 }) {
   const [activeSource, setActiveSource] = useState<SourceFilter>("all");
+  // Fediverse rows removed or blocked from the ⋯ menu during this visit.
+  const [fediverseDone, setFediverseDone] = useState<Record<string, "removed" | "blocked">>({});
 
   const showInkwell = activeSource === "all" || activeSource === "inkwell";
   const showFediverse = activeSource === "all" || activeSource === "fediverse";
@@ -331,15 +335,25 @@ export function PenPalsClient({
               The Open Social Web · {fediverseCount}
             </h2>
             <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-              Your connections from Mastodon and the wider fediverse
+              Your connections from Mastodon and the wider fediverse.{" "}
+              {fediverseConnections.some((a) => a.bot) && (
+                <>Accounts marked <span className="ppf-bot-tag">Bot</span> say they&apos;re automated. </>
+              )}
+              <Link href="/settings/blocked#bots" className="underline">Turn bots away</Link>
             </p>
 
             <div className="rounded-2xl border overflow-hidden"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-              {fediverseConnections.map((actor, i) => (
+              {fediverseConnections.map((actor, i) => {
+                const done = fediverseDone[actor.id];
+                const followsYou =
+                  actor.relationship === "mutual" ||
+                  actor.relationship === "follower" ||
+                  actor.relationship === "follower_following_pending";
+                return (
                 <div key={actor.id}
                   className={`flex items-center gap-3 px-5 py-3.5 ${i < fediverseConnections.length - 1 ? "border-b" : ""}`}
-                  style={{ borderColor: "var(--border)" }}>
+                  style={{ borderColor: "var(--border)", opacity: done ? 0.55 : 1 }}>
                   <a href={actor.profile_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                     <Avatar url={actor.avatar_url} name={actor.display_name || actor.username} size={40} />
                   </a>
@@ -347,11 +361,18 @@ export function PenPalsClient({
                     <a href={actor.profile_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                       <p className="text-sm font-medium truncate">{actor.display_name || actor.username}</p>
                     </a>
-                    <p className="text-xs truncate" style={{ color: "var(--muted)" }}>@{actor.username}@{actor.domain}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--muted)" }}>
+                      {actor.bot && <span className="ppf-bot-tag ppf-bot-tag-lead" title="This account says it's automated">Bot</span>}
+                      @{actor.username}@{actor.domain}
+                    </p>
                   </div>
 
                   {/* Show Follow Back button for followers, action buttons for others */}
-                  {actor.relationship === "follower" || actor.relationship === "follower_following_pending" ? (
+                  {done ? (
+                    <span className="text-xs flex-shrink-0" style={{ color: "var(--muted)" }}>
+                      {done === "blocked" ? "Blocked" : "Removed"}
+                    </span>
+                  ) : actor.relationship === "follower" || actor.relationship === "follower_following_pending" ? (
                     <FediverseFollowBackButton apId={actor.ap_id} initialRelationship={actor.relationship} />
                   ) : (
                     <RemoveConnectionButton
@@ -365,12 +386,22 @@ export function PenPalsClient({
                   )}
 
                   <a href={actor.profile_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs flex items-center gap-1 flex-shrink-0" style={{ color: "var(--muted)" }}>
+                    className="text-xs hidden sm:flex items-center gap-1 flex-shrink-0" style={{ color: "var(--muted)" }}>
                     <ExternalLinkIcon />
                     {actor.domain}
                   </a>
+
+                  {!done && (
+                    <FediverseFollowerMenu
+                      remoteActorId={actor.id}
+                      handle={`@${actor.username}@${actor.domain}`}
+                      followsYou={followsYou}
+                      onDone={(result) => setFediverseDone((prev) => ({ ...prev, [actor.id]: result }))}
+                    />
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}

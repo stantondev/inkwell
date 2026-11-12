@@ -161,8 +161,11 @@ defmodule InkwellWeb.NotificationController do
         %{"remote_actor" => ra} when is_map(ra) ->
           ap_id = ra["ap_id"]
           %{
+            id: ra["id"],
             username: ra["username"],
             domain: ra["domain"],
+            # Fediverse follows since 2026-11-12 record whether it's a bot account
+            bot: ra["bot"] == true,
             display_name: ra["display_name"],
             avatar_url: ra["avatar_url"],
             profile_url: ra["profile_url"],

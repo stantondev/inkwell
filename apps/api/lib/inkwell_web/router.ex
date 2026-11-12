@@ -378,6 +378,9 @@ defmodule InkwellWeb.Router do
     post "/fediverse-blocks/domains", FediverseBlockController, :block_domain
     delete "/fediverse-blocks/domains/:domain", FediverseBlockController, :unblock_domain
     get "/fediverse-blocks/domains", FediverseBlockController, :list_blocked_domains
+    get "/fediverse-followers/bots", FediverseFollowerController, :bots
+    post "/fediverse-followers/bots/remove", FediverseFollowerController, :remove_bots
+    delete "/fediverse-followers/:remote_actor_id", FediverseFollowerController, :remove
 
     get "/fediverse-followers", RelationshipController, :fediverse_followers
     get "/fediverse-following", RelationshipController, :fediverse_following

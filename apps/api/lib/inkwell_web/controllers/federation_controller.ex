@@ -1024,7 +1024,8 @@ defmodule InkwellWeb.FederationController do
 
     with true <- target_user != nil,
          {:ok, remote_actor} <- RemoteActor.fetch(actor_uri),
-         {:blocked, false} <- {:blocked, blocked_for_user?(target_user.id, remote_actor)} do
+         {:blocked, false} <- {:blocked, blocked_for_user?(target_user.id, remote_actor)},
+         {:bot, false} <- {:bot, declined_bot?(target_user, remote_actor)} do
 
       case create_remote_follow(remote_actor, target_user) do
         {:ok, :created, _rel} ->
@@ -1065,10 +1066,26 @@ defmodule InkwellWeb.FederationController do
         Logger.info("Ignoring follow from #{actor_uri}: blocked by @#{target_user.username}")
         :ok
 
+      {:bot, {true, remote_actor}} ->
+        # The member turns down bot accounts: say no, store nothing, no notice.
+        Inkwell.Federation.Followers.reject_follow(target_user, activity, remote_actor)
+        Logger.info("Declined bot follow from #{actor_uri} → #{target_user.username}")
+        :ok
+
       _ ->
         Logger.warning("Follow handling failed for #{actor_uri}")
         :ok
     end
+  end
+
+  # A bot account asking to follow a member who declines bots. One that
+  # already follows them stays (Settings offers to remove those).
+  defp declined_bot?(target_user, remote_actor) do
+    if Inkwell.Federation.Followers.declines_bots?(target_user) and
+         Inkwell.Federation.Followers.bot?(remote_actor) and
+         not Inkwell.Federation.Followers.follower?(target_user.id, remote_actor.id),
+       do: {true, remote_actor},
+       else: false
   end
 
   defp create_remote_follow(remote_actor, target_user) do
@@ -1117,7 +1134,8 @@ defmodule InkwellWeb.FederationController do
           domain: remote_actor.domain,
           avatar_url: remote_actor.avatar_url,
           profile_url: profile_url,
-          ap_id: remote_actor.ap_id
+          ap_id: remote_actor.ap_id,
+          bot: Inkwell.Federation.Followers.bot?(remote_actor)
         }
       }
     })

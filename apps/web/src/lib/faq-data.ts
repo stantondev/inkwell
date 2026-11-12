@@ -265,6 +265,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "social",
   },
 
+  {
+    id: "fediverse-followers-bots",
+    question: "Can I remove or block someone who follows me from Mastodon, or keep bots out?",
+    answer:
+      'Yes. On <a href="/pen-pals">Pen Pals</a>, each fediverse account has a &#8943; menu: <strong>Remove follower</strong> (they stop getting your posts but can follow again) or <strong>Block</strong> (they stop following you and can&rsquo;t follow, reply or write to you). You can also block from the &ldquo;followed you from the fediverse&rdquo; notification. Either way their server is told. Accounts that say they&rsquo;re automated are marked <strong>Bot</strong>; in <a href="/settings/blocked#bots">Settings &rarr; Blocked</a> you can turn down follows from bots and remove the ones that already follow you. Bots that don&rsquo;t label themselves can still follow, so block those by hand.',
+    category: "social",
+  },
+
   // ── The Fediverse ──
   {
     id: "what-is-fediverse",

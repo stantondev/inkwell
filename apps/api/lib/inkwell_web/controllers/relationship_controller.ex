@@ -274,7 +274,8 @@ defmodule InkwellWeb.RelationshipController do
       display_name: actor.display_name,
       avatar_url: actor.avatar_url,
       ap_id: actor.ap_id,
-      profile_url: actor.ap_id
+      profile_url: actor.ap_id,
+      bot: Inkwell.Federation.Followers.bot?(actor)
     }
   end
 

@@ -264,6 +264,7 @@ Mentions are `Mention` tags (`href` the actor id, `name` `@user@server`), and th
 | `Create {Article}` with FEP-e232 tag | A member quote-reprints a post | The member's followers |
 | `Follow` / `Undo {Follow}` | A member follows or unfollows a fediverse account; the instance actor subscribes to a relay | That account or relay |
 | `Accept {Follow}` | A fediverse account follows a member (accepted automatically) | The follower |
+| `Reject {Follow}` | A member removes or blocks a follower, blocks the follower's whole server, or has turned bot accounts away and a bot asks to follow. For an existing follower we don't keep the original Follow's id, so the `object` is an embedded `Follow` with `actor` (the follower) and `object` (the member) and no `id`; Mastodon matches it by actor and removes the follow | The follower |
 | `Add` / `Remove` | A guestbook signature is accepted or taken down | The signer |
 | `Follow`, `Block`, `Undo {Block}` | A member switches sharing to Bluesky on or off (Bridgy Fed opts people in with a follow and out with a block) | `https://bsky.brid.gy/bsky.brid.gy` |
 
@@ -279,7 +280,7 @@ Inbox and shared inbox (`POST /users/{username}/inbox`, `POST /inbox`) verify th
 
 | Activity | Behavior |
 |---|---|
-| `Follow` | Accepted automatically; `Accept` sent back; the member is notified once. Dropped silently if the member blocked the account or its domain. |
+| `Follow` | Accepted automatically; `Accept` sent back; the member is notified once. Dropped silently if the member blocked the account or its domain. If the member turns bot accounts away and the actor's `type` is `Service` or `Application`, answered with `Reject` and nothing is stored. |
 | `Undo {Follow}` | Removes the follower. |
 | `Accept {Follow}` | Marks our follow as accepted. For relays, starts receiving relayed posts. |
 | `Create {Note/Article/Page}`, reply to an Inkwell entry or comment | Stored as a comment and threaded, **only if the reply is publicly addressed** (public or unlisted). Followers-only and direct replies reach the people they mention as a private notification instead. |

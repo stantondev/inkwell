@@ -205,7 +205,11 @@ defmodule Inkwell.Usage.Catalog do
     %{key: "trick_or_treat", label: "Trick or treat (Hallowe'en pumpkin)", group: "tools", how: :tracked,
       actions: ["treat", "trick"]},
     %{key: "seasonal_off", label: "Holiday decorations turned off", group: "tools", how: :state,
-      sql: "SELECT id AS uid FROM users WHERE settings->>'seasonal_decorations' = 'false'"}
+      sql: "SELECT id AS uid FROM users WHERE settings->>'seasonal_decorations' = 'false'"},
+    %{key: "fediverse_blocks", label: "Blocking fediverse accounts", group: "community", how: :db, core: true,
+      sql: "SELECT user_id AS uid, inserted_at AS at FROM blocked_remote_actors"},
+    %{key: "decline_bot_follows", label: "Turning bot accounts away", group: "community", how: :state,
+      sql: "SELECT id AS uid FROM users WHERE settings->>'decline_bot_follows' = 'true'"}
   ]
 
   # `core: true` = never called a retirement candidate: the basics, and the
@@ -247,7 +251,9 @@ defmodule Inkwell.Usage.Catalog do
     "seasonal_off" => ~D[2026-10-29],
     "entry_page_style" => ~D[2026-11-03],
     "entry_readers" => ~D[2026-11-11],
-    "pen_pal_exchange" => ~D[2026-11-11]
+    "pen_pal_exchange" => ~D[2026-11-11],
+    "fediverse_blocks" => ~D[2026-11-12],
+    "decline_bot_follows" => ~D[2026-11-12]
   }
 
   # Tracked features start counting when tracking ships; until then they

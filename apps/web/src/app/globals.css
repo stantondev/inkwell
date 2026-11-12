@@ -22210,3 +22210,98 @@ body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter
 @media (max-width: 640px) {
   .intro-letter { margin: 14px 6px 24px; padding: 24px 20px 16px; transform: none; }
 }
+
+/* ── Fediverse followers: ⋯ menu, confirm, Bot tag (Pen Pals, Notifications) ── */
+.ppf-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.ppf-menu-btn:hover,
+.ppf-menu-btn[aria-expanded="true"] {
+  background: var(--surface-hover, var(--accent-light));
+  color: var(--foreground);
+}
+.ppf-menu {
+  width: min(280px, calc(100vw - 32px));
+  padding: 4px;
+}
+.ppf-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--foreground);
+}
+.ppf-item:hover,
+.ppf-item:focus-visible {
+  background: var(--surface-hover, var(--accent-light));
+}
+.ppf-item-danger {
+  color: var(--danger, #b42318);
+}
+.ppf-confirm {
+  padding: 10px 12px;
+}
+.ppf-confirm-text {
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+.ppf-error {
+  font-size: 0.75rem;
+  color: var(--danger, #b42318);
+  margin-top: 6px;
+}
+.ppf-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ppf-cancel,
+.ppf-danger {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  min-height: 28px;
+}
+.ppf-cancel {
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.ppf-danger {
+  background: var(--danger, #b42318);
+  color: #fff;
+}
+.ppf-danger:disabled,
+.ppf-cancel:disabled {
+  opacity: 0.6;
+}
+.ppf-bot-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  vertical-align: 1px;
+}
+.ppf-bot-tag-lead {
+  margin-left: 0;
+  margin-right: 6px;
+}

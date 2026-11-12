@@ -315,10 +315,10 @@ export const SETTINGS_CATALOG: SettingsEntry[] = [
     id: "blocked",
     href: "/settings/blocked",
     title: "Blocked",
-    blurb: "People and whole fediverse servers you've shut out, and the way to let them back in.",
+    blurb: "People and whole fediverse servers you've shut out, bot accounts you turn away, and the way to let them back in.",
     icon: I.block,
     group: "privacy",
-    keywords: ["block", "mute", "domains", "defederate", "harassment"],
+    keywords: ["block", "mute", "domains", "defederate", "harassment", "bots", "bot", "followers", "remove follower"],
   },
 
   // ── Plan & data ──────────────────────────────────────────────────────

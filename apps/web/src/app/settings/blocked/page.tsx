@@ -1,5 +1,6 @@
 "use client";
 
+import { BotFollowersCard } from "./bot-followers-card";
 import { useState, useEffect } from "react";
 import { AvatarWithFrame } from "@/components/avatar-with-frame";
 import Link from "next/link";
@@ -158,11 +159,13 @@ export default function BlockedUsersPage() {
         )}
       </section>
 
+      <BotFollowersCard />
+
       {/* Remote Fediverse Actors */}
       <section>
         <h2 className="text-lg font-semibold mb-1">Blocked Fediverse Users</h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-          Users from other fediverse instances (Mastodon, etc.) that you&apos;ve blocked. Their activities will be silently dropped.
+          Accounts on other fediverse servers (Mastodon and others) that you&apos;ve blocked. They don&apos;t follow you or get your posts, and anything they send you is dropped. Block someone from Pen Pals or their follow notification.
         </p>
 
         {remoteActors.length === 0 ? (
@@ -206,7 +209,7 @@ export default function BlockedUsersPage() {
       <section>
         <h2 className="text-lg font-semibold mb-1">Blocked Domains</h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-          All content from blocked domains will be hidden from your feed and explore. Inbound activities from these instances will be dropped.
+          Everything from a blocked server is hidden from your Feed and Explore, and anything it sends you is dropped. Its accounts that follow you are removed.
         </p>
 
         <div className="flex flex-col gap-2 mb-4">

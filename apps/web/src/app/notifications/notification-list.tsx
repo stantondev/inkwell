@@ -722,6 +722,97 @@ function MentionReplyButton({
 }
 
 // ─── Fediverse Follow Back ─────────────────────────────────────
+/**
+ * Block a fediverse account that just followed you (it stops following you
+ * and its server is told). Shows "Bot" for accounts that say they're automated.
+ */
+function BlockFediverseFollowerButton({
+  remoteActorId,
+  handle,
+  bot,
+}: {
+  remoteActorId: string;
+  handle: string;
+  bot: boolean;
+}) {
+  const [state, setState] = useState<"idle" | "confirm" | "loading" | "blocked" | "error">("idle");
+
+  async function block(e: React.MouseEvent) {
+    e.stopPropagation();
+    setState("loading");
+    try {
+      const res = await fetch("/api/fediverse-blocks/actors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ remote_actor_id: remoteActorId }),
+      });
+      setState(res.ok ? "blocked" : "error");
+    } catch {
+      setState("error");
+    }
+  }
+
+  const botTag = bot ? (
+    <span className="ppf-bot-tag mt-2" title="This account says it's automated">Bot</span>
+  ) : null;
+
+  if (state === "blocked") {
+    return (
+      <>
+        {botTag}
+        <span className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+          Blocked. {handle} no longer follows you.
+        </span>
+      </>
+    );
+  }
+
+  if (state === "confirm" || state === "loading" || state === "error") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2 mt-2 text-xs" onClick={(e) => e.stopPropagation()}>
+        <span style={{ color: "var(--muted)" }}>
+          {state === "error" ? "That didn't work." : `Block ${handle}?`}
+        </span>
+        <button
+          type="button"
+          onClick={block}
+          disabled={state === "loading"}
+          className="ppf-danger"
+        >
+          {state === "loading" ? "…" : state === "error" ? "Try again" : "Block"}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setState("idle");
+          }}
+          className="ppf-cancel"
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      {botTag}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setState("confirm");
+        }}
+        className="text-xs mt-2 px-3 py-1 rounded-full border"
+        style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+      >
+        Block
+      </button>
+    </>
+  );
+}
+
 function FediverseFollowBackButton({
   apId,
   isFollowingBack,
@@ -1306,10 +1397,19 @@ export function NotificationList({
                         {/* Fediverse follow-back button */}
                         {n.type === "fediverse_follow" &&
                           n.remote_actor?.ap_id && (
-                            <FediverseFollowBackButton
-                              apId={n.remote_actor.ap_id}
-                              isFollowingBack={n.remote_actor.is_following_back}
-                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <FediverseFollowBackButton
+                                apId={n.remote_actor.ap_id}
+                                isFollowingBack={n.remote_actor.is_following_back}
+                              />
+                              {n.remote_actor.id && (
+                                <BlockFediverseFollowerButton
+                                  remoteActorId={n.remote_actor.id}
+                                  handle={`@${n.remote_actor.username}@${n.remote_actor.domain}`}
+                                  bot={!!n.remote_actor.bot}
+                                />
+                              )}
+                            </div>
                           )}
                       </div>
 

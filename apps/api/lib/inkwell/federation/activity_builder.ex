@@ -390,6 +390,23 @@ defmodule Inkwell.Federation.ActivityBuilder do
   end
 
   @doc """
+  Builds a Reject of a Follow: turning down a follow request, or removing an
+  existing follower (Mastodon treats a Reject of an accepted Follow as
+  "remove this follower").
+  """
+  def build_reject(follow_activity, local_user) do
+    actor_url = actor_url(local_user)
+
+    %{
+      "@context" => ap_context(),
+      "type" => "Reject",
+      "id" => "#{actor_url}#reject-#{System.system_time(:nanosecond)}",
+      "actor" => actor_url,
+      "object" => follow_activity
+    }
+  end
+
+  @doc """
   Builds a Note object representing a user's guestbook post.
   Fediverse users can search for this URL in Mastodon, then reply to sign the guestbook.
   """

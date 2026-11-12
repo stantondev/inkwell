@@ -3,6 +3,8 @@
 import { stampInfo } from "@/components/stamp-config";
 
 export interface RemoteActor {
+  /** Their id here (fediverse follows) */
+  id?: string | null;
   username: string;
   domain: string;
   display_name: string;
@@ -12,6 +14,8 @@ export interface RemoteActor {
   /** "bluesky" for replies to an entry shared on Bluesky */
   source?: string | null;
   is_following_back?: boolean;
+  /** The account says it's automated (fediverse follows since 2026-11-12) */
+  bot?: boolean;
 }
 
 export interface Notification {

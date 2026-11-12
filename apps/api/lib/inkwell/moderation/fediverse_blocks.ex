@@ -78,6 +78,18 @@ defmodule Inkwell.Moderation.FediverseBlocks do
     %BlockedDomain{}
     |> BlockedDomain.changeset(%{user_id: user_id, domain: domain, reason: reason})
     |> Repo.insert(on_conflict: :nothing)
+    |> case do
+      {:ok, block} ->
+        # Followers on that server stop getting the member's posts.
+        with %Inkwell.Accounts.User{} = user <- Repo.get(Inkwell.Accounts.User, user_id) do
+          Inkwell.Federation.Followers.remove_from_domain(user, block.domain || domain)
+        end
+
+        {:ok, block}
+
+      error ->
+        error
+    end
   end
 
   def unblock_domain(user_id, domain) do
@@ -191,6 +203,13 @@ defmodule Inkwell.Moderation.FediverseBlocks do
   # ── Cascade Cleanup ─────────────────────────────────────────────────────
 
   defp cascade_block_remote_actor(user_id, remote_actor_id) do
+    # A blocked account stops following the member (so it stops getting their
+    # posts) and the member stops following it, both sides told.
+    with %Inkwell.Accounts.User{} = user <- Repo.get(Inkwell.Accounts.User, user_id) do
+      Inkwell.Federation.Followers.remove(user, remote_actor_id)
+      Inkwell.Federation.Followers.stop_following(user, remote_actor_id)
+    end
+
     # Delete federated inks from this actor on the user's entries
     from(i in Inkwell.Inks.Ink,
       where: i.remote_actor_id == ^remote_actor_id,

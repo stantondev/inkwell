@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-12-fediverse-followers",
+    date: "2026-11-12",
+    title: "Remove or block fediverse followers, and turn bots away",
+    body: "Accounts from Mastodon and other fediverse servers that follow you now have a ⋯ menu on Pen Pals: Remove follower, or Block. Either way they stop getting your posts and their server is told. You can also block straight from the \"followed you from the fediverse\" notification. Accounts that say they're automated are marked Bot, and a new switch turns down follows from them, with one button to remove the bots that already follow you. Blocking a fediverse account or a whole server now also removes those followers (before, a blocked follower kept getting your posts).",
+    howTo: "Settings → Blocked → Bot accounts.",
+    href: "/settings/blocked#bots",
+    cta: "Bot settings",
+    tag: "Fediverse",
+  },
+  {
     id: "2026-11-11-pen-pal-exchange",
     date: "2026-11-11",
     title: "The pen pal exchange: let Inkwell introduce you to someone",
