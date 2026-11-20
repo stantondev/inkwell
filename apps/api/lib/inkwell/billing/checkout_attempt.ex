@@ -14,7 +14,7 @@ defmodule Inkwell.Billing.CheckoutAttempt do
 
   # Recurring kinds are the ones a subscription should follow; founding and
   # donation are one-off payments.
-  @subscription_kinds ~w(plus plus_annual donor)
+  @subscription_kinds ~w(plus plus_annual plus_supporter plus_supporter_annual donor)
   @kinds @subscription_kinds ++ ~w(founding donation)
 
   schema "billing_checkout_attempts" do

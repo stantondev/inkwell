@@ -170,6 +170,8 @@ export default async function TransparencyPage() {
   const costsSince = life ? day(life.costs_since, { month: "long", year: "numeric" }) : "";
   const billedThrough = life?.billed_through ? day(life.billed_through, { month: "long", day: "numeric" }) : null;
   const priceNote = foundingPriceNote(data?.founding);
+  // How many members at the $5 level it takes to pay the monthly bills.
+  const membersNeeded = data ? Math.ceil(data.monthly_cost_cents / 500) : 0;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12" style={{ color: "var(--foreground)" }}>
@@ -194,7 +196,7 @@ export default async function TransparencyPage() {
           {/* Coverage meter */}
           <section className="rounded-xl border p-6 mb-8" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
             <div className="flex items-baseline justify-between gap-4 mb-3 flex-wrap">
-              <h2 className="text-lg font-semibold" style={serif}>This month&apos;s bill</h2>
+              <h2 className="text-lg font-semibold" style={serif}>This month&apos;s bills</h2>
               <p className="text-sm" style={{ color: "var(--muted)" }}>
                 <strong style={{ color: "var(--foreground)" }}>{dollars(data.monthly_revenue_cents)}</strong> of{" "}
                 <strong style={{ color: "var(--foreground)" }}>{dollars(data.monthly_cost_cents)}</strong> covered by members
@@ -219,13 +221,19 @@ export default async function TransparencyPage() {
                   : `The other ${dollars(gap)} a month comes out of the founder's pocket.`}
               </span>
             </p>
+            {data.percent_covered < 100 && (
+              <p className="text-sm mt-2" style={{ color: "var(--muted)" }}>
+                It takes {membersNeeded} members at $5 a month (or $50 a year) to pay the bills.
+              </p>
+            )}
             {raised > 0 && (
               <p className="text-sm mt-3 pt-3" style={{ borderTop: "1px solid var(--border)", color: "var(--muted)" }}>
                 <strong style={{ color: "var(--foreground)" }}>
                   On top of that, {data.founding.sold} Founding {data.founding.sold === 1 ? "Member has" : "Members have"} paid{" "}
                   {dollars(raised)} once.
                 </strong>{" "}
-                It isn&apos;t counted in the meter above, which shows only what comes in every month.
+                That money has gone on Inkwell&apos;s bills so far. It isn&apos;t counted in the meter above,
+                which shows only what comes in every month, because it doesn&apos;t come again.
               </p>
             )}
           </section>
@@ -244,7 +252,9 @@ export default async function TransparencyPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-semibold" style={serif}>{lifePaid != null ? dollars(lifePaid) : "—"}</p>
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>What members have paid in total</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    What members have paid in total{raised > 0 ? ", mostly one-time Founding payments" : ""}
+                  </p>
                 </div>
               </div>
               {lifePaid != null && (
@@ -271,7 +281,13 @@ export default async function TransparencyPage() {
                         </span>
                       </>
                     ) : (
-                      <strong>Members have paid back everything Inkwell has cost. Thank you.</strong>
+                      <>
+                        <strong>One-time Founding payments have covered Inkwell&apos;s bills so far.</strong>{" "}
+                        <span style={{ color: "var(--muted)" }}>
+                          They don&apos;t repeat. What pays the bills from here on is monthly and yearly members
+                          {gap > 0 ? `, who cover ${data.percent_covered}% of each month right now.` : ", who now cover each month in full."}
+                        </span>
+                      </>
                     )}
                   </p>
                 </>
@@ -331,8 +347,8 @@ export default async function TransparencyPage() {
               </div>
             </div>
             <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-              Server and email costs only. The founder&apos;s time isn&apos;t counted, and the founder&apos;s own
-              Plus subscription is left out of the member revenue above.
+              Server and email costs only. Other costs of running Inkwell and the founder&apos;s time aren&apos;t
+              counted, and the founder&apos;s own Plus subscription is left out of the member revenue above.
             </p>
           </section>
 
@@ -340,6 +356,11 @@ export default async function TransparencyPage() {
           <section className="rounded-xl border p-6 mb-8" style={{ borderColor: "var(--accent)", background: "var(--surface)" }}>
             <h2 className="text-xl font-semibold mb-2" style={serif}>How to help</h2>
             <ul className="text-sm leading-relaxed flex flex-col gap-2" style={{ color: "var(--muted)" }}>
+              <li>
+                <strong style={{ color: "var(--foreground)" }}>Become a member</strong> — $50 a year or $5 a month,
+                or $100 a year / $10 a month to cover someone else&apos;s share too. This is what pays the monthly
+                bills, and members get Plus.
+              </li>
               {data.founding.remaining > 0 && (
                 <li>
                   <strong style={{ color: "var(--foreground)" }}>Become a Founding Member</strong> —{" "}
@@ -348,9 +369,6 @@ export default async function TransparencyPage() {
                   {priceNote && <> {priceNote}.</>}
                 </li>
               )}
-              <li>
-                <strong style={{ color: "var(--foreground)" }}>Get Plus</strong> — $5 a month, or try it free for 14 days first.
-              </li>
               <li>
                 <strong style={{ color: "var(--foreground)" }}>Give once</strong> — any amount from $1, with nothing to renew.
               </li>
@@ -364,7 +382,7 @@ export default async function TransparencyPage() {
                 className="inline-flex mt-4 rounded-full px-6 py-2.5 text-sm font-medium"
                 style={{ background: "var(--accent)", color: "var(--background)" }}
               >
-                Support Inkwell
+                Become a member
               </Link>
             ) : (
               <div className="flex flex-wrap items-center gap-3 mt-4">

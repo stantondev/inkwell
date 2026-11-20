@@ -40,16 +40,11 @@ defmodule InkwellWeb.BillingController do
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
-      yearly? = params["interval"] == "year"
-
-      result =
-        if yearly?,
-          do: Billing.create_plus_annual_checkout_session(user, :billing),
-          else: Billing.create_checkout_session(user)
+      {result, kind} = plus_checkout_session(user, params, :billing)
 
       case result do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user, if(yearly?, do: "plus_annual", else: "plus"))
+          record_billing_checkout(user, kind)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -213,16 +208,11 @@ defmodule InkwellWeb.BillingController do
 
     with :ok <- check_billing_rate(user),
          :ok <- check_no_active_plus(user) do
-      yearly? = params["interval"] == "year"
-
-      result =
-        if yearly?,
-          do: Billing.create_plus_annual_checkout_session(user, :onboarding),
-          else: Billing.create_onboarding_checkout_session(user, "plus")
+      {result, kind} = plus_checkout_session(user, params, :onboarding)
 
       case result do
         {:ok, %{url: url}} ->
-          record_billing_checkout(user, if(yearly?, do: "plus_annual", else: "plus"))
+          record_billing_checkout(user, kind)
           json(conn, %{url: url})
 
         {:error, :square_not_configured} ->
@@ -372,6 +362,11 @@ defmodule InkwellWeb.BillingController do
         trial_days: Inkwell.Billing.Trials.trial_days(),
         plus_annual_available: Inkwell.Square.plus_annual_configured?(),
         plus_annual_cents: Inkwell.Square.plus_annual_cents(),
+        plus_supporter_available:
+          Inkwell.Square.plus_supporter_configured?(:month) and
+            Inkwell.Square.plus_supporter_configured?(:year),
+        plus_supporter_cents: Inkwell.Square.plus_supporter_cents(),
+        plus_supporter_annual_cents: Inkwell.Square.plus_supporter_annual_cents(),
         # "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled"
         plus_checkout: Atom.to_string(Billing.plus_checkout_state(user)),
         plus_resumable: Billing.plus_resumable?(user),
@@ -543,6 +538,34 @@ defmodule InkwellWeb.BillingController do
   # Called only after we've successfully handed the user a checkout URL.
   # Also records the attempt so Inkwell.Billing.Funnel can tell "nobody wants
   # to pay" apart from "nobody can pay".
+  # Which Plus checkout to open. Body params:
+  #   "interval" => "year" for yearly, anything else is monthly
+  #   "level"    => "supporter" for the $10/$100 level, anything else is the
+  #                 member level ($5/$50), which goes through exactly the same
+  #                 functions as before the Supporter level existed.
+  # Returns {result, funnel_kind}.
+  defp plus_checkout_session(user, params, return_to) do
+    yearly? = params["interval"] == "year"
+    supporter? = params["level"] == "supporter"
+
+    cond do
+      supporter? ->
+        interval = if yearly?, do: :year, else: :month
+
+        {Billing.create_plus_supporter_checkout_session(user, interval, return_to),
+         if(yearly?, do: "plus_supporter_annual", else: "plus_supporter")}
+
+      yearly? ->
+        {Billing.create_plus_annual_checkout_session(user, return_to), "plus_annual"}
+
+      return_to == :onboarding ->
+        {Billing.create_onboarding_checkout_session(user, "plus"), "plus"}
+
+      true ->
+        {Billing.create_checkout_session(user), "plus"}
+    end
+  end
+
   defp record_billing_checkout(user, kind) do
     ensure_billing_rate_table()
     :ets.insert(:billing_rate_limit, {{:billing_checkout, user.id}, System.system_time(:second)})

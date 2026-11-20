@@ -75,9 +75,75 @@ defmodule Inkwell.Square do
   end
 
   @plus_annual_cents 5000
+  # The Supporter level: the same Plus membership, at twice the price, for
+  # members who want to cover someone else's share. Its own STATIC plan
+  # variations (created 2026-11-20), so nothing about the $5/$50 plans changed.
+  @plus_supporter_cents 1000
+  @plus_supporter_annual_cents 10000
   @founding_line_item "Inkwell Founding Member"
 
   def plus_annual_cents, do: @plus_annual_cents
+  def plus_supporter_cents, do: @plus_supporter_cents
+  def plus_supporter_annual_cents, do: @plus_supporter_annual_cents
+
+  @doc "True when the Supporter plan for `interval` (`:month` or `:year`) is configured."
+  def plus_supporter_configured?(interval \\ :month) do
+    key =
+      if interval == :year,
+        do: :plus_supporter_annual_plan_variation_id,
+        else: :plus_supporter_plan_variation_id
+
+    case square_config()[key] do
+      id when is_binary(id) and id != "" -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Create a Square Payment Link for Plus at the Supporter level ($10/mo or
+  $100/yr). `interval` is `:month` or `:year`; `return_to` is `:billing` or
+  `:onboarding` and only changes the redirect. Webhooks treat it like any other
+  Plus plan (anything that isn't a donor variation is Plus).
+  """
+  def create_plus_supporter_payment_link(%User{} = user, customer_id, interval, return_to \\ :billing)
+      when is_binary(customer_id) and interval in [:month, :year] do
+    config = square_config()
+    frontend_url = Application.get_env(:inkwell, :frontend_url, "https://inkwell.social")
+    yearly? = interval == :year
+
+    plan_variation_id =
+      if yearly?,
+        do: config[:plus_supporter_annual_plan_variation_id],
+        else: config[:plus_supporter_plan_variation_id]
+
+    redirect_url =
+      case return_to do
+        :onboarding -> "#{frontend_url}/welcome?checkout=success&type=plus&step=5"
+        _ -> "#{frontend_url}/settings/billing?checkout=success"
+      end
+
+    link_type = if yearly?, do: "plus-supporter-annual", else: "plus-supporter"
+
+    if is_nil(plan_variation_id) or plan_variation_id == "" do
+      {:error, :square_not_configured}
+    else
+      body =
+        subscription_payment_link_body(
+          idempotency_key:
+            "#{link_type}-#{return_to}-#{user.id}-#{div(System.system_time(:second), 3600)}",
+          line_item_name:
+            if(yearly?, do: "Inkwell Plus Supporter (Yearly)", else: "Inkwell Plus Supporter"),
+          amount_cents: if(yearly?, do: @plus_supporter_annual_cents, else: @plus_supporter_cents),
+          user: user,
+          customer_id: customer_id,
+          plan_variation_id: plan_variation_id,
+          redirect_url: redirect_url,
+          config: config
+        )
+
+      post_payment_link(body, link_type, user.id)
+    end
+  end
   def founding_member_cents, do: Inkwell.Billing.Founding.price_cents()
   def founding_line_item_name, do: @founding_line_item
 

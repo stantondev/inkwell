@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getSite } from "@/lib/site";
-import { PLUS_POINTS, PLUS_EXTRAS, dollars, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
+import { PLUS_POINTS, PLUS_EXTRAS, billsLine, dollars, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
 
 // "Inkwell" alone shares its search results with a Rust library, a planner
 // brand and several magazines (Search Console, Jun–Sep 2026: 3,766
@@ -96,6 +96,8 @@ async function getRecentEntries(): Promise<ExploreEntry[]> {
 // ---------------------------------------------------------------------------
 interface TransparencySummary {
   founding: FoundingStatus | null;
+  monthly_cost_cents?: number;
+  monthly_revenue_cents?: number;
 }
 
 async function getTransparency(): Promise<TransparencySummary | null> {
@@ -113,6 +115,7 @@ export default async function LandingPage() {
   const [recentEntries, transparency] = await Promise.all([getRecentEntries(), getTransparency()]);
   const founding = transparency?.founding && transparency.founding.remaining > 0 ? transparency.founding : null;
   const foundingSoldOut = transparency?.founding?.remaining === 0;
+  const billsSentence = billsLine(transparency?.monthly_cost_cents, transparency?.monthly_revenue_cents);
   const { selfHosted } = getSite();
 
   return (
@@ -154,10 +157,14 @@ export default async function LandingPage() {
             Choose your ink
           </h2>
           <p className="text-base leading-relaxed mb-10 max-w-2xl mx-auto" style={{ color: "var(--muted)" }}>
-            Writing, reading and connecting on Inkwell are free, with no time limit. Plus is for
-            writers who want their own domain, to see who&apos;s reading, and a page that looks like them.
-            Members pay for the servers, which is why there are no ads.
+            Writing, reading and connecting on Inkwell are free, with no time limit. Inkwell has no ads
+            and no investors: members pay the monthly bills, and get Plus as a thank-you.
           </p>
+          {billsSentence && (
+            <p className="text-sm mb-10 -mt-6 max-w-2xl mx-auto" style={{ color: "var(--muted)" }}>
+              {billsSentence}
+            </p>
+          )}
 
           <div className="landing-pricing-grid">
             {/* Free */}
@@ -186,12 +193,16 @@ export default async function LandingPage() {
 
             {/* Plus */}
             <div className="landing-price-card landing-plus-card landing-price-card-featured">
-              <p className="landing-price-name" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
+              <p className="landing-price-name" style={{ color: "var(--accent)" }}>Member</p>
               <p className="landing-price-amount">
-                $5<span className="landing-price-period">/mo</span>
+                $50<span className="landing-price-period">/year</span>
               </p>
-              <p className="landing-price-note">or $50 a year &middot; 14 days free, no card</p>
+              <p className="landing-price-note">or $5 a month &middot; Supporters pay twice that</p>
               <ul className="landing-price-list landing-price-list-lead">
+                <li>
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
+                  <span><strong>Keep Inkwell running.</strong> Your share of the servers, email and storage.</span>
+                </li>
                 {PLUS_POINTS.map((p) => (
                   <li key={p.title}>
                     <span aria-hidden="true" style={{ color: "var(--accent)" }}>&#10003;</span>
@@ -199,9 +210,9 @@ export default async function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <p className="landing-price-extras">Also: {PLUS_EXTRAS}</p>
+              <p className="landing-price-extras">Members also get Plus: {PLUS_EXTRAS}</p>
               <Link href="/get-started?plan=plus" className="landing-price-cta">
-                Try Plus free for 14 days
+                Become a member
               </Link>
             </div>
 

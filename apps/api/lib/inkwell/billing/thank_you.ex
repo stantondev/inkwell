@@ -41,10 +41,10 @@ defmodule Inkwell.Billing.ThankYou do
     body = """
     Hey #{first_name(user)}!
 
-    Thank you for getting Plus. It genuinely matters: Inkwell has no ads and no investors, so members are the ones keeping the servers on. You can see exactly where the money goes here:
+    Thank you for becoming a member. It genuinely matters: Inkwell has no ads and no investors, so members are the ones keeping the servers on, month after month. You can see exactly where the money goes here:
     #{url("/transparency")}
 
-    Your custom domain, reader stats and the rest of Plus are on now. If anything doesn't work the way you expected, or there's something you wish Plus did, just reply. I read every one.
+    Every Plus feature is on now: your own domain, reader stats and the rest. If anything doesn't work the way you expected, or there's something you wish Plus did, just reply. I read every one.
     """
 
     {"Thank you for supporting Inkwell", body}

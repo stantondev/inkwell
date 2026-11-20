@@ -1,6 +1,19 @@
 "use client";
 
-import { PLUS_POINTS, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
+import {
+  PLUS_POINTS,
+  foundingPriceNote,
+  billsLine,
+  LEVEL_INFO,
+  plusChoice,
+  plusPriceLabel,
+  plusPricesFrom,
+  type FoundingStatus,
+  type PlusInterval,
+  type PlusLevel,
+  type PlusPrices,
+} from "@/lib/plus-pitch";
+import { MembershipPicker } from "@/components/membership-picker";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resizeImage } from "@/lib/image-utils";
@@ -131,15 +144,18 @@ export default function WelcomePage() {
 
   // Step 5: Choose your path (tier selection)
   const [selectedTier, setSelectedTier] = useState<"free" | "plus" | "founding">("free");
-  const [plusInterval, setPlusInterval] = useState<"month" | "year">("month");
+  // Membership: yearly first, Member (today's price) pre-selected.
+  const [plusInterval, setPlusInterval] = useState<PlusInterval>("year");
+  const [plusLevel, setPlusLevel] = useState<PlusLevel>("member");
   const [billingInfo, setBillingInfo] = useState<{
     trialEligible: boolean;
     trialDays: number;
-    annualAvailable: boolean;
-    annualPrice: number;
+    prices: PlusPrices;
     founding: FoundingStatus | null;
     foundingNumber: number | null;
-  }>({ trialEligible: false, trialDays: 14, annualAvailable: false, annualPrice: 50, founding: null, foundingNumber: null });
+  }>({ trialEligible: false, trialDays: 14, prices: plusPricesFrom(null), founding: null, foundingNumber: null });
+  // Inkwell's monthly bills and how much members cover, said beside the ask.
+  const [bills, setBills] = useState<{ cost: number; covered: number } | null>(null);
   const [selectedDonorAmount, setSelectedDonorAmount] = useState<number | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutReturned, setCheckoutReturned] = useState<"success" | "canceled" | null>(null);
@@ -197,6 +213,16 @@ export default function WelcomePage() {
       } catch { /* non-fatal */ }
     }
 
+    fetch("/api/transparency")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const t = d?.data;
+        if (t && typeof t.monthly_cost_cents === "number" && typeof t.monthly_revenue_cents === "number") {
+          setBills({ cost: t.monthly_cost_cents, covered: t.monthly_revenue_cents });
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/billing/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -205,8 +231,7 @@ export default function WelcomePage() {
         setBillingInfo({
           trialEligible: !!b.trial_eligible,
           trialDays: b.trial_days ?? 14,
-          annualAvailable: !!b.plus_annual_available,
-          annualPrice: Math.round((b.plus_annual_cents ?? 5000) / 100),
+          prices: plusPricesFrom(b),
           founding: b.founding ?? null,
           foundingNumber: b.founding_member_number ?? null,
         });
@@ -463,7 +488,7 @@ export default function WelcomePage() {
         const res = await fetch("/api/billing/onboarding-checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "plus", interval: plusInterval }),
+          body: JSON.stringify({ type: "plus", ...plusChoice(billingInfo.prices, plusLevel, plusInterval) }),
         });
         const data = await res.json();
         if (data.url) {
@@ -994,6 +1019,9 @@ export default function WelcomePage() {
               <h2 className="text-lg font-semibold text-center" style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}>
                 Choose your path
               </h2>
+              <p className="text-sm text-center -mt-3" style={{ color: "var(--muted)" }}>
+                Writing on Inkwell is free. It has no ads and no investors: members pay the monthly bills.
+              </p>
 
               {activatingSubscription && (
                 <div className="flex items-center justify-center gap-2 py-6">
@@ -1059,12 +1087,11 @@ export default function WelcomePage() {
                         background: "var(--background)",
                       }}
                     >
-                      <div className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                        style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
-                        Best value
-                      </div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Inkwell Plus</p>
+                        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
+                          {LEVEL_INFO[plusChoice(billingInfo.prices, plusLevel, plusInterval).level].name}{" "}
+                          <span className="font-normal" style={{ color: "var(--muted)" }}>&middot; Inkwell Plus</span>
+                        </p>
                         {(selectedTier === "plus" || currentTier === "plus") && (
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <circle cx="12" cy="12" r="10" fill="var(--accent)" />
@@ -1073,14 +1100,12 @@ export default function WelcomePage() {
                         )}
                       </div>
                       <p className="text-2xl font-bold mb-1">
-                        {plusInterval === "year" ? `$${billingInfo.annualPrice}` : "$5"}
-                        <span className="text-xs font-normal" style={{ color: "var(--muted)" }}>{plusInterval === "year" ? " /year" : " /month"}</span>
+                        {plusPriceLabel(billingInfo.prices, plusLevel, plusInterval).replace(/ a (year|month)$/, "")}
+                        <span className="text-xs font-normal" style={{ color: "var(--muted)" }}>
+                          {plusChoice(billingInfo.prices, plusLevel, plusInterval).interval === "year" ? " /year" : " /month"}
+                        </span>
                       </p>
-                      {billingInfo.trialEligible && currentTier !== "plus" ? (
-                        <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>
-                          Free for {billingInfo.trialDays} days &middot; no card needed
-                        </p>
-                      ) : <div className="mb-2" />}
+                      <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>Keeps Inkwell running</p>
                       {currentTier === "plus" && (
                         <p className="text-xs font-medium mb-2" style={{ color: "var(--accent)" }}>Active</p>
                       )}
@@ -1095,25 +1120,19 @@ export default function WelcomePage() {
                     </button>
                   </div>
 
-                  {/* Monthly / yearly */}
-                  {billingInfo.annualAvailable && selectedTier === "plus" && currentTier !== "plus" && (
-                    <div className="flex items-center justify-center gap-2 text-xs" role="radiogroup" aria-label="Billing interval">
-                      {(["month", "year"] as const).map((iv) => (
-                        <button
-                          key={iv}
-                          type="button"
-                          role="radio"
-                          aria-checked={plusInterval === iv}
-                          onClick={() => setPlusInterval(iv)}
-                          className="rounded-full border px-3 py-1 transition-colors"
-                          style={{
-                            borderColor: plusInterval === iv ? "var(--accent)" : "var(--border)",
-                            color: plusInterval === iv ? "var(--accent)" : "var(--muted)",
-                          }}
-                        >
-                          {iv === "month" ? "Monthly" : `Yearly — two months free`}
-                        </button>
-                      ))}
+                  {/* How often and how much */}
+                  {selectedTier === "plus" && currentTier !== "plus" && (
+                    <div className="flex flex-col gap-2">
+                      <MembershipPicker
+                        prices={billingInfo.prices}
+                        level={plusLevel}
+                        interval={plusInterval}
+                        onLevel={setPlusLevel}
+                        onInterval={setPlusInterval}
+                      />
+                      {bills && billsLine(bills.cost, bills.covered) && (
+                        <p className="membership-bills">{billsLine(bills.cost, bills.covered)}</p>
+                      )}
                     </div>
                   )}
 
@@ -1182,24 +1201,26 @@ export default function WelcomePage() {
                           style={{ background: "var(--accent)", color: "#fff" }}>
                           Continue
                         </button>
-                      ) : selectedTier === "plus" && currentTier !== "plus" && billingInfo.trialEligible ? (
+                      ) : selectedTier === "plus" && currentTier !== "plus" ? (
                         <div className="flex flex-col items-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleTierCheckout({ useTrial: true })}
-                            disabled={checkoutLoading}
-                            className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
-                            style={{ background: "var(--accent)", color: "#fff" }}>
-                            {checkoutLoading ? "Loading..." : `Start ${billingInfo.trialDays}-day free trial`}
-                          </button>
                           <button
                             type="button"
                             onClick={() => handleTierCheckout()}
                             disabled={checkoutLoading}
-                            className="text-xs hover:underline disabled:opacity-40"
-                            style={{ color: "var(--muted)" }}>
-                            or pay now
+                            className="rounded-full px-6 py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
+                            style={{ background: "var(--accent)", color: "#fff" }}>
+                            {checkoutLoading ? "Loading..." : `Become a member — ${plusPriceLabel(billingInfo.prices, plusLevel, plusInterval)}`}
                           </button>
+                          {billingInfo.trialEligible && (
+                            <button
+                              type="button"
+                              onClick={() => handleTierCheckout({ useTrial: true })}
+                              disabled={checkoutLoading}
+                              className="text-xs hover:underline disabled:opacity-40"
+                              style={{ color: "var(--muted)" }}>
+                              or try Plus free for {billingInfo.trialDays} days first
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <button

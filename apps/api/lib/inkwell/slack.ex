@@ -60,7 +60,7 @@ defmodule Inkwell.Slack do
   end
 
   def notify_plus_subscription(username) do
-    notify(":sparkles: *New Plus subscriber!* @#{username} just upgraded to Plus ($5/mo)")
+    notify(":sparkles: *New Plus subscriber!* @#{username} became a member (Plus)")
   end
 
   def notify_ink_donor(username, amount_cents) do

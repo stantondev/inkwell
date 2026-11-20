@@ -18,6 +18,16 @@ export interface WhatsNewItem {
 
 export const WHATS_NEW: WhatsNewItem[] = [
   {
+    id: "2026-11-20-membership",
+    date: "2026-11-20",
+    title: "Plus is now membership, and you can choose to pay a little more",
+    body: "Inkwell has no ads and no investors, so the monthly bills are paid by members. Membership is $50 a year or $5 a month, the same price Plus has always been, and members get every Plus feature. If you'd like to cover someone else's share too, there's a Supporter level at $100 a year or $10 a month. It's the same Plus either way; nothing extra is unlocked by paying more. The transparency page now says plainly how much of each month members cover.",
+    howTo: "Settings → Billing.",
+    href: "/settings/billing",
+    cta: "See membership",
+    tag: "Plus",
+  },
+  {
     id: "2026-11-12-fediverse-followers",
     date: "2026-11-12",
     title: "Remove or block fediverse followers, and turn bots away",

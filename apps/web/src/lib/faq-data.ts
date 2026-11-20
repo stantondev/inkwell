@@ -380,7 +380,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "plus-features",
     question: "What does Plus include?",
     answer:
-      'Plus is $5/month or $50/year, and you can try it free for 14 days with no card. It gives you your own domain (yourname.com), detailed reader stats (reads by day, most-read entries, where readers came from), a page that looks like you (custom colors, fonts, backgrounds, music and HTML/CSS), and a bigger newsletter (unlimited subscribers, 8 sends a month). It also includes 1 GB of image storage that grows by 1 GB every year you\'re a member, unlimited drafts and series, cross-posting to Mastodon, Post by Email, API write access, Plus stickers and avatar frames, and the Keepsakes sheet of stamps. All 8 profile themes are free for everyone. <a href="/settings/billing">View details</a>.',
+      'Membership is $50 a year or $5 a month (or $100 a year / $10 a month if you want to cover someone else\'s share too; you get the same Plus either way). Inkwell has no ads and no investors, so members pay its monthly bills, and you can try Plus free for 14 days with no card first. Membership gives you your own domain (yourname.com), detailed reader stats (reads by day, most-read entries, where readers came from), a page that looks like you (custom colors, fonts, backgrounds, music and HTML/CSS), and a bigger newsletter (unlimited subscribers, 8 sends a month). It also includes 1 GB of image storage that grows by 1 GB every year you\'re a member, unlimited drafts and series, cross-posting to Mastodon, Post by Email, API write access, Plus stickers and avatar frames, and the Keepsakes sheet of stamps. All 8 profile themes are free for everyone. <a href="/settings/billing">View details</a>.',
     category: "billing",
   },
   {

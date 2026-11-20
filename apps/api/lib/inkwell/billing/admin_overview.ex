@@ -242,6 +242,8 @@ defmodule Inkwell.Billing.AdminOverview do
 
     cond do
       variation_id && variation_id == config[:plus_annual_plan_variation_id] -> "Yearly"
+      variation_id && variation_id == config[:plus_supporter_plan_variation_id] -> "Supporter · Monthly"
+      variation_id && variation_id == config[:plus_supporter_annual_plan_variation_id] -> "Supporter · Yearly"
       true -> "Monthly"
     end
   end
@@ -293,6 +295,8 @@ defmodule Inkwell.Billing.AdminOverview do
     [
       {"Plus monthly", config[:plus_plan_variation_id], true},
       {"Plus yearly", config[:plus_annual_plan_variation_id], false},
+      {"Plus Supporter monthly", config[:plus_supporter_plan_variation_id], false},
+      {"Plus Supporter yearly", config[:plus_supporter_annual_plan_variation_id], false},
       {"Ink Donor $1", config[:donor_plan_variation_1], false},
       {"Ink Donor $2", config[:donor_plan_variation_2], false},
       {"Ink Donor $3", config[:donor_plan_variation_3], false}

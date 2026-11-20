@@ -792,6 +792,17 @@ defmodule Inkwell.Billing do
     end)
   end
 
+  @doc """
+  A checkout session for Plus at the Supporter level. `interval` is `:month`
+  or `:year`; `return_to` is :billing or :onboarding.
+  """
+  def create_plus_supporter_checkout_session(%User{} = user, interval, return_to)
+      when interval in [:month, :year] do
+    with_square_customer(user, fn customer_id, user ->
+      Square.create_plus_supporter_payment_link(user, customer_id, interval, return_to)
+    end)
+  end
+
   @doc "Create a checkout session for an Ink Donor donation (recurring)."
   def create_donor_checkout_session(%User{} = user, amount_cents)
       when amount_cents in [100, 200, 300] do

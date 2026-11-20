@@ -175,7 +175,7 @@ export function YouSheet({
 
           <div className="you-sheet-list">
             {!isPlus && !selfHosted && (
-              <Row href="/settings/billing" label="Upgrade to Plus" icon={<span className="you-sheet-star">✦</span>} accent />
+              <Row href="/settings/billing" label="Become a member" icon={<span className="you-sheet-star">✦</span>} accent />
             )}
             {showInstall && (
               <>

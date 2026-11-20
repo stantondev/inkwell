@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { MEMBERS_LINE, PLUS_SHORT } from "@/lib/plus-pitch";
+import { MEMBERS_LINE } from "@/lib/plus-pitch";
 import Link from "next/link";
 import { requireSession } from "@/lib/require-session";
 import { siteLookOf } from "@/lib/site-look";
@@ -390,7 +390,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
                 Enjoying your journal?
               </p>
               <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-                {MEMBERS_LINE} Plus is $5 a month: {PLUS_SHORT.toLowerCase()}.
+                {MEMBERS_LINE} Membership is $50 a year or $5 a month, and members get Plus.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Link
@@ -398,7 +398,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
                   className="inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                   style={{ background: "var(--accent)", color: "var(--background)" }}
                 >
-                  See Plus
+                  Become a member
                 </Link>
                 <Link
                   href="/transparency"

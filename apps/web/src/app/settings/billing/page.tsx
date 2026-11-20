@@ -1,6 +1,19 @@
 "use client";
 
-import { PLUS_POINTS, PLUS_EXTRAS, MEMBERS_LINE, foundingPriceNote, type FoundingStatus } from "@/lib/plus-pitch";
+import {
+  PLUS_POINTS,
+  PLUS_EXTRAS,
+  MEMBERS_LINE,
+  foundingPriceNote,
+  billsLine,
+  plusChoice,
+  plusPriceLabel,
+  plusPricesFrom,
+  type FoundingStatus,
+  type PlusInterval,
+  type PlusLevel,
+} from "@/lib/plus-pitch";
+import { MembershipPicker } from "@/components/membership-picker";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -20,6 +33,9 @@ interface BillingStatus {
   trial_days?: number;
   plus_annual_available?: boolean;
   plus_annual_cents?: number;
+  plus_supporter_available?: boolean;
+  plus_supporter_cents?: number;
+  plus_supporter_annual_cents?: number;
   storage?: StorageSummary;
   /** Whether a new Plus checkout is safe (see Billing.plus_checkout_state/1). */
   plus_checkout?: "allowed" | "already_subscribed" | "payment_failed" | "cancel_scheduled";
@@ -122,7 +138,13 @@ export default function BillingPage() {
   const [showCancelDonorConfirm, setShowCancelDonorConfirm] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
-  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  // Yearly first: one payment a year is the closest thing to what Founding
+  // Members chose. Member (today's price) is always the pre-selected level.
+  const [billingInterval, setBillingInterval] = useState<PlusInterval>("year");
+  const [billingLevel, setBillingLevel] = useState<PlusLevel>("member");
+  // Inkwell's monthly bills and how much of them members cover, from
+  // /api/transparency, said beside the ask.
+  const [bills, setBills] = useState<{ cost: number; covered: number } | null>(null);
   const [foundingLoading, setFoundingLoading] = useState(false);
   const [trialLoading, setTrialLoading] = useState(false);
   const [restartLoading, setRestartLoading] = useState(false);
@@ -182,6 +204,16 @@ export default function BillingPage() {
 
   useEffect(() => {
     async function init() {
+      fetch("/api/transparency")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          const t = d?.data;
+          if (t && typeof t.monthly_cost_cents === "number" && typeof t.monthly_revenue_cents === "number") {
+            setBills({ cost: t.monthly_cost_cents, covered: t.monthly_revenue_cents });
+          }
+        })
+        .catch(() => {});
+
       const initial = await fetchStatus();
       setLoading(false);
 
@@ -206,7 +238,7 @@ export default function BillingPage() {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interval: billingInterval }),
+        body: JSON.stringify(plusChoice(plusPricesFrom(status), billingLevel, billingInterval)),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -298,7 +330,7 @@ export default function BillingPage() {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interval: billingInterval }),
+        body: JSON.stringify(plusChoice(plusPricesFrom(status), billingLevel, billingInterval)),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
@@ -396,8 +428,9 @@ export default function BillingPage() {
   // subscription was the one whose payment failed): safe to subscribe again.
   const canResubscribe = isCanceled && status?.plus_checkout === "allowed";
   const founding = status?.founding;
-  const annualAvailable = !!status?.plus_annual_available;
-  const annualPrice = Math.round((status?.plus_annual_cents ?? 5000) / 100);
+  const prices = plusPricesFrom(status);
+  const priceLabel = plusPriceLabel(prices, billingLevel, billingInterval);
+  const billsSentence = bills ? billsLine(bills.cost, bills.covered) : null;
 
   if (loading) {
     return (
@@ -625,11 +658,12 @@ export default function BillingPage() {
               you customized is kept — it comes back if you subscribe.
             </p>
             <div className="mt-4">
-              <PlusIntervalPicker
+              <MembershipPicker
+                prices={prices}
+                level={billingLevel}
                 interval={billingInterval}
-                onChange={setBillingInterval}
-                annualAvailable={annualAvailable}
-                annualPrice={annualPrice}
+                onLevel={setBillingLevel}
+                onInterval={setBillingInterval}
               />
               <button
                 onClick={handleCheckout}
@@ -637,7 +671,7 @@ export default function BillingPage() {
                 className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
                 style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
               >
-                {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Keep Plus — $${annualPrice}/year` : "Keep Plus — $5/month"}
+                {checkoutLoading ? "Redirecting to checkout..." : `Keep Plus — ${priceLabel}`}
               </button>
             </div>
           </div>
@@ -689,11 +723,12 @@ export default function BillingPage() {
               )}
             </p>
             <div className="mt-3">
-              <PlusIntervalPicker
+              <MembershipPicker
+                prices={prices}
+                level={billingLevel}
                 interval={billingInterval}
-                onChange={setBillingInterval}
-                annualAvailable={annualAvailable}
-                annualPrice={annualPrice}
+                onLevel={setBillingLevel}
+                onInterval={setBillingInterval}
               />
               <button
                 onClick={handleRestart}
@@ -704,10 +739,8 @@ export default function BillingPage() {
                 {restartLoading
                   ? (isWrittenOff ? "Closing your old subscription…" : "Canceling the failed subscription…")
                   : isWrittenOff
-                    ? (billingInterval === "year" ? `Start Plus again — $${annualPrice}/year` : "Start Plus again — $5/month")
-                    : billingInterval === "year"
-                      ? `Cancel and start over — $${annualPrice}/year`
-                      : "Cancel and start over — $5/month"}
+                    ? `Start Plus again — ${priceLabel}`
+                    : `Cancel and start over — ${priceLabel}`}
               </button>
               {!showCancelConfirm ? (
                 <button
@@ -769,11 +802,12 @@ export default function BillingPage() {
               still here.
             </p>
             <div className="mt-4">
-              <PlusIntervalPicker
+              <MembershipPicker
+                prices={prices}
+                level={billingLevel}
                 interval={billingInterval}
-                onChange={setBillingInterval}
-                annualAvailable={annualAvailable}
-                annualPrice={annualPrice}
+                onLevel={setBillingLevel}
+                onInterval={setBillingInterval}
               />
               <button
                 onClick={handleCheckout}
@@ -781,7 +815,7 @@ export default function BillingPage() {
                 className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
                 style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
               >
-                {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Start a new subscription — $${annualPrice}/year` : "Start a new subscription — $5/month"}
+                {checkoutLoading ? "Redirecting to checkout..." : `Start a new subscription — ${priceLabel}`}
               </button>
             </div>
           </div>
@@ -840,10 +874,25 @@ export default function BillingPage() {
           </div>
         ) : (
           <div>
+            <p
+              className="text-base font-semibold mb-1"
+              style={{ fontFamily: "var(--font-lora, Georgia, serif)", color: "var(--foreground)" }}
+            >
+              Become a member
+            </p>
             <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
-              Inkwell Plus is <strong style={{ color: "var(--foreground)" }}>$5 a month</strong>.{" "}
-              {MEMBERS_LINE}{" "}
-              <a href="/transparency" className="underline" style={{ color: "var(--accent)" }}>See where the money goes.</a>
+              {MEMBERS_LINE} Membership is{" "}
+              <strong style={{ color: "var(--foreground)" }}>{plusPriceLabel(prices, "member", "year")}</strong>
+              {prices.annualAvailable && <> or $5 a month</>}.
+            </p>
+            {billsSentence && (
+              <p className="membership-bills mb-4">
+                {billsSentence}{" "}
+                <a href="/transparency" className="underline" style={{ color: "var(--accent)" }}>See where the money goes.</a>
+              </p>
+            )}
+            <p className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: "var(--muted)" }}>
+              Members also get Plus
             </p>
             <ul className="space-y-1.5 mb-2">
               {PLUS_POINTS.map((p) => (
@@ -856,11 +905,12 @@ export default function BillingPage() {
               ))}
             </ul>
             <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>Also: {PLUS_EXTRAS}</p>
-            <PlusIntervalPicker
+            <MembershipPicker
+              prices={prices}
+              level={billingLevel}
               interval={billingInterval}
-              onChange={setBillingInterval}
-              annualAvailable={annualAvailable}
-              annualPrice={annualPrice}
+              onLevel={setBillingLevel}
+              onInterval={setBillingInterval}
             />
             <button
               onClick={handleCheckout}
@@ -868,17 +918,24 @@ export default function BillingPage() {
               className="w-full px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
               style={{ background: "var(--accent)", color: "white", opacity: checkoutLoading ? 0.6 : 1 }}
             >
-              {checkoutLoading ? "Redirecting to checkout..." : billingInterval === "year" ? `Upgrade to Plus — $${annualPrice}/year` : "Upgrade to Plus — $5/mo"}
+              {checkoutLoading ? "Redirecting to checkout..." : `Become a member — ${priceLabel}`}
             </button>
+            <p className="text-xs mt-2 text-center" style={{ color: "var(--muted)" }}>
+              Cancel any time, here in Settings.
+            </p>
             {status?.trial_eligible && (
-              <button
-                onClick={handleStartTrial}
-                disabled={trialLoading}
-                className="w-full mt-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
-                style={{ background: "transparent", color: "var(--accent)", border: "1px solid var(--accent)", opacity: trialLoading ? 0.6 : 1 }}
-              >
-                {trialLoading ? "Starting your trial..." : `Try Plus free for ${status.trial_days ?? 14} days — no card needed`}
-              </button>
+              <p className="text-xs mt-3 text-center" style={{ color: "var(--muted)" }}>
+                Not sure yet?{" "}
+                <button
+                  onClick={handleStartTrial}
+                  disabled={trialLoading}
+                  className="underline disabled:opacity-60"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {trialLoading ? "Starting your trial…" : `Try Plus free for ${status.trial_days ?? 14} days`}
+                </button>
+                , no card needed.
+              </p>
             )}
           </div>
         )}
@@ -1078,46 +1135,6 @@ export default function BillingPage() {
         Payments are securely processed by Square. You can cancel anytime from this page.
         Inkwell never sees your card details.
       </p>
-    </div>
-  );
-}
-
-function PlusIntervalPicker({
-  interval,
-  onChange,
-  annualAvailable,
-  annualPrice,
-}: {
-  interval: "month" | "year";
-  onChange: (i: "month" | "year") => void;
-  annualAvailable: boolean;
-  annualPrice: number;
-}) {
-  if (!annualAvailable) return null;
-  const options: { id: "month" | "year"; label: string; note: string }[] = [
-    { id: "month", label: "$5 / month", note: "Cancel anytime" },
-    { id: "year", label: `$${annualPrice} / year`, note: `Two months free` },
-  ];
-  return (
-    <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-label="Billing interval">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          role="radio"
-          aria-checked={interval === o.id}
-          onClick={() => onChange(o.id)}
-          className="rounded-lg border px-3 py-2 text-left transition-colors"
-          style={{
-            borderColor: interval === o.id ? "var(--accent)" : "var(--border)",
-            borderWidth: interval === o.id ? 2 : 1,
-            background: "var(--background)",
-          }}
-        >
-          <span className="block text-sm font-medium">{o.label}</span>
-          <span className="block text-xs" style={{ color: "var(--muted)" }}>{o.note}</span>
-        </button>
-      ))}
     </div>
   );
 }

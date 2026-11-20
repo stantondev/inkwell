@@ -298,6 +298,12 @@ defmodule Inkwell.Transparency do
       variation == config[:plus_annual_plan_variation_id] and not is_nil(variation) ->
         div(Square.plus_annual_cents(), 12)
 
+      variation == config[:plus_supporter_plan_variation_id] and not is_nil(variation) ->
+        Square.plus_supporter_cents()
+
+      variation == config[:plus_supporter_annual_plan_variation_id] and not is_nil(variation) ->
+        div(Square.plus_supporter_annual_cents(), 12)
+
       variation == config[:donor_plan_variation_1] ->
         100
 

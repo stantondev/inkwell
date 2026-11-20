@@ -335,7 +335,7 @@ export function SidebarNav({
           <Link href="/settings/billing" className="sidebar-plus-card">
             <span className="sidebar-plus-star" aria-hidden="true">✦</span>
             <span>
-              <span className="sidebar-plus-title">Inkwell Plus</span>
+              <span className="sidebar-plus-title">Become a member</span>
               <span className="sidebar-plus-sub">{PLUS_SHORT}</span>
             </span>
           </Link>
