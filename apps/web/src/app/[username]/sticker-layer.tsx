@@ -36,7 +36,9 @@ export function stickerBoxStyle(st: ProfileSticker): CSSProperties | null {
     left: `${st.x}%`,
     top,
     // Natural size × scale, never more than 45% of the card it's on.
-    width: `min(${Math.round(base * st.scale)}px, 45%)`,
+    // --sticker-fit shrinks them on phones (globals.css), where the card's
+    // text wraps under stickers placed on a wide screen.
+    width: `min(calc(${Math.round(base * st.scale)}px * var(--sticker-fit, 1)), 45%)`,
     aspectRatio: `${ratio}`,
     transform: `translate(-50%, -50%) rotate(${st.rotate}deg)`,
   };

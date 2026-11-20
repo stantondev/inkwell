@@ -13247,10 +13247,9 @@ button.bottom-tab-item { font: inherit; }
 .mobile-book-page .journal-book-entry-body {
   flex: 1 0 auto;
   overflow: visible;
-  /* A post shorter than the page sits in the middle of it, so the spare
-     paper is shared above and below instead of pooling at the bottom.
-     Longer posts are unaffected (nothing to centre). */
-  justify-content: center;
+  /* Posts start at the top of the page like any entry. Until 2026-11-20 a
+     short one was centred, which left a blank screen-half above it. */
+  justify-content: flex-start;
 }
 
 /* Short posts on phones (journal-feed.tsx isShortPost): set like a short poem
@@ -20557,6 +20556,11 @@ body[data-season="halloween"] ::selection {
   display: inline-block;
   line-height: 0;
 }
+/* Stickers draw smaller on phones (sticker-layer.tsx stickerBoxStyle). */
+@media (max-width: 639px) {
+  :root { --sticker-fit: 0.65; }
+}
+
 /* White logo in dark mode. A plain filter, not Tailwind's dark:invert:
    Tailwind 4 builds filters from registered custom properties, which older
    Chrome (e.g. 111, still on many Android phones) computes as "none", so the
