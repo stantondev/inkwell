@@ -97,7 +97,7 @@ export function ShareButton({ url, title, description, size = 15, label, popupAl
           if (!open) trackFeature("share");
           setOpen(!open);
         }}
-        className="flex items-center gap-1.5 transition-opacity hover:opacity-80 cursor-pointer"
+        className="tap-pad flex items-center gap-1.5 transition-opacity hover:opacity-80 cursor-pointer"
         style={{ color: "var(--muted)" }}
         title="Share"
         aria-label={label ? undefined : "Share"}

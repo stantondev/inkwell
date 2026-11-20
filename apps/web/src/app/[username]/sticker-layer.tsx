@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from "react";
 import type { ProfileSticker } from "@/lib/profile-home";
 import { StickerArt, isPlusSticker, stickerDef } from "@/lib/stickers";
 
+import { StickerTextGuard } from "./sticker-text-guard";
+
 /** Width of a writer's own sticker at scale 1, in px. */
 const UPLOAD_BASE = 96;
 
@@ -112,6 +114,7 @@ export function StickerHost({
           );
         })}
       </div>
+      <StickerTextGuard />
     </div>
   );
 }

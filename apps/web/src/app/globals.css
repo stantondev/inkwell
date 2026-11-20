@@ -22399,3 +22399,31 @@ body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter
   padding-left: 10px;
 }
 .membership-bills strong { color: var(--foreground); font-weight: 600; }
+
+/* ── Thumb-sized targets on touch screens (2026-11-20 phone pass) ──
+   .tap-pad grows a small icon button's touch area to ~42px without
+   changing how it looks. The chips and tabs get real height. */
+@media (pointer: coarse) {
+  .tap-pad { position: relative; }
+  .tap-pad::after { content: ""; position: absolute; inset: -12px; }
+  button.circle-category-pill { min-height: 36px; padding-left: 0.85rem; padding-right: 0.85rem; }
+  .gz-section-link { min-height: 36px; display: inline-flex; align-items: center; }
+  .explore-controls-sort-toggle { min-width: 40px; justify-content: center; }
+}
+
+/* Phones: the bottom tabs step aside while you type and inside a letter
+   thread. On Android the bar rode up on top of the keyboard, so the tabs and
+   the Write button sat between your words and the keys (2026-11-20). A
+   conversation has its own way back, as in any messaging app. */
+@media (max-width: 1023px) {
+  body:has(:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select, [contenteditable="true"]):focus) .bottom-tab-bar,
+  body:has(.letter-page-wrapper) .bottom-tab-bar {
+    display: none !important;
+  }
+  body:has(.letter-page-wrapper) .letter-page-wrapper {
+    height: calc(100dvh - 57px - env(safe-area-inset-bottom));
+  }
+  html[data-keyboard] body:has(.letter-page-wrapper) .letter-page-wrapper {
+    height: calc(var(--vvh, 100dvh) - 57px);
+  }
+}

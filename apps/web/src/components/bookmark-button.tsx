@@ -69,7 +69,7 @@ export function BookmarkButton({
       onClick={handleToggle}
       title={bookmarked ? "Remove from reading list" : "Save to reading list"}
       aria-label={bookmarked ? "Remove from reading list" : "Save to reading list"}
-      className="flex items-center justify-center transition-colors"
+      className="tap-pad flex items-center justify-center transition-colors"
       style={{
         color: bookmarked ? "var(--accent)" : "var(--muted)",
         transform: animating ? "scale(1.25)" : "scale(1)",
