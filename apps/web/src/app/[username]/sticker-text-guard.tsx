@@ -8,7 +8,8 @@ import { useEffect, useRef } from "react";
  * Stickers are placed on a wide screen, where a card's text leaves room
  * beside it. On a phone the same text runs the full width of the card, so a
  * sticker that sat in the margin lands on top of a line. Below 640px this
- * moves any sticker that covers text or a button to the nearest spot on the
+ * moves any sticker that covers text, a button or the writer's portrait to
+ * the nearest spot on the
  * card where it covers nothing (or, failing that, the least), and puts it
  * back when the screen is wide again. The saved arrangement never changes.
  */
@@ -41,7 +42,7 @@ function obstacles(host: HTMLElement, origin: DOMRect): Rect[] {
     range.selectNodeContents(n);
     for (const r of Array.from(range.getClientRects())) add(r);
   }
-  for (const el of Array.from(host.querySelectorAll<HTMLElement>("a, button, input, textarea, select, svg"))) {
+  for (const el of Array.from(host.querySelectorAll<HTMLElement>("a, button, input, textarea, select, svg, .avatar-with-frame"))) {
     if (el.closest(".sticker-layer")) continue;
     add(el.getBoundingClientRect());
   }

@@ -59,7 +59,7 @@ export function AvatarWithFrame({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center flex-shrink-0 ${animClass}`}
+      className={`avatar-with-frame relative inline-flex items-center justify-center flex-shrink-0 ${animClass}`}
       style={{ width: outerSize, height: outerSize }}
     >
       {/* Avatar image or initials */}
