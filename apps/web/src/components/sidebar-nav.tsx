@@ -253,7 +253,7 @@ export function SidebarNav({
       {/* ─── Top: logo + hide ─── */}
       <div className="sidebar-top">
         <Link href="/feed" aria-label="Inkwell — your feed" className="sidebar-logo">
-          <SiteLogo className="dark:brightness-0 dark:invert" style={{ height: 34, width: "auto" }} />
+          <SiteLogo style={{ height: 34, width: "auto" }} />
         </Link>
         <TrickOrTreat signedIn className="sidebar-tot" />
         <div className="sidebar-top-actions">

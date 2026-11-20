@@ -35,29 +35,35 @@ function timeAgo(isoString: string): string {
 }
 
 // ─── Date grouping ─────────────────────────────────────────────
-function getDateGroup(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 6);
+// Days are counted in `timeZone`. The server renders in UTC and the browser
+// switches to the reader's own zone after hydration; computing local days
+// during render made the "Today"/"Yesterday" headings differ between the
+// server and the phone (React error #418) for anyone west of UTC at night.
+function dayIndex(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "numeric", day: "numeric",
+  }).formatToParts(date);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Math.floor(Date.UTC(get("year"), get("month") - 1, get("day")) / 86_400_000);
+}
 
-  if (date >= today) return "Today";
-  if (date >= yesterday) return "Yesterday";
-  if (date >= weekAgo) return "This week";
+function getDateGroup(isoString: string, timeZone: string): string {
+  const diff = dayIndex(new Date(), timeZone) - dayIndex(new Date(isoString), timeZone);
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff <= 6) return "This week";
   return "Earlier";
 }
 
 function groupByDate(
-  notifications: Notification[]
+  notifications: Notification[],
+  timeZone: string
 ): { label: string; items: Notification[] }[] {
   const groups: { label: string; items: Notification[] }[] = [];
   let currentLabel: string | null = null;
 
   for (const n of notifications) {
-    const label = getDateGroup(n.inserted_at);
+    const label = getDateGroup(n.inserted_at, timeZone);
     if (label !== currentLabel) {
       groups.push({ label, items: [] });
       currentLabel = label;
@@ -938,7 +944,11 @@ export function NotificationList({
   const [serverUnread, setServerUnread] = useState(serverUnreadCount);
   const loadedUnread = notifications.filter((n) => !n.read).length;
   const unreadCount = Math.max(loadedUnread, serverUnread);
-  const groups = useMemo(() => groupByDate(notifications), [notifications]);
+  const [timeZone, setTimeZone] = useState("UTC");
+  useEffect(() => {
+    try { setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"); } catch { /* keep UTC */ }
+  }, []);
+  const groups = useMemo(() => groupByDate(notifications, timeZone), [notifications, timeZone]);
 
   // Auto-mark all notifications as read on mount when setting is enabled
   useEffect(() => {
@@ -1371,6 +1381,7 @@ export function NotificationList({
                         <p
                           className="text-xs mt-0.5"
                           style={{ color: "var(--muted)" }}
+                          suppressHydrationWarning
                         >
                           {timeAgo(n.inserted_at)}
                         </p>

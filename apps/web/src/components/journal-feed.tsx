@@ -101,6 +101,14 @@ export function JournalFeed({
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const mobileWrapperRef = useRef<HTMLDivElement>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  // The page counter shows for a moment after each page turn, then fades:
+  // left on screen it sat over a line of the entry you were reading.
+  const [counterShown, setCounterShown] = useState(true);
+  useEffect(() => {
+    setCounterShown(true);
+    const t = window.setTimeout(() => setCounterShown(false), 2200);
+    return () => window.clearTimeout(t);
+  }, [mobileActiveIndex]);
   const mobileSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -748,7 +756,7 @@ export function JournalFeed({
 
       {/* Page counter */}
       {phonePages.length > 1 && (
-        <div className="mobile-book-counter">
+        <div className="mobile-book-counter" data-shown={counterShown ? "true" : "false"} aria-live="polite">
           <span>{mobileActiveIndex + 1}</span>
           <span style={{ opacity: 0.4, margin: "0 6px" }}>&mdash;</span>
           <span>{phonePages.length}</span>

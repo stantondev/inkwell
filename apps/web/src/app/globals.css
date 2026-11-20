@@ -13302,6 +13302,8 @@ button.bottom-tab-item { font: inherit; }
   pointer-events: none;
 }
 
+.mobile-book-counter { transition: opacity 0.35s ease; }
+.mobile-book-counter[data-shown="false"] { opacity: 0; }
 body:has(.bottom-tab-bar) .mobile-book-counter {
   bottom: calc(56px + env(safe-area-inset-bottom) + 8px);
 }
@@ -20554,6 +20556,13 @@ body[data-season="halloween"] ::selection {
   position: relative;
   display: inline-block;
   line-height: 0;
+}
+/* White logo in dark mode. A plain filter, not Tailwind's dark:invert:
+   Tailwind 4 builds filters from registered custom properties, which older
+   Chrome (e.g. 111, still on many Android phones) computes as "none", so the
+   ink-blue logo sat invisible on the dark bar. */
+@media (prefers-color-scheme: dark) {
+  .site-logo img { filter: brightness(0) invert(1); }
 }
 .site-logo-overlay {
   position: absolute;

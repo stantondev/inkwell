@@ -12,7 +12,7 @@ import { QuickSearchButton } from "./quick-search";
 function InkwellLogo() {
   return (
     <Link href="/" className="flex items-center group" aria-label="Inkwell home">
-      <SiteLogo className="h-10 w-auto transition-transform group-hover:-rotate-1 dark:brightness-0 dark:invert" />
+      <SiteLogo className="h-10 w-auto transition-transform group-hover:-rotate-1" />
     </Link>
   );
 }

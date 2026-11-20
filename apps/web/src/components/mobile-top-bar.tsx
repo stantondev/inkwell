@@ -103,7 +103,7 @@ export function MobileTopBar({
 
         <div className="mobile-top-bar-center">
           <Link href="/feed" aria-label="Inkwell home">
-            <SiteLogo className="mobile-top-bar-logo dark:brightness-0 dark:invert" />
+            <SiteLogo className="mobile-top-bar-logo" />
           </Link>
         </div>
 

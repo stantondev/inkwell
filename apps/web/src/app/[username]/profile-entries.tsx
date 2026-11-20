@@ -263,7 +263,7 @@ function FullPostEntry({ entry, username, styles }: { entry: ProfileEntry; usern
         {entry.title && (
           <h2 className="profile-entry-title text-2xl sm:text-3xl font-bold mb-4 leading-snug"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            <Link href={href} className="hover:underline">{entry.title}</Link>
+            <Link href={href} className="hover:underline">{decodeEntities(entry.title)}</Link>
           </h2>
         )}
 
@@ -377,7 +377,7 @@ function CardEntry({ entry, username, styles }: { entry: ProfileEntry; username:
         {entry.title && (
           <h3 className="profile-entry-title text-base font-semibold leading-snug mb-1.5"
             style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-            <Link href={href} className="hover:underline">{entry.title}</Link>
+            <Link href={href} className="hover:underline">{decodeEntities(entry.title)}</Link>
           </h3>
         )}
 
@@ -770,7 +770,7 @@ function PreviewEntry({ entry, username, styles }: { entry: ProfileEntry; userna
         <div className="flex items-baseline gap-2 mb-0.5">
           {entry.title ? (
             <Link href={href} className="profile-entry-title text-sm font-medium hover:underline truncate" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-              {entry.title}
+              {decodeEntities(entry.title)}
             </Link>
           ) : (
             <Link href={href} className="profile-entry-title text-sm italic hover:underline truncate" style={{ color: styles.muted }}>

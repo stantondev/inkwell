@@ -105,7 +105,7 @@ export function PinnedEntries({ entries, username, styles }: { entries: ProfileE
               <div className="p-3">
                 {entry.title && (
                   <h3 className="text-sm font-semibold leading-snug mb-1" style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}>
-                    <Link href={href} className="hover:underline">{entry.title}</Link>
+                    <Link href={href} className="hover:underline">{decodeEntities(entry.title)}</Link>
                   </h3>
                 )}
                 {entry.excerpt && (
