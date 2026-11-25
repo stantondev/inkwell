@@ -56,6 +56,7 @@ const config: ExpoConfig = {
     ],
     "expo-web-browser",
     ["expo-build-properties", { android: { usesCleartextTraffic: testing } }],
+    "./plugins/with-release-signing",
   ],
   extra: { siteUrl },
 };
