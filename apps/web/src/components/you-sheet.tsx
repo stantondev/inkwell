@@ -8,6 +8,7 @@ import Link from "next/link";
 import { AvatarWithFrame } from "./avatar-with-frame";
 import { WhatsNewDot } from "./whats-new-state";
 import { usePwaInstall } from "@/lib/pwa";
+import { inApp } from "@/lib/native-app";
 import {
   DraftsIcon, PostsIcon, SavedIcon, ReadersIcon, PenPalsIcon, LettersIcon, StampAlbumIcon,
   GazetteIcon, CirclesIcon, PollsIcon, RoadmapIcon,
@@ -41,28 +42,12 @@ export interface YouSheetProps {
   onClose: () => void;
 }
 
-export function YouSheet({
-  username,
-  displayName,
-  avatarUrl,
-  avatarFrame,
-  avatarAnimation,
-  subscriptionTier,
-  inkDonorStatus,
-  foundingMemberNumber,
-  isAdmin,
-  selfHosted,
-  unreadLetterCount,
-  draftCount,
-  onClose,
-}: YouSheetProps) {
+export function YouSheet({ onClose, ...menu }: YouSheetProps) {
   const pathname = usePathname();
   const openedAt = useRef(pathname);
   const [closing, setClosing] = useState(false);
-  const [iosHelp, setIosHelp] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; dy: number } | null>(null);
-  const install = usePwaInstall();
 
   const close = useCallback(() => {
     setClosing(true);
@@ -107,15 +92,6 @@ export function YouSheet({
     else el.style.transform = "";
   };
 
-  const isPlus = subscriptionTier === "plus";
-  const isDonor = inkDonorStatus === "active";
-  const showInstall = !install.installed && (install.canPrompt || install.ios);
-
-  async function handleInstall() {
-    if (install.canPrompt) await install.prompt();
-    else setIosHelp((v) => !v);
-  }
-
   return createPortal(
     <>
       <div className={`you-sheet-backdrop${closing ? " you-sheet-backdrop--closing" : ""}`} onClick={close} aria-hidden="true" />
@@ -131,85 +107,123 @@ export function YouSheet({
         <div className="you-sheet-grab" onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd} onTouchCancel={onDragEnd}>
           <div className="you-sheet-handle" aria-hidden="true" />
 
-          <Link href={`/${username}`} className="you-sheet-profile">
-            <AvatarWithFrame url={avatarUrl} name={displayName} size={48} frame={avatarFrame} animation={avatarAnimation} subscriptionTier={subscriptionTier} />
-            <span className="you-sheet-profile-text">
-              <span className="you-sheet-name">
-                {displayName}
-                {foundingMemberNumber ? (
-                  <span className="you-sheet-pill">Founding #{foundingMemberNumber}</span>
-                ) : (
-                  isPlus && <span className="you-sheet-pill">✦ Plus</span>
-                )}
-                {isDonor && <span className="you-sheet-pill you-sheet-pill--muted">Ink Donor</span>}
-              </span>
-              <span className="you-sheet-handle-text">@{username} · View your journal</span>
-            </span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="you-sheet-chevron"><path d="M9 18l6-6-6-6" /></svg>
-          </Link>
+          <YouMenuProfile {...menu} />
         </div>
 
         <div className="you-sheet-body">
-          <div className="you-sheet-tiles">
-            <Tile href="/drafts" label="Drafts" badge={draftCount} muted icon={<DraftsIcon size={20} />} />
-            <Tile href="/manage" label="Posts" icon={<PostsIcon size={20} />} />
-            <Tile href="/saved" label="Bookmarks" icon={<SavedIcon size={20} />} />
-            <Tile href="/pen-pals" label="Pen Pals" icon={<PenPalsIcon size={20} />} />
-            <Tile href="/letters" label="Letters" badge={unreadLetterCount} icon={<LettersIcon size={20} />} />
-            <Tile href="/readers" label="Readers" icon={<ReadersIcon size={20} />} />
-            <Tile href="/stamp-album" label="Stamp album" icon={<StampAlbumIcon size={20} />} />
-          </div>
-
-          <div className="you-sheet-label">Community</div>
-          <div className="you-sheet-chips">
-            <Chip href="/gazette" label="Gazette" icon={<GazetteIcon size={16} />} />
-            <Chip href="/circles" label="Circles" icon={<CirclesIcon size={16} />} />
-            <Chip href="/polls" label="Polls" icon={<PollsIcon size={16} />} />
-            <Chip href="/roadmap" label="Roadmap" icon={<RoadmapIcon size={16} />} />
-            <Link href="/whats-new" className="you-sheet-chip">
-              <span aria-hidden="true">✦</span>
-              What&rsquo;s new
-              <WhatsNewDot />
-            </Link>
-          </div>
-
-          <div className="you-sheet-list">
-            {!isPlus && !selfHosted && (
-              <Row href="/settings/billing" label="Become a member" icon={<span className="you-sheet-star">✦</span>} accent />
-            )}
-            {showInstall && (
-              <>
-                <button type="button" className="you-sheet-row" onClick={handleInstall}>
-                  <span className="you-sheet-row-icon" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M12 7v7M9 11l3 3 3-3" /></svg>
-                  </span>
-                  <span className="you-sheet-row-label">Install the Inkwell app</span>
-                </button>
-                {iosHelp && (
-                  <p className="you-sheet-ios-help">
-                    In Safari, tap <strong>Share</strong>{" "}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Share icon" style={{ display: "inline", verticalAlign: "-2px" }}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
-                    {" "}then <strong>Add to Home Screen</strong>. Inkwell opens full-screen, with notifications and a badge on the icon.
-                  </p>
-                )}
-              </>
-            )}
-            <Row href="/settings" label="Settings" icon={<SettingsIcon size={20} />} />
-            <LookSwitch variant="sheet" />
-            <Row href="/settings/invite" label="Invite friends" icon={<InviteIcon size={20} />} />
-            <Row href="/help" label="Help" icon={<HelpIcon size={20} />} />
-            {isAdmin && <Row href="/admin" label="Admin" icon={<AdminIcon size={20} />} />}
-            <form action="/auth/signout" method="POST">
-              <button type="submit" className="you-sheet-row you-sheet-row--quiet">
-                <span className="you-sheet-row-icon" aria-hidden="true"><SignOutIcon size={20} /></span>
-                <span className="you-sheet-row-label">Sign out</span>
-              </button>
-            </form>
-          </div>
+          <YouMenuBody {...menu} />
         </div>
       </div>
     </>,
     document.body,
+  );
+}
+
+export type YouMenuProps = Omit<YouSheetProps, "onClose">;
+
+/** Who you are: picture, name, badges, a link to your journal. */
+export function YouMenuProfile({
+  username, displayName, avatarUrl, avatarFrame, avatarAnimation, subscriptionTier, inkDonorStatus, foundingMemberNumber,
+}: YouMenuProps) {
+  const isPlus = subscriptionTier === "plus";
+  const isDonor = inkDonorStatus === "active";
+  return (
+    <Link href={`/${username}`} className="you-sheet-profile">
+      <AvatarWithFrame url={avatarUrl} name={displayName} size={48} frame={avatarFrame} animation={avatarAnimation} subscriptionTier={subscriptionTier} />
+      <span className="you-sheet-profile-text">
+        <span className="you-sheet-name">
+          {displayName}
+          {foundingMemberNumber ? (
+            <span className="you-sheet-pill">Founding #{foundingMemberNumber}</span>
+          ) : (
+            isPlus && <span className="you-sheet-pill">✦ Plus</span>
+          )}
+          {isDonor && <span className="you-sheet-pill you-sheet-pill--muted">Ink Donor</span>}
+        </span>
+        <span className="you-sheet-handle-text">@{username} · View your journal</span>
+      </span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="you-sheet-chevron"><path d="M9 18l6-6-6-6" /></svg>
+    </Link>
+  );
+}
+
+/**
+ * Everything in the You menu below your name. Shared by the phone sheet and
+ * the /you page (the Inkwell app's You tab, which has no web tab bar).
+ */
+export function YouMenuBody({
+  subscriptionTier, isAdmin, selfHosted, unreadLetterCount, draftCount,
+}: YouMenuProps) {
+  const [iosHelp, setIosHelp] = useState(false);
+  const install = usePwaInstall();
+  const isPlus = subscriptionTier === "plus";
+  // Inside the Inkwell app there's nothing to install.
+  const showInstall = !inApp() && !install.installed && (install.canPrompt || install.ios);
+
+  async function handleInstall() {
+    if (install.canPrompt) await install.prompt();
+    else setIosHelp((v) => !v);
+  }
+
+  return (
+    <>
+    <div className="you-sheet-tiles">
+      <Tile href="/drafts" label="Drafts" badge={draftCount} muted icon={<DraftsIcon size={20} />} />
+      <Tile href="/manage" label="Posts" icon={<PostsIcon size={20} />} />
+      <Tile href="/saved" label="Bookmarks" icon={<SavedIcon size={20} />} />
+      <Tile href="/pen-pals" label="Pen Pals" icon={<PenPalsIcon size={20} />} />
+      <Tile href="/letters" label="Letters" badge={unreadLetterCount} icon={<LettersIcon size={20} />} />
+      <Tile href="/readers" label="Readers" icon={<ReadersIcon size={20} />} />
+      <Tile href="/stamp-album" label="Stamp album" icon={<StampAlbumIcon size={20} />} />
+    </div>
+
+    <div className="you-sheet-label">Community</div>
+    <div className="you-sheet-chips">
+      <Chip href="/gazette" label="Gazette" icon={<GazetteIcon size={16} />} />
+      <Chip href="/circles" label="Circles" icon={<CirclesIcon size={16} />} />
+      <Chip href="/polls" label="Polls" icon={<PollsIcon size={16} />} />
+      <Chip href="/roadmap" label="Roadmap" icon={<RoadmapIcon size={16} />} />
+      <Link href="/whats-new" className="you-sheet-chip">
+        <span aria-hidden="true">✦</span>
+        What&rsquo;s new
+        <WhatsNewDot />
+      </Link>
+    </div>
+
+    <div className="you-sheet-list">
+      {!isPlus && !selfHosted && (
+        <Row href="/settings/billing" label="Become a member" icon={<span className="you-sheet-star">✦</span>} accent />
+      )}
+      {showInstall && (
+        <>
+          <button type="button" className="you-sheet-row" onClick={handleInstall}>
+            <span className="you-sheet-row-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M12 7v7M9 11l3 3 3-3" /></svg>
+            </span>
+            <span className="you-sheet-row-label">Install the Inkwell app</span>
+          </button>
+          {iosHelp && (
+            <p className="you-sheet-ios-help">
+              In Safari, tap <strong>Share</strong>{" "}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Share icon" style={{ display: "inline", verticalAlign: "-2px" }}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
+              {" "}then <strong>Add to Home Screen</strong>. Inkwell opens full-screen, with notifications and a badge on the icon.
+            </p>
+          )}
+        </>
+      )}
+      <Row href="/settings" label="Settings" icon={<SettingsIcon size={20} />} />
+      <LookSwitch variant="sheet" />
+      <Row href="/settings/invite" label="Invite friends" icon={<InviteIcon size={20} />} />
+      <Row href="/help" label="Help" icon={<HelpIcon size={20} />} />
+      {isAdmin && <Row href="/admin" label="Admin" icon={<AdminIcon size={20} />} />}
+      <form action="/auth/signout" method="POST">
+        <button type="submit" className="you-sheet-row you-sheet-row--quiet">
+          <span className="you-sheet-row-icon" aria-hidden="true"><SignOutIcon size={20} /></span>
+          <span className="you-sheet-row-label">Sign out</span>
+        </button>
+      </form>
+    </div>
+    </>
   );
 }
 

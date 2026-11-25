@@ -9,6 +9,7 @@ import { splashStartupImages } from "@/lib/splash-screens";
 import { getSite, siteScript } from "@/lib/site";
 import { cookies, headers } from "next/headers";
 import { decorationsOff, SEASON_COOKIE, siteSeason, type SeasonId } from "@/lib/seasons";
+import { appPlatformFromUserAgent } from "@/lib/native-app";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const lora = Lora({ variable: "--font-lora", subsets: ["latin"], display: "swap" });
@@ -70,6 +71,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const { session, unavailable } = await getSessionSafe();
   const site = getSite();
   const season = await currentSeason(session?.user.settings);
+  // Inside the Android/iOS app (apps/mobile): the app draws the tab bar.
+  const appPlatform = appPlatformFromUserAgent((await headers()).get("user-agent"));
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -122,6 +125,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         className={`${inter.variable} ${lora.variable} antialiased`}
         data-look={siteLookOf(session?.user.settings) === "classic" ? "classic" : undefined}
         data-season={season ?? undefined}
+        data-app={appPlatform ?? undefined}
         suppressHydrationWarning
       >
         {/*
@@ -144,7 +148,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `try{var o=localStorage.getItem("inkwell-sidebar-collapsed");if(o==="true"){localStorage.removeItem("inkwell-sidebar-collapsed");localStorage.setItem("inkwell-sidebar-hidden","true")}if(localStorage.getItem("inkwell-sidebar-hidden")==="true")document.body.setAttribute("data-sidebar-hidden","");if(localStorage.getItem("inkwell-eye-comfort")==="true")document.body.classList.add("eye-comfort")}catch(e){}`,
           }}
         />
-        <AppShell user={session?.user ?? null} sessionUnavailable={unavailable} season={season}>
+        <AppShell user={session?.user ?? null} sessionUnavailable={unavailable} season={season} app={appPlatform}>
           {children}
         </AppShell>
         <ServiceWorkerRegister />

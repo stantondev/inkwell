@@ -22435,3 +22435,22 @@ body:not([data-look="classic"]) .entry-letter[class*="page-text-"] .entry-letter
     height: calc(var(--vvh, 100dvh) - 57px);
   }
 }
+
+/* --- Inside the Inkwell app (apps/mobile) ---------------------------------
+   <body data-app="android|ios"> when the request came from the app's WebView.
+   The app draws the tab bar; AppShell leaves out the web one and the footer. */
+
+/* The You tab: the You sheet's menu as a page. */
+.you-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+}
+.you-page-profile { padding: 4px 0 6px; }
+.you-page-body .you-sheet-tiles { margin-top: 10px; }
+
+/* No hover states to discover with a finger, and no text selection by accident
+   on controls; the page itself stays selectable. */
+body[data-app] { -webkit-tap-highlight-color: transparent; }
+body[data-app] button,
+body[data-app] [role="button"] { -webkit-user-select: none; user-select: none; }

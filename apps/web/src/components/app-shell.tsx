@@ -12,6 +12,8 @@ import { MobileViewport } from "./mobile-viewport";
 import { SeasonProvider } from "./seasonal/season-context";
 import { HalloweenAtmosphere } from "./seasonal/halloween-atmosphere";
 import type { SeasonId } from "@/lib/seasons";
+import type { AppPlatform } from "@/lib/native-app";
+import { AppBridge } from "./app-bridge";
 
 /**
  * AppShell — layout wrapper that handles sidebar vs top nav routing.
@@ -25,6 +27,7 @@ export async function AppShell({
   user,
   sessionUnavailable = false,
   season = null,
+  app = null,
   children,
 }: {
   user: SessionUser | null;
@@ -32,6 +35,8 @@ export async function AppShell({
   sessionUnavailable?: boolean;
   /** The holiday the site is dressed for (lib/seasons.ts), already off for readers who turned it off. */
   season?: SeasonId | null;
+  /** Inside the Inkwell app: it draws the tab bar, so the page leaves out its own and the footer. */
+  app?: AppPlatform | null;
   children: React.ReactNode;
 }) {
   const headersList = await headers();
@@ -85,15 +90,18 @@ export async function AppShell({
       <MobileViewport signedIn={!!user} />
 
       {/* Main content area — bottom padding on mobile for tab bar clearance */}
-      <main className={`app-content flex flex-col min-h-screen ${user ? "lg:min-h-0 has-bottom-tabs" : "no-sidebar"}`}>
+      <main className={`app-content flex flex-col min-h-screen ${user ? `lg:min-h-0${app ? "" : " has-bottom-tabs"}` : "no-sidebar"}`}>
         <div className="flex-1">
           {children}
         </div>
-        <Footer />
+        {!app && <Footer />}
       </main>
 
-      {/* Bottom tab bar — mobile/tablet only, logged-in only */}
-      {user && (
+      {/* Tells the app who's signed in and what's unread (app only). */}
+      {app && <AppBridge user={user} />}
+
+      {/* Bottom tab bar — mobile/tablet only, logged-in only (the app draws its own) */}
+      {user && !app && (
         <BottomTabBar
           username={user.username}
           displayName={user.display_name || user.username}

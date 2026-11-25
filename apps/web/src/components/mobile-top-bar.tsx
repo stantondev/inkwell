@@ -10,7 +10,7 @@ import { QuickSearchButton } from "./quick-search";
 
 // Pages reached from the tab bar or the You sheet: no back button, the logo sits alone.
 const TOP_LEVEL_PATHS = new Set([
-  "/", "/feed", "/explore", "/editor", "/notifications",
+  "/", "/feed", "/explore", "/editor", "/notifications", "/you",
   "/letters", "/saved", "/circles", "/polls", "/roadmap",
   "/pen-pals", "/drafts", "/manage", "/readers", "/gazette",
   "/settings", "/help",

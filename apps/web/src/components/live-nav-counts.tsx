@@ -3,6 +3,7 @@
 import { setStampSoundPreference } from "@/lib/stamp-sound";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setAppIconBadge } from "@/lib/pwa";
+import { postToApp } from "@/lib/native-app";
 import { usePathname } from "next/navigation";
 import { installAudioUnlock, playChime } from "@/lib/notification-sound";
 import type { Notification } from "@/lib/notification-format";
@@ -11,6 +12,23 @@ interface NavCounts {
   draftCount: number;
   unreadNotificationCount: number;
   unreadLetterCount: number;
+}
+
+// Every mounted copy of the hook polls; tell the app only when something changed.
+let lastCountsSentToApp = "";
+function postCountsToApp(c: NavCounts) {
+  const key = `${c.unreadNotificationCount}/${c.unreadLetterCount}/${c.draftCount}`;
+  if (key === lastCountsSentToApp) return;
+  if (
+    postToApp({
+      type: "counts",
+      notifications: c.unreadNotificationCount,
+      letters: c.unreadLetterCount,
+      drafts: c.draftCount,
+    })
+  ) {
+    lastCountsSentToApp = key;
+  }
 }
 
 const POLL_INTERVAL = 15_000; // 15 seconds when tab is in foreground — fast enough to feel near-instant
@@ -575,6 +593,8 @@ export function useLiveNavCounts(initial: NavCounts): NavCounts {
         updateFaviconBadge(total > 0);
         // …and the installed app's icon (home screen / dock)
         setAppIconBadge(total);
+        // …and the Inkwell app's Alerts badge (does nothing on the website).
+        postCountsToApp(newCounts);
 
         setCounts(newCounts);
       })
