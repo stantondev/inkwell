@@ -18545,6 +18545,14 @@ body[data-look="classic"] .entry-current-label {
     bottom: var(--kb, 0px);
     max-height: calc(var(--vvh, 100dvh) - 24px);
   }
+  /* A field in the sheet has focus: fit the visible screen, then lift by
+     whatever the keyboard still covers (keepFieldAboveKeyboard in
+     components/mobile-viewport.tsx). `translate`, not `transform`: the
+     sheet's own slide-down drag uses transform. */
+  [data-keyboard-lift][data-keyboard-lifted] {
+    max-height: calc(var(--vvh, 100dvh) - 24px);
+    translate: 0 calc(-1 * var(--kb-lift, 0px));
+  }
 }
 @media (max-width: 640px) {
   html[data-keyboard] .stationery-modal-wrap {

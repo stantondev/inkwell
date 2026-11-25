@@ -17,6 +17,46 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
  * Android Chrome resizes the page itself (interactive-widget=resizes-content
  * in layout.tsx), so there --kb stays 0.
  */
+/**
+ * The keyboard-height guess above can be wrong: iPhone home-screen apps
+ * report their viewport unreliably (WebKit bug 218983), and a sheet the
+ * reader slid down sits lower than the guess assumes. So for a bottom sheet
+ * marked `data-keyboard-lift`, measure where the field actually is against
+ * the visible screen and lift the sheet by whatever is still hidden.
+ * Reported by @rainbowdarling (2026-11-25): writing a footnote on a phone,
+ * the keyboard covered the box.
+ */
+let lifted: HTMLElement | null = null;
+let liftFrame = 0;
+
+function keepFieldAboveKeyboard(field: HTMLElement | null) {
+  const sheet = field?.closest<HTMLElement>("[data-keyboard-lift]") ?? null;
+  if (lifted && lifted !== sheet) {
+    lifted.style.removeProperty("--kb-lift");
+    lifted.removeAttribute("data-keyboard-lifted");
+    lifted = null;
+  }
+  const vv = window.visualViewport;
+  if (!sheet || !field || !vv) return;
+  lifted = sheet;
+  sheet.setAttribute("data-keyboard-lifted", "");
+  cancelAnimationFrame(liftFrame);
+  // Two frames: the first lets the sheet take its keyboard size.
+  liftFrame = requestAnimationFrame(() => {
+    liftFrame = requestAnimationFrame(() => {
+      const box = (field.closest<HTMLElement>(".comment-editor-wrap") ?? field).getBoundingClientRect();
+      const visibleTop = vv.offsetTop;
+      const visibleBottom = vv.offsetTop + vv.height;
+      const current = parseFloat(sheet.style.getPropertyValue("--kb-lift")) || 0;
+      // Lift so the box clears the keyboard, but never past the top of the screen.
+      const want = current + (box.bottom + 8 - visibleBottom);
+      const room = current + (sheet.getBoundingClientRect().top - (visibleTop + 8));
+      const lift = Math.max(0, Math.min(want, room));
+      sheet.style.setProperty("--kb-lift", `${Math.round(lift)}px`);
+    });
+  });
+}
+
 function useKeyboardInset() {
   useEffect(() => {
     const vv = window.visualViewport;
@@ -32,8 +72,10 @@ function useKeyboardInset() {
       root.style.setProperty("--vvh", `${vv.height}px`);
       root.style.setProperty("--vv-top", `${vv.offsetTop}px`);
       root.style.setProperty("--kb", `${kb}px`);
-      const editing = document.activeElement?.matches("input, textarea, select, [contenteditable='true']");
+      const active = document.activeElement as HTMLElement | null;
+      const editing = active?.matches("input, textarea, select, [contenteditable='true']");
       root.toggleAttribute("data-keyboard", !!editing && kb > 120);
+      keepFieldAboveKeyboard(editing ? active : null);
     };
     update();
     vv.addEventListener("resize", update);

@@ -581,7 +581,17 @@ export function FeedCardActions({
               {/* A light dim that lets touches through to the page */}
               <div className="comment-sheet-backdrop comment-sheet-backdrop--passthrough" aria-hidden="true" />
               {/* Sheet */}
-              <div className="comment-sheet" ref={sheetRef} role="dialog" aria-label="Comments">
+              <div
+                className="comment-sheet"
+                ref={sheetRef}
+                role="dialog"
+                aria-label="Comments"
+                data-keyboard-lift=""
+                // Typing in a sheet slid down to read the post: bring it back
+                // up first (no animation, so the keyboard lift measures the
+                // sheet where it will be), or the box sits under the keyboard.
+                onFocus={() => { if (dropRef.current > 0) setDrop(0, false); }}
+              >
                 {/* Drag handle: pull down to see behind, tap to bring back up */}
                 <div
                   className="comment-sheet-handle"

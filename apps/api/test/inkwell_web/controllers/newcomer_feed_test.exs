@@ -150,6 +150,65 @@ defmodule InkwellWeb.NewcomerFeedTest do
 
       assert Repo.aggregate(from(n in Notification, where: n.type == :first_entry), :count) == 0
     end
+
+    # @stoicalgeezer, 2026-11-24: told about @renacer's first post, then
+    # missed the two that followed it that day.
+    test "the writer's next entries that day update the welcomer's notice" do
+      welcomer = with_settings(%{"first_entry_notices" => true})
+      writer = create_user()
+      first = publish(writer)
+      FirstEntryNotices.notify(first.id)
+
+      [note] = Repo.all(from n in Notification, where: n.type == :first_entry and n.user_id == ^welcomer.id)
+      note |> Ecto.Changeset.change(read: true) |> Repo.update!()
+
+      second = publish(writer, %{title: "Second"})
+      Inkwell.NewEntryNotices.notify_followers(second)
+      third = publish(writer, %{title: "Third"})
+      Inkwell.NewEntryNotices.notify_followers(third)
+      # The same entry again (a retried job) doesn't count twice.
+      Inkwell.NewEntryNotices.notify_followers(third)
+
+      assert [n] = Repo.all(from n in Notification, where: n.type == :first_entry and n.user_id == ^welcomer.id)
+      assert n.id == note.id
+      assert n.target_id == third.id
+      assert n.data["count"] == 3
+      assert n.data["entry_title"] == "Third"
+      assert n.data["entry_path"] == "/#{writer.username}/#{third.slug}"
+      refute n.read
+    end
+
+    test "no follow-up after a day, for private entries, limited writers, or welcomers who follow" do
+      welcomer = with_settings(%{"first_entry_notices" => true})
+      writer = create_user()
+      first = publish(writer)
+      FirstEntryNotices.notify(first.id)
+      [note] = Repo.all(from n in Notification, where: n.type == :first_entry and n.user_id == ^welcomer.id)
+
+      Inkwell.NewEntryNotices.notify_followers(publish(writer, %{privacy: :friends_only}))
+      assert Repo.reload!(note).target_id == first.id
+
+      writer |> Ecto.Changeset.change(moderation_state: "limited") |> Repo.update!()
+      Inkwell.NewEntryNotices.notify_followers(publish(writer))
+      assert Repo.reload!(note).target_id == first.id
+      writer |> Ecto.Changeset.change(moderation_state: nil) |> Repo.update!()
+
+      ago(note, :inserted_at, 2)
+      Inkwell.NewEntryNotices.notify_followers(publish(writer))
+      assert Repo.reload!(note).target_id == first.id
+
+      # A welcomer who follows the writer gets the ordinary notice instead.
+      fan = with_settings(%{"first_entry_notices" => true})
+      writer2 = create_user()
+      first2 = publish(writer2)
+      FirstEntryNotices.notify(first2.id)
+      create_relationship(%{follower_id: fan.id, following_id: writer2.id, status: :accepted})
+      Inkwell.NewEntryNotices.notify_followers(publish(writer2))
+
+      [fan_first] = Repo.all(from n in Notification, where: n.type == :first_entry and n.user_id == ^fan.id)
+      assert fan_first.target_id == first2.id
+      assert [_] = Repo.all(from n in Notification, where: n.type == :new_entry and n.user_id == ^fan.id)
+    end
   end
 
   describe "the Slack note for a first entry" do

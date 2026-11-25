@@ -14,6 +14,11 @@ defmodule Inkwell.NewEntryNotices do
       (`Journals.viewable_by?/2`), who aren't suspended and haven't turned
       notices off (`settings["new_entry_notices_disabled"]`). Blocks are
       skipped by `Accounts.create_notification/1`.
+    * Welcomers (`settings["first_entry_notices"]`) who were told about a new
+      writer's first entry in the last day hear about that writer's next
+      entries the same day too: the first-entry notice is updated ("posted 3
+      entries"), the way a follower's notice is. Asked for by @stoicalgeezer
+      (2026-11-24), who saw @renacer's first post and missed the next two.
     * One notice per writer per reader per day: another entry the same day
       updates that notice (newest entry, count) and marks it unread again.
     * In-app only. `:new_entry` isn't a push or email type.
@@ -39,10 +44,16 @@ defmodule Inkwell.NewEntryNotices do
   @doc "Notify everyone who follows `entry`'s writer and can read it."
   def notify_followers(%Entry{} = entry) do
     if announce?(entry) do
-      entry.user_id
-      |> followers()
-      |> Enum.filter(&Journals.viewable_by?(entry, &1))
-      |> Enum.each(&notify(&1, entry))
+      told =
+        entry.user_id
+        |> followers()
+        |> Enum.filter(&Journals.viewable_by?(entry, &1))
+        |> Enum.map(fn reader ->
+          notify(reader, entry)
+          reader.id
+        end)
+
+      follow_up_welcomers(entry, MapSet.new(told))
     end
 
     :ok
@@ -57,6 +68,46 @@ defmodule Inkwell.NewEntryNotices do
       where: fragment("coalesce((?->>'new_entry_notices_disabled')::boolean, false) = false", u.settings)
     )
     |> Repo.all()
+  end
+
+  # A new writer's next entries, for the welcomers who were just told about
+  # their first one. Only public entries, only while the writer is in good
+  # standing, and never for someone already notified above as a follower.
+  defp follow_up_welcomers(%Entry{privacy: :public} = entry, already_told) do
+    with %User{blocked_at: nil, moderation_state: state} = writer when state != "limited" <-
+           Repo.get(User, entry.user_id) do
+      path = "/#{writer.username}/#{entry.slug}"
+      since = DateTime.add(DateTime.utc_now(), -1, :day)
+
+      from(n in Notification,
+        join: u in User,
+        on: u.id == n.user_id,
+        where: n.type == :first_entry and n.actor_id == ^entry.user_id and n.inserted_at >= ^since,
+        where: is_nil(u.blocked_at),
+        where: fragment("coalesce((?->>'first_entry_notices')::boolean, false) = true", u.settings)
+      )
+      |> Repo.all()
+      |> Enum.reject(&(MapSet.member?(already_told, &1.user_id) or &1.target_id == entry.id))
+      |> Enum.each(&add_to_first_entry_notice(&1, entry, path))
+    end
+
+    :ok
+  end
+
+  defp follow_up_welcomers(_entry, _already_told), do: :ok
+
+  defp add_to_first_entry_notice(%Notification{} = n, entry, path) do
+    data = n.data || %{}
+    count = (data["count"] || 1) + 1
+
+    n
+    |> Ecto.Changeset.change(
+      target_id: entry.id,
+      read: false,
+      data: Map.merge(data, %{"count" => count, "entry_title" => entry.title, "entry_path" => path}),
+      inserted_at: DateTime.utc_now()
+    )
+    |> Repo.update()
   end
 
   defp notify(reader, entry) do
