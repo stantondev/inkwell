@@ -15,8 +15,9 @@ primary_region = "ord"
 [env]
   PORT = "4000"
   PHX_HOST = "inkwell-api.fly.dev"
-  # The database (inkwell-db) has 1 GB, and each open connection costs it
-  # ~27 MB of private memory (measured 2026-10-23). At 12 connections that was
+  # The database (inkwell-db) has 2 GB (1 GB until 2026-11-25), and each open
+  # connection costs it ~27 MB of private memory (measured 2026-10-23; ~35 MB
+  # after a few weeks, 2026-11-25). At 12 connections that was
   # ~350 MB and free memory kept dipping under the 100 MB alert line; during a
   # blue-green deploy both pools are open at once. 8 is plenty for Inkwell's
   # traffic: Oban jobs spend most of their time on HTTP, not holding a
