@@ -283,6 +283,8 @@ defmodule InkwellWeb.Router do
     # Push notification subscriptions
     post "/push/subscribe", PushController, :subscribe
     post "/push/unsubscribe", PushController, :unsubscribe
+    post "/push/devices", PushController, :register_device
+    delete "/push/devices", PushController, :unregister_device
 
     # User icons
     get "/me/icons", UserIconController, :index

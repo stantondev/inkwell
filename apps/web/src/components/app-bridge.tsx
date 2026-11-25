@@ -34,5 +34,41 @@ export function AppBridge({ user }: { user: SessionUser | null }) {
     });
   }, [user]);
 
+  // The app hands over this phone's notification token (apps/mobile/src/
+  // notifications.ts): register it with the signed-in session, once per
+  // token and account in this page's lifetime.
+  useEffect(() => {
+    if (!user) return;
+    const register = (detail: AppPushDetail | undefined) => {
+      if (!detail?.token) return;
+      const key = `inkwell-app-push:${user.username}:${detail.token}`;
+      try {
+        if (sessionStorage.getItem(key)) return;
+      } catch {
+        /* private mode: just register */
+      }
+      fetch("/api/push/devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: detail.token, platform: detail.platform, app_version: detail.appVersion }),
+      })
+        .then((res) => {
+          if (!res.ok) return;
+          try {
+            sessionStorage.setItem(key, "1");
+          } catch {
+            /* fine */
+          }
+        })
+        .catch(() => {});
+    };
+    const onPush = (e: Event) => register((e as CustomEvent<AppPushDetail>).detail);
+    window.addEventListener("inkwell-app-push", onPush);
+    register((window as unknown as { __inkwellPush?: AppPushDetail }).__inkwellPush);
+    return () => window.removeEventListener("inkwell-app-push", onPush);
+  }, [user]);
+
   return null;
 }
+
+type AppPushDetail = { token: string; platform?: string; appVersion?: string | null };

@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Haptics from "expo-haptics";
 import { InkwellWebView, type InkwellWebViewHandle, type PageMessage } from "./InkwellWebView";
 import { SITE_URL, TAB_ROOTS, isInkwellUrl, isSignInPath, type TabId } from "./config";
+import { onNotificationTap, pushToken, tokenScript } from "./notifications";
 import { SERIF, useTheme } from "./theme";
 import { AlertsIcon, CloseIcon, EntryIcon, ExploreIcon, FeedIcon, PenIcon, StickyIcon, YouIcon } from "./icons";
 
@@ -48,6 +49,7 @@ function Frame() {
   const [editor, setEditor] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
   const pendingLink = useRef<string | null>(null);
+  const token = useRef<string | null>(null);
 
   const signInView = useRef<InkwellWebViewHandle>(null);
   const editorView = useRef<InkwellWebViewHandle>(null);
@@ -58,6 +60,12 @@ function Frame() {
     (where: "signin" | "tab", msg: Extract<PageMessage, { type: "session" }>) => {
       SplashScreen.hideAsync().catch(() => {});
       if (msg.signedIn) setSession({ username: msg.username ?? null, avatarUrl: msg.avatarUrl ?? null });
+      // Every signed-in page load gets the phone's token, so the page can
+      // register it with its session (the page skips repeats).
+      if (msg.signedIn && where === "tab" && token.current) {
+        const script = tokenScript(token.current);
+        Object.values(tabViews.current).forEach((v) => v?.run(script));
+      }
       if (where === "signin") {
         if (msg.signedIn && !isSignInPath(msg.path)) {
           setMode("tabs");
@@ -108,6 +116,48 @@ function Frame() {
     const sub = Linking.addEventListener("url", (e) => route(e.url));
     return () => sub.remove();
   }, [mode, tab]);
+
+  // Once signed in: ask for notifications (the system asks only once), then
+  // hand the phone's token to the open pages.
+  useEffect(() => {
+    if (mode !== "tabs" || token.current) return;
+    let cancelled = false;
+    pushToken().then((t) => {
+      if (cancelled || !t) return;
+      token.current = t;
+      const script = tokenScript(t);
+      Object.values(tabViews.current).forEach((v) => v?.run(script));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
+  // A tapped notification opens its page: Alerts-type pages in the Alerts
+  // tab, anything else in the tab you're on.
+  const openFromNotification = useRef<(path: string) => void>(() => {});
+  openFromNotification.current = (path: string) => {
+    if (mode !== "tabs") {
+      pendingNotification.current = path;
+      return;
+    }
+    const target: TabId = path.startsWith("/notifications") ? "alerts" : tab;
+    if (target !== tab) {
+      setVisited((v) => (v.has(target) ? v : new Set(v).add(target)));
+      setTab(target);
+    }
+    if (path === TAB_ROOTS[target] && !tabViews.current[target]) return; // mounts at its root
+    setTimeout(() => tabViews.current[target]?.open(path), 0);
+  };
+  const pendingNotification = useRef<string | null>(null);
+  useEffect(() => onNotificationTap((path) => openFromNotification.current(path)), []);
+  useEffect(() => {
+    if (mode === "tabs" && pendingNotification.current) {
+      const p = pendingNotification.current;
+      pendingNotification.current = null;
+      setTimeout(() => openFromNotification.current(p), 400);
+    }
+  }, [mode]);
 
   // The tab bar steps aside for the keyboard, as on the website.
   useEffect(() => {

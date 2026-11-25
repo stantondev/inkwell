@@ -38,4 +38,6 @@ config :inkwell, :musicbrainz_network, false
 
 # Bluesky: no network in tests (Req.Test stubs; DNS stubbed per test).
 config :inkwell, :bluesky_req_options, plug: {Req.Test, Inkwell.Bluesky}
+# Firebase (app notifications) never gets a real request in tests.
+config :inkwell, :fcm_req_options, plug: {Req.Test, Inkwell.Push.Fcm}
 config :inkwell, :bluesky_dns_lookup, &Inkwell.BlueskyTestDNS.lookup/1

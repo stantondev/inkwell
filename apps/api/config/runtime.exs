@@ -252,6 +252,22 @@ if config_env() == :prod do
       private_key: vapid_private
   end
 
+  # Inkwell app notifications through Firebase Cloud Messaging: the service
+  # account JSON from Firebase → Project settings → Service accounts.
+  case env.("FCM_SERVICE_ACCOUNT") do
+    json when is_binary(json) ->
+      case Jason.decode(json) do
+        {:ok, %{"project_id" => project_id, "client_email" => email, "private_key" => key}} ->
+          config :inkwell, :fcm, %{project_id: project_id, client_email: email, private_key: key}
+
+        _ ->
+          IO.warn("FCM_SERVICE_ACCOUNT isn't a Firebase service account JSON; app notifications are off")
+      end
+
+    _ ->
+      :ok
+  end
+
   # Gazette hashtag ingestion (optional, disabled by default).
   # Kill switch: flip GAZETTE_INGESTION_ENABLED to "true" to activate the
   # hourly cron that polls Mastodon public hashtag timelines for news-topic

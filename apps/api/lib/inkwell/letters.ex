@@ -1212,7 +1212,7 @@ defmodule Inkwell.Letters do
   end
 
   defp notify_recipient_named(conv, actor_name, recipient_id) do
-    if Inkwell.Push.configured?() do
+    if Inkwell.Push.any_configured?() do
       try do
         recipient = Repo.get(Accounts.User, recipient_id)
         push_disabled = match?(%{settings: %{"push_notifications_disabled" => true}}, recipient)
@@ -1224,14 +1224,17 @@ defmodule Inkwell.Letters do
           )
 
         unless push_disabled or muted do
-          Inkwell.Push.deliver(recipient_id, %{
+          payload = %{
             title: "New letter",
             body: "#{actor_name} sent you a letter",
             icon: "/favicon.svg",
             badge: "/favicon.svg",
             tag: "inkwell-letter-#{conv.id}",
             data: %{url: "/letters/#{conv.id}"}
-          })
+          }
+
+          if Inkwell.Push.configured?(), do: Inkwell.Push.deliver(recipient_id, payload)
+          Inkwell.Push.deliver_to_devices(recipient_id, payload)
         end
       rescue
         e ->

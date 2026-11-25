@@ -28,6 +28,9 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     softwareKeyboardLayoutMode: "resize",
+    // Firebase (notifications). Not a secret: it names the Firebase project
+    // and is safe to ship inside the app.
+    googleServicesFile: "./google-services.json",
     predictiveBackGestureEnabled: false,
     // Links to inkwell.social open in the app (sign-in links from email
     // included). Verified through /.well-known/assetlinks.json.
@@ -55,6 +58,10 @@ const config: ExpoConfig = {
       },
     ],
     "expo-web-browser",
+    [
+      "expo-notifications",
+      { icon: "./assets/notification-icon.png", color: "#2d4a8a", defaultChannel: "default" },
+    ],
     ["expo-build-properties", { android: { usesCleartextTraffic: testing } }],
     "./plugins/with-release-signing",
   ],

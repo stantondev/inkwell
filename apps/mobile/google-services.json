@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "11415335354",
+    "project_id": "inkwell-daef8",
+    "storage_bucket": "inkwell-daef8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:11415335354:android:e661fd866fce1d4ce8ed83",
+        "android_client_info": {
+          "package_name": "social.inkwell.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBu6B1qFNr6hZtCnXai1YpOOjRP4JcxmNw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

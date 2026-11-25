@@ -94,6 +94,19 @@ defmodule Inkwell.Auth do
     end
   end
 
+  @doc "The id of a live API session token (push devices are tied to it), or nil."
+  def api_session_token_id(token) when is_binary(token) do
+    now = DateTime.utc_now()
+
+    Repo.one(
+      from t in AuthToken,
+        where: t.token == ^token and t.type == "api_session" and t.expires_at > ^now,
+        select: t.id
+    )
+  end
+
+  def api_session_token_id(_), do: nil
+
   @doc "Revoke an API session token (sign out)."
   def revoke_api_session_token(token) do
     from(t in AuthToken, where: t.token == ^token)

@@ -458,7 +458,7 @@ defmodule Inkwell.Accounts do
   defp maybe_send_push(notification, _attrs) do
     alias Inkwell.Push
 
-    if Push.configured?() and Push.pushable_type?(notification.type) do
+    if Push.any_configured?() and Push.pushable_type?(notification.type) do
       user = Repo.get(Inkwell.Accounts.User, notification.user_id)
 
       push_disabled =
@@ -470,7 +470,8 @@ defmodule Inkwell.Accounts do
       unless push_disabled do
         actor_name = resolve_push_actor_name(notification)
         payload = Push.build_payload(notification, actor_name)
-        Push.deliver(notification.user_id, payload)
+        if Push.configured?(), do: Push.deliver(notification.user_id, payload)
+        Push.deliver_to_devices(notification.user_id, payload)
       end
     end
   rescue

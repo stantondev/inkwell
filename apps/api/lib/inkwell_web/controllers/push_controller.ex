@@ -47,6 +47,45 @@ defmodule InkwellWeb.PushController do
     |> json(%{error: "endpoint is required"})
   end
 
+  @doc """
+  POST /api/push/devices — the Inkwell app registers this phone's Firebase
+  token. Signed-in browser sessions only (the app's pages call it through
+  the web proxy with the session cookie), so the device follows that session.
+  """
+  def register_device(conn, params) do
+    user_id = conn.assigns.current_user.id
+    auth_token_id = session_token_id(conn)
+
+    case Push.register_device(user_id, auth_token_id, params) do
+      {:ok, _device} ->
+        json(conn, %{ok: true})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(422)
+        |> json(%{error: "Invalid device", details: format_errors(changeset)})
+    end
+  end
+
+  @doc "DELETE /api/push/devices — forget this phone (notifications turned off in the app)."
+  def unregister_device(conn, %{"token" => token}) when is_binary(token) do
+    Push.unregister_device(conn.assigns.current_user.id, token)
+    json(conn, %{ok: true})
+  end
+
+  def unregister_device(conn, _params) do
+    conn |> put_status(422) |> json(%{error: "token is required"})
+  end
+
+  defp session_token_id(conn) do
+    with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
+         false <- String.starts_with?(token, "ink_") do
+      Inkwell.Auth.api_session_token_id(token)
+    else
+      _ -> nil
+    end
+  end
+
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

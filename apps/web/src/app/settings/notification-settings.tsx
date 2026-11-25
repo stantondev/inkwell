@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
+import { inApp } from "@/lib/native-app";
 import { previewChime } from "@/lib/notification-sound";
 import { playStampThunk, setStampSoundPreference } from "@/lib/stamp-sound";
 
@@ -24,6 +25,10 @@ export function NotificationSettings() {
   const [saveError, setSaveError] = useState(false);
 
   const push = usePushSubscription();
+  // Inside the Inkwell app the phone's own notifications are used, not the
+  // browser's (which a WebView doesn't have).
+  const [app, setApp] = useState(false);
+  useEffect(() => setApp(inApp()), []);
 
   useEffect(() => {
     (async () => {
@@ -189,7 +194,32 @@ export function NotificationSettings() {
           Push Notifications
         </h3>
 
-        {!push.supported ? (
+        {app ? (
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              This phone gets notifications from the Inkwell app. To turn them on or off, open
+              Android&apos;s <strong>Settings → Apps → Inkwell → Notifications</strong>.
+            </p>
+            <label
+              className="flex items-start gap-3 cursor-pointer pt-3"
+              style={{ opacity: saving ? 0.6 : 1, borderTop: "1px solid var(--border)" }}
+            >
+              <input
+                type="checkbox"
+                checked={pushDisabled}
+                onChange={(e) => toggleSetting("push_notifications_disabled", e.target.checked, setPushDisabled)}
+                disabled={saving}
+                className="mt-0.5"
+              />
+              <div>
+                <span className="text-sm font-medium">Pause all push notifications</span>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                  Stop notifications on this phone and every browser you&apos;ve turned them on in, until you untick this.
+                </p>
+              </div>
+            </label>
+          </div>
+        ) : !push.supported ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>
             Push notifications are not supported in this browser.
           </p>

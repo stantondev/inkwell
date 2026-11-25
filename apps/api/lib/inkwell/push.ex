@@ -6,6 +6,7 @@ defmodule Inkwell.Push do
   import Ecto.Query
   alias Inkwell.Repo
   alias Inkwell.Push.PushSubscription
+  alias Inkwell.Push.{Device, Fcm}
 
   @pushable_types ~w(
     comment reply mention stamp ink reprint follow_request follow_accepted
@@ -85,6 +86,78 @@ defmodule Inkwell.Push do
     :ok
   end
 
+  # --- The Inkwell app (Firebase Cloud Messaging) ---------------------------
+
+  @doc """
+  Remember a phone running the Inkwell app for this person. `auth_token_id`
+  is the sign-in session that registered it: signing out deletes that token,
+  and with it this row, so a shared phone stops getting someone's
+  notifications. A token seen before moves to whoever registers it now.
+  """
+  def register_device(user_id, auth_token_id, attrs) do
+    attrs =
+      attrs
+      |> Map.take(["token", "platform", "app_version"])
+      |> Map.merge(%{"user_id" => user_id, "auth_token_id" => auth_token_id})
+
+    %Device{}
+    |> Device.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:user_id, :auth_token_id, :platform, :app_version, :updated_at]},
+      conflict_target: :token,
+      returning: true
+    )
+  end
+
+  def unregister_device(user_id, token) do
+    Device
+    |> where([d], d.user_id == ^user_id and d.token == ^token)
+    |> Repo.delete_all()
+
+    :ok
+  end
+
+  def list_devices(user_id), do: Repo.all(from d in Device, where: d.user_id == ^user_id)
+
+  @doc "One Oban job per phone, like deliver/2 for browsers."
+  def deliver_to_devices(user_id, payload) when is_map(payload) do
+    if Fcm.configured?() do
+      user_id
+      |> list_devices()
+      |> Enum.each(fn device ->
+        %{device_id: device.id, payload: payload}
+        |> Inkwell.Workers.FcmPushWorker.new()
+        |> Oban.insert()
+      end)
+    end
+
+    :ok
+  end
+
+  @doc "True when either kind of push (browsers or the app) can be sent."
+  def any_configured?, do: configured?() or Fcm.configured?()
+
+  @doc """
+  The FCM message for a push payload (build_payload/2, JSON-decoded keys
+  once it has been through an Oban job). Android shows it in the
+  "Notifications" channel the app creates; `url` (a path) tells the app
+  which page to open when it's tapped.
+  """
+  def fcm_message(payload) do
+    get = fn key -> payload[key] || payload[to_string(key)] end
+    data = get.(:data) || %{}
+    url = data[:url] || data["url"] || "/notifications"
+
+    %{
+      notification: %{title: get.(:title) || "Inkwell", body: get.(:body) || ""},
+      data: %{url: to_string(url)},
+      android: %{
+        priority: "high",
+        notification: %{channel_id: "default", tag: to_string(get.(:tag) || "inkwell")}
+      }
+    }
+  end
+
   @doc "Build the push notification JSON payload from a notification + actor name."
   def build_payload(notification, actor_name) do
     type = to_string(notification.type)
@@ -104,6 +177,10 @@ defmodule Inkwell.Push do
   @doc "Delete subscriptions not updated in 90 days."
   def cleanup_stale_subscriptions do
     cutoff = DateTime.utc_now() |> DateTime.add(-90, :day)
+
+    Device
+    |> where([d], d.updated_at < ^cutoff)
+    |> Repo.delete_all()
 
     PushSubscription
     |> where([s], s.updated_at < ^cutoff)
