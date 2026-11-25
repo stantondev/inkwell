@@ -26,7 +26,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "bluesky-sign-in",
     question: "Can I sign in with Bluesky or Mastodon?",
     answer:
-      'Yes. On the <a href="/login">sign-in</a> page choose <strong>Sign in with Bluesky</strong> or <strong>Sign in with Fediverse</strong> (Mastodon and similar sites) and approve it on that site. The first time, this makes a new Inkwell account with your name, picture and bio from there. Already on Inkwell with an email? Sign in as usual and link the account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a> instead, so you don&rsquo;t end up with two accounts.',
+      'Yes. On the <a href="/login">sign-in</a> page choose <strong>Sign in with Bluesky</strong> or <strong>Sign in with Mastodon</strong> (also works with other fediverse servers) and approve it on that site. The first time, this makes a new Inkwell account with your name, picture and bio from there. Already on Inkwell with an email? Sign in as usual and link the account in <a href="/settings/fediverse">Settings &rarr; Mastodon &amp; Bluesky</a> instead, so you don&rsquo;t end up with two accounts.',
     category: "account",
   },
   {

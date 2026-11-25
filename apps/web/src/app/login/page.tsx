@@ -11,7 +11,7 @@ import { rememberReturnTo } from "@/lib/return-to";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   oauth_denied: "Authorization was denied. You can try again or use email sign-in.",
-  oauth_failed: "Fediverse sign in failed. Please try again.",
+  oauth_failed: "Mastodon sign-in failed. Please try again.",
   missing_params: "Something went wrong with the redirect. Please try again.",
   server_error: "Server error. Please try again later.",
 };

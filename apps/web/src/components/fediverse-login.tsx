@@ -63,7 +63,7 @@ export default function FediverseLogin({
           className="text-sm font-medium"
           style={{ color: "var(--foreground)" }}
         >
-          Fediverse handle
+          Mastodon handle
         </label>
         <div className="relative">
           <div
@@ -147,7 +147,7 @@ export default function FediverseLogin({
               <path d="M2 12h20" />
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
-            Sign in with Fediverse
+            Sign in with Mastodon
           </>
         )}
       </button>
@@ -165,8 +165,8 @@ export default function FediverseLogin({
         className="text-xs text-center leading-relaxed"
         style={{ color: "var(--muted)" }}
       >
-        Works with Mastodon, Pleroma, GoToSocial, Pixelfed, and other
-        compatible instances.
+        Also works with Pleroma, GoToSocial, Pixelfed and other fediverse
+        servers.
       </p>
     </form>
   );
