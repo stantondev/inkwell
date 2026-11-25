@@ -28,9 +28,11 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     softwareKeyboardLayoutMode: "resize",
-    // Firebase (notifications). Not a secret: it names the Firebase project
-    // and is safe to ship inside the app.
-    googleServicesFile: "./google-services.json",
+    // Firebase (notifications). It ships inside the app, so it isn't secret,
+    // but it's kept out of the repo (GitHub flags the API key in it) next to
+    // the signing key. Its key is restricted in Google Cloud to this app.
+    googleServicesFile:
+      process.env.INKWELL_GOOGLE_SERVICES ?? `${process.env.HOME}/.inkwell-android/google-services.json`,
     predictiveBackGestureEnabled: false,
     // Links to inkwell.social open in the app (sign-in links from email
     // included). Verified through /.well-known/assetlinks.json.
